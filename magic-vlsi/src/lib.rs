@@ -1,4 +1,5 @@
 use std::{
+    fmt::Display,
     io::{Read, Write},
     net::TcpStream,
     path::{Path, PathBuf},
@@ -162,28 +163,9 @@ impl MagicInstance {
     }
 
     /// Return the bounding box of the selection.
-    pub fn select_bbox(&mut self) {
+    pub fn select_bbox(&mut self) -> RectCorners {
         writeln!(&mut self.stream, "select bbox").unwrap();
-        let _res = read_line(&mut self.stream);
-    }
-
-    pub fn set_box_values(&mut self, llx: i64, lly: i64, urx: i64, ury: i64) {
-        writeln!(
-            &mut self.stream,
-            "box values {} {} {} {}",
-            llx, lly, urx, ury
-        )
-        .unwrap();
-        let _res = read_line(&mut self.stream);
-        println!("done setboxval");
-    }
-
-    pub fn box_values(&mut self) -> RectCorners {
-        println!("writing");
-        writeln!(&mut self.stream, "box values").unwrap();
-        println!("done; reading");
         let res = read_line(&mut self.stream);
-        println!("done all");
         let values = res
             .split_whitespace()
             .map(|s| s.parse::<i64>().unwrap())
@@ -199,6 +181,55 @@ impl MagicInstance {
             ury: values[3],
         }
     }
+
+    pub fn copy_dir(&mut self, dir: impl Into<Direction>, distance: i64) {
+        writeln!(&mut self.stream, "copy {} {}", dir.into(), distance).unwrap();
+        let _res = read_line(&mut self.stream);
+    }
+
+    pub fn set_box_values(&mut self, llx: i64, lly: i64, urx: i64, ury: i64) {
+        writeln!(
+            &mut self.stream,
+            "box values {} {} {} {}",
+            llx, lly, urx, ury
+        )
+        .unwrap();
+        let _res = read_line(&mut self.stream);
+    }
+
+    pub fn box_values(&mut self) -> RectCorners {
+        writeln!(&mut self.stream, "box values").unwrap();
+        let res = read_line(&mut self.stream);
+        let values = res
+            .split_whitespace()
+            .map(|s| s.parse::<i64>().unwrap())
+            .take(4)
+            .collect::<Vec<i64>>();
+
+        assert_eq!(values.len(), 4);
+
+        RectCorners {
+            llx: values[0],
+            lly: values[1],
+            urx: values[2],
+            ury: values[3],
+        }
+    }
+
+    pub fn set_snap(&mut self, snap_mode: SnapMode) {
+        writeln!(&mut self.stream, "save {}", snap_mode).unwrap();
+        let _res = read_line(&mut self.stream);
+    }
+
+    pub fn save(&mut self, cell_name: &str) {
+        writeln!(&mut self.stream, "save {}", cell_name).unwrap();
+        let _res = read_line(&mut self.stream);
+    }
+
+    pub fn exec_one(&mut self, cmd: &str) -> String {
+        writeln!(&mut self.stream, "{}", cmd).unwrap();
+        read_line(&mut self.stream)
+    }
 }
 
 pub struct RectCorners {
@@ -208,6 +239,26 @@ pub struct RectCorners {
     pub ury: i64,
 }
 
+impl RectCorners {
+    pub fn width(&self) -> i64 {
+        self.urx - self.llx
+    }
+    pub fn height(&self) -> i64 {
+        self.ury - self.lly
+    }
+    pub fn area(&self) -> i64 {
+        self.width() * self.height()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum SnapMode {
+    Internal,
+    Lambda,
+    User,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum Direction {
     Up,
     Down,
@@ -215,6 +266,7 @@ pub enum Direction {
     Left,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum GeoDirection {
     North,
     South,
@@ -233,6 +285,28 @@ impl From<GeoDirection> for Direction {
     }
 }
 
+impl From<Direction> for &str {
+    fn from(d: Direction) -> Self {
+        match d {
+            Direction::Up => "north",
+            Direction::Down => "south",
+            Direction::Right => "east",
+            Direction::Left => "west",
+        }
+    }
+}
+
+impl Display for Direction {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Direction::Up => write!(f, "north"),
+            Direction::Down => write!(f, "south"),
+            Direction::Right => write!(f, "east"),
+            Direction::Left => write!(f, "west"),
+        }
+    }
+}
+
 impl From<Direction> for GeoDirection {
     fn from(d: Direction) -> Self {
         match d {
@@ -240,6 +314,16 @@ impl From<Direction> for GeoDirection {
             Direction::Down => Self::South,
             Direction::Right => Self::East,
             Direction::Left => Self::West,
+        }
+    }
+}
+
+impl Display for SnapMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            SnapMode::Internal => write!(f, "internal"),
+            SnapMode::Lambda => write!(f, "lambda"),
+            SnapMode::User => write!(f, "user"),
         }
     }
 }

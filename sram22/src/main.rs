@@ -1,12 +1,12 @@
-use sram22::analysis::fanout::{FanoutAnalyzer, GateType};
+use sram22::{config::SramConfig, generate_64x32};
 
 fn main() {
-    let fanout = 128.0;
-    let mut f = FanoutAnalyzer::new();
-    f.add_gate(GateType::INV);
-    f.add_gate(GateType::NAND2);
-    f.add_gate(GateType::INV);
-    f.add_gate(GateType::INV);
-    let result = f.size(fanout);
-    println!("{}\n", result);
+    let config = SramConfig {
+        rows: 64,
+        cols: 32,
+        output_dir: "/home/rahul/acads/sky130/sram22/_build".to_string(),
+        cell_dir: "/home/rahul/acads/sky130/sram22/tech/sky130/magic".to_string(),
+    };
+
+    generate_64x32(config);
 }

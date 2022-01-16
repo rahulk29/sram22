@@ -4,6 +4,7 @@ use crate::backend::spice::SpiceBackend;
 use crate::config::SramConfig;
 use crate::error::Result;
 use crate::predecode::predecode_3_8::PredecoderOptions;
+use std::fs;
 use std::path::Path;
 
 pub mod analysis;
@@ -35,8 +36,12 @@ pub fn emit_spice_prelude(b: &mut SpiceBackend) -> Result<()> {
 
 pub fn generate_64x32(config: SramConfig) {
     let out_dir = &config.output_dir;
+    let cell_dir = &config.cell_dir;
 
     // copy prereq cells
+    fs::remove_dir_all(out_dir).unwrap();
+    fs::create_dir_all(out_dir).unwrap();
+    copy_cells(cell_dir, out_dir);
     let mut magic = MagicInstanceBuilder::new()
         .cwd(out_dir)
         .tech("sky130A")
@@ -44,7 +49,21 @@ pub fn generate_64x32(config: SramConfig) {
 
     magic.set_box_values(0, 0, 0, 0);
     magic.getcell("sram_sp_cell");
-    let _bbox = magic.select_bbox();
+    let bbox = magic.box_values();
+    println!("width = {}", bbox.width());
+    magic.exec_one(&format!("copy east {}i", bbox.width()));
+    magic.sideways();
+    magic.save("sram_64x32");
+}
+
+fn copy_cells(cell_dir: impl AsRef<Path>, out_dir: impl AsRef<Path>) {
+    for cell_name in ["sram_sp_cell.mag"] {
+        std::fs::copy(
+            cell_dir.as_ref().join(cell_name),
+            out_dir.as_ref().join(cell_name),
+        )
+        .unwrap();
+    }
 }
 
 #[cfg(test)]
@@ -57,6 +76,7 @@ mod tests {
             rows: 64,
             cols: 32,
             output_dir: "/tmp/sram22/tests/test_generate".to_string(),
+            cell_dir: "".to_string(),
         };
         netlist(config);
     }
