@@ -220,6 +220,57 @@ mod tests {
         assert_approx_eq(sizes, vec![1.0, 2.8284271247, 8.0, 22.627416998]);
     }
 
+    #[test]
+    fn test_inv_nand3_nand2() {
+        let mut f = FanoutAnalyzer::new();
+        f.add_gate(GateType::INV);
+        f.add_branch(4.0);
+        f.add_gate(GateType::NAND3);
+        f.add_gate(GateType::NAND2);
+        let result = f.size(18.0);
+        assert_approx_eq_one(result.total_delay(), 24.0);
+
+        let sizes = result.sizes().collect::<Vec<f64>>();
+        assert_approx_eq(sizes, vec![1.0, 1.5, 4.5]);
+    }
+
+    #[test]
+    fn test_inv_nand3_nand2_buf() {
+        let mut f = FanoutAnalyzer::new();
+        f.add_gate(GateType::INV);
+        f.add_branch(4.0);
+        f.add_gate(GateType::NAND3);
+        f.add_gate(GateType::NAND2);
+        f.add_gate(GateType::INV);
+        f.add_gate(GateType::INV);
+        let result = f.size(18.0);
+        assert_approx_eq_one(result.total_delay(), 22.65078025);
+    }
+
+    #[test]
+    fn test_inv_nand3_nand2_buf_buf() {
+        let mut f = FanoutAnalyzer::new();
+        f.add_gate(GateType::INV);
+        f.add_branch(4.0);
+        f.add_gate(GateType::NAND3);
+        f.add_gate(GateType::NAND2);
+        f.add_gate(GateType::INV);
+        f.add_gate(GateType::INV);
+        f.add_gate(GateType::INV);
+        f.add_gate(GateType::INV);
+        let result = f.size(18.0);
+        assert_approx_eq_one(result.total_delay(), 25.0866019888);
+    }
+
+    fn assert_approx_eq_one(x: f64, y: f64) {
+        assert!(
+            (x - y).abs() < 0.00000001 * x,
+            "difference between {} and {} too large",
+            x,
+            y
+        );
+    }
+
     fn assert_approx_eq(v1: Vec<f64>, v2: Vec<f64>) {
         assert_eq!(
             v1.len(),
@@ -230,12 +281,7 @@ mod tests {
         );
         for (i, x) in v1.iter().enumerate() {
             let y = v2.get(i).unwrap();
-            assert!(
-                (x - y).abs() < 0.000001 * x,
-                "difference between {} and {} too large",
-                x,
-                y
-            );
+            assert_approx_eq_one(*x, *y);
         }
     }
 }
