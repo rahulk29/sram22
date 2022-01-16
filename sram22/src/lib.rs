@@ -7,7 +7,6 @@ use crate::predecode::predecode_3_8::PredecoderOptions;
 use std::fs;
 use std::path::Path;
 
-pub mod analysis;
 pub mod backend;
 pub mod cells;
 pub mod config;

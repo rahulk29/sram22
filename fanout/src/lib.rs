@@ -185,7 +185,7 @@ impl FanoutAnalyzer {
 
 #[cfg(test)]
 mod tests {
-    use crate::analysis::fanout::{FanoutAnalyzer, GateType};
+    use crate::{FanoutAnalyzer, GateType};
 
     #[test]
     fn test_inv_chain_2() {

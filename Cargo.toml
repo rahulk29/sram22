@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
-  "magic-vlsi",
+  "fanout",
+  "magic_vlsi",
   "sram22",
 ]
