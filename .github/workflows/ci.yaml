@@ -10,15 +10,14 @@ jobs:
     runs-on: [self-hosted, linux, magic-8]
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
       - name: Set up environment
         run: |
           echo "/usr/local/bin" >> $GITHUB_PATH
-      - name: Lint
-        run: make lint
       - name: Check formatting
         run: cargo fmt --all -- --check
+      - name: Compile
+        run: make check
+      - name: Lint
+        run: make lint
       - name: Build and test
         run: make test
