@@ -2,7 +2,8 @@ use std::{
     io::{Read, Write},
     net::TcpStream,
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio}, time::Duration,
+    process::{Child, Command, Stdio},
+    time::Duration,
 };
 
 /// A builder used to construct a [`MagicInstance`]
