@@ -2,7 +2,7 @@ use std::{
     io::{Read, Write},
     net::TcpStream,
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
+    process::{Child, Command, Stdio}, time::Duration,
 };
 
 /// A builder used to construct a [`MagicInstance`]
@@ -122,9 +122,18 @@ impl MagicInstance {
 
         let addr = format!("127.0.0.1:{}", builder.port);
 
+        let mut backoff_ms = 1;
+        let mut num_attempts = 0;
         let stream = loop {
             if let Ok(s) = TcpStream::connect(&addr) {
                 break s;
+            } else {
+                std::thread::sleep(Duration::from_millis(backoff_ms));
+                backoff_ms *= 2;
+                num_attempts += 1;
+                if num_attempts > 10 {
+                    panic!("failed to connect to MAGIC");
+                }
             }
         };
 
