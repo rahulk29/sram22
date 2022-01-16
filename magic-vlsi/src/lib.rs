@@ -287,15 +287,6 @@ mod tests {
     }
 
     #[test]
-    fn test_getcell() {
-        let mut instance = MagicInstanceBuilder::new()
-            .tech("sky130A")
-            .port(get_port())
-            .build();
-        instance.getcell("sram");
-    }
-
-    #[test]
     fn test_select_bbox() {
         let mut instance = MagicInstanceBuilder::new()
             .port(get_port())
