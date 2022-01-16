@@ -112,12 +112,12 @@ impl FanoutAnalyzer {
         Default::default()
     }
 
-    pub fn with_j(&mut self, j: f64) -> &mut Self {
+    pub fn with_j(mut self, j: f64) -> Self {
         self.j = j;
         self
     }
 
-    pub fn with_gamma(&mut self, gamma: f64) -> &mut Self {
+    pub fn with_gamma(mut self, gamma: f64) -> Self {
         self.gamma = gamma;
         self
     }
@@ -260,6 +260,19 @@ mod tests {
         f.add_gate(GateType::INV);
         let result = f.size(18.0);
         assert_approx_eq_one(result.total_delay(), 25.0866019888);
+    }
+
+    #[test]
+    fn test_inv_chain_4_gamma() {
+        let mut f = FanoutAnalyzer::new().with_gamma(1.3);
+        f.add_gate(GateType::INV);
+        f.add_gate(GateType::INV);
+        f.add_gate(GateType::INV);
+        f.add_gate(GateType::INV);
+        let result = f.size(700.0);
+        let sizes = result.sizes().collect::<Vec<f64>>();
+        assert_approx_eq(sizes, vec![1.0, 5.1436867236, 26.4575131106, 136.08915893]);
+        assert_approx_eq_one(result.total_delay(), 25.774746894441606);
     }
 
     fn assert_approx_eq_one(x: f64, y: f64) {
