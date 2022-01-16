@@ -5,8 +5,8 @@ on:
   pull_request:
 
 jobs:
-  compile:
-    name: Compile
+  check-workspace:
+    name: Build, lint, and test
     runs-on: [self-hosted, linux, magic-8]
     steps:
       - uses: actions/checkout@v2
