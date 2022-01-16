@@ -65,6 +65,17 @@ pub struct FanoutResult {
     fanout: f64,
 }
 
+impl Default for FanoutAnalyzer {
+    fn default() -> Self {
+        Self {
+            elements: Vec::new(),
+            num_stages: 0,
+            j: 1.0f64,
+            gamma: 1.0f64,
+        }
+    }
+}
+
 impl<'a> FanoutResult {
     pub fn sizes(&'a self) -> impl Iterator<Item = f64> + 'a {
         self.gates.iter().map(|g| g.size)
@@ -81,29 +92,24 @@ impl<'a> FanoutResult {
 
 impl Display for FanoutResult {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "---- Fanout Result ----\n")?;
+        writeln!(f, "---- Fanout Result ----")?;
         for gate in self.gates.iter() {
-            write!(
+            writeln!(
                 f,
-                "{}: {:.2}x (load cap: {:.2}, delay: {:.3})\n",
+                "{}: {:.2}x (load cap: {:.2}, delay: {:.3})",
                 gate.gate_type, gate.size, gate.load_cap, gate.delay
             )?;
         }
 
-        write!(f, "load capacitance: {:.2}\n", self.fanout)?;
-        write!(f, "total delay: {:.3}\n", self.total_delay())?;
-        write!(f, "-----------------------\n")
+        writeln!(f, "load capacitance: {:.2}", self.fanout)?;
+        writeln!(f, "total delay: {:.3}", self.total_delay())?;
+        writeln!(f, "-----------------------")
     }
 }
 
 impl FanoutAnalyzer {
     pub fn new() -> Self {
-        Self {
-            elements: Vec::new(),
-            num_stages: 0,
-            j: 1.0f64,
-            gamma: 1.0f64,
-        }
+        Default::default()
     }
 
     pub fn with_j(&mut self, j: f64) -> &mut Self {

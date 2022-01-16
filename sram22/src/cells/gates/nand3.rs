@@ -1,6 +1,7 @@
 use crate::backend::NetlistBackend;
 use crate::error::Result;
 
+#[allow(clippy::too_many_arguments)]
 pub fn netlist(
     backend: &mut dyn NetlistBackend,
     name: &str,

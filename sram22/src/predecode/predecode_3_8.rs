@@ -37,7 +37,7 @@ pub fn netlist(b: &mut dyn NetlistBackend, opts: PredecoderOptions) -> Result<()
 
 fn net_name(base: &str, x: i32) -> String {
     match x {
-        0 => format!("{}", base),
+        0 => base.to_string(),
         1 => format!("{}b", base),
         _ => unreachable!(),
     }

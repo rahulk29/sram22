@@ -1,3 +1,5 @@
+use magic_vlsi::MagicInstanceBuilder;
+
 use crate::backend::spice::SpiceBackend;
 use crate::config::SramConfig;
 use crate::error::Result;
@@ -29,6 +31,20 @@ pub fn emit_spice_prelude(b: &mut SpiceBackend) -> Result<()> {
     b.lib("/Users/rahul/acads/research/sky130/pdk/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice", "tt")?;
 
     Ok(())
+}
+
+pub fn generate_64x32(config: SramConfig) {
+    let out_dir = &config.output_dir;
+
+    // copy prereq cells
+    let mut magic = MagicInstanceBuilder::new()
+        .cwd(out_dir)
+        .tech("sky130A")
+        .build();
+
+    magic.set_box_values(0, 0, 0, 0);
+    magic.getcell("sram_sp_cell");
+    let _bbox = magic.select_bbox();
 }
 
 #[cfg(test)]

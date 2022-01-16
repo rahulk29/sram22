@@ -28,12 +28,12 @@ impl Drop for SpiceBackend {
 
 impl NetlistBackend for SpiceBackend {
     fn subcircuit(&mut self, name: &str) -> Result<()> {
-        write!(self.ofile, ".subckt {}\n", name)?;
+        writeln!(self.ofile, ".subckt {}", name)?;
         Ok(())
     }
 
     fn end_subcircuit(&mut self) -> Result<()> {
-        write!(self.ofile, ".ends\n")?;
+        writeln!(self.ofile, ".ends")?;
         Ok(())
     }
 
@@ -56,7 +56,7 @@ impl NetlistBackend for SpiceBackend {
             write!(self.ofile, " {}", *param)?;
         }
 
-        write!(self.ofile, "\n")?;
+        writeln!(self.ofile)?;
 
         Ok(())
     }
@@ -69,22 +69,22 @@ impl NetlistBackend for SpiceBackend {
 
 impl SpiceBackend {
     pub fn lib(&mut self, lib_file: &str, lib_name: &str) -> Result<()> {
-        write!(self.ofile, ".lib {} {}\n", lib_file, lib_name)?;
+        writeln!(self.ofile, ".lib {} {}", lib_file, lib_name)?;
         Ok(())
     }
 
     pub fn title(&mut self, title: &str) -> Result<()> {
-        write!(self.ofile, ".title {}\n", title)?;
+        writeln!(self.ofile, ".title {}", title)?;
         Ok(())
     }
 
     pub fn options(&mut self, options: &str) -> Result<()> {
-        write!(self.ofile, ".options {}\n", options)?;
+        writeln!(self.ofile, ".options {}", options)?;
         Ok(())
     }
 
     pub fn comment(&mut self, comment: &str) -> Result<()> {
-        write!(self.ofile, "* {}\n", comment)?;
+        writeln!(self.ofile, "* {}", comment)?;
         Ok(())
     }
 }
