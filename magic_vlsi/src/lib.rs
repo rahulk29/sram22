@@ -430,6 +430,16 @@ mod tests {
     }
 
     #[test]
+    fn test_start_magic_with_path() {
+        let _instance = MagicInstanceBuilder::new()
+            .tech("sky130A")
+            .port(get_port())
+            .magic("/usr/local/bin/magic")
+            .build()
+            .unwrap();
+    }
+
+    #[test]
     fn test_select_bbox() {
         let mut instance = MagicInstanceBuilder::new()
             .port(get_port())
