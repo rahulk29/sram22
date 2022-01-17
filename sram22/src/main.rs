@@ -8,5 +8,5 @@ fn main() {
         cell_dir: "/home/rahul/acads/sky130/sram22/tech/sky130/magic".to_string(),
     };
 
-    generate_64x32(config);
+    generate_64x32(config).expect("failed to generate SRAM");
 }

@@ -33,7 +33,7 @@ pub fn emit_spice_prelude(b: &mut SpiceBackend) -> Result<()> {
     Ok(())
 }
 
-pub fn generate_64x32(config: SramConfig) {
+pub fn generate_64x32(config: SramConfig) -> Result<()> {
     let out_dir = &config.output_dir;
     let cell_dir = &config.cell_dir;
 
@@ -44,15 +44,19 @@ pub fn generate_64x32(config: SramConfig) {
     let mut magic = MagicInstanceBuilder::new()
         .cwd(out_dir)
         .tech("sky130A")
-        .build();
+        .build()
+        .unwrap();
 
-    magic.set_box_values(0, 0, 0, 0);
-    magic.getcell("sram_sp_cell");
-    let bbox = magic.box_values();
+    magic.set_box_values(0, 0, 0, 0)?;
+    magic.getcell("sram_sp_cell")?;
+    magic.set_snap(magic_vlsi::SnapMode::Internal)?;
+    let bbox = magic.box_values()?;
     println!("width = {}", bbox.width());
-    magic.exec_one(&format!("copy east {}i", bbox.width()));
-    magic.sideways();
-    magic.save("sram_64x32");
+    magic.exec_one(&format!("copy east {}", bbox.width()))?;
+    magic.sideways()?;
+    magic.save("sram_64x32")?;
+
+    Ok(())
 }
 
 fn copy_cells(cell_dir: impl AsRef<Path>, out_dir: impl AsRef<Path>) {
