@@ -47,7 +47,7 @@ pub fn generate_64x32(config: SramConfig) -> Result<()> {
         .build()
         .unwrap();
 
-    magic.set_box_values(0, 0, 0, 0)?;
+    magic.enable_box()?;
     magic.getcell("sram_sp_cell")?;
     magic.set_snap(magic_vlsi::SnapMode::Internal)?;
     let bbox = magic.box_values()?;

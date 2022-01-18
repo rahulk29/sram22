@@ -24,4 +24,7 @@ pub enum StartMagicError {
 
     #[error("I/O error while communicating with magic process: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("error while initializing magic: {0}")]
+    Init(#[from] MagicError),
 }
