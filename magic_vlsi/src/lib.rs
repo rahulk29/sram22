@@ -174,6 +174,18 @@ impl MagicInstance {
         Ok(())
     }
 
+    pub fn edit(&mut self, cell: &str) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "edit {}", cell)?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    pub fn array(&mut self, xsize: u32, ysize: u32) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "array {} {}", xsize, ysize)?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
     /// Return the bounding box of the selection.
     pub fn select_bbox(&mut self) -> Result<RectCorners, MagicError> {
         writeln!(&mut self.stream, "select bbox").unwrap();
@@ -251,6 +263,24 @@ impl MagicInstance {
         writeln!(&mut self.stream, "snap")?;
         let res = read_line(&mut self.stream)?;
         res.parse::<SnapMode>()
+    }
+
+    pub fn select_top_cell(&mut self) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "select top cell")?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    pub fn upside_down(&mut self) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "upsidedown")?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    pub fn identify(&mut self, id: &str) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "identify {}", id)?;
+        read_line(&mut self.stream)?;
+        Ok(())
     }
 
     pub fn save(&mut self, cell_name: &str) -> Result<(), MagicError> {
