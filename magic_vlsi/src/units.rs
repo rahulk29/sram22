@@ -131,6 +131,13 @@ impl ops::Mul for Distance {
     }
 }
 
+impl ops::Neg for Distance {
+    type Output = Self;
+    fn neg(self) -> Self {
+        Self { nm: -self.nm }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Rect {
     pub ll: Vec2,
@@ -159,5 +166,69 @@ impl Rect {
         let (llx, lly) = self.ll.as_internal(nm_per_internal);
         let (urx, ury) = self.ur.as_internal(nm_per_internal);
         (llx, lly, urx, ury)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_distance_equality() {
+        assert_eq!(Distance::from_nm(2_000), Distance::from_um(2));
+        assert_eq!(Distance::from_meters(4), Distance::from_mm(4_000));
+        assert_eq!(Distance::from_nm(39_000_000_000), Distance::from_meters(39));
+        assert_eq!(Distance::from_mm(5), Distance::from_um(5_000));
+    }
+
+    #[test]
+    fn test_distance_ops() {
+        let d1 = Distance::from_um(4);
+        let d2 = Distance::from_nm(200);
+
+        let sum = Distance::from_nm(4_000 + 200);
+        let diff = Distance::from_nm(4_000 - 200);
+
+        let product = Area { nm2: 200 * 4_000 };
+
+        assert_eq!(d1 + d2, sum);
+        assert_eq!(d2 + d1, sum);
+        assert_eq!(d1 - d2, diff);
+        assert_eq!(d2 - d1, -diff);
+        assert_eq!(d1 * d2, product);
+        assert_eq!(d2 * d1, product);
+    }
+
+    #[test]
+    fn test_distance_conversion() {
+        let nm_per_internal = 10;
+        let nm_per_lambda = 20;
+
+        for i in -40..=40 {
+            assert_eq!(
+                Distance::from_internal(2 * i, nm_per_internal),
+                Distance::from_lambdas(i, nm_per_lambda)
+            );
+        }
+
+        let nm_per_internal = 100;
+        let nm_per_lambda = 300;
+
+        for i in -40..=40 {
+            assert_eq!(
+                Distance::from_internal(3 * i, nm_per_internal),
+                Distance::from_lambdas(i, nm_per_lambda)
+            );
+        }
+
+        let nm_per_internal = 20;
+        let nm_per_lambda = 30;
+
+        for i in (-40..=40).step_by(2) {
+            assert_eq!(
+                Distance::from_internal(3 * i / 2, nm_per_internal),
+                Distance::from_lambdas(i, nm_per_lambda)
+            );
+        }
     }
 }
