@@ -8,8 +8,10 @@ use std::{
     str::FromStr,
     time::Duration,
 };
+use units::Rect;
 
 pub mod error;
+pub mod units;
 
 /// A builder used to construct a [`MagicInstance`]
 ///
@@ -94,6 +96,7 @@ impl Default for MagicInstanceBuilder {
 pub struct MagicInstance {
     child: Child,
     stream: TcpStream,
+    internal_per_lambda: i64,
 }
 
 const MAGIC_SOCKET_SCRIPT: &[u8] = include_bytes!("serversock.tcl");
@@ -149,7 +152,14 @@ impl MagicInstance {
             }
         }?;
 
-        Ok(Self { child, stream })
+        let mut res = Self {
+            child,
+            stream,
+            internal_per_lambda: 0,
+        };
+        res.tech_lambda();
+
+        Ok(res)
     }
 
     /// The getcell command creates subcell instances within
@@ -161,6 +171,8 @@ impl MagicInstance {
     pub fn getcell(&mut self, cell: &str) -> Result<(), MagicError> {
         writeln!(&mut self.stream, "getcell {}", cell)?;
         read_line(&mut self.stream)?;
+        // Loading a cell can scale the grid, so reload the lambda scaling
+        self.tech_lambda()?;
         Ok(())
     }
 
@@ -203,13 +215,7 @@ impl MagicInstance {
         Ok(())
     }
 
-    pub fn set_box_values(
-        &mut self,
-        llx: i64,
-        lly: i64,
-        urx: i64,
-        ury: i64,
-    ) -> Result<(), MagicError> {
+    pub fn set_box_values(&mut self, rect: Rect) -> Result<(), MagicError> {
         writeln!(
             &mut self.stream,
             "box values {} {} {} {}",
@@ -263,24 +269,14 @@ impl MagicInstance {
         writeln!(&mut self.stream, "{}", cmd)?;
         read_line(&mut self.stream)
     }
-}
 
-pub struct RectCorners {
-    pub llx: i64,
-    pub lly: i64,
-    pub urx: i64,
-    pub ury: i64,
-}
-
-impl RectCorners {
-    pub fn width(&self) -> i64 {
-        self.urx - self.llx
-    }
-    pub fn height(&self) -> i64 {
-        self.ury - self.lly
-    }
-    pub fn area(&self) -> i64 {
-        self.width() * self.height()
+    pub fn tech_lambda(&mut self) -> Result<i64, MagicError> {
+        writeln!(&mut self.stream, "tech lambda")?;
+        let internal_per_lambda = read_line(&mut self.stream)?
+            .parse::<i64>()
+            .map_err(|_| MagicError::UnexpectedOutput("failed to parse i64".to_string()))?;
+        self.internal_per_lambda = internal_per_lambda;
+        Ok(internal_per_lambda)
     }
 }
 
