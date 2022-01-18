@@ -11,6 +11,12 @@ pub struct Area {
     nm2: i64,
 }
 
+impl Area {
+    pub fn from_nm2(nm2: i64) -> Self {
+        Self { nm2 }
+    }
+}
+
 impl Display for Distance {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}nm", self.nm)
@@ -230,5 +236,35 @@ mod tests {
                 Distance::from_lambdas(i, nm_per_lambda)
             );
         }
+    }
+
+    #[test]
+    fn test_rect_basic() {
+        let nm_per_internal = 10;
+        let rect = Rect::from_internal(0, 50, 100, 200, nm_per_internal);
+        assert_eq!(rect.width(), Distance::from_um(1));
+        assert_eq!(rect.height(), Distance::from_nm(1_500));
+        assert_eq!(rect.area(), Area::from_nm2(100 * 150 * 10 * 10));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_rect_invalid_bounds_1() {
+        let nm_per_internal = 10;
+        Rect::from_internal(200, 0, 100, 100, nm_per_internal);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_rect_invalid_bounds_2() {
+        let nm_per_internal = 10;
+        Rect::from_internal(200, 80, 300, 70, nm_per_internal);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_rect_invalid_bounds_3() {
+        let nm_per_internal = 10;
+        Rect::from_internal(200, 400, 100, 399, nm_per_internal);
     }
 }
