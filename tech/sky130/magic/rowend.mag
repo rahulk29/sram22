@@ -1,0 +1,116 @@
+magic
+tech sky130A
+magscale 1 2
+timestamp 1621288242
+<< dnwell >>
+rect 0 0 260 316
+<< nwell >>
+rect 0 0 260 316
+<< pdiff >>
+rect 14 142 27 174
+<< pdiffc >>
+rect 0 142 14 174
+<< nsubdiff >>
+rect 83 226 177 252
+rect 83 192 113 226
+rect 147 192 177 226
+rect 83 158 177 192
+rect 83 124 113 158
+rect 147 124 177 158
+rect 83 100 177 124
+<< nsubdiffcont >>
+rect 113 192 147 226
+rect 113 124 147 158
+<< poly >>
+rect 0 262 220 292
+rect 40 90 73 262
+rect 187 90 220 262
+rect 40 74 220 90
+rect 40 54 79 74
+rect 0 40 79 54
+rect 113 40 147 74
+rect 181 40 220 74
+rect 0 24 220 40
+<< polycont >>
+rect 79 40 113 74
+rect 147 40 181 74
+<< corelocali >>
+rect 44 227 216 245
+rect 44 193 61 227
+rect 95 226 216 227
+rect 95 193 113 226
+rect 44 192 113 193
+rect 147 192 216 226
+rect 0 175 14 191
+rect 44 158 216 192
+rect 44 155 113 158
+rect 0 125 14 141
+rect 44 121 61 155
+rect 95 124 113 155
+rect 147 124 216 158
+rect 95 121 216 124
+rect 44 107 216 121
+rect 63 74 197 77
+rect 63 40 79 74
+rect 181 40 197 74
+rect 63 36 197 40
+<< viali >>
+rect 61 193 95 227
+rect 0 174 17 175
+rect 0 142 14 174
+rect 14 142 17 174
+rect 0 141 17 142
+rect 61 121 95 155
+rect 113 40 147 74
+<< metal1 >>
+rect 0 263 14 316
+rect 0 257 26 263
+rect 0 198 26 205
+rect 54 227 102 316
+rect 0 175 21 198
+rect 17 141 21 175
+rect 0 127 21 141
+rect 54 193 61 227
+rect 95 193 102 227
+rect 54 155 102 193
+rect 0 0 14 127
+rect 54 121 61 155
+rect 95 122 102 155
+rect 95 121 100 122
+rect 54 120 100 121
+tri 100 120 102 122 nw
+rect 158 122 206 316
+tri 42 108 54 120 se
+rect 54 108 76 120
+rect 42 0 76 108
+tri 76 96 100 120 nw
+tri 158 96 184 122 ne
+rect 184 108 206 122
+tri 206 108 218 120 sw
+tri 104 84 108 88 se
+rect 108 84 152 88
+tri 152 84 156 88 sw
+rect 104 82 156 84
+rect 104 20 156 30
+tri 104 14 110 20 ne
+rect 110 14 150 20
+tri 150 14 156 20 nw
+rect 184 0 218 108
+<< via1 >>
+rect -11 205 26 257
+rect 104 74 156 82
+rect 104 40 113 74
+rect 113 40 147 74
+rect 147 40 156 74
+rect 104 30 156 40
+<< metal2 >>
+rect 26 205 260 257
+rect 0 127 260 171
+rect 0 82 260 93
+rect 0 59 104 82
+rect 156 59 260 82
+rect 104 24 156 30
+<< labels >>
+rlabel metal1 s 0 0 14 15 4 VPWR
+rlabel metal2 s 25 76 25 76 4 WL
+<< end >>

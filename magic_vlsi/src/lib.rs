@@ -8,7 +8,7 @@ use std::{
     str::FromStr,
     time::Duration,
 };
-use units::Rect;
+use units::{Distance, Rect};
 
 pub mod error;
 pub mod units;
@@ -188,8 +188,23 @@ impl MagicInstance {
         Ok(())
     }
 
+    /// Ensures that the cursor box is present.
+    ///
+    /// Equivalent to running `box 0 0 0 0` in Magic.
     pub fn enable_box(&mut self) -> Result<(), MagicError> {
         writeln!(&mut self.stream, "box 0 0 0 0")?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    pub fn edit(&mut self, cell: &str) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "edit {}", cell)?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    pub fn array(&mut self, xsize: u32, ysize: u32) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "array {} {}", xsize, ysize)?;
         read_line(&mut self.stream)?;
         Ok(())
     }
@@ -218,8 +233,17 @@ impl MagicInstance {
         ))
     }
 
-    pub fn copy_dir(&mut self, dir: impl Into<Direction>, distance: i64) -> Result<(), MagicError> {
-        writeln!(&mut self.stream, "copy {} {}", dir.into(), distance)?;
+    pub fn copy_dir(
+        &mut self,
+        dir: impl Into<Direction>,
+        distance: Distance,
+    ) -> Result<(), MagicError> {
+        writeln!(
+            &mut self.stream,
+            "copy {} {}i",
+            dir.into(),
+            distance.as_internal(self.nm_per_internal)
+        )?;
         read_line(&mut self.stream)?;
         Ok(())
     }
@@ -268,6 +292,24 @@ impl MagicInstance {
         writeln!(&mut self.stream, "snap")?;
         let res = read_line(&mut self.stream)?;
         res.parse::<SnapMode>()
+    }
+
+    pub fn select_top_cell(&mut self) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "select top cell")?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    pub fn upside_down(&mut self) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "upsidedown")?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    pub fn identify(&mut self, id: &str) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "identify {}", id)?;
+        read_line(&mut self.stream)?;
+        Ok(())
     }
 
     pub fn save(&mut self, cell_name: &str) -> Result<(), MagicError> {

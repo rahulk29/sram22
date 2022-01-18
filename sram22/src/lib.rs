@@ -1,4 +1,4 @@
-use magic_vlsi::MagicInstanceBuilder;
+use magic_vlsi::{Direction, MagicInstanceBuilder};
 
 use crate::backend::spice::SpiceBackend;
 use crate::config::SramConfig;
@@ -48,12 +48,27 @@ pub fn generate_64x32(config: SramConfig) -> Result<()> {
         .unwrap();
 
     magic.enable_box()?;
+    magic.edit("sram_4x4")?;
     magic.getcell("sram_sp_cell")?;
     magic.set_snap(magic_vlsi::SnapMode::Internal)?;
+    magic.identify("sram0")?;
     let bbox = magic.box_values()?;
-    println!("width = {}", bbox.width());
-    magic.exec_one(&format!("copy east {}", bbox.width()))?;
+    magic.copy_dir(Direction::Right, bbox.width())?;
+    // magic.exec_one(&format!("copy east {}", bbox.width()))?;
     magic.sideways()?;
+    magic.identify("sram1")?;
+
+    magic.exec_one("select clear")?;
+    magic.exec_one("select cell sram0")?;
+    magic.exec_one("select more cell sram1")?;
+    magic.copy_dir(Direction::Down, bbox.height())?;
+    magic.upside_down()?;
+    magic.save("sram_4x4")?;
+
+    magic.edit("sram_64x32")?;
+    magic.enable_box()?;
+    magic.getcell("sram_4x4")?;
+    magic.array(16, 8)?;
     magic.save("sram_64x32")?;
 
     Ok(())
