@@ -1,4 +1,4 @@
-use sram22::{config::SramConfig, generate_64x32};
+use sram22::{config::SramConfig, generate_32x64};
 
 fn main() {
     let config = SramConfig {
@@ -8,5 +8,5 @@ fn main() {
         cell_dir: "/home/rahul/acads/sky130/sram22/tech/sky130/magic".to_string(),
     };
 
-    generate_64x32(config).expect("failed to generate SRAM");
+    generate_32x64(config).expect("failed to generate SRAM");
 }

@@ -23,6 +23,12 @@ impl Display for Distance {
     }
 }
 
+impl Display for Rect {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Rect(ll: {}, ur: {})", self.ll, self.ur)
+    }
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Vec2 {
     pub x: Distance,

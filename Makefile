@@ -5,6 +5,7 @@ lint:
 
 lint-fix:
 	cargo clippy --fix --allow-staged --allow-dirty --all-features --all-targets
+	cargo fmt
 
 
 format:

@@ -197,6 +197,12 @@ impl MagicInstance {
         Ok(())
     }
 
+    pub fn load(&mut self, cell: &str) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "load {}", cell)?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
     pub fn edit(&mut self, cell: &str) -> Result<(), MagicError> {
         writeln!(&mut self.stream, "edit {}", cell)?;
         read_line(&mut self.stream)?;
@@ -233,15 +239,11 @@ impl MagicInstance {
         ))
     }
 
-    pub fn copy_dir(
-        &mut self,
-        dir: impl Into<Direction>,
-        distance: Distance,
-    ) -> Result<(), MagicError> {
+    pub fn copy_dir(&mut self, dir: Direction, distance: Distance) -> Result<(), MagicError> {
         writeln!(
             &mut self.stream,
             "copy {} {}i",
-            dir.into(),
+            dir,
             distance.as_internal(self.nm_per_internal)
         )?;
         read_line(&mut self.stream)?;
@@ -285,6 +287,7 @@ impl MagicInstance {
     pub fn set_snap(&mut self, snap_mode: SnapMode) -> Result<(), MagicError> {
         writeln!(&mut self.stream, "snap {}", snap_mode)?;
         read_line(&mut self.stream)?;
+        self.update_units()?;
         Ok(())
     }
 
@@ -302,6 +305,18 @@ impl MagicInstance {
 
     pub fn upside_down(&mut self) -> Result<(), MagicError> {
         writeln!(&mut self.stream, "upsidedown")?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    pub fn drc_off(&mut self) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "drc off")?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    pub fn drc_on(&mut self) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "drc on")?;
         read_line(&mut self.stream)?;
         Ok(())
     }
@@ -340,7 +355,6 @@ impl MagicInstance {
     }
 
     fn update_units(&mut self) -> Result<(), MagicError> {
-        let curr_box = self.box_values()?;
         self.exec_one("box 0um 0um 1um 1um")?;
         let res = self.exec_one("box width")?;
         let internal_width = res.trim().parse::<i64>().map_err(parse_int_error)?;
@@ -351,7 +365,7 @@ impl MagicInstance {
         let (a, b) = self.tech_lambda()?;
         self.nm_per_lambda = b * self.nm_per_internal / a;
         assert_eq!(self.nm_per_lambda * a, b * self.nm_per_internal);
-        self.set_box_values(curr_box)?;
+        self.exec_one("undo")?;
         Ok(())
     }
 
