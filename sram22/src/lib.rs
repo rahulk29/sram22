@@ -33,12 +33,14 @@ pub fn emit_spice_prelude(b: &mut SpiceBackend) -> Result<()> {
     Ok(())
 }
 
-pub fn generate_64x32(config: SramConfig) -> Result<()> {
+pub fn generate_32x64(config: SramConfig) -> Result<()> {
     let out_dir = &config.output_dir;
     let cell_dir = &config.cell_dir;
 
+    // clean the existing build directory; ignore errors
+    let _ = fs::remove_dir_all(out_dir);
+
     // copy prereq cells
-    fs::remove_dir_all(out_dir).unwrap();
     fs::create_dir_all(out_dir).unwrap();
     copy_cells(cell_dir, out_dir);
     let mut magic = MagicInstanceBuilder::new()
@@ -47,8 +49,9 @@ pub fn generate_64x32(config: SramConfig) -> Result<()> {
         .build()
         .unwrap();
 
-    magic.edit("sram_4x4")?;
-    magic.set_box_values(0, 0, 0, 0)?;
+    magic.drc_off()?;
+    magic.load("sram_4x4")?;
+    magic.enable_box()?;
     magic.getcell("sram_sp_cell")?;
     magic.set_snap(magic_vlsi::SnapMode::Internal)?;
     magic.identify("sram0")?;
@@ -65,11 +68,11 @@ pub fn generate_64x32(config: SramConfig) -> Result<()> {
     magic.upside_down()?;
     magic.save("sram_4x4")?;
 
-    magic.edit("sram_64x32")?;
-    magic.set_box_values(0, 0, 0, 0)?;
+    magic.load("sram_32x64")?;
+    magic.enable_box()?;
     magic.getcell("sram_4x4")?;
     magic.array(16, 8)?;
-    magic.save("sram_64x32")?;
+    magic.save("sram_32x64")?;
 
     Ok(())
 }

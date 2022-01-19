@@ -10,7 +10,7 @@ pub enum GateType {
 #[derive(Debug)]
 pub struct GateInstance {
     gate_type: GateType,
-    size: f64,
+    input_cap: f64,
     delay: f64,
     load_cap: f64,
 }
@@ -78,7 +78,7 @@ impl Default for FanoutAnalyzer {
 
 impl<'a> FanoutResult {
     pub fn sizes(&'a self) -> impl Iterator<Item = f64> + 'a {
-        self.gates.iter().map(|g| g.size)
+        self.gates.iter().map(|g| g.input_cap)
     }
 
     pub fn total_delay(&self) -> f64 {
@@ -97,7 +97,7 @@ impl Display for FanoutResult {
             writeln!(
                 f,
                 "{}: {:.2}x (load cap: {:.2}, delay: {:.3})",
-                gate.gate_type, gate.size, gate.load_cap, gate.delay
+                gate.gate_type, gate.input_cap, gate.load_cap, gate.delay
             )?;
         }
 
@@ -162,7 +162,7 @@ impl FanoutAnalyzer {
                     let delay = delay(gt, fanout, self.j, self.gamma);
                     entries.push(GateInstance {
                         gate_type: gt,
-                        size: prev_size,
+                        input_cap: prev_size,
                         delay,
                         load_cap,
                     });

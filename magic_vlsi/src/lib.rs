@@ -8,8 +8,10 @@ use std::{
     str::FromStr,
     time::Duration,
 };
+use units::{Distance, Rect};
 
 pub mod error;
+pub mod units;
 
 /// A builder used to construct a [`MagicInstance`]
 ///
@@ -94,6 +96,8 @@ impl Default for MagicInstanceBuilder {
 pub struct MagicInstance {
     child: Child,
     stream: TcpStream,
+    nm_per_lambda: i64,
+    nm_per_internal: i64,
 }
 
 const MAGIC_SOCKET_SCRIPT: &[u8] = include_bytes!("serversock.tcl");
@@ -149,7 +153,15 @@ impl MagicInstance {
             }
         }?;
 
-        Ok(Self { child, stream })
+        let mut res = Self {
+            child,
+            stream,
+            nm_per_lambda: 0,
+            nm_per_internal: 0,
+        };
+        res.update_units()?;
+
+        Ok(res)
     }
 
     /// The getcell command creates subcell instances within
@@ -161,6 +173,8 @@ impl MagicInstance {
     pub fn getcell(&mut self, cell: &str) -> Result<(), MagicError> {
         writeln!(&mut self.stream, "getcell {}", cell)?;
         read_line(&mut self.stream)?;
+        // Loading a cell can scale the grid, so recalculate units
+        self.update_units()?;
         Ok(())
     }
 
@@ -170,6 +184,21 @@ impl MagicInstance {
     /// through the flip.
     pub fn sideways(&mut self) -> Result<(), MagicError> {
         writeln!(&mut self.stream, "sideways")?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    /// Ensures that the cursor box is present.
+    ///
+    /// Equivalent to running `box 0 0 0 0` in Magic.
+    pub fn enable_box(&mut self) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "box 0 0 0 0")?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    pub fn load(&mut self, cell: &str) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "load {}", cell)?;
         read_line(&mut self.stream)?;
         Ok(())
     }
@@ -187,7 +216,7 @@ impl MagicInstance {
     }
 
     /// Return the bounding box of the selection.
-    pub fn select_bbox(&mut self) -> Result<RectCorners, MagicError> {
+    pub fn select_bbox(&mut self) -> Result<Rect, MagicError> {
         writeln!(&mut self.stream, "select bbox").unwrap();
         let res = read_line(&mut self.stream)?;
         let values: Vec<i64> = res
@@ -201,27 +230,28 @@ impl MagicInstance {
 
         assert_eq!(values.len(), 4);
 
-        Ok(RectCorners {
-            llx: values[0],
-            lly: values[1],
-            urx: values[2],
-            ury: values[3],
-        })
+        Ok(Rect::from_internal(
+            values[0],
+            values[1],
+            values[2],
+            values[3],
+            self.nm_per_internal,
+        ))
     }
 
-    pub fn copy_dir(&mut self, dir: impl Into<Direction>, distance: i64) -> Result<(), MagicError> {
-        writeln!(&mut self.stream, "copy {} {}", dir.into(), distance)?;
+    pub fn copy_dir(&mut self, dir: Direction, distance: Distance) -> Result<(), MagicError> {
+        writeln!(
+            &mut self.stream,
+            "copy {} {}i",
+            dir,
+            distance.as_internal(self.nm_per_internal)
+        )?;
         read_line(&mut self.stream)?;
         Ok(())
     }
 
-    pub fn set_box_values(
-        &mut self,
-        llx: i64,
-        lly: i64,
-        urx: i64,
-        ury: i64,
-    ) -> Result<(), MagicError> {
+    pub fn set_box_values(&mut self, rect: Rect) -> Result<(), MagicError> {
+        let (llx, lly, urx, ury) = rect.as_internal(self.nm_per_internal);
         writeln!(
             &mut self.stream,
             "box values {} {} {} {}",
@@ -231,7 +261,7 @@ impl MagicInstance {
         Ok(())
     }
 
-    pub fn box_values(&mut self) -> Result<RectCorners, MagicError> {
+    pub fn box_values(&mut self) -> Result<Rect, MagicError> {
         writeln!(&mut self.stream, "box values")?;
         let res = read_line(&mut self.stream)?;
         let values = res
@@ -245,17 +275,19 @@ impl MagicInstance {
 
         assert_eq!(values.len(), 4);
 
-        Ok(RectCorners {
-            llx: values[0],
-            lly: values[1],
-            urx: values[2],
-            ury: values[3],
-        })
+        Ok(Rect::from_internal(
+            values[0],
+            values[1],
+            values[2],
+            values[3],
+            self.nm_per_internal,
+        ))
     }
 
     pub fn set_snap(&mut self, snap_mode: SnapMode) -> Result<(), MagicError> {
         writeln!(&mut self.stream, "snap {}", snap_mode)?;
         read_line(&mut self.stream)?;
+        self.update_units()?;
         Ok(())
     }
 
@@ -277,6 +309,18 @@ impl MagicInstance {
         Ok(())
     }
 
+    pub fn drc_off(&mut self) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "drc off")?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    pub fn drc_on(&mut self) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "drc on")?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
     pub fn identify(&mut self, id: &str) -> Result<(), MagicError> {
         writeln!(&mut self.stream, "identify {}", id)?;
         read_line(&mut self.stream)?;
@@ -293,25 +337,55 @@ impl MagicInstance {
         writeln!(&mut self.stream, "{}", cmd)?;
         read_line(&mut self.stream)
     }
+
+    /// (a, b) indicates a lambdas = b internal units
+    pub fn tech_lambda(&mut self) -> Result<(i64, i64), MagicError> {
+        writeln!(&mut self.stream, "tech lambda")?;
+        let res = read_line(&mut self.stream)?;
+        let values: Vec<i64> = res
+            .split_whitespace()
+            .map(|s| {
+                s.parse::<i64>()
+                    .map_err(|_| MagicError::UnexpectedOutput("failed to parse i64".to_string()))
+            })
+            .take(2)
+            .collect::<Result<Vec<_>, _>>()?;
+        assert_eq!(values.len(), 2);
+        Ok((values[0], values[1]))
+    }
+
+    fn update_units(&mut self) -> Result<(), MagicError> {
+        self.exec_one("box 0um 0um 1um 1um")?;
+        let res = self.exec_one("box width")?;
+        let internal_width = res.trim().parse::<i64>().map_err(parse_int_error)?;
+        let nm_per_internal = 1_000 / internal_width;
+        assert_eq!(nm_per_internal * internal_width, 1_000);
+        self.nm_per_internal = nm_per_internal;
+        assert_ne!(nm_per_internal, 0);
+        let (a, b) = self.tech_lambda()?;
+        self.nm_per_lambda = b * self.nm_per_internal / a;
+        assert_eq!(self.nm_per_lambda * a, b * self.nm_per_internal);
+        self.exec_one("undo")?;
+        Ok(())
+    }
+
+    pub fn get_nm_per_internal(&mut self) -> Result<i64, MagicError> {
+        if self.nm_per_internal == 0 {
+            self.update_units()?;
+        }
+        Ok(self.nm_per_internal)
+    }
+
+    pub fn get_nm_per_lambda(&mut self) -> Result<i64, MagicError> {
+        if self.nm_per_lambda == 0 {
+            self.update_units()?;
+        }
+        Ok(self.nm_per_lambda)
+    }
 }
 
-pub struct RectCorners {
-    pub llx: i64,
-    pub lly: i64,
-    pub urx: i64,
-    pub ury: i64,
-}
-
-impl RectCorners {
-    pub fn width(&self) -> i64 {
-        self.urx - self.llx
-    }
-    pub fn height(&self) -> i64 {
-        self.ury - self.lly
-    }
-    pub fn area(&self) -> i64 {
-        self.width() * self.height()
-    }
+fn parse_int_error(e: std::num::ParseIntError) -> MagicError {
+    MagicError::UnexpectedOutput(format!("failed to parse integer: {}", e))
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -433,7 +507,7 @@ impl Drop for MagicInstance {
 mod tests {
     use std::sync::atomic::{AtomicU16, Ordering};
 
-    use crate::{MagicInstanceBuilder, SnapMode};
+    use crate::{units::Rect, MagicInstanceBuilder, SnapMode};
     use lazy_static::lazy_static;
 
     pub fn get_port() -> u16 {
@@ -496,15 +570,22 @@ mod tests {
             [-83, -93, 12, -42],
         ];
         for test_case in test_cases {
-            instance
-                .set_box_values(test_case[0], test_case[1], test_case[2], test_case[3])
-                .unwrap();
+            let nm_per_internal = instance.get_nm_per_internal().unwrap();
+            let test_box = Rect::from_internal(
+                test_case[0],
+                test_case[1],
+                test_case[2],
+                test_case[3],
+                nm_per_internal,
+            );
+            instance.set_box_values(test_box).unwrap();
             let rect = instance.box_values().unwrap();
 
-            assert_eq!(rect.llx, test_case[0]);
-            assert_eq!(rect.lly, test_case[1]);
-            assert_eq!(rect.urx, test_case[2]);
-            assert_eq!(rect.ury, test_case[3]);
+            let (llx, lly, urx, ury) = rect.as_internal(nm_per_internal);
+            assert_eq!(llx, test_case[0]);
+            assert_eq!(lly, test_case[1]);
+            assert_eq!(urx, test_case[2]);
+            assert_eq!(ury, test_case[3]);
         }
     }
 
