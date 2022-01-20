@@ -3,5 +3,6 @@
 members = [
   "fanout",
   "magic_vlsi",
+  "micro_hdl",
   "sram22",
 ]
