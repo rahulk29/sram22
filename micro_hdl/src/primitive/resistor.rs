@@ -1,6 +1,5 @@
 use crate::{
-    Context, InstancePin, Module, ModuleConfig, ModuleInstance, ModulePin, PinType, RawModule,
-    Signal,
+    Context, InstancePin, Module, ModuleConfig, ModuleInstance, ModulePin, PinType, Signal,
 };
 
 pub struct Resistor {
@@ -12,16 +11,16 @@ pub struct Resistor {
 impl Module for Resistor {}
 
 impl ModuleInstance for Resistor {
-    fn params(&self) -> u64 {
-        self.value as u64
+    fn generate(&self, _c: &mut Context) -> Vec<InstancePin> {
+        panic!("cannot generate resistor");
     }
 
-    fn config(&self) -> ModuleConfig {
-        ModuleConfig::Raw
+    fn spice(&self) -> String {
+        format!("R1 a b {}", self.value)
     }
 
-    fn generate(&self, c: &mut Context) -> Vec<InstancePin> {
-        vec![]
+    fn name(&self) -> String {
+        format!("res_{}", self.value)
     }
 
     fn get_module_pins(&self) -> Vec<ModulePin> {
@@ -44,14 +43,8 @@ impl ModuleInstance for Resistor {
         ]
     }
 
-    fn name(&self) -> String {
-        format!("R{}", self.value)
-    }
-}
-
-impl RawModule for Resistor {
-    fn spice(&self) -> String {
-        format!("R1 a b {}", self.value)
+    fn config(&self) -> ModuleConfig {
+        ModuleConfig::Raw
     }
 }
 
@@ -65,8 +58,8 @@ mod tests {
     fn resistor_implements_module_instance() {
         let _: Box<dyn ModuleInstance> = Box::new(Resistor {
             value: 1000,
-            a: Signal { id: 0 },
-            b: Signal { id: 1 },
+            a: Signal::with_id(0),
+            b: Signal::with_id(1),
         });
     }
 
@@ -74,8 +67,8 @@ mod tests {
     fn resistor_implements_module() {
         let _: Box<dyn Module> = Box::new(Resistor {
             value: 1000,
-            a: Signal { id: 0 },
-            b: Signal { id: 1 },
+            a: Signal::with_id(0),
+            b: Signal::with_id(1),
         });
     }
 }

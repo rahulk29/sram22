@@ -1,8 +1,8 @@
+use micro_hdl::backend::spice::SpiceBackend;
+use micro_hdl::context::Context;
 use micro_hdl::primitive::resistor::Resistor;
-use micro_hdl::{
-    Context, InstancePin, Module, ModuleConfig, ModuleInstance, ModulePin, PinType, Signal,
-    SpiceBackend,
-};
+use micro_hdl::signal::Signal;
+use micro_hdl::{InstancePin, Module, ModuleConfig, ModuleInstance, ModulePin, PinType};
 
 pub fn main() {
     let dump = Vec::new();
@@ -60,14 +60,6 @@ impl ResistorChain {
 }
 
 impl ModuleInstance for ResistorChainInstance {
-    fn params(&self) -> u64 {
-        self.stages as u64
-    }
-
-    fn name(&self) -> String {
-        format!("resistor_chain_{}", self.stages)
-    }
-
     fn generate(&self, c: &mut Context) -> Vec<InstancePin> {
         let instance = ResistorChain::generate(self.stages, c);
         vec![
@@ -78,6 +70,14 @@ impl ModuleInstance for ResistorChainInstance {
                 signal: instance.output,
             },
         ]
+    }
+
+    fn spice(&self) -> String {
+        unimplemented!()
+    }
+
+    fn name(&self) -> String {
+        format!("resistor_chain_{}", self.stages)
     }
 
     fn get_module_pins(&self) -> Vec<ModulePin> {
