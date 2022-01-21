@@ -23,6 +23,18 @@ dependencies = [
 [[package]]
 name = "micro_hdl"
 version = "0.1.0"
+dependencies = [
+ "micro_hdl_derive",
+]
+
+[[package]]
+name = "micro_hdl_derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "proc-macro2"
