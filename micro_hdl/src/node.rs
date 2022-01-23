@@ -5,9 +5,6 @@ pub struct Node {
 }
 
 impl Node {
-    pub(crate) fn with_id(id: u64) -> Self {
-        Self { id, priority: 0 }
-    }
     pub(crate) fn gt_priority(&self, other: Node) -> bool {
         if self.priority == other.priority {
             return self.id < other.id;

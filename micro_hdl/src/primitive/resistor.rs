@@ -51,8 +51,8 @@ mod tests {
     fn resistor_implements_module_instance() {
         let _: Box<dyn ModuleInstance> = Box::new(Resistor {
             value: 1000,
-            a: Node::with_id(0),
-            b: Node::with_id(1),
+            a: Node::test(),
+            b: Node::test(),
         });
     }
 
@@ -60,8 +60,8 @@ mod tests {
     fn resistor_implements_module() {
         let _: Box<dyn Module> = Box::new(Resistor {
             value: 1000,
-            a: Node::with_id(0),
-            b: Node::with_id(1),
+            a: Node::test(),
+            b: Node::test(),
         });
     }
 }

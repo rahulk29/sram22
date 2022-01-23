@@ -2,6 +2,7 @@ use crate::node::Node;
 use crate::Module;
 use std::collections::HashMap;
 
+#[derive(Default)]
 pub struct Context {
     pub(crate) net_id: u64,
     pub(crate) modules: Vec<Box<dyn Module>>,
@@ -14,14 +15,18 @@ impl Context {
         Default::default()
     }
 
-    pub fn node(&mut self) -> Node {
+    pub fn node_with_priority(&mut self, priority: i64) -> Node {
         self.net_id += 1;
         self.net_names
             .insert(self.net_id, format!("net{}", self.net_id));
         Node {
             id: self.net_id,
-            priority: -1,
+            priority,
         }
+    }
+
+    pub fn node(&mut self) -> Node {
+        self.node_with_priority(-1)
     }
 
     pub fn bus(&mut self, width: usize) -> Vec<Node> {
@@ -63,16 +68,5 @@ impl Context {
         }
 
         self.net_names.get(&id).unwrap().to_string()
-    }
-}
-
-impl Default for Context {
-    fn default() -> Self {
-        Self {
-            net_id: 0,
-            modules: vec![],
-            net_names: HashMap::new(),
-            remap: HashMap::new(),
-        }
     }
 }

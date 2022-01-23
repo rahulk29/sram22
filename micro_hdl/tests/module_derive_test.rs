@@ -34,6 +34,10 @@ impl ResistorArray {
             .output(output)
             .build()
     }
+
+    fn name(width: usize) -> String {
+        format!("resistor_array_{}", width)
+    }
 }
 
 #[derive(ModuleInstance)]
@@ -68,6 +72,10 @@ impl ResistorModule {
             input,
             output,
         }
+    }
+
+    fn name(stages: usize) -> String {
+        format!("resistor_module_{}", stages)
     }
 }
 

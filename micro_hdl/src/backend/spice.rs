@@ -8,7 +8,6 @@ where
     T: std::io::Write,
 {
     ts_id: u64,
-    top_signals: Vec<Node>,
     top_names: HashMap<u64, String>,
     generated: HashMap<TypeId, HashSet<String>>,
     out: T,
@@ -21,7 +20,6 @@ where
     pub fn new(out: T) -> Self {
         Self {
             ts_id: 0,
-            top_signals: vec![],
             top_names: HashMap::new(),
             generated: HashMap::new(),
             out,
@@ -51,7 +49,7 @@ where
 
     fn netlist_module_ports(
         &mut self,
-        module: &Box<dyn Module>,
+        module: &dyn Module,
     ) -> Result<(), Box<dyn std::error::Error>> {
         for port in module.get_ports() {
             match port.signal {
@@ -68,6 +66,7 @@ where
         Ok(())
     }
 
+    #[allow(clippy::needless_collect)]
     fn netlist_module_internal(
         &mut self,
         module: Box<dyn Module>,
@@ -131,7 +130,7 @@ where
         }
 
         write!(self.out, ".subckt {}", module.name())?;
-        self.netlist_module_ports(&module)?;
+        self.netlist_module_ports(&*module)?;
         writeln!(self.out)?;
 
         match module.config() {

@@ -8,6 +8,3 @@ edition = "2021"
 [dependencies]
 micro_hdl_derive = { path = "./micro_hdl_derive" }
 
-[[example]]
-name = "resistor_chain"
-path = "examples/resistor_chain.rs"

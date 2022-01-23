@@ -65,6 +65,18 @@ pub fn derive_module_instance(input: proc_macro::TokenStream) -> proc_macro::Tok
         });
     }
 
+    let inout_fields = fields
+        .iter()
+        .filter(|f| f.attrs.iter().any(is_inout))
+        .collect::<Vec<_>>();
+    for f in inout_fields.iter() {
+        ports.push(AbstractPort {
+            name: f.ident.clone().unwrap(),
+            ptype: DerivePinType::InOut,
+            is_wire: is_wire(f),
+        });
+    }
+
     let output_fields = fields
         .iter()
         .filter(|f| f.attrs.iter().any(is_output))
@@ -127,6 +139,13 @@ pub fn derive_module_instance(input: proc_macro::TokenStream) -> proc_macro::Tok
         quote! {
             let instance = #name::generate(c);
         }
+    };
+
+    let name_instance = if has_params {
+        let param_name = params_name.unwrap();
+        quote! { #name::name(self.#param_name) }
+    } else {
+        quote! { #name::name() }
     };
 
     let generate_impl = quote! {
@@ -261,7 +280,7 @@ pub fn derive_module_instance(input: proc_macro::TokenStream) -> proc_macro::Tok
             }
 
             fn name(&self) -> String {
-                format!("my_module")
+                #name_instance
             }
 
             fn get_ports(&self) -> Vec<micro_hdl::Port> {
@@ -286,6 +305,15 @@ fn is_input(a: &Attribute) -> bool {
     }
 
     x[0].ident.to_string().as_str() == "input"
+}
+
+fn is_inout(a: &Attribute) -> bool {
+    let x = a.path.segments.iter().collect::<Vec<_>>();
+    if x.len() != 1 {
+        return false;
+    }
+
+    x[0].ident.to_string().as_str() == "inout"
 }
 
 fn is_output(a: &Attribute) -> bool {
