@@ -1,16 +1,16 @@
 use micro_hdl::backend::spice::SpiceBackend;
 use micro_hdl::context::Context;
+use micro_hdl::node::Node;
 use micro_hdl::primitive::resistor::Resistor;
-use micro_hdl::signal::Signal;
-use micro_hdl::{InstancePin, Module, ModuleConfig, ModuleInstance, ModulePin, PinType};
+use micro_hdl::ModuleInstance;
 
 pub fn main() {
     let dump = Vec::new();
     let mut backend = SpiceBackend::new(dump);
-    let input = backend.top_level_signal();
-    let output = backend.top_level_signal();
-    let top = ResistorChainInstance {
-        stages: 8,
+    let input = backend.top_level_bus(4);
+    let output = backend.top_level_bus(4);
+    let top = ResistorArrayInstance {
+        width: 4,
         input,
         output,
     };
@@ -20,27 +20,53 @@ pub fn main() {
     print!("{}", std::str::from_utf8(&result).unwrap());
 }
 
+#[derive(ModuleInstance)]
 pub struct ResistorChain {
-    stages: u32,
-    input: Signal,
-    output: Signal,
+    #[params]
+    stages: usize,
+    #[input]
+    input: Node,
+    #[output]
+    output: Node,
 }
 
-impl Module for ResistorChainInstance {}
+#[derive(ModuleInstance)]
+pub struct ResistorArray {
+    #[params]
+    width: usize,
+    #[input]
+    input: Vec<Node>,
+    #[output]
+    output: Vec<Node>,
+}
 
-pub struct ResistorChainInstance {
-    stages: u32,
-    input: Signal,
-    output: Signal,
+impl ResistorArray {
+    fn generate(width: usize, c: &mut Context) -> ResistorArrayInstance {
+        let input = c.bus(width);
+        let output = c.bus(width);
+        for i in 0..width {
+            let r = ResistorChainInstance {
+                stages: 10,
+                input: input[i],
+                output: output[i],
+            };
+            c.add(r);
+        }
+        ResistorArrayInstance {
+            width,
+            input,
+            output,
+        }
+    }
 }
 
 impl ResistorChain {
-    fn generate(stages: u32, c: &mut Context) -> ResistorChainInstance {
-        let input = c.signal();
-        let output = c.signal();
+    fn generate(stages: usize, c: &mut Context) -> ResistorChainInstance {
+        let input = c.node();
+        let output = c.node();
         let mut curr = input;
         for _ in 0..stages {
-            let temp = c.signal();
+            let temp = c.node();
             let r = Resistor {
                 value: 100,
                 a: curr,
@@ -56,53 +82,5 @@ impl ResistorChain {
             input,
             output,
         }
-    }
-}
-
-impl ModuleInstance for ResistorChainInstance {
-    fn generate(&self, c: &mut Context) -> Vec<InstancePin> {
-        let instance = ResistorChain::generate(self.stages, c);
-        vec![
-            InstancePin {
-                signal: instance.input,
-            },
-            InstancePin {
-                signal: instance.output,
-            },
-        ]
-    }
-
-    fn spice(&self) -> String {
-        unimplemented!()
-    }
-
-    fn name(&self) -> String {
-        format!("resistor_chain_{}", self.stages)
-    }
-
-    fn get_module_pins(&self) -> Vec<ModulePin> {
-        vec![
-            ModulePin {
-                name: String::from("input"),
-                pin_type: PinType::Input,
-            },
-            ModulePin {
-                name: String::from("output"),
-                pin_type: PinType::Output,
-            },
-        ]
-    }
-
-    fn get_instance_pins(&self) -> Vec<InstancePin> {
-        vec![
-            InstancePin { signal: self.input },
-            InstancePin {
-                signal: self.output,
-            },
-        ]
-    }
-
-    fn config(&self) -> ModuleConfig {
-        ModuleConfig::Generate
     }
 }

@@ -1,4 +1,4 @@
-use crate::signal::Signal;
+use crate::node::Node;
 use crate::Module;
 use std::collections::HashMap;
 
@@ -14,17 +14,21 @@ impl Context {
         Default::default()
     }
 
-    pub fn signal(&mut self) -> Signal {
+    pub fn node(&mut self) -> Node {
         self.net_id += 1;
         self.net_names
             .insert(self.net_id, format!("net{}", self.net_id));
-        Signal {
+        Node {
             id: self.net_id,
             priority: -1,
         }
     }
 
-    pub fn connect(&mut self, a: Signal, b: Signal) {
+    pub fn bus(&mut self, width: usize) -> Vec<Node> {
+        (0..width).map(|_| self.node()).collect()
+    }
+
+    pub fn connect(&mut self, a: Node, b: Node) {
         if a.gt_priority(b) {
             self.remap.insert(b.id, a.id);
         } else {
@@ -43,16 +47,16 @@ impl Context {
         self.modules.push(module);
     }
 
-    pub(crate) fn register_named_net(&mut self, name: &str) -> Signal {
+    pub(crate) fn register_named_net(&mut self, name: &str) -> Node {
         self.net_id += 1;
         self.net_names.insert(self.net_id, name.to_string());
-        Signal {
+        Node {
             id: self.net_id,
             priority: 1,
         }
     }
 
-    pub(crate) fn name(&self, s: Signal) -> String {
+    pub(crate) fn name(&self, s: Node) -> String {
         let mut id = s.id;
         while let Some(&tmp) = self.remap.get(&id) {
             id = tmp;

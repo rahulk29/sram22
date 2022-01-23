@@ -1,5 +1,5 @@
-use crate::signal::Signal;
-use crate::{Context, Module, ModuleConfig};
+use crate::node::Node;
+use crate::{Context, Module, ModuleConfig, Signal};
 use std::any::TypeId;
 use std::collections::{HashMap, HashSet};
 
@@ -8,7 +8,7 @@ where
     T: std::io::Write,
 {
     ts_id: u64,
-    top_signals: Vec<Signal>,
+    top_signals: Vec<Node>,
     top_names: HashMap<u64, String>,
     generated: HashMap<TypeId, HashSet<String>>,
     out: T,
@@ -28,14 +28,18 @@ where
         }
     }
 
-    pub fn top_level_signal(&mut self) -> Signal {
+    pub fn top_level_signal(&mut self) -> Node {
         self.ts_id += 1;
         self.top_names
             .insert(self.ts_id, format!("top{}", self.ts_id));
-        Signal {
+        Node {
             id: self.ts_id,
             priority: 2,
         }
+    }
+
+    pub fn top_level_bus(&mut self, width: usize) -> Vec<Node> {
+        (0..width).map(|_| self.top_level_signal()).collect()
     }
 
     pub fn netlist<M>(&mut self, top: M)
@@ -43,6 +47,71 @@ where
         M: Module,
     {
         self.netlist_boxed(Box::new(top)).unwrap();
+    }
+
+    fn netlist_module_ports(
+        &mut self,
+        module: &Box<dyn Module>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        for port in module.get_ports() {
+            match port.signal {
+                Signal::Wire(_) => {
+                    write!(self.out, " {}", &port.name)?;
+                }
+                Signal::Bus(bus) => {
+                    for (i, _) in bus.iter().enumerate() {
+                        write!(self.out, " {}_{}", &port.name, i)?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn netlist_module_internal(
+        &mut self,
+        module: Box<dyn Module>,
+    ) -> Result<Context, Box<dyn std::error::Error>> {
+        let mut ctx = Context::new();
+        let port_signals = module
+            .get_ports()
+            .into_iter()
+            .map(|port| {
+                match port.signal.clone() {
+                    Signal::Wire(_) => {
+                        ctx.register_named_net(&port.name);
+                    }
+                    Signal::Bus(nodes) => {
+                        for i in 0..nodes.len() {
+                            ctx.register_named_net(&format!("{}_{}", &port.name, i));
+                        }
+                    }
+                }
+                port.signal
+            })
+            .collect::<Vec<_>>();
+
+        let instance_pins = module.generate(&mut ctx);
+
+        for (port_sig, inst_sig) in port_signals.into_iter().zip(instance_pins) {
+            assert_eq!(port_sig.width(), inst_sig.width());
+            for (a, b) in port_sig.nodes().zip(inst_sig.nodes()) {
+                ctx.connect(a, b);
+            }
+        }
+
+        for (i, m) in ctx.modules.iter().enumerate() {
+            write!(self.out, "X{}", i)?;
+            let inst_ports = m.get_ports();
+            for port in inst_ports {
+                for node in port.signal.nodes() {
+                    write!(self.out, " {}", ctx.name(node))?;
+                }
+            }
+            writeln!(self.out, " {}", m.name())?;
+        }
+
+        Ok(ctx)
     }
 
     fn netlist_boxed(&mut self, module: Box<dyn Module>) -> Result<(), Box<dyn std::error::Error>> {
@@ -62,9 +131,7 @@ where
         }
 
         write!(self.out, ".subckt {}", module.name())?;
-        for pin in module.get_module_pins() {
-            write!(self.out, " {}", pin.name)?;
-        }
+        self.netlist_module_ports(&module)?;
         writeln!(self.out)?;
 
         match module.config() {
@@ -73,27 +140,7 @@ where
                 writeln!(self.out, ".ends")?;
             }
             ModuleConfig::Generate => {
-                let mut ctx = Context::new();
-                let pin_signals = module
-                    .get_module_pins()
-                    .into_iter()
-                    .map(|pin| ctx.register_named_net(&pin.name))
-                    .collect::<Vec<_>>();
-                // TODO: need to rename pins
-                let instance_pins = module.generate(&mut ctx);
-
-                for (pin_sig, pin) in pin_signals.into_iter().zip(instance_pins) {
-                    ctx.connect(pin_sig, pin.signal);
-                }
-
-                for (i, m) in ctx.modules.iter().enumerate() {
-                    write!(self.out, "X{}", i)?;
-                    let ipins = m.get_instance_pins();
-                    for pin in ipins {
-                        write!(self.out, " {}", ctx.name(pin.signal))?;
-                    }
-                    writeln!(self.out, " {}", m.name())?;
-                }
+                let ctx = self.netlist_module_internal(module)?;
 
                 writeln!(self.out, ".ends")?;
                 for m in ctx.modules {

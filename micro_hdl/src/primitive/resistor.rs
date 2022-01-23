@@ -1,17 +1,15 @@
-use crate::{
-    Context, InstancePin, Module, ModuleConfig, ModuleInstance, ModulePin, PinType, Signal,
-};
+use crate::{Context, Module, ModuleConfig, ModuleInstance, Node, PinType, Port, Signal};
 
 pub struct Resistor {
     pub value: i64,
-    pub a: Signal,
-    pub b: Signal,
+    pub a: Node,
+    pub b: Node,
 }
 
 impl Module for Resistor {}
 
 impl ModuleInstance for Resistor {
-    fn generate(&self, _c: &mut Context) -> Vec<InstancePin> {
+    fn generate(&self, _c: &mut Context) -> Vec<Signal> {
         panic!("cannot generate resistor");
     }
 
@@ -23,23 +21,18 @@ impl ModuleInstance for Resistor {
         format!("res_{}", self.value)
     }
 
-    fn get_module_pins(&self) -> Vec<ModulePin> {
+    fn get_ports(&self) -> Vec<Port> {
         vec![
-            ModulePin {
-                name: String::from("a"),
+            Port {
+                name: "a".to_string(),
                 pin_type: PinType::InOut,
+                signal: Signal::Wire(self.a),
             },
-            ModulePin {
-                name: String::from("b"),
+            Port {
+                name: "b".to_string(),
                 pin_type: PinType::InOut,
+                signal: Signal::Wire(self.b),
             },
-        ]
-    }
-
-    fn get_instance_pins(&self) -> Vec<InstancePin> {
-        vec![
-            InstancePin { signal: self.a },
-            InstancePin { signal: self.b },
         ]
     }
 
@@ -50,7 +43,7 @@ impl ModuleInstance for Resistor {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Module, ModuleInstance, Signal};
+    use crate::{Module, ModuleInstance, Node};
 
     use super::Resistor;
 
@@ -58,8 +51,8 @@ mod tests {
     fn resistor_implements_module_instance() {
         let _: Box<dyn ModuleInstance> = Box::new(Resistor {
             value: 1000,
-            a: Signal::with_id(0),
-            b: Signal::with_id(1),
+            a: Node::with_id(0),
+            b: Node::with_id(1),
         });
     }
 
@@ -67,8 +60,8 @@ mod tests {
     fn resistor_implements_module() {
         let _: Box<dyn Module> = Box::new(Resistor {
             value: 1000,
-            a: Signal::with_id(0),
-            b: Signal::with_id(1),
+            a: Node::with_id(0),
+            b: Node::with_id(1),
         });
     }
 }
