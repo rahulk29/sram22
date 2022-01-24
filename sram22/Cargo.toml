@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 thiserror = "1.0"
 magic_vlsi = { path = "../magic_vlsi" }
+micro_hdl = { path = "../micro_hdl" }

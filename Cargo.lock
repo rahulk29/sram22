@@ -58,6 +58,7 @@ name = "sram22"
 version = "0.1.0"
 dependencies = [
  "magic_vlsi",
+ "micro_hdl",
  "thiserror",
 ]
 

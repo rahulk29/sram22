@@ -75,18 +75,15 @@ where
         let port_signals = module
             .get_ports()
             .into_iter()
-            .map(|port| {
-                match port.signal.clone() {
-                    Signal::Wire(_) => {
-                        ctx.register_named_net(&port.name);
-                    }
-                    Signal::Bus(nodes) => {
-                        for i in 0..nodes.len() {
-                            ctx.register_named_net(&format!("{}_{}", &port.name, i));
-                        }
-                    }
-                }
-                port.signal
+            .map(|port| match port.signal.clone() {
+                Signal::Wire(_) => Signal::Wire(ctx.register_named_net(&port.name)),
+                Signal::Bus(nodes) => Signal::Bus(
+                    nodes
+                        .iter()
+                        .enumerate()
+                        .map(|(i, _)| ctx.register_named_net(&format!("{}_{}", &port.name, i)))
+                        .collect(),
+                ),
             })
             .collect::<Vec<_>>();
 

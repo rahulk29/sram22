@@ -14,8 +14,11 @@ struct AbstractPort {
     is_wire: bool,
 }
 
-#[proc_macro_derive(ModuleInstance, attributes(input, output, inout, params))]
-pub fn derive_module_instance(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+#[proc_macro_attribute]
+pub fn module(
+    _attr: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let name = &ast.ident;
     let inst_name = format!("{}Instance", name);
@@ -122,7 +125,7 @@ pub fn derive_module_instance(input: proc_macro::TokenStream) -> proc_macro::Tok
 
             quote! {
                 micro_hdl::Port {
-                    name: "#name".to_string(),
+                    name: stringify!(#name).to_string(),
                     #pin_type,
                     #signal,
                 }
@@ -156,6 +159,7 @@ pub fn derive_module_instance(input: proc_macro::TokenStream) -> proc_macro::Tok
     };
 
     let mut all_fields = input_fields.clone();
+    all_fields.append(&mut inout_fields.clone());
     all_fields.append(&mut output_fields.clone());
     let all_fields = all_fields;
 
@@ -244,10 +248,14 @@ pub fn derive_module_instance(input: proc_macro::TokenStream) -> proc_macro::Tok
     }
 
     let result = quote! {
+        pub struct #name {
+        }
+
         pub struct #inst_ident {
             #(#inst_fields,)*
         }
 
+        #[must_use = "creating a module instance has no effect; you must add it to a Context"]
         pub struct #inst_builder_ident {
             #(#inst_builder_fields,)*
         }
@@ -272,6 +280,7 @@ pub fn derive_module_instance(input: proc_macro::TokenStream) -> proc_macro::Tok
 
         impl micro_hdl::Module for #inst_ident {}
 
+        #[must_use = "creating a module instance has no effect; you must add it to a Context"]
         impl micro_hdl::ModuleInstance for #inst_ident {
             #generate_impl
 

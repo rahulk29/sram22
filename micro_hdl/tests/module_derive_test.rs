@@ -1,9 +1,8 @@
 use micro_hdl::context::Context;
 use micro_hdl::node::Node;
 use micro_hdl::primitive::resistor::Resistor;
-use micro_hdl::ModuleInstance;
 
-#[derive(ModuleInstance)]
+#[micro_hdl::module]
 pub struct ResistorArray {
     #[params]
     pub width: usize,
@@ -40,7 +39,7 @@ impl ResistorArray {
     }
 }
 
-#[derive(ModuleInstance)]
+#[micro_hdl::module]
 pub struct ResistorModule {
     #[params]
     pub stages: usize,

@@ -6,7 +6,7 @@ pub mod context;
 pub mod node;
 pub mod primitive;
 
-pub use micro_hdl_derive::ModuleInstance;
+pub use micro_hdl_derive::*;
 
 pub trait Module: ModuleInstance + std::any::Any {}
 
