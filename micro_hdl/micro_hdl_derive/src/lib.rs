@@ -152,7 +152,7 @@ pub fn module(
     };
 
     let generate_impl = quote! {
-        fn generate(&self, c: &mut Context) -> Vec<micro_hdl::Signal> {
+        fn generate(&self, c: &mut micro_hdl::context::Context) -> Vec<micro_hdl::Signal> {
             #generate_instance
             vec![#(#generate_return,)*]
         }
@@ -251,6 +251,7 @@ pub fn module(
         pub struct #name {
         }
 
+        #[must_use = "creating a module instance has no effect; you must add it to a Context"]
         pub struct #inst_ident {
             #(#inst_fields,)*
         }
@@ -280,7 +281,6 @@ pub fn module(
 
         impl micro_hdl::Module for #inst_ident {}
 
-        #[must_use = "creating a module instance has no effect; you must add it to a Context"]
         impl micro_hdl::ModuleInstance for #inst_ident {
             #generate_impl
 

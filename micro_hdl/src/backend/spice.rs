@@ -13,6 +13,11 @@ where
     out: T,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct NetlistOpts {
+    pub top: bool,
+}
+
 impl<T> SpiceBackend<T>
 where
     T: std::io::Write,
@@ -32,7 +37,7 @@ where
             .insert(self.ts_id, format!("top{}", self.ts_id));
         Node {
             id: self.ts_id,
-            priority: 2,
+            priority: 3,
         }
     }
 
@@ -44,7 +49,8 @@ where
     where
         M: Module,
     {
-        self.netlist_boxed(Box::new(top)).unwrap();
+        self.netlist_boxed(Box::new(top), NetlistOpts { top: true })
+            .unwrap();
     }
 
     fn netlist_module_ports(
@@ -110,7 +116,11 @@ where
         Ok(ctx)
     }
 
-    fn netlist_boxed(&mut self, module: Box<dyn Module>) -> Result<(), Box<dyn std::error::Error>> {
+    fn netlist_boxed(
+        &mut self,
+        module: Box<dyn Module>,
+        opts: NetlistOpts,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let tid = (&*module).type_id();
         // if we've already generated this module, continue
         let mod_name = module.name();
@@ -126,21 +136,27 @@ where
             self.generated.insert(tid, hset);
         }
 
-        write!(self.out, ".subckt {}", module.name())?;
-        self.netlist_module_ports(&*module)?;
-        writeln!(self.out)?;
+        if !opts.top {
+            write!(self.out, ".subckt {}", module.name())?;
+            self.netlist_module_ports(&*module)?;
+            writeln!(self.out)?;
+        }
 
         match module.config() {
             ModuleConfig::Raw => {
                 writeln!(self.out, "{}", module.spice())?;
-                writeln!(self.out, ".ends")?;
+                if !opts.top {
+                    writeln!(self.out, ".ends")?;
+                }
             }
             ModuleConfig::Generate => {
                 let ctx = self.netlist_module_internal(module)?;
 
-                writeln!(self.out, ".ends")?;
+                if !opts.top {
+                    writeln!(self.out, ".ends")?;
+                }
                 for m in ctx.modules {
-                    self.netlist_boxed(m)?;
+                    self.netlist_boxed(m, NetlistOpts { top: false, ..opts })?;
                 }
             }
         }

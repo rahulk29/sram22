@@ -65,8 +65,10 @@ mod tests {
     use micro_hdl::backend::spice::SpiceBackend;
 
     #[test]
-    fn test_netlist_inv() {
-        let out = <Vec<u8>>::new();
+    fn test_netlist_inv() -> Result<(), Box<dyn std::error::Error>> {
+        let mut path = crate::test_utils::tmpdir();
+        path.push("inv.spice");
+        let out = std::fs::File::create(&path)?;
         let mut b = SpiceBackend::new(out);
 
         let din = b.top_level_signal();
@@ -82,8 +84,8 @@ mod tests {
             .build();
         b.netlist(inv);
         let out = b.output();
+        out.sync_all()?;
 
-        let out = String::from_utf8(out).unwrap();
-        println!("{}", out);
+        Ok(())
     }
 }

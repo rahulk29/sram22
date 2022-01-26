@@ -66,3 +66,21 @@ fn copy_cells(cell_dir: impl AsRef<Path>, out_dir: impl AsRef<Path>) {
 
 #[cfg(test)]
 mod tests {}
+
+#[cfg(test)]
+pub(crate) mod test_utils {
+    use std::{path::PathBuf, sync::atomic::AtomicU64};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(1);
+
+    pub fn id() -> u64 {
+        COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn tmpdir() -> PathBuf {
+        let id = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let path = PathBuf::from(format!("/tmp/sram22/tests/{}", id));
+        std::fs::create_dir_all(&path).expect("failed to create temp directory for testing");
+        path
+    }
+}
