@@ -1,0 +1,24 @@
+magic
+tech sky130A
+magscale 1 2
+timestamp 1643238514
+<< checkpaint >>
+rect -720 1576 2351 1588
+rect -1034 1552 2351 1576
+rect -1260 -998 2351 1552
+rect -1034 -1248 2351 -998
+rect -1034 -1260 1500 -1248
+<< pwell >>
+rect 0 262 16 292
+rect 226 0 240 316
+<< poly >>
+rect 0 262 16 292
+rect 0 24 16 54
+<< metal1 >>
+rect 0 0 14 316
+rect 226 0 240 316
+use sram_sp_cell  sram_sp_cell_0 ~/acads/sky130/sram22/tech/sky130/magic
+timestamp 1642551396
+transform 1 0 0 0 1 0
+box 0 0 240 316
+<< end >>

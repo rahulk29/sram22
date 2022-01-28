@@ -49,7 +49,8 @@ where
     where
         M: Module,
     {
-        self.netlist_boxed(Box::new(top), NetlistOpts { top: true })
+        // TODO: set top to true once that is working correctly
+        self.netlist_boxed(Box::new(top), NetlistOpts { top: false })
             .unwrap();
     }
 

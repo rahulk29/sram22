@@ -297,8 +297,28 @@ impl MagicInstance {
         res.parse::<SnapMode>()
     }
 
+    pub fn paint(&mut self, layer: &str) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "paint {}", layer)?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    pub fn paint_box(&mut self, rect: Rect, layer: &str) -> Result<(), MagicError> {
+        let curr_box = self.box_values()?;
+        self.set_box_values(rect)?;
+        self.paint(layer)?;
+        self.set_box_values(curr_box)?;
+        Ok(())
+    }
+
     pub fn select_top_cell(&mut self) -> Result<(), MagicError> {
         writeln!(&mut self.stream, "select top cell")?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    pub fn select_visible(&mut self) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "select visible")?;
         read_line(&mut self.stream)?;
         Ok(())
     }
@@ -329,6 +349,45 @@ impl MagicInstance {
 
     pub fn save(&mut self, cell_name: &str) -> Result<(), MagicError> {
         writeln!(&mut self.stream, "save {}", cell_name)?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    pub fn draw_contacts_y(
+        &mut self,
+        contact_type: &str,
+        region: Rect,
+        size: Distance,
+        space: Distance,
+    ) -> Result<u64, MagicError> {
+        println!(
+            "region height {}, space {}, size {}",
+            region.height(),
+            space,
+            size
+        );
+        let d1 = region.height() + space;
+        let d2 = size + space;
+        println!("d1 {}, d2 {}", d1, d2);
+        let num_contacts: i64 = d1 / d2;
+        println!("making {} contacts in {}", num_contacts, region);
+
+        assert!(num_contacts > 0);
+        let num_contacts = num_contacts as u64;
+
+        let mut curr_y = region.ll.y;
+        for _ in 0..num_contacts {
+            let contact_box = Rect::from_dist(region.ll.x, curr_y, region.ur.x, curr_y + size);
+            self.contact(contact_box, contact_type)?;
+            curr_y = curr_y + size + space;
+        }
+
+        Ok(num_contacts)
+    }
+
+    pub fn contact(&mut self, rect: Rect, contact_type: &str) -> Result<(), MagicError> {
+        self.set_box_values(rect)?;
+        writeln!(&mut self.stream, "paint {}", contact_type)?;
         read_line(&mut self.stream)?;
         Ok(())
     }

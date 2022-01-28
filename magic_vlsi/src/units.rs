@@ -1,6 +1,8 @@
 use std::fmt::Display;
 use std::ops;
 
+use crate::Direction;
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Distance {
     nm: i64,
@@ -36,6 +38,10 @@ pub struct Vec2 {
 }
 
 impl Vec2 {
+    pub fn new(x: Distance, y: Distance) -> Self {
+        Self { x, y }
+    }
+
     pub fn from_internal(x: i64, y: i64, nm_per_internal: i64) -> Self {
         Self {
             x: Distance::from_internal(x, nm_per_internal),
@@ -50,11 +56,28 @@ impl Vec2 {
         }
     }
 
+    pub fn from_nm(x: i64, y: i64) -> Self {
+        Self {
+            x: Distance::from_nm(x),
+            y: Distance::from_nm(y),
+        }
+    }
+
     pub fn as_internal(&self, nm_per_internal: i64) -> (i64, i64) {
         (
             self.x.as_internal(nm_per_internal),
             self.y.as_internal(nm_per_internal),
         )
+    }
+}
+
+impl ops::Add for Vec2 {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
     }
 }
 
@@ -65,6 +88,9 @@ impl Display for Vec2 {
 }
 
 impl Distance {
+    pub fn zero() -> Self {
+        Self { nm: 0 }
+    }
     pub fn from_nm(nm: i64) -> Self {
         Self { nm }
     }
@@ -125,6 +151,22 @@ impl ops::Mul<i64> for Distance {
     }
 }
 
+impl ops::Div for Distance {
+    type Output = i64;
+    fn div(self, other: Self) -> i64 {
+        self.nm / other.nm
+    }
+}
+
+impl ops::Div<i64> for Distance {
+    type Output = Self;
+    fn div(self, other: i64) -> Self {
+        Self {
+            nm: self.nm / other,
+        }
+    }
+}
+
 impl ops::Mul<Distance> for i64 {
     type Output = Distance;
     fn mul(self, other: Distance) -> Distance {
@@ -150,6 +192,18 @@ impl ops::Neg for Distance {
     }
 }
 
+impl ops::AddAssign for Distance {
+    fn add_assign(&mut self, rhs: Self) {
+        self.nm += rhs.nm;
+    }
+}
+
+impl ops::SubAssign for Distance {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.nm -= rhs.nm;
+    }
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Rect {
     pub ll: Vec2,
@@ -157,6 +211,28 @@ pub struct Rect {
 }
 
 impl Rect {
+    pub fn from_nm(llx: i64, lly: i64, urx: i64, ury: i64) -> Self {
+        assert!(urx >= llx);
+        assert!(ury >= lly);
+        Self {
+            ll: Vec2::from_nm(llx, lly),
+            ur: Vec2::from_nm(urx, ury),
+        }
+    }
+
+    pub fn from_dist(llx: Distance, lly: Distance, urx: Distance, ury: Distance) -> Self {
+        Self {
+            ll: Vec2::new(llx, lly),
+            ur: Vec2::new(urx, ury),
+        }
+    }
+
+    pub fn ll_wh(llx: Distance, lly: Distance, width: Distance, height: Distance) -> Self {
+        let ll = Vec2::new(llx, lly);
+        let ur = Vec2::new(width, height) + ll;
+        Self { ll, ur }
+    }
+
     pub fn from_internal(llx: i64, lly: i64, urx: i64, ury: i64, nm_per_internal: i64) -> Self {
         assert!(urx >= llx);
         assert!(ury >= lly);
@@ -178,6 +254,63 @@ impl Rect {
         let (llx, lly) = self.ll.as_internal(nm_per_internal);
         let (urx, ury) = self.ur.as_internal(nm_per_internal);
         (llx, lly, urx, ury)
+    }
+
+    pub fn grow_border(&self, dist: Distance) -> Self {
+        Self::from_dist(
+            self.ll.x - dist,
+            self.ll.y - dist,
+            self.ur.x + dist,
+            self.ur.y + dist,
+        )
+    }
+
+    pub fn grow(&mut self, dir: Direction, dist: Distance) {
+        match dir {
+            Direction::Up => self.ur.y += dist,
+            Direction::Down => self.ll.y -= dist,
+            Direction::Right => self.ur.x += dist,
+            Direction::Left => self.ll.x -= dist,
+        }
+    }
+
+    pub fn overlap(&self, other: Rect) -> Self {
+        Self::from_dist(
+            Distance::max(self.ll.x, other.ll.x),
+            Distance::max(self.ll.y, other.ll.y),
+            Distance::min(self.ur.x, other.ur.x),
+            Distance::min(self.ur.y, other.ur.y),
+        )
+    }
+
+    pub fn shrink(&mut self, dir: Direction, dist: Distance) {
+        match dir {
+            Direction::Up => self.ur.y -= dist,
+            Direction::Down => self.ll.y += dist,
+            Direction::Right => self.ur.x -= dist,
+            Direction::Left => self.ll.x += dist,
+        }
+    }
+
+    pub fn translate(&mut self, dir: Direction, dist: Distance) {
+        match dir {
+            Direction::Up => {
+                self.ll.y += dist;
+                self.ur.y += dist;
+            }
+            Direction::Down => {
+                self.ll.y -= dist;
+                self.ur.y -= dist;
+            }
+            Direction::Right => {
+                self.ll.x += dist;
+                self.ur.x += dist;
+            }
+            Direction::Left => {
+                self.ll.x -= dist;
+                self.ur.x -= dist;
+            }
+        }
     }
 }
 
