@@ -10,9 +10,12 @@ pub mod config;
 pub mod error;
 pub mod predecode;
 
-pub fn generate_32x64(config: SramConfig) -> Result<()> {
-    let rows = 32;
-    let cols = 64;
+pub fn generate(config: SramConfig) -> Result<()> {
+    let rows = config.rows;
+    let cols = config.cols;
+    assert_eq!(rows % 4, 0);
+    assert_eq!(cols % 4, 0);
+
     let out_dir = &config.output_dir;
     let cell_dir = &config.cell_dir;
 
@@ -34,7 +37,7 @@ pub fn generate_32x64(config: SramConfig) -> Result<()> {
     magic.drc_off()?;
     magic.load("sram_2x2")?;
     magic.enable_box()?;
-    magic.getcell("sram_cell_wired")?;
+    magic.getcell("sram_cell_wired_nopoly")?;
     magic.set_snap(magic_vlsi::SnapMode::Internal)?;
     magic.identify("sram0")?;
     let bbox = magic.box_values()?;
@@ -62,7 +65,7 @@ pub fn generate_32x64(config: SramConfig) -> Result<()> {
 }
 
 fn copy_cells(cell_dir: impl AsRef<Path>, out_dir: impl AsRef<Path>) {
-    for cell_name in ["sram_sp_cell.mag", "sram_cell_wired.mag", "inv4.mag"] {
+    for cell_name in ["sram_sp_cell.mag", "sram_cell_wired.mag", "sram_cell_wired_nopoly.mag", "inv4.mag"] {
         std::fs::copy(
             cell_dir.as_ref().join(cell_name),
             out_dir.as_ref().join(cell_name),
