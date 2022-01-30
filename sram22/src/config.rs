@@ -14,7 +14,17 @@ pub struct SramConfig {
 struct TechConfigRaw {
     grid: f64,
     tech: String,
+    gamma: f64,
+    beta: f64,
     layers: HashMap<String, LayerConfigRaw>,
+    spacing: Vec<SpacingConfigRaw>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpacingConfigRaw {
+    from: String,
+    to: String,
+    dist: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -44,7 +54,17 @@ pub struct LayerConfigRaw {
 pub struct TechConfig {
     pub grid: Distance,
     pub tech: String,
+    pub gamma: f64,
+    pub beta: f64,
     layers: HashMap<String, LayerConfig>,
+    spacing: Vec<SpacingConfig>,
+}
+
+#[derive(Debug)]
+pub struct SpacingConfig {
+    pub from: String,
+    pub to: String,
+    pub dist: Distance,
 }
 
 #[derive(Debug)]
@@ -77,10 +97,18 @@ impl TechConfig {
             layers.insert(layer, LayerConfig::from_raw(config));
         }
         let grid = Distance::from_nm((raw.grid * 1000.0).round() as i64);
+        let spacing = raw
+            .spacing
+            .into_iter()
+            .map(SpacingConfig::from_raw)
+            .collect();
         Self {
             grid,
             tech: raw.tech,
+            beta: raw.beta,
+            gamma: raw.gamma,
             layers,
+            spacing,
         }
     }
 
@@ -96,6 +124,31 @@ impl TechConfig {
 
     pub fn layer(&self, l: &str) -> &LayerConfig {
         self.layers.get(l).unwrap()
+    }
+
+    pub fn space(&self, from: &str, to: &str) -> Distance {
+        self.spacing
+            .iter()
+            .find(|s| (s.from == from && s.to == to) || (s.to == from && s.from == to))
+            .take()
+            .map(|s| s.dist)
+            .unwrap_or_default()
+    }
+
+    pub fn scale_pmos(&self, nmos_width: Distance) -> Distance {
+        let pmos_width = (nmos_width.nm() as f64 * self.beta) / (self.grid.nm() as f64);
+        (pmos_width.round() as i64) * self.grid
+    }
+}
+
+impl SpacingConfig {
+    fn from_raw(raw: SpacingConfigRaw) -> Self {
+        let dist = Distance::from_nm((raw.dist * 1_000.0).round() as i64);
+        Self {
+            from: raw.from,
+            to: raw.to,
+            dist,
+        }
     }
 }
 

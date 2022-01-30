@@ -9,6 +9,8 @@ use micro_hdl::{
     primitive::mos::{MosParams, Nmos, Pmos},
 };
 
+pub mod single_height;
+
 #[micro_hdl::module]
 pub struct Inv {
     #[input]

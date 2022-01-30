@@ -291,6 +291,13 @@ impl MagicInstance {
         Ok(())
     }
 
+    pub fn scalegrid(&mut self, a: i64, b: i64) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "scalegrid {} {}", a, b)?;
+        read_line(&mut self.stream)?;
+        self.update_units()?;
+        Ok(())
+    }
+
     pub fn snap(&mut self) -> Result<SnapMode, MagicError> {
         writeln!(&mut self.stream, "snap")?;
         let res = read_line(&mut self.stream)?;
@@ -304,10 +311,8 @@ impl MagicInstance {
     }
 
     pub fn paint_box(&mut self, rect: Rect, layer: &str) -> Result<(), MagicError> {
-        let curr_box = self.box_values()?;
         self.set_box_values(rect)?;
         self.paint(layer)?;
-        self.set_box_values(curr_box)?;
         Ok(())
     }
 
@@ -422,7 +427,7 @@ impl MagicInstance {
         self.nm_per_internal = nm_per_internal;
         assert_ne!(nm_per_internal, 0);
         let (a, b) = self.tech_lambda()?;
-        self.nm_per_lambda = b * self.nm_per_internal / a;
+        self.nm_per_lambda = (b * self.nm_per_internal) / a;
         assert_eq!(self.nm_per_lambda * a, b * self.nm_per_internal);
         self.exec_one("undo")?;
         Ok(())

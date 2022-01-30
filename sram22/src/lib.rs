@@ -86,6 +86,10 @@ mod tests {}
 pub(crate) mod test_utils {
     use std::{path::PathBuf, sync::atomic::AtomicU64};
 
+    use magic_vlsi::{MagicInstance, MagicInstanceBuilder};
+
+    use crate::config::TechConfig;
+
     static COUNTER: AtomicU64 = AtomicU64::new(1);
 
     pub fn id() -> u64 {
@@ -97,5 +101,23 @@ pub(crate) mod test_utils {
         let path = PathBuf::from(format!("/tmp/sram22/tests/{}", id));
         std::fs::create_dir_all(&path).expect("failed to create temp directory for testing");
         path
+    }
+
+    pub fn sky130_config() -> TechConfig {
+        let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        p.push("../tech/sky130/drc_config.toml");
+        TechConfig::load(p).expect("failed to load sky130A tech config")
+    }
+
+    pub fn get_magic() -> MagicInstance {
+        let dir = tmpdir();
+        let id = id();
+        let port = id + 8_000;
+        MagicInstanceBuilder::new()
+            .port(port as u16)
+            .cwd(dir)
+            .tech("sky130A")
+            .build()
+            .expect("failed to start magic")
     }
 }

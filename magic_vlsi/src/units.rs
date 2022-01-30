@@ -81,6 +81,16 @@ impl ops::Add for Vec2 {
     }
 }
 
+impl ops::Sub for Vec2 {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self {
+        Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
 impl Display for Vec2 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "({}, {})", self.x, self.y)
@@ -232,9 +242,47 @@ impl Rect {
         }
     }
 
+    pub fn center_wh(
+        cx: Distance,
+        cy: Distance,
+        width: Distance,
+        height: Distance,
+        grid: Distance,
+    ) -> Self {
+        assert_eq!(width.nm() % 2, 0);
+        assert_eq!(height.nm() % 2, 0);
+
+        let ll = Vec2::new(cx - width / 2, cy - height / 2);
+        let ur = Vec2::new(cx + width / 2, cy + height / 2);
+
+        assert_eq!(ll.x.nm() % grid.nm(), 0);
+        assert_eq!(ll.y.nm() % grid.nm(), 0);
+        assert_eq!(ur.x.nm() % grid.nm(), 0);
+        assert_eq!(ur.y.nm() % grid.nm(), 0);
+        Self { ll, ur }
+    }
+
     pub fn ll_wh(llx: Distance, lly: Distance, width: Distance, height: Distance) -> Self {
         let ll = Vec2::new(llx, lly);
         let ur = Vec2::new(width, height) + ll;
+        Self { ll, ur }
+    }
+
+    pub fn lr_wh(lrx: Distance, lry: Distance, width: Distance, height: Distance) -> Self {
+        let ll = Vec2::new(lrx - width, lry);
+        let ur = Vec2::new(lrx, lry + height);
+        Self { ll, ur }
+    }
+
+    pub fn ul_wh(ulx: Distance, uly: Distance, width: Distance, height: Distance) -> Self {
+        let ll = Vec2::new(ulx, uly - height);
+        let ur = Vec2::new(ulx + width, uly);
+        Self { ll, ur }
+    }
+
+    pub fn ur_wh(urx: Distance, ury: Distance, width: Distance, height: Distance) -> Self {
+        let ur = Vec2::new(urx, ury);
+        let ll = ur - Vec2::new(width, height);
         Self { ll, ur }
     }
 
@@ -270,13 +318,30 @@ impl Rect {
         )
     }
 
-    pub fn grow(&mut self, dir: Direction, dist: Distance) {
+    /// Changes the width of this rectangle
+    /// without changing the position of the
+    /// left edge
+    pub fn set_width(&mut self, w: Distance) -> &mut Self {
+        self.ur = self.ll + Vec2::new(w, self.height());
+        self
+    }
+
+    /// Changes the width of this rectangle
+    /// without changing the position of the
+    /// right edge
+    pub fn set_width_from_right(&mut self, w: Distance) -> &mut Self {
+        self.ll = self.ur - Vec2::new(w, self.height());
+        self
+    }
+
+    pub fn grow(&mut self, dir: Direction, dist: Distance) -> &mut Self {
         match dir {
             Direction::Up => self.ur.y += dist,
             Direction::Down => self.ll.y -= dist,
             Direction::Right => self.ur.x += dist,
             Direction::Left => self.ll.x -= dist,
         }
+        self
     }
 
     pub fn overlap(&self, other: Rect) -> Self {
@@ -288,16 +353,17 @@ impl Rect {
         )
     }
 
-    pub fn shrink(&mut self, dir: Direction, dist: Distance) {
+    pub fn shrink(&mut self, dir: Direction, dist: Distance) -> &mut Self {
         match dir {
             Direction::Up => self.ur.y -= dist,
             Direction::Down => self.ll.y += dist,
             Direction::Right => self.ur.x -= dist,
             Direction::Left => self.ll.x += dist,
         }
+        self
     }
 
-    pub fn translate(&mut self, dir: Direction, dist: Distance) {
+    pub fn translate(&mut self, dir: Direction, dist: Distance) -> &mut Self {
         match dir {
             Direction::Up => {
                 self.ll.y += dist;
@@ -316,6 +382,7 @@ impl Rect {
                 self.ur.x -= dist;
             }
         }
+        self
     }
 }
 
