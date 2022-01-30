@@ -86,7 +86,11 @@ impl TechConfig {
 
     pub fn load(path: impl AsRef<Path>) -> Result<Self, Box<dyn std::error::Error>> {
         let txt = std::fs::read_to_string(path)?;
-        let tcr: TechConfigRaw = toml::from_str(&txt)?;
+        Self::parse_toml(&txt)
+    }
+
+    pub fn parse_toml(s: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        let tcr: TechConfigRaw = toml::from_str(s)?;
         Ok(TechConfig::from_raw(tcr))
     }
 
