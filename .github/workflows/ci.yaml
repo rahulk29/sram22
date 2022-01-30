@@ -32,6 +32,7 @@ jobs:
       - name: Generate coverage
         run: |
           cargo clean
+          rm -rf /tmp/sram22/
           cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v2
