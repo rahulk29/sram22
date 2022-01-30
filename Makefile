@@ -12,6 +12,7 @@ format:
 	cargo fmt
 
 test:
+	rm -rf /tmp/sram22/
 	cargo test
 
 check:
