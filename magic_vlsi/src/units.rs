@@ -3,7 +3,7 @@ use std::ops;
 
 use crate::Direction;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Distance {
     nm: i64,
 }
@@ -121,6 +121,11 @@ impl Distance {
 
     pub fn as_internal(&self, nm_per_internal: i64) -> i64 {
         self.nm / nm_per_internal
+    }
+
+    #[inline]
+    pub fn nm(&self) -> i64 {
+        self.nm
     }
 }
 

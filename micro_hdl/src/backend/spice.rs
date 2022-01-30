@@ -157,7 +157,7 @@ where
                     writeln!(self.out, ".ends")?;
                 }
                 for m in ctx.modules {
-                    self.netlist_boxed(m, NetlistOpts { top: false, ..opts })?;
+                    self.netlist_boxed(m, NetlistOpts { top: false })?;
                 }
             }
         }

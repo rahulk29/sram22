@@ -9,3 +9,5 @@ edition = "2021"
 thiserror = "1.0"
 magic_vlsi = { path = "../magic_vlsi" }
 micro_hdl = { path = "../micro_hdl" }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.5.8"

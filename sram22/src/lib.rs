@@ -65,7 +65,12 @@ pub fn generate(config: SramConfig) -> Result<()> {
 }
 
 fn copy_cells(cell_dir: impl AsRef<Path>, out_dir: impl AsRef<Path>) {
-    for cell_name in ["sram_sp_cell.mag", "sram_cell_wired.mag", "sram_cell_wired_nopoly.mag", "inv4.mag"] {
+    for cell_name in [
+        "sram_sp_cell.mag",
+        "sram_cell_wired.mag",
+        "sram_cell_wired_nopoly.mag",
+        "inv4.mag",
+    ] {
         std::fs::copy(
             cell_dir.as_ref().join(cell_name),
             out_dir.as_ref().join(cell_name),
@@ -88,7 +93,7 @@ pub(crate) mod test_utils {
     }
 
     pub fn tmpdir() -> PathBuf {
-        let id = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let id = id();
         let path = PathBuf::from(format!("/tmp/sram22/tests/{}", id));
         std::fs::create_dir_all(&path).expect("failed to create temp directory for testing");
         path
