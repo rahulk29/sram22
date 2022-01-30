@@ -137,6 +137,16 @@ impl Distance {
     pub fn nm(&self) -> i64 {
         self.nm
     }
+
+    pub fn round_to(&self, other: Self) -> Self {
+        let a = (self.nm / other.nm) * other.nm;
+        let b = (self.nm / other.nm + 1) * other.nm;
+        if (a - other.nm).abs() < (b - other.nm).abs() {
+            Self::from_nm(a)
+        } else {
+            Self::from_nm(b)
+        }
+    }
 }
 
 impl ops::Add for Distance {
@@ -342,6 +352,22 @@ impl Rect {
             Direction::Left => self.ll.x -= dist,
         }
         self
+    }
+
+    pub fn left_edge(&self) -> Distance {
+        self.ll.x
+    }
+
+    pub fn right_edge(&self) -> Distance {
+        self.ur.x
+    }
+
+    pub fn top_edge(&self) -> Distance {
+        self.ur.y
+    }
+
+    pub fn bottom_edge(&self) -> Distance {
+        self.ll.y
     }
 
     pub fn overlap(&self, other: Rect) -> Self {

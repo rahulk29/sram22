@@ -68,10 +68,25 @@ pub fn generate_pm_single_height(
     m.select_top_cell()?;
     let bbox = m.select_bbox()?;
 
-    let gnd_li_box = Rect::center_wh(
+    let rail_width = bbox.width().round_to(2 * tc.grid);
+    let vdd_li_box = Rect::center_wh(
         Distance::zero(),
         params.height,
-        bbox.width(),
+        rail_width,
+        tc.layer("li").width,
+        tc.grid,
+    );
+    m.paint_box(vdd_li_box, "li")?;
+    let mut vdd_m1_box = vdd_li_box;
+    vdd_m1_box
+        .grow(Direction::Up, tc.layer("m1").enclosure("ct"))
+        .grow(Direction::Down, tc.layer("m1").enclosure("ct"));
+    m.paint_box(vdd_m1_box, "m1")?;
+
+    let gnd_li_box = Rect::center_wh(
+        Distance::zero(),
+        Distance::zero(),
+        rail_width,
         tc.layer("li").width,
         tc.grid,
     );
@@ -82,14 +97,30 @@ pub fn generate_pm_single_height(
         .grow(Direction::Down, tc.layer("m1").enclosure("ct"));
     m.paint_box(gnd_m1_box, "m1")?;
 
-    let vdd_li_box = Rect::center_wh(
-        Distance::zero(),
-        Distance::zero(),
-        bbox.width(),
-        tc.layer("li").width,
-        tc.grid,
+    let poly_pad_h = tc.layer("licon").width + 2 * tc.layer("licon").enclosure("poly");
+    let poly_pad_w = tc.layer("licon").width + 2 * tc.layer("licon").one_side_enclosure("poly");
+    let poly_pad_box = Rect::ur_wh(
+        poly_box.left_edge(),
+        poly_box.top_edge(),
+        poly_pad_w,
+        poly_pad_h,
     );
-    m.paint_box(vdd_li_box, "li")?;
+    m.paint_box(poly_pad_box, "poly")?;
+    m.paint_box(poly_pad_box, "li")?;
+
+    let mut licon_box = poly_pad_box;
+    licon_box
+        .shrink(
+            Direction::Right,
+            tc.layer("licon").one_side_enclosure("poly"),
+        )
+        .shrink(
+            Direction::Left,
+            tc.layer("licon").one_side_enclosure("poly"),
+        )
+        .shrink(Direction::Up, tc.layer("licon").enclosure("poly"))
+        .shrink(Direction::Down, tc.layer("licon").enclosure("poly"));
+    m.paint_box(licon_box, "polyc")?;
 
     m.save(cell_name)?;
 
