@@ -316,6 +316,12 @@ impl MagicInstance {
         Ok(())
     }
 
+    pub fn select_clear(&mut self) -> Result<(), MagicError> {
+        writeln!(&mut self.stream, "select clear")?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
     pub fn select_top_cell(&mut self) -> Result<(), MagicError> {
         writeln!(&mut self.stream, "select top cell")?;
         read_line(&mut self.stream)?;

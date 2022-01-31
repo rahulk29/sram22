@@ -8,6 +8,7 @@ use std::path::Path;
 pub mod cells;
 pub mod config;
 pub mod error;
+pub mod layout;
 pub mod predecode;
 
 pub fn generate(config: SramConfig) -> Result<()> {

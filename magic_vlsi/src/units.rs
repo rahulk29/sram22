@@ -38,6 +38,13 @@ pub struct Vec2 {
 }
 
 impl Vec2 {
+    pub fn zero() -> Self {
+        Self {
+            x: Distance::zero(),
+            y: Distance::zero(),
+        }
+    }
+
     pub fn new(x: Distance, y: Distance) -> Self {
         Self { x, y }
     }
@@ -176,6 +183,24 @@ impl ops::Mul<i64> for Distance {
     }
 }
 
+impl ops::Mul<u64> for Distance {
+    type Output = Self;
+    fn mul(self, other: u64) -> Self {
+        Self {
+            nm: self.nm * other as i64,
+        }
+    }
+}
+
+impl ops::Mul<usize> for Distance {
+    type Output = Self;
+    fn mul(self, other: usize) -> Self {
+        Self {
+            nm: self.nm * other as i64,
+        }
+    }
+}
+
 impl ops::Div for Distance {
     type Output = i64;
     fn div(self, other: Self) -> i64 {
@@ -236,6 +261,12 @@ pub struct Rect {
 }
 
 impl Rect {
+    pub fn zero() -> Self {
+        Self {
+            ll: Vec2::zero(),
+            ur: Vec2::zero(),
+        }
+    }
     pub fn from_nm(llx: i64, lly: i64, urx: i64, ury: i64) -> Self {
         assert!(urx >= llx);
         assert!(ury >= lly);
@@ -269,7 +300,12 @@ impl Rect {
         assert_eq!(ll.y.nm() % grid.nm(), 0);
         assert_eq!(ur.x.nm() % grid.nm(), 0);
         assert_eq!(ur.y.nm() % grid.nm(), 0);
-        Self { ll, ur }
+        let res = Self { ll, ur };
+
+        assert_eq!(res.width(), width);
+        assert_eq!(res.height(), height);
+
+        res
     }
 
     pub fn ll_wh(llx: Distance, lly: Distance, width: Distance, height: Distance) -> Self {
@@ -354,18 +390,22 @@ impl Rect {
         self
     }
 
+    #[inline]
     pub fn left_edge(&self) -> Distance {
         self.ll.x
     }
 
+    #[inline]
     pub fn right_edge(&self) -> Distance {
         self.ur.x
     }
 
+    #[inline]
     pub fn top_edge(&self) -> Distance {
         self.ur.y
     }
 
+    #[inline]
     pub fn bottom_edge(&self) -> Distance {
         self.ll.y
     }
@@ -409,6 +449,12 @@ impl Rect {
             }
         }
         self
+    }
+
+    pub fn try_align_center(&self, other: Rect, grid: Distance) -> Self {
+        let left = (other.left_edge() + (other.width() - self.width()) / 2).round_to(grid);
+        let bot = (other.bottom_edge() + (other.height() - self.height()) / 2).round_to(grid);
+        Self::ll_wh(left, bot, self.width(), self.height())
     }
 }
 

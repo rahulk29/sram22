@@ -8,7 +8,8 @@ beta = 1.54
 gamma = 1.3
 
 spacing = [
-  { from = "ndiff", to = "nwell", dist = 0.34 }
+  { from = "ndiff", to = "nwell", dist = 0.34 },
+  { from = "gate", to = "licon", dist = 0.055 }, # gate to source/drain contacts
 ]
 
 [layers]
@@ -40,6 +41,8 @@ desc = "local interconnect"
 width = 0.17
 space = 0.17
 area = 0.0561
+enclosures = [
+]
 
 [layers.licon]
 desc = "defines contacts between poly/diff/tap and local interconnect"
@@ -53,6 +56,7 @@ enclosures = [
   { layer = "pdiff", enclosure = 0.06, one_side = true },
   { layer = "poly", enclosure = 0.05, one_side = false },
   { layer = "poly", enclosure = 0.08, one_side = true },
+  { layer = "li", enclosure = 0.08, one_side = true },
 ]
 
 [layers.pdiff]

@@ -192,18 +192,15 @@ impl LayerConfig {
             .iter()
             .filter(|enc| enc.layer == l)
             .collect::<Vec<_>>();
-        if x.is_empty() {
-            return Distance::zero();
-        }
 
         if one_sided {
-            x.into_iter().map(|x| x.enclosure).max().unwrap()
+            x.into_iter().map(|x| x.enclosure).max().unwrap_or_default()
         } else {
             x.into_iter()
                 .filter(|x| !x.one_side)
                 .map(|x| x.enclosure)
                 .max()
-                .unwrap()
+                .unwrap_or_default()
         }
     }
 
