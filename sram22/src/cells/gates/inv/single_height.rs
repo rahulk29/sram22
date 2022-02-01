@@ -7,11 +7,11 @@ use magic_vlsi::{
 
 #[derive(Debug)]
 pub struct InvParams {
-    nmos_width: Distance,
-    li: String,
-    m1: String,
-    height: Distance,
-    fingers: usize,
+    pub nmos_width: Distance,
+    pub li: String,
+    pub m1: String,
+    pub height: Distance,
+    pub fingers: usize,
 }
 
 pub fn generate_pm_single_height(
@@ -29,7 +29,7 @@ pub fn generate_pm_single_height(
     let _li = &params.li;
     let _m1 = &params.m1;
 
-    let cell_name = format!("inv_pm_single_height_nf{}", fingers);
+    let cell_name = format!("inv_pm_sh_{}", fingers);
 
     m.drc_off()?;
     m.load(&cell_name)?;

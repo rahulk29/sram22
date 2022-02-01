@@ -1,10 +1,12 @@
-use magic_vlsi::units::Rect;
+use config::TechConfig;
+use magic_vlsi::units::{Rect, Distance};
 use magic_vlsi::{Direction, MagicInstanceBuilder};
 
+use crate::cells::gates::inv::single_height::InvParams;
 use crate::config::SramConfig;
 use crate::error::Result;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub mod cells;
 pub mod config;
@@ -27,6 +29,9 @@ pub fn generate(config: SramConfig) -> Result<()> {
     // copy prereq cells
     fs::create_dir_all(out_dir).unwrap();
     copy_cells(cell_dir, out_dir);
+
+    let tc = sky130_config();
+
     let mut magic = MagicInstanceBuilder::new()
         .cwd(out_dir)
         .tech("sky130A")
@@ -35,6 +40,13 @@ pub fn generate(config: SramConfig) -> Result<()> {
 
     crate::cells::gates::inv::generate_pm(&mut magic)?;
     crate::cells::gates::inv::generate_pm_eo(&mut magic)?;
+    crate::cells::gates::inv::single_height::generate_pm_single_height(&mut magic, &tc, &InvParams {
+            nmos_width: Distance::from_nm(1_000),
+            li: "li".to_string(),
+            m1: "m1".to_string(),
+            height: Distance::from_nm(1_580),
+            fingers: 2,
+    })?;
 
     magic.drc_off()?;
     magic.scalegrid(1, 2)?;
@@ -149,6 +161,13 @@ fn copy_cells(cell_dir: impl AsRef<Path>, out_dir: impl AsRef<Path>) {
     }
 }
 
+pub fn sky130_config() -> TechConfig {
+    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    p.push("../tech/sky130/drc_config.toml");
+    TechConfig::load(p).expect("failed to load sky130A tech config")
+}
+
+
 #[cfg(test)]
 mod tests {}
 
@@ -157,8 +176,6 @@ pub(crate) mod test_utils {
     use std::{path::PathBuf, sync::atomic::AtomicU64};
 
     use magic_vlsi::{MagicInstance, MagicInstanceBuilder};
-
-    use crate::config::TechConfig;
 
     static COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -171,12 +188,6 @@ pub(crate) mod test_utils {
         let path = PathBuf::from(format!("/tmp/sram22/tests/{}", id));
         std::fs::create_dir_all(&path).expect("failed to create temp directory for testing");
         path
-    }
-
-    pub fn sky130_config() -> TechConfig {
-        let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        p.push("../tech/sky130/drc_config.toml");
-        TechConfig::load(p).expect("failed to load sky130A tech config")
     }
 
     pub fn get_magic() -> MagicInstance {
