@@ -3,6 +3,7 @@ use magic_vlsi::{units::Rect, MagicInstance};
 use crate::config::TechConfig;
 use crate::error::Result;
 
+#[allow(clippy::too_many_arguments)]
 pub fn draw_contacts(
     m: &mut MagicInstance,
     tc: &TechConfig,
@@ -13,13 +14,9 @@ pub fn draw_contacts(
     top: Rect,
     bot: Rect,
 ) -> Result<u64> {
-    println!("bot: {}", bot);
     let inner_top = top.grow_border(-tc.layer(contact_drc).enclosure(top_layer));
-    println!("inner_top: {}", inner_top);
     let inner_bot = bot.grow_border(-tc.layer(contact_drc).enclosure(bot_layer));
-    println!("inner bot: {}", inner_bot);
     let mut ov = inner_top.overlap(inner_bot);
-    println!("ov: {}", ov);
     if ov.width() > ov.height() {
         ov.ur.x = std::cmp::min(
             ov.ur.x,

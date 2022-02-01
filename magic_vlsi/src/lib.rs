@@ -8,7 +8,7 @@ use std::{
     str::FromStr,
     time::Duration,
 };
-use units::{Distance, Rect};
+use units::{Distance, Rect, Vec2};
 
 pub mod error;
 pub mod units;
@@ -170,12 +170,17 @@ impl MagicInstance {
     /// is placed such that the lower-left corner of the cell's
     /// bounding box is placed at the lower-left corner of the
     /// cursor box in the parent cell.
-    pub fn getcell(&mut self, cell: &str) -> Result<(), MagicError> {
+    pub fn getcell(&mut self, cell: &str) -> Result<Rect, MagicError> {
         writeln!(&mut self.stream, "getcell {}", cell)?;
         read_line(&mut self.stream)?;
         // Loading a cell can scale the grid, so recalculate units
         self.update_units()?;
-        Ok(())
+        self.select_bbox()
+    }
+
+    pub fn place_cell(&mut self, cell: &str, ll: Vec2) -> Result<Rect, MagicError> {
+        self.set_box_values(Rect::ll_wh(ll.x, ll.y, Distance::zero(), Distance::zero()))?;
+        self.getcell(cell)
     }
 
     /// The sideways command flips the selection from left to
