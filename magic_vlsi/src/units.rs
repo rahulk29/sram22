@@ -105,37 +105,53 @@ impl Display for Vec2 {
 }
 
 impl Distance {
+    #[inline]
     pub fn zero() -> Self {
         Self { nm: 0 }
     }
+
+    #[inline]
     pub fn from_nm(nm: i64) -> Self {
         Self { nm }
     }
+
+    #[inline]
     pub fn from_um(um: i64) -> Self {
         Self { nm: 1_000 * um }
     }
+
+    #[inline]
     pub fn from_mm(mm: i64) -> Self {
         Self { nm: 1_000_000 * mm }
     }
+
+    #[inline]
     pub fn from_meters(meters: i64) -> Self {
         Self {
             nm: 1_000_000_000 * meters,
         }
     }
+
+    #[inline]
     pub fn from_internal(internal: i64, nm_per_internal: i64) -> Self {
         Self {
             nm: nm_per_internal * internal,
         }
     }
+
+    #[inline]
     pub fn from_lambdas(lambda: i64, nm_per_lambda: i64) -> Self {
         Self {
             nm: nm_per_lambda * lambda,
         }
     }
+
+    #[inline]
     pub fn as_lambdas(&self, nm_per_lambda: i64) -> i64 {
         self.nm / nm_per_lambda
     }
 
+    #[inline]
     pub fn as_internal(&self, nm_per_internal: i64) -> i64 {
         self.nm / nm_per_internal
     }
@@ -455,6 +471,26 @@ impl Rect {
         let left = (other.left_edge() + (other.width() - self.width()) / 2).round_to(grid);
         let bot = (other.bottom_edge() + (other.height() - self.height()) / 2).round_to(grid);
         Self::ll_wh(left, bot, self.width(), self.height())
+    }
+
+    #[inline]
+    pub fn ll(&self) -> Vec2 {
+        self.ll
+    }
+
+    #[inline]
+    pub fn ur(&self) -> Vec2 {
+        self.ur
+    }
+
+    #[inline]
+    pub fn lr(&self) -> Vec2 {
+        Vec2::new(self.ur.x, self.ll.y)
+    }
+
+    #[inline]
+    pub fn ul(&self) -> Vec2 {
+        Vec2::new(self.ll.x, self.ur.y)
     }
 }
 

@@ -1,3 +1,4 @@
+use magic_vlsi::units::Rect;
 use magic_vlsi::{Direction, MagicInstanceBuilder};
 
 use crate::config::SramConfig;
@@ -36,14 +37,16 @@ pub fn generate(config: SramConfig) -> Result<()> {
     crate::cells::gates::inv::generate_pm_eo(&mut magic)?;
 
     magic.drc_off()?;
+    magic.scalegrid(1, 2)?;
+    magic.set_snap(magic_vlsi::SnapMode::Internal)?;
     magic.load("sram_2x2")?;
     magic.enable_box()?;
-    magic.getcell("sram_cell_wired_nopoly")?;
+    magic.getcell("sram_sp_cell")?;
     magic.set_snap(magic_vlsi::SnapMode::Internal)?;
     magic.identify("sram0")?;
+    magic.sideways()?; // orient nwell facing outwards
     let bbox = magic.box_values()?;
     magic.copy_dir(Direction::Right, bbox.width())?;
-    // magic.exec_one(&format!("copy east {}", bbox.width()))?;
     magic.sideways()?;
     magic.identify("sram1")?;
 
@@ -56,22 +59,88 @@ pub fn generate(config: SramConfig) -> Result<()> {
 
     let cell_name = format!("sram_{}x{}", rows, cols);
 
+    magic.load("rowend")?;
+    magic.select_top_cell()?;
+    let rowend_bbox = magic.select_bbox()?;
+
+    magic.load("corner")?;
+    magic.select_top_cell()?;
+    let corner_bbox = magic.select_bbox()?;
+
     magic.load(&cell_name)?;
     magic.enable_box()?;
-    magic.getcell("sram_2x2")?;
-    magic.array(cols / 2, rows / 2)?;
+
+    // draw top row
+    let mut bbox = magic.getcell("corner")?;
+    let left = bbox.left_edge();
+    magic.sideways()?;
+    for i in 0..(cols as usize) {
+        bbox = magic.place_cell("colend", bbox.lr())?;
+        if i % 2 == 1 {
+            magic.sideways()?;
+        }
+    }
+    magic.place_cell("corner", bbox.lr())?;
+
+    // draw rows
+    for i in 0..(rows as usize) {
+        bbox = Rect::ul_wh(
+            left,
+            bbox.bottom_edge(),
+            rowend_bbox.width(),
+            rowend_bbox.height(),
+        );
+        bbox = magic.place_cell("rowend", bbox.ll())?;
+        magic.sideways()?;
+        if i % 2 == 0 {
+            magic.upside_down()?;
+        }
+
+        for j in 0..(cols as usize) {
+            bbox = magic.place_cell("sram_sp_cell", bbox.lr())?;
+
+            if i % 2 == 0 {
+                magic.upside_down()?;
+            }
+
+            if j % 2 == 0 {
+                magic.sideways()?;
+            }
+        }
+        magic.place_cell("rowend", bbox.lr())?;
+
+        if i % 2 == 0 {
+            magic.upside_down()?;
+        }
+    }
+
+    // draw bot row
+    bbox = Rect::ul_wh(
+        left,
+        bbox.bottom_edge(),
+        corner_bbox.width(),
+        corner_bbox.height(),
+    );
+    let mut bbox = magic.place_cell("corner", bbox.ll())?;
+    magic.sideways()?;
+    magic.upside_down()?;
+    for i in 0..(cols as usize) {
+        bbox = magic.place_cell("colend", bbox.lr())?;
+        magic.upside_down()?;
+        if i % 2 == 1 {
+            magic.sideways()?;
+        }
+    }
+    magic.place_cell("corner", bbox.lr())?;
+    magic.upside_down()?;
+
     magic.save(&cell_name)?;
 
     Ok(())
 }
 
 fn copy_cells(cell_dir: impl AsRef<Path>, out_dir: impl AsRef<Path>) {
-    for cell_name in [
-        "sram_sp_cell.mag",
-        "sram_cell_wired.mag",
-        "sram_cell_wired_nopoly.mag",
-        "inv4.mag",
-    ] {
+    for cell_name in ["sram_sp_cell.mag", "rowend.mag", "colend.mag", "corner.mag"] {
         std::fs::copy(
             cell_dir.as_ref().join(cell_name),
             out_dir.as_ref().join(cell_name),

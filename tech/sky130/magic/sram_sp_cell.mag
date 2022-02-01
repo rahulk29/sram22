@@ -1,13 +1,25 @@
 magic
 tech sky130A
 magscale 1 2
-timestamp 1642551396
+timestamp 1643662702
+<< checkpaint >>
+rect -1250 1529 1354 1604
+rect -1250 1461 1529 1529
+rect -1306 -1056 1529 1461
+rect -1306 -1151 1353 -1056
+rect -1250 -1289 1353 -1151
+<< dnwell >>
+rect 0 0 240 316
 << nwell >>
 rect 144 0 240 316
 << pwell >>
-rect 0 263 92 316
-rect 0 53 106 263
-rect 0 0 92 53
+rect 12 263 92 316
+rect 12 200 106 263
+rect 0 116 106 200
+rect 12 53 106 116
+rect 12 46 92 53
+rect 2 34 92 46
+rect 12 0 92 34
 << npd >>
 rect 38 182 80 212
 rect 38 104 80 134
@@ -58,7 +70,7 @@ tri 174 83 186 95 se
 rect 186 83 202 95
 rect 174 61 202 83
 << poly >>
-rect 16 262 38 292
+rect 0 262 38 292
 rect 66 267 240 292
 rect 66 262 174 267
 rect 202 262 240 267
@@ -70,7 +82,7 @@ rect 16 104 38 134
 rect 80 104 107 134
 rect 141 104 174 134
 rect 202 104 224 134
-rect 16 24 38 54
+rect 0 24 38 54
 rect 66 49 174 54
 rect 202 49 240 54
 rect 66 24 240 49
@@ -79,7 +91,8 @@ rect 107 182 141 212
 rect 107 104 141 134
 << corelocali >>
 rect 14 301 38 316
-rect 66 301 226 316
+rect 66 301 67 316
+rect 101 301 226 316
 rect 14 255 226 273
 rect 14 254 174 255
 rect 14 220 38 254
@@ -91,15 +104,15 @@ rect 202 221 226 255
 rect 14 219 60 220
 tri 60 219 61 220 nw
 rect 170 219 226 221
-rect 0 174 14 191
+rect 0 175 14 191
 tri 63 182 98 217 se
 rect 98 212 142 217
 rect 98 182 107 212
 rect 141 182 142 212
-rect 0 125 14 142
 tri 42 161 63 182 se
 rect 63 175 142 182
 rect 63 161 70 175
+rect 0 125 14 141
 rect 42 97 70 161
 tri 70 149 96 175 nw
 tri 160 149 170 159 se
@@ -127,10 +140,59 @@ rect 14 61 174 62
 rect 202 61 226 95
 rect 14 43 226 61
 rect 14 0 38 15
-rect 66 0 226 15
+rect 66 0 139 15
+rect 173 0 226 15
 << viali >>
+rect 67 299 101 316
+rect 0 174 17 175
+rect 0 142 14 174
+rect 14 142 17 174
+rect 0 141 17 142
 rect 223 174 240 175
 rect 223 142 226 174
 rect 226 142 240 174
 rect 223 141 240 142
+rect 139 0 173 17
+<< metal1 >>
+rect 0 185 14 316
+rect 60 299 67 316
+rect 101 299 108 316
+rect 60 287 108 299
+rect 0 179 26 185
+rect 0 121 26 127
+rect 0 0 14 121
+rect 70 0 98 287
+rect 142 29 170 316
+rect 226 263 240 316
+rect 214 257 240 263
+rect 214 198 240 205
+rect 217 175 240 198
+rect 217 141 223 175
+rect 217 129 240 141
+tri 217 127 219 129 ne
+rect 219 127 240 129
+rect 132 17 180 29
+rect 132 0 139 17
+rect 173 0 180 17
+rect 226 0 240 127
+<< via1 >>
+rect 0 175 26 179
+rect 0 141 17 175
+rect 17 141 26 175
+rect 0 127 26 141
+rect 214 205 240 257
+<< metal2 >>
+rect 0 213 214 257
+rect 191 205 214 213
+rect 26 171 58 179
+rect 26 127 240 171
+rect 0 59 240 93
+<< labels >>
+rlabel metal1 s 70 208 98 244 4 BL
+rlabel metal1 s 142 208 170 244 4 BR
+rlabel metal1 s 0 0 14 15 4 VGND
+rlabel metal1 s 226 0 240 15 4 VPWR
+rlabel nwell s 228 31 238 41 4 VPB
+rlabel poly s 109 262 133 292 4 WL
+rlabel pwell s 2 34 12 46 4 VNB
 << end >>
