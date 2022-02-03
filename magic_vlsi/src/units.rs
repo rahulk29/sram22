@@ -162,12 +162,24 @@ impl Distance {
     }
 
     pub fn round_to(&self, other: Self) -> Self {
-        let a = (self.nm / other.nm) * other.nm;
-        let b = (self.nm / other.nm + 1) * other.nm;
-        if (a - other.nm).abs() < (b - other.nm).abs() {
-            Self::from_nm(a)
+        let opts = [
+            (self.nm / other.nm) * other.nm,
+            (self.nm / other.nm + 1) * other.nm,
+            (self.nm / other.nm - 1) * other.nm,
+        ];
+        let d = opts
+            .into_iter()
+            .min_by_key(|x| (x - self.nm).abs())
+            .unwrap();
+        Self::from_nm(d)
+    }
+
+    pub fn round_up_to(&self, other: Self) -> Self {
+        if self.nm % other.nm == 0 {
+            *self
         } else {
-            Self::from_nm(b)
+            let x = (self.nm / other.nm + 1) * other.nm;
+            Self::from_nm(x)
         }
     }
 }
@@ -324,6 +336,14 @@ impl Rect {
         res
     }
 
+    pub fn center_x(&self, grid: Distance) -> Distance {
+        (self.ll.x + self.ur.x).round_to(2 * grid) / 2
+    }
+
+    pub fn center_y(&self, grid: Distance) -> Distance {
+        (self.ll.y + self.ur.y).round_to(2 * grid) / 2
+    }
+
     pub fn ll_wh(llx: Distance, lly: Distance, width: Distance, height: Distance) -> Self {
         let ll = Vec2::new(llx, lly);
         let ur = Vec2::new(width, height) + ll;
@@ -468,8 +488,8 @@ impl Rect {
     }
 
     pub fn try_align_center(&self, other: Rect, grid: Distance) -> Self {
-        let left = (other.left_edge() + (other.width() - self.width()) / 2).round_to(grid);
-        let bot = (other.bottom_edge() + (other.height() - self.height()) / 2).round_to(grid);
+        let left = (2 * other.left_edge() + other.width() - self.width()).round_to(2 * grid) / 2;
+        let bot = (2 * other.bottom_edge() + other.height() - self.height()).round_to(2 * grid) / 2;
         Self::ll_wh(left, bot, self.width(), self.height())
     }
 
@@ -491,6 +511,17 @@ impl Rect {
     #[inline]
     pub fn ul(&self) -> Vec2 {
         Vec2::new(self.ll.x, self.ur.y)
+    }
+
+    pub fn btcxw(bot: Distance, top: Distance, cx: Distance, w: Distance) -> Self {
+        assert!(w >= Distance::zero());
+        let llx = cx - w / 2;
+        let urx = cx + w / 2;
+        assert_eq!(urx - llx, w);
+        Self {
+            ll: Vec2::new(llx, bot),
+            ur: Vec2::new(urx, top),
+        }
     }
 }
 

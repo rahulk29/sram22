@@ -52,6 +52,14 @@ pub fn draw_contacts(
             bot.bottom_edge() + tc.layer(contact_drc).one_side_enclosure(bot_layer),
         );
     }
+    println!(
+        "contact from {} to {} via {}",
+        top_layer, bot_layer, contact_type
+    );
+    println!(
+        "contacts starting {} from left edge of top layer",
+        ov.ll.x - top.left_edge()
+    );
     let region = ov;
     let size = tc.layer(contact_drc).width;
     let space = tc.layer(contact_drc).space;
