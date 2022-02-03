@@ -1,5 +1,5 @@
 use config::TechConfig;
-use magic_vlsi::units::{Rect, Distance};
+use magic_vlsi::units::{Distance, Rect};
 use magic_vlsi::{Direction, MagicInstanceBuilder};
 
 use crate::cells::gates::inv::single_height::InvParams;
@@ -40,13 +40,17 @@ pub fn generate(config: SramConfig) -> Result<()> {
 
     crate::cells::gates::inv::generate_pm(&mut magic)?;
     crate::cells::gates::inv::generate_pm_eo(&mut magic)?;
-    crate::cells::gates::inv::single_height::generate_pm_single_height(&mut magic, &tc, &InvParams {
+    crate::cells::gates::inv::single_height::generate_pm_single_height(
+        &mut magic,
+        &tc,
+        &InvParams {
             nmos_width: Distance::from_nm(1_000),
             li: "li".to_string(),
             m1: "m1".to_string(),
             height: Distance::from_nm(1_580),
             fingers: 2,
-    })?;
+        },
+    )?;
 
     magic.drc_off()?;
     magic.scalegrid(1, 2)?;
@@ -166,7 +170,6 @@ pub fn sky130_config() -> TechConfig {
     p.push("../tech/sky130/drc_config.toml");
     TechConfig::load(p).expect("failed to load sky130A tech config")
 }
-
 
 #[cfg(test)]
 mod tests {}

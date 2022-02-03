@@ -35,14 +35,16 @@ desc = "contact between li and m1"
 width = 0.17
 space = 0.19
 area = 0.0289
+enclosures = [
+  { layer = "m1", enclosure = 0.03, one_side = false },
+  { layer = "m1", enclosure = 0.06, one_side = true },
+]
 
 [layers.li]
 desc = "local interconnect"
 width = 0.17
 space = 0.17
 area = 0.0561
-enclosures = [
-]
 
 [layers.licon]
 desc = "defines contacts between poly/diff/tap and local interconnect"
@@ -88,7 +90,4 @@ desc = "first level of metal interconnects"
 width = 0.14
 space = 0.14
 area = 0.083
-enclosures = [
-  { layer = "ct", enclosure = 0.03, one_side = false },
-]
 

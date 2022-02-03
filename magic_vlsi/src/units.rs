@@ -170,6 +170,15 @@ impl Distance {
             Self::from_nm(b)
         }
     }
+
+    pub fn round_up_to(&self, other: Self) -> Self {
+        if self.nm % other.nm == 0 {
+            *self
+        } else {
+            let x = (self.nm / other.nm + 1) * other.nm;
+            Self::from_nm(x)
+        }
+    }
 }
 
 impl ops::Add for Distance {
@@ -322,6 +331,14 @@ impl Rect {
         assert_eq!(res.height(), height);
 
         res
+    }
+
+    pub fn center_x(&self, grid: Distance) -> Distance {
+        (self.ll.x + self.ur.x).round_to(2 * grid) / 2
+    }
+
+    pub fn center_y(&self, grid: Distance) -> Distance {
+        (self.ll.y + self.ur.y).round_to(2 * grid) / 2
     }
 
     pub fn ll_wh(llx: Distance, lly: Distance, width: Distance, height: Distance) -> Self {
@@ -491,6 +508,17 @@ impl Rect {
     #[inline]
     pub fn ul(&self) -> Vec2 {
         Vec2::new(self.ll.x, self.ur.y)
+    }
+
+    pub fn btcxw(bot: Distance, top: Distance, cx: Distance, w: Distance) -> Self {
+        assert!(w >= Distance::zero());
+        let llx = cx - w / 2;
+        let urx = cx + w / 2;
+        assert_eq!(urx - llx, w);
+        Self {
+            ll: Vec2::new(llx, bot),
+            ur: Vec2::new(urx, top),
+        }
     }
 }
 
