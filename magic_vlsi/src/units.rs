@@ -162,13 +162,16 @@ impl Distance {
     }
 
     pub fn round_to(&self, other: Self) -> Self {
-        let a = (self.nm / other.nm) * other.nm;
-        let b = (self.nm / other.nm + 1) * other.nm;
-        if (a - other.nm).abs() < (b - other.nm).abs() {
-            Self::from_nm(a)
-        } else {
-            Self::from_nm(b)
-        }
+        let opts = [
+            (self.nm / other.nm) * other.nm,
+            (self.nm / other.nm + 1) * other.nm,
+            (self.nm / other.nm - 1) * other.nm,
+        ];
+        let d = opts
+            .into_iter()
+            .min_by_key(|x| (x - self.nm).abs())
+            .unwrap();
+        Self::from_nm(d)
     }
 
     pub fn round_up_to(&self, other: Self) -> Self {
@@ -485,8 +488,8 @@ impl Rect {
     }
 
     pub fn try_align_center(&self, other: Rect, grid: Distance) -> Self {
-        let left = (other.left_edge() + (other.width() - self.width()) / 2).round_to(grid);
-        let bot = (other.bottom_edge() + (other.height() - self.height()) / 2).round_to(grid);
+        let left = (2 * other.left_edge() + other.width() - self.width()).round_to(2 * grid) / 2;
+        let bot = (2 * other.bottom_edge() + other.height() - self.height()).round_to(2 * grid) / 2;
         Self::ll_wh(left, bot, self.width(), self.height())
     }
 

@@ -70,9 +70,12 @@ pub fn generate_pm_single_height(
     pdiff_box.set_width(pmos_width);
     m.paint_box(pdiff_box, "pdiff")?;
 
-    let nwell_box = pdiff_box
+    let mut nwell_box = pdiff_box
         .clone()
         .grow_border(tc.layer("pdiff").enclosure("nwell"));
+    nwell_box.ll.y = Distance::zero();
+    nwell_box.ur.y = params.height;
+
     m.paint_box(nwell_box, "nwell")?;
 
     let mut gate_contact_box = Rect::zero();
@@ -163,14 +166,14 @@ pub fn generate_pm_single_height(
         );
         m.paint_box(n_ct_top, "li")?;
         draw_contacts(m, tc, "li", "ndiffc", "licon", "ndiff", n_ct_top, ndiff_box)?;
-        let li_box = Rect::ll_wh(
+        let p_ct_top = Rect::ll_wh(
             pdiff_box.left_edge(),
             poly_box.top_edge() + tc.space("gate", "licon"),
             pdiff_box.width(),
             tc.layer("li").width,
         );
-        draw_contacts(m, tc, "li", "pdiffc", "licon", "pdiff", li_box, pdiff_box)?;
-        m.paint_box(li_box, "li")?;
+        draw_contacts(m, tc, "li", "pdiffc", "licon", "pdiff", p_ct_top, pdiff_box)?;
+        m.paint_box(p_ct_top, "li")?;
         let n_ct_bot = Rect::ul_wh(
             ndiff_box.left_edge(),
             poly_box.bottom_edge() - tc.space("gate", "licon"),
@@ -180,14 +183,14 @@ pub fn generate_pm_single_height(
         m.paint_box(n_ct_bot, "li")?;
         draw_contacts(m, tc, "li", "ndiffc", "licon", "ndiff", n_ct_bot, ndiff_box)?;
 
-        let li_box = Rect::ul_wh(
+        let p_ct_bot = Rect::ul_wh(
             pdiff_box.left_edge(),
             poly_box.bottom_edge() - tc.space("gate", "licon"),
             pdiff_box.width(),
             tc.layer("li").width,
         );
-        m.paint_box(li_box, "li")?;
-        draw_contacts(m, tc, "li", "pdiffc", "licon", "pdiff", li_box, pdiff_box)?;
+        m.paint_box(p_ct_bot, "li")?;
+        draw_contacts(m, tc, "li", "pdiffc", "licon", "pdiff", p_ct_bot, pdiff_box)?;
 
         if i % 2 == 0 {
             let li_box = Rect::ll_wh(
@@ -220,6 +223,28 @@ pub fn generate_pm_single_height(
             gnd_finger,
             contact_target,
         )?;
+
+        let mut vdd_finger = Rect::btcxw(
+            p_ct_bot.bottom_edge(),
+            params.height,
+            p_ct_top.center_x(tc.grid),
+            m1_contact_width,
+        );
+        vdd_finger.grow(Direction::Down, tc.layer("ct").enclosure("m1"));
+        m.paint_box(vdd_finger, "m1")?;
+
+        let contact_target = if i % 2 == 0 { p_ct_bot } else { p_ct_top };
+
+        draw_contacts(
+            m,
+            tc,
+            "m1",
+            "viali",
+            "ct",
+            "licon",
+            vdd_finger,
+            contact_target,
+        )?;
     }
     m.paint_box(gate_contact_box, "li")?;
 
@@ -233,9 +258,9 @@ pub fn generate_pm_single_height(
         bbox.right_edge(),
         params.height,
     );
-    m.paint_box(vdd_li_box, "li")?;
-    let mut vdd_m1_box = vdd_li_box;
-    vdd_m1_box.grow(Direction::Down, tc.layer("ct").enclosure("m1"));
+    // m.paint_box(vdd_li_box, "li")?;
+    let vdd_m1_box = vdd_li_box;
+    // vdd_m1_box.grow(Direction::Down, tc.layer("ct").enclosure("m1"));
     m.paint_box(vdd_m1_box, "m1")?;
 
     let gnd_li_box = Rect::from_dist(
@@ -244,11 +269,11 @@ pub fn generate_pm_single_height(
         bbox.right_edge(),
         tc.layer("li").width / 2,
     );
-    m.paint_box(gnd_li_box, "li")?;
-    let mut gnd_m1_box = gnd_li_box;
-    gnd_m1_box.grow(Direction::Up, tc.layer("ct").enclosure("m1"));
+    // m.paint_box(gnd_li_box, "li")?;
+    let gnd_m1_box = gnd_li_box;
     m.paint_box(gnd_m1_box, "m1")?;
 
+    println!("saving cell");
     m.save(&cell_name)?;
 
     Ok(())
