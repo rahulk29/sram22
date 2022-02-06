@@ -3,6 +3,7 @@ use magic_vlsi::units::{Distance, Rect};
 use magic_vlsi::{Direction, MagicInstanceBuilder};
 
 use crate::cells::gates::inv::single_height::InvParams;
+use crate::cells::gates::nand::single_height::Nand2Params;
 use crate::config::SramConfig;
 use crate::error::Result;
 use std::fs;
@@ -49,6 +50,14 @@ pub fn generate(config: SramConfig) -> Result<()> {
             m1: "m1".to_string(),
             height: Distance::from_nm(1_580),
             fingers: 2,
+        },
+    )?;
+    crate::cells::gates::nand::single_height::generate_pm_single_height(
+        &mut magic,
+        &tc,
+        &Nand2Params {
+            nmos_scale: Distance::from_nm(800),
+            height: Distance::from_nm(1_580),
         },
     )?;
 

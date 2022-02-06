@@ -182,6 +182,10 @@ impl Distance {
             Self::from_nm(x)
         }
     }
+
+    pub fn center_grid(a: Distance, b: Distance, grid: Distance) -> Self {
+        (a + b).round_to(grid) / 2
+    }
 }
 
 impl ops::Add for Distance {
@@ -521,6 +525,14 @@ impl Rect {
         Self {
             ll: Vec2::new(llx, bot),
             ur: Vec2::new(urx, top),
+        }
+    }
+
+    pub fn lbrh(left: Distance, bot: Distance, right: Distance, h: Distance) -> Self {
+        assert!(h >= Distance::zero());
+        Self {
+            ll: Vec2::new(left, bot),
+            ur: Vec2::new(right, bot + h),
         }
     }
 }

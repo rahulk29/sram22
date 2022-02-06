@@ -3,7 +3,7 @@ import webbrowser
 
 command = "cargo r"
 out_dir = "_build/"
-cell = "inv_pm_sh_2.mag"
+cell = "nand2_pm_sh.mag"
 outsvg = "out.svg"
 
 script = f'''
