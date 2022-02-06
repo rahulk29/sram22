@@ -457,6 +457,29 @@ impl MagicInstance {
         }
         Ok(self.nm_per_lambda)
     }
+
+    pub fn label(&mut self, label: &str) -> Result<(), MagicError> {
+        self.exec_one(&format!("label {}", label)).map(|_| ())
+    }
+
+    pub fn label_position(&mut self, label: &str, position: Direction) -> Result<(), MagicError> {
+        self.exec_one(&format!("label {} {}", label, position))
+            .map(|_| ())
+    }
+
+    pub fn label_position_layer(
+        &mut self,
+        label: &str,
+        position: Direction,
+        layer: &str,
+    ) -> Result<(), MagicError> {
+        self.exec_one(&format!("label {} {} {}", label, position, layer))
+            .map(|_| ())
+    }
+
+    pub fn port_make(&mut self, idx: usize) -> Result<(), MagicError> {
+        self.exec_one(&format!("port make {}", idx)).map(|_| ())
+    }
 }
 
 fn parse_int_error(e: std::num::ParseIntError) -> MagicError {
