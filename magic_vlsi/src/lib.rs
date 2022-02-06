@@ -605,7 +605,7 @@ impl Drop for MagicInstance {
 mod tests {
     use std::sync::atomic::{AtomicU16, Ordering};
 
-    use crate::{units::Rect, MagicInstanceBuilder, SnapMode};
+    use crate::{units::Rect, Direction, MagicInstanceBuilder, SnapMode};
     use lazy_static::lazy_static;
 
     pub fn get_port() -> u16 {
@@ -700,5 +700,32 @@ mod tests {
             instance.set_snap(snap_mode).unwrap();
             assert_eq!(instance.snap().unwrap(), snap_mode);
         }
+    }
+
+    #[test]
+    fn test_labels_ports() -> Result<(), Box<dyn std::error::Error>> {
+        let mut instance = MagicInstanceBuilder::new()
+            .port(get_port())
+            .tech("sky130A")
+            .build()?;
+
+        let layer = "metal1";
+
+        instance.set_box_values(Rect::from_nm(0, 0, 1_000, 1_000))?;
+        instance.paint(layer)?;
+        instance.label_position_layer("vdd", Direction::Left, layer)?;
+        instance.port_make(0)?;
+
+        instance.set_box_values(Rect::from_nm(1_000, 0, 2_000, 1_000))?;
+        instance.paint(layer)?;
+        instance.label("gnd")?;
+        instance.port_make(1)?;
+
+        instance.set_box_values(Rect::from_nm(2_000, 0, 3_000, 1_000))?;
+        instance.paint(layer)?;
+        instance.label_position("vnb", Direction::Right)?;
+        instance.port_make(2)?;
+
+        Ok(())
     }
 }
