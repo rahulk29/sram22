@@ -77,6 +77,8 @@ pub fn generate_pm_single_height(
     nwell_box.ur.y = params.height;
 
     m.paint_box(nwell_box, "nwell")?;
+    m.label_position_layer("VPB", Direction::Right, "nwell")?;
+    m.port_make(3)?;
 
     let mut gate_contact_box = Rect::zero();
     for i in 0..fingers {
@@ -200,6 +202,8 @@ pub fn generate_pm_single_height(
                 tc.layer("li").width,
             );
             m.paint_box(li_box, "li")?;
+            m.label_position_layer("Y", Direction::Right, "li")?;
+            m.port_make(5)?;
         }
 
         let mut gnd_finger = Rect::btcxw(
@@ -247,31 +251,32 @@ pub fn generate_pm_single_height(
         )?;
     }
     m.paint_box(gate_contact_box, "li")?;
+    m.label_position_layer("A", Direction::Left, "metal1")?;
+    m.port_make(0)?;
 
     m.select_clear()?;
     m.select_top_cell()?;
     let bbox = m.select_bbox()?;
 
-    let vdd_li_box = Rect::from_dist(
+    let vdd_m1_box = Rect::from_dist(
         bbox.left_edge(),
         params.height - tc.layer("li").width / 2,
         bbox.right_edge(),
         params.height,
     );
-    // m.paint_box(vdd_li_box, "li")?;
-    let vdd_m1_box = vdd_li_box;
-    // vdd_m1_box.grow(Direction::Down, tc.layer("ct").enclosure("m1"));
     m.paint_box(vdd_m1_box, "m1")?;
+    m.label_position_layer("VPWR", Direction::Left, "metal1")?;
+    m.port_make(4)?;
 
-    let gnd_li_box = Rect::from_dist(
+    let gnd_m1_box = Rect::from_dist(
         bbox.left_edge(),
         Distance::zero(),
         bbox.right_edge(),
         tc.layer("li").width / 2,
     );
-    // m.paint_box(gnd_li_box, "li")?;
-    let gnd_m1_box = gnd_li_box;
     m.paint_box(gnd_m1_box, "m1")?;
+    m.label_position_layer("VGND", Direction::Left, "metal1")?;
+    m.port_make(1)?;
 
     println!("saving cell");
     m.save(&cell_name)?;
