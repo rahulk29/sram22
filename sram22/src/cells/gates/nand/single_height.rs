@@ -253,3 +253,46 @@ fn ndiff_edge_to_gate(tc: &TechConfig) -> Distance {
     .max()
     .unwrap()
 }
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+    use crate::sky130_config;
+    use crate::test_utils::*;
+
+    #[test]
+    fn test_generate_nand2_pm_sh() {
+        let tc = sky130_config();
+        let mut m = get_magic();
+
+        generate_pm_single_height(
+            &mut m,
+            &tc,
+            &Nand2Params {
+                nmos_scale: Distance::from_nm(420),
+                height: Distance::from_nm(1_580),
+            },
+        )
+        .expect("failed to generate cell");
+
+        generate_pm_single_height(
+            &mut m,
+            &tc,
+            &Nand2Params {
+                nmos_scale: Distance::from_nm(1_000),
+                height: Distance::from_nm(1_580),
+            },
+        )
+        .expect("failed to generate cell");
+
+        generate_pm_single_height(
+            &mut m,
+            &tc,
+            &Nand2Params {
+                nmos_scale: Distance::from_nm(2_000),
+                height: Distance::from_nm(1_580),
+            },
+        )
+        .expect("failed to generate cell");
+    }
+}
