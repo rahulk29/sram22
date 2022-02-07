@@ -480,6 +480,14 @@ impl MagicInstance {
     pub fn port_make(&mut self, idx: usize) -> Result<(), MagicError> {
         self.exec_one(&format!("port make {}", idx)).map(|_| ())
     }
+
+    pub fn port_make_default(&mut self) -> Result<(), MagicError> {
+        self.exec_one("port make").map(|_| ())
+    }
+
+    pub fn port_renumber(&mut self) -> Result<(), MagicError> {
+        self.exec_one("port renumber").map(|_| ())
+    }
 }
 
 fn parse_int_error(e: std::num::ParseIntError) -> MagicError {
@@ -726,6 +734,7 @@ mod tests {
         instance.label_position("vnb", Direction::Right)?;
         instance.port_make(2)?;
 
+        instance.port_renumber()?;
         Ok(())
     }
 }

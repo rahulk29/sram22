@@ -58,6 +58,8 @@ pub fn generate_pm_single_height(
     nwell_box.ur.y = params.height;
 
     m.paint_box(nwell_box, "nwell")?;
+    m.label_position_layer("VPB", Direction::Right, "nwell")?;
+    m.port_make_default()?;
 
     let poly_box_bot = Rect::ll_wh(
         ndiff_box.left_edge() - tc.layer("poly").extension("ndiff"),
@@ -93,7 +95,7 @@ pub fn generate_pm_single_height(
     );
     m.paint_box(poly_pad_box_top, "poly")?;
 
-    for poly_pad_box in [poly_pad_box_bot, poly_pad_box_top] {
+    for (poly_pad_box, label) in [(poly_pad_box_bot, "B"), (poly_pad_box_top, "A")] {
         let mut licon_box = poly_pad_box;
         licon_box
             .shrink(
@@ -116,6 +118,9 @@ pub fn generate_pm_single_height(
             tmp
         };
         m.paint_box(li_box, "li")?;
+
+        m.label_position_layer(label, Direction::Left, "li")?;
+        m.port_make_default()?;
     }
 
     let m1_contact_width = std::cmp::max(
@@ -131,6 +136,9 @@ pub fn generate_pm_single_height(
         tc.layer("li").width,
     );
     m.paint_box(n_ct_top, "li")?;
+    m.label_position_layer("Y", Direction::Right, "li")?;
+    m.port_make_default()?;
+
     draw_contacts(m, tc, "li", "ndiffc", "licon", "ndiff", n_ct_top, ndiff_box)?;
     draw_contacts(m, tc, "li", "pdiffc", "licon", "pdiff", n_ct_top, pdiff_box)?;
 
@@ -142,6 +150,7 @@ pub fn generate_pm_single_height(
     );
     draw_contacts(m, tc, "li", "pdiffc", "licon", "pdiff", p_ct_mid, pdiff_box)?;
     m.paint_box(p_ct_mid, "li")?;
+
     let n_ct_bot = Rect::ul_wh(
         ndiff_box.left_edge(),
         poly_box_bot.bottom_edge() - tc.space("gate", "licon"),
@@ -203,16 +212,15 @@ pub fn generate_pm_single_height(
     m.select_top_cell()?;
     let bbox = m.select_bbox()?;
 
-    let vdd_li_box = Rect::from_dist(
+    let vdd_m1_box = Rect::from_dist(
         bbox.left_edge(),
         params.height - tc.layer("li").width / 2,
         bbox.right_edge(),
         params.height,
     );
-    // m.paint_box(vdd_li_box, "li")?;
-    let vdd_m1_box = vdd_li_box;
-    // vdd_m1_box.grow(Direction::Down, tc.layer("ct").enclosure("m1"));
     m.paint_box(vdd_m1_box, "m1")?;
+    m.label_position_layer("VPWR", Direction::Up, "m1")?;
+    m.port_make_default()?;
 
     let gnd_li_box = Rect::from_dist(
         bbox.left_edge(),
@@ -223,7 +231,10 @@ pub fn generate_pm_single_height(
     // m.paint_box(gnd_li_box, "li")?;
     let gnd_m1_box = gnd_li_box;
     m.paint_box(gnd_m1_box, "m1")?;
+    m.label_position_layer("VGND", Direction::Down, "m1")?;
+    m.port_make_default()?;
 
+    m.port_renumber()?;
     println!("saving cell");
     m.save(&cell_name)?;
 
