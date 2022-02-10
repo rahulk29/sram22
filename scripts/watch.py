@@ -5,7 +5,7 @@ import webbrowser
 
 command = "cargo r"
 out_dir = "_build/"
-cell = "nand2_pm_sh.mag"
+cell = "sram_8x8.mag"
 outsvg = "out.svg"
 
 script = f'''
@@ -16,7 +16,7 @@ expand
 findbox zoom
 select clear
 plot svg {outsvg}
-quit
+quit -noprompt
 EOF
 '''
 

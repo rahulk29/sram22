@@ -91,3 +91,18 @@ width = 0.14
 space = 0.14
 area = 0.083
 
+[layers.via1]
+desc = "defines contacts between metal 1 and metal 2"
+width = 0.26
+space = 0.06
+area = 0.0676
+enclosures = [
+  { layer = "m1", enclosure = 0.03, one_side = true },
+  { layer = "m2", enclosure = 0.03, one_side = true },
+]
+
+[layers.m2]
+desc = "first level of metal interconnects"
+width = 0.14
+space = 0.14
+area = 0.0676
