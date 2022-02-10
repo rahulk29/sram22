@@ -183,7 +183,15 @@ pub fn generate(config: SramConfig) -> Result<()> {
 }
 
 fn copy_cells(cell_dir: impl AsRef<Path>, out_dir: impl AsRef<Path>) {
-    for cell_name in ["sram_sp_cell.mag", "rowend.mag", "colend.mag", "corner.mag", "wl_route.mag", "inv_dec.mag", "nand2_dec.mag"] {
+    for cell_name in [
+        "sram_sp_cell.mag",
+        "rowend.mag",
+        "colend.mag",
+        "corner.mag",
+        "wl_route.mag",
+        "inv_dec.mag",
+        "nand2_dec.mag",
+    ] {
         std::fs::copy(
             cell_dir.as_ref().join(cell_name),
             out_dir.as_ref().join(cell_name),
