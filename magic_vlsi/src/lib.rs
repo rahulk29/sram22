@@ -489,6 +489,42 @@ impl MagicInstance {
         self.exec_one("port renumber").map(|_| ())
     }
 
+    pub fn port_name(&mut self) -> Result<String, MagicError> {
+        self.exec_one("port name")
+    }
+
+    pub fn port_index_name(&mut self, idx: i64) -> Result<String, MagicError> {
+        self.exec_one(&format!("port {} name", idx))
+    }
+
+    pub fn port_first(&mut self) -> Result<i64, MagicError> {
+        let res = self.exec_one("port first")?;
+        let first = res.trim().parse::<i64>().map_err(parse_int_error)?;
+        Ok(first)
+    }
+
+    pub fn port_last(&mut self) -> Result<i64, MagicError> {
+        let res = self.exec_one("port last")?;
+        let first = res.trim().parse::<i64>().map_err(parse_int_error)?;
+        Ok(first)
+    }
+
+    pub fn port_next(&mut self, n: i64) -> Result<i64, MagicError> {
+        let res = self.exec_one(&format!("port next {}", n))?;
+        let first = res.trim().parse::<i64>().map_err(parse_int_error)?;
+        Ok(first)
+    }
+
+    pub fn port_next_after_selection(&mut self) -> Result<i64, MagicError> {
+        let res = self.exec_one("port next")?;
+        let first = res.trim().parse::<i64>().map_err(parse_int_error)?;
+        Ok(first)
+    }
+
+    pub fn label_layer(&mut self) -> Result<String, MagicError> {
+        self.exec_one("setlabel layer")
+    }
+
     pub fn findlabel(&mut self, label: &str) -> Result<(), MagicError> {
         self.exec_one(&format!("findlabel {}", label)).map(|_| ())
     }
