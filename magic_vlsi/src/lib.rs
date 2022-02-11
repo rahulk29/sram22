@@ -467,6 +467,15 @@ impl MagicInstance {
             .map(|_| ())
     }
 
+    pub fn setlabel_text(&mut self, text: &str) -> Result<(), MagicError> {
+        self.exec_one(&format!("setlabel text {}", text))
+            .map(|_| ())
+    }
+
+    pub fn label_text(&mut self) -> Result<String, MagicError> {
+        Ok(self.exec_one("text")?.trim().into())
+    }
+
     pub fn label_position_layer(
         &mut self,
         label: &str,
@@ -522,7 +531,7 @@ impl MagicInstance {
     }
 
     pub fn label_layer(&mut self) -> Result<String, MagicError> {
-        self.exec_one("setlabel layer")
+        self.exec_one("setlabel layer").map(|s| s.trim().into())
     }
 
     pub fn findlabel(&mut self, label: &str) -> Result<(), MagicError> {
@@ -541,6 +550,15 @@ impl MagicInstance {
 
     pub fn findlabel_glob_n(&mut self, label: &str, n: usize) -> Result<(), MagicError> {
         self.exec_one(&format!("findlabel -glob {} {}", label, n))
+            .map(|_| ())
+    }
+
+    pub fn flatten(&mut self, cell: &str) -> Result<(), MagicError> {
+        self.exec_one(&format!("flatten {}", cell)).map(|_| ())
+    }
+
+    pub fn flatten_opts(&mut self, opts: &str, cell: &str) -> Result<(), MagicError> {
+        self.exec_one(&format!("flatten {} {}", opts, cell))
             .map(|_| ())
     }
 }
