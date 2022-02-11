@@ -488,6 +488,25 @@ impl MagicInstance {
     pub fn port_renumber(&mut self) -> Result<(), MagicError> {
         self.exec_one("port renumber").map(|_| ())
     }
+
+    pub fn findlabel(&mut self, label: &str) -> Result<(), MagicError> {
+        self.exec_one(&format!("findlabel {}", label)).map(|_| ())
+    }
+
+    pub fn findlabel_n(&mut self, label: &str, n: usize) -> Result<(), MagicError> {
+        self.exec_one(&format!("findlabel {} {}", label, n))
+            .map(|_| ())
+    }
+
+    pub fn findlabel_glob(&mut self, label: &str) -> Result<(), MagicError> {
+        self.exec_one(&format!("findlabel -glob {}", label))
+            .map(|_| ())
+    }
+
+    pub fn findlabel_glob_n(&mut self, label: &str, n: usize) -> Result<(), MagicError> {
+        self.exec_one(&format!("findlabel -glob {} {}", label, n))
+            .map(|_| ())
+    }
 }
 
 fn parse_int_error(e: std::num::ParseIntError) -> MagicError {
