@@ -1,0 +1,26 @@
+magic
+tech sky130A
+magscale 1 2
+timestamp 1644469767
+<< locali >>
+rect -151 -141 -118 -107
+<< viali >>
+rect -118 -141 -84 -107
+<< metal1 >>
+rect -134 -107 -68 -101
+rect -134 -141 -118 -107
+rect -84 -141 -68 -107
+rect -134 -180 -68 -141
+rect -134 -232 -127 -180
+rect -75 -232 -68 -180
+<< via1 >>
+rect -127 -232 -75 -180
+<< metal2 >>
+rect -135 -232 -127 -180
+rect -75 -189 -69 -180
+rect -75 -223 -13 -189
+rect -75 -232 -69 -223
+<< labels >>
+rlabel locali -151 -141 -134 -107 1 vin
+port 0 n
+<< end >>

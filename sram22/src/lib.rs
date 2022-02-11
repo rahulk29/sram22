@@ -88,6 +88,14 @@ pub fn generate(config: SramConfig) -> Result<()> {
     magic.select_top_cell()?;
     let rowend_bbox = magic.select_bbox()?;
 
+    magic.load("inv_dec")?;
+    magic.select_top_cell()?;
+    let inv_dec_bbox = magic.select_bbox()?;
+
+    magic.load("nand2_dec")?;
+    magic.select_top_cell()?;
+    let nand2_dec_bbox = magic.select_bbox()?;
+
     magic.load("corner")?;
     magic.select_top_cell()?;
     let corner_bbox = magic.select_bbox()?;
@@ -109,13 +117,22 @@ pub fn generate(config: SramConfig) -> Result<()> {
 
     // draw rows
     for i in 0..(rows as usize) {
+        let pre_column_dist = inv_dec_bbox.width() + nand2_dec_bbox.width();
         bbox = Rect::ul_wh(
-            left,
+            left - pre_column_dist,
             bbox.bottom_edge(),
-            rowend_bbox.width(),
+            pre_column_dist,
             rowend_bbox.height(),
         );
-        bbox = magic.place_cell("rowend", bbox.ll())?;
+        bbox = magic.place_cell("nand2_dec", bbox.ll())?;
+        if i % 2 == 0 {
+            magic.upside_down()?;
+        }
+        bbox = magic.place_cell("inv_dec", bbox.lr())?;
+        if i % 2 == 0 {
+            magic.upside_down()?;
+        }
+        bbox = magic.place_cell("rowend", bbox.lr())?;
         magic.sideways()?;
         if i % 2 == 0 {
             magic.upside_down()?;
@@ -159,13 +176,22 @@ pub fn generate(config: SramConfig) -> Result<()> {
     magic.place_cell("corner", bbox.lr())?;
     magic.upside_down()?;
 
+    println!("DONE generating sram; saving cell");
     magic.save(&cell_name)?;
 
     Ok(())
 }
 
 fn copy_cells(cell_dir: impl AsRef<Path>, out_dir: impl AsRef<Path>) {
-    for cell_name in ["sram_sp_cell.mag", "rowend.mag", "colend.mag", "corner.mag"] {
+    for cell_name in [
+        "sram_sp_cell.mag",
+        "rowend.mag",
+        "colend.mag",
+        "corner.mag",
+        "wl_route.mag",
+        "inv_dec.mag",
+        "nand2_dec.mag",
+    ] {
         std::fs::copy(
             cell_dir.as_ref().join(cell_name),
             out_dir.as_ref().join(cell_name),
