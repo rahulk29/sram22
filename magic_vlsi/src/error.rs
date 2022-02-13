@@ -2,6 +2,8 @@ use thiserror::Error as ThisError;
 
 pub type BoxedError = std::boxed::Box<dyn std::error::Error + Send + Sync>;
 
+pub type Result<T> = std::result::Result<T, MagicError>;
+
 #[derive(Debug, ThisError)]
 pub enum MagicError {
     #[error("I/O error while communicating with magic process: {0}")]

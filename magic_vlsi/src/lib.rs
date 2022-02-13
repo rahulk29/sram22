@@ -1,4 +1,5 @@
-use error::{MagicError, StartMagicError};
+use cell::{InstanceCell, LayoutCell, LayoutCellRef, LayoutPort};
+use error::{MagicError, Result, StartMagicError};
 use std::{
     fmt::Display,
     io::{Read, Write},
@@ -6,10 +7,12 @@ use std::{
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     str::FromStr,
+    sync::Arc,
     time::Duration,
 };
 use units::{Distance, Rect, Vec2};
 
+pub mod cell;
 pub mod error;
 pub mod units;
 
@@ -71,7 +74,7 @@ impl MagicInstanceBuilder {
     /// This will start a MAGIC process in the background.
     /// The child process will listen on the port configured
     /// by the builder.
-    pub fn build(self) -> Result<MagicInstance, StartMagicError> {
+    pub fn build(self) -> std::result::Result<MagicInstance, StartMagicError> {
         MagicInstance::new(self)
     }
 }
@@ -103,7 +106,7 @@ pub struct MagicInstance {
 const MAGIC_SOCKET_SCRIPT: &[u8] = include_bytes!("serversock.tcl");
 
 impl MagicInstance {
-    fn new(builder: MagicInstanceBuilder) -> Result<Self, StartMagicError> {
+    fn new(builder: MagicInstanceBuilder) -> std::result::Result<Self, StartMagicError> {
         let mut cmd = match builder.magic {
             Some(magic) => Command::new(magic),
             None => Command::new("magic"),
@@ -170,7 +173,7 @@ impl MagicInstance {
     /// is placed such that the lower-left corner of the cell's
     /// bounding box is placed at the lower-left corner of the
     /// cursor box in the parent cell.
-    pub fn getcell(&mut self, cell: &str) -> Result<Rect, MagicError> {
+    pub fn getcell(&mut self, cell: &str) -> Result<Rect> {
         writeln!(&mut self.stream, "getcell {}", cell)?;
         read_line(&mut self.stream)?;
         // Loading a cell can scale the grid, so recalculate units
@@ -178,16 +181,58 @@ impl MagicInstance {
         self.select_bbox()
     }
 
-    pub fn place_cell(&mut self, cell: &str, ll: Vec2) -> Result<Rect, MagicError> {
+    /// The getcell command creates subcell instances within
+    /// the current edit cell. By default, with only the cellname
+    /// given, an orientation of zero is assumed, and the cell
+    /// is placed such that the lower-left corner of the cell's
+    /// bounding box is placed at the lower-left corner of the
+    /// cursor box in the parent cell.
+    pub fn getcell_name(&mut self, cell: &str) -> Result<String> {
+        writeln!(&mut self.stream, "getcell {}", cell)?;
+        let cell_name = read_line(&mut self.stream)?.trim().to_string();
+        // Loading a cell can scale the grid, so recalculate units
+        self.update_units()?;
+        Ok(cell_name)
+    }
+
+    pub fn place_cell(&mut self, cell: &str, ll: Vec2) -> Result<Rect> {
         self.set_box_values(Rect::ll_wh(ll.x, ll.y, Distance::zero(), Distance::zero()))?;
         self.getcell(cell)
+    }
+
+    pub fn place_layout_cell(&mut self, cell: LayoutCellRef, ll: Vec2) -> Result<InstanceCell> {
+        self.set_box_values(Rect::ll_wh(ll.x, ll.y, Distance::zero(), Distance::zero()))?;
+        let name = self.getcell_name(&cell.name)?;
+
+        Ok(InstanceCell::new(ll, cell, name))
+    }
+
+    pub fn flip_cell_x(&mut self, cell: &mut InstanceCell) -> Result<()> {
+        self.select_cell(&cell.name)?;
+        self.sideways()?;
+        cell.sideways();
+        Ok(())
+    }
+
+    pub fn flip_cell_y(&mut self, cell: &mut InstanceCell) -> Result<()> {
+        self.select_cell(&cell.name)?;
+        self.upside_down()?;
+        cell.upside_down();
+        Ok(())
+    }
+
+    pub fn rename_cell_pin(&mut self, cell: &InstanceCell, pin: &str, name: &str) -> Result<()> {
+        let port = cell.port(pin);
+        self.paint_box(cell.port_bbox(pin), &port.layer)?;
+        self.label_position_layer(name, Direction::Up, &port.layer)?;
+        Ok(())
     }
 
     /// The sideways command flips the selection from left to
     /// right. Flipping is done such that the lower left-hand
     /// corner of the selection remains in the same place
     /// through the flip.
-    pub fn sideways(&mut self) -> Result<(), MagicError> {
+    pub fn sideways(&mut self) -> Result<()> {
         writeln!(&mut self.stream, "sideways")?;
         read_line(&mut self.stream)?;
         Ok(())
@@ -196,32 +241,59 @@ impl MagicInstance {
     /// Ensures that the cursor box is present.
     ///
     /// Equivalent to running `box 0 0 0 0` in Magic.
-    pub fn enable_box(&mut self) -> Result<(), MagicError> {
+    pub fn enable_box(&mut self) -> Result<()> {
         writeln!(&mut self.stream, "box 0 0 0 0")?;
         read_line(&mut self.stream)?;
         Ok(())
     }
 
-    pub fn load(&mut self, cell: &str) -> Result<(), MagicError> {
+    pub fn load(&mut self, cell: &str) -> Result<()> {
         writeln!(&mut self.stream, "load {}", cell)?;
         read_line(&mut self.stream)?;
         Ok(())
     }
 
-    pub fn edit(&mut self, cell: &str) -> Result<(), MagicError> {
+    pub fn edit(&mut self, cell: &str) -> Result<()> {
         writeln!(&mut self.stream, "edit {}", cell)?;
         read_line(&mut self.stream)?;
         Ok(())
     }
 
-    pub fn array(&mut self, xsize: u32, ysize: u32) -> Result<(), MagicError> {
+    pub fn load_layout_cell(&mut self, cell: &str) -> Result<LayoutCellRef> {
+        self.load(cell)?;
+        self.select_top_cell()?;
+        let bbox = self.select_bbox()?;
+
+        let mut idx = self.port_first()?;
+
+        let mut ports = Vec::new();
+
+        while idx != -1 {
+            let name = self.port_index_name(idx)?;
+            self.findlabel(&name)?;
+            self.select_visible()?;
+            let bbox = self.select_bbox()?;
+            let layer = self.label_layer()?;
+
+            ports.push(LayoutPort { name, bbox, layer });
+            idx = self.port_next(idx)?;
+        }
+
+        Ok(Arc::new(LayoutCell {
+            name: cell.to_string(),
+            bbox,
+            ports,
+        }))
+    }
+
+    pub fn array(&mut self, xsize: u32, ysize: u32) -> Result<()> {
         writeln!(&mut self.stream, "array {} {}", xsize, ysize)?;
         read_line(&mut self.stream)?;
         Ok(())
     }
 
     /// Return the bounding box of the selection.
-    pub fn select_bbox(&mut self) -> Result<Rect, MagicError> {
+    pub fn select_bbox(&mut self) -> Result<Rect> {
         writeln!(&mut self.stream, "select bbox").unwrap();
         let res = read_line(&mut self.stream)?;
         let values: Vec<i64> = res
@@ -231,7 +303,7 @@ impl MagicInstance {
                     .map_err(|_| MagicError::UnexpectedOutput("failed to parse i64".to_string()))
             })
             .take(4)
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>>>()?;
 
         assert_eq!(values.len(), 4);
 
@@ -244,7 +316,7 @@ impl MagicInstance {
         ))
     }
 
-    pub fn copy_dir(&mut self, dir: Direction, distance: Distance) -> Result<(), MagicError> {
+    pub fn copy_dir(&mut self, dir: Direction, distance: Distance) -> Result<()> {
         writeln!(
             &mut self.stream,
             "copy {} {}i",
@@ -255,7 +327,7 @@ impl MagicInstance {
         Ok(())
     }
 
-    pub fn set_box_values(&mut self, rect: Rect) -> Result<(), MagicError> {
+    pub fn set_box_values(&mut self, rect: Rect) -> Result<()> {
         let (llx, lly, urx, ury) = rect.as_internal(self.nm_per_internal);
         writeln!(
             &mut self.stream,
@@ -266,7 +338,7 @@ impl MagicInstance {
         Ok(())
     }
 
-    pub fn box_values(&mut self) -> Result<Rect, MagicError> {
+    pub fn box_values(&mut self) -> Result<Rect> {
         writeln!(&mut self.stream, "box values")?;
         let res = read_line(&mut self.stream)?;
         let values = res
@@ -276,7 +348,7 @@ impl MagicInstance {
                     .map_err(|_| MagicError::UnexpectedOutput("failed to parse i64".to_string()))
             })
             .take(4)
-            .collect::<Result<Vec<i64>, _>>()?;
+            .collect::<Result<Vec<i64>>>()?;
 
         assert_eq!(values.len(), 4);
 
@@ -289,81 +361,87 @@ impl MagicInstance {
         ))
     }
 
-    pub fn set_snap(&mut self, snap_mode: SnapMode) -> Result<(), MagicError> {
+    pub fn set_snap(&mut self, snap_mode: SnapMode) -> Result<()> {
         writeln!(&mut self.stream, "snap {}", snap_mode)?;
         read_line(&mut self.stream)?;
         self.update_units()?;
         Ok(())
     }
 
-    pub fn scalegrid(&mut self, a: i64, b: i64) -> Result<(), MagicError> {
+    pub fn scalegrid(&mut self, a: i64, b: i64) -> Result<()> {
         writeln!(&mut self.stream, "scalegrid {} {}", a, b)?;
         read_line(&mut self.stream)?;
         self.update_units()?;
         Ok(())
     }
 
-    pub fn snap(&mut self) -> Result<SnapMode, MagicError> {
+    pub fn snap(&mut self) -> Result<SnapMode> {
         writeln!(&mut self.stream, "snap")?;
         let res = read_line(&mut self.stream)?;
         res.parse::<SnapMode>()
     }
 
-    pub fn paint(&mut self, layer: &str) -> Result<(), MagicError> {
+    pub fn paint(&mut self, layer: &str) -> Result<()> {
         writeln!(&mut self.stream, "paint {}", layer)?;
         read_line(&mut self.stream)?;
         Ok(())
     }
 
-    pub fn paint_box(&mut self, rect: Rect, layer: &str) -> Result<(), MagicError> {
+    pub fn paint_box(&mut self, rect: Rect, layer: &str) -> Result<()> {
         self.set_box_values(rect)?;
         self.paint(layer)?;
         Ok(())
     }
 
-    pub fn select_clear(&mut self) -> Result<(), MagicError> {
+    pub fn select_clear(&mut self) -> Result<()> {
         writeln!(&mut self.stream, "select clear")?;
         read_line(&mut self.stream)?;
         Ok(())
     }
 
-    pub fn select_top_cell(&mut self) -> Result<(), MagicError> {
+    pub fn select_top_cell(&mut self) -> Result<()> {
         writeln!(&mut self.stream, "select top cell")?;
         read_line(&mut self.stream)?;
         Ok(())
     }
 
-    pub fn select_visible(&mut self) -> Result<(), MagicError> {
+    pub fn select_visible(&mut self) -> Result<()> {
         writeln!(&mut self.stream, "select visible")?;
         read_line(&mut self.stream)?;
         Ok(())
     }
 
-    pub fn upside_down(&mut self) -> Result<(), MagicError> {
+    pub fn select_cell(&mut self, cell_name: &str) -> Result<()> {
+        writeln!(&mut self.stream, "select cell {}", cell_name)?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
+    pub fn upside_down(&mut self) -> Result<()> {
         writeln!(&mut self.stream, "upsidedown")?;
         read_line(&mut self.stream)?;
         Ok(())
     }
 
-    pub fn drc_off(&mut self) -> Result<(), MagicError> {
+    pub fn drc_off(&mut self) -> Result<()> {
         writeln!(&mut self.stream, "drc off")?;
         read_line(&mut self.stream)?;
         Ok(())
     }
 
-    pub fn drc_on(&mut self) -> Result<(), MagicError> {
+    pub fn drc_on(&mut self) -> Result<()> {
         writeln!(&mut self.stream, "drc on")?;
         read_line(&mut self.stream)?;
         Ok(())
     }
 
-    pub fn identify(&mut self, id: &str) -> Result<(), MagicError> {
+    pub fn identify(&mut self, id: &str) -> Result<()> {
         writeln!(&mut self.stream, "identify {}", id)?;
         read_line(&mut self.stream)?;
         Ok(())
     }
 
-    pub fn save(&mut self, cell_name: &str) -> Result<(), MagicError> {
+    pub fn save(&mut self, cell_name: &str) -> Result<()> {
         writeln!(&mut self.stream, "save {}", cell_name)?;
         read_line(&mut self.stream)?;
         Ok(())
@@ -375,7 +453,7 @@ impl MagicInstance {
         region: Rect,
         size: Distance,
         space: Distance,
-    ) -> Result<u64, MagicError> {
+    ) -> Result<u64> {
         println!(
             "region height {}, space {}, size {}",
             region.height(),
@@ -401,20 +479,20 @@ impl MagicInstance {
         Ok(num_contacts)
     }
 
-    pub fn contact(&mut self, rect: Rect, contact_type: &str) -> Result<(), MagicError> {
+    pub fn contact(&mut self, rect: Rect, contact_type: &str) -> Result<()> {
         self.set_box_values(rect)?;
         writeln!(&mut self.stream, "paint {}", contact_type)?;
         read_line(&mut self.stream)?;
         Ok(())
     }
 
-    pub fn exec_one(&mut self, cmd: &str) -> Result<String, MagicError> {
+    pub fn exec_one(&mut self, cmd: &str) -> Result<String> {
         writeln!(&mut self.stream, "{}", cmd)?;
         read_line(&mut self.stream)
     }
 
     /// (a, b) indicates a lambdas = b internal units
-    pub fn tech_lambda(&mut self) -> Result<(i64, i64), MagicError> {
+    pub fn tech_lambda(&mut self) -> Result<(i64, i64)> {
         writeln!(&mut self.stream, "tech lambda")?;
         let res = read_line(&mut self.stream)?;
         let values: Vec<i64> = res
@@ -424,12 +502,12 @@ impl MagicInstance {
                     .map_err(|_| MagicError::UnexpectedOutput("failed to parse i64".to_string()))
             })
             .take(2)
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>>>()?;
         assert_eq!(values.len(), 2);
         Ok((values[0], values[1]))
     }
 
-    fn update_units(&mut self) -> Result<(), MagicError> {
+    fn update_units(&mut self) -> Result<()> {
         self.exec_one("box 0um 0um 1um 1um")?;
         let res = self.exec_one("box width")?;
         let internal_width = res.trim().parse::<i64>().map_err(parse_int_error)?;
@@ -444,25 +522,25 @@ impl MagicInstance {
         Ok(())
     }
 
-    pub fn get_nm_per_internal(&mut self) -> Result<i64, MagicError> {
+    pub fn get_nm_per_internal(&mut self) -> Result<i64> {
         if self.nm_per_internal == 0 {
             self.update_units()?;
         }
         Ok(self.nm_per_internal)
     }
 
-    pub fn get_nm_per_lambda(&mut self) -> Result<i64, MagicError> {
+    pub fn get_nm_per_lambda(&mut self) -> Result<i64> {
         if self.nm_per_lambda == 0 {
             self.update_units()?;
         }
         Ok(self.nm_per_lambda)
     }
 
-    pub fn label(&mut self, label: &str) -> Result<(), MagicError> {
+    pub fn label(&mut self, label: &str) -> Result<()> {
         self.exec_one(&format!("label {}", label)).map(|_| ())
     }
 
-    pub fn label_position(&mut self, label: &str, position: Direction) -> Result<(), MagicError> {
+    pub fn label_position(&mut self, label: &str, position: Direction) -> Result<()> {
         self.exec_one(&format!("label {} {}", label, position))
             .map(|_| ())
     }
@@ -472,74 +550,77 @@ impl MagicInstance {
         label: &str,
         position: Direction,
         layer: &str,
-    ) -> Result<(), MagicError> {
+    ) -> Result<()> {
         self.exec_one(&format!("label {} {} {}", label, position, layer))
             .map(|_| ())
     }
 
-    pub fn port_make(&mut self, idx: usize) -> Result<(), MagicError> {
+    pub fn port_make(&mut self, idx: usize) -> Result<()> {
         self.exec_one(&format!("port make {}", idx)).map(|_| ())
     }
 
-    pub fn port_make_default(&mut self) -> Result<(), MagicError> {
+    pub fn port_make_default(&mut self) -> Result<()> {
         self.exec_one("port make").map(|_| ())
     }
 
-    pub fn port_renumber(&mut self) -> Result<(), MagicError> {
+    pub fn port_renumber(&mut self) -> Result<()> {
         self.exec_one("port renumber").map(|_| ())
     }
 
-    pub fn port_name(&mut self) -> Result<String, MagicError> {
+    pub fn port_name(&mut self) -> Result<String> {
         self.exec_one("port name")
     }
 
-    pub fn port_index_name(&mut self, idx: i64) -> Result<String, MagicError> {
-        self.exec_one(&format!("port {} name", idx))
+    pub fn port_index_name(&mut self, idx: i64) -> Result<String> {
+        Ok(self
+            .exec_one(&format!("port {} name", idx))?
+            .trim()
+            .to_string())
     }
 
-    pub fn port_first(&mut self) -> Result<i64, MagicError> {
+    pub fn port_first(&mut self) -> Result<i64> {
         let res = self.exec_one("port first")?;
         let first = res.trim().parse::<i64>().map_err(parse_int_error)?;
         Ok(first)
     }
 
-    pub fn port_last(&mut self) -> Result<i64, MagicError> {
+    pub fn port_last(&mut self) -> Result<i64> {
         let res = self.exec_one("port last")?;
         let first = res.trim().parse::<i64>().map_err(parse_int_error)?;
         Ok(first)
     }
 
-    pub fn port_next(&mut self, n: i64) -> Result<i64, MagicError> {
-        let res = self.exec_one(&format!("port next {}", n))?;
+    pub fn port_next(&mut self, n: i64) -> Result<i64> {
+        let res = self.exec_one(&format!("port {} next", n))?;
         let first = res.trim().parse::<i64>().map_err(parse_int_error)?;
         Ok(first)
     }
 
-    pub fn port_next_after_selection(&mut self) -> Result<i64, MagicError> {
+    pub fn port_next_after_selection(&mut self) -> Result<i64> {
         let res = self.exec_one("port next")?;
         let first = res.trim().parse::<i64>().map_err(parse_int_error)?;
         Ok(first)
     }
 
-    pub fn label_layer(&mut self) -> Result<String, MagicError> {
-        self.exec_one("setlabel layer")
+    pub fn label_layer(&mut self) -> Result<String> {
+        Ok(self.exec_one("setlabel layer")?.trim().to_string())
     }
 
-    pub fn findlabel(&mut self, label: &str) -> Result<(), MagicError> {
+    pub fn findlabel(&mut self, label: &str) -> Result<()> {
         self.exec_one(&format!("findlabel {}", label)).map(|_| ())
     }
 
-    pub fn findlabel_n(&mut self, label: &str, n: usize) -> Result<(), MagicError> {
+    pub fn findlabel_n(&mut self, label: &str, n: usize) -> Result<()> {
         self.exec_one(&format!("findlabel {} {}", label, n))
             .map(|_| ())
     }
 
-    pub fn findlabel_glob(&mut self, label: &str) -> Result<(), MagicError> {
+    pub fn findlabel_glob(&mut self, label: &str) -> Result<()> {
         self.exec_one(&format!("findlabel -glob {}", label))
             .map(|_| ())
     }
 
-    pub fn findlabel_glob_n(&mut self, label: &str, n: usize) -> Result<(), MagicError> {
+    pub fn findlabel_glob_n(&mut self, label: &str, n: usize) -> Result<()> {
         self.exec_one(&format!("findlabel -glob {} {}", label, n))
             .map(|_| ())
     }
@@ -558,7 +639,7 @@ pub enum SnapMode {
 
 impl FromStr for SnapMode {
     type Err = MagicError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self> {
         match s.trim() {
             "internal" => Ok(Self::Internal),
             "lambda" => Ok(Self::Lambda),
@@ -641,7 +722,7 @@ impl Display for SnapMode {
     }
 }
 
-fn read_line(conn: &mut TcpStream) -> Result<String, MagicError> {
+fn read_line(conn: &mut TcpStream) -> Result<String> {
     let mut s = String::new();
     let mut bytes = [0; 512];
 

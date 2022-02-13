@@ -70,6 +70,20 @@ impl Vec2 {
         }
     }
 
+    pub fn from_mm(x: i64, y: i64) -> Self {
+        Self {
+            x: Distance::from_mm(x),
+            y: Distance::from_mm(y),
+        }
+    }
+
+    pub fn from_um(x: i64, y: i64) -> Self {
+        Self {
+            x: Distance::from_um(x),
+            y: Distance::from_um(y),
+        }
+    }
+
     pub fn as_internal(&self, nm_per_internal: i64) -> (i64, i64) {
         (
             self.x.as_internal(nm_per_internal),
