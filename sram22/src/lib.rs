@@ -84,21 +84,10 @@ pub fn generate(config: SramConfig) -> Result<()> {
 
     let cell_name = format!("sram_{}x{}", rows, cols);
 
-    magic.load("rowend")?;
-    magic.select_top_cell()?;
-    let rowend_bbox = magic.select_bbox()?;
-
-    magic.load("inv_dec")?;
-    magic.select_top_cell()?;
-    let inv_dec_bbox = magic.select_bbox()?;
-
-    magic.load("nand2_dec")?;
-    magic.select_top_cell()?;
-    let nand2_dec_bbox = magic.select_bbox()?;
-
-    magic.load("corner")?;
-    magic.select_top_cell()?;
-    let corner_bbox = magic.select_bbox()?;
+    let rowend = magic.load_layout_cell("rowend")?;
+    let inv_dec = magic.load_layout_cell("inv_dec")?;
+    let nand2_dec = magic.load_layout_cell("nand2_dec")?;
+    let corner = magic.load_layout_cell("corner")?;
 
     magic.load(&cell_name)?;
     magic.enable_box()?;
@@ -117,17 +106,19 @@ pub fn generate(config: SramConfig) -> Result<()> {
 
     // draw rows
     for i in 0..(rows as usize) {
-        let pre_column_dist = inv_dec_bbox.width() + nand2_dec_bbox.width();
+        let pre_column_dist = inv_dec.bbox.width() + nand2_dec.bbox.width();
         bbox = Rect::ul_wh(
             left - pre_column_dist,
             bbox.bottom_edge(),
             pre_column_dist,
-            rowend_bbox.height(),
+            rowend.bbox.height(),
         );
-        bbox = magic.place_cell("nand2_dec", bbox.ll())?;
+        let mut nand2_cell = magic.place_layout_cell(nand2_dec.clone(), bbox.ll())?;
         if i % 2 == 0 {
-            magic.upside_down()?;
+            magic.flip_cell_y(&mut nand2_cell)?;
         }
+        magic.rename_cell_pin(&nand2_cell, "Y", &format!("wl_{}", i))?;
+        bbox = nand2_cell.bbox();
         bbox = magic.place_cell("inv_dec", bbox.lr())?;
         if i % 2 == 0 {
             magic.upside_down()?;
@@ -160,8 +151,8 @@ pub fn generate(config: SramConfig) -> Result<()> {
     bbox = Rect::ul_wh(
         left,
         bbox.bottom_edge(),
-        corner_bbox.width(),
-        corner_bbox.height(),
+        corner.bbox.width(),
+        corner.bbox.height(),
     );
     let mut bbox = magic.place_cell("corner", bbox.ll())?;
     magic.sideways()?;
