@@ -454,17 +454,9 @@ impl MagicInstance {
         size: Distance,
         space: Distance,
     ) -> Result<u64> {
-        println!(
-            "region height {}, space {}, size {}",
-            region.height(),
-            space,
-            size
-        );
         let d1 = region.height() + space;
         let d2 = size + space;
-        println!("d1 {}, d2 {}", d1, d2);
         let num_contacts: i64 = d1 / d2;
-        println!("making {} contacts in {}", num_contacts, region);
 
         assert!(num_contacts > 0);
         let num_contacts = num_contacts as u64;

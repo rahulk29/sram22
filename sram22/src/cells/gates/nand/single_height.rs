@@ -235,7 +235,6 @@ pub fn generate_pm_single_height(
     m.port_make_default()?;
 
     m.port_renumber()?;
-    println!("saving cell");
     m.save(&cell_name)?;
 
     Ok(())

@@ -35,13 +35,6 @@ pub fn generate_pm_single_height(
         + tc.layer("poly").width * fingers
         + finger_space(tc) * (fingers - 1);
 
-    println!(
-        "diff over poly: {}, poly space: {}, finger space: {}, fingers: {}",
-        tc.layer("ndiff").extension("poly"),
-        tc.layer("poly").space,
-        finger_space(tc),
-        fingers
-    );
     let ndiff_box = Rect::center_wh(
         Distance::zero(),
         params.height / 2,
@@ -167,7 +160,6 @@ pub fn generate_pm_single_height(
             ndiff_box.width(),
             tc.layer("li").width,
         );
-        println!("libox: {}", li_box);
         m.paint_box(li_box, "li")?;
         draw_contacts(m, tc, "li", "ndiffc", "licon", "ndiff", li_box, ndiff_box)?;
         let li_box = Rect::ul_wh(

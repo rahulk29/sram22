@@ -1,4 +1,5 @@
 use config::TechConfig;
+use indicatif::{ProgressBar, ProgressStyle};
 use magic_vlsi::units::{Distance, Rect};
 use magic_vlsi::{Direction, MagicInstanceBuilder};
 
@@ -9,6 +10,8 @@ use crate::error::Result;
 use crate::layout::bus::BusBuilder;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+use log::info;
 
 pub mod cells;
 pub mod config;
@@ -21,6 +24,10 @@ pub fn generate(config: SramConfig) -> Result<()> {
     let cols = config.cols;
     assert_eq!(rows % 4, 0);
     assert_eq!(cols % 4, 0);
+
+    info!("generating {}x{} SRAM", rows, cols);
+    info!("reading cells from {}", &config.cell_dir);
+    info!("generated files will be placed in {}", &config.output_dir);
 
     let out_dir = &config.output_dir;
     let cell_dir = &config.cell_dir;
@@ -40,6 +47,9 @@ pub fn generate(config: SramConfig) -> Result<()> {
         .build()
         .unwrap();
 
+    info!("magic started successfully");
+
+    info!("generating subcells");
     crate::cells::gates::inv::generate_pm(&mut magic)?;
     crate::cells::gates::inv::generate_pm_eo(&mut magic)?;
     crate::cells::gates::inv::single_height::generate_pm_single_height(
@@ -65,30 +75,14 @@ pub fn generate(config: SramConfig) -> Result<()> {
     magic.drc_off()?;
     magic.scalegrid(1, 2)?;
     magic.set_snap(magic_vlsi::SnapMode::Internal)?;
-    magic.load("sram_2x2")?;
-    magic.enable_box()?;
-    magic.getcell("sram_sp_cell")?;
-    magic.set_snap(magic_vlsi::SnapMode::Internal)?;
-    magic.identify("sram0")?;
-    magic.sideways()?; // orient nwell facing outwards
-    let bbox = magic.box_values()?;
-    magic.copy_dir(Direction::Right, bbox.width())?;
-    magic.sideways()?;
-    magic.identify("sram1")?;
-
-    magic.exec_one("select clear")?;
-    magic.exec_one("select cell sram0")?;
-    magic.exec_one("select more cell sram1")?;
-    magic.copy_dir(Direction::Down, bbox.height())?;
-    magic.upside_down()?;
-    magic.save("sram_2x2")?;
-
     let cell_name = format!("sram_{}x{}", rows, cols);
 
     let rowend = magic.load_layout_cell("rowend")?;
     let inv_dec = magic.load_layout_cell("inv_dec")?;
     let nand2_dec = magic.load_layout_cell("nand2_dec")?;
     let corner = magic.load_layout_cell("corner")?;
+
+    info!("generating bitcell array");
 
     magic.load(&cell_name)?;
     magic.enable_box()?;
@@ -104,8 +98,17 @@ pub fn generate(config: SramConfig) -> Result<()> {
         }
     }
     magic.place_cell("corner", bbox.lr())?;
+    info!("generated top row");
 
     // draw rows
+    info!("generating bitcell core");
+    let prog_bar = ProgressBar::new((rows * cols) as u64);
+    prog_bar.set_style(
+        ProgressStyle::default_bar()
+            .template("{msg} [{bar}] {pos:>4}/{len:4} [{eta_precise}]")
+            .progress_chars("=> "),
+    );
+    prog_bar.set_message("Placing sram cells");
     for i in 0..(rows as usize) {
         let pre_column_dist = inv_dec.bbox.width() + nand2_dec.bbox.width();
         let sram_array_left = left - pre_column_dist;
@@ -141,6 +144,7 @@ pub fn generate(config: SramConfig) -> Result<()> {
             if j % 2 == 0 {
                 magic.sideways()?;
             }
+            prog_bar.inc(1);
         }
         magic.place_cell("rowend", bbox.lr())?;
 
@@ -148,6 +152,10 @@ pub fn generate(config: SramConfig) -> Result<()> {
             magic.upside_down()?;
         }
     }
+
+    prog_bar.finish_and_clear();
+
+    info!("finished generating bitcell core");
 
     // draw bot row
     bbox = Rect::ul_wh(
@@ -169,6 +177,8 @@ pub fn generate(config: SramConfig) -> Result<()> {
     magic.place_cell("corner", bbox.lr())?;
     magic.upside_down()?;
 
+    info!("generated bottom row");
+
     magic.select_top_cell()?;
     let bbox = magic.select_bbox()?;
 
@@ -183,8 +193,10 @@ pub fn generate(config: SramConfig) -> Result<()> {
         .end(bbox.top_edge())
         .draw(&mut magic)?;
 
-    println!("DONE generating sram; saving cell");
+    info!("layout complete; saving sram cell");
     magic.save(&cell_name)?;
+
+    info!("DONE: finished generating sram");
 
     Ok(())
 }
