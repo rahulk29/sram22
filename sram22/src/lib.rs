@@ -164,7 +164,10 @@ fn generate_bitcell_array(
         if i % 2 == 0 {
             magic.flip_cell_y(&mut nand2_cell)?;
         }
-        magic.rename_cell_pin(&nand2_cell, "Y", &format!("wl_{}", i))?;
+        magic.rename_cell_pin(&nand2_cell, "A", &format!("wl_{}A", i))?;
+        magic.port_make_default()?;
+        magic.rename_cell_pin(&nand2_cell, "B", &format!("wl_{}B", i))?;
+        magic.port_make_default()?;
         bbox = nand2_cell.bbox();
         bbox = magic.place_cell("inv_dec", bbox.lr())?;
         if i % 2 == 0 {
@@ -221,6 +224,7 @@ fn generate_bitcell_array(
 
     info!("generated bottom row");
 
+    magic.port_renumber()?;
     magic.save(&cell_name)?;
 
     Ok(cell_name)
