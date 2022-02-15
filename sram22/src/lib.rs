@@ -1,6 +1,6 @@
 use config::TechConfig;
 use indicatif::{ProgressBar, ProgressStyle};
-use magic_vlsi::units::{Distance, Rect};
+use magic_vlsi::units::{Distance, Rect, Vec2};
 use magic_vlsi::{Direction, MagicInstance, MagicInstanceBuilder};
 
 use crate::cells::gates::inv::single_height::InvParams;
@@ -77,17 +77,15 @@ pub fn generate(config: SramConfig) -> Result<()> {
         },
     )?;
 
-    let cell_name = format!("sram_{}x{}", rows, cols);
+    let bitcell_bank = magic.load_layout_cell(&bitcell_name)?;
 
+    let cell_name = format!("sram_{}x{}", rows, cols);
     magic.load(&cell_name)?;
     magic.enable_box()?;
     magic.drc_off()?;
     magic.set_snap(magic_vlsi::SnapMode::Internal)?;
 
-    magic.getcell(&bitcell_name)?;
-
-    magic.select_top_cell()?;
-    let bbox = magic.select_bbox()?;
+    let bitcell_bank = magic.place_layout_cell(bitcell_bank, Vec2::zero())?;
 
     let _bus = BusBuilder::new()
         .width(16)
@@ -95,9 +93,9 @@ pub fn generate(config: SramConfig) -> Result<()> {
         .tech_layer(&tc, "m1")
         .allow_contact(&tc, "li")
         .allow_contact(&tc, "m2")
-        .align_right(bbox.left_edge() - tc.layer("m1").space)
-        .start(bbox.bottom_edge())
-        .end(bbox.top_edge())
+        .align_right(bitcell_bank.bbox().left_edge() - tc.layer("m1").space)
+        .start(bitcell_bank.bbox().bottom_edge())
+        .end(bitcell_bank.bbox().top_edge())
         .draw(&mut magic)?;
 
     info!("layout complete; saving sram cell");
