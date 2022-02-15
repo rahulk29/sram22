@@ -223,7 +223,10 @@ impl MagicInstance {
 
     pub fn rename_cell_pin(&mut self, cell: &InstanceCell, pin: &str, name: &str) -> Result<()> {
         let port = cell.port(pin);
-        self.paint_box(cell.port_bbox(pin), &port.layer)?;
+        let bbox = cell.port_bbox(pin);
+        self.paint_box(bbox, &port.layer)?;
+        self.select_visible()?;
+        self.exec_one(&format!("select intersect {}", &port.layer))?;
         self.label_position_layer(name, Direction::Up, &port.layer)?;
         Ok(())
     }
@@ -272,7 +275,7 @@ impl MagicInstance {
             let name = self.port_index_name(idx)?;
             self.findlabel(&name)?;
             self.select_visible()?;
-            let bbox = self.select_bbox()?;
+            let bbox = self.box_values()?;
             let layer = self.label_layer()?;
 
             ports.push(LayoutPort { name, bbox, layer });

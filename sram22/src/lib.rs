@@ -87,16 +87,27 @@ pub fn generate(config: SramConfig) -> Result<()> {
 
     let bitcell_bank = magic.place_layout_cell(bitcell_bank, Vec2::zero())?;
 
-    let _bus = BusBuilder::new()
-        .width(16)
+    let bus = BusBuilder::new()
+        .width(8)
         .dir(Direction::Up)
         .tech_layer(&tc, "m1")
-        .allow_contact(&tc, "li")
-        .allow_contact(&tc, "m2")
+        .allow_contact(&tc, "licon", "li")
+        .allow_contact(&tc, "via1", "m2")
         .align_right(bitcell_bank.bbox().left_edge() - tc.layer("m1").space)
         .start(bitcell_bank.bbox().bottom_edge())
         .end(bitcell_bank.bbox().top_edge())
         .draw(&mut magic)?;
+
+    for i in 0..4 {
+        for j in 0..4 {
+            let nand_in1 = bitcell_bank.port_bbox(&format!("wl_{}A", 4 * i + j));
+            bus.draw_contact(&mut magic, &tc, i, "li", nand_in1.lr())?;
+            let nand_in2 = bitcell_bank.port_bbox(&format!("wl_{}B", 4 * i + j));
+            bus.draw_contact(&mut magic, &tc, 4 + j, "li", nand_in2.lr())?;
+        }
+    }
+
+    info!("generated bus for predecoder outputs");
 
     info!("layout complete; saving sram cell");
     magic.save(&cell_name)?;
