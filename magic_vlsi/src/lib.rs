@@ -670,7 +670,7 @@ impl FromStr for SnapMode {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Direction {
     Up,
     Down,

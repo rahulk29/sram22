@@ -3,6 +3,8 @@ use magic_vlsi::{units::Rect, MagicInstance};
 use crate::config::TechConfig;
 use crate::error::Result;
 
+pub mod bus;
+
 #[allow(clippy::too_many_arguments)]
 pub fn draw_contacts(
     m: &mut MagicInstance,
