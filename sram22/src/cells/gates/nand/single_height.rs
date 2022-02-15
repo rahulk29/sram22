@@ -22,7 +22,6 @@ pub fn generate_pm_single_height(
     m.load(&cell_name)?;
     m.enable_box()?;
     m.set_snap(magic_vlsi::SnapMode::Internal)?;
-    m.scalegrid(1, 2)?;
 
     let pmos_width = tc.scale_pmos(params.nmos_scale);
 
