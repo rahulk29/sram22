@@ -6,6 +6,7 @@ use crate::cells::gates::inv::single_height::InvParams;
 use crate::cells::gates::nand::single_height::Nand2Params;
 use crate::config::SramConfig;
 use crate::error::Result;
+use crate::layout::bus::BusBuilder;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -107,8 +108,9 @@ pub fn generate(config: SramConfig) -> Result<()> {
     // draw rows
     for i in 0..(rows as usize) {
         let pre_column_dist = inv_dec.bbox.width() + nand2_dec.bbox.width();
+        let sram_array_left = left - pre_column_dist;
         bbox = Rect::ul_wh(
-            left - pre_column_dist,
+            sram_array_left,
             bbox.bottom_edge(),
             pre_column_dist,
             rowend.bbox.height(),
@@ -166,6 +168,20 @@ pub fn generate(config: SramConfig) -> Result<()> {
     }
     magic.place_cell("corner", bbox.lr())?;
     magic.upside_down()?;
+
+    magic.select_top_cell()?;
+    let bbox = magic.select_bbox()?;
+
+    let _bus = BusBuilder::new()
+        .width(16)
+        .dir(Direction::Up)
+        .tech_layer(&tc, "m1")
+        .allow_contact(&tc, "li")
+        .allow_contact(&tc, "m2")
+        .align_right(bbox.left_edge())
+        .start(bbox.bottom_edge())
+        .end(bbox.top_edge())
+        .draw(&mut magic)?;
 
     println!("DONE generating sram; saving cell");
     magic.save(&cell_name)?;
