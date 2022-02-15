@@ -43,13 +43,6 @@ pub fn generate_pm_single_height(
         + tc.layer("poly").width * fingers
         + finger_space(tc) * (fingers - 1);
 
-    println!(
-        "diff over poly: {}, poly space: {}, finger space: {}, fingers: {}",
-        tc.layer("ndiff").extension("poly"),
-        tc.layer("poly").space,
-        finger_space(tc),
-        fingers
-    );
     let ndiff_box = Rect::center_wh(
         Distance::zero(),
         params.height / 2,
@@ -278,7 +271,6 @@ pub fn generate_pm_single_height(
     m.label_position_layer("VGND", Direction::Left, "metal1")?;
     m.port_make(1)?;
 
-    println!("saving cell");
     m.save(&cell_name)?;
 
     Ok(())

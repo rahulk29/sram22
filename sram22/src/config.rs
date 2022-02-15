@@ -237,6 +237,7 @@ impl Extension {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use log::info;
     use std::path::PathBuf;
 
     #[test]
@@ -245,7 +246,7 @@ mod tests {
         p.push("../tech/sky130/drc_config.toml");
         let tc = TechConfig::load(p)?;
 
-        println!("loaded config {:?}", tc);
+        info!("loaded config {:?}", tc);
 
         assert_eq!(&tc.tech, "sky130A");
         assert_eq!(tc.layer("poly").extension("ndiff").nm(), 130);
