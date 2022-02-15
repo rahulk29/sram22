@@ -1,7 +1,7 @@
 use config::TechConfig;
 use indicatif::{ProgressBar, ProgressStyle};
 use magic_vlsi::units::{Distance, Rect};
-use magic_vlsi::{Direction, MagicInstanceBuilder};
+use magic_vlsi::{Direction, MagicInstance, MagicInstanceBuilder};
 
 use crate::cells::gates::inv::single_height::InvParams;
 use crate::cells::gates::nand::single_height::Nand2Params;
@@ -38,6 +38,7 @@ pub fn generate(config: SramConfig) -> Result<()> {
     // copy prereq cells
     fs::create_dir_all(out_dir).unwrap();
     copy_cells(cell_dir, out_dir);
+    info!("copied custom cells to output directory");
 
     let tc = sky130_config();
 
@@ -46,10 +47,14 @@ pub fn generate(config: SramConfig) -> Result<()> {
         .tech("sky130A")
         .build()
         .unwrap();
+    magic.drc_off()?;
+    magic.scalegrid(1, 2)?;
+    magic.set_snap(magic_vlsi::SnapMode::Internal)?;
 
     info!("magic started successfully");
 
     info!("generating subcells");
+    let bitcell_name = generate_bitcell_array(&mut magic, &tc, &config)?;
     crate::cells::gates::inv::generate_pm(&mut magic)?;
     crate::cells::gates::inv::generate_pm_eo(&mut magic)?;
     crate::cells::gates::inv::single_height::generate_pm_single_height(
@@ -72,20 +77,57 @@ pub fn generate(config: SramConfig) -> Result<()> {
         },
     )?;
 
-    magic.drc_off()?;
-    magic.scalegrid(1, 2)?;
-    magic.set_snap(magic_vlsi::SnapMode::Internal)?;
     let cell_name = format!("sram_{}x{}", rows, cols);
+
+    magic.load(&cell_name)?;
+    magic.enable_box()?;
+    magic.drc_off()?;
+    magic.set_snap(magic_vlsi::SnapMode::Internal)?;
+
+    magic.getcell(&bitcell_name)?;
+
+    magic.select_top_cell()?;
+    let bbox = magic.select_bbox()?;
+
+    let _bus = BusBuilder::new()
+        .width(16)
+        .dir(Direction::Up)
+        .tech_layer(&tc, "m1")
+        .allow_contact(&tc, "li")
+        .allow_contact(&tc, "m2")
+        .align_right(bbox.left_edge() - tc.layer("m1").space)
+        .start(bbox.bottom_edge())
+        .end(bbox.top_edge())
+        .draw(&mut magic)?;
+
+    info!("layout complete; saving sram cell");
+    magic.save(&cell_name)?;
+
+    info!("DONE: finished generating sram");
+
+    Ok(())
+}
+
+fn generate_bitcell_array(
+    magic: &mut MagicInstance,
+    _tc: &TechConfig,
+    config: &SramConfig,
+) -> Result<String> {
+    let rows = config.rows;
+    let cols = config.cols;
+    let cell_name = format!("bitcells_{}x{}", rows, cols);
 
     let rowend = magic.load_layout_cell("rowend")?;
     let inv_dec = magic.load_layout_cell("inv_dec")?;
     let nand2_dec = magic.load_layout_cell("nand2_dec")?;
     let corner = magic.load_layout_cell("corner")?;
 
-    info!("generating bitcell array");
-
     magic.load(&cell_name)?;
     magic.enable_box()?;
+    magic.drc_off()?;
+    magic.set_snap(magic_vlsi::SnapMode::Internal)?;
+
+    info!("generating bitcell array");
 
     // draw top row
     let mut bbox = magic.getcell("corner")?;
@@ -179,26 +221,9 @@ pub fn generate(config: SramConfig) -> Result<()> {
 
     info!("generated bottom row");
 
-    magic.select_top_cell()?;
-    let bbox = magic.select_bbox()?;
-
-    let _bus = BusBuilder::new()
-        .width(16)
-        .dir(Direction::Up)
-        .tech_layer(&tc, "m1")
-        .allow_contact(&tc, "li")
-        .allow_contact(&tc, "m2")
-        .align_right(bbox.left_edge())
-        .start(bbox.bottom_edge())
-        .end(bbox.top_edge())
-        .draw(&mut magic)?;
-
-    info!("layout complete; saving sram cell");
     magic.save(&cell_name)?;
 
-    info!("DONE: finished generating sram");
-
-    Ok(())
+    Ok(cell_name)
 }
 
 fn copy_cells(cell_dir: impl AsRef<Path>, out_dir: impl AsRef<Path>) {
