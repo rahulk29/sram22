@@ -1,6 +1,6 @@
 use crate::config::TechConfig;
 use crate::error::Result;
-use magic_vlsi::units::{Distance, Rect};
+use magic_vlsi::units::{Distance, Rect, Vec2};
 use magic_vlsi::{Direction, MagicInstance};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -115,10 +115,29 @@ impl BusBuilder {
         self
     }
 
-    pub fn allow_contact(mut self, tc: &TechConfig, ct_layer: &str) -> Self {
+    pub fn allow_contact(mut self, tc: &TechConfig, contact: &str, metal_layer: &str) -> Self {
         let layer = self.layer.as_ref().unwrap();
+        let line = self.line.unwrap();
         let space = self.space.unwrap();
-        self.space = Some(std::cmp::max(space, tc.layer(ct_layer).enclosure(layer)));
+        let space = [
+            space,
+            // contact width + enclosure keeps metal layer separated
+            tc.layer(contact).width
+                + 2 * tc.layer(contact).enclosure(layer)
+                + tc.layer(layer).space
+                - line,
+            // obey min spacing of contacts
+            tc.layer(contact).width + tc.layer(contact).space - line,
+            // metal layers are sufficiently separated even for adjacent contacts
+            tc.layer(contact).width
+                + 2 * tc.layer(contact).enclosure(metal_layer)
+                + tc.layer(metal_layer).space
+                - line,
+        ]
+        .into_iter()
+        .max()
+        .unwrap();
+        self.space = Some(space);
         self
     }
 
@@ -173,6 +192,25 @@ impl Bus {
 
             m.paint_box(rect, &self.layer)?;
         }
+        Ok(())
+    }
+
+    pub fn draw_contact(
+        &self,
+        m: &mut MagicInstance,
+        tc: &TechConfig,
+        idx: usize,
+        layer: &str,
+        pos: Vec2,
+    ) -> Result<()> {
+        assert!(idx < self.width);
+        if self.vertical {
+            let llx = self.start + (self.line + self.space) * idx;
+            let width = pos.x - llx;
+            let rect = Rect::ll_wh(llx, pos.y, width, tc.layer(layer).width);
+            m.paint_box(rect, layer)?;
+        }
+
         Ok(())
     }
 }

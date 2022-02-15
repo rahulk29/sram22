@@ -81,6 +81,9 @@ impl InstanceCell {
         tmp.translate(Direction::Down, self.cell.bbox.bottom_edge() - self.ll.y)
             .translate(Direction::Left, self.cell.bbox.left_edge() - self.ll.x);
 
+        assert_eq!(tmp.width(), bbox.width());
+        assert_eq!(tmp.height(), bbox.height());
+
         tmp
     }
 
