@@ -11,3 +11,5 @@ magic_vlsi = { path = "../magic_vlsi" }
 micro_hdl = { path = "../micro_hdl" }
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.5.8"
+log = "0.4"
+env_logger = "0.9"
