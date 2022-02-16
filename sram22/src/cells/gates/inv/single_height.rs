@@ -99,6 +99,7 @@ pub fn generate_pm_single_height(
     m.port_make_default()?;
 
     let mut gate_contact_box = Rect::zero();
+    let mut poly_left = Distance::zero();
     for i in 0..fingers {
         let poly_box = Rect::ll_wh(
             ndiff_box.left_edge() - tc.layer("poly").extension("ndiff"),
@@ -126,7 +127,7 @@ pub fn generate_pm_single_height(
                 poly_pad_h,
             )
         };
-
+        poly_left = poly_pad_box.left_edge();
         m.paint_box(poly_pad_box, "poly")?;
 
         let mut licon_box = poly_pad_box;
@@ -247,6 +248,14 @@ pub fn generate_pm_single_height(
     m.paint_box(gate_contact_box, "li")?;
     m.label_position_layer("A", Direction::Left, "metal1")?;
     m.port_make(0)?;
+
+    let pwell_box = Rect::from_dist(
+        poly_left - tc.layer("poly").space,
+        Distance::zero(),
+        nwell_box.left_edge(),
+        params.height,
+    );
+    m.paint_box(pwell_box, "pwell")?;
 
     m.select_clear()?;
     m.select_top_cell()?;
