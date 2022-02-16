@@ -16,7 +16,9 @@ jobs:
         run: |
           echo "/usr/local/bin" >> $GITHUB_PATH
       - name: Check formatting
-        run: cargo fmt --all -- --check
+        run: |
+          cargo fmt --all -- --check
+          black scripts/ --check
       - name: Compile
         run: make check
       - name: Lint
