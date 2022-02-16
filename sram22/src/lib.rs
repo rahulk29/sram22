@@ -91,7 +91,7 @@ pub fn generate(config: SramConfig) -> Result<()> {
         .width(8)
         .dir(Direction::Up)
         .tech_layer(&tc, "m1")
-        .allow_contact(&tc, "licon", "li")
+        .allow_contact(&tc, "ct", "li")
         .allow_contact(&tc, "via1", "m2")
         .align_right(bitcell_bank.bbox().left_edge() - tc.layer("m1").space)
         .start(bitcell_bank.bbox().bottom_edge())
@@ -101,9 +101,9 @@ pub fn generate(config: SramConfig) -> Result<()> {
     for i in 0..4 {
         for j in 0..4 {
             let nand_in1 = bitcell_bank.port_bbox(&format!("wl_{}A", 4 * i + j));
-            bus.draw_contact(&mut magic, &tc, i, "li", nand_in1.lr())?;
+            bus.draw_contact(&mut magic, &tc, i, "ct", "viali", "li", nand_in1)?;
             let nand_in2 = bitcell_bank.port_bbox(&format!("wl_{}B", 4 * i + j));
-            bus.draw_contact(&mut magic, &tc, 4 + j, "li", nand_in2.lr())?;
+            bus.draw_contact(&mut magic, &tc, 4 + j, "ct", "viali", "li", nand_in2)?;
         }
     }
 

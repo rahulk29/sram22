@@ -1,6 +1,6 @@
 use crate::config::TechConfig;
 use crate::error::Result;
-use magic_vlsi::units::{Distance, Rect, Vec2};
+use magic_vlsi::units::{Distance, Rect};
 use magic_vlsi::{Direction, MagicInstance};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -171,46 +171,109 @@ impl BusBuilder {
 impl Bus {
     fn draw(&self, m: &mut MagicInstance) -> Result<()> {
         assert!(self.extent2 > self.extent1);
-        let length = self.extent2 - self.extent1;
-
         for i in 0..self.width {
-            let rect = if self.vertical {
-                Rect::ll_wh(
-                    (self.line + self.space) * i + self.start,
-                    self.extent1,
-                    self.line,
-                    length,
-                )
-            } else {
-                Rect::ll_wh(
-                    self.extent1,
-                    (self.line + self.space) * i + self.start,
-                    length,
-                    self.line,
-                )
-            };
-
-            m.paint_box(rect, &self.layer)?;
+            let wire_bbox = self.wire_bbox(i);
+            m.paint_box(wire_bbox, &self.layer)?;
         }
         Ok(())
     }
 
+    fn wire_bbox(&self, idx: usize) -> Rect {
+        assert!(idx < self.width);
+        let length = self.extent2 - self.extent1;
+        if self.vertical {
+            Rect::ll_wh(
+                (self.line + self.space) * idx + self.start,
+                self.extent1,
+                self.line,
+                length,
+            )
+        } else {
+            Rect::ll_wh(
+                self.extent1,
+                (self.line + self.space) * idx + self.start,
+                length,
+                self.line,
+            )
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
     pub fn draw_contact(
         &self,
         m: &mut MagicInstance,
         tc: &TechConfig,
         idx: usize,
+        contact: &str,
+        ct_paint: &str,
         layer: &str,
-        pos: Vec2,
+        target: Rect,
     ) -> Result<()> {
         assert!(idx < self.width);
+        let wire_bbox = self.wire_bbox(idx);
+        let branch_box = if self.vertical {
+            let left = std::cmp::min(wire_bbox.left_edge(), target.left_edge());
+            let right = std::cmp::max(wire_bbox.right_edge(), target.right_edge());
+            let branch_box =
+                Rect::lrcyh(left, right, target.center_y(tc.grid), tc.layer(layer).width);
+            m.paint_box(branch_box, layer)?;
+            branch_box
+        } else {
+            let bot = std::cmp::min(wire_bbox.bottom_edge(), target.bottom_edge());
+            let top = std::cmp::max(wire_bbox.top_edge(), target.top_edge());
+            let branch_box = Rect::btcxw(bot, top, target.center_x(tc.grid), tc.layer(layer).width);
+            m.paint_box(branch_box, layer)?;
+            branch_box
+        };
+
+        let contact_region = wire_bbox.overlap(branch_box);
+        let contact_box = Rect::ll_wh(
+            Distance::zero(),
+            Distance::zero(),
+            tc.layer(contact).width,
+            tc.layer(contact).width,
+        );
+        let contact_box = contact_box.try_align_center(contact_region, tc.grid);
+        m.paint_box(contact_box, ct_paint)?;
+
+        let mut bus_expand_box = contact_box;
+        bus_expand_box = bus_expand_box.grow_border(tc.layer(contact).enclosure(&self.layer));
+        let extra = std::cmp::max(
+            Distance::zero(),
+            tc.layer(contact).one_side_enclosure(&self.layer)
+                - tc.layer(contact).enclosure(&self.layer),
+        );
+
         if self.vertical {
-            let llx = self.start + (self.line + self.space) * idx;
-            let width = pos.x - llx;
-            let rect = Rect::ll_wh(llx, pos.y, width, tc.layer(layer).width);
-            m.paint_box(rect, layer)?;
+            bus_expand_box
+                .grow(Direction::Up, extra)
+                .grow(Direction::Down, extra);
+        } else {
+            bus_expand_box
+                .grow(Direction::Left, extra)
+                .grow(Direction::Right, extra);
         }
 
+        m.paint_box(bus_expand_box, &self.layer)?;
+
+        let mut branch_expand_box = contact_box;
+        branch_expand_box = branch_expand_box.grow_border(tc.layer(contact).enclosure(layer));
+        let extra = std::cmp::max(
+            Distance::zero(),
+            tc.layer(contact).one_side_enclosure(layer) - tc.layer(contact).enclosure(layer),
+        );
+
+        if self.vertical {
+            branch_expand_box
+                .grow(Direction::Up, extra)
+                .grow(Direction::Down, extra);
+        } else {
+            branch_expand_box
+                .grow(Direction::Left, extra)
+                .grow(Direction::Right, extra);
+        }
+
+        m.paint_box(branch_expand_box, layer)?;
         Ok(())
     }
 }
