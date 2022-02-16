@@ -10,6 +10,7 @@ lint-fix:
 
 format:
 	cargo fmt
+	black scripts/
 
 test:
 	rm -rf /tmp/sram22/
