@@ -3,9 +3,9 @@
 import os
 import webbrowser
 
-command = "cargo r"
+command = "cargo r --release"
 out_dir = "_build/"
-cell = "sram_8x8.mag"
+cell = "nand2_pm_sh.mag"
 outsvg = "out.svg"
 
 script = f"""

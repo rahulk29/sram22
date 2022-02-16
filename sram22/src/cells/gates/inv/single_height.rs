@@ -72,6 +72,32 @@ pub fn generate_pm_single_height(
     m.label_position_layer("VPB", Direction::Right, "nwell")?;
     m.port_make(3)?;
 
+    let m1_contact_width = std::cmp::max(
+        tc.layer("m1").width,
+        tc.layer("ct").width + 2 * tc.layer("ct").one_side_enclosure("m1"),
+    )
+    .round_up_to(2 * tc.grid);
+
+    let vdd_finger = Rect::btcxw(
+        Distance::zero(),
+        params.height,
+        pdiff_box.center_x(tc.grid),
+        m1_contact_width,
+    );
+    m.paint_box(vdd_finger, "m1")?;
+    m.label_position_layer("VPWR", Direction::Up, "metal1")?;
+    m.port_make_default()?;
+
+    let gnd_finger = Rect::btcxw(
+        Distance::zero(),
+        params.height,
+        ndiff_box.center_x(tc.grid),
+        m1_contact_width,
+    );
+    m.paint_box(gnd_finger, "m1")?;
+    m.label_position_layer("VGND", Direction::Down, "metal1")?;
+    m.port_make_default()?;
+
     let mut gate_contact_box = Rect::zero();
     for i in 0..fingers {
         let poly_box = Rect::ll_wh(
@@ -146,12 +172,6 @@ pub fn generate_pm_single_height(
             .shrink(Direction::Down, tc.layer("licon").enclosure("poly"));
         m.paint_box(licon_box, "polyc")?;
 
-        let m1_contact_width = std::cmp::max(
-            tc.layer("m1").width,
-            tc.layer("ct").width + 2 * tc.layer("ct").one_side_enclosure("m1"),
-        )
-        .round_up_to(2 * tc.grid);
-
         let n_ct_top = Rect::ll_wh(
             ndiff_box.left_edge(),
             poly_box.top_edge() + tc.space("gate", "licon"),
@@ -198,15 +218,6 @@ pub fn generate_pm_single_height(
             m.port_make(5)?;
         }
 
-        let mut gnd_finger = Rect::btcxw(
-            Distance::zero(),
-            n_ct_top.top_edge(),
-            n_ct_top.center_x(tc.grid),
-            m1_contact_width,
-        );
-        gnd_finger.grow(Direction::Up, tc.layer("ct").enclosure("m1"));
-        m.paint_box(gnd_finger, "m1")?;
-
         let contact_target = if i % 2 == 0 { n_ct_bot } else { n_ct_top };
 
         draw_contacts(
@@ -219,15 +230,6 @@ pub fn generate_pm_single_height(
             gnd_finger,
             contact_target,
         )?;
-
-        let mut vdd_finger = Rect::btcxw(
-            p_ct_bot.bottom_edge(),
-            params.height,
-            p_ct_top.center_x(tc.grid),
-            m1_contact_width,
-        );
-        vdd_finger.grow(Direction::Down, tc.layer("ct").enclosure("m1"));
-        m.paint_box(vdd_finger, "m1")?;
 
         let contact_target = if i % 2 == 0 { p_ct_bot } else { p_ct_top };
 
@@ -248,28 +250,8 @@ pub fn generate_pm_single_height(
 
     m.select_clear()?;
     m.select_top_cell()?;
-    let bbox = m.select_bbox()?;
 
-    let vdd_m1_box = Rect::from_dist(
-        bbox.left_edge(),
-        params.height - tc.layer("li").width / 2,
-        bbox.right_edge(),
-        params.height,
-    );
-    m.paint_box(vdd_m1_box, "m1")?;
-    m.label_position_layer("VPWR", Direction::Left, "metal1")?;
-    m.port_make(4)?;
-
-    let gnd_m1_box = Rect::from_dist(
-        bbox.left_edge(),
-        Distance::zero(),
-        bbox.right_edge(),
-        tc.layer("li").width / 2,
-    );
-    m.paint_box(gnd_m1_box, "m1")?;
-    m.label_position_layer("VGND", Direction::Left, "metal1")?;
-    m.port_make(1)?;
-
+    m.port_renumber()?;
     m.save(&cell_name)?;
 
     Ok(())
