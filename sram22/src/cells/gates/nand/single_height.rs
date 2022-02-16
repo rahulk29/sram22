@@ -94,6 +94,14 @@ pub fn generate_pm_single_height(
     );
     m.paint_box(poly_pad_box_top, "poly")?;
 
+    let pwell_box = Rect::from_dist(
+        poly_pad_box_bot.left_edge() - tc.layer("poly").space,
+        Distance::zero(),
+        nwell_box.left_edge(),
+        params.height,
+    );
+    m.paint_box(pwell_box, "pwell")?;
+
     for (poly_pad_box, label) in [(poly_pad_box_bot, "B"), (poly_pad_box_top, "A")] {
         let mut licon_box = poly_pad_box;
         licon_box
