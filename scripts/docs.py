@@ -16,6 +16,7 @@ cells = [
     "colend",
     "corner",
     "rowend",
+    "predecoder2_4",
 ]
 
 os.system(command)
