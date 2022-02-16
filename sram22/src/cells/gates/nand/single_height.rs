@@ -185,53 +185,32 @@ pub fn generate_pm_single_height(
     );
     m.paint_box(out_horiz_li, "li")?;
 
-    let mut gnd_finger = Rect::btcxw(
+    let gnd_finger = Rect::btcxw(
         Distance::zero(),
-        n_ct_bot.top_edge(),
+        params.height,
         n_ct_bot.center_x(tc.grid),
         m1_contact_width,
     );
-    gnd_finger.grow(Direction::Up, tc.layer("ct").enclosure("m1"));
     m.paint_box(gnd_finger, "m1")?;
+    m.label_position_layer("VGND", Direction::Down, "m1")?;
+    m.port_make_default()?;
 
     draw_contacts(m, tc, "m1", "viali", "ct", "licon", gnd_finger, n_ct_bot)?;
 
-    let mut vdd_finger = Rect::btcxw(
-        p_ct_mid.bottom_edge(),
+    let vdd_finger = Rect::btcxw(
+        Distance::zero(),
         params.height,
         p_ct_mid.center_x(tc.grid),
         m1_contact_width,
     );
-    vdd_finger.grow(Direction::Down, tc.layer("ct").enclosure("m1"));
     m.paint_box(vdd_finger, "m1")?;
+    m.label_position_layer("VPWR", Direction::Up, "m1")?;
+    m.port_make_default()?;
 
     draw_contacts(m, tc, "m1", "viali", "ct", "licon", vdd_finger, p_ct_mid)?;
 
     m.select_clear()?;
     m.select_top_cell()?;
-    let bbox = m.select_bbox()?;
-
-    let vdd_m1_box = Rect::from_dist(
-        bbox.left_edge(),
-        params.height - tc.layer("li").width / 2,
-        bbox.right_edge(),
-        params.height,
-    );
-    m.paint_box(vdd_m1_box, "m1")?;
-    m.label_position_layer("VPWR", Direction::Up, "m1")?;
-    m.port_make_default()?;
-
-    let gnd_li_box = Rect::from_dist(
-        bbox.left_edge(),
-        Distance::zero(),
-        bbox.right_edge(),
-        tc.layer("li").width / 2,
-    );
-    // m.paint_box(gnd_li_box, "li")?;
-    let gnd_m1_box = gnd_li_box;
-    m.paint_box(gnd_m1_box, "m1")?;
-    m.label_position_layer("VGND", Direction::Down, "m1")?;
-    m.port_make_default()?;
 
     m.port_renumber()?;
     m.save(&cell_name)?;
