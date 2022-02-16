@@ -266,16 +266,6 @@ pub mod tests {
             &mut m,
             &tc,
             &Nand2Params {
-                nmos_scale: Distance::from_nm(420),
-                height: Distance::from_nm(1_580),
-            },
-        )
-        .expect("failed to generate cell");
-
-        generate_pm_single_height(
-            &mut m,
-            &tc,
-            &Nand2Params {
                 nmos_scale: Distance::from_nm(1_000),
                 height: Distance::from_nm(1_580),
             },
