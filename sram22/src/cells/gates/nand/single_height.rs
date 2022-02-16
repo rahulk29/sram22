@@ -222,6 +222,7 @@ pub fn generate_pm_single_height(
 
     m.port_renumber()?;
     m.save(&cell_name)?;
+    m.save("nand2_dec_auto")?;
 
     Ok(())
 }

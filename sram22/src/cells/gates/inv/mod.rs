@@ -9,6 +9,7 @@ use micro_hdl::{
     primitive::mos::{MosParams, Nmos, Pmos},
 };
 
+pub mod dec;
 pub mod single_height;
 
 #[micro_hdl::module]

@@ -216,7 +216,7 @@ pub fn generate_pm_single_height(
             );
             m.paint_box(li_box, "li")?;
             m.label_position_layer("Y", Direction::Right, "li")?;
-            m.port_make(5)?;
+            m.port_make_default()?;
         }
 
         let contact_target = if i % 2 == 0 { n_ct_bot } else { n_ct_top };

@@ -1,7 +1,7 @@
 magic
 tech sky130A
 magscale 1 2
-timestamp 1643662524
+timestamp 1645046806
 << checkpaint >>
 rect -1286 -1062 1260 1522
 << dnwell >>
@@ -114,5 +114,6 @@ rect 156 59 260 82
 rect 104 24 156 30
 << labels >>
 rlabel metal1 s 0 0 14 15 4 VPWR
-rlabel metal2 s 25 76 25 76 4 WL
+rlabel metal2 232 59 260 93 3 WL
+port 1 e
 << end >>

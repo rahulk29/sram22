@@ -5,7 +5,7 @@ import webbrowser
 
 command = "cargo r --release"
 out_dir = "_build/"
-cell = "nand2_pm_sh.mag"
+cell = "sram_16x16.mag"
 outsvg = "out.svg"
 
 script = f"""
