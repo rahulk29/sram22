@@ -542,6 +542,17 @@ impl Rect {
         }
     }
 
+    pub fn lrcyh(left: Distance, right: Distance, cy: Distance, h: Distance) -> Self {
+        assert!(h >= Distance::zero());
+        let lly = cy - h / 2;
+        let ury = cy + h / 2;
+        assert_eq!(ury - lly, h);
+        Self {
+            ll: Vec2::new(left, lly),
+            ur: Vec2::new(right, ury),
+        }
+    }
+
     pub fn lbrh(left: Distance, bot: Distance, right: Distance, h: Distance) -> Self {
         assert!(h >= Distance::zero());
         Self {
