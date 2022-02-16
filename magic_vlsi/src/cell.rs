@@ -54,7 +54,11 @@ impl InstanceCell {
     }
 
     pub fn port(&self, name: &str) -> &LayoutPort {
-        self.cell.ports.iter().find(|&x| x.name == name).unwrap()
+        self.cell
+            .ports
+            .iter()
+            .find(|&x| x.name == name)
+            .unwrap_or_else(|| panic!("port not found: {}", name))
     }
 
     fn to_global(&self, bbox: Rect) -> Rect {

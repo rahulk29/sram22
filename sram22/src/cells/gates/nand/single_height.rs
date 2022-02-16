@@ -139,7 +139,7 @@ pub fn generate_pm_single_height(
     let n_ct_top = Rect::lbrh(
         ndiff_box.left_edge(),
         poly_box_top.top_edge() + tc.space("gate", "licon"),
-        pdiff_box.right_edge(),
+        nwell_box.right_edge(),
         tc.layer("li").width,
     );
     m.paint_box(n_ct_top, "li")?;
@@ -188,7 +188,7 @@ pub fn generate_pm_single_height(
     let out_horiz_li = Rect::from_dist(
         out_vertical_li.left_edge(),
         out_vertical_li.bottom_edge(),
-        p_ct_bot.right_edge(),
+        nwell_box.right_edge(),
         p_ct_bot.top_edge(),
     );
     m.paint_box(out_horiz_li, "li")?;
@@ -222,6 +222,7 @@ pub fn generate_pm_single_height(
 
     m.port_renumber()?;
     m.save(&cell_name)?;
+    m.save("nand2_dec_auto")?;
 
     Ok(())
 }

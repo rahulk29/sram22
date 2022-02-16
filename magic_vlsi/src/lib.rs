@@ -420,6 +420,11 @@ impl MagicInstance {
         Ok(())
     }
 
+    pub fn delete(&mut self) -> Result<()> {
+        self.exec_one("delete")?;
+        Ok(())
+    }
+
     pub fn upside_down(&mut self) -> Result<()> {
         writeln!(&mut self.stream, "upsidedown")?;
         read_line(&mut self.stream)?;
@@ -555,8 +560,10 @@ impl MagicInstance {
         position: Direction,
         layer: &str,
     ) -> Result<()> {
-        self.exec_one(&format!("label {} {} {}", label, position, layer))
-            .map(|_| ())
+        self.select_visible()?;
+        self.exec_one(&format!("select intersect {}", &layer))?;
+        self.exec_one(&format!("label {} {} {}", label, position, layer))?;
+        Ok(())
     }
 
     pub fn port_make(&mut self, idx: usize) -> Result<()> {

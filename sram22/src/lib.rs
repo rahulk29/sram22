@@ -54,7 +54,6 @@ pub fn generate(config: SramConfig) -> Result<()> {
     info!("magic started successfully");
 
     info!("generating subcells");
-    let bitcell_name = generate_bitcell_array(&mut magic, &tc, &config)?;
     crate::cells::gates::inv::generate_pm(&mut magic)?;
     crate::cells::gates::inv::generate_pm_eo(&mut magic)?;
     crate::cells::gates::inv::single_height::generate_pm_single_height(
@@ -76,6 +75,10 @@ pub fn generate(config: SramConfig) -> Result<()> {
             height: Distance::from_nm(1_580),
         },
     )?;
+    crate::cells::gates::inv::dec::generate_inv_dec(&mut magic, &tc)?;
+    info!("finished generating subcells");
+
+    let bitcell_name = generate_bitcell_array(&mut magic, &tc, &config)?;
 
     let bitcell_bank = magic.load_layout_cell(&bitcell_name)?;
 
@@ -127,8 +130,8 @@ fn generate_bitcell_array(
     let cell_name = format!("bitcells_{}x{}", rows, cols);
 
     let rowend = magic.load_layout_cell("rowend")?;
-    let inv_dec = magic.load_layout_cell("inv_dec")?;
-    let nand2_dec = magic.load_layout_cell("nand2_dec")?;
+    let inv_dec = magic.load_layout_cell("inv_dec_auto")?;
+    let nand2_dec = magic.load_layout_cell("nand2_dec_auto")?;
     let corner = magic.load_layout_cell("corner")?;
 
     magic.load(&cell_name)?;
@@ -178,7 +181,7 @@ fn generate_bitcell_array(
         magic.rename_cell_pin(&nand2_cell, "B", &format!("wl_{}B", i))?;
         magic.port_make_default()?;
         bbox = nand2_cell.bbox();
-        bbox = magic.place_cell("inv_dec", bbox.lr())?;
+        bbox = magic.place_cell("inv_dec_auto", bbox.lr())?;
         if i % 2 == 0 {
             magic.upside_down()?;
         }

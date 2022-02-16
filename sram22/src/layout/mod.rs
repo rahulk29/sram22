@@ -1,9 +1,26 @@
+use magic_vlsi::units::Distance;
+use magic_vlsi::Direction;
 use magic_vlsi::{units::Rect, MagicInstance};
 
 use crate::config::TechConfig;
 use crate::error::Result;
 
 pub mod bus;
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ContactStack<'a> {
+    pub bot: &'a str,
+    pub contact_drc: &'a str,
+    pub contact_layer: &'a str,
+    pub top: &'a str,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ContactBox {
+    pub bot: Rect,
+    pub contact: Rect,
+    pub top: Rect,
+}
 
 #[allow(clippy::too_many_arguments)]
 pub fn draw_contacts(
@@ -84,4 +101,61 @@ pub fn draw_contacts(
     }
 
     Ok(nr * nc)
+}
+
+pub fn draw_contact(
+    m: &mut MagicInstance,
+    tc: &TechConfig,
+    stack: ContactStack,
+    contact_region: Rect,
+    vertical: bool,
+) -> Result<ContactBox> {
+    let contact_box = Rect::ll_wh(
+        Distance::zero(),
+        Distance::zero(),
+        tc.layer(stack.contact_drc).width,
+        tc.layer(stack.contact_drc).width,
+    );
+    let contact_box = contact_box.try_align_center(contact_region, tc.grid);
+    m.paint_box(contact_box, stack.contact_layer)?;
+
+    let top_box = expand_contact_box(tc, contact_box, stack.contact_drc, stack.top, vertical);
+    m.paint_box(top_box, stack.top)?;
+
+    let bot_box = expand_contact_box(tc, contact_box, stack.contact_drc, stack.bot, vertical);
+    m.paint_box(bot_box, stack.bot)?;
+
+    Ok(ContactBox {
+        top: top_box,
+        contact: contact_box,
+        bot: bot_box,
+    })
+}
+
+fn expand_contact_box(
+    tc: &TechConfig,
+    contact_box: Rect,
+    contact_drc: &str,
+    metal_layer: &str,
+    vertical: bool,
+) -> Rect {
+    let mut metal_box = contact_box;
+    metal_box = metal_box.grow_border(tc.layer(contact_drc).enclosure(metal_layer));
+    let extra = std::cmp::max(
+        Distance::zero(),
+        tc.layer(contact_drc).one_side_enclosure(metal_layer)
+            - tc.layer(contact_drc).enclosure(metal_layer),
+    );
+
+    if vertical {
+        metal_box
+            .grow(Direction::Up, extra)
+            .grow(Direction::Down, extra);
+    } else {
+        metal_box
+            .grow(Direction::Left, extra)
+            .grow(Direction::Right, extra);
+    }
+
+    metal_box
 }
