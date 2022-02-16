@@ -76,6 +76,7 @@ pub fn generate(config: SramConfig) -> Result<()> {
         },
     )?;
     crate::cells::gates::inv::dec::generate_inv_dec(&mut magic, &tc)?;
+    crate::predecode::generate_predecoder2_4(&mut magic, &tc)?;
     info!("finished generating subcells");
 
     let bitcell_name = generate_bitcell_array(&mut magic, &tc, &config)?;

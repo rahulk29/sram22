@@ -5,7 +5,7 @@ import webbrowser
 
 command = "cargo r --release"
 out_dir = "_build/"
-cell = "sram_16x16.mag"
+cell = "predecoder2_4.mag"
 outsvg = "out.svg"
 
 script = f"""
