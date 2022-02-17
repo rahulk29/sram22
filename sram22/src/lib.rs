@@ -267,6 +267,14 @@ pub fn sky130_config() -> TechConfig {
     TechConfig::load(p).expect("failed to load sky130A tech config")
 }
 
+pub fn net_name_bar(prefix: &str, bar: bool) -> String {
+    if bar {
+        format!("{}b", prefix)
+    } else {
+        prefix.into()
+    }
+}
+
 #[cfg(test)]
 mod tests {}
 
