@@ -2,6 +2,8 @@
 
 ## A Configurable SRAM Generator
 
+![test](https://github.com/rahulk29/sram22/actions/workflows/ci.yaml/badge.svg)
+
 Sram22 parametrically generates SRAM blocks. At the moment, we only support the SKY130 process.
 
 ### Usage
