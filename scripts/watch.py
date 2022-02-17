@@ -3,8 +3,8 @@
 import os
 import webbrowser
 
-command = "cargo r --release"
-out_dir = "_build/"
+command = "cargo r --release -- configs/sram_16x16.toml"
+out_dir = "_build/sram_16x16/"
 cell = "predecoder2_4.mag"
 outsvg = "out.svg"
 
