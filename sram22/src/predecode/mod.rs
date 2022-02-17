@@ -1,12 +1,12 @@
 use magic_vlsi::units::{Distance, Vec2};
-use magic_vlsi::{Direction, MagicInstance};
+use magic_vlsi::MagicInstance;
 use micro_hdl::{context::Context, node::Node};
 
 use crate::cells::gates::inv::Inv;
 use crate::cells::gates::nand3::Nand3;
 use crate::config::TechConfig;
 use crate::error::Result;
-use crate::layout::bus::BusBuilder;
+
 use crate::net_name_bar;
 
 #[micro_hdl::module]
@@ -72,7 +72,7 @@ impl Predecoder38 {
     }
 }
 
-pub fn generate_predecoder2_4(m: &mut MagicInstance, tc: &TechConfig) -> Result<()> {
+pub fn generate_predecoder2_4(m: &mut MagicInstance, _tc: &TechConfig) -> Result<()> {
     let nand2_pm_sh = m.load_layout_cell("nand2_pm_sh")?;
     let inv_pm_sh = m.load_layout_cell("inv_pm_sh_2")?;
 
@@ -99,24 +99,9 @@ pub fn generate_predecoder2_4(m: &mut MagicInstance, tc: &TechConfig) -> Result<
         m.rename_cell_pin(&inv, "Y", &format!("predecode{}", i))?;
     }
 
-    let bus = BusBuilder::new()
-        .width(4)
-        .dir(Direction::Up)
-        .tech_layer(tc, "m1")
-        .allow_contact(tc, "ct", "li")
-        .allow_contact(tc, "via1", "m2")
-        .align_right(Distance::zero())
-        .start(Distance::zero())
-        .end(height)
-        .draw(m)?;
-
     for (i, gate) in nands.iter().enumerate() {
-        let target = gate.port_bbox("A");
-        bus.draw_contact(m, tc, 1 - (i % 2), "ct", "viali", "li", target)?;
         m.rename_cell_pin(gate, "A", &net_name_bar("addr0", 1 - (i % 2) != 0))?;
-        let target = gate.port_bbox("B");
-        bus.draw_contact(m, tc, 3 - (i / 2), "ct", "viali", "li", target)?;
-        m.rename_cell_pin(gate, "A", &net_name_bar("addr1", 3 - (i / 2) != 0))?;
+        m.rename_cell_pin(gate, "B", &net_name_bar("addr1", 1 - (i / 2) != 0))?;
     }
 
     m.save(&cell_name)?;
