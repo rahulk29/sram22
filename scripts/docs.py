@@ -5,8 +5,8 @@ import shutil
 
 cwd = os.getcwd()
 
-command = "cargo r --release"
-build_dir = "_build/"
+command = "cargo r --release -- configs/sram_16x16.toml"
+build_dir = "_build/sram_16x16/"
 docs_dir = "docs/images/"
 cells = [
     "sram_16x16",

@@ -1,0 +1,4 @@
+rows = 8
+cols = 8
+output_dir = "../_build/sram_8x8/"
+tech_dir = "../tech/sky130/magic"

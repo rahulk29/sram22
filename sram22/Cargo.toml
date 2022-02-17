@@ -2,6 +2,8 @@
 name = "sram22"
 version = "0.1.0"
 edition = "2021"
+authors = ["Rahul Kumar <rahulkumar@berkeley.edu>"]
+description = "A configurable SRAM generator"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -14,3 +16,4 @@ toml = "0.5.8"
 log = "0.4"
 env_logger = "0.9"
 indicatif = "0.16"
+clap = { version = "3.1.0", features = ["derive"] }
