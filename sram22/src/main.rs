@@ -1,14 +1,40 @@
+use std::path::Path;
+
 use sram22::{config::SramConfig, generate};
 
-fn main() {
+use clap::Parser;
+
+// fn main() {
+//     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+//
+//     let config = SramConfig {
+//         rows: 16,
+//         cols: 16,
+//         output_dir: "/home/rahul/acads/sky130/sram22/_build".to_string(),
+//         cell_dir: "/home/rahul/acads/sky130/sram22/tech/sky130/magic".to_string(),
+//     };
+//
+//     generate(config).expect("failed to generate SRAM");
+// }
+
+#[derive(Parser)]
+#[clap(author, version,about = "A configurable SRAM generator", long_about = None)]
+struct Cli {
+    /// Path to a TOML configuration file specifying memory options
+    config: String,
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+    let cli = Cli::parse();
 
-    let config = SramConfig {
-        rows: 16,
-        cols: 16,
-        output_dir: "/home/rahul/acads/sky130/sram22/_build".to_string(),
-        cell_dir: "/home/rahul/acads/sky130/sram22/tech/sky130/magic".to_string(),
-    };
+    let cfg_path = Path::new(&cli.config);
 
-    generate(config).expect("failed to generate SRAM");
+    let s = std::fs::read_to_string(&cli.config)?;
+    let config: SramConfig = toml::from_str(&s)?;
+
+    std::env::set_current_dir(cfg_path.parent().expect("invalid config file path"))?;
+    generate(config)?;
+
+    Ok(())
 }

@@ -22,15 +22,15 @@ pub mod predecode;
 pub fn generate(config: SramConfig) -> Result<()> {
     let rows = config.rows;
     let cols = config.cols;
-    assert_eq!(rows % 4, 0);
-    assert_eq!(cols % 4, 0);
+    assert_eq!(rows % 4, 0, "number of sram rows must be divisible by 4");
+    assert_eq!(cols % 4, 0, "number of sram columns must be divisible by 4");
 
     info!("generating {}x{} SRAM", rows, cols);
-    info!("reading cells from {}", &config.cell_dir);
     info!("generated files will be placed in {}", &config.output_dir);
+    info!("reading cells from {}", &config.tech_dir);
 
     let out_dir = &config.output_dir;
-    let cell_dir = &config.cell_dir;
+    let cell_dir = &config.tech_dir;
 
     // clean the existing build directory; ignore errors
     let _ = fs::remove_dir_all(out_dir);
