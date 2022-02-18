@@ -252,6 +252,10 @@ fn copy_cells(cell_dir: impl AsRef<Path>, out_dir: impl AsRef<Path>) {
         "wl_route.mag",
         "inv_dec.mag",
         "nand2_dec.mag",
+        "wlstrap.mag",
+        "wlstrap_p.mag",
+        "colend_cent.mag",
+        "colend_p_cent.mag",
     ] {
         std::fs::copy(
             cell_dir.as_ref().join(cell_name),

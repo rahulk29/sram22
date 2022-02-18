@@ -6,6 +6,7 @@ use crate::config::TechConfig;
 use crate::error::Result;
 
 pub mod bus;
+pub mod grid;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct ContactStack<'a> {

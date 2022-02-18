@@ -21,6 +21,8 @@ pub struct LayoutPort {
     pub layer: String,
 }
 
+pub type InstanceCellRef = Arc<InstanceCell>;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct InstanceCell {
     pub ll: Vec2,

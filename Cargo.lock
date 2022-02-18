@@ -107,6 +107,15 @@ name = "fanout"
 version = "0.1.0"
 
 [[package]]
+name = "grid"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bed7999ee197fb0a5736c294af0289caf9681fafabd57ea7fa6af61bf3a19eec"
+dependencies = [
+ "no-std-compat",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -205,6 +214,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "no-std-compat"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b93853da6d84c2e3c7d730d6473e8817692dd89be387eb01b94d7f108ecb5b8c"
 
 [[package]]
 name = "number_prefix"
@@ -312,6 +327,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "env_logger",
+ "grid",
  "indicatif",
  "log",
  "magic_vlsi",
