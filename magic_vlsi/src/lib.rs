@@ -4,6 +4,7 @@ use std::{
     fmt::Display,
     io::{Read, Write},
     net::TcpStream,
+    os::unix::prelude::{AsRawFd, FromRawFd},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     str::FromStr,
@@ -122,9 +123,23 @@ impl MagicInstance {
             cmd.current_dir(cwd);
         }
 
-        cmd.stdin(Stdio::piped())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
+
+        #[cfg(debug_assertions)]
+        {
+            let f = std::fs::File::create("magic.log")?;
+            let fd_out = f.as_raw_fd();
+
+            cmd.stdin(Stdio::piped())
+                .stdout(unsafe { Stdio::from_raw_fd(fd_out) })
+                .stderr(unsafe { Stdio::from_raw_fd(fd_out) });
+        }
+
+        #[cfg(not(debug_assertions))]
+        {
+            cmd.stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null());
+        }
 
         let mut child = cmd
             .spawn()

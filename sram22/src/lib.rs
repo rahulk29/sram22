@@ -1,5 +1,7 @@
 use config::TechConfig;
 use indicatif::{ProgressBar, ProgressStyle};
+use layout::grid::{GridCell, GridLayout};
+
 use magic_vlsi::units::{Distance, Rect, Vec2};
 use magic_vlsi::{Direction, MagicInstance, MagicInstanceBuilder};
 
@@ -79,7 +81,7 @@ pub fn generate(config: SramConfig) -> Result<()> {
     crate::predecode::generate_predecoder2_4(&mut magic, &tc)?;
     info!("finished generating subcells");
 
-    let bitcell_name = generate_bitcell_array(&mut magic, &tc, &config)?;
+    let bitcell_name = generate_bitcells(&mut magic, &config)?;
 
     let bitcell_bank = magic.load_layout_cell(&bitcell_name)?;
 
@@ -91,7 +93,7 @@ pub fn generate(config: SramConfig) -> Result<()> {
 
     let bitcell_bank = magic.place_layout_cell(bitcell_bank, Vec2::zero())?;
 
-    let bus = BusBuilder::new()
+    let _bus = BusBuilder::new()
         .width(8)
         .dir(Direction::Up)
         .tech_layer(&tc, "m1")
@@ -102,12 +104,12 @@ pub fn generate(config: SramConfig) -> Result<()> {
         .end(bitcell_bank.bbox().top_edge())
         .draw(&mut magic)?;
 
-    for i in 0..4 {
-        for j in 0..4 {
-            let nand_in1 = bitcell_bank.port_bbox(&format!("wl_{}A", 4 * i + j));
-            bus.draw_contact(&mut magic, &tc, i, "ct", "viali", "li", nand_in1)?;
-            let nand_in2 = bitcell_bank.port_bbox(&format!("wl_{}B", 4 * i + j));
-            bus.draw_contact(&mut magic, &tc, 4 + j, "ct", "viali", "li", nand_in2)?;
+    for _i in 0..4 {
+        for _j in 0..4 {
+            // let nand_in1 = bitcell_bank.port_bbox(&format!("wl_{}A", 4 * i + j));
+            // bus.draw_contact(&mut magic, &tc, i, "ct", "viali", "li", nand_in1)?;
+            // let nand_in2 = bitcell_bank.port_bbox(&format!("wl_{}B", 4 * i + j));
+            // bus.draw_contact(&mut magic, &tc, 4 + j, "ct", "viali", "li", nand_in2)?;
         }
     }
 
@@ -119,6 +121,77 @@ pub fn generate(config: SramConfig) -> Result<()> {
     info!("DONE: finished generating sram");
 
     Ok(())
+}
+
+fn plan_bitcell_array(
+    magic: &mut MagicInstance,
+    config: &SramConfig,
+) -> Result<grid::Grid<Option<GridCell>>> {
+    let (rows, cols) = (config.rows as usize, config.cols as usize);
+
+    let top_row = plan_colend_row(magic, config, false)?;
+
+    for _i in 0..rows {
+        for _j in 0..cols {
+            // TODO
+        }
+    }
+
+    let bot_row = plan_colend_row(magic, config, true)?;
+    let mut grid: grid::Grid<Option<GridCell>> = grid::grid![];
+    grid.push_row(top_row);
+    grid.push_row(bot_row);
+
+    Ok(grid)
+}
+
+fn plan_colend_row(
+    magic: &mut MagicInstance,
+    config: &SramConfig,
+    bottom: bool,
+) -> Result<Vec<Option<GridCell>>> {
+    let corner = magic.load_layout_cell("corner")?;
+    let colend = magic.load_layout_cell("colend")?;
+
+    let mut top_row = Vec::with_capacity(config.cols as usize + 2);
+
+    // 2 slots for decoder gates
+    // top_row.push(None);
+    // top_row.push(None);
+
+    top_row.push(Some(GridCell::new(corner.clone(), false, bottom)));
+
+    for i in 0..config.cols as usize {
+        top_row.push(Some(GridCell::new(colend.clone(), i % 2 == 0, bottom)));
+    }
+
+    top_row.push(Some(GridCell::new(corner, true, bottom)));
+
+    info!("generated {} row cells", top_row.len());
+
+    Ok(top_row)
+}
+
+fn generate_bitcells(magic: &mut MagicInstance, config: &SramConfig) -> Result<String> {
+    info!("generating bitcell array");
+    let cell_name = format!("bitcells_{}x{}", config.rows, config.cols);
+
+    let grid = plan_bitcell_array(magic, config)?;
+
+    magic.load(&cell_name)?;
+    magic.enable_box()?;
+    magic.drc_off()?;
+    magic.set_snap(magic_vlsi::SnapMode::Internal)?;
+
+    let grid = GridLayout::new(grid);
+    grid.draw(magic, Vec2::zero())?;
+
+    magic.port_renumber()?;
+    magic.save(&cell_name)?;
+    magic.exec_one("writeall force")?;
+
+    info!("saved {}", &cell_name);
+    Ok(cell_name)
 }
 
 fn generate_bitcell_array(

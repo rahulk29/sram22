@@ -5,7 +5,7 @@ use magic_vlsi::{
     MagicInstance,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GridCell {
     cell: LayoutCellRef,
     flip_x: bool,
@@ -17,6 +17,16 @@ pub struct GridLayout {
     inner: grid::Grid<Option<GridCell>>,
     row_heights: Vec<Distance>,
     col_widths: Vec<Distance>,
+}
+
+impl GridCell {
+    pub fn new(cell: LayoutCellRef, flip_x: bool, flip_y: bool) -> Self {
+        Self {
+            cell,
+            flip_x,
+            flip_y,
+        }
+    }
 }
 
 impl GridLayout {
