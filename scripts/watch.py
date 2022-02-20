@@ -5,7 +5,7 @@ import webbrowser
 
 command = "cargo r --release -- configs/sram_16x16.toml"
 out_dir = "_build/sram_16x16/"
-cell = "predecoder2_4.mag"
+cell = "sram_16x16.mag"
 outsvg = "out.svg"
 
 script = f"""
