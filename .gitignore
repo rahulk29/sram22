@@ -1,3 +1,5 @@
 /target
 .idea/
 /_build
+
+**/magic.log
