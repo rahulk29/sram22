@@ -140,6 +140,8 @@ fn plan_bitcell_array(
     let bitcell_rows = bitcell_rows?;
 
     let bot_row = plan_colend_row(magic, config, true)?;
+    let pc_row = plan_precharge_row(magic, config)?;
+
     let mut grid: grid::Grid<Option<GridCell>> = grid::grid![];
     grid.push_row(top_row);
 
@@ -148,6 +150,7 @@ fn plan_bitcell_array(
     }
 
     grid.push_row(bot_row);
+    grid.push_row(pc_row);
 
     Ok(grid)
 }
@@ -212,6 +215,28 @@ fn plan_bitcell_row(
     }
 
     row.push(Some(GridCell::new(rowend, false, flip_y)));
+
+    Ok(row)
+}
+
+fn plan_precharge_row(
+    magic: &mut MagicInstance,
+    config: &SramConfig,
+) -> Result<Vec<Option<GridCell>>> {
+    let precharge = magic.load_layout_cell("precharge")?;
+    let precharge_end = magic.load_layout_cell("precharge_end")?;
+    let precharge_center = magic.load_layout_cell("precharge_center")?;
+
+    let mut row = vec![None, None, Some(GridCell::new(precharge_end.clone(), true, false))];
+
+    for i in 0..config.cols as usize {
+        row.push(Some(GridCell::new(precharge.clone(), i % 2 == 0, false)));
+        if i > 0 && i % 8 == 0 {
+            row.push(Some(GridCell::new(precharge_center.clone(), false, false)));
+        }
+    }
+
+    row.push(Some(GridCell::new(precharge_end, false, false)));
 
     Ok(row)
 }
