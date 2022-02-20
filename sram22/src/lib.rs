@@ -25,7 +25,7 @@ pub fn generate(config: SramConfig) -> Result<()> {
     let rows = config.rows;
     let cols = config.cols;
     assert_eq!(rows % 4, 0, "number of sram rows must be divisible by 4");
-    assert_eq!(cols % 4, 0, "number of sram columns must be divisible by 4");
+    assert_eq!(cols % 8, 0, "number of sram columns must be divisible by 8");
 
     info!("generating {}x{} SRAM", rows, cols);
     info!("generated files will be placed in {}", &config.output_dir);
@@ -159,17 +159,24 @@ fn plan_colend_row(
 ) -> Result<Vec<Option<GridCell>>> {
     let corner = magic.load_layout_cell("corner")?;
     let colend = magic.load_layout_cell("colend")?;
-
-    let mut top_row = Vec::with_capacity(config.cols as usize + 4);
+    let colend_p_cent = magic.load_layout_cell("colend_p_cent")?;
 
     // 2 slots for decoder gates
-    top_row.push(None);
-    top_row.push(None);
-
-    top_row.push(Some(GridCell::new(corner.clone(), true, bottom)));
+    let mut top_row = vec![
+        None,
+        None,
+        Some(GridCell::new(corner.clone(), true, bottom)),
+    ];
 
     for i in 0..config.cols as usize {
         top_row.push(Some(GridCell::new(colend.clone(), i % 2 != 0, bottom)));
+        if i > 0 && i % 8 == 0 {
+            top_row.push(Some(GridCell::new(
+                colend_p_cent.clone(),
+                i % 2 != 0,
+                bottom,
+            )));
+        }
     }
 
     top_row.push(Some(GridCell::new(corner, false, bottom)));
@@ -188,8 +195,9 @@ fn plan_bitcell_row(
     let bitcell = magic.load_layout_cell("sram_sp_cell")?;
     let nand2_dec = magic.load_layout_cell("nand2_dec_auto")?;
     let inv_dec = magic.load_layout_cell("inv_dec_auto")?;
+    let wlstrap_p = magic.load_layout_cell("wlstrap_p")?;
 
-    let mut row = Vec::with_capacity(config.cols as usize + 4);
+    let mut row = Vec::new();
     let flip_y = idx % 2 == 0;
 
     row.push(Some(GridCell::new(nand2_dec, false, flip_y)));
@@ -198,6 +206,9 @@ fn plan_bitcell_row(
 
     for i in 0..config.cols as usize {
         row.push(Some(GridCell::new(bitcell.clone(), i % 2 == 0, flip_y)));
+        if i > 0 && i % 8 == 0 {
+            row.push(Some(GridCell::new(wlstrap_p.clone(), false, flip_y)));
+        }
     }
 
     row.push(Some(GridCell::new(rowend, false, flip_y)));
