@@ -30,6 +30,7 @@ pub struct MagicInstanceBuilder {
     tech: Option<String>,
     magic: Option<PathBuf>,
     port: u16,
+    debug: bool,
 }
 
 impl MagicInstanceBuilder {
@@ -70,6 +71,15 @@ impl MagicInstanceBuilder {
         self
     }
 
+    /// Enable/disable debug mode. In debug mode,
+    /// a log file will be created containing all commands
+    /// that were run, their output, and any information
+    /// printed by MAGIC to `stderr`.
+    pub fn debug(mut self, debug: bool) -> Self {
+        self.debug = debug;
+        self
+    }
+
     /// Consumes the builder, returning a [`MagicInstance`].
     ///
     /// This will start a MAGIC process in the background.
@@ -87,6 +97,7 @@ impl Default for MagicInstanceBuilder {
             tech: None,
             magic: None,
             port: 9999,
+            debug: false,
         }
     }
 }
@@ -123,19 +134,14 @@ impl MagicInstance {
             cmd.current_dir(cwd);
         }
 
-
-        #[cfg(debug_assertions)]
-        {
+        if builder.debug {
             let f = std::fs::File::create("magic.log")?;
             let fd_out = f.as_raw_fd();
 
             cmd.stdin(Stdio::piped())
                 .stdout(unsafe { Stdio::from_raw_fd(fd_out) })
                 .stderr(unsafe { Stdio::from_raw_fd(fd_out) });
-        }
-
-        #[cfg(not(debug_assertions))]
-        {
+        } else {
             cmd.stdin(Stdio::piped())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null());

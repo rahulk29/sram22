@@ -1,8 +1,8 @@
 use config::TechConfig;
-use indicatif::{ProgressBar, ProgressStyle};
+
 use layout::grid::{GridCell, GridLayout};
 
-use magic_vlsi::units::{Distance, Rect, Vec2};
+use magic_vlsi::units::{Distance, Vec2};
 use magic_vlsi::{Direction, MagicInstance, MagicInstanceBuilder};
 
 use crate::cells::gates::inv::single_height::InvParams;
@@ -127,19 +127,26 @@ fn plan_bitcell_array(
     magic: &mut MagicInstance,
     config: &SramConfig,
 ) -> Result<grid::Grid<Option<GridCell>>> {
-    let (rows, cols) = (config.rows as usize, config.cols as usize);
+    let rows = config.rows as usize;
 
     let top_row = plan_colend_row(magic, config, false)?;
 
-    for _i in 0..rows {
-        for _j in 0..cols {
-            // TODO
-        }
-    }
+    let bitcell_rows: Result<Vec<Vec<Option<GridCell>>>> = (0..rows as usize)
+        .map(|i| {
+            info!("planning bitcell row {}", i + 1);
+            plan_bitcell_row(magic, config, i)
+        })
+        .collect();
+    let bitcell_rows = bitcell_rows?;
 
     let bot_row = plan_colend_row(magic, config, true)?;
     let mut grid: grid::Grid<Option<GridCell>> = grid::grid![];
     grid.push_row(top_row);
+
+    for row in bitcell_rows {
+        grid.push_row(row);
+    }
+
     grid.push_row(bot_row);
 
     Ok(grid)
@@ -153,23 +160,49 @@ fn plan_colend_row(
     let corner = magic.load_layout_cell("corner")?;
     let colend = magic.load_layout_cell("colend")?;
 
-    let mut top_row = Vec::with_capacity(config.cols as usize + 2);
+    let mut top_row = Vec::with_capacity(config.cols as usize + 4);
 
     // 2 slots for decoder gates
-    // top_row.push(None);
-    // top_row.push(None);
+    top_row.push(None);
+    top_row.push(None);
 
-    top_row.push(Some(GridCell::new(corner.clone(), false, bottom)));
+    top_row.push(Some(GridCell::new(corner.clone(), true, bottom)));
 
     for i in 0..config.cols as usize {
-        top_row.push(Some(GridCell::new(colend.clone(), i % 2 == 0, bottom)));
+        top_row.push(Some(GridCell::new(colend.clone(), i % 2 != 0, bottom)));
     }
 
-    top_row.push(Some(GridCell::new(corner, true, bottom)));
+    top_row.push(Some(GridCell::new(corner, false, bottom)));
 
     info!("generated {} row cells", top_row.len());
 
     Ok(top_row)
+}
+
+fn plan_bitcell_row(
+    magic: &mut MagicInstance,
+    config: &SramConfig,
+    idx: usize,
+) -> Result<Vec<Option<GridCell>>> {
+    let rowend = magic.load_layout_cell("rowend")?;
+    let bitcell = magic.load_layout_cell("sram_sp_cell")?;
+    let nand2_dec = magic.load_layout_cell("nand2_dec_auto")?;
+    let inv_dec = magic.load_layout_cell("inv_dec_auto")?;
+
+    let mut row = Vec::with_capacity(config.cols as usize + 4);
+    let flip_y = idx % 2 == 0;
+
+    row.push(Some(GridCell::new(nand2_dec, false, flip_y)));
+    row.push(Some(GridCell::new(inv_dec, false, flip_y)));
+    row.push(Some(GridCell::new(rowend.clone(), true, flip_y)));
+
+    for i in 0..config.cols as usize {
+        row.push(Some(GridCell::new(bitcell.clone(), i % 2 == 0, flip_y)));
+    }
+
+    row.push(Some(GridCell::new(rowend, false, flip_y)));
+
+    Ok(row)
 }
 
 fn generate_bitcells(magic: &mut MagicInstance, config: &SramConfig) -> Result<String> {
@@ -191,128 +224,6 @@ fn generate_bitcells(magic: &mut MagicInstance, config: &SramConfig) -> Result<S
     magic.exec_one("writeall force")?;
 
     info!("saved {}", &cell_name);
-    Ok(cell_name)
-}
-
-fn generate_bitcell_array(
-    magic: &mut MagicInstance,
-    _tc: &TechConfig,
-    config: &SramConfig,
-) -> Result<String> {
-    let rows = config.rows;
-    let cols = config.cols;
-    let cell_name = format!("bitcells_{}x{}", rows, cols);
-
-    let rowend = magic.load_layout_cell("rowend")?;
-    let inv_dec = magic.load_layout_cell("inv_dec_auto")?;
-    let nand2_dec = magic.load_layout_cell("nand2_dec_auto")?;
-    let corner = magic.load_layout_cell("corner")?;
-
-    magic.load(&cell_name)?;
-    magic.enable_box()?;
-    magic.drc_off()?;
-    magic.set_snap(magic_vlsi::SnapMode::Internal)?;
-
-    info!("generating bitcell array");
-
-    // draw top row
-    let mut bbox = magic.getcell("corner")?;
-    let left = bbox.left_edge();
-    magic.sideways()?;
-    for i in 0..(cols as usize) {
-        bbox = magic.place_cell("colend", bbox.lr())?;
-        if i % 2 == 1 {
-            magic.sideways()?;
-        }
-    }
-    magic.place_cell("corner", bbox.lr())?;
-    info!("generated top row");
-
-    // draw rows
-    info!("generating bitcell core");
-    let prog_bar = ProgressBar::new((rows * cols) as u64);
-    prog_bar.set_style(
-        ProgressStyle::default_bar()
-            .template("{msg} [{bar}] {pos:>4}/{len:4} [{eta_precise}]")
-            .progress_chars("=> "),
-    );
-    prog_bar.set_message("Placing sram cells");
-    for i in 0..(rows as usize) {
-        let pre_column_dist = inv_dec.bbox.width() + nand2_dec.bbox.width();
-        let sram_array_left = left - pre_column_dist;
-        bbox = Rect::ul_wh(
-            sram_array_left,
-            bbox.bottom_edge(),
-            pre_column_dist,
-            rowend.bbox.height(),
-        );
-        let mut nand2_cell = magic.place_layout_cell(nand2_dec.clone(), bbox.ll())?;
-        if i % 2 == 0 {
-            magic.flip_cell_y(&mut nand2_cell)?;
-        }
-        magic.rename_cell_pin(&nand2_cell, "A", &format!("wl_{}A", i))?;
-        magic.port_make_default()?;
-        magic.rename_cell_pin(&nand2_cell, "B", &format!("wl_{}B", i))?;
-        magic.port_make_default()?;
-        bbox = nand2_cell.bbox();
-        bbox = magic.place_cell("inv_dec_auto", bbox.lr())?;
-        if i % 2 == 0 {
-            magic.upside_down()?;
-        }
-        bbox = magic.place_cell("rowend", bbox.lr())?;
-        magic.sideways()?;
-        if i % 2 == 0 {
-            magic.upside_down()?;
-        }
-
-        for j in 0..(cols as usize) {
-            bbox = magic.place_cell("sram_sp_cell", bbox.lr())?;
-
-            if i % 2 == 0 {
-                magic.upside_down()?;
-            }
-
-            if j % 2 == 0 {
-                magic.sideways()?;
-            }
-            prog_bar.inc(1);
-        }
-        magic.place_cell("rowend", bbox.lr())?;
-
-        if i % 2 == 0 {
-            magic.upside_down()?;
-        }
-    }
-
-    prog_bar.finish_and_clear();
-
-    info!("finished generating bitcell core");
-
-    // draw bot row
-    bbox = Rect::ul_wh(
-        left,
-        bbox.bottom_edge(),
-        corner.bbox.width(),
-        corner.bbox.height(),
-    );
-    let mut bbox = magic.place_cell("corner", bbox.ll())?;
-    magic.sideways()?;
-    magic.upside_down()?;
-    for i in 0..(cols as usize) {
-        bbox = magic.place_cell("colend", bbox.lr())?;
-        magic.upside_down()?;
-        if i % 2 == 1 {
-            magic.sideways()?;
-        }
-    }
-    magic.place_cell("corner", bbox.lr())?;
-    magic.upside_down()?;
-
-    info!("generated bottom row");
-
-    magic.port_renumber()?;
-    magic.save(&cell_name)?;
-
     Ok(cell_name)
 }
 

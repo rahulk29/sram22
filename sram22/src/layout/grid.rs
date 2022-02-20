@@ -74,6 +74,7 @@ impl GridLayout {
 
         let mut row_offset = Distance::zero();
         for i in 0..rows {
+            row_offset += self.row_heights[i];
             let mut col_offset = Distance::zero();
             for j in 0..cols {
                 if let Some(cell) = self.inner.get(i, j).unwrap() {
@@ -92,7 +93,6 @@ impl GridLayout {
                 }
                 col_offset += self.col_widths[j];
             }
-            row_offset += self.row_heights[i];
         }
 
         Ok(instance_grid)
