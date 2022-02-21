@@ -159,7 +159,7 @@ fn plan_colend_row(
 ) -> Result<Vec<Option<GridCell>>> {
     let corner = magic.load_layout_cell("corner")?;
     let colend = magic.load_layout_cell("colend")?;
-    let colend_p_cent = magic.load_layout_cell("colend_p_cent")?;
+    let colend_cent = magic.load_layout_cell("colend_cent")?;
 
     // 2 slots for decoder gates
     let mut top_row = vec![
@@ -169,14 +169,10 @@ fn plan_colend_row(
     ];
 
     for i in 0..config.cols as usize {
-        top_row.push(Some(GridCell::new(colend.clone(), i % 2 != 0, bottom)));
         if i > 0 && i % 8 == 0 {
-            top_row.push(Some(GridCell::new(
-                colend_p_cent.clone(),
-                i % 2 != 0,
-                bottom,
-            )));
+            top_row.push(Some(GridCell::new(colend_cent.clone(), i % 2 != 0, bottom)));
         }
+        top_row.push(Some(GridCell::new(colend.clone(), i % 2 != 0, bottom)));
     }
 
     top_row.push(Some(GridCell::new(corner, false, bottom)));
@@ -195,7 +191,7 @@ fn plan_bitcell_row(
     let bitcell = magic.load_layout_cell("sram_sp_cell")?;
     let nand2_dec = magic.load_layout_cell("nand2_dec_auto")?;
     let inv_dec = magic.load_layout_cell("inv_dec_auto")?;
-    let wlstrap_p = magic.load_layout_cell("wlstrap_p")?;
+    let wlstrap = magic.load_layout_cell("wlstrap")?;
 
     let mut row = Vec::new();
     let flip_y = idx % 2 == 0;
@@ -205,10 +201,10 @@ fn plan_bitcell_row(
     row.push(Some(GridCell::new(rowend.clone(), true, flip_y)));
 
     for i in 0..config.cols as usize {
-        row.push(Some(GridCell::new(bitcell.clone(), i % 2 == 0, flip_y)));
         if i > 0 && i % 8 == 0 {
-            row.push(Some(GridCell::new(wlstrap_p.clone(), false, flip_y)));
+            row.push(Some(GridCell::new(wlstrap.clone(), false, flip_y)));
         }
+        row.push(Some(GridCell::new(bitcell.clone(), i % 2 == 0, flip_y)));
     }
 
     row.push(Some(GridCell::new(rowend, false, flip_y)));
