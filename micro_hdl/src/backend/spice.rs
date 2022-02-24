@@ -97,7 +97,12 @@ where
         let instance_pins = module.generate(&mut ctx);
 
         for (port_sig, inst_sig) in port_signals.into_iter().zip(instance_pins) {
-            assert_eq!(port_sig.width(), inst_sig.width());
+            assert_eq!(
+                port_sig.width(),
+                inst_sig.width(),
+                "signals had incorrect width when connecting to instance of {}",
+                module.name()
+            );
             for (a, b) in port_sig.nodes().zip(inst_sig.nodes()) {
                 ctx.connect(a, b);
             }
