@@ -17,6 +17,7 @@ use log::info;
 
 pub mod cells;
 pub mod config;
+pub mod decode;
 pub mod error;
 pub mod layout;
 pub mod predecode;
@@ -34,6 +35,8 @@ pub fn generate(config: SramConfig) -> Result<()> {
     let out_dir = &config.output_dir;
     let cell_dir = &config.tech_dir;
 
+    let tc = sky130_config();
+
     // clean the existing build directory; ignore errors
     let _ = fs::remove_dir_all(out_dir);
 
@@ -41,8 +44,6 @@ pub fn generate(config: SramConfig) -> Result<()> {
     fs::create_dir_all(out_dir).unwrap();
     copy_cells(cell_dir, out_dir);
     info!("copied custom cells to output directory");
-
-    let tc = sky130_config();
 
     let mut magic = MagicInstanceBuilder::new()
         .cwd(out_dir)
@@ -162,7 +163,7 @@ fn plan_colend_row(
 ) -> Result<Vec<Option<GridCell>>> {
     let corner = magic.load_layout_cell("corner")?;
     let colend = magic.load_layout_cell("colend")?;
-    let colend_p_cent = magic.load_layout_cell("colend_p_cent")?;
+    let colend_cent = magic.load_layout_cell("colend_cent")?;
 
     // 2 slots for decoder gates
     let mut top_row = vec![
@@ -172,14 +173,10 @@ fn plan_colend_row(
     ];
 
     for i in 0..config.cols as usize {
-        top_row.push(Some(GridCell::new(colend.clone(), i % 2 != 0, bottom)));
         if i > 0 && i % 8 == 0 {
-            top_row.push(Some(GridCell::new(
-                colend_p_cent.clone(),
-                i % 2 != 0,
-                bottom,
-            )));
+            top_row.push(Some(GridCell::new(colend_cent.clone(), i % 2 != 0, bottom)));
         }
+        top_row.push(Some(GridCell::new(colend.clone(), i % 2 != 0, bottom)));
     }
 
     top_row.push(Some(GridCell::new(corner, false, bottom)));
@@ -198,7 +195,7 @@ fn plan_bitcell_row(
     let bitcell = magic.load_layout_cell("sram_sp_cell")?;
     let nand2_dec = magic.load_layout_cell("nand2_dec_auto")?;
     let inv_dec = magic.load_layout_cell("inv_dec_auto")?;
-    let wlstrap_p = magic.load_layout_cell("wlstrap_p")?;
+    let wlstrap = magic.load_layout_cell("wlstrap")?;
 
     let mut row = Vec::new();
     let flip_y = idx % 2 == 0;
@@ -208,10 +205,10 @@ fn plan_bitcell_row(
     row.push(Some(GridCell::new(rowend.clone(), true, flip_y)));
 
     for i in 0..config.cols as usize {
-        row.push(Some(GridCell::new(bitcell.clone(), i % 2 == 0, flip_y)));
         if i > 0 && i % 8 == 0 {
-            row.push(Some(GridCell::new(wlstrap_p.clone(), false, flip_y)));
+            row.push(Some(GridCell::new(wlstrap.clone(), false, flip_y)));
         }
+        row.push(Some(GridCell::new(bitcell.clone(), i % 2 == 0, flip_y)));
     }
 
     row.push(Some(GridCell::new(rowend, false, flip_y)));
@@ -297,6 +294,17 @@ pub fn net_name_bar(prefix: &str, bar: bool) -> String {
     } else {
         prefix.into()
     }
+}
+
+pub fn clog2(mut x: usize) -> u8 {
+    assert!(x > 0, "clog2: cannot take log of 0");
+    let mut ctr = 0u8;
+    while x > 1 {
+        x >>= 1;
+        ctr += 1;
+    }
+
+    ctr
 }
 
 #[cfg(test)]
