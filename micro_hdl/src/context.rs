@@ -1,4 +1,6 @@
 use crate::node::Node;
+use crate::primitive::mos::Mosfet;
+use crate::primitive::resistor::Resistor;
 use crate::Module;
 use std::collections::HashMap;
 
@@ -8,6 +10,15 @@ pub struct Context {
     pub(crate) modules: Vec<Box<dyn Module>>,
     pub(crate) net_names: HashMap<u64, String>,
     remap: HashMap<u64, u64>,
+
+    // primitives
+    pub(crate) resistors: Vec<Resistor>,
+    pub(crate) mosfets: Vec<Mosfet>,
+}
+
+pub struct ContextTree {
+    pub ctx: Context,
+    pub children: Vec<Context>,
 }
 
 impl Context {
@@ -50,6 +61,14 @@ impl Context {
 
     fn add_boxed(&mut self, module: Box<dyn Module>) {
         self.modules.push(module);
+    }
+
+    pub fn add_resistor(&mut self, resistor: Resistor) {
+        self.resistors.push(resistor);
+    }
+
+    pub fn add_mosfet(&mut self, mosfet: Mosfet) {
+        self.mosfets.push(mosfet);
     }
 
     pub(crate) fn register_named_net(&mut self, name: &str) -> Node {

@@ -3,6 +3,7 @@ use crate::node::Node;
 
 pub mod backend;
 pub mod context;
+pub mod frontend;
 pub mod node;
 pub mod primitive;
 

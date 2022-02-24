@@ -1,6 +1,6 @@
 use micro_hdl::context::Context;
 use micro_hdl::node::Node;
-use micro_hdl::primitive::resistor::Resistor;
+use micro_hdl::primitive::resistor::{Resistance, Resistor};
 
 #[micro_hdl::module]
 pub struct ResistorArray {
@@ -19,12 +19,12 @@ impl ResistorArray {
         let input = c.bus(width);
         let output = c.bus(width);
         for i in 0..width {
-            let r = ResistorModule::instance()
-                .stages(4)
-                .input(input[i])
-                .output(output[i])
+            let r = Resistor::instance()
+                .value(Resistance::from_kiloohms(1_000))
+                .a(input[i])
+                .b(output[i])
                 .build();
-            c.add(r);
+            c.add_resistor(r);
         }
 
         Self::instance()
