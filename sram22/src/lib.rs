@@ -17,6 +17,7 @@ use log::info;
 
 pub mod cells;
 pub mod config;
+pub mod decode;
 pub mod error;
 pub mod layout;
 pub mod predecode;
@@ -34,6 +35,8 @@ pub fn generate(config: SramConfig) -> Result<()> {
     let out_dir = &config.output_dir;
     let cell_dir = &config.tech_dir;
 
+    let tc = sky130_config();
+
     // clean the existing build directory; ignore errors
     let _ = fs::remove_dir_all(out_dir);
 
@@ -41,8 +44,6 @@ pub fn generate(config: SramConfig) -> Result<()> {
     fs::create_dir_all(out_dir).unwrap();
     copy_cells(cell_dir, out_dir);
     info!("copied custom cells to output directory");
-
-    let tc = sky130_config();
 
     let mut magic = MagicInstanceBuilder::new()
         .cwd(out_dir)
@@ -268,6 +269,17 @@ pub fn net_name_bar(prefix: &str, bar: bool) -> String {
     } else {
         prefix.into()
     }
+}
+
+pub fn clog2(mut x: usize) -> u8 {
+    assert!(x > 0, "clog2: cannot take log of 0");
+    let mut ctr = 0u8;
+    while x > 1 {
+        x >>= 1;
+        ctr += 1;
+    }
+
+    ctr
 }
 
 #[cfg(test)]

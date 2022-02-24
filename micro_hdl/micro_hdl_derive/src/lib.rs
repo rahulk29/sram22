@@ -136,7 +136,7 @@ pub fn module(
     let generate_instance = if has_params {
         let param_name = params_name.unwrap();
         quote! {
-            let instance = #name::generate(self.#param_name, c);
+            let instance = #name::generate(self.#param_name.clone(), c);
         }
     } else {
         quote! {
@@ -146,7 +146,7 @@ pub fn module(
 
     let name_instance = if has_params {
         let param_name = params_name.unwrap();
-        quote! { #name::name(self.#param_name) }
+        quote! { #name::name(self.#param_name.clone()) }
     } else {
         quote! { #name::name() }
     };
