@@ -1,6 +1,8 @@
+use std::fmt::Display;
+
 use crate::Node;
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Resistance {
     picoohms: i128,
 }
@@ -63,6 +65,16 @@ impl Resistance {
         Self {
             picoohms: value * 1_000_000_000_000_000_000_000,
         }
+    }
+    #[inline]
+    pub fn picoohms(&self) -> i128 {
+        self.picoohms
+    }
+}
+
+impl Display for Resistance {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}p\u{2_126}", self.picoohms)
     }
 }
 

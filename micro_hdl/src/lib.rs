@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::context::Context;
 use crate::node::Node;
 
@@ -6,6 +8,7 @@ pub mod context;
 pub mod frontend;
 pub mod node;
 pub mod primitive;
+pub mod transform;
 
 pub use micro_hdl_derive::*;
 
@@ -68,6 +71,11 @@ pub struct Port {
     pub signal: Signal,
 }
 
+pub struct AbstractPort {
+    pub name: String,
+    pub pin_type: PinType,
+}
+
 pub struct InstancePin {
     pub signal: Node,
 }
@@ -78,6 +86,11 @@ pub trait ModuleInstance {
     fn name(&self) -> String;
     fn get_ports(&self) -> Vec<Port>;
     fn config(&self) -> ModuleConfig;
+}
+
+pub trait AbstractModule {
+    fn generate(&self, c: &mut Context) -> Arc<dyn Module>;
+    fn get_ports(&self) -> Vec<AbstractPort>;
 }
 
 #[derive(Debug, Eq, PartialEq)]

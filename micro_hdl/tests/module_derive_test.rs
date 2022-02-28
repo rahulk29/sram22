@@ -39,50 +39,33 @@ impl ResistorArray {
     }
 }
 
-#[micro_hdl::module]
-pub struct ResistorModule {
-    #[params]
-    pub stages: usize,
-    #[input]
-    pub input: Node,
-    #[output]
-    pub output: Node,
-}
+#[cfg(test)]
+mod tests {
+    use std::io::{Read, Seek, SeekFrom};
 
-impl ResistorModule {
-    fn generate(stages: usize, c: &mut Context) -> ResistorModuleInstance {
-        let input = c.node();
-        let output = c.node();
-        let mut curr = input;
-        for _ in 0..stages {
-            let temp = c.node();
-            let r = Resistor {
-                value: 100,
-                a: curr,
-                b: temp,
-            };
-            c.add(r);
-            curr = temp;
-        }
+    use super::*;
+    use micro_hdl::{backend::spice::SpiceBackend, frontend::parse, transform::print_tree};
 
-        c.connect(curr, output);
-        ResistorModuleInstance {
-            stages,
-            input,
-            output,
-        }
+    #[test]
+    fn test_print_abstract_resistor_array() {
+        let tree = parse(ResistorArray::top(12));
+
+        print_tree(&tree);
     }
 
-    fn name(stages: usize) -> String {
-        format!("resistor_module_{}", stages)
-    }
-}
+    #[test]
+    fn test_netlist_abstract_resistor_array() -> Result<(), Box<dyn std::error::Error>> {
+        let tree = parse(ResistorArray::top(12));
+        let file = tempfile::tempfile()?;
+        let mut backend = SpiceBackend::with_file(file)?;
+        backend.netlist(&tree)?;
+        let mut file = backend.output();
 
-#[test]
-fn test_create_resistor_instance() {
-    let _rm = ResistorModule::instance()
-        .input(Node::test())
-        .output(Node::test())
-        .stages(12)
-        .build();
+        let mut s = String::new();
+        file.seek(SeekFrom::Start(0))?;
+        file.read_to_string(&mut s)?;
+        println!("{}", &s);
+
+        Ok(())
+    }
 }

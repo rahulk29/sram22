@@ -3,11 +3,12 @@ use crate::primitive::mos::Mosfet;
 use crate::primitive::resistor::Resistor;
 use crate::Module;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Default)]
 pub struct Context {
     pub(crate) net_id: u64,
-    pub(crate) modules: Vec<Box<dyn Module>>,
+    pub(crate) modules: Vec<Arc<dyn Module>>,
     pub(crate) net_names: HashMap<u64, String>,
     remap: HashMap<u64, u64>,
 
@@ -18,7 +19,8 @@ pub struct Context {
 
 pub struct ContextTree {
     pub ctx: Context,
-    pub children: Vec<Context>,
+    pub module: Arc<dyn Module>,
+    pub children: Vec<ContextTree>,
 }
 
 impl Context {
@@ -56,10 +58,10 @@ impl Context {
     where
         T: Module,
     {
-        self.add_boxed(Box::new(module));
+        self.add_boxed(Arc::new(module));
     }
 
-    fn add_boxed(&mut self, module: Box<dyn Module>) {
+    fn add_boxed(&mut self, module: Arc<dyn Module>) {
         self.modules.push(module);
     }
 
@@ -80,12 +82,37 @@ impl Context {
         }
     }
 
-    pub(crate) fn name(&self, s: Node) -> String {
+    fn get_root(&self, s: Node) -> u64 {
         let mut id = s.id;
         while let Some(&tmp) = self.remap.get(&id) {
             id = tmp;
         }
+        id
+    }
 
-        self.net_names.get(&id).unwrap().to_string()
+    pub(crate) fn name(&self, s: Node) -> String {
+        self.net_names.get(&self.get_root(s)).unwrap().to_string()
+    }
+
+    pub(crate) fn rename_net(&mut self, node: Node, name: &str) {
+        self.net_names.insert(self.get_root(node), name.to_string());
+    }
+}
+
+impl ContextTree {
+    pub fn from_module(ctx: Context, module: Arc<dyn Module>) -> Self {
+        Self {
+            ctx,
+            module,
+            children: vec![],
+        }
+    }
+
+    pub fn new(ctx: Context, module: Arc<dyn Module>, children: Vec<ContextTree>) -> Self {
+        Self {
+            ctx,
+            module,
+            children,
+        }
     }
 }

@@ -8,6 +8,8 @@ pub enum MosType {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MosIntent {
+    /// Ultra low threshold voltage
+    Ulvt,
     /// Low threshold voltage
     Lvt,
     /// Standard threshold voltage
