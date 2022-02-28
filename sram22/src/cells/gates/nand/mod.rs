@@ -1,7 +1,7 @@
 use micro_hdl::{
     context::Context,
     node::Node,
-    primitive::mos::{MosParams, Nmos, Pmos},
+    primitive::mos::{Flavor, Intent, Mosfet, MosfetParams},
 };
 
 use super::GateSize;
@@ -37,51 +37,51 @@ impl Nand2Gate {
         let gnd = c.node();
         let vdd = c.node();
 
-        let nmos_params = MosParams {
+        let nmos_params = MosfetParams {
             width_nm: size.nwidth_nm,
             length_nm: size.nlength_nm,
+            flavor: Flavor::Nmos,
+            intent: Intent::Svt,
         };
 
-        let n1 = Nmos {
-            params: nmos_params,
-            d: int,
-            g: a,
-            s: gnd,
-            b: gnd,
-        };
-        c.add(n1);
+        let n1 = Mosfet::with_params(nmos_params.clone())
+            .d(int)
+            .g(a)
+            .s(gnd)
+            .b(gnd)
+            .build();
+        c.add_mosfet(n1);
 
-        let n2 = Nmos {
-            params: nmos_params,
-            d: y,
-            g: b,
-            s: int,
-            b: gnd,
-        };
-        c.add(n2);
+        let n2 = Mosfet::with_params(nmos_params.clone())
+            .d(y)
+            .g(b)
+            .s(int)
+            .b(gnd)
+            .build();
+        c.add_mosfet(n2);
 
-        let pmos_params = MosParams {
+        let pmos_params = MosfetParams {
             width_nm: size.pwidth_nm,
             length_nm: size.plength_nm,
+            flavor: Flavor::Pmos,
+            intent: Intent::Svt,
         };
 
-        let p1 = Pmos {
-            params: pmos_params,
-            d: y,
-            g: a,
-            s: vdd,
-            b: vdd,
-        };
-        c.add(p1);
+        let p1 = Mosfet::with_params(pmos_params.clone())
+            .d(y)
+            .g(a)
+            .s(vdd)
+            .b(vdd)
+            .build();
+        c.add_mosfet(p1);
 
-        let p2 = Pmos {
-            params: pmos_params,
-            d: y,
-            g: b,
-            s: vdd,
-            b: vdd,
-        };
-        c.add(p2);
+        let p2 = Mosfet::with_params(pmos_params)
+            .d(y)
+            .g(b)
+            .s(vdd)
+            .b(vdd)
+            .build();
+        c.add_mosfet(p2);
 
         Nand2Gate::instance()
             .size(size)

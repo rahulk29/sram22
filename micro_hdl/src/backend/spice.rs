@@ -1,11 +1,10 @@
 use crate::context::ContextTree;
-use crate::node::Node;
-use crate::{Context, Module, ModuleConfig, Signal};
+
+use crate::{Module, Signal};
 use std::any::TypeId;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::path::Path;
-use std::sync::Arc;
 
 pub struct SpiceBackend<T>
 where

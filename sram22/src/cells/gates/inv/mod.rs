@@ -6,14 +6,26 @@ use magic_vlsi::{
 use micro_hdl::{
     context::Context,
     node::Node,
-    primitive::mos::{MosParams, Nmos, Pmos},
+    primitive::mos::{Flavor, Intent, Mosfet, MosfetParams},
 };
+
+use super::GateSize;
 
 pub mod dec;
 pub mod single_height;
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct InvParams {
+    pub n_width: i64,
+    pub n_length: i64,
+    pub p_width: i64,
+    pub p_length: i64,
+}
+
 #[micro_hdl::module]
 pub struct Inv {
+    #[params]
+    size: GateSize,
     #[input]
     din: Node,
     #[output]
@@ -25,34 +37,40 @@ pub struct Inv {
 }
 
 impl Inv {
-    fn generate(ctx: &mut Context) -> InvInstance {
+    fn generate(size: GateSize, ctx: &mut Context) -> InvInstance {
         let din = ctx.node();
         let dout = ctx.node();
         let vdd = ctx.node();
         let gnd = ctx.node();
 
-        let nmos_params = MosParams {
-            width_nm: 1000,
-            length_nm: 150,
+        let params = MosfetParams {
+            width_nm: size.nwidth_nm,
+            length_nm: size.nlength_nm,
+            flavor: Flavor::Nmos,
+            intent: Intent::Svt,
         };
-        let pmos_params = nmos_params;
+        let mn = Mosfet::with_params(params)
+            .d(dout)
+            .g(din)
+            .s(gnd)
+            .b(gnd)
+            .build();
+        ctx.add_mosfet(mn);
 
-        let n1 = Nmos {
-            params: nmos_params,
-            d: dout,
-            g: din,
-            s: gnd,
-            b: gnd,
+        let params = MosfetParams {
+            width_nm: size.pwidth_nm,
+            length_nm: size.plength_nm,
+            flavor: Flavor::Pmos,
+            intent: Intent::Svt,
         };
-        ctx.add(n1);
-        let p1 = Pmos {
-            params: pmos_params,
-            d: dout,
-            g: din,
-            s: vdd,
-            b: vdd,
-        };
-        ctx.add(p1);
+
+        let mp = Mosfet::with_params(params)
+            .d(dout)
+            .g(din)
+            .s(gnd)
+            .b(gnd)
+            .build();
+        ctx.add_mosfet(mp);
 
         Inv::instance()
             .din(din)
@@ -62,8 +80,8 @@ impl Inv {
             .build()
     }
 
-    fn name() -> String {
-        "inv".to_string()
+    fn name(size: GateSize) -> String {
+        format!("inv_{}", size)
     }
 }
 
