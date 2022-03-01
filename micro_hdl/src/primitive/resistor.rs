@@ -1,67 +1,125 @@
-use crate::{Context, Module, ModuleConfig, ModuleInstance, Node, PinType, Port, Signal};
+use std::fmt::Display;
+
+use crate::Node;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Resistance {
+    picoohms: i128,
+}
 
 pub struct Resistor {
-    pub value: i64,
-    pub a: Node,
-    pub b: Node,
+    value: Resistance,
+    a: Node,
+    b: Node,
 }
 
-impl Module for Resistor {}
+pub struct ResistorBuilder {
+    value: Option<Resistance>,
+    a: Option<Node>,
+    b: Option<Node>,
+}
 
-impl ModuleInstance for Resistor {
-    fn generate(&self, _c: &mut Context) -> Vec<Signal> {
-        panic!("cannot generate resistor");
+impl Resistance {
+    #[inline]
+    pub fn from_picoohms(value: i128) -> Self {
+        Self { picoohms: value }
     }
-
-    fn spice(&self) -> String {
-        format!("R1 a b {}", self.value)
+    #[inline]
+    pub fn from_nanoohms(value: i128) -> Self {
+        Self {
+            picoohms: value * 1_000,
+        }
     }
-
-    fn name(&self) -> String {
-        format!("res_{}", self.value)
+    #[inline]
+    pub fn from_microohms(value: i128) -> Self {
+        Self {
+            picoohms: value * 1_000_000,
+        }
     }
-
-    fn get_ports(&self) -> Vec<Port> {
-        vec![
-            Port {
-                name: "a".to_string(),
-                pin_type: PinType::InOut,
-                signal: Signal::Wire(self.a),
-            },
-            Port {
-                name: "b".to_string(),
-                pin_type: PinType::InOut,
-                signal: Signal::Wire(self.b),
-            },
-        ]
+    #[inline]
+    pub fn from_milliohms(value: i128) -> Self {
+        Self {
+            picoohms: value * 1_000_000_000,
+        }
     }
-
-    fn config(&self) -> ModuleConfig {
-        ModuleConfig::Raw
+    #[inline]
+    pub fn from_ohms(value: i128) -> Self {
+        Self {
+            picoohms: value * 1_000_000_000_000,
+        }
+    }
+    #[inline]
+    pub fn from_kiloohms(value: i128) -> Self {
+        Self {
+            picoohms: value * 1_000_000_000_000_000,
+        }
+    }
+    #[inline]
+    pub fn from_megaohms(value: i128) -> Self {
+        Self {
+            picoohms: value * 1_000_000_000_000_000_000,
+        }
+    }
+    #[inline]
+    pub fn from_gigaohms(value: i128) -> Self {
+        Self {
+            picoohms: value * 1_000_000_000_000_000_000_000,
+        }
+    }
+    #[inline]
+    pub fn picoohms(&self) -> i128 {
+        self.picoohms
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::{Module, ModuleInstance, Node};
+impl Display for Resistance {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}p\u{2_126}", self.picoohms)
+    }
+}
 
-    use super::Resistor;
-
-    #[test]
-    fn resistor_implements_module_instance() {
-        let _: Box<dyn ModuleInstance> = Box::new(Resistor {
-            value: 1000,
-            a: Node::test(),
-            b: Node::test(),
-        });
+impl Resistor {
+    pub fn instance() -> ResistorBuilder {
+        ResistorBuilder {
+            value: None,
+            a: None,
+            b: None,
+        }
     }
 
-    #[test]
-    fn resistor_implements_module() {
-        let _: Box<dyn Module> = Box::new(Resistor {
-            value: 1000,
-            a: Node::test(),
-            b: Node::test(),
-        });
+    #[inline]
+    pub fn value(&self) -> Resistance {
+        self.value
+    }
+    #[inline]
+    pub fn a(&self) -> Node {
+        self.a
+    }
+    #[inline]
+    pub fn b(&self) -> Node {
+        self.b
+    }
+}
+
+impl ResistorBuilder {
+    pub fn value(mut self, value: Resistance) -> Self {
+        self.value = Some(value);
+        self
+    }
+    pub fn a(mut self, a: Node) -> Self {
+        self.a = Some(a);
+        self
+    }
+    pub fn b(mut self, b: Node) -> Self {
+        self.b = Some(b);
+        self
+    }
+
+    pub fn build(self) -> Resistor {
+        Resistor {
+            value: self.value.unwrap(),
+            a: self.a.unwrap(),
+            b: self.b.unwrap(),
+        }
     }
 }

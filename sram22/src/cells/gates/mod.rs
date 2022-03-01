@@ -6,10 +6,10 @@ pub mod nand3;
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub struct GateSize {
-    pub nwidth_nm: u64,
-    pub nlength_nm: u64,
-    pub pwidth_nm: u64,
-    pub plength_nm: u64,
+    pub nwidth_nm: i64,
+    pub nlength_nm: i64,
+    pub pwidth_nm: i64,
+    pub plength_nm: i64,
 }
 
 impl Display for GateSize {
