@@ -386,6 +386,7 @@ dependencies = [
  "magic_vlsi",
  "micro_hdl",
  "serde",
+ "tempfile",
  "thiserror",
  "toml",
 ]

@@ -73,6 +73,7 @@ impl Inv {
         ctx.add_mosfet(mp);
 
         Inv::instance()
+            .size(size)
             .din(din)
             .dout(dout)
             .vdd(vdd)
@@ -326,30 +327,24 @@ pub fn generate_pm_eo(m: &mut MagicInstance) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use crate::cells::gates::GateSize;
+    use std::io::{Read, Seek, SeekFrom};
+
     use super::Inv;
-    use micro_hdl::backend::spice::SpiceBackend;
+    use micro_hdl::{backend::spice::SpiceBackend, frontend::parse};
 
     #[test]
     fn test_netlist_inv() -> Result<(), Box<dyn std::error::Error>> {
-        let mut path = crate::test_utils::tmpdir();
-        path.push("inv.spice");
-        let out = std::fs::File::create(&path)?;
-        let mut b = SpiceBackend::new(out);
+        let tree = parse(Inv::top(GateSize::minimum()));
+        let file = tempfile::tempfile()?;
+        let mut backend = SpiceBackend::with_file(file)?;
+        backend.netlist(&tree)?;
+        let mut file = backend.output();
 
-        let din = b.top_level_signal();
-        let dout = b.top_level_signal();
-        let vdd = b.top_level_signal();
-        let gnd = b.top_level_signal();
-
-        let inv = Inv::instance()
-            .din(din)
-            .dout(dout)
-            .gnd(gnd)
-            .vdd(vdd)
-            .build();
-        b.netlist(inv);
-        let out = b.output();
-        out.sync_all()?;
+        let mut s = String::new();
+        file.seek(SeekFrom::Start(0))?;
+        file.read_to_string(&mut s)?;
+        println!("{}", &s);
 
         Ok(())
     }

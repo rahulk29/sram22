@@ -1,7 +1,7 @@
 use crate::node::Node;
 use crate::primitive::mos::Mosfet;
 use crate::primitive::resistor::Resistor;
-use crate::Module;
+use crate::{Module, PinType, Port, Signal};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -11,6 +11,7 @@ pub struct Context {
     pub(crate) modules: Vec<Arc<dyn Module>>,
     pub(crate) net_names: HashMap<u64, String>,
     remap: HashMap<u64, u64>,
+    pub(crate) ports: Vec<Port>,
 
     // primitives
     pub(crate) resistors: Vec<Resistor>,
@@ -73,15 +74,6 @@ impl Context {
         self.mosfets.push(mosfet);
     }
 
-    pub(crate) fn register_named_net(&mut self, name: &str) -> Node {
-        self.net_id += 1;
-        self.net_names.insert(self.net_id, name.to_string());
-        Node {
-            id: self.net_id,
-            priority: 1,
-        }
-    }
-
     fn get_root(&self, s: Node) -> u64 {
         let mut id = s.id;
         while let Some(&tmp) = self.remap.get(&id) {
@@ -90,12 +82,16 @@ impl Context {
         id
     }
 
-    pub(crate) fn name(&self, s: Node) -> String {
-        self.net_names.get(&self.get_root(s)).unwrap().to_string()
+    pub(crate) fn make_port(&mut self, name: String, pin_type: PinType, signal: Signal) {
+        self.ports.push(Port {
+            name,
+            pin_type,
+            signal,
+        });
     }
 
-    pub(crate) fn rename_net(&mut self, node: Node, name: &str) {
-        self.net_names.insert(self.get_root(node), name.to_string());
+    pub(crate) fn name(&self, s: Node) -> String {
+        self.net_names.get(&self.get_root(s)).unwrap().to_string()
     }
 }
 

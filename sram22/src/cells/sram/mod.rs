@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod tests;
-
 use micro_hdl::{context::Context, node::Node};
 
 #[micro_hdl::module]

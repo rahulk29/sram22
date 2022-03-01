@@ -22,17 +22,9 @@ fn parse_module(m: Arc<dyn Module>) -> ContextTree {
     let iports = m.generate(&mut c);
     let aports = m.get_ports();
 
-    for (i, a) in iports.iter().zip(aports.iter()) {
+    for (i, a) in iports.into_iter().zip(aports.into_iter()) {
         assert_eq!(i.width(), a.signal.width());
-
-        match i {
-            Signal::Wire(n) => c.rename_net(*n, &a.name),
-            Signal::Bus(ns) => {
-                for (i, n) in ns.iter().enumerate() {
-                    c.rename_net(*n, &format!("{}_{}", &a.name, i));
-                }
-            }
-        };
+        c.make_port(a.name, a.pin_type, i);
     }
 
     let children = c

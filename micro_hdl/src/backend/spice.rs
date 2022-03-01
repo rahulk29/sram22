@@ -79,7 +79,7 @@ where
         self.mark_generated(module);
 
         write!(self.out, ".subckt {}", module.name())?;
-        self.netlist_module_ports(&*module)?;
+        self.netlist_module_ports(tree)?;
         writeln!(self.out)?;
 
         for (i, m) in tree.ctx.modules.iter().enumerate() {
@@ -115,18 +115,11 @@ where
 
     fn netlist_module_ports(
         &mut self,
-        module: &dyn Module,
+        tree: &ContextTree,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        for port in module.get_ports() {
-            match port.signal {
-                Signal::Wire(_) => {
-                    write!(self.out, " {}", &port.name)?;
-                }
-                Signal::Bus(bus) => {
-                    for (i, _) in bus.iter().enumerate() {
-                        write!(self.out, " {}_{}", &port.name, i)?;
-                    }
-                }
+        for port in &tree.ctx.ports {
+            for node in port.signal.nodes() {
+                write!(self.out, " {}", tree.ctx.name(node))?;
             }
         }
         Ok(())
