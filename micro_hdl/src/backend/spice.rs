@@ -1,10 +1,14 @@
 use crate::context::ContextTree;
 
-use crate::{Module, Signal};
+use crate::mos::sky130_mos_name;
+use crate::primitive::mos::{Flavor, Intent};
+use crate::Module;
 use std::any::TypeId;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::path::Path;
+
+pub type MosNameFn = fn(Flavor, Intent) -> String;
 
 pub struct SpiceBackend<T>
 where
@@ -12,6 +16,7 @@ where
 {
     generated: HashMap<TypeId, HashSet<String>>,
     out: T,
+    mos_name_fn: MosNameFn,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -27,6 +32,7 @@ impl SpiceBackend<File> {
         Ok(SpiceBackend {
             generated: HashMap::new(),
             out,
+            mos_name_fn: sky130_mos_name,
         })
     }
 
@@ -34,6 +40,7 @@ impl SpiceBackend<File> {
         Ok(SpiceBackend {
             generated: HashMap::new(),
             out,
+            mos_name_fn: sky130_mos_name,
         })
     }
 }
@@ -46,6 +53,7 @@ where
         Self {
             generated: HashMap::new(),
             out,
+            mos_name_fn: sky130_mos_name,
         }
     }
 
@@ -83,7 +91,7 @@ where
         writeln!(self.out)?;
 
         for (i, m) in tree.ctx.modules.iter().enumerate() {
-            write!(self.out, "X{}", i)?;
+            write!(self.out, "XM{}", i)?;
             let inst_ports = m.get_ports();
             for port in inst_ports {
                 for node in port.signal.nodes() {
@@ -101,6 +109,21 @@ where
                 tree.ctx.name(r.a()),
                 tree.ctx.name(r.b()),
                 r.value().picoohms()
+            )?;
+        }
+        for (i, m) in tree.ctx.mosfets.iter().enumerate() {
+            let descriptor = (self.mos_name_fn)(m.flavor, m.intent.clone());
+            writeln!(
+                self.out,
+                "XFET{} {} {} {} {} {} w={}m l={}m",
+                i,
+                tree.ctx.name(m.d),
+                tree.ctx.name(m.g),
+                tree.ctx.name(m.s),
+                tree.ctx.name(m.b),
+                descriptor,
+                m.width_nm,
+                m.length_nm,
             )?;
         }
 

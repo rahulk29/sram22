@@ -26,18 +26,18 @@ pub enum Intent {
 #[must_use = "creating a Mosfet instance does nothing; you must add it to a Context"]
 pub struct Mosfet {
     // length, width, n/p, lvt/hvt/etc, terminals (optional sub)
-    pub(crate) width_nm: i64,
-    pub(crate) length_nm: i64,
-    pub(crate) flavor: Flavor,
-    pub(crate) intent: Intent,
+    pub width_nm: i64,
+    pub length_nm: i64,
+    pub flavor: Flavor,
+    pub intent: Intent,
 
     // terminals
-    pub(crate) d: Node,
-    pub(crate) g: Node,
-    pub(crate) s: Node,
-    pub(crate) b: Node,
+    pub d: Node,
+    pub g: Node,
+    pub s: Node,
+    pub b: Node,
     /// Optional substrate terminal for DNW devices
-    pub(crate) substrate: Option<Node>,
+    pub substrate: Option<Node>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]

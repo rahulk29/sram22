@@ -57,7 +57,7 @@ impl Nand3 {
             .b(gnd)
             .build();
         ctx.add_mosfet(n2);
-        let n3 = Mosfet::with_params(nmos_params.clone())
+        let n3 = Mosfet::with_params(nmos_params)
             .d(y)
             .g(a)
             .s(int1)
@@ -79,7 +79,7 @@ impl Nand3 {
             .b(vdd)
             .build();
         ctx.add_mosfet(p2);
-        let p3 = Mosfet::with_params(pmos_params.clone())
+        let p3 = Mosfet::with_params(pmos_params)
             .d(y)
             .g(c)
             .s(vdd)

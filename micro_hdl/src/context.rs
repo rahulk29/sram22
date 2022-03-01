@@ -83,6 +83,16 @@ impl Context {
     }
 
     pub(crate) fn make_port(&mut self, name: String, pin_type: PinType, signal: Signal) {
+        for (i, n) in signal.nodes().enumerate() {
+            let root = self.get_root(n);
+            let net_name = if signal.is_bus() {
+                format!("{}_{}", name, i)
+            } else {
+                name.to_string()
+            };
+            self.net_names.insert(root, net_name);
+        }
+
         self.ports.push(Port {
             name,
             pin_type,

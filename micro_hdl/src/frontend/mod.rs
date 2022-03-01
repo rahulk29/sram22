@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::context::{Context, ContextTree};
-use crate::{AbstractModule, Module, Signal};
+use crate::{AbstractModule, Module};
 
 pub fn parse<M>(m: M) -> ContextTree
 where

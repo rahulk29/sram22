@@ -52,7 +52,7 @@ impl Nand2Gate {
             .build();
         c.add_mosfet(n1);
 
-        let n2 = Mosfet::with_params(nmos_params.clone())
+        let n2 = Mosfet::with_params(nmos_params)
             .d(y)
             .g(b)
             .s(int)

@@ -156,7 +156,7 @@ mod tests {
     #[test]
     fn netlist_16row_decoder() -> Result<(), Box<dyn std::error::Error>> {
         let out = <Vec<u8>>::new();
-        let mut b = SpiceBackend::new(out);
+        let _b = SpiceBackend::new(out);
 
         let decoder = NandDecoder {
             output_bits: 16,

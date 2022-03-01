@@ -6,6 +6,7 @@ use crate::node::Node;
 pub mod backend;
 pub mod context;
 pub mod frontend;
+pub mod mos;
 pub mod node;
 pub mod primitive;
 pub mod transform;
@@ -36,6 +37,14 @@ impl Signal {
 
     pub fn nodes(&self) -> SignalNodes {
         SignalNodes { s: self, idx: 0 }
+    }
+
+    pub fn is_bus(&self) -> bool {
+        matches!(&self, &Signal::Bus(_))
+    }
+
+    pub fn is_wire(&self) -> bool {
+        matches!(&self, &Signal::Wire(_))
     }
 }
 
