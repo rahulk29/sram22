@@ -27,6 +27,9 @@ pub fn module(
     let inst_builder_name = format!("{}InstanceBuilder", name);
     let inst_builder_ident = Ident::new(&inst_builder_name, name.span());
 
+    let abstract_name = format!("{}AbstractModule", name);
+    let abstract_ident = Ident::new(&abstract_name, name.span());
+
     let fields = if let Data::Struct(DataStruct {
         fields: Fields::Named(fields),
         ..
@@ -133,6 +136,24 @@ pub fn module(
         })
         .collect::<Vec<_>>();
 
+    let abstract_ports_return = ports
+        .iter()
+        .map(|port| {
+            let name = port.name.clone();
+            let pin_type = match port.ptype {
+                DerivePinType::Input => quote! { pin_type: micro_hdl::PinType::Input },
+                DerivePinType::Output => quote! { pin_type: micro_hdl::PinType::Output },
+                DerivePinType::InOut => quote! { pin_type: micro_hdl::PinType::InOut },
+            };
+            quote! {
+                micro_hdl::AbstractPort {
+                    name: stringify!(#name).to_string(),
+                    #pin_type,
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+
     let generate_instance = if has_params {
         let param_name = params_name.unwrap();
         quote! {
@@ -151,10 +172,35 @@ pub fn module(
         quote! { #name::name() }
     };
 
+    let abstract_impl = if has_params {
+        let params_name = params_name.unwrap();
+        let params_ty = params_ty.clone().unwrap();
+        quote! {
+            pub fn top(#params_name: #params_ty) -> #abstract_ident {
+                #abstract_ident {
+                    #params_name,
+                }
+            }
+        }
+    } else {
+        quote! {
+            pub fn top() -> #abstract_ident {
+                #abstract_ident {}
+            }
+        }
+    };
+
     let generate_impl = quote! {
         fn generate(&self, c: &mut micro_hdl::context::Context) -> Vec<micro_hdl::Signal> {
             #generate_instance
             vec![#(#generate_return,)*]
+        }
+    };
+
+    let abstract_generate_impl = quote! {
+        fn generate(&self, c: &mut micro_hdl::context::Context) -> std::sync::Arc<dyn micro_hdl::Module> {
+            #generate_instance
+            std::sync::Arc::new(instance)
         }
     };
 
@@ -219,6 +265,8 @@ pub fn module(
         })
         .collect::<Vec<_>>();
 
+    let mut abstract_fields = vec![];
+
     if has_params {
         let param_name = params_name.unwrap();
         let param_ty = params_ty.unwrap();
@@ -245,9 +293,14 @@ pub fn module(
         build_fields.push(quote! {
             #param_name: self.#param_name.unwrap()
         });
+
+        abstract_fields.push(quote! {
+            #param_name: #param_ty
+        });
     }
 
     let result = quote! {
+        #[derive(Debug, Eq, PartialEq, Copy, Clone)]
         pub struct #name {
         }
 
@@ -256,7 +309,12 @@ pub fn module(
             #(#inst_fields,)*
         }
 
-        #[must_use = "creating a module instance has no effect; you must add it to a Context"]
+        #[must_use = "creating an abstract module has no effect; you must use it to generate a ContextTree"]
+        pub struct #abstract_ident {
+            #(#abstract_fields,)*
+        }
+
+        #[must_use = "creating a module instance builder has no effect; you must add it to a Context"]
         pub struct #inst_builder_ident {
             #(#inst_builder_fields,)*
         }
@@ -277,6 +335,8 @@ pub fn module(
                     #(#inst_builder_empty,)*
                 }
             }
+
+            #abstract_impl
         }
 
         impl micro_hdl::Module for #inst_ident {}
@@ -300,6 +360,16 @@ pub fn module(
 
             fn config(&self) -> micro_hdl::ModuleConfig {
                 micro_hdl::ModuleConfig::Generate
+            }
+        }
+
+        impl micro_hdl::AbstractModule for #abstract_ident {
+            #abstract_generate_impl
+
+            fn get_ports(&self) -> Vec<micro_hdl::AbstractPort> {
+                vec![
+                    #(#abstract_ports_return,)*
+                ]
             }
         }
     };

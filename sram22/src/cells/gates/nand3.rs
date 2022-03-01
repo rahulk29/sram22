@@ -1,7 +1,7 @@
 use micro_hdl::{
     context::Context,
     node::Node,
-    primitive::mos::{MosParams, Nmos, Pmos},
+    primitive::mos::{Flavor, Intent, Mosfet, MosfetParams},
 };
 
 #[micro_hdl::module]
@@ -32,60 +32,60 @@ impl Nand3 {
         let int1 = ctx.node();
         let int2 = ctx.node();
 
-        let nmos_params = MosParams {
+        let nmos_params = MosfetParams {
             width_nm: 1000,
             length_nm: 150,
+            flavor: Flavor::Nmos,
+            intent: Intent::Svt,
         };
-        let pmos_params = nmos_params;
+        let pmos_params = MosfetParams {
+            flavor: Flavor::Pmos,
+            ..nmos_params.clone()
+        };
 
-        let n1 = Nmos {
-            params: nmos_params,
-            d: int2,
-            g: c,
-            s: gnd,
-            b: gnd,
-        };
-        ctx.add(n1);
-        let n2 = Nmos {
-            params: nmos_params,
-            d: int1,
-            g: b,
-            s: int2,
-            b: gnd,
-        };
-        ctx.add(n2);
-        let n3 = Nmos {
-            params: nmos_params,
-            d: y,
-            g: a,
-            s: int1,
-            b: gnd,
-        };
-        ctx.add(n3);
-        let p1 = Pmos {
-            params: pmos_params,
-            d: y,
-            g: a,
-            s: vdd,
-            b: vdd,
-        };
-        ctx.add(p1);
-        let p2 = Pmos {
-            params: pmos_params,
-            d: y,
-            g: b,
-            s: vdd,
-            b: vdd,
-        };
-        ctx.add(p2);
-        let p3 = Pmos {
-            params: pmos_params,
-            d: y,
-            g: c,
-            s: vdd,
-            b: vdd,
-        };
-        ctx.add(p3);
+        let n1 = Mosfet::with_params(nmos_params.clone())
+            .d(int2)
+            .g(c)
+            .s(gnd)
+            .b(gnd)
+            .build();
+        ctx.add_mosfet(n1);
+        let n2 = Mosfet::with_params(nmos_params.clone())
+            .d(int1)
+            .g(b)
+            .s(int2)
+            .b(gnd)
+            .build();
+        ctx.add_mosfet(n2);
+        let n3 = Mosfet::with_params(nmos_params)
+            .d(y)
+            .g(a)
+            .s(int1)
+            .b(gnd)
+            .build();
+        ctx.add_mosfet(n3);
+
+        let p1 = Mosfet::with_params(pmos_params.clone())
+            .d(y)
+            .g(a)
+            .s(vdd)
+            .b(vdd)
+            .build();
+        ctx.add_mosfet(p1);
+        let p2 = Mosfet::with_params(pmos_params.clone())
+            .d(y)
+            .g(b)
+            .s(vdd)
+            .b(vdd)
+            .build();
+        ctx.add_mosfet(p2);
+        let p3 = Mosfet::with_params(pmos_params)
+            .d(y)
+            .g(c)
+            .s(vdd)
+            .b(vdd)
+            .build();
+        ctx.add_mosfet(p3);
 
         Nand3::instance()
             .a(a)

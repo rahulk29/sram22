@@ -50,6 +50,7 @@ impl Predecoder38 {
                 .build();
             c.add(nand);
             let inv = Inv::instance()
+                .size(crate::cells::gates::GateSize::minimum())
                 .din(tmp)
                 .dout(out[i as usize])
                 .vdd(vdd)
@@ -111,33 +112,24 @@ pub fn generate_predecoder2_4(m: &mut MagicInstance, _tc: &TechConfig) -> Result
 
 #[cfg(test)]
 mod tests {
-    use micro_hdl::backend::spice::SpiceBackend;
+    use std::io::{Read, Seek, SeekFrom};
+
+    use micro_hdl::{backend::spice::SpiceBackend, frontend::parse};
 
     use super::Predecoder38;
 
     #[test]
-    fn test_predecoder38() {
-        let out = <Vec<u8>>::new();
-        let mut b = SpiceBackend::new(out);
+    fn test_netlist_predecoder38() -> Result<(), Box<dyn std::error::Error>> {
+        let tree = parse(Predecoder38::top());
+        let file = tempfile::tempfile()?;
+        let mut backend = SpiceBackend::with_file(file)?;
+        backend.netlist(&tree)?;
+        let mut file = backend.output();
 
-        let addr = b.top_level_bus(3);
-        let addr_b = b.top_level_bus(3);
-        let decoded = b.top_level_bus(8);
-        let vdd = b.top_level_signal();
-        let gnd = b.top_level_signal();
-
-        let predec = Predecoder38::instance()
-            .addr(addr)
-            .addr_b(addr_b)
-            .decoded(decoded)
-            .vdd(vdd)
-            .gnd(gnd)
-            .build();
-
-        b.netlist(predec);
-        let out = b.output();
-
-        let out = String::from_utf8(out).unwrap();
-        println!("{}", out);
+        let mut s = String::new();
+        file.seek(SeekFrom::Start(0))?;
+        file.read_to_string(&mut s)?;
+        println!("{}", &s);
+        Ok(())
     }
 }

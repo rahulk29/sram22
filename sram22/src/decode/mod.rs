@@ -126,9 +126,10 @@ impl HierarchicalDecoder {
 
 #[cfg(test)]
 mod tests {
-    use micro_hdl::backend::spice::SpiceBackend;
+    use std::io::{Read, Seek, SeekFrom};
 
     use super::*;
+    use micro_hdl::{backend::spice::SpiceBackend, frontend::parse};
 
     #[test]
     fn valid_16row_decoder() {
@@ -153,15 +154,9 @@ mod tests {
     }
 
     #[test]
-    fn netlist_16row_decoder() {
+    fn netlist_16row_decoder() -> Result<(), Box<dyn std::error::Error>> {
         let out = <Vec<u8>>::new();
-        let mut b = SpiceBackend::new(out);
-
-        let addr = b.top_level_bus(4);
-        let addr_b = b.top_level_bus(4);
-        let decode = b.top_level_bus(16);
-        let vdd = b.top_level_signal();
-        let gnd = b.top_level_signal();
+        let _b = SpiceBackend::new(out);
 
         let decoder = NandDecoder {
             output_bits: 16,
@@ -181,19 +176,17 @@ mod tests {
         };
         assert!(decoder.is_valid());
 
-        let hd = HierarchicalDecoder::instance()
-            .tree(decoder)
-            .addr(addr)
-            .addr_b(addr_b)
-            .decode(decode)
-            .vdd(vdd)
-            .gnd(gnd)
-            .build();
+        let tree = parse(HierarchicalDecoder::top(decoder));
+        let file = tempfile::tempfile()?;
+        let mut backend = SpiceBackend::with_file(file)?;
+        backend.netlist(&tree)?;
+        let mut file = backend.output();
 
-        b.netlist(hd);
-        let out = b.output();
+        let mut s = String::new();
+        file.seek(SeekFrom::Start(0))?;
+        file.read_to_string(&mut s)?;
+        println!("{}", &s);
 
-        let out = String::from_utf8(out).unwrap();
-        println!("{}", out);
+        Ok(())
     }
 }

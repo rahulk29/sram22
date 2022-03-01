@@ -1,10 +1,15 @@
+use std::sync::Arc;
+
 use crate::context::Context;
 use crate::node::Node;
 
 pub mod backend;
 pub mod context;
+pub mod frontend;
+pub mod mos;
 pub mod node;
 pub mod primitive;
+pub mod transform;
 
 pub use micro_hdl_derive::*;
 
@@ -32,6 +37,14 @@ impl Signal {
 
     pub fn nodes(&self) -> SignalNodes {
         SignalNodes { s: self, idx: 0 }
+    }
+
+    pub fn is_bus(&self) -> bool {
+        matches!(&self, &Signal::Bus(_))
+    }
+
+    pub fn is_wire(&self) -> bool {
+        matches!(&self, &Signal::Wire(_))
     }
 }
 
@@ -67,6 +80,11 @@ pub struct Port {
     pub signal: Signal,
 }
 
+pub struct AbstractPort {
+    pub name: String,
+    pub pin_type: PinType,
+}
+
 pub struct InstancePin {
     pub signal: Node,
 }
@@ -77,6 +95,11 @@ pub trait ModuleInstance {
     fn name(&self) -> String;
     fn get_ports(&self) -> Vec<Port>;
     fn config(&self) -> ModuleConfig;
+}
+
+pub trait AbstractModule {
+    fn generate(&self, c: &mut Context) -> Arc<dyn Module>;
+    fn get_ports(&self) -> Vec<AbstractPort>;
 }
 
 #[derive(Debug, Eq, PartialEq)]

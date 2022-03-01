@@ -1,11 +1,4 @@
-#[cfg(test)]
-mod tests;
-
-use micro_hdl::{
-    context::Context,
-    node::Node,
-    primitive::mos::{MosParams, Nmos, Pmos},
-};
+use micro_hdl::{context::Context, node::Node};
 
 #[micro_hdl::module]
 pub struct Sram6T {
@@ -29,63 +22,64 @@ impl Sram6T {
         let vdd = ctx.node();
         let gnd = ctx.node();
 
-        let q = ctx.node();
-        let qb = ctx.node();
+        // TODO fix this
+        // let q = ctx.node();
+        // let qb = ctx.node();
 
-        let nmos_params = MosParams {
-            width_nm: 1000,
-            length_nm: 150,
-        };
-        let pmos_params = nmos_params;
+        // let nmos_params = MosParams {
+        //     width_nm: 1000,
+        //     length_nm: 150,
+        // };
+        // let pmos_params = nmos_params;
 
-        let n1 = Nmos {
-            params: nmos_params,
-            d: q,
-            g: qb,
-            s: gnd,
-            b: gnd,
-        };
-        ctx.add(n1);
-        let n2 = Nmos {
-            params: nmos_params,
-            d: qb,
-            g: q,
-            s: gnd,
-            b: gnd,
-        };
-        ctx.add(n2);
-        let p1 = Pmos {
-            params: pmos_params,
-            d: q,
-            g: qb,
-            s: vdd,
-            b: vdd,
-        };
-        ctx.add(p1);
-        let p2 = Pmos {
-            params: pmos_params,
-            d: qb,
-            g: q,
-            s: vdd,
-            b: vdd,
-        };
-        ctx.add(p2);
-        let npass1 = Nmos {
-            params: nmos_params,
-            d: bl,
-            g: wl,
-            s: q,
-            b: gnd,
-        };
-        ctx.add(npass1);
-        let npass2 = Nmos {
-            params: nmos_params,
-            d: blb,
-            g: wl,
-            s: qb,
-            b: gnd,
-        };
-        ctx.add(npass2);
+        // let n1 = Nmos {
+        //     params: nmos_params,
+        //     d: q,
+        //     g: qb,
+        //     s: gnd,
+        //     b: gnd,
+        // };
+        // ctx.add(n1);
+        // let n2 = Nmos {
+        //     params: nmos_params,
+        //     d: qb,
+        //     g: q,
+        //     s: gnd,
+        //     b: gnd,
+        // };
+        // ctx.add(n2);
+        // let p1 = Pmos {
+        //     params: pmos_params,
+        //     d: q,
+        //     g: qb,
+        //     s: vdd,
+        //     b: vdd,
+        // };
+        // ctx.add(p1);
+        // let p2 = Pmos {
+        //     params: pmos_params,
+        //     d: qb,
+        //     g: q,
+        //     s: vdd,
+        //     b: vdd,
+        // };
+        // ctx.add(p2);
+        // let npass1 = Nmos {
+        //     params: nmos_params,
+        //     d: bl,
+        //     g: wl,
+        //     s: q,
+        //     b: gnd,
+        // };
+        // ctx.add(npass1);
+        // let npass2 = Nmos {
+        //     params: nmos_params,
+        //     d: blb,
+        //     g: wl,
+        //     s: qb,
+        //     b: gnd,
+        // };
+        // ctx.add(npass2);
 
         Sram6T::instance()
             .wl(wl)
