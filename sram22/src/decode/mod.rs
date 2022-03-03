@@ -2,7 +2,7 @@ use itertools::iproduct;
 use micro_hdl::{context::Context, node::Node};
 
 use crate::{
-    cells::gates::{nand::Nand2Gate, GateSize},
+    cells::gates::{inv::Inv, nand::Nand2Gate, GateSize},
     clog2,
 };
 
@@ -80,6 +80,7 @@ impl HierarchicalDecoder {
             let addr_bits = clog2(tree.output_bits) as usize;
             let addr = c.bus(addr_bits);
             let addr_b = c.bus(addr_bits);
+            // TODO bug here
             for (ctr, (&a, &b)) in iproduct!(&addr, &addr_b).enumerate() {
                 let gate = Nand2Gate::instance()
                     .size(GateSize::minimum())
@@ -98,15 +99,25 @@ impl HierarchicalDecoder {
             let in2 = c.bus(tree.children[1].output_bits);
 
             for (ctr, (&i1, &i2)) in iproduct!(&in1, &in2).enumerate() {
+                let tmp = c.node();
                 let gate = Nand2Gate::instance()
                     .size(GateSize::minimum())
                     .a(i1)
                     .b(i2)
-                    .y(out[ctr])
+                    .y(tmp)
                     .gnd(gnd)
                     .vdd(vdd)
                     .build();
                 c.add(gate);
+
+                let inv = Inv::instance()
+                    .size(GateSize::minimum())
+                    .din(tmp)
+                    .dout(out[ctr])
+                    .gnd(gnd)
+                    .vdd(vdd)
+                    .build();
+                c.add(inv);
             }
 
             let (mut a1, mut a1b) = Self::generate_inner(&tree.children[0], c, in1, gnd, vdd);
