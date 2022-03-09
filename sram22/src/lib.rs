@@ -20,8 +20,8 @@ pub mod config;
 pub mod decode;
 pub mod error;
 pub mod layout;
-pub mod predecode;
 pub mod precharge;
+pub mod predecode;
 
 pub fn generate(config: SramConfig) -> Result<()> {
     let rows = config.rows;
