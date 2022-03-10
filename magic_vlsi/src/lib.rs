@@ -411,9 +411,21 @@ impl MagicInstance {
         Ok(())
     }
 
+    pub fn erase(&mut self) -> Result<()> {
+        writeln!(&mut self.stream, "erase")?;
+        read_line(&mut self.stream)?;
+        Ok(())
+    }
+
     pub fn paint_box(&mut self, rect: Rect, layer: &str) -> Result<()> {
         self.set_box_values(rect)?;
         self.paint(layer)?;
+        Ok(())
+    }
+
+    pub fn erase_box(&mut self, rect: Rect) -> Result<()> {
+        self.set_box_values(rect)?;
+        self.erase()?;
         Ok(())
     }
 
