@@ -1,5 +1,9 @@
 use std::fmt::Display;
 
+use magic_vlsi::units::Distance;
+
+use crate::config::TechConfig;
+
 pub mod inv;
 pub mod nand;
 pub mod nand3;
@@ -31,4 +35,34 @@ impl GateSize {
             plength_nm: 150,
         }
     }
+}
+
+pub(crate) fn finger_space(tc: &TechConfig) -> Distance {
+    [
+        2 * tc.space("gate", "licon") + tc.layer("li").width,
+        tc.layer("poly").space,
+    ]
+    .into_iter()
+    .max()
+    .unwrap()
+}
+
+pub(crate) fn ndiff_edge_to_gate(tc: &TechConfig) -> Distance {
+    [
+        tc.layer("ndiff").extension("poly"),
+        tc.space("gate", "licon") + tc.layer("licon").width + tc.layer("licon").enclosure("ndiff"),
+    ]
+    .into_iter()
+    .max()
+    .unwrap()
+}
+
+pub(crate) fn pdiff_edge_to_gate(tc: &TechConfig) -> Distance {
+    [
+        tc.layer("pdiff").extension("poly"),
+        tc.space("gate", "licon") + tc.layer("licon").width + tc.layer("licon").enclosure("ndiff"),
+    ]
+    .into_iter()
+    .max()
+    .unwrap()
 }

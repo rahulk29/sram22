@@ -511,6 +511,16 @@ impl Rect {
         Self::ll_wh(left, bot, self.width(), self.height())
     }
 
+    pub fn try_align_center_x(&self, other: Rect, grid: Distance) -> Self {
+        let left = (2 * other.left_edge() + other.width() - self.width()).round_to(2 * grid) / 2;
+        Self::ll_wh(left, self.bottom_edge(), self.width(), self.height())
+    }
+
+    pub fn try_align_center_y(&self, other: Rect, grid: Distance) -> Self {
+        let bot = (2 * other.bottom_edge() + other.height() - self.height()).round_to(2 * grid) / 2;
+        Self::ll_wh(self.left_edge(), bot, self.width(), self.height())
+    }
+
     #[inline]
     pub fn ll(&self) -> Vec2 {
         self.ll

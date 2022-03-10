@@ -10,6 +10,7 @@ use crate::cells::gates::nand::single_height::Nand2Params;
 use crate::config::SramConfig;
 use crate::error::Result;
 use crate::layout::bus::BusBuilder;
+use crate::precharge::PrechargeSize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -81,6 +82,16 @@ pub fn generate(config: SramConfig) -> Result<()> {
     )?;
     crate::cells::gates::inv::dec::generate_inv_dec(&mut magic, &tc)?;
     crate::predecode::generate_predecoder2_4(&mut magic, &tc)?;
+    crate::precharge::layout::generate_precharge(
+        &mut magic,
+        &tc,
+        PrechargeSize {
+            rail_pmos_width_nm: 1_000,
+            pass_pmos_width_nm: 420,
+            pmos_length_nm: 150,
+        },
+        Distance::from_nm(1_200),
+    )?;
     info!("finished generating subcells");
 
     let bitcell_name = generate_bitcells(&mut magic, &config)?;

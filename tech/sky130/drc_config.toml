@@ -64,7 +64,7 @@ enclosures = [
 [layers.pdiff]
 desc = "pmos diffusion regions"
 width = 0.15
-space = 0.15
+space = 0.27
 area = 0.063
 enclosures = [
   { layer = "nwell", enclosure = 0.18, one_side = false },
@@ -76,7 +76,7 @@ extensions = [
 [layers.ndiff]
 desc = "nmos diffusion regions"
 width = 0.15
-space = 0.15
+space = 0.27
 area = 0.063
 enclosures = [
   { layer = "nwell", enclosure = 0.18, one_side = false },
