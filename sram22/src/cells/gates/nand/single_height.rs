@@ -1,3 +1,4 @@
+use crate::cells::gates::{finger_space, ndiff_edge_to_gate};
 use crate::error::Result;
 use crate::{config::TechConfig, layout::draw_contacts};
 use magic_vlsi::{
@@ -229,26 +230,6 @@ pub fn generate_pm_single_height(
 
 fn ndiff_to_pdiff(tc: &TechConfig) -> Distance {
     tc.space("ndiff", "nwell") + tc.layer("pdiff").enclosure("nwell")
-}
-
-fn finger_space(tc: &TechConfig) -> Distance {
-    [
-        2 * tc.space("gate", "licon") + tc.layer("li").width,
-        tc.layer("poly").space,
-    ]
-    .into_iter()
-    .max()
-    .unwrap()
-}
-
-fn ndiff_edge_to_gate(tc: &TechConfig) -> Distance {
-    [
-        tc.layer("ndiff").extension("poly"),
-        tc.space("gate", "licon") + tc.layer("licon").width + tc.layer("licon").enclosure("ndiff"),
-    ]
-    .into_iter()
-    .max()
-    .unwrap()
 }
 
 #[cfg(test)]
