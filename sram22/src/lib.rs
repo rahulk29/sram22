@@ -23,6 +23,7 @@ pub mod error;
 pub mod layout;
 pub mod precharge;
 pub mod predecode;
+pub mod verification;
 
 pub fn generate(config: SramConfig) -> Result<()> {
     let rows = config.rows;
@@ -47,7 +48,7 @@ pub fn generate(config: SramConfig) -> Result<()> {
     copy_cells(cell_dir, out_dir);
     info!("copied custom cells to output directory");
 
-    let mut magic = MagicInstanceBuilder::new()
+    let mut magic = MagicInstance::builder()
         .cwd(out_dir)
         .tech("sky130A")
         .build()

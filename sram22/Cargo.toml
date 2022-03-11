@@ -22,3 +22,12 @@ itertools = "0.10.3"
 
 [dev-dependencies]
 tempfile = "3.3"
+
+[features]
+default = ["open_source"]
+netgen_lvs = []
+magic_drc = []
+calibre_lvs = []
+calibre_drc = []
+open_source = ["netgen_lvs", "magic_drc"]
+mentor = ["calibre_lvs", "calibre_drc"]

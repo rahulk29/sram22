@@ -118,6 +118,11 @@ pub struct MagicInstance {
 const MAGIC_SOCKET_SCRIPT: &[u8] = include_bytes!("serversock.tcl");
 
 impl MagicInstance {
+    #[inline]
+    pub fn builder() -> MagicInstanceBuilder {
+        MagicInstanceBuilder::new()
+    }
+
     fn new(builder: MagicInstanceBuilder) -> std::result::Result<Self, StartMagicError> {
         let mut cmd = match builder.magic {
             Some(magic) => Command::new(magic),
