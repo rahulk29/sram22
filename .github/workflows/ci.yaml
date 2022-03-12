@@ -12,6 +12,8 @@ jobs:
     runs-on: [self-hosted, linux, magic-8]
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
       - name: Set up environment
         run: |
           echo "/usr/local/bin" >> $GITHUB_PATH
@@ -30,6 +32,8 @@ jobs:
     runs-on: [self-hosted, linux, magic-8]
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
       - name: Set up environment
         run: |
           echo "/usr/local/bin" >> $GITHUB_PATH
