@@ -234,25 +234,18 @@ fn ndiff_to_pdiff(tc: &TechConfig) -> Distance {
 
 #[cfg(test)]
 pub mod tests {
-    use micro_hdl::backend::spice::SpiceBackend;
-    use micro_hdl::frontend::parse;
-    use tempfile::TempDir;
 
     use super::*;
-    use crate::cells::gates::nand::Nand2Gate;
-    use crate::cells::gates::GateSize;
+
     use crate::sky130_config;
     use crate::test_utils::*;
-    use crate::verification::lvs::LvsInput;
-
-    use crate::verification::plugins::netgen_lvs::NetgenLvsOpts;
 
     #[test]
     fn test_generate_nand2_pm_sh() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let tc = sky130_config();
         let mut m = get_magic();
 
-        let cell_name = generate_pm_single_height(
+        let _cell_name = generate_pm_single_height(
             &mut m,
             &tc,
             &Nand2Params {
