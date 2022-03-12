@@ -262,6 +262,7 @@ pub mod tests {
         )
         .expect("failed to generate cell");
 
+        /*
         let mag_path = m.getcwd().clone().join(format!("{}.mag", cell_name));
 
         let tree = parse(Nand2Gate::top(GateSize::minimum()));
@@ -289,6 +290,7 @@ pub mod tests {
             // assert!(lvs_res.ok);
             // assert_eq!(lvs_res.errors.len(), 0);
         }
+        */
 
         generate_pm_single_height(
             &mut m,
