@@ -19,6 +19,7 @@ env_logger = "0.9"
 indicatif = "0.16"
 clap = { version = "3.1.0", features = ["derive"] }
 itertools = "0.10.3"
+handlebars = "4.2"
 
 [dev-dependencies]
 tempfile = "3.3"

@@ -93,3 +93,28 @@ impl Nand2Gate {
             .build()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::cells::gates::GateSize;
+    use std::io::{Read, Seek, SeekFrom};
+
+    use super::Nand2Gate;
+    use micro_hdl::{backend::spice::SpiceBackend, frontend::parse};
+
+    #[test]
+    fn test_netlist_nand2() -> Result<(), Box<dyn std::error::Error>> {
+        let tree = parse(Nand2Gate::top(GateSize::minimum()));
+        let file = tempfile::tempfile()?;
+        let mut backend = SpiceBackend::with_file(file)?;
+        backend.netlist(&tree)?;
+        let mut file = backend.output();
+
+        let mut s = String::new();
+        file.seek(SeekFrom::Start(0))?;
+        file.read_to_string(&mut s)?;
+        println!("{}", &s);
+
+        Ok(())
+    }
+}
