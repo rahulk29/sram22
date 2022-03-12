@@ -1,3 +1,4 @@
+use crate::error::Result;
 use std::path::PathBuf;
 
 pub struct LvsInput<S> {
@@ -12,13 +13,11 @@ pub struct LvsOutput<E> {
     pub errors: Vec<E>,
 }
 
-pub trait Lvs<S,E> {
-    fn lvs(input: LvsInput<S>) -> LvsOutput<E>;
+pub trait Lvs<S, E> {
+    fn lvs(input: LvsInput<S>) -> Result<LvsOutput<E>>;
 }
 
-pub struct LvsOpts {
-
-}
+pub struct LvsOpts {}
 
 pub struct LvsError {
     pub msg: String,

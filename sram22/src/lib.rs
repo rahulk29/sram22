@@ -3,7 +3,7 @@ use config::TechConfig;
 use layout::grid::{GridCell, GridLayout};
 
 use magic_vlsi::units::{Distance, Vec2};
-use magic_vlsi::{Direction, MagicInstance, MagicInstanceBuilder};
+use magic_vlsi::{Direction, MagicInstance};
 
 use crate::cells::gates::inv::single_height::InvParams;
 use crate::cells::gates::nand::single_height::Nand2Params;

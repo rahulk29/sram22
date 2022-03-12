@@ -16,7 +16,7 @@ pub fn generate_pm_single_height(
     m: &mut MagicInstance,
     tc: &TechConfig,
     params: &Nand2Params,
-) -> Result<()> {
+) -> Result<String> {
     let cell_name = String::from("nand2_pm_sh");
 
     m.drc_off()?;
@@ -225,7 +225,7 @@ pub fn generate_pm_single_height(
     m.save(&cell_name)?;
     m.save("nand2_dec_auto")?;
 
-    Ok(())
+    Ok(cell_name)
 }
 
 fn ndiff_to_pdiff(tc: &TechConfig) -> Distance {
