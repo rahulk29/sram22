@@ -302,7 +302,7 @@ mod tests {}
 pub(crate) mod test_utils {
     use std::{path::PathBuf, sync::atomic::AtomicU64};
 
-    use magic_vlsi::{MagicInstance, MagicInstanceBuilder};
+    use magic_vlsi::MagicInstance;
 
     static COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -321,7 +321,7 @@ pub(crate) mod test_utils {
         let dir = tmpdir();
         let id = id();
         let port = id + 8_000;
-        MagicInstanceBuilder::new()
+        MagicInstance::builder()
             .port(port as u16)
             .cwd(dir)
             .tech("sky130A")

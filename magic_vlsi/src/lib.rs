@@ -111,6 +111,7 @@ impl Default for MagicInstanceBuilder {
 pub struct MagicInstance {
     child: Child,
     stream: TcpStream,
+    cwd: PathBuf,
     nm_per_lambda: i64,
     nm_per_internal: i64,
 }
@@ -135,9 +136,13 @@ impl MagicInstance {
             cmd.arg("-T").arg(tech);
         }
 
-        if let Some(cwd) = builder.cwd {
-            cmd.current_dir(cwd);
-        }
+        let cwd = if let Some(cwd) = builder.cwd {
+            cwd
+        } else {
+            std::env::current_dir()?
+        };
+
+        cmd.current_dir(&cwd);
 
         if builder.debug {
             let f = std::fs::File::create("magic.log")?;
@@ -185,12 +190,17 @@ impl MagicInstance {
         let mut res = Self {
             child,
             stream,
+            cwd,
             nm_per_lambda: 0,
             nm_per_internal: 0,
         };
         res.update_units()?;
 
         Ok(res)
+    }
+
+    pub fn getcwd(&self) -> &PathBuf {
+        &self.cwd
     }
 
     /// The getcell command creates subcell instances within

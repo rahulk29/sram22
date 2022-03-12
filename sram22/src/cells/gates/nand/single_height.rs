@@ -243,7 +243,7 @@ pub mod tests {
         let tc = sky130_config();
         let mut m = get_magic();
 
-        generate_pm_single_height(
+        let _cell_name = generate_pm_single_height(
             &mut m,
             &tc,
             &Nand2Params {
