@@ -310,6 +310,10 @@ pub(crate) mod test_utils {
         COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     }
 
+    pub fn get_port() -> u16 {
+        (id() + 8_000) as u16
+    }
+
     pub fn tmpdir() -> PathBuf {
         let id = id();
         let path = PathBuf::from(format!("/tmp/sram22/tests/{}", id));
@@ -319,8 +323,7 @@ pub(crate) mod test_utils {
 
     pub fn get_magic() -> MagicInstance {
         let dir = tmpdir();
-        let id = id();
-        let port = id + 8_000;
+        let port = get_port();
         MagicInstance::builder()
             .port(port as u16)
             .cwd(dir)
