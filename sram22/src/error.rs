@@ -13,6 +13,12 @@ pub enum Sram22Error {
 
     #[error("error rendering template: {0}")]
     RenderTemplate(#[from] handlebars::RenderError),
+
+    #[error("error running LVS: {0}")]
+    Lvs(String),
+
+    #[error("error serializing/deserializing JSON: {0}")]
+    JsonSerialization(#[from] serde_json::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Sram22Error>;

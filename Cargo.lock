@@ -554,6 +554,7 @@ dependencies = [
  "magic_vlsi",
  "micro_hdl",
  "serde",
+ "serde_json",
  "tempfile",
  "thiserror",
  "toml",
