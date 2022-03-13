@@ -1,0 +1,3 @@
+[submodule "sram22/src/verification/plugins/netgen_lvs"]
+	path = sram22/src/verification/plugins/netgen_lvs
+	url = git@github.com:rahulk29/netgen_lvs.git

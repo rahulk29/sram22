@@ -3,7 +3,7 @@ use config::TechConfig;
 use layout::grid::{GridCell, GridLayout};
 
 use magic_vlsi::units::{Distance, Vec2};
-use magic_vlsi::{Direction, MagicInstance, MagicInstanceBuilder};
+use magic_vlsi::{Direction, MagicInstance};
 
 use crate::cells::gates::inv::single_height::InvParams;
 use crate::cells::gates::nand::single_height::Nand2Params;
@@ -23,6 +23,7 @@ pub mod error;
 pub mod layout;
 pub mod precharge;
 pub mod predecode;
+pub mod verification;
 
 pub fn generate(config: SramConfig) -> Result<()> {
     let rows = config.rows;
@@ -47,7 +48,7 @@ pub fn generate(config: SramConfig) -> Result<()> {
     copy_cells(cell_dir, out_dir);
     info!("copied custom cells to output directory");
 
-    let mut magic = MagicInstanceBuilder::new()
+    let mut magic = MagicInstance::builder()
         .cwd(out_dir)
         .tech("sky130A")
         .build()
@@ -301,7 +302,7 @@ mod tests {}
 pub(crate) mod test_utils {
     use std::{path::PathBuf, sync::atomic::AtomicU64};
 
-    use magic_vlsi::{MagicInstance, MagicInstanceBuilder};
+    use magic_vlsi::MagicInstance;
 
     static COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -320,7 +321,7 @@ pub(crate) mod test_utils {
         let dir = tmpdir();
         let id = id();
         let port = id + 8_000;
-        MagicInstanceBuilder::new()
+        MagicInstance::builder()
             .port(port as u16)
             .cwd(dir)
             .tech("sky130A")

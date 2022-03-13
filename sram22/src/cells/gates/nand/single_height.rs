@@ -16,7 +16,7 @@ pub fn generate_pm_single_height(
     m: &mut MagicInstance,
     tc: &TechConfig,
     params: &Nand2Params,
-) -> Result<()> {
+) -> Result<String> {
     let cell_name = String::from("nand2_pm_sh");
 
     m.drc_off()?;
@@ -225,7 +225,7 @@ pub fn generate_pm_single_height(
     m.save(&cell_name)?;
     m.save("nand2_dec_auto")?;
 
-    Ok(())
+    Ok(cell_name)
 }
 
 fn ndiff_to_pdiff(tc: &TechConfig) -> Distance {
@@ -234,16 +234,18 @@ fn ndiff_to_pdiff(tc: &TechConfig) -> Distance {
 
 #[cfg(test)]
 pub mod tests {
+
     use super::*;
+
     use crate::sky130_config;
     use crate::test_utils::*;
 
     #[test]
-    fn test_generate_nand2_pm_sh() {
+    fn test_generate_nand2_pm_sh() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let tc = sky130_config();
         let mut m = get_magic();
 
-        generate_pm_single_height(
+        let _cell_name = generate_pm_single_height(
             &mut m,
             &tc,
             &Nand2Params {
@@ -252,6 +254,36 @@ pub mod tests {
             },
         )
         .expect("failed to generate cell");
+
+        /*
+        let mag_path = m.getcwd().clone().join(format!("{}.mag", cell_name));
+
+        let tree = parse(Nand2Gate::top(GateSize::minimum()));
+        let file = tempfile::NamedTempFile::new()?;
+        let netlist_path = file.path().to_owned();
+        let mut backend = SpiceBackend::new(file);
+        backend.netlist(&tree)?;
+
+        #[cfg(feature = "netgen_lvs")]
+        {
+            use crate::verification::lvs::Lvs;
+            use crate::verification::plugins::netgen_lvs::NetgenLvs;
+            let lvs_dir = TempDir::new()?;
+            let lvs_path = lvs_dir.path().to_owned();
+            let _lvs_res = NetgenLvs::new().lvs(LvsInput {
+                netlist: netlist_path,
+                layout: mag_path,
+                netlist_cell: "test".to_string(),
+                layout_cell: "test".to_string(),
+                work_dir: lvs_path,
+                opts: NetgenLvsOpts {
+                    tech: "sky130A".to_string(),
+                },
+            })?;
+            // assert!(lvs_res.ok);
+            // assert_eq!(lvs_res.errors.len(), 0);
+        }
+        */
 
         generate_pm_single_height(
             &mut m,
@@ -262,5 +294,7 @@ pub mod tests {
             },
         )
         .expect("failed to generate cell");
+
+        Ok(())
     }
 }
