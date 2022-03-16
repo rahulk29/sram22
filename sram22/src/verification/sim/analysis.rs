@@ -1,25 +1,46 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 pub struct Analysis {
     pub(crate) mode: Mode,
     pub(crate) save: Vec<String>,
 }
 
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct AnalysisData {
     pub data: HashMap<String, SpiceData>,
 }
 
-impl Default for AnalysisData {
-    fn default() -> Self {
-        Self {
-            data: HashMap::new(),
-        }
+impl Analysis {
+    pub fn with_mode(mode: Mode) -> Self {
+        Self { mode, save: vec![] }
+    }
+
+    pub fn save(&mut self, v: String) -> &mut Self {
+        self.save.push(v);
+        self
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum SpiceData {
     Real(Vec<f64>),
     Complex(Vec<f64>, Vec<f64>),
+}
+
+impl SpiceData {
+    pub fn real(self) -> Vec<f64> {
+        match self {
+            Self::Real(x) => x,
+            _ => panic!("called real on a complex SpiceData object"),
+        }
+    }
+
+    pub fn complex(self) -> (Vec<f64>, Vec<f64>) {
+        match self {
+            Self::Complex(a, b) => (a, b),
+            _ => panic!("called complex on a real SpiceData object"),
+        }
+    }
 }
 
 pub enum Mode {
@@ -30,30 +51,41 @@ pub enum Mode {
 }
 
 pub struct DcAnalysis {
-    source: String,
-    start: f64,
-    stop: f64,
-    incr: f64,
+    pub(crate) source: String,
+    pub(crate) start: f64,
+    pub(crate) stop: f64,
+    pub(crate) incr: f64,
 }
 
 pub struct TransientAnalysis {
-    tstep: f64,
-    tstop: f64,
-    tstart: f64,
-    uic: bool,
+    pub(crate) tstep: f64,
+    pub(crate) tstop: f64,
+    pub(crate) tstart: f64,
+    pub(crate) uic: bool,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SweepMode {
     Dec,
     Oct,
     Lin,
 }
 
+impl Display for SweepMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            SweepMode::Dec => write!(f, "dec"),
+            SweepMode::Oct => write!(f, "oct"),
+            SweepMode::Lin => write!(f, "lin"),
+        }
+    }
+}
+
 pub struct AcAnalysis {
-    mode: SweepMode,
-    num: u64,
-    fstart: f64,
-    fstop: f64,
+    pub(crate) mode: SweepMode,
+    pub(crate) num: u64,
+    pub(crate) fstart: f64,
+    pub(crate) fstop: f64,
 }
 
 impl DcAnalysis {

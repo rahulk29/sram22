@@ -7,7 +7,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::{
     path::PathBuf,
-    process::{Child, ChildStdin, Command, Stdio},
+    process::{Command, Stdio},
 };
 
 #[cfg(test)]
@@ -15,39 +15,46 @@ mod tests;
 
 pub struct Ngspice {
     cwd: Option<PathBuf>,
-    tb: Option<Testbench>,
+    tb: Testbench,
     analyses: Vec<Analysis>,
     control: String,
 }
 
-pub struct NgspiceData {}
+pub struct NgspiceData {
+    pub analyses: Vec<AnalysisData>,
+}
 
 impl Ngspice {
-    #[inline]
-    pub fn cwd(mut self, cwd: PathBuf) -> Self {
-        self.cwd = Some(cwd);
-        self
+    pub fn with_tb(tb: Testbench) -> Self {
+        Self {
+            cwd: None,
+            tb,
+            analyses: vec![],
+            control: "".to_string(),
+        }
     }
+
     #[inline]
-    pub fn tb(mut self, tb: Testbench) -> Self {
-        self.tb = Some(tb);
+    pub fn cwd(&mut self, cwd: PathBuf) -> &mut Self {
+        self.cwd = Some(cwd);
         self
     }
 
     pub fn add_analysis(&mut self, a: Analysis) -> &mut Self {
-        self.analyses.push(a);
-
         let spice_line = self.prepare_spice_analysis(&a.mode);
         self.control.push_str(&spice_line);
 
-        let out_file = format!("_ngspice_out_{}.m", self.analyses.len());
-        if a.save.len() > 0 {
+        let out_file = get_out_file(self.analyses.len());
+        if !a.save.is_empty() {
             let mut wrdata = format!("wrdata {}", out_file);
             for v in a.save.iter() {
                 wrdata.push_str(&format!(" {}", v));
             }
             self.control.push_str(&wrdata);
+            self.control.push('\n');
         }
+
+        self.analyses.push(a);
 
         self
     }
@@ -58,14 +65,14 @@ impl Ngspice {
         } else {
             std::env::current_dir()?
         };
-        let tb = self.tb.as_ref().unwrap();
 
         fs::create_dir_all(&cwd)?;
 
-        let path = self.write_tb_to_file(&cwd, &tb);
+        let path = self.write_tb_to_file(&cwd, &self.tb)?;
 
         let mut cmd = Command::new("ngspice");
         cmd.arg("-b");
+        cmd.arg(path);
 
         cmd.current_dir(&cwd);
 
@@ -75,7 +82,19 @@ impl Ngspice {
         let mut child = cmd.spawn()?;
         child.wait()?;
 
-        Ok(NgspiceData {})
+        let analyses = self
+            .analyses
+            .iter()
+            .enumerate()
+            .map(|(i, a)| {
+                let out_file_path = cwd.join(get_out_file(i));
+                println!("reading from {:?}", &out_file_path);
+                let data = read_analysis_data(a, out_file_path)?;
+                Ok(data)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(NgspiceData { analyses })
     }
 
     fn write_tb_to_file(&self, cwd: impl AsRef<Path>, tb: &Testbench) -> Result<PathBuf> {
@@ -110,14 +129,25 @@ impl Ngspice {
         Ok(())
     }
 
-    pub fn run_analysis(&mut self, a: &Analysis) -> Result<AnalysisData> {}
-
     fn prepare_spice_analysis(&self, m: &Mode) -> String {
         match *m {
-            Mode::Op => "op".to_string(),
-            _ => todo!(),
+            Mode::Op => "op\n".to_string(),
+            Mode::Tran(ref m) => {
+                let uic = if m.uic { "uic" } else { "" };
+                format!("tran {}s {}s {}s {}\n", m.tstep, m.tstop, m.tstart, uic)
+            }
+            Mode::Dc(ref m) => {
+                format!("dc {} {} {} {}\n", m.source, m.start, m.stop, m.incr)
+            }
+            Mode::Ac(ref m) => {
+                format!("ac {} {} {} {}", m.mode, m.num, m.fstart, m.fstop)
+            }
         }
     }
+}
+
+fn get_out_file(id: usize) -> String {
+    format!("_ngspice_out_{}.m", id)
 }
 
 fn read_analysis_data(a: &Analysis, out_file: impl AsRef<Path>) -> Result<AnalysisData> {
@@ -141,7 +171,8 @@ fn read_analysis_data(a: &Analysis, out_file: impl AsRef<Path>) -> Result<Analys
         })
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
-    let complex = false;
+    // Results will be complex numbers if running AC analysis
+    let complex = matches!(a.mode, Mode::Ac(_));
 
     // sweep var is 1st col
     let mut sweep_var = Vec::new();
@@ -151,6 +182,13 @@ fn read_analysis_data(a: &Analysis, out_file: impl AsRef<Path>) -> Result<Analys
         sweep_var.push(row[0]);
         let mut counter = 1;
         for v in a.save.iter() {
+            if !results.contains_key(v) {
+                if complex {
+                    results.insert(v.to_string(), SpiceData::Complex(Vec::new(), Vec::new()));
+                } else {
+                    results.insert(v.to_string(), SpiceData::Real(Vec::new()));
+                }
+            }
             if let Some(entry) = results.get_mut(v) {
                 match entry {
                     SpiceData::Complex(ref mut a, ref mut b) => {
@@ -164,11 +202,7 @@ fn read_analysis_data(a: &Analysis, out_file: impl AsRef<Path>) -> Result<Analys
                     }
                 }
             } else {
-                if complex {
-                    results.insert(v.to_string(), SpiceData::Complex(Vec::new(), Vec::new()));
-                } else {
-                    results.insert(v.to_string(), SpiceData::Real(Vec::new()));
-                }
+                unreachable!();
             }
         }
     }
