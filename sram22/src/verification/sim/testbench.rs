@@ -1,9 +1,12 @@
 use std::path::PathBuf;
 
+use super::waveform::WaveformBuf;
+
 pub struct Testbench {
     name: Option<String>,
     includes: Vec<PathBuf>,
     libs: Vec<SpiceLib>,
+    waveforms: Vec<WaveformBuf>,
     source: NetlistSource,
 }
 
@@ -23,6 +26,7 @@ impl Testbench {
             name: None,
             includes: vec![],
             libs: vec![],
+            waveforms: vec![],
             source,
         }
     }
@@ -35,6 +39,11 @@ impl Testbench {
     #[inline]
     pub fn includes(&self) -> &[PathBuf] {
         &self.includes
+    }
+
+    #[inline]
+    pub fn waveforms(&self) -> &[WaveformBuf] {
+        &self.waveforms
     }
 
     #[inline]
@@ -55,6 +64,12 @@ impl Testbench {
             path,
             name: Some(name),
         });
+        self
+    }
+
+    #[inline]
+    pub fn add_waveform(&mut self, wav: WaveformBuf) -> &mut Self {
+        self.waveforms.push(wav);
         self
     }
 

@@ -1,0 +1,7 @@
+* Voltage divider
+
+A1 %vd([in 0]) filesrc
+R1 in out 1k
+R2 out 0 1k
+
+.model filesrc filesource (file="input.m" amploffset=[0 0] amplscale=[1 1] timeoffset=0 timescale=1 timerelative=false amplstep=true)

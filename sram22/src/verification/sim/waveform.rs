@@ -1,18 +1,32 @@
 use crate::{error::Sram22Error, Result};
-use std::io::{BufRead, BufReader, Read, Write};
+use std::{
+    fmt::Display,
+    io::{BufRead, BufReader, Read, Write},
+};
 
 pub enum Simulator {
     Ngspice,
     Spectre,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Waveform<'a> {
     t: &'a [f64],
     y: &'a [f64],
 }
 
 pub struct WaveformBuf {
+    name: Option<String>,
     data: Vec<(f64, f64)>,
+}
+
+impl<'a> Display for Waveform<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (t, y) in self.t.iter().zip(self.y.iter()) {
+            writeln!(f, "{}\t{}", *t, *y)?;
+        }
+        Ok(())
+    }
 }
 
 impl<'a> Waveform<'a> {
@@ -37,6 +51,27 @@ impl<'a> Waveform<'a> {
 }
 
 impl WaveformBuf {
+    pub fn with_named_data(name: &str, t: &[f64], y: &[f64]) -> Self {
+        Self {
+            name: Some(name.to_string()),
+            ..Self::with_data(t, y)
+        }
+    }
+
+    pub fn with_data(t: &[f64], y: &[f64]) -> Self {
+        assert_eq!(t.len(), y.len());
+        let data = t
+            .iter()
+            .zip(y.iter())
+            .map(|(t, y)| (*t, *y))
+            .collect::<Vec<_>>();
+        Self { name: None, data }
+    }
+
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
     pub fn load<T>(r: &mut T) -> Result<Self>
     where
         T: Read,
@@ -60,7 +95,21 @@ impl WaveformBuf {
             }
         }
 
-        Ok(Self { data })
+        Ok(Self { name: None, data })
+    }
+
+    pub fn save<T>(&self, w: &mut T) -> Result<()>
+    where
+        T: Write,
+    {
+        writeln!(w, "# waveform saved by Sram22")?;
+        writeln!(w, "# one output port")?;
+        writeln!(w, "# column 1: time (sec)")?;
+        writeln!(w, "# column 2: value")?;
+        for (t, y) in self.data.iter() {
+            writeln!(w, "{} {}", *t, *y)?;
+        }
+        Ok(())
     }
 }
 
