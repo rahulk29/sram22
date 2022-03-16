@@ -2,14 +2,14 @@ use std::path::PathBuf;
 
 pub struct Testbench {
     name: Option<String>,
-    // includes: Vec<PathBuf>,
-    // libs: Vec<SpiceLib>,
+    includes: Vec<PathBuf>,
+    libs: Vec<SpiceLib>,
     source: NetlistSource,
 }
 
-pub struct SpiceLib {
-    // path: PathBuf,
-// name: Option<String>,
+pub(crate) struct SpiceLib {
+    pub(crate) path: PathBuf,
+    pub(crate) name: Option<String>,
 }
 
 pub enum NetlistSource {
@@ -19,12 +19,48 @@ pub enum NetlistSource {
 
 impl Testbench {
     pub fn with_source(source: NetlistSource) -> Self {
-        Self { name: None, source }
+        Self {
+            name: None,
+            includes: vec![],
+            libs: vec![],
+            source,
+        }
     }
 
     #[inline]
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
+    }
+
+    #[inline]
+    pub fn includes(&self) -> &[PathBuf] {
+        &self.includes
+    }
+
+    #[inline]
+    pub fn include(&mut self, path: PathBuf) -> &mut Self {
+        self.includes.push(path);
+        self
+    }
+
+    #[inline]
+    pub fn add_lib(&mut self, path: PathBuf) -> &mut Self {
+        self.libs.push(SpiceLib { path, name: None });
+        self
+    }
+
+    #[inline]
+    pub fn add_named_lib(&mut self, path: PathBuf, name: String) -> &mut Self {
+        self.libs.push(SpiceLib {
+            path,
+            name: Some(name),
+        });
+        self
+    }
+
+    #[inline]
+    pub(crate) fn libs(&self) -> &[SpiceLib] {
+        &self.libs
     }
 
     #[inline]
