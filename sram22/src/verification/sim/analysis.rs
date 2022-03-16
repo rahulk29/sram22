@@ -15,8 +15,8 @@ impl Analysis {
         Self { mode, save: vec![] }
     }
 
-    pub fn save(&mut self, v: String) -> &mut Self {
-        self.save.push(v);
+    pub fn save(&mut self, v: &str) -> &mut Self {
+        self.save.push(v.to_string());
         self
     }
 }

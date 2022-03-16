@@ -100,9 +100,9 @@ fn test_simulate_pex_nand2() -> Result<(), Box<dyn std::error::Error>> {
             uic: false,
         },
     ));
-    tran.save("v(a)".to_string());
-    tran.save("v(b)".to_string());
-    tran.save("v(y)".to_string());
+    tran.save("v(a)");
+    tran.save("v(b)");
+    tran.save("v(y)");
 
     let mut ngs = Ngspice::with_tb(tb);
     ngs.cwd(work_dir);
