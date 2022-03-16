@@ -77,7 +77,7 @@ impl Ngspice {
         cmd.current_dir(&cwd);
 
         cmd.stdin(Stdio::null())
-            .stdout(Stdio::inherit())
+            .stdout(Stdio::null())
             .stderr(Stdio::null());
         let mut child = cmd.spawn()?;
         child.wait()?;
@@ -102,6 +102,16 @@ impl Ngspice {
         let mut f = File::create(&path)?;
         self.write_tb(&mut f, tb)?;
         f.flush()?;
+
+        // Write all waveforms into files
+        for wav in tb.waveforms() {
+            let name = wav.name().unwrap();
+            let path = cwd.as_ref().join(name);
+            let mut f = File::create(&path)?;
+            wav.save(&mut f)?;
+            f.flush()?;
+        }
+
         Ok(path)
     }
 

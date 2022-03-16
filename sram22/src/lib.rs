@@ -295,6 +295,11 @@ pub fn clog2(mut x: usize) -> u8 {
     ctr
 }
 
+pub fn tech_spice_include() -> PathBuf {
+    "/home/rahul/acads/sky130/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice"
+        .into()
+}
+
 #[cfg(test)]
 mod tests {}
 
