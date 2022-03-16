@@ -19,6 +19,9 @@ pub enum Sram22Error {
 
     #[error("error serializing/deserializing JSON: {0}")]
     JsonSerialization(#[from] serde_json::Error),
+
+    #[error("file format error: {0}")]
+    FileFormat(String),
 }
 
 pub type Result<T> = std::result::Result<T, Sram22Error>;
