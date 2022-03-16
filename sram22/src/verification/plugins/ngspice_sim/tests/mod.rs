@@ -17,7 +17,7 @@ fn test_ngspice_vdivider() -> Result<(), Box<dyn std::error::Error>> {
     let mut ngs = Ngspice::with_tb(tb);
     ngs.cwd("/tmp/sram22/tests/sim/vdivider".into());
     let mut op = Analysis::with_mode(crate::verification::sim::analysis::Mode::Op);
-    op.save("v(out)".to_string());
+    op.save("v(out)");
 
     ngs.add_analysis(op);
     let mut data = ngs.run()?;
@@ -39,7 +39,7 @@ fn test_ngspice_include1() -> Result<(), Box<dyn std::error::Error>> {
     let mut ngs = Ngspice::with_tb(tb);
     ngs.cwd("/tmp/sram22/tests/sim/include1".into());
     let mut op = Analysis::with_mode(crate::verification::sim::analysis::Mode::Op);
-    op.save("v(out)".to_string());
+    op.save("v(out)");
 
     ngs.add_analysis(op);
     let mut data = ngs.run()?;
@@ -70,7 +70,7 @@ fn test_vdivider_tran() -> Result<(), Box<dyn std::error::Error>> {
             uic: false,
         },
     ));
-    tran.save("v(out)".to_string());
+    tran.save("v(out)");
 
     // Set up ngspice
     let mut ngs = Ngspice::with_tb(tb);
