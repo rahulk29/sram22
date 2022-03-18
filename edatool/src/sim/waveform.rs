@@ -1,4 +1,4 @@
-use crate::{error::Sram22Error, Result};
+use crate::error::{EdaToolError, Result};
 use std::{
     fmt::Display,
     io::{BufRead, BufReader, Read, Write},
@@ -39,7 +39,7 @@ impl<'a> Waveform<'a> {
     where
         T: Write,
     {
-        writeln!(w, "# waveform saved by Sram22")?;
+        writeln!(w, "# waveform saved by edatool")?;
         writeln!(w, "# one output port")?;
         writeln!(w, "# column 1: time (sec)")?;
         writeln!(w, "# column 2: value")?;
@@ -102,7 +102,7 @@ impl WaveformBuf {
     where
         T: Write,
     {
-        writeln!(w, "# waveform saved by Sram22")?;
+        writeln!(w, "# waveform saved by edatool")?;
         writeln!(w, "# one output port")?;
         writeln!(w, "# column 1: time (sec)")?;
         writeln!(w, "# column 2: value")?;
@@ -132,16 +132,16 @@ fn parse_waveform_line(line: &str) -> Result<(f64, f64)> {
     let mut split = line.split_whitespace();
     let t = split
         .next()
-        .ok_or_else(|| Sram22Error::FileFormat("invalid line in waveform".to_string()))?
+        .ok_or_else(|| EdaToolError::FileFormat("invalid line in waveform".to_string()))?
         .parse::<f64>()
-        .map_err(|_| Sram22Error::FileFormat("unexpected value in waveform".to_string()))?;
+        .map_err(|_| EdaToolError::FileFormat("unexpected value in waveform".to_string()))?;
     let y = split
         .next()
-        .ok_or_else(|| Sram22Error::FileFormat("invalid line in waveform".to_string()))?
+        .ok_or_else(|| EdaToolError::FileFormat("invalid line in waveform".to_string()))?
         .parse::<f64>()
-        .map_err(|_| Sram22Error::FileFormat("unexpected value in waveform".to_string()))?;
+        .map_err(|_| EdaToolError::FileFormat("unexpected value in waveform".to_string()))?;
     if split.next().is_some() {
-        return Err(Sram22Error::FileFormat(
+        return Err(EdaToolError::FileFormat(
             "more than two values on the same line in waveform".to_string(),
         ));
     }

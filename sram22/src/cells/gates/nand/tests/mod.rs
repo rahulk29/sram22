@@ -1,15 +1,11 @@
-use crate::{
-    cells::gates::GateSize,
-    sky130_config, tech_spice_include,
-    test_utils::get_magic,
-    verification::{
-        pex::{Pex, PexInput, PexOpts},
-        plugins::{magic_pex::MagicPex, ngspice_sim::Ngspice},
-        sim::{
-            analysis::{Analysis, TransientAnalysis},
-            testbench::{NetlistSource, Testbench},
-            waveform::{Waveform, WaveformBuf},
-        },
+use crate::{cells::gates::GateSize, sky130_config, tech_spice_include, test_utils::get_magic};
+use edatool::{
+    pex::{Pex, PexInput, PexOpts},
+    plugins::{magic_pex::MagicPex, ngspice_sim::Ngspice},
+    sim::{
+        analysis::{Analysis, TransientAnalysis},
+        testbench::{NetlistSource, Testbench},
+        waveform::{Waveform, WaveformBuf},
     },
 };
 use std::{
@@ -92,14 +88,8 @@ fn test_simulate_pex_nand2() -> Result<(), Box<dyn std::error::Error>> {
     tb.add_waveform(va);
     tb.add_waveform(vb);
 
-    let mut tran = Analysis::with_mode(crate::verification::sim::analysis::Mode::Tran(
-        TransientAnalysis {
-            tstart: 0f64,
-            tstep: 1f64,
-            tstop: 4f64,
-            uic: false,
-        },
-    ));
+    let tran = TransientAnalysis::new(4f64).tstep(1f64);
+    let mut tran = Analysis::with_mode(edatool::sim::analysis::Mode::Tran(tran));
     tran.save("v(a)");
     tran.save("v(b)");
     tran.save("v(y)");
