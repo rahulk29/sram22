@@ -1,11 +1,13 @@
 use std::{collections::HashMap, fmt::Display};
 
+use serde::{Deserialize, Serialize};
+
 pub struct Analysis {
     pub(crate) mode: Mode,
     pub(crate) save: Vec<String>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Default, Clone, PartialEq)]
 pub struct AnalysisData {
     pub data: HashMap<String, SpiceData>,
 }
@@ -21,7 +23,7 @@ impl Analysis {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub enum SpiceData {
     Real(Vec<f64>),
     Complex(Vec<f64>, Vec<f64>),
