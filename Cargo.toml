@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+  "edatool",
   "fanout",
   "magic_vlsi",
   "micro_hdl",

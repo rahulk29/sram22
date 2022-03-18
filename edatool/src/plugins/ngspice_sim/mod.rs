@@ -1,6 +1,6 @@
-use crate::error::{Result, Sram22Error};
-use crate::verification::sim::analysis::{Analysis, AnalysisData, Mode, SpiceData};
-use crate::verification::sim::testbench::{NetlistSource, Testbench};
+use crate::error::{EdaToolError, Result};
+use crate::sim::analysis::{Analysis, AnalysisData, Mode, SpiceData};
+use crate::sim::testbench::{NetlistSource, Testbench};
 use std::collections::HashMap;
 use std::fs::{self, read_to_string, File};
 use std::io::{BufRead, BufReader, Write};
@@ -185,11 +185,11 @@ fn read_analysis_data(a: &Analysis, out_file: impl AsRef<Path>) -> Result<Analys
                 .map(|s| s.parse::<f64>())
                 .collect::<std::result::Result<Vec<_>, _>>()
                 .map_err(|_| {
-                    Sram22Error::FileFormat(
+                    EdaToolError::FileFormat(
                         "invalid output data format from ngspice simulation".to_string(),
                     )
                 })?;
-            Ok::<Vec<f64>, Sram22Error>(row)
+            Ok::<Vec<f64>, EdaToolError>(row)
         })
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
@@ -230,7 +230,7 @@ fn read_analysis_data(a: &Analysis, out_file: impl AsRef<Path>) -> Result<Analys
     }
 
     if results.contains_key("sweep_var") {
-        return Err(Sram22Error::FileFormat(
+        return Err(EdaToolError::FileFormat(
             "cannot have variable named `sweep_var` in results".to_string(),
         ));
     }

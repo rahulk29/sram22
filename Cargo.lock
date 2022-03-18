@@ -147,6 +147,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "edatool"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "bytes",
+ "handlebars",
+ "log",
+ "magic_vlsi",
+ "portpicker",
+ "prost",
+ "prost-build",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -717,6 +735,7 @@ dependencies = [
  "approx",
  "bytes",
  "clap",
+ "edatool",
  "env_logger",
  "grid",
  "handlebars",

@@ -1,26 +1,18 @@
 [package]
-name = "sram22"
+name = "edatool"
 version = "0.1.0"
 edition = "2021"
 authors = ["Rahul Kumar <rahulkumar@berkeley.edu>"]
-description = "A configurable SRAM generator"
+description = "Rust interfaces to EDA tools for circuit design"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-grid = { version = "*" }
 thiserror = "1.0"
 magic_vlsi = { path = "../magic_vlsi" }
-micro_hdl = { path = "../micro_hdl" }
-edatool = { path = "../edatool" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-toml = "0.5.8"
 log = "0.4"
-env_logger = "0.9"
-indicatif = "0.16"
-clap = { version = "3.1.0", features = ["derive"] }
-itertools = "0.10.3"
 handlebars = "4.2"
 portpicker = "0.1"
 prost = "0.9"

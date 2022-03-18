@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use approx::abs_diff_eq;
 
-use crate::verification::sim::{
+use crate::sim::{
     analysis::{Analysis, TransientAnalysis},
     testbench::{NetlistSource, Testbench},
     waveform::{Waveform, WaveformBuf},
@@ -16,7 +16,7 @@ fn test_ngspice_vdivider() -> Result<(), Box<dyn std::error::Error>> {
     let tb = Testbench::with_source(NetlistSource::File(netlist));
     let mut ngs = Ngspice::with_tb(tb);
     ngs.cwd("/tmp/sram22/tests/sim/vdivider".into());
-    let mut op = Analysis::with_mode(crate::verification::sim::analysis::Mode::Op);
+    let mut op = Analysis::with_mode(crate::sim::analysis::Mode::Op);
     op.save("v(out)");
 
     ngs.add_analysis(op);
@@ -38,7 +38,7 @@ fn test_ngspice_include1() -> Result<(), Box<dyn std::error::Error>> {
     tb.include(include);
     let mut ngs = Ngspice::with_tb(tb);
     ngs.cwd("/tmp/sram22/tests/sim/include1".into());
-    let mut op = Analysis::with_mode(crate::verification::sim::analysis::Mode::Op);
+    let mut op = Analysis::with_mode(crate::sim::analysis::Mode::Op);
     op.save("v(out)");
 
     ngs.add_analysis(op);
@@ -62,14 +62,12 @@ fn test_vdivider_tran() -> Result<(), Box<dyn std::error::Error>> {
     tb.add_waveform(wav);
 
     // Set up analysis
-    let mut tran = Analysis::with_mode(crate::verification::sim::analysis::Mode::Tran(
-        TransientAnalysis {
-            tstart: 0f64,
-            tstep: 1f64,
-            tstop: 4f64,
-            uic: false,
-        },
-    ));
+    let mut tran = Analysis::with_mode(crate::sim::analysis::Mode::Tran(TransientAnalysis {
+        tstart: 0f64,
+        tstep: 1f64,
+        tstop: 4f64,
+        uic: false,
+    }));
     tran.save("v(out)");
 
     // Set up ngspice
@@ -89,6 +87,5 @@ fn test_vdivider_tran() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn test_data_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("src/verification/plugins/ngspice_sim/tests/data")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/plugins/ngspice_sim/tests/data")
 }

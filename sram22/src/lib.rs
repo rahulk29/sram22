@@ -23,7 +23,6 @@ pub mod error;
 pub mod layout;
 pub mod precharge;
 pub mod predecode;
-pub mod verification;
 
 pub fn generate(config: SramConfig) -> Result<()> {
     let rows = config.rows;
