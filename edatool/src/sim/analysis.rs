@@ -2,13 +2,15 @@ use std::{collections::HashMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Analysis {
     pub(crate) mode: Mode,
     pub(crate) save: Vec<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Default, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct AnalysisData {
+    pub analysis: Analysis,
     pub data: HashMap<String, SpiceData>,
 }
 
@@ -45,6 +47,7 @@ impl SpiceData {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub enum Mode {
     Tran(TransientAnalysis),
     Ac(AcAnalysis),
@@ -52,6 +55,7 @@ pub enum Mode {
     Op,
 }
 
+#[derive(Debug, Deserialize, Serialize, Default, Clone, PartialEq)]
 pub struct DcAnalysis {
     pub(crate) source: String,
     pub(crate) start: f64,
@@ -59,6 +63,7 @@ pub struct DcAnalysis {
     pub(crate) incr: f64,
 }
 
+#[derive(Debug, Deserialize, Serialize, Default, Copy, Clone, PartialEq)]
 pub struct TransientAnalysis {
     pub(crate) tstep: f64,
     pub(crate) tstop: f64,
@@ -66,11 +71,19 @@ pub struct TransientAnalysis {
     pub(crate) uic: bool,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Copy, Clone, Eq, PartialEq)]
 pub enum SweepMode {
     Dec,
     Oct,
     Lin,
+}
+
+#[derive(Debug, Deserialize, Serialize, Copy, Clone, PartialEq)]
+pub struct AcAnalysis {
+    pub(crate) mode: SweepMode,
+    pub(crate) num: u64,
+    pub(crate) fstart: f64,
+    pub(crate) fstop: f64,
 }
 
 impl Display for SweepMode {
@@ -81,13 +94,6 @@ impl Display for SweepMode {
             SweepMode::Lin => write!(f, "lin"),
         }
     }
-}
-
-pub struct AcAnalysis {
-    pub(crate) mode: SweepMode,
-    pub(crate) num: u64,
-    pub(crate) fstart: f64,
-    pub(crate) fstop: f64,
 }
 
 impl DcAnalysis {

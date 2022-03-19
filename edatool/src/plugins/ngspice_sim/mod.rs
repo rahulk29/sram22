@@ -237,5 +237,8 @@ fn read_analysis_data(a: &Analysis, out_file: impl AsRef<Path>) -> Result<Analys
 
     results.insert("sweep_var".to_string(), SpiceData::Real(sweep_var));
 
-    Ok(AnalysisData { data: results })
+    Ok(AnalysisData {
+        analysis: a.to_owned(),
+        data: results,
+    })
 }

@@ -1,10 +1,17 @@
 syntax = "proto3";
 
-package sram22.verification.sim.v1;
+package edatool.sim.v1;
 
 message SimulationData {
   string name = 1;
   repeated AnalysisData analyses = 2;
+}
+
+enum SweepMode {
+  SWEEP_MODE_UNSPECIFIED = 0;
+  SWEEP_MODE_LINEAR = 1;
+  SWEEP_MODE_DECADE = 2;
+  SWEEP_MODE_OCTAVE = 3;
 }
 
 message TranParams {
@@ -12,6 +19,24 @@ message TranParams {
   double tstep = 2;
   double tstart = 3;
   bool uic = 4;
+}
+
+message AcParams {
+  SweepMode sweep_mode = 1;
+  uint64 num = 2;
+  double fstart = 3;
+  double fstop = 4;
+}
+
+message DcParams {
+  string source = 1;
+  double start = 2;
+  double stop = 3;
+  double incr = 4;
+}
+
+message OpParams {
+
 }
 
 message AnalysisData {
