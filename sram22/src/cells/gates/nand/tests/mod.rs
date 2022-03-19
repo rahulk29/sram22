@@ -2,8 +2,8 @@ use crate::{cells::gates::GateSize, sky130_config, tech_spice_include, test_util
 use edatool::{
     pex::{Pex, PexInput, PexOpts},
     plugins::{magic_pex::MagicPex, ngspice_sim::Ngspice},
+    protos::sim::{analysis_mode::Mode, Analysis, AnalysisMode, NamedExpression, TranParams},
     sim::{
-        analysis::{Analysis, TransientAnalysis},
         testbench::{NetlistSource, Testbench},
         waveform::{Waveform, WaveformBuf},
     },
@@ -88,19 +88,41 @@ fn test_simulate_pex_nand2() -> Result<(), Box<dyn std::error::Error>> {
     tb.add_waveform(va);
     tb.add_waveform(vb);
 
-    let tran = TransientAnalysis::new(4f64).tstep(1f64);
-    let mut tran = Analysis::with_mode(edatool::sim::analysis::Mode::Tran(tran));
-    tran.save("v(a)");
-    tran.save("v(b)");
-    tran.save("v(y)");
+    let tran = Analysis {
+        mode: Some(AnalysisMode {
+            mode: Some(Mode::Tran(TranParams {
+                tstep: 1f64,
+                tstop: 4f64,
+                ..Default::default()
+            })),
+        }),
+        expressions: vec![
+            NamedExpression {
+                name: "a".to_string(),
+                expr: "v(a)".to_string(),
+            },
+            NamedExpression {
+                name: "b".to_string(),
+                expr: "v(b)".to_string(),
+            },
+            NamedExpression {
+                name: "y".to_string(),
+                expr: "v(y)".to_string(),
+            },
+        ],
+    };
 
     let mut ngs = Ngspice::with_tb(tb);
     ngs.cwd(work_dir);
-    ngs.add_analysis(tran);
+    ngs.add_analysis(tran)?;
     let mut data = ngs.run()?;
 
-    let t = data.analyses[0].data.remove("sweep_var").unwrap().real();
-    let y = data.analyses[0].data.remove("v(y)").unwrap().real();
+    let t = data.analyses[0]
+        .values
+        .remove("sweep_var")
+        .unwrap()
+        .unwrap_real();
+    let y = data.analyses[0].values.remove("y").unwrap().unwrap_real();
     let wav = Waveform::new(&t, &y);
 
     println!("got data from tran simulation:");

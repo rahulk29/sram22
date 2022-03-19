@@ -39,17 +39,35 @@ message OpParams {
 
 }
 
-message AnalysisData {
-  oneof params {
+message AnalysisMode {
+  oneof mode {
     TranParams tran = 1;
+    AcParams ac = 2;
+    DcParams dc = 3;
+    OpParams op = 4;
   }
+}
+
+message NamedExpression {
+  string name = 1;
+  string expr = 2;
+}
+
+message Analysis {
+  AnalysisMode mode = 1;
+  repeated NamedExpression expressions = 2;
+}
+
+message AnalysisData {
+  AnalysisMode mode = 1;
   map<string, SimVector> values = 2;
 }
 
 message SimVector {
+  string name = 1;
   oneof values {
-    RealVector real = 1;
-    ComplexVector complex = 2;
+    RealVector real = 2;
+    ComplexVector complex = 3;
   }
 }
 

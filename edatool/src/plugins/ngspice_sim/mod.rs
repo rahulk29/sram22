@@ -1,5 +1,10 @@
 use crate::error::{EdaToolError, Result};
-use crate::sim::analysis::{Analysis, AnalysisData, Mode, SpiceData};
+use crate::protos::sim::analysis_mode::Mode;
+use crate::protos::sim::sim_vector::Values;
+use crate::protos::sim::{
+    Analysis, AnalysisData, AnalysisMode, ComplexVector, RealVector, SimVector, SimulationData,
+    SweepMode,
+};
 use crate::sim::testbench::{NetlistSource, Testbench};
 use std::collections::HashMap;
 use std::fs::{self, read_to_string, File};
@@ -20,10 +25,6 @@ pub struct Ngspice {
     control: String,
 }
 
-pub struct NgspiceData {
-    pub analyses: Vec<AnalysisData>,
-}
-
 impl Ngspice {
     pub fn with_tb(tb: Testbench) -> Self {
         Self {
@@ -40,15 +41,19 @@ impl Ngspice {
         self
     }
 
-    pub fn add_analysis(&mut self, a: Analysis) -> &mut Self {
-        let spice_line = self.prepare_spice_analysis(&a.mode);
+    pub fn add_analysis(&mut self, a: Analysis) -> Result<&mut Self> {
+        let mode = a.mode.as_ref().ok_or_else(EdaToolError::no_analysis_mode)?;
+        let spice_line = self.prepare_spice_analysis(mode)?;
+
         self.control.push_str(&spice_line);
 
         let out_file = get_out_file(self.analyses.len());
-        if !a.save.is_empty() {
+        if !a.expressions.is_empty() {
             let mut wrdata = format!("wrdata {}", out_file);
-            for v in a.save.iter() {
-                wrdata.push_str(&format!(" {}", v));
+            for expr in a.expressions.iter() {
+                self.control
+                    .push_str(&format!("let {} = {}\n", &expr.name, &expr.expr));
+                wrdata.push_str(&format!(" {}", &expr.name));
             }
             self.control.push_str(&wrdata);
             self.control.push('\n');
@@ -56,10 +61,10 @@ impl Ngspice {
 
         self.analyses.push(a);
 
-        self
+        Ok(self)
     }
 
-    pub fn run(self) -> Result<NgspiceData> {
+    pub fn run(self) -> Result<SimulationData> {
         let cwd = if let Some(cwd) = self.cwd.as_ref() {
             cwd.to_owned()
         } else {
@@ -94,7 +99,10 @@ impl Ngspice {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        Ok(NgspiceData { analyses })
+        Ok(SimulationData {
+            name: "ngspice_sim".to_string(),
+            analyses,
+        })
     }
 
     fn write_tb_to_file(&self, cwd: impl AsRef<Path>, tb: &Testbench) -> Result<PathBuf> {
@@ -151,9 +159,10 @@ impl Ngspice {
         Ok(())
     }
 
-    fn prepare_spice_analysis(&self, m: &Mode) -> String {
-        match *m {
-            Mode::Op => "op\n".to_string(),
+    fn prepare_spice_analysis(&self, m: &AnalysisMode) -> Result<String> {
+        let m = m.mode.as_ref().ok_or_else(EdaToolError::no_analysis_mode)?;
+        Ok(match m {
+            Mode::Op(_) => "op\n".to_string(),
             Mode::Tran(ref m) => {
                 let uic = if m.uic { "uic" } else { "" };
                 format!("tran {}s {}s {}s {}\n", m.tstep, m.tstop, m.tstart, uic)
@@ -162,9 +171,10 @@ impl Ngspice {
                 format!("dc {} {} {} {}\n", m.source, m.start, m.stop, m.incr)
             }
             Mode::Ac(ref m) => {
-                format!("ac {} {} {} {}", m.mode, m.num, m.fstart, m.fstop)
+                let sweep_mode = SweepMode::from_i32(m.sweep_mode).unwrap();
+                format!("ac {} {} {} {}", sweep_mode, m.num, m.fstart, m.fstop)
             }
-        }
+        })
     }
 }
 
@@ -194,7 +204,14 @@ fn read_analysis_data(a: &Analysis, out_file: impl AsRef<Path>) -> Result<Analys
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     // Results will be complex numbers if running AC analysis
-    let complex = matches!(a.mode, Mode::Ac(_));
+    let mode = a
+        .mode
+        .as_ref()
+        .ok_or_else(EdaToolError::no_analysis_mode)?
+        .mode
+        .as_ref()
+        .ok_or_else(EdaToolError::no_analysis_mode)?;
+    let complex = matches!(mode, Mode::Ac(_));
 
     // sweep var is 1st col
     let mut sweep_var = Vec::new();
@@ -203,23 +220,35 @@ fn read_analysis_data(a: &Analysis, out_file: impl AsRef<Path>) -> Result<Analys
     for row in data.into_iter() {
         sweep_var.push(row[0]);
         let mut counter = 1;
-        for v in a.save.iter() {
-            if !results.contains_key(v) {
+        for expr in a.expressions.iter() {
+            if !results.contains_key(&expr.name) {
                 if complex {
-                    results.insert(v.to_string(), SpiceData::Complex(Vec::new(), Vec::new()));
+                    results.insert(
+                        expr.name.clone(),
+                        SimVector {
+                            name: expr.name.clone(),
+                            values: Some(Values::Complex(ComplexVector::default())),
+                        },
+                    );
                 } else {
-                    results.insert(v.to_string(), SpiceData::Real(Vec::new()));
+                    results.insert(
+                        expr.name.clone(),
+                        SimVector {
+                            name: expr.name.clone(),
+                            values: Some(Values::Real(RealVector::default())),
+                        },
+                    );
                 }
             }
-            if let Some(entry) = results.get_mut(v) {
-                match entry {
-                    SpiceData::Complex(ref mut a, ref mut b) => {
-                        a.push(row[counter]);
-                        b.push(row[counter + 1]);
+            if let Some(entry) = results.get_mut(&expr.name) {
+                match entry.values.as_mut().unwrap() {
+                    Values::Complex(ref mut v) => {
+                        v.a.push(row[counter]);
+                        v.b.push(row[counter + 1]);
                         counter += 3;
                     }
-                    SpiceData::Real(ref mut x) => {
-                        x.push(row[counter]);
+                    Values::Real(ref mut v) => {
+                        v.v.push(row[counter]);
                         counter += 2;
                     }
                 }
@@ -230,15 +259,21 @@ fn read_analysis_data(a: &Analysis, out_file: impl AsRef<Path>) -> Result<Analys
     }
 
     if results.contains_key("sweep_var") {
-        return Err(EdaToolError::FileFormat(
-            "cannot have variable named `sweep_var` in results".to_string(),
+        return Err(EdaToolError::InvalidArgs(
+            "cannot have variable named `sweep_var` in list of expressions to save".to_string(),
         ));
     }
 
-    results.insert("sweep_var".to_string(), SpiceData::Real(sweep_var));
+    results.insert(
+        "sweep_var".to_string(),
+        SimVector {
+            name: "sweep_var".to_string(),
+            values: Some(Values::Real(RealVector { v: sweep_var })),
+        },
+    );
 
     Ok(AnalysisData {
-        analysis: a.to_owned(),
-        data: results,
+        mode: Some(a.mode.clone().unwrap()),
+        values: results,
     })
 }

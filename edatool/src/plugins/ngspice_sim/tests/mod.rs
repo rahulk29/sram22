@@ -2,10 +2,15 @@ use std::path::PathBuf;
 
 use approx::abs_diff_eq;
 
-use crate::sim::{
-    analysis::{Analysis, TransientAnalysis},
-    testbench::{NetlistSource, Testbench},
-    waveform::{Waveform, WaveformBuf},
+use crate::{
+    protos::sim::{
+        analysis_mode::Mode, sim_vector::Values, Analysis, AnalysisMode, NamedExpression, OpParams,
+        TranParams,
+    },
+    sim::{
+        testbench::{NetlistSource, Testbench},
+        waveform::{Waveform, WaveformBuf},
+    },
 };
 
 use super::Ngspice;
@@ -16,13 +21,24 @@ fn test_ngspice_vdivider() -> Result<(), Box<dyn std::error::Error>> {
     let tb = Testbench::with_source(NetlistSource::File(netlist));
     let mut ngs = Ngspice::with_tb(tb);
     ngs.cwd("/tmp/sram22/tests/sim/vdivider".into());
-    let mut op = Analysis::with_mode(crate::sim::analysis::Mode::Op);
-    op.save("v(out)");
+    let op = Analysis {
+        mode: Some(AnalysisMode {
+            mode: Some(Mode::Op(OpParams {})),
+        }),
+        expressions: vec![NamedExpression {
+            name: "out".to_string(),
+            expr: "v(out)".to_string(),
+        }],
+    };
 
-    ngs.add_analysis(op);
+    ngs.add_analysis(op)?;
     let mut data = ngs.run()?;
 
-    let x = data.analyses[0].data.remove("v(out)").unwrap().real();
+    let x = data.analyses[0].values.remove("out").unwrap();
+    let x = match x.values.unwrap() {
+        Values::Real(x) => x.v,
+        _ => panic!("wrong value type (expected real)"),
+    };
     assert_eq!(x.len(), 1);
     assert!(abs_diff_eq!(x[0], 0.5f64));
 
@@ -38,13 +54,24 @@ fn test_ngspice_include1() -> Result<(), Box<dyn std::error::Error>> {
     tb.include(include);
     let mut ngs = Ngspice::with_tb(tb);
     ngs.cwd("/tmp/sram22/tests/sim/include1".into());
-    let mut op = Analysis::with_mode(crate::sim::analysis::Mode::Op);
-    op.save("v(out)");
+    let op = Analysis {
+        mode: Some(AnalysisMode {
+            mode: Some(Mode::Op(OpParams {})),
+        }),
+        expressions: vec![NamedExpression {
+            name: "out".to_string(),
+            expr: "v(out)".to_string(),
+        }],
+    };
 
-    ngs.add_analysis(op);
+    ngs.add_analysis(op)?;
     let mut data = ngs.run()?;
 
-    let x = data.analyses[0].data.remove("v(out)").unwrap().real();
+    let x = data.analyses[0].values.remove("out").unwrap();
+    let x = match x.values.unwrap() {
+        Values::Real(x) => x.v,
+        _ => panic!("wrong value type (expected real)"),
+    };
     assert_eq!(x.len(), 1);
     assert!(abs_diff_eq!(x[0], 0.5f64));
 
@@ -62,22 +89,39 @@ fn test_vdivider_tran() -> Result<(), Box<dyn std::error::Error>> {
     tb.add_waveform(wav);
 
     // Set up analysis
-    let mut tran = Analysis::with_mode(crate::sim::analysis::Mode::Tran(TransientAnalysis {
-        tstart: 0f64,
-        tstep: 1f64,
-        tstop: 4f64,
-        uic: false,
-    }));
-    tran.save("v(out)");
+    let tran = Analysis {
+        mode: Some(AnalysisMode {
+            mode: Some(Mode::Tran(TranParams {
+                tstop: 4f64,
+                tstep: 1f64,
+                tstart: 0f64,
+                uic: false,
+            })),
+        }),
+        expressions: vec![NamedExpression {
+            name: "out".to_string(),
+            expr: "v(out)".to_string(),
+        }],
+    };
 
     // Set up ngspice
     let mut ngs = Ngspice::with_tb(tb);
     ngs.cwd("/tmp/sram22/tests/sim/vdivider_tran".into());
-    ngs.add_analysis(tran);
+    ngs.add_analysis(tran)?;
     let mut data = ngs.run()?;
 
-    let t = data.analyses[0].data.remove("sweep_var").unwrap().real();
-    let y = data.analyses[0].data.remove("v(out)").unwrap().real();
+    let t = data.analyses[0].values.remove("sweep_var").unwrap();
+    let t = match t.values.unwrap() {
+        Values::Real(t) => t.v,
+        _ => panic!("wrong value type (expected real)"),
+    };
+
+    let y = data.analyses[0].values.remove("out").unwrap();
+    let y = match y.values.unwrap() {
+        Values::Real(y) => y.v,
+        _ => panic!("wrong value type (expected real)"),
+    };
+
     let wav = Waveform::new(&t, &y);
 
     println!("got data from tran simulation:");
