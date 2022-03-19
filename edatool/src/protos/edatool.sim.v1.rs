@@ -3,7 +3,7 @@
 /// corresponding to the different analyses performed.
 ///
 /// Typically, a simulation will correspond to one netlist.
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SimulationData {
     /// The name of the simulation
@@ -14,7 +14,7 @@ pub struct SimulationData {
     pub analyses: ::prost::alloc::vec::Vec<AnalysisData>,
 }
 /// The parameters to be used when performing a transient analysis.
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TranParams {
     /// The simulation end time
@@ -38,7 +38,7 @@ pub struct TranParams {
     pub uic: bool,
 }
 /// The parameters to be used when performing an AC analysis.
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AcParams {
     /// The type of frequency sweep to perform
@@ -61,7 +61,7 @@ pub struct AcParams {
     pub fstop: f64,
 }
 /// The parameters to be used when performing a DC analysis.
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DcParams {
     /// The name of the source whose value should be swept.
@@ -81,12 +81,12 @@ pub struct DcParams {
 /// point (op) analysis.
 ///
 /// currently empty
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OpParams {
 }
 /// Indicates what type of simulation should be performed.
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AnalysisMode {
     /// Indicates what type of simulation should be performed,
@@ -98,7 +98,7 @@ pub struct AnalysisMode {
 pub mod analysis_mode {
     /// Indicates what type of simulation should be performed,
     /// as well as the parameters to use for the simulation.
-    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Mode {
         #[prost(message, tag="1")]
@@ -120,7 +120,7 @@ pub mod analysis_mode {
 /// ```
 ///
 /// in a simulator.
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct NamedExpression {
     /// The name of the expression.
@@ -143,7 +143,7 @@ pub struct NamedExpression {
 /// simulation, as well as a list of `NamedExpression`s,
 /// which specify the variables to save after the
 /// simulation is done.
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Analysis {
     /// The type and parameters of the simulation.
@@ -154,7 +154,7 @@ pub struct Analysis {
     pub expressions: ::prost::alloc::vec::Vec<NamedExpression>,
 }
 /// A container for the results of a single `Analysis`.
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AnalysisData {
     /// The type and parameters of the simulation that was run.
@@ -170,7 +170,7 @@ pub struct AnalysisData {
     pub values: ::std::collections::HashMap<::prost::alloc::string::String, SimVector>,
 }
 /// A vector of data produced by a simulation.
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SimVector {
     /// The (optional) name of the vector.
@@ -183,7 +183,7 @@ pub struct SimVector {
 /// Nested message and enum types in `SimVector`.
 pub mod sim_vector {
     /// The values contained in the vector.
-    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Values {
         #[prost(message, tag="2")]
@@ -193,7 +193,7 @@ pub mod sim_vector {
     }
 }
 /// A vector of real-valued data.
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RealVector {
     /// A list of double-precision floats storing the data.
@@ -201,7 +201,7 @@ pub struct RealVector {
     pub v: ::prost::alloc::vec::Vec<f64>,
 }
 /// A vector of complex-valued data.
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ComplexVector {
     /// A list of double-precision floats storing the real component of the data.
@@ -212,7 +212,7 @@ pub struct ComplexVector {
     pub b: ::prost::alloc::vec::Vec<f64>,
 }
 /// Specifies how to sweep a variable
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum SweepMode {
