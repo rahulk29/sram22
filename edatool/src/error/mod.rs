@@ -2,6 +2,9 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum EdaToolError {
+    #[error("invalid arguments: {0}")]
+    InvalidArgs(String),
+
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 
@@ -22,6 +25,13 @@ pub enum EdaToolError {
 
     #[error("file format error: {0}")]
     FileFormat(String),
+}
+
+impl EdaToolError {
+    #[inline]
+    pub(crate) fn no_analysis_mode() -> Self {
+        Self::InvalidArgs("No analysis mode was specified.".to_string())
+    }
 }
 
 pub type Result<T> = std::result::Result<T, EdaToolError>;

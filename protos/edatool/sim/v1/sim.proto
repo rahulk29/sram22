@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package edatool.sim.v1;
+
+message SimulationData {
+  string name = 1;
+  repeated AnalysisData analyses = 2;
+}
+
+enum SweepMode {
+  SWEEP_MODE_UNSPECIFIED = 0;
+  SWEEP_MODE_LINEAR = 1;
+  SWEEP_MODE_DECADE = 2;
+  SWEEP_MODE_OCTAVE = 3;
+}
+
+message TranParams {
+  double tstop = 1;
+  double tstep = 2;
+  double tstart = 3;
+  bool uic = 4;
+}
+
+message AcParams {
+  SweepMode sweep_mode = 1;
+  uint64 num = 2;
+  double fstart = 3;
+  double fstop = 4;
+}
+
+message DcParams {
+  string source = 1;
+  double start = 2;
+  double stop = 3;
+  double incr = 4;
+}
+
+message OpParams {
+
+}
+
+message AnalysisMode {
+  oneof mode {
+    TranParams tran = 1;
+    AcParams ac = 2;
+    DcParams dc = 3;
+    OpParams op = 4;
+  }
+}
+
+message NamedExpression {
+  string name = 1;
+  string expr = 2;
+}
+
+message Analysis {
+  AnalysisMode mode = 1;
+  repeated NamedExpression expressions = 2;
+}
+
+message AnalysisData {
+  AnalysisMode mode = 1;
+  map<string, SimVector> values = 2;
+}
+
+message SimVector {
+  string name = 1;
+  oneof values {
+    RealVector real = 2;
+    ComplexVector complex = 3;
+  }
+}
+
+message RealVector {
+  repeated double v = 1;
+}
+
+message ComplexVector {
+  repeated double a = 1;
+  repeated double b = 2;
+}
