@@ -4,8 +4,7 @@ use approx::abs_diff_eq;
 
 use crate::{
     protos::sim::{
-        analysis_mode::Mode, sim_vector::Values, Analysis, AnalysisMode, NamedExpression, OpParams,
-        TranParams,
+        analysis_mode::Mode, Analysis, AnalysisMode, NamedExpression, OpParams, TranParams,
     },
     sim::{
         testbench::{NetlistSource, Testbench},
@@ -34,11 +33,7 @@ fn test_ngspice_vdivider() -> Result<(), Box<dyn std::error::Error>> {
     ngs.add_analysis(op)?;
     let mut data = ngs.run()?;
 
-    let x = data.analyses[0].values.remove("out").unwrap();
-    let x = match x.values.unwrap() {
-        Values::Real(x) => x.v,
-        _ => panic!("wrong value type (expected real)"),
-    };
+    let x = data.analyses[0].values.remove("out").unwrap().unwrap_real();
     assert_eq!(x.len(), 1);
     assert!(abs_diff_eq!(x[0], 0.5f64));
 
@@ -67,11 +62,7 @@ fn test_ngspice_include1() -> Result<(), Box<dyn std::error::Error>> {
     ngs.add_analysis(op)?;
     let mut data = ngs.run()?;
 
-    let x = data.analyses[0].values.remove("out").unwrap();
-    let x = match x.values.unwrap() {
-        Values::Real(x) => x.v,
-        _ => panic!("wrong value type (expected real)"),
-    };
+    let x = data.analyses[0].values.remove("out").unwrap().unwrap_real();
     assert_eq!(x.len(), 1);
     assert!(abs_diff_eq!(x[0], 0.5f64));
 
@@ -110,17 +101,12 @@ fn test_vdivider_tran() -> Result<(), Box<dyn std::error::Error>> {
     ngs.add_analysis(tran)?;
     let mut data = ngs.run()?;
 
-    let t = data.analyses[0].values.remove("sweep_var").unwrap();
-    let t = match t.values.unwrap() {
-        Values::Real(t) => t.v,
-        _ => panic!("wrong value type (expected real)"),
-    };
-
-    let y = data.analyses[0].values.remove("out").unwrap();
-    let y = match y.values.unwrap() {
-        Values::Real(y) => y.v,
-        _ => panic!("wrong value type (expected real)"),
-    };
+    let t = data.analyses[0]
+        .values
+        .remove("sweep_var")
+        .unwrap()
+        .unwrap_real();
+    let y = data.analyses[0].values.remove("out").unwrap().unwrap_real();
 
     let wav = Waveform::new(&t, &y);
 
