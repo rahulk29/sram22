@@ -91,7 +91,7 @@ fn test_simulate_pex_nand2() -> Result<(), Box<dyn std::error::Error>> {
     let tran = Analysis {
         mode: Some(AnalysisMode {
             mode: Some(Mode::Tran(TranParams {
-                tstep: 1f64,
+                tstep: 1_E-4f64,
                 tstop: 4f64,
                 ..Default::default()
             })),
@@ -118,7 +118,7 @@ fn test_simulate_pex_nand2() -> Result<(), Box<dyn std::error::Error>> {
     let mut data = ngs.run()?;
 
     // Save data to a file:
-    // data.to_file("/path/to/simdata.bin")?;
+    // data.to_file("/home/rahul/acads/sky130/sram22/scripts/simdata.bin")?;
 
     let t = data.analyses[0]
         .values

@@ -1,0 +1,7 @@
+version: v1
+managed:
+  enabled: true
+  optimize_for: SPEED
+plugins:
+  - name: python
+    out: scripts/protos
