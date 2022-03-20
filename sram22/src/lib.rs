@@ -260,6 +260,7 @@ fn copy_cells(cell_dir: impl AsRef<Path>, out_dir: impl AsRef<Path>) {
         "wlstrap_p.mag",
         "colend_cent.mag",
         "colend_p_cent.mag",
+        "sa_senseamp.mag",
     ] {
         std::fs::copy(
             cell_dir.as_ref().join(cell_name),
