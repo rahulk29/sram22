@@ -1,6 +1,8 @@
-use std::fmt::Display;
+use std::{fmt::Display, fs::File, io::Write, path::Path};
 
-use crate::protos::sim::{sim_vector::Values, SimVector, SweepMode};
+use prost::Message;
+
+use crate::protos::sim::{sim_vector::Values, SimVector, SimulationData, SweepMode};
 
 impl Display for SweepMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -25,5 +27,24 @@ impl SimVector {
             Some(Values::Complex(v)) => (v.a, v.b),
             _ => panic!("called unwrap_complex on a SimVector that was empty or had real values"),
         }
+    }
+}
+
+impl SimulationData {
+    // Write simulation data to any object implementing `Write`.
+    pub fn save<T>(&self, dst: &mut T) -> std::io::Result<()>
+    where
+        T: Write,
+    {
+        let b = self.encode_to_vec();
+        dst.write_all(&b)?;
+        dst.flush()
+    }
+
+    // Saves simulation data to a file.
+    pub fn to_file(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
+        let mut f = File::create(path)?;
+        self.save(&mut f)?;
+        Ok(())
     }
 }

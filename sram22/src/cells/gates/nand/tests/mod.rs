@@ -117,6 +117,9 @@ fn test_simulate_pex_nand2() -> Result<(), Box<dyn std::error::Error>> {
     ngs.add_analysis(tran)?;
     let mut data = ngs.run()?;
 
+    // Save data to a file:
+    // data.to_file("/path/to/simdata.bin")?;
+
     let t = data.analyses[0]
         .values
         .remove("sweep_var")
@@ -127,5 +130,6 @@ fn test_simulate_pex_nand2() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("got data from tran simulation:");
     println!("{}", wav);
+
     Ok(())
 }
