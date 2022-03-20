@@ -1,8 +1,8 @@
-use std::{fmt::Display, io::Write, path::Path, fs::File};
+use std::{fmt::Display, fs::File, io::Write, path::Path};
 
 use prost::Message;
 
-use crate::protos::sim::{sim_vector::Values, SimVector, SweepMode, SimulationData};
+use crate::protos::sim::{sim_vector::Values, SimVector, SimulationData, SweepMode};
 
 impl Display for SweepMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -32,12 +32,15 @@ impl SimVector {
 
 impl SimulationData {
     // Write simulation data to any object implementing `Write`.
-    pub fn save<T>(&self, dst: &mut T) -> std::io::Result<()> where T: Write {
+    pub fn save<T>(&self, dst: &mut T) -> std::io::Result<()>
+    where
+        T: Write,
+    {
         let b = self.encode_to_vec();
         dst.write_all(&b)?;
         dst.flush()
     }
-    
+
     // Saves simulation data to a file.
     pub fn to_file(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
         let mut f = File::create(path)?;
