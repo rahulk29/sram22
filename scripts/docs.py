@@ -17,6 +17,7 @@ cells = [
     "corner",
     "rowend",
     "predecoder2_4",
+    "sa_senseamp",
 ]
 
 os.system(command)
