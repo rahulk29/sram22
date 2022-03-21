@@ -20,6 +20,7 @@ pub mod cells;
 pub mod config;
 pub mod decode;
 pub mod error;
+pub mod factory;
 pub mod layout;
 pub mod precharge;
 pub mod predecode;
