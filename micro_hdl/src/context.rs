@@ -5,7 +5,7 @@ use crate::{Module, PinType, Port, Signal};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Context {
     pub(crate) net_id: u64,
     pub(crate) modules: Vec<Arc<dyn Module>>,
@@ -18,6 +18,7 @@ pub struct Context {
     pub(crate) mosfets: Vec<Mosfet>,
 }
 
+#[derive(Clone)]
 pub struct ContextTree {
     pub ctx: Context,
     pub module: Arc<dyn Module>,

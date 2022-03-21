@@ -7,12 +7,14 @@ pub struct Resistance {
     picoohms: i128,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Resistor {
     value: Resistance,
     a: Node,
     b: Node,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ResistorBuilder {
     value: Option<Resistance>,
     a: Option<Node>,
