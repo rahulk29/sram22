@@ -19,8 +19,8 @@ pub struct Precharge;
 impl Component for Precharge {
     type Params = PrechargeParams;
     fn schematic(
-        ctx: crate::factory::BuildContext,
-        params: Self::Params,
+        _ctx: crate::factory::BuildContext,
+        _params: Self::Params,
     ) -> micro_hdl::context::ContextTree {
         todo!()
     }

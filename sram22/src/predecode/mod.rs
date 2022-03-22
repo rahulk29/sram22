@@ -79,14 +79,14 @@ pub struct Predecoder2_4;
 impl Component for Predecoder2_4 {
     type Params = ();
     fn schematic(
-        ctx: crate::factory::BuildContext,
-        params: Self::Params,
+        _ctx: crate::factory::BuildContext,
+        _params: Self::Params,
     ) -> micro_hdl::context::ContextTree {
         todo!()
     }
     fn layout(
         mut ctx: crate::factory::BuildContext,
-        params: Self::Params,
+        _params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
         generate_predecoder2_4(ctx.magic, ctx.tc, ctx.name)?;
         ctx.layout_from_default_magic()

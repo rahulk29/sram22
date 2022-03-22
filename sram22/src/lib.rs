@@ -1,7 +1,6 @@
 use config::TechConfig;
 
 use factory::{Component, LayoutFile};
-use layout::grid::{GridCell, GridLayout};
 
 use magic_vlsi::units::{Distance, Vec2};
 use magic_vlsi::{Direction, MagicInstance};
@@ -15,9 +14,9 @@ use crate::error::Result;
 use crate::factory::{Factory, FactoryConfig};
 use crate::layout::bus::BusBuilder;
 use crate::precharge::layout::PrechargeParams;
-use crate::precharge::{Precharge, PrechargeSize};
+use crate::precharge::PrechargeSize;
 use crate::predecode::Predecoder2_4;
-use std::fs;
+
 use std::path::{Path, PathBuf};
 
 use log::info;
@@ -37,14 +36,14 @@ pub struct Sram;
 impl Component for Sram {
     type Params = ();
     fn schematic(
-        ctx: factory::BuildContext,
-        params: Self::Params,
+        _ctx: factory::BuildContext,
+        _params: Self::Params,
     ) -> micro_hdl::context::ContextTree {
         todo!()
     }
     fn layout(
         mut ctx: factory::BuildContext,
-        params: Self::Params,
+        _params: Self::Params,
     ) -> crate::error::Result<factory::Layout> {
         generate_sram(ctx.magic, ctx.tc, ctx.name)?;
         ctx.layout_from_default_magic()
@@ -61,7 +60,7 @@ pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
 
     let mut cell_dir = cwd.clone();
     cell_dir.push(&config.tech_dir);
-    let mut output_dir = cwd.clone();
+    let mut output_dir = cwd;
     output_dir.push(&config.output_dir);
 
     info!("generating {}x{} SRAM", rows, cols);
@@ -138,9 +137,9 @@ fn generate_sram(magic: &mut MagicInstance, tc: &TechConfig, name: &str) -> Resu
     let _bus = BusBuilder::new()
         .width(8)
         .dir(Direction::Up)
-        .tech_layer(&tc, "m1")
-        .allow_contact(&tc, "ct", "li")
-        .allow_contact(&tc, "via1", "m2")
+        .tech_layer(tc, "m1")
+        .allow_contact(tc, "ct", "li")
+        .allow_contact(tc, "via1", "m2")
         .align_right(bitcell_bank.bbox().left_edge() - tc.layer("m1").space)
         .start(bitcell_bank.bbox().bottom_edge())
         .end(bitcell_bank.bbox().top_edge())
@@ -184,8 +183,7 @@ fn include_cells(factory: &mut Factory, cell_dir: impl AsRef<Path>) -> Result<()
         factory.include_layout(cell_name, LayoutFile::Magic(path))?;
         Ok(())
     })
-    .filter(|x| x.is_err())
-    .next()
+    .find(|x| x.is_err())
     .unwrap_or(Ok(()))
 }
 

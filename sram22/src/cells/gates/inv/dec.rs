@@ -11,14 +11,14 @@ pub struct InvDec;
 impl Component for InvDec {
     type Params = ();
     fn schematic(
-        ctx: crate::factory::BuildContext,
-        params: Self::Params,
+        _ctx: crate::factory::BuildContext,
+        _params: Self::Params,
     ) -> micro_hdl::context::ContextTree {
         todo!();
     }
     fn layout(
         mut ctx: crate::factory::BuildContext,
-        params: Self::Params,
+        _params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
         generate_inv_dec(ctx.magic, ctx.tc, ctx.name)?;
         ctx.layout_from_default_magic()
