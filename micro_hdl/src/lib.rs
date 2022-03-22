@@ -15,13 +15,14 @@ pub use micro_hdl_derive::*;
 
 pub trait Module: ModuleInstance + std::any::Any {}
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum PinType {
     Input,
     Output,
     InOut,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Signal {
     Wire(Node),
     Bus(Vec<Node>),
@@ -74,6 +75,7 @@ impl<'a> Iterator for SignalNodes<'a> {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Port {
     pub name: String,
     pub pin_type: PinType,
