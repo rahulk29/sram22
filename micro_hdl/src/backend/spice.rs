@@ -29,6 +29,10 @@ impl SpiceBackend<File> {
     pub fn with_path(
         out: impl AsRef<Path>,
     ) -> Result<SpiceBackend<File>, Box<dyn std::error::Error>> {
+        if let Some(p) = out.as_ref().parent() {
+            std::fs::create_dir_all(p)?;
+        }
+
         let out = File::create(out.as_ref())?;
         Ok(SpiceBackend {
             generated: HashMap::new(),
@@ -92,7 +96,7 @@ where
         self.netlist_inner(tree, true)
     }
 
-    pub fn netlist_inner(
+    fn netlist_inner(
         &mut self,
         tree: &ContextTree,
         top: bool,

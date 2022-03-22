@@ -1,4 +1,4 @@
-use crate::cells::gates::{finger_space, ndiff_edge_to_gate};
+use crate::cells::gates::{finger_space, ndiff_edge_to_gate, GateSize};
 use crate::error::Result;
 use crate::factory::Component;
 use crate::{config::TechConfig, layout::draw_contacts};
@@ -6,10 +6,13 @@ use magic_vlsi::{
     units::{Distance, Rect},
     Direction, MagicInstance,
 };
+use micro_hdl::frontend::parse;
+
+use super::Nand2Gate;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Nand2Params {
-    pub nmos_scale: Distance,
+    pub sizing: GateSize,
     pub height: Distance,
 }
 
@@ -20,9 +23,9 @@ impl Component for Nand2PmSh {
 
     fn schematic(
         _ctx: crate::factory::BuildContext,
-        _params: Self::Params,
+        params: Self::Params,
     ) -> micro_hdl::context::ContextTree {
-        todo!()
+        parse(Nand2Gate::top(params.sizing))
     }
 
     fn layout(
@@ -46,10 +49,18 @@ pub fn generate_pm_single_height(
     m.enable_box()?;
     m.set_snap(magic_vlsi::SnapMode::Internal)?;
 
-    let pmos_width = tc.scale_pmos(params.nmos_scale);
+    let pmos_width = Distance::from_nm(params.sizing.pwidth_nm);
+    let nmos_width = Distance::from_nm(params.sizing.nwidth_nm);
 
-    // multiply by 2 due to stacked devices
-    let nmos_width = 2 * params.nmos_scale;
+    // Decoder gate should be minimum length
+    assert_eq!(
+        Distance::from_nm(params.sizing.nlength_nm),
+        tc.layer("poly").width
+    );
+    assert_eq!(
+        Distance::from_nm(params.sizing.plength_nm),
+        tc.layer("poly").width
+    );
 
     let diff_height = 2 * ndiff_edge_to_gate(tc) + 2 * tc.layer("poly").width + finger_space(tc);
 

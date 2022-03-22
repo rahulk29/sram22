@@ -13,6 +13,7 @@ use crate::{
 
 pub struct BitcellArray;
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct BitcellArrayParams {
     pub rows: u32,
     pub cols: u32,

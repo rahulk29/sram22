@@ -48,7 +48,12 @@ fn test_simulate_pex_nand2() -> Result<(), Box<dyn std::error::Error>> {
         &tc,
         name,
         &Nand2Params {
-            nmos_scale: Distance::from_nm(1_000),
+            sizing: GateSize {
+                nwidth_nm: 2_000,
+                nlength_nm: 150,
+                pwidth_nm: 1_600,
+                plength_nm: 150,
+            },
             height: Distance::from_nm(1_580),
         },
     )?;

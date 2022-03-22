@@ -8,7 +8,7 @@ use crate::cells::gates::nand3::Nand3;
 use crate::error::Result;
 
 use crate::factory::{BuildContext, Component};
-use crate::names::{INV_PM_SH_2, NAND2_PM_SH};
+use crate::names::{INV_PM_SH_2, NAND2_DEC};
 use crate::net_name_bar;
 
 #[micro_hdl::module]
@@ -96,7 +96,7 @@ impl Component for Predecoder2_4 {
 
 pub fn generate_predecoder2_4(ctx: &mut BuildContext) -> Result<()> {
     let m = &mut ctx.magic;
-    let nand2_pm_sh = ctx.factory.require_layout(NAND2_PM_SH)?.cell;
+    let nand2_pm_sh = ctx.factory.require_layout(NAND2_DEC)?.cell;
     let inv_pm_sh = ctx.factory.require_layout(INV_PM_SH_2)?.cell;
 
     m.drc_off()?;
