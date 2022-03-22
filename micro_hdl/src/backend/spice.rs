@@ -17,6 +17,7 @@ where
     generated: HashMap<TypeId, HashSet<String>>,
     out: T,
     mos_name_fn: MosNameFn,
+    top_name: Option<String>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -33,6 +34,7 @@ impl SpiceBackend<File> {
             generated: HashMap::new(),
             out,
             mos_name_fn: sky130_mos_name,
+            top_name: None,
         })
     }
 
@@ -41,6 +43,7 @@ impl SpiceBackend<File> {
             generated: HashMap::new(),
             out,
             mos_name_fn: sky130_mos_name,
+            top_name: None,
         })
     }
 }
@@ -54,7 +57,13 @@ where
             generated: HashMap::new(),
             out,
             mos_name_fn: sky130_mos_name,
+            top_name: None,
         }
+    }
+
+    pub fn set_top_name(&mut self, name: String) -> &mut Self {
+        self.top_name = Some(name);
+        self
     }
 
     fn is_generated(&self, module: &dyn Module) -> bool {
@@ -80,13 +89,27 @@ where
     }
 
     pub fn netlist(&mut self, tree: &ContextTree) -> Result<(), Box<dyn std::error::Error>> {
+        self.netlist_inner(tree, true)
+    }
+
+    pub fn netlist_inner(
+        &mut self,
+        tree: &ContextTree,
+        top: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let module = &*tree.module;
         if self.is_generated(module) {
             return Ok(());
         }
         self.mark_generated(module);
 
-        write!(self.out, ".subckt {}", module.name())?;
+        let name = if top {
+            self.top_name.clone().unwrap_or_else(|| module.name())
+        } else {
+            module.name()
+        };
+
+        write!(self.out, ".subckt {}", name)?;
         self.netlist_module_ports(tree)?;
         writeln!(self.out)?;
 
@@ -130,7 +153,7 @@ where
         writeln!(self.out, ".ends")?;
 
         for m in tree.children.iter() {
-            self.netlist(m)?;
+            self.netlist_inner(m, false)?;
         }
 
         Ok(())
