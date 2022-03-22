@@ -10,7 +10,12 @@ fn main() -> Result<()> {
     // Makes it easier to find the generated code when needed.
     cfg.out_dir("./src/protos/");
 
+    let srcs = [
+        "../protos/edatool/sim/v1/sim.proto",
+        "../protos/edatool/lvs/v1/lvs.proto",
+    ];
+
     // Compile the .proto sources
-    cfg.compile_protos(&["../protos/edatool/sim/v1/sim.proto"], &["../protos/"])?;
+    cfg.compile_protos(&srcs, &["../protos/"])?;
     Ok(())
 }
