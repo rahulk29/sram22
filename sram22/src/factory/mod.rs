@@ -40,6 +40,19 @@ pub struct Factory {
     layout_dir: PathBuf,
 }
 
+#[derive(derive_builder::Builder)]
+pub struct FactoryConfig {
+    work_dir: PathBuf,
+    out_dir: PathBuf,
+    tech_config: TechConfig,
+}
+
+impl FactoryConfig {
+    pub fn builder() -> FactoryConfigBuilder {
+        FactoryConfigBuilder::default()
+    }
+}
+
 pub struct BuildContext<'a> {
     pub tc: &'a TechConfig,
     pub magic: &'a mut MagicInstance,
@@ -51,33 +64,40 @@ pub struct BuildContext<'a> {
 pub struct Output {}
 
 impl Factory {
-    pub fn default() -> Result<Self> {
-        let out_dir = PathBuf::from("/home/rahul/acads/sky130/sram22/_build/");
-        let work_dir = PathBuf::from("/tmp/sram22/scratch/");
-        let layout_dir = out_dir.join("layout/");
-
+    pub fn from_config(cfg: FactoryConfig) -> Result<Self> {
         let magic_port = portpicker::pick_unused_port().expect("No ports free");
 
-        std::fs::create_dir_all(&work_dir)?;
-        std::fs::create_dir_all(&out_dir)?;
+        let layout_dir = cfg.out_dir.join("layout/");
+        std::fs::create_dir_all(&cfg.work_dir)?;
+        std::fs::create_dir_all(&cfg.out_dir)?;
         std::fs::create_dir_all(&layout_dir)?;
 
         let magic = MagicInstance::builder()
-            .cwd(out_dir.clone())
+            .cwd(cfg.out_dir.clone())
             .tech("sky130A")
             .port(magic_port)
-            .build()
-            .unwrap();
-        let tc = sky130_config();
+            .build()?;
 
         Ok(Self {
-            tc,
+            tc: cfg.tech_config,
             magic,
-            out_dir,
+            out_dir: cfg.out_dir,
             layouts: HashMap::new(),
-            work_dir,
+            work_dir: cfg.work_dir,
             layout_dir,
         })
+    }
+
+    pub fn default() -> Result<Self> {
+        let out_dir = PathBuf::from("/home/rahul/acads/sky130/sram22/_build/");
+        let work_dir = PathBuf::from("/tmp/sram22/scratch/");
+        let cfg = FactoryConfig::builder()
+            .out_dir(out_dir)
+            .work_dir(work_dir)
+            .tech_config(sky130_config())
+            .build()
+            .unwrap();
+        Self::from_config(cfg)
     }
 
     pub fn generate_layout<C>(&mut self, name: &str, params: C::Params) -> Result<()>

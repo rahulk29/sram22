@@ -51,7 +51,7 @@ pub struct LayerConfigRaw {
     extensions: Option<Vec<ExtensionRaw>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TechConfig {
     pub grid: Distance,
     pub tech: String,
@@ -61,27 +61,27 @@ pub struct TechConfig {
     spacing: Vec<SpacingConfig>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SpacingConfig {
     pub from: String,
     pub to: String,
     pub dist: Distance,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Enclosure {
     pub layer: String,
     pub enclosure: Distance,
     pub one_side: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Extension {
     pub layer: String,
     pub extend: Distance,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct LayerConfig {
     pub desc: String,
     pub width: Distance,

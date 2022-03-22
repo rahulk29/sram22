@@ -5,6 +5,9 @@ pub enum Sram22Error {
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("error starting magic: {0}")]
+    StartMagic(#[from] magic_vlsi::error::StartMagicError),
+
     #[error("magic error: {0}")]
     Magic(#[from] magic_vlsi::error::MagicError),
 
