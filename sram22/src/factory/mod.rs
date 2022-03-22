@@ -3,6 +3,10 @@ use crate::{
     error::{Result, Sram22Error},
     sky130_config,
 };
+use edatool::{
+    lvs::Lvs,
+    protos::lvs::{LvsInput, LvsTool},
+};
 use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
@@ -172,7 +176,41 @@ impl Factory {
     {
         self.generate_layout::<C>(name, params.clone())?;
         self.generate_schematic::<C>(name, params)?;
+        self.lvs(name)?;
 
+        Ok(())
+    }
+
+    fn lvs(&mut self, name: &str) -> Result<()> {
+        let fqn = self.get_fqn(name);
+        let layout = self.get_layout(name).unwrap();
+        let netlist = self.get_schematic(name).unwrap();
+        let work_dir = self.work_dir.join("lvs_dir").join(name);
+        let lvs = edatool::plugins::netgen_lvs::NetgenLvs::new();
+        let lvs_output = lvs
+            .lvs(
+                LvsInput {
+                    netlist_path: netlist.path.into_os_string().into_string().unwrap(),
+                    layout_path: layout
+                        .file
+                        .path()
+                        .to_owned()
+                        .into_os_string()
+                        .into_string()
+                        .unwrap(),
+                    netlist_cell: fqn.clone(),
+                    layout_cell: fqn,
+                    tech: "sky130".into(),
+                    tool: LvsTool::MagicNetgen as i32,
+                    options: HashMap::default(),
+                },
+                work_dir,
+            )
+            .map_err(|e| Sram22Error::Unknown(Box::new(e)))?;
+
+        if !lvs_output.matches {
+            log::warn!("cell {} did not pass LVS", name);
+        }
         Ok(())
     }
 
@@ -274,6 +312,10 @@ impl Factory {
 
     pub fn get_layout(&self, name: &str) -> Option<Layout> {
         self.layouts.get(self.remap.get(name)?).cloned()
+    }
+
+    pub fn get_schematic(&self, name: &str) -> Option<Netlist> {
+        self.netlists.get(self.remap.get(name)?).cloned()
     }
 
     pub fn require_layout(&self, name: &str) -> Result<Layout> {
