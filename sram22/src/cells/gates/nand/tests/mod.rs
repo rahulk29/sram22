@@ -41,20 +41,22 @@ fn test_simulate_pex_nand2() -> Result<(), Box<dyn std::error::Error>> {
     let work_dir: PathBuf = "/tmp/sram22/tests/sim/nand2".into();
     let tc = sky130_config();
     let mut m = get_magic();
+    let name = "nand2_pm_sh";
 
-    let cell_name = generate_pm_single_height(
+    generate_pm_single_height(
         &mut m,
         &tc,
+        name,
         &Nand2Params {
             nmos_scale: Distance::from_nm(1_000),
             height: Distance::from_nm(1_580),
         },
     )?;
-    let layout_path = m.getcwd().join(format!("{}.mag", cell_name));
+    let layout_path = m.getcwd().join(format!("{}.mag", name));
 
     let output = MagicPex::pex(PexInput {
         layout: layout_path,
-        layout_cell: cell_name.clone(),
+        layout_cell: name.to_string(),
         work_dir: work_dir.clone(),
         tech: "sky130A".to_string(),
         opts: PexOpts {},
@@ -69,7 +71,7 @@ fn test_simulate_pex_nand2() -> Result<(), Box<dyn std::error::Error>> {
     .model wav_a filesource (file=\"va.m\" amploffset=[0 0] amplscale=[1 1] amplstep=true)
     .model wav_b filesource (file=\"vb.m\" amploffset=[0 0] amplscale=[1 1] amplstep=true)
     ",
-        &cell_name
+        name
     );
 
     let mut tb = Testbench::with_source(NetlistSource::Str(tb));

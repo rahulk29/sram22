@@ -13,9 +13,9 @@ pub struct Nand2Params {
     pub height: Distance,
 }
 
-pub(crate) struct Nand2Component;
+pub(crate) struct Nand2PmSh;
 
-impl Component for Nand2Component {
+impl Component for Nand2PmSh {
     type Params = Nand2Params;
 
     fn schematic(
@@ -29,7 +29,7 @@ impl Component for Nand2Component {
         mut ctx: crate::factory::BuildContext,
         params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
-        generate_pm_single_height(ctx.magic, ctx.tc, &params)?;
+        generate_pm_single_height(ctx.magic, ctx.tc, ctx.name, &params)?;
         ctx.magic.save(ctx.name)?;
         ctx.layout_from_default_magic()
     }
@@ -38,12 +38,11 @@ impl Component for Nand2Component {
 pub fn generate_pm_single_height(
     m: &mut MagicInstance,
     tc: &TechConfig,
+    name: &str,
     params: &Nand2Params,
-) -> Result<String> {
-    let cell_name = String::from("nand2_pm_sh");
-
+) -> Result<()> {
     m.drc_off()?;
-    m.load(&cell_name)?;
+    m.load(name)?;
     m.enable_box()?;
     m.set_snap(magic_vlsi::SnapMode::Internal)?;
 
@@ -245,79 +244,11 @@ pub fn generate_pm_single_height(
     m.select_top_cell()?;
 
     m.port_renumber()?;
-    m.save(&cell_name)?;
-    m.save("nand2_dec_auto")?;
+    m.save(name)?;
 
-    Ok(cell_name)
+    Ok(())
 }
 
 fn ndiff_to_pdiff(tc: &TechConfig) -> Distance {
     tc.space("ndiff", "nwell") + tc.layer("pdiff").enclosure("nwell")
-}
-
-#[cfg(test)]
-pub mod tests {
-
-    use super::*;
-
-    use crate::sky130_config;
-    use crate::test_utils::*;
-
-    #[test]
-    fn test_generate_nand2_pm_sh() -> std::result::Result<(), Box<dyn std::error::Error>> {
-        let tc = sky130_config();
-        let mut m = get_magic();
-
-        let _cell_name = generate_pm_single_height(
-            &mut m,
-            &tc,
-            &Nand2Params {
-                nmos_scale: Distance::from_nm(1_000),
-                height: Distance::from_nm(1_580),
-            },
-        )
-        .expect("failed to generate cell");
-
-        /*
-        let mag_path = m.getcwd().clone().join(format!("{}.mag", cell_name));
-
-        let tree = parse(Nand2Gate::top(GateSize::minimum()));
-        let file = tempfile::NamedTempFile::new()?;
-        let netlist_path = file.path().to_owned();
-        let mut backend = SpiceBackend::new(file);
-        backend.netlist(&tree)?;
-
-        #[cfg(feature = "netgen_lvs")]
-        {
-            use crate::verification::lvs::Lvs;
-            use crate::verification::plugins::netgen_lvs::NetgenLvs;
-            let lvs_dir = TempDir::new()?;
-            let lvs_path = lvs_dir.path().to_owned();
-            let _lvs_res = NetgenLvs::new().lvs(LvsInput {
-                netlist: netlist_path,
-                layout: mag_path,
-                netlist_cell: "test".to_string(),
-                layout_cell: "test".to_string(),
-                work_dir: lvs_path,
-                opts: NetgenLvsOpts {
-                    tech: "sky130A".to_string(),
-                },
-            })?;
-            // assert!(lvs_res.ok);
-            // assert_eq!(lvs_res.errors.len(), 0);
-        }
-        */
-
-        generate_pm_single_height(
-            &mut m,
-            &tc,
-            &Nand2Params {
-                nmos_scale: Distance::from_nm(2_000),
-                height: Distance::from_nm(1_580),
-            },
-        )
-        .expect("failed to generate cell");
-
-        Ok(())
-    }
 }

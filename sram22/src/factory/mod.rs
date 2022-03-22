@@ -68,12 +68,16 @@ impl Factory {
         let magic_port = portpicker::pick_unused_port().expect("No ports free");
 
         let layout_dir = cfg.out_dir.join("layout/");
+
+        assert!(cfg.work_dir.is_absolute());
+        assert!(cfg.out_dir.is_absolute());
+
         std::fs::create_dir_all(&cfg.work_dir)?;
         std::fs::create_dir_all(&cfg.out_dir)?;
         std::fs::create_dir_all(&layout_dir)?;
 
         let mut magic = MagicInstance::builder()
-            .cwd(cfg.out_dir.clone())
+            .cwd(layout_dir.clone())
             .tech("sky130A")
             .port(magic_port)
             .build()?;
@@ -130,7 +134,8 @@ impl Factory {
                 let filename = path.file_name().unwrap();
                 let dst = self.layout_dir.join(filename);
                 std::fs::copy(path, &dst)?;
-                let cell = self.magic.load_layout_cell(dst.to_str().unwrap())?;
+                let cell = self.magic.load_layout_cell(name)?;
+                log::info!("loaded cell {} with {} ports", name, cell.ports.len());
                 self.layouts.insert(
                     name.to_string(),
                     Layout {
@@ -171,27 +176,5 @@ impl<'a> BuildContext<'a> {
             file: Arc::new(LayoutFile::Magic(path)),
             cell,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use magic_vlsi::units::Distance;
-
-    use crate::cells::gates::nand::single_height::{Nand2Component, Nand2Params};
-
-    use super::Factory;
-
-    #[test]
-    fn test_factory_nand2() -> Result<(), Box<dyn std::error::Error>> {
-        let mut f = Factory::default()?;
-        f.generate_layout::<Nand2Component>(
-            "nand2_test",
-            Nand2Params {
-                nmos_scale: Distance::from_nm(800),
-                height: Distance::from_nm(1_580),
-            },
-        )?;
-        Ok(())
     }
 }

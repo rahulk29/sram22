@@ -7,6 +7,7 @@ use crate::cells::gates::nand3::Nand3;
 use crate::config::TechConfig;
 use crate::error::Result;
 
+use crate::factory::Component;
 use crate::net_name_bar;
 
 #[micro_hdl::module]
@@ -73,13 +74,31 @@ impl Predecoder38 {
     }
 }
 
-pub fn generate_predecoder2_4(m: &mut MagicInstance, _tc: &TechConfig) -> Result<()> {
+pub struct Predecoder2_4;
+
+impl Component for Predecoder2_4 {
+    type Params = ();
+    fn schematic(
+        ctx: crate::factory::BuildContext,
+        params: Self::Params,
+    ) -> micro_hdl::context::ContextTree {
+        todo!()
+    }
+    fn layout(
+        mut ctx: crate::factory::BuildContext,
+        params: Self::Params,
+    ) -> crate::error::Result<crate::factory::Layout> {
+        generate_predecoder2_4(ctx.magic, ctx.tc, ctx.name)?;
+        ctx.layout_from_default_magic()
+    }
+}
+
+pub fn generate_predecoder2_4(m: &mut MagicInstance, _tc: &TechConfig, name: &str) -> Result<()> {
     let nand2_pm_sh = m.load_layout_cell("nand2_pm_sh")?;
     let inv_pm_sh = m.load_layout_cell("inv_pm_sh_2")?;
 
-    let cell_name = String::from("predecoder2_4");
     m.drc_off()?;
-    m.load(&cell_name)?;
+    m.load(name)?;
     m.enable_box()?;
     m.set_snap(magic_vlsi::SnapMode::Internal)?;
 
@@ -105,7 +124,7 @@ pub fn generate_predecoder2_4(m: &mut MagicInstance, _tc: &TechConfig) -> Result
         m.rename_cell_pin(gate, "B", &net_name_bar("addr1", 1 - (i / 2) != 0))?;
     }
 
-    m.save(&cell_name)?;
+    m.save(name)?;
 
     Ok(())
 }

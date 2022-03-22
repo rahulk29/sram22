@@ -3,16 +3,35 @@ use magic_vlsi::MagicInstance;
 
 use crate::config::TechConfig;
 use crate::error::Result;
+use crate::factory::Component;
 use crate::layout::{draw_contact, ContactStack};
 
-pub fn generate_inv_dec(m: &mut MagicInstance, tc: &TechConfig) -> Result<()> {
+pub struct InvDec;
+
+impl Component for InvDec {
+    type Params = ();
+    fn schematic(
+        ctx: crate::factory::BuildContext,
+        params: Self::Params,
+    ) -> micro_hdl::context::ContextTree {
+        todo!();
+    }
+    fn layout(
+        mut ctx: crate::factory::BuildContext,
+        params: Self::Params,
+    ) -> crate::error::Result<crate::factory::Layout> {
+        generate_inv_dec(ctx.magic, ctx.tc, ctx.name)?;
+        ctx.layout_from_default_magic()
+    }
+}
+
+pub fn generate_inv_dec(m: &mut MagicInstance, tc: &TechConfig, name: &str) -> Result<()> {
     let nand2_pm_sh = m.load_layout_cell("nand2_pm_sh")?;
     let inv_pm_sh = m.load_layout_cell("inv_pm_sh_2")?;
     let rowend = m.load_layout_cell("rowend")?;
 
-    let cell_name = String::from("inv_dec_auto");
     m.drc_off()?;
-    m.load(&cell_name)?;
+    m.load(name)?;
     m.enable_box()?;
     m.set_snap(magic_vlsi::SnapMode::Internal)?;
 
@@ -102,7 +121,7 @@ pub fn generate_inv_dec(m: &mut MagicInstance, tc: &TechConfig) -> Result<()> {
     m.delete()?;
 
     m.port_renumber()?;
-    m.save(&cell_name)?;
+    m.save(name)?;
 
     Ok(())
 }

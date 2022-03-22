@@ -1,23 +1,28 @@
 use config::TechConfig;
 
-use factory::LayoutFile;
+use factory::{Component, LayoutFile};
 use layout::grid::{GridCell, GridLayout};
 
 use magic_vlsi::units::{Distance, Vec2};
 use magic_vlsi::{Direction, MagicInstance};
 
-use crate::cells::gates::inv::single_height::InvParams;
-use crate::cells::gates::nand::single_height::Nand2Params;
+use crate::bitcells::{BitcellArray, BitcellArrayParams};
+use crate::cells::gates::inv::dec::InvDec;
+use crate::cells::gates::inv::single_height::{InvParams, InvPmSh};
+use crate::cells::gates::nand::single_height::{Nand2Params, Nand2PmSh};
 use crate::config::SramConfig;
 use crate::error::Result;
 use crate::factory::{Factory, FactoryConfig};
 use crate::layout::bus::BusBuilder;
-use crate::precharge::PrechargeSize;
+use crate::precharge::layout::PrechargeParams;
+use crate::precharge::{Precharge, PrechargeSize};
+use crate::predecode::Predecoder2_4;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use log::info;
 
+pub mod bitcells;
 pub mod cells;
 pub mod config;
 pub mod decode;
@@ -27,36 +32,57 @@ pub mod layout;
 pub mod precharge;
 pub mod predecode;
 
-pub fn generate(config: SramConfig) -> Result<()> {
+pub struct Sram;
+
+impl Component for Sram {
+    type Params = ();
+    fn schematic(
+        ctx: factory::BuildContext,
+        params: Self::Params,
+    ) -> micro_hdl::context::ContextTree {
+        todo!()
+    }
+    fn layout(
+        mut ctx: factory::BuildContext,
+        params: Self::Params,
+    ) -> crate::error::Result<factory::Layout> {
+        generate_sram(ctx.magic, ctx.tc, ctx.name)?;
+        ctx.layout_from_default_magic()
+    }
+}
+
+pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
     let rows = config.rows;
     let cols = config.cols;
     assert_eq!(rows % 4, 0, "number of sram rows must be divisible by 4");
     assert_eq!(cols % 8, 0, "number of sram columns must be divisible by 8");
 
-    info!("generating {}x{} SRAM", rows, cols);
-    info!("generated files will be placed in {}", &config.output_dir);
-    info!("reading cells from {}", &config.tech_dir);
+    assert!(cwd.is_absolute());
 
-    let cell_dir = config.tech_dir.clone();
+    let mut cell_dir = cwd.clone();
+    cell_dir.push(&config.tech_dir);
+    let mut output_dir = cwd.clone();
+    output_dir.push(&config.output_dir);
+
+    info!("generating {}x{} SRAM", rows, cols);
+    info!("generated files will be placed in {:?}", &output_dir);
+    info!("reading cells from {:?}", &cell_dir);
 
     let cfg = FactoryConfig::builder()
-        .out_dir(config.output_dir.into())
+        .out_dir(output_dir)
         .work_dir("/tmp/sram22/scratch".into())
         .tech_config(sky130_config())
         .build()
         .unwrap();
     let mut factory = Factory::from_config(cfg)?;
 
-    include_cells(&mut factory, cell_dir);
+    include_cells(&mut factory, cell_dir)?;
     info!("copied custom cells to output directory");
 
     info!("generating subcells");
-    crate::cells::gates::inv::generate_pm(&mut magic)?;
-    crate::cells::gates::inv::generate_pm_eo(&mut magic)?;
-    crate::cells::gates::inv::single_height::generate_pm_single_height(
-        &mut magic,
-        &tc,
-        &InvParams {
+    factory.generate_layout::<InvPmSh>(
+        "inv_pm_sh_2",
+        InvParams {
             nmos_width: Distance::from_nm(1_000),
             li: "li".to_string(),
             m1: "m1".to_string(),
@@ -64,34 +90,45 @@ pub fn generate(config: SramConfig) -> Result<()> {
             fingers: 2,
         },
     )?;
-    crate::cells::gates::nand::single_height::generate_pm_single_height(
-        &mut magic,
-        &tc,
-        &Nand2Params {
+    factory.generate_layout::<Nand2PmSh>(
+        "nand2_pm_sh",
+        Nand2Params {
             nmos_scale: Distance::from_nm(800),
             height: Distance::from_nm(1_580),
         },
     )?;
-    crate::cells::gates::inv::dec::generate_inv_dec(&mut magic, &tc)?;
-    crate::predecode::generate_predecoder2_4(&mut magic, &tc)?;
-    crate::precharge::layout::generate_precharge(
-        &mut magic,
-        &tc,
-        PrechargeSize {
-            rail_pmos_width_nm: 1_000,
-            pass_pmos_width_nm: 420,
-            pmos_length_nm: 150,
+    factory.generate_layout::<InvDec>("inv_dec", ())?;
+    factory.generate_layout::<Predecoder2_4>("predecoder2_4", ())?;
+    factory.generate_layout::<crate::precharge::layout::Precharge>(
+        "precharge",
+        PrechargeParams {
+            sizing: PrechargeSize {
+                rail_pmos_width_nm: 1_000,
+                pass_pmos_width_nm: 420,
+                pmos_length_nm: 150,
+            },
+            width: Distance::from_nm(1_200),
         },
-        Distance::from_nm(1_200),
+    )?;
+    factory.generate_layout::<BitcellArray>(
+        "bitcell_array",
+        BitcellArrayParams {
+            rows: config.rows,
+            cols: config.cols,
+        },
     )?;
     info!("finished generating subcells");
 
-    let bitcell_name = generate_bitcells(&mut magic, &config)?;
+    factory.generate_layout::<Sram>("sram_top", ())?;
+    info!("DONE: finished generating sram");
 
-    let bitcell_bank = magic.load_layout_cell(&bitcell_name)?;
+    Ok(())
+}
 
-    let cell_name = format!("sram_{}x{}", rows, cols);
-    magic.load(&cell_name)?;
+fn generate_sram(magic: &mut MagicInstance, tc: &TechConfig, name: &str) -> Result<()> {
+    let bitcell_bank = magic.load_layout_cell("bitcell_array")?;
+
+    magic.load(name)?;
     magic.enable_box()?;
     magic.drc_off()?;
     magic.set_snap(magic_vlsi::SnapMode::Internal)?;
@@ -107,7 +144,7 @@ pub fn generate(config: SramConfig) -> Result<()> {
         .align_right(bitcell_bank.bbox().left_edge() - tc.layer("m1").space)
         .start(bitcell_bank.bbox().bottom_edge())
         .end(bitcell_bank.bbox().top_edge())
-        .draw(&mut magic)?;
+        .draw(magic)?;
 
     for _i in 0..4 {
         for _j in 0..4 {
@@ -121,122 +158,9 @@ pub fn generate(config: SramConfig) -> Result<()> {
     info!("generated bus for predecoder outputs");
 
     info!("layout complete; saving sram cell");
-    magic.save(&cell_name)?;
-
-    info!("DONE: finished generating sram");
+    magic.save(name)?;
 
     Ok(())
-}
-
-fn plan_bitcell_array(
-    magic: &mut MagicInstance,
-    config: &SramConfig,
-) -> Result<grid::Grid<Option<GridCell>>> {
-    let rows = config.rows as usize;
-
-    let top_row = plan_colend_row(magic, config, false)?;
-
-    let bitcell_rows: Result<Vec<Vec<Option<GridCell>>>> = (0..rows as usize)
-        .map(|i| {
-            info!("planning bitcell row {}", i + 1);
-            plan_bitcell_row(magic, config, i)
-        })
-        .collect();
-    let bitcell_rows = bitcell_rows?;
-
-    let bot_row = plan_colend_row(magic, config, true)?;
-    let mut grid: grid::Grid<Option<GridCell>> = grid::grid![];
-    grid.push_row(top_row);
-
-    for row in bitcell_rows {
-        grid.push_row(row);
-    }
-
-    grid.push_row(bot_row);
-
-    Ok(grid)
-}
-
-fn plan_colend_row(
-    magic: &mut MagicInstance,
-    config: &SramConfig,
-    bottom: bool,
-) -> Result<Vec<Option<GridCell>>> {
-    let corner = magic.load_layout_cell("corner")?;
-    let colend = magic.load_layout_cell("colend")?;
-    let colend_cent = magic.load_layout_cell("colend_cent")?;
-
-    // 2 slots for decoder gates
-    let mut top_row = vec![
-        None,
-        None,
-        Some(GridCell::new(corner.clone(), true, bottom)),
-    ];
-
-    for i in 0..config.cols as usize {
-        if i > 0 && i % 8 == 0 {
-            top_row.push(Some(GridCell::new(colend_cent.clone(), i % 2 != 0, bottom)));
-        }
-        top_row.push(Some(GridCell::new(colend.clone(), i % 2 != 0, bottom)));
-    }
-
-    top_row.push(Some(GridCell::new(corner, false, bottom)));
-
-    info!("generated {} row cells", top_row.len());
-
-    Ok(top_row)
-}
-
-fn plan_bitcell_row(
-    magic: &mut MagicInstance,
-    config: &SramConfig,
-    idx: usize,
-) -> Result<Vec<Option<GridCell>>> {
-    let rowend = magic.load_layout_cell("rowend")?;
-    let bitcell = magic.load_layout_cell("sram_sp_cell")?;
-    let nand2_dec = magic.load_layout_cell("nand2_dec_auto")?;
-    let inv_dec = magic.load_layout_cell("inv_dec_auto")?;
-    let wlstrap = magic.load_layout_cell("wlstrap")?;
-
-    let mut row = Vec::new();
-    let flip_y = idx % 2 == 0;
-
-    row.push(Some(GridCell::new(nand2_dec, false, flip_y)));
-    row.push(Some(GridCell::new(inv_dec, false, flip_y)));
-    row.push(Some(GridCell::new(rowend.clone(), true, flip_y)));
-
-    for i in 0..config.cols as usize {
-        if i > 0 && i % 8 == 0 {
-            row.push(Some(GridCell::new(wlstrap.clone(), false, flip_y)));
-        }
-        row.push(Some(GridCell::new(bitcell.clone(), i % 2 == 0, flip_y)));
-    }
-
-    row.push(Some(GridCell::new(rowend, false, flip_y)));
-
-    Ok(row)
-}
-
-fn generate_bitcells(magic: &mut MagicInstance, config: &SramConfig) -> Result<String> {
-    info!("generating bitcell array");
-    let cell_name = format!("bitcells_{}x{}", config.rows, config.cols);
-
-    let grid = plan_bitcell_array(magic, config)?;
-
-    magic.load(&cell_name)?;
-    magic.enable_box()?;
-    magic.drc_off()?;
-    magic.set_snap(magic_vlsi::SnapMode::Internal)?;
-
-    let grid = GridLayout::new(grid);
-    grid.draw(magic, Vec2::zero())?;
-
-    magic.port_renumber()?;
-    magic.save(&cell_name)?;
-    magic.exec_one("writeall force")?;
-
-    info!("saved {}", &cell_name);
-    Ok(cell_name)
 }
 
 fn include_cells(factory: &mut Factory, cell_dir: impl AsRef<Path>) -> Result<()> {

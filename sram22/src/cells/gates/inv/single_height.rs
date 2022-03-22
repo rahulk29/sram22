@@ -1,4 +1,5 @@
 use crate::error::Result;
+use crate::factory::Component;
 use crate::{config::TechConfig, layout::draw_contacts};
 use magic_vlsi::{
     units::{Distance, Rect},
@@ -14,9 +15,30 @@ pub struct InvParams {
     pub fingers: usize,
 }
 
+/// A 2-finger inverter pitch matched for a single height SRAM
+pub struct InvPmSh;
+
+impl Component for InvPmSh {
+    type Params = InvParams;
+    fn schematic(
+        ctx: crate::factory::BuildContext,
+        params: Self::Params,
+    ) -> micro_hdl::context::ContextTree {
+        todo!()
+    }
+    fn layout(
+        mut ctx: crate::factory::BuildContext,
+        params: Self::Params,
+    ) -> crate::error::Result<crate::factory::Layout> {
+        generate_pm_single_height(ctx.magic, ctx.tc, ctx.name, &params)?;
+        ctx.layout_from_default_magic()
+    }
+}
+
 pub fn generate_pm_single_height(
     m: &mut MagicInstance,
     tc: &TechConfig,
+    name: &str,
     params: &InvParams,
 ) -> Result<()> {
     let fingers = params.fingers;
@@ -29,10 +51,8 @@ pub fn generate_pm_single_height(
     let _li = &params.li;
     let _m1 = &params.m1;
 
-    let cell_name = format!("inv_pm_sh_{}", fingers);
-
     m.drc_off()?;
-    m.load(&cell_name)?;
+    m.load(name)?;
     m.enable_box()?;
     m.set_snap(magic_vlsi::SnapMode::Internal)?;
 
@@ -70,7 +90,7 @@ pub fn generate_pm_single_height(
 
     m.paint_box(nwell_box, "nwell")?;
     m.label_position_layer("VPB", Direction::Right, "nwell")?;
-    m.port_make(3)?;
+    m.port_make_default()?;
 
     let m1_contact_width = std::cmp::max(
         tc.layer("m1").width,
@@ -261,7 +281,7 @@ pub fn generate_pm_single_height(
     m.select_top_cell()?;
 
     m.port_renumber()?;
-    m.save(&cell_name)?;
+    m.save(name)?;
 
     Ok(())
 }
@@ -288,49 +308,4 @@ fn ndiff_edge_to_gate(tc: &TechConfig) -> Distance {
     .into_iter()
     .max()
     .unwrap()
-}
-
-#[cfg(test)]
-pub mod tests {
-    use super::*;
-    use crate::sky130_config;
-    use crate::test_utils::*;
-
-    #[test]
-    fn test_generate_pm_single_height_nf1() {
-        let tc = sky130_config();
-        let mut m = get_magic();
-
-        generate_pm_single_height(
-            &mut m,
-            &tc,
-            &InvParams {
-                nmos_width: Distance::from_nm(1_000),
-                li: "li".to_string(),
-                m1: "m1".to_string(),
-                height: Distance::from_nm(1_580),
-                fingers: 1,
-            },
-        )
-        .expect("failed to generate cell");
-    }
-
-    #[test]
-    fn test_generate_pm_single_height_nf2() {
-        let tc = sky130_config();
-        let mut m = get_magic();
-
-        generate_pm_single_height(
-            &mut m,
-            &tc,
-            &InvParams {
-                nmos_width: Distance::from_nm(1_000),
-                li: "li".to_string(),
-                m1: "m1".to_string(),
-                height: Distance::from_nm(1_580),
-                fingers: 2,
-            },
-        )
-        .expect("failed to generate cell");
-    }
 }
