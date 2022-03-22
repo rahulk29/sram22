@@ -9,6 +9,7 @@ use crate::bitcells::{BitcellArray, BitcellArrayParams};
 use crate::cells::gates::inv::dec::InvDec;
 use crate::cells::gates::inv::single_height::{InvParams, InvPmSh};
 use crate::cells::gates::nand::single_height::{Nand2Params, Nand2PmSh};
+use crate::cells::gates::GateSize;
 use crate::config::SramConfig;
 use crate::error::Result;
 use crate::factory::BuildContext;
@@ -94,10 +95,15 @@ pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
             fingers: 2,
         },
     )?;
-    factory.generate_layout::<Nand2PmSh>(
-        NAND2_PM_SH,
+    factory.generate_all::<Nand2PmSh>(
+        NAND2_DEC,
         Nand2Params {
-            nmos_scale: Distance::from_nm(800),
+            sizing: GateSize {
+                nwidth_nm: 2_000,
+                nlength_nm: 150,
+                pwidth_nm: 1_600,
+                plength_nm: 150,
+            },
             height: Distance::from_nm(1_580),
         },
     )?;
@@ -175,8 +181,6 @@ fn include_cells(factory: &mut Factory, cell_dir: impl AsRef<Path>) -> Result<()
         (ROWEND, "rowend"),
         (ARRAY_COLEND, "colend"),
         (ARRAY_CORNER, "corner"),
-        (INV_DEC, "inv_dec"),
-        (NAND2_DEC, "nand2_dec"),
         (WLSTRAP, "wlstrap"),
         (ARRAY_COLEND_CENTER, "colend_cent"),
     ]

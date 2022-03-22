@@ -6,7 +6,7 @@ use magic_vlsi::{
     Direction, MagicInstance,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct InvParams {
     pub nmos_width: Distance,
     pub li: String,

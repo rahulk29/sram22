@@ -9,6 +9,7 @@ use crate::config::TechConfig;
 
 use super::PrechargeSize;
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct PrechargeParams {
     pub sizing: PrechargeSize,
     pub width: Distance,

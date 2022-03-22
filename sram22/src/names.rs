@@ -3,7 +3,6 @@ pub const NAND2_DEC: &str = "nand2_dec";
 pub const INV_DEC: &str = "inv_dec";
 pub const BITCELL_ARRAY: &str = "bitcell_array";
 pub const ROWEND: &str = "rowend";
-pub const NAND2_PM_SH: &str = "nand2_pm_sh";
 pub const INV_PM_SH_2: &str = "inv_pm_sh_2";
 pub const ARRAY_CORNER: &str = "corner";
 pub const ARRAY_COLEND: &str = "colend";

@@ -3,7 +3,7 @@ use magic_vlsi::units::{Distance, Rect, Vec2};
 use crate::error::Result;
 use crate::factory::{BuildContext, Component};
 use crate::layout::{draw_contact, ContactStack};
-use crate::names::{INV_PM_SH_2, NAND2_PM_SH, ROWEND};
+use crate::names::{INV_PM_SH_2, NAND2_DEC, ROWEND};
 
 pub struct InvDec;
 
@@ -27,7 +27,7 @@ impl Component for InvDec {
 pub fn generate_inv_dec(ctx: &mut BuildContext) -> Result<()> {
     let m = &mut ctx.magic;
     let tc = &ctx.tc;
-    let nand2_pm_sh = ctx.factory.require_layout(NAND2_PM_SH)?.cell;
+    let nand2_pm_sh = ctx.factory.require_layout(NAND2_DEC)?.cell;
     let inv_pm_sh = ctx.factory.require_layout(INV_PM_SH_2)?.cell;
     let rowend = ctx.factory.require_layout(ROWEND)?.cell;
 

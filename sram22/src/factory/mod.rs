@@ -11,9 +11,10 @@ use std::{
 };
 
 use magic_vlsi::{cell::LayoutCellRef, MagicInstance};
+use micro_hdl::backend::spice::SpiceBackend;
 
 pub trait Component {
-    type Params: std::any::Any;
+    type Params: std::any::Any + std::clone::Clone;
 
     fn schematic(ctx: BuildContext, params: Self::Params) -> micro_hdl::context::ContextTree;
     fn layout(ctx: BuildContext, params: Self::Params) -> crate::error::Result<Layout>;
@@ -23,6 +24,12 @@ pub trait Component {
 pub enum LayoutFile {
     Magic(PathBuf),
     Gds(PathBuf),
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Netlist {
+    path: PathBuf,
+    cell_name: String,
 }
 
 impl LayoutFile {
@@ -43,11 +50,16 @@ pub struct Layout {
 pub struct Factory {
     /// Maps fully qualified name to a [`Layout`].
     layouts: HashMap<String, Layout>,
+    /// Maps fully qualified name to a [`Netlist`].
+    netlists: HashMap<String, Netlist>,
     magic: Arc<Mutex<MagicInstance>>,
     tc: Arc<TechConfig>,
     work_dir: PathBuf,
     out_dir: PathBuf,
+    /// Directory where layout (.mag) files are stored
     layout_dir: PathBuf,
+    /// Directory where netlist files are stored
+    netlist_dir: PathBuf,
     /// Maps short name to fully qualified name.
     remap: HashMap<String, String>,
     /// The fully qualified name for a component is formed
@@ -106,6 +118,7 @@ impl<'a> DerefMut for MagicHandle<'a> {
 impl Factory {
     pub fn from_config(cfg: FactoryConfig) -> Result<Self> {
         let layout_dir = cfg.out_dir.join("layout/");
+        let netlist_dir = cfg.out_dir.join("netlist/");
 
         assert!(cfg.work_dir.is_absolute());
         assert!(cfg.out_dir.is_absolute());
@@ -113,6 +126,7 @@ impl Factory {
         std::fs::create_dir_all(&cfg.work_dir)?;
         std::fs::create_dir_all(&cfg.out_dir)?;
         std::fs::create_dir_all(&layout_dir)?;
+        std::fs::create_dir_all(&netlist_dir)?;
 
         let magic_port = portpicker::pick_unused_port().expect("No ports free");
         let mut magic = MagicInstance::builder()
@@ -131,10 +145,12 @@ impl Factory {
             magic: Arc::new(Mutex::new(magic)),
             out_dir: cfg.out_dir,
             layouts: HashMap::new(),
+            netlists: HashMap::new(),
             remap: HashMap::new(),
             prefix: "sram22".to_string(),
             work_dir: cfg.work_dir,
             layout_dir,
+            netlist_dir,
         })
     }
 
@@ -148,6 +164,53 @@ impl Factory {
             .build()
             .unwrap();
         Self::from_config(cfg)
+    }
+
+    pub fn generate_all<C>(&mut self, name: &str, params: C::Params) -> Result<()>
+    where
+        C: Component + std::any::Any,
+    {
+        self.generate_layout::<C>(name, params.clone())?;
+        self.generate_schematic::<C>(name, params)?;
+
+        Ok(())
+    }
+
+    pub fn generate_schematic<C>(&mut self, name: &str, params: C::Params) -> Result<()>
+    where
+        C: Component + std::any::Any,
+    {
+        let work_dir = self.work_dir.join(name);
+        std::fs::create_dir_all(&work_dir)?;
+
+        let fqn = self.get_fqn(name);
+
+        let magic = Arc::clone(&self.magic);
+        let handle = MagicHandle {
+            inner: magic.lock().unwrap(),
+        };
+
+        let bc = BuildContext {
+            tc: Arc::clone(&self.tc),
+            magic: handle,
+            out_dir: self.layout_dir.clone(),
+            factory: self,
+            work_dir,
+            name: &fqn,
+        };
+
+        let tree = C::schematic(bc, params);
+        let path = self.netlist_dir.join(&format!("{}.spice", name));
+        let mut netlister = SpiceBackend::with_path(path.clone())?;
+        netlister.set_top_name(fqn.clone());
+        netlister.netlist(&tree)?;
+        let netlist = Netlist {
+            path,
+            cell_name: fqn.clone(),
+        };
+        self.netlists.insert(fqn.clone(), netlist);
+        self.remap.insert(name.to_string(), fqn);
+        Ok(())
     }
 
     pub fn generate_layout<C>(&mut self, name: &str, params: C::Params) -> Result<()>

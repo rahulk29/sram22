@@ -28,6 +28,9 @@ pub enum Sram22Error {
 
     #[error("could not find required cell: {0}")]
     MissingCell(String),
+
+    #[error("unknown error: {0}")]
+    Unknown(#[from] Box<dyn std::error::Error>),
 }
 
 pub type Result<T> = std::result::Result<T, Sram22Error>;
