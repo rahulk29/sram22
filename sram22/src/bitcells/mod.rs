@@ -1,10 +1,14 @@
 use log::info;
-use magic_vlsi::{units::Vec2, MagicInstance};
+use magic_vlsi::units::Vec2;
 
 use crate::{
     error::Result,
-    factory::Component,
+    factory::{BuildContext, Component},
     layout::grid::{GridCell, GridLayout},
+    names::{
+        ARRAY_COLEND, ARRAY_COLEND_CENTER, ARRAY_CORNER, INV_DEC, NAND2_DEC, ROWEND, SP_BITCELL,
+        WLSTRAP,
+    },
 };
 
 pub struct BitcellArray;
@@ -27,20 +31,17 @@ impl Component for BitcellArray {
         mut ctx: crate::factory::BuildContext,
         params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
-        generate_bitcells(ctx.magic, ctx.name, &params)?;
+        generate_bitcells(&mut ctx, &params)?;
         ctx.layout_from_default_magic()
     }
 }
 
-pub(crate) fn generate_bitcells(
-    magic: &mut MagicInstance,
-    name: &str,
-    config: &BitcellArrayParams,
-) -> Result<()> {
+pub(crate) fn generate_bitcells(ctx: &mut BuildContext, config: &BitcellArrayParams) -> Result<()> {
     info!("generating bitcell array");
-    let grid = plan_bitcell_array(magic, config)?;
+    let grid = plan_bitcell_array(ctx, config)?;
+    let magic = &mut ctx.magic;
 
-    magic.load(name)?;
+    magic.load(ctx.name)?;
     magic.enable_box()?;
     magic.drc_off()?;
     magic.set_snap(magic_vlsi::SnapMode::Internal)?;
@@ -49,29 +50,27 @@ pub(crate) fn generate_bitcells(
     grid.draw(magic, Vec2::zero())?;
 
     magic.port_renumber()?;
-    magic.save(name)?;
-
-    info!("saved {}", name);
+    magic.save(ctx.name)?;
     Ok(())
 }
 
 pub(crate) fn plan_bitcell_array(
-    magic: &mut MagicInstance,
+    ctx: &mut BuildContext,
     config: &BitcellArrayParams,
 ) -> Result<grid::Grid<Option<GridCell>>> {
     let rows = config.rows as usize;
 
-    let top_row = plan_colend_row(magic, config, false)?;
+    let top_row = plan_colend_row(ctx, config, false)?;
 
     let bitcell_rows: Result<Vec<Vec<Option<GridCell>>>> = (0..rows as usize)
         .map(|i| {
             info!("planning bitcell row {}", i + 1);
-            plan_bitcell_row(magic, config, i)
+            plan_bitcell_row(ctx, config, i)
         })
         .collect();
     let bitcell_rows = bitcell_rows?;
 
-    let bot_row = plan_colend_row(magic, config, true)?;
+    let bot_row = plan_colend_row(ctx, config, true)?;
     let mut grid: grid::Grid<Option<GridCell>> = grid::grid![];
     grid.push_row(top_row);
 
@@ -85,13 +84,13 @@ pub(crate) fn plan_bitcell_array(
 }
 
 pub(crate) fn plan_colend_row(
-    magic: &mut MagicInstance,
+    ctx: &mut BuildContext,
     config: &BitcellArrayParams,
     bottom: bool,
 ) -> Result<Vec<Option<GridCell>>> {
-    let corner = magic.load_layout_cell("corner")?;
-    let colend = magic.load_layout_cell("colend")?;
-    let colend_cent = magic.load_layout_cell("colend_cent")?;
+    let corner = ctx.factory.require_layout(ARRAY_CORNER)?.cell;
+    let colend = ctx.factory.require_layout(ARRAY_COLEND)?.cell;
+    let colend_cent = ctx.factory.require_layout(ARRAY_COLEND_CENTER)?.cell;
 
     // 2 slots for decoder gates
     let mut top_row = vec![
@@ -115,15 +114,15 @@ pub(crate) fn plan_colend_row(
 }
 
 pub(crate) fn plan_bitcell_row(
-    magic: &mut MagicInstance,
+    ctx: &mut BuildContext,
     config: &BitcellArrayParams,
     idx: usize,
 ) -> Result<Vec<Option<GridCell>>> {
-    let rowend = magic.load_layout_cell("rowend")?;
-    let bitcell = magic.load_layout_cell("sram_sp_cell")?;
-    let nand2_dec = magic.load_layout_cell("nand2_dec")?;
-    let inv_dec = magic.load_layout_cell("inv_dec")?;
-    let wlstrap = magic.load_layout_cell("wlstrap")?;
+    let rowend = ctx.factory.require_layout(ROWEND)?.cell;
+    let bitcell = ctx.factory.require_layout(SP_BITCELL)?.cell;
+    let nand2_dec = ctx.factory.require_layout(NAND2_DEC)?.cell;
+    let inv_dec = ctx.factory.require_layout(INV_DEC)?.cell;
+    let wlstrap = ctx.factory.require_layout(WLSTRAP)?.cell;
 
     let mut row = Vec::new();
     let flip_y = idx % 2 == 0;

@@ -1,10 +1,9 @@
 use magic_vlsi::units::{Distance, Rect, Vec2};
-use magic_vlsi::MagicInstance;
 
-use crate::config::TechConfig;
 use crate::error::Result;
-use crate::factory::Component;
+use crate::factory::{BuildContext, Component};
 use crate::layout::{draw_contact, ContactStack};
+use crate::names::{INV_PM_SH_2, NAND2_PM_SH, ROWEND};
 
 pub struct InvDec;
 
@@ -20,18 +19,20 @@ impl Component for InvDec {
         mut ctx: crate::factory::BuildContext,
         _params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
-        generate_inv_dec(ctx.magic, ctx.tc, ctx.name)?;
+        generate_inv_dec(&mut ctx)?;
         ctx.layout_from_default_magic()
     }
 }
 
-pub fn generate_inv_dec(m: &mut MagicInstance, tc: &TechConfig, name: &str) -> Result<()> {
-    let nand2_pm_sh = m.load_layout_cell("nand2_pm_sh")?;
-    let inv_pm_sh = m.load_layout_cell("inv_pm_sh_2")?;
-    let rowend = m.load_layout_cell("rowend")?;
+pub fn generate_inv_dec(ctx: &mut BuildContext) -> Result<()> {
+    let m = &mut ctx.magic;
+    let tc = &ctx.tc;
+    let nand2_pm_sh = ctx.factory.require_layout(NAND2_PM_SH)?.cell;
+    let inv_pm_sh = ctx.factory.require_layout(INV_PM_SH_2)?.cell;
+    let rowend = ctx.factory.require_layout(ROWEND)?.cell;
 
     m.drc_off()?;
-    m.load(name)?;
+    m.load(ctx.name)?;
     m.enable_box()?;
     m.set_snap(magic_vlsi::SnapMode::Internal)?;
 
@@ -121,7 +122,7 @@ pub fn generate_inv_dec(m: &mut MagicInstance, tc: &TechConfig, name: &str) -> R
     m.delete()?;
 
     m.port_renumber()?;
-    m.save(name)?;
+    m.save(ctx.name)?;
 
     Ok(())
 }

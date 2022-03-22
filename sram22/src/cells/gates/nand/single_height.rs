@@ -29,7 +29,7 @@ impl Component for Nand2PmSh {
         mut ctx: crate::factory::BuildContext,
         params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
-        generate_pm_single_height(ctx.magic, ctx.tc, ctx.name, &params)?;
+        generate_pm_single_height(&mut ctx.magic, &ctx.tc, ctx.name, &params)?;
         ctx.magic.save(ctx.name)?;
         ctx.layout_from_default_magic()
     }

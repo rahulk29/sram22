@@ -1,13 +1,14 @@
 use magic_vlsi::units::{Distance, Vec2};
-use magic_vlsi::MagicInstance;
+
 use micro_hdl::{context::Context, node::Node};
 
 use crate::cells::gates::inv::Inv;
 use crate::cells::gates::nand3::Nand3;
-use crate::config::TechConfig;
+
 use crate::error::Result;
 
-use crate::factory::Component;
+use crate::factory::{BuildContext, Component};
+use crate::names::{INV_PM_SH_2, NAND2_PM_SH};
 use crate::net_name_bar;
 
 #[micro_hdl::module]
@@ -88,17 +89,18 @@ impl Component for Predecoder2_4 {
         mut ctx: crate::factory::BuildContext,
         _params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
-        generate_predecoder2_4(ctx.magic, ctx.tc, ctx.name)?;
+        generate_predecoder2_4(&mut ctx)?;
         ctx.layout_from_default_magic()
     }
 }
 
-pub fn generate_predecoder2_4(m: &mut MagicInstance, _tc: &TechConfig, name: &str) -> Result<()> {
-    let nand2_pm_sh = m.load_layout_cell("nand2_pm_sh")?;
-    let inv_pm_sh = m.load_layout_cell("inv_pm_sh_2")?;
+pub fn generate_predecoder2_4(ctx: &mut BuildContext) -> Result<()> {
+    let m = &mut ctx.magic;
+    let nand2_pm_sh = ctx.factory.require_layout(NAND2_PM_SH)?.cell;
+    let inv_pm_sh = ctx.factory.require_layout(INV_PM_SH_2)?.cell;
 
     m.drc_off()?;
-    m.load(name)?;
+    m.load(ctx.name)?;
     m.enable_box()?;
     m.set_snap(magic_vlsi::SnapMode::Internal)?;
 
@@ -124,7 +126,7 @@ pub fn generate_predecoder2_4(m: &mut MagicInstance, _tc: &TechConfig, name: &st
         m.rename_cell_pin(gate, "B", &net_name_bar("addr1", 1 - (i / 2) != 0))?;
     }
 
-    m.save(name)?;
+    m.save(ctx.name)?;
 
     Ok(())
 }
