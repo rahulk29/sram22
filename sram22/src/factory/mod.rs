@@ -72,11 +72,16 @@ impl Factory {
         std::fs::create_dir_all(&cfg.out_dir)?;
         std::fs::create_dir_all(&layout_dir)?;
 
-        let magic = MagicInstance::builder()
+        let mut magic = MagicInstance::builder()
             .cwd(cfg.out_dir.clone())
             .tech("sky130A")
             .port(magic_port)
             .build()?;
+
+        // Initial magic settings
+        magic.drc_off()?;
+        magic.scalegrid(1, 2)?;
+        magic.set_snap(magic_vlsi::SnapMode::Internal)?;
 
         Ok(Self {
             tc: cfg.tech_config,

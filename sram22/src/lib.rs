@@ -1,5 +1,6 @@
 use config::TechConfig;
 
+use factory::LayoutFile;
 use layout::grid::{GridCell, GridLayout};
 
 use magic_vlsi::units::{Distance, Vec2};
@@ -9,6 +10,7 @@ use crate::cells::gates::inv::single_height::InvParams;
 use crate::cells::gates::nand::single_height::Nand2Params;
 use crate::config::SramConfig;
 use crate::error::Result;
+use crate::factory::{Factory, FactoryConfig};
 use crate::layout::bus::BusBuilder;
 use crate::precharge::PrechargeSize;
 use std::fs;
@@ -35,29 +37,18 @@ pub fn generate(config: SramConfig) -> Result<()> {
     info!("generated files will be placed in {}", &config.output_dir);
     info!("reading cells from {}", &config.tech_dir);
 
-    let out_dir = &config.output_dir;
-    let cell_dir = &config.tech_dir;
+    let cell_dir = config.tech_dir.clone();
 
-    let tc = sky130_config();
-
-    // clean the existing build directory; ignore errors
-    let _ = fs::remove_dir_all(out_dir);
-
-    // copy prereq cells
-    fs::create_dir_all(out_dir).unwrap();
-    copy_cells(cell_dir, out_dir);
-    info!("copied custom cells to output directory");
-
-    let mut magic = MagicInstance::builder()
-        .cwd(out_dir)
-        .tech("sky130A")
+    let cfg = FactoryConfig::builder()
+        .out_dir(config.output_dir.into())
+        .work_dir("/tmp/sram22/scratch".into())
+        .tech_config(sky130_config())
         .build()
         .unwrap();
-    magic.drc_off()?;
-    magic.scalegrid(1, 2)?;
-    magic.set_snap(magic_vlsi::SnapMode::Internal)?;
+    let mut factory = Factory::from_config(cfg)?;
 
-    info!("magic started successfully");
+    include_cells(&mut factory, cell_dir);
+    info!("copied custom cells to output directory");
 
     info!("generating subcells");
     crate::cells::gates::inv::generate_pm(&mut magic)?;
@@ -248,27 +239,30 @@ fn generate_bitcells(magic: &mut MagicInstance, config: &SramConfig) -> Result<S
     Ok(cell_name)
 }
 
-fn copy_cells(cell_dir: impl AsRef<Path>, out_dir: impl AsRef<Path>) {
-    for cell_name in [
-        "sram_sp_cell.mag",
-        "rowend.mag",
-        "colend.mag",
-        "corner.mag",
-        "wl_route.mag",
-        "inv_dec.mag",
-        "nand2_dec.mag",
-        "wlstrap.mag",
-        "wlstrap_p.mag",
-        "colend_cent.mag",
-        "colend_p_cent.mag",
-        "sa_senseamp.mag",
-    ] {
-        std::fs::copy(
-            cell_dir.as_ref().join(cell_name),
-            out_dir.as_ref().join(cell_name),
-        )
-        .unwrap();
-    }
+fn include_cells(factory: &mut Factory, cell_dir: impl AsRef<Path>) -> Result<()> {
+    [
+        "sram_sp_cell",
+        "rowend",
+        "colend",
+        "corner",
+        "wl_route",
+        "inv_dec",
+        "nand2_dec",
+        "wlstrap",
+        "wlstrap_p",
+        "colend_cent",
+        "colend_p_cent",
+        "sa_senseamp",
+    ]
+    .iter()
+    .map(|cell_name| {
+        let path = cell_dir.as_ref().join(&format!("{}.mag", cell_name));
+        factory.include_layout(cell_name, LayoutFile::Magic(path))?;
+        Ok(())
+    })
+    .filter(|x| x.is_err())
+    .next()
+    .unwrap_or(Ok(()))
 }
 
 pub fn sky130_config() -> TechConfig {
