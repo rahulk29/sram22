@@ -1,15 +1,38 @@
 use crate::cells::gates::{finger_space, ndiff_edge_to_gate};
 use crate::error::Result;
+use crate::factory::Component;
 use crate::{config::TechConfig, layout::draw_contacts};
 use magic_vlsi::{
     units::{Distance, Rect},
     Direction, MagicInstance,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Nand2Params {
     pub nmos_scale: Distance,
     pub height: Distance,
+}
+
+pub(crate) struct Nand2Component;
+
+impl Component for Nand2Component {
+    type Params = Nand2Params;
+
+    fn schematic(
+        _ctx: crate::factory::BuildContext,
+        _params: Self::Params,
+    ) -> micro_hdl::context::ContextTree {
+        todo!()
+    }
+
+    fn layout(
+        mut ctx: crate::factory::BuildContext,
+        params: Self::Params,
+    ) -> crate::error::Result<crate::factory::Layout> {
+        generate_pm_single_height(ctx.magic, ctx.tc, &params)?;
+        ctx.magic.save(ctx.name)?;
+        ctx.layout_from_default_magic()
+    }
 }
 
 pub fn generate_pm_single_height(

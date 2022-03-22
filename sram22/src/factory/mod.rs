@@ -1,9 +1,5 @@
-use crate::{config::TechConfig, error::Result};
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-    sync::{Arc, Mutex, MutexGuard},
-};
+use crate::{config::TechConfig, error::Result, sky130_config};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use magic_vlsi::{cell::LayoutCellRef, MagicInstance};
 
@@ -35,23 +31,17 @@ pub struct Layout {
     cell: LayoutCellRef,
 }
 
-type FactoryRef = Arc<Mutex<Factory>>;
-
-// Requirements:
-// user friendly names can be mapped to fully qualified names
-//     (eg. "bitcell" -> "sky130_sram_sp_cell")
-// strong typing for params
-// strong typing for outputs
-//
-
 pub struct Factory {
     layouts: HashMap<String, Layout>,
     magic: MagicInstance,
     tc: TechConfig,
+    work_dir: PathBuf,
+    out_dir: PathBuf,
 }
 
 pub struct BuildContext<'a> {
-    pub factory: &'a mut Factory,
+    pub tc: &'a TechConfig,
+    pub magic: &'a mut MagicInstance,
     pub out_dir: PathBuf,
     pub work_dir: PathBuf,
     pub name: &'a str,
@@ -60,14 +50,42 @@ pub struct BuildContext<'a> {
 pub struct Output {}
 
 impl Factory {
+    pub fn default() -> Result<Self> {
+        let out_dir = PathBuf::from("/home/rahul/acads/sky130/sram22/_build/");
+        let magic_port = portpicker::pick_unused_port().expect("No ports free");
+
+        let magic = MagicInstance::builder()
+            .cwd(out_dir.clone())
+            .tech("sky130A")
+            .port(magic_port)
+            .build()
+            .unwrap();
+        let tc = sky130_config();
+
+        Ok(Self {
+            tc,
+            magic,
+            out_dir,
+            layouts: HashMap::new(),
+            work_dir: "/tmp/sram22/scratch/".into(),
+        })
+    }
+
     pub fn generate_layout<C>(&mut self, name: &str, params: C::Params) -> Result<()>
     where
         C: Component + std::any::Any,
     {
+        let work_dir = self.work_dir.join(name);
+        std::fs::create_dir_all(&work_dir)?;
+
+        let out_dir = self.out_dir.join("layout");
+        std::fs::create_dir_all(&out_dir)?;
+
         let bc = BuildContext {
-            factory: self,
-            out_dir: "/tmp/".into(),
-            work_dir: "/tmp/".into(),
+            tc: &self.tc,
+            magic: &mut self.magic,
+            out_dir,
+            work_dir,
             name,
         };
 
@@ -77,14 +95,48 @@ impl Factory {
     }
 
     pub fn get_layout(&self, name: &str) -> Option<Layout> {
-        self.layouts.get(name).map(|x| x.clone())
+        self.layouts.get(name).cloned()
     }
 
-    pub fn magic<'a>(&'a mut self) -> Result<&'a mut MagicInstance> {
+    pub fn magic(&'_ mut self) -> Result<&'_ mut MagicInstance> {
         Ok(&mut self.magic)
     }
 
-    pub fn tc(&self) -> &TechConfig {
+    pub fn tc(&mut self) -> &TechConfig {
         &self.tc
+    }
+}
+
+impl<'a> BuildContext<'a> {
+    pub fn layout_from_default_magic(&mut self) -> Result<Layout> {
+        let file = format!("{}.mag", self.name);
+        let cell = self.magic.load_layout_cell(&file)?;
+        let path = self.out_dir.join(file);
+        Ok(Layout {
+            file: Arc::new(LayoutFile::Magic(path)),
+            cell,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use magic_vlsi::units::Distance;
+
+    use crate::cells::gates::nand::single_height::{Nand2Component, Nand2Params};
+
+    use super::Factory;
+
+    #[test]
+    fn test_factory_nand2() -> Result<(), Box<dyn std::error::Error>> {
+        let mut f = Factory::default()?;
+        f.generate_layout::<Nand2Component>(
+            "nand2_test",
+            Nand2Params {
+                nmos_scale: Distance::from_nm(800),
+                height: Distance::from_nm(1_580),
+            },
+        )?;
+        Ok(())
     }
 }
