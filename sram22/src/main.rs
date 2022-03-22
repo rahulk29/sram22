@@ -29,12 +29,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     let cfg_path = Path::new(&cli.config);
+    let cfg_path = if cfg_path.is_relative() {
+        let mut cwd = std::env::current_dir()?;
+        cwd.push(cfg_path);
+        cwd
+    } else {
+        cfg_path.to_owned()
+    };
 
-    let s = std::fs::read_to_string(&cli.config)?;
+    let s = std::fs::read_to_string(&cfg_path)?;
     let config: SramConfig = toml::from_str(&s)?;
 
-    std::env::set_current_dir(cfg_path.parent().expect("invalid config file path"))?;
-    generate(config)?;
+    let cwd = cfg_path.parent().expect("invalid config file path");
+    std::env::set_current_dir(cwd)?;
+    generate(cwd.to_owned(), config)?;
 
     Ok(())
 }

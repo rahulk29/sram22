@@ -1,5 +1,6 @@
 use crate::cells::gates::{ndiff_edge_to_gate, pdiff_edge_to_gate};
 use crate::error::Result;
+use crate::factory::Component;
 use crate::layout::{draw_contact, draw_contacts, ContactStack};
 use magic_vlsi::units::Rect;
 use magic_vlsi::{units::Distance, MagicInstance};
@@ -8,16 +9,39 @@ use crate::config::TechConfig;
 
 use super::PrechargeSize;
 
+pub struct PrechargeParams {
+    pub sizing: PrechargeSize,
+    pub width: Distance,
+}
+
+pub struct Precharge;
+
+impl Component for Precharge {
+    type Params = PrechargeParams;
+    fn schematic(
+        _ctx: crate::factory::BuildContext,
+        _params: Self::Params,
+    ) -> micro_hdl::context::ContextTree {
+        todo!()
+    }
+    fn layout(
+        mut ctx: crate::factory::BuildContext,
+        params: Self::Params,
+    ) -> crate::error::Result<crate::factory::Layout> {
+        generate_precharge(ctx.magic, ctx.tc, ctx.name, params.sizing, params.width)?;
+        ctx.layout_from_default_magic()
+    }
+}
+
 pub fn generate_precharge(
     m: &mut MagicInstance,
     tc: &TechConfig,
+    name: &str,
     params: PrechargeSize,
     width: Distance,
 ) -> Result<()> {
-    let cell_name = format!("precharge_{}", params);
-
     m.drc_off()?;
-    m.load(&cell_name)?;
+    m.load(name)?;
     m.enable_box()?;
     m.set_snap(magic_vlsi::SnapMode::Internal)?;
 
@@ -200,8 +224,7 @@ pub fn generate_precharge(
     m.select_top_cell()?;
 
     m.port_renumber()?;
-    m.save(&cell_name)?;
-    m.save("precharge")?;
+    m.save(name)?;
 
     Ok(())
 }

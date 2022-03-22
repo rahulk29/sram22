@@ -300,6 +300,7 @@ impl MagicInstance {
 
     pub fn load_layout_cell(&mut self, cell: &str) -> Result<LayoutCellRef> {
         self.load(cell)?;
+        self.enable_box()?;
         self.select_top_cell()?;
         let bbox = self.select_bbox()?;
 
