@@ -37,6 +37,7 @@ pub struct Factory {
     tc: TechConfig,
     work_dir: PathBuf,
     out_dir: PathBuf,
+    layout_dir: PathBuf,
 }
 
 pub struct BuildContext<'a> {
@@ -52,7 +53,14 @@ pub struct Output {}
 impl Factory {
     pub fn default() -> Result<Self> {
         let out_dir = PathBuf::from("/home/rahul/acads/sky130/sram22/_build/");
+        let work_dir = PathBuf::from("/tmp/sram22/scratch/");
+        let layout_dir = out_dir.join("layout/");
+
         let magic_port = portpicker::pick_unused_port().expect("No ports free");
+
+        std::fs::create_dir_all(&work_dir)?;
+        std::fs::create_dir_all(&out_dir)?;
+        std::fs::create_dir_all(&layout_dir)?;
 
         let magic = MagicInstance::builder()
             .cwd(out_dir.clone())
@@ -67,7 +75,8 @@ impl Factory {
             magic,
             out_dir,
             layouts: HashMap::new(),
-            work_dir: "/tmp/sram22/scratch/".into(),
+            work_dir,
+            layout_dir,
         })
     }
 
@@ -76,21 +85,38 @@ impl Factory {
         C: Component + std::any::Any,
     {
         let work_dir = self.work_dir.join(name);
-        std::fs::create_dir_all(&work_dir)?;
-
-        let out_dir = self.out_dir.join("layout");
-        std::fs::create_dir_all(&out_dir)?;
 
         let bc = BuildContext {
             tc: &self.tc,
             magic: &mut self.magic,
-            out_dir,
+            out_dir: self.layout_dir.clone(),
             work_dir,
             name,
         };
 
         let cell = C::layout(bc, params)?;
         self.layouts.insert(name.to_string(), cell);
+        Ok(())
+    }
+
+    pub fn include_layout(&mut self, name: &str, f: LayoutFile) -> Result<()> {
+        match f {
+            LayoutFile::Magic(ref path) => {
+                let filename = path.file_name().unwrap();
+                let dst = self.layout_dir.join(filename);
+                std::fs::copy(path, &dst)?;
+                let cell = self.magic.load_layout_cell(dst.to_str().unwrap())?;
+                self.layouts.insert(
+                    name.to_string(),
+                    Layout {
+                        file: Arc::new(LayoutFile::Magic(dst)),
+                        cell,
+                    },
+                );
+            }
+            _ => unimplemented!(),
+        };
+
         Ok(())
     }
 
@@ -104,6 +130,10 @@ impl Factory {
 
     pub fn tc(&mut self) -> &TechConfig {
         &self.tc
+    }
+
+    pub fn out_dir(&self) -> &std::path::Path {
+        &self.out_dir
     }
 }
 
