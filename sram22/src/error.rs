@@ -25,6 +25,9 @@ pub enum Sram22Error {
 
     #[error("file format error: {0}")]
     FileFormat(String),
+
+    #[error("could not find required cell: {0}")]
+    MissingCell(String),
 }
 
 pub type Result<T> = std::result::Result<T, Sram22Error>;

@@ -1,5 +1,14 @@
-use crate::{config::TechConfig, error::Result, sky130_config};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use crate::{
+    config::TechConfig,
+    error::{Result, Sram22Error},
+    sky130_config,
+};
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+    path::PathBuf,
+    sync::{Arc, Mutex, MutexGuard},
+};
 
 use magic_vlsi::{cell::LayoutCellRef, MagicInstance};
 
@@ -27,17 +36,30 @@ impl LayoutFile {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Layout {
-    file: Arc<LayoutFile>,
-    cell: LayoutCellRef,
+    pub file: Arc<LayoutFile>,
+    pub cell: LayoutCellRef,
 }
 
 pub struct Factory {
+    /// Maps fully qualified name to a [`Layout`].
     layouts: HashMap<String, Layout>,
-    magic: MagicInstance,
-    tc: TechConfig,
+    magic: Arc<Mutex<MagicInstance>>,
+    tc: Arc<TechConfig>,
     work_dir: PathBuf,
     out_dir: PathBuf,
     layout_dir: PathBuf,
+    /// Maps short name to fully qualified name.
+    remap: HashMap<String, String>,
+    /// The fully qualified name for a component is formed
+    /// by concatenating `prefix` to its short name:
+    ///
+    /// ```rust
+    /// let prefix = "my_prefix";
+    /// let short_name = "my_short_name";
+    /// let fqn = format!("{}_{}", prefix, short_name);
+    /// assert_eq!(fqn, "my_prefix_my_short_name");
+    /// ```
+    prefix: String,
 }
 
 #[derive(derive_builder::Builder)]
@@ -54,8 +76,9 @@ impl FactoryConfig {
 }
 
 pub struct BuildContext<'a> {
-    pub tc: &'a TechConfig,
-    pub magic: &'a mut MagicInstance,
+    pub factory: &'a mut Factory,
+    pub tc: Arc<TechConfig>,
+    pub magic: MagicHandle<'a>,
     pub out_dir: PathBuf,
     pub work_dir: PathBuf,
     pub name: &'a str,
@@ -63,10 +86,25 @@ pub struct BuildContext<'a> {
 
 pub struct Output {}
 
+pub struct MagicHandle<'a> {
+    pub inner: MutexGuard<'a, MagicInstance>,
+}
+
+impl<'a> Deref for MagicHandle<'a> {
+    type Target = MagicInstance;
+    fn deref(&self) -> &Self::Target {
+        self.inner.deref()
+    }
+}
+
+impl<'a> DerefMut for MagicHandle<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.inner.deref_mut()
+    }
+}
+
 impl Factory {
     pub fn from_config(cfg: FactoryConfig) -> Result<Self> {
-        let magic_port = portpicker::pick_unused_port().expect("No ports free");
-
         let layout_dir = cfg.out_dir.join("layout/");
 
         assert!(cfg.work_dir.is_absolute());
@@ -76,6 +114,7 @@ impl Factory {
         std::fs::create_dir_all(&cfg.out_dir)?;
         std::fs::create_dir_all(&layout_dir)?;
 
+        let magic_port = portpicker::pick_unused_port().expect("No ports free");
         let mut magic = MagicInstance::builder()
             .cwd(layout_dir.clone())
             .tech("sky130A")
@@ -88,10 +127,12 @@ impl Factory {
         magic.set_snap(magic_vlsi::SnapMode::Internal)?;
 
         Ok(Self {
-            tc: cfg.tech_config,
-            magic,
+            tc: Arc::new(cfg.tech_config),
+            magic: Arc::new(Mutex::new(magic)),
             out_dir: cfg.out_dir,
             layouts: HashMap::new(),
+            remap: HashMap::new(),
+            prefix: "sram22".to_string(),
             work_dir: cfg.work_dir,
             layout_dir,
         })
@@ -114,35 +155,53 @@ impl Factory {
         C: Component + std::any::Any,
     {
         let work_dir = self.work_dir.join(name);
+        std::fs::create_dir_all(&work_dir)?;
+
+        // Form fully qualified name
+        let fqn = self.get_fqn(name);
+
+        let magic = Arc::clone(&self.magic);
+        let handle = MagicHandle {
+            inner: magic.lock().unwrap(),
+        };
 
         let bc = BuildContext {
-            tc: &self.tc,
-            magic: &mut self.magic,
+            tc: Arc::clone(&self.tc),
+            magic: handle,
             out_dir: self.layout_dir.clone(),
+            factory: self,
             work_dir,
-            name,
+            name: &fqn,
         };
 
         let cell = C::layout(bc, params)?;
-        self.layouts.insert(name.to_string(), cell);
+        self.layouts.insert(fqn.clone(), cell);
+        self.remap.insert(name.to_string(), fqn);
         Ok(())
     }
 
+    fn get_fqn(&self, name: &str) -> String {
+        format!("{}_{}", &self.prefix, name)
+    }
+
     pub fn include_layout(&mut self, name: &str, f: LayoutFile) -> Result<()> {
+        let fqn = self.get_fqn(name);
+        let dst_fname = format!("{}.mag", &fqn);
         match f {
             LayoutFile::Magic(ref path) => {
-                let filename = path.file_name().unwrap();
-                let dst = self.layout_dir.join(filename);
+                let dst = self.layout_dir.join(&dst_fname);
                 std::fs::copy(path, &dst)?;
-                let cell = self.magic.load_layout_cell(name)?;
-                log::info!("loaded cell {} with {} ports", name, cell.ports.len());
+                log::info!("copied {:?} to {:?}", path, &dst);
+                let cell = self.magic.lock().unwrap().load_layout_cell(&fqn)?;
+                log::info!("loaded cell {} with {} ports", &fqn, cell.ports.len());
                 self.layouts.insert(
-                    name.to_string(),
+                    fqn.clone(),
                     Layout {
                         file: Arc::new(LayoutFile::Magic(dst)),
                         cell,
                     },
                 );
+                self.remap.insert(name.to_string(), fqn);
             }
             _ => unimplemented!(),
         };
@@ -151,11 +210,18 @@ impl Factory {
     }
 
     pub fn get_layout(&self, name: &str) -> Option<Layout> {
-        self.layouts.get(name).cloned()
+        self.layouts.get(self.remap.get(name)?).cloned()
     }
 
-    pub fn magic(&'_ mut self) -> Result<&'_ mut MagicInstance> {
-        Ok(&mut self.magic)
+    pub fn require_layout(&self, name: &str) -> Result<Layout> {
+        let fqn = self
+            .remap
+            .get(name)
+            .ok_or_else(|| Sram22Error::MissingCell(name.to_string()))?;
+        self.layouts
+            .get(fqn)
+            .cloned()
+            .ok_or_else(|| Sram22Error::MissingCell(fqn.to_string()))
     }
 
     pub fn tc(&mut self) -> &TechConfig {

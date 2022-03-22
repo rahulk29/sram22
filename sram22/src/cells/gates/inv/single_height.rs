@@ -30,7 +30,7 @@ impl Component for InvPmSh {
         mut ctx: crate::factory::BuildContext,
         params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
-        generate_pm_single_height(ctx.magic, ctx.tc, ctx.name, &params)?;
+        generate_pm_single_height(&mut ctx.magic, &ctx.tc, ctx.name, &params)?;
         ctx.layout_from_default_magic()
     }
 }

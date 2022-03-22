@@ -3,7 +3,7 @@ use config::TechConfig;
 use factory::{Component, LayoutFile};
 
 use magic_vlsi::units::{Distance, Vec2};
-use magic_vlsi::{Direction, MagicInstance};
+use magic_vlsi::Direction;
 
 use crate::bitcells::{BitcellArray, BitcellArrayParams};
 use crate::cells::gates::inv::dec::InvDec;
@@ -11,11 +11,13 @@ use crate::cells::gates::inv::single_height::{InvParams, InvPmSh};
 use crate::cells::gates::nand::single_height::{Nand2Params, Nand2PmSh};
 use crate::config::SramConfig;
 use crate::error::Result;
+use crate::factory::BuildContext;
 use crate::factory::{Factory, FactoryConfig};
 use crate::layout::bus::BusBuilder;
 use crate::precharge::layout::PrechargeParams;
 use crate::precharge::PrechargeSize;
 use crate::predecode::Predecoder2_4;
+use names::*;
 
 use std::path::{Path, PathBuf};
 
@@ -31,6 +33,9 @@ pub mod layout;
 pub mod precharge;
 pub mod predecode;
 
+/// Defines the naming conventions used for generated cells
+pub mod names;
+
 pub struct Sram;
 
 impl Component for Sram {
@@ -45,7 +50,7 @@ impl Component for Sram {
         mut ctx: factory::BuildContext,
         _params: Self::Params,
     ) -> crate::error::Result<factory::Layout> {
-        generate_sram(ctx.magic, ctx.tc, ctx.name)?;
+        generate_sram(&mut ctx)?;
         ctx.layout_from_default_magic()
     }
 }
@@ -80,7 +85,7 @@ pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
 
     info!("generating subcells");
     factory.generate_layout::<InvPmSh>(
-        "inv_pm_sh_2",
+        INV_PM_SH_2,
         InvParams {
             nmos_width: Distance::from_nm(1_000),
             li: "li".to_string(),
@@ -90,16 +95,16 @@ pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
         },
     )?;
     factory.generate_layout::<Nand2PmSh>(
-        "nand2_pm_sh",
+        NAND2_PM_SH,
         Nand2Params {
             nmos_scale: Distance::from_nm(800),
             height: Distance::from_nm(1_580),
         },
     )?;
-    factory.generate_layout::<InvDec>("inv_dec", ())?;
-    factory.generate_layout::<Predecoder2_4>("predecoder2_4", ())?;
+    factory.generate_layout::<InvDec>(INV_DEC, ())?;
+    factory.generate_layout::<Predecoder2_4>(PREDECODER2_4, ())?;
     factory.generate_layout::<crate::precharge::layout::Precharge>(
-        "precharge",
+        PRECHARGE,
         PrechargeParams {
             sizing: PrechargeSize {
                 rail_pmos_width_nm: 1_000,
@@ -110,7 +115,7 @@ pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
         },
     )?;
     factory.generate_layout::<BitcellArray>(
-        "bitcell_array",
+        BITCELL_ARRAY,
         BitcellArrayParams {
             rows: config.rows,
             cols: config.cols,
@@ -124,10 +129,12 @@ pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
     Ok(())
 }
 
-fn generate_sram(magic: &mut MagicInstance, tc: &TechConfig, name: &str) -> Result<()> {
-    let bitcell_bank = magic.load_layout_cell("bitcell_array")?;
+fn generate_sram(ctx: &mut BuildContext) -> Result<()> {
+    let magic = &mut ctx.magic;
+    let tc = &ctx.tc;
+    let bitcell_bank = ctx.factory.require_layout(BITCELL_ARRAY)?.cell;
 
-    magic.load(name)?;
+    magic.load(ctx.name)?;
     magic.enable_box()?;
     magic.drc_off()?;
     magic.set_snap(magic_vlsi::SnapMode::Internal)?;
@@ -157,29 +164,25 @@ fn generate_sram(magic: &mut MagicInstance, tc: &TechConfig, name: &str) -> Resu
     info!("generated bus for predecoder outputs");
 
     info!("layout complete; saving sram cell");
-    magic.save(name)?;
+    magic.save(ctx.name)?;
 
     Ok(())
 }
 
 fn include_cells(factory: &mut Factory, cell_dir: impl AsRef<Path>) -> Result<()> {
     [
-        "sram_sp_cell",
-        "rowend",
-        "colend",
-        "corner",
-        "wl_route",
-        "inv_dec",
-        "nand2_dec",
-        "wlstrap",
-        "wlstrap_p",
-        "colend_cent",
-        "colend_p_cent",
-        "sa_senseamp",
+        (SP_BITCELL, "sram_sp_cell"),
+        (ROWEND, "rowend"),
+        (ARRAY_COLEND, "colend"),
+        (ARRAY_CORNER, "corner"),
+        (INV_DEC, "inv_dec"),
+        (NAND2_DEC, "nand2_dec"),
+        (WLSTRAP, "wlstrap"),
+        (ARRAY_COLEND_CENTER, "colend_cent"),
     ]
     .iter()
-    .map(|cell_name| {
-        let path = cell_dir.as_ref().join(&format!("{}.mag", cell_name));
+    .map(|(cell_name, file_name)| {
+        let path = cell_dir.as_ref().join(&format!("{}.mag", file_name));
         factory.include_layout(cell_name, LayoutFile::Magic(path))?;
         Ok(())
     })
