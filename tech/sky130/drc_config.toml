@@ -107,3 +107,21 @@ desc = "first level of metal interconnects"
 width = 0.14
 space = 0.14
 area = 0.0676
+
+[stacks.polyc]
+top = "li"
+contact_drc = "licon"
+contact_layer = "polyc"
+bot = "li"
+
+[stacks.viali]
+top = "m1"
+contact_drc = "ct"
+contact_layer = "viali"
+bot = "li"
+
+[stacks.via1]
+top = "m2"
+contact_drc = "via1"
+contact_layer = "via1"
+bot = "m1"

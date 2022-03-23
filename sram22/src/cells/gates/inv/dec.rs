@@ -2,7 +2,7 @@ use magic_vlsi::units::{Distance, Rect, Vec2};
 
 use crate::error::Result;
 use crate::factory::{BuildContext, Component};
-use crate::layout::{draw_contact, ContactStack};
+use crate::layout::draw_contact;
 use crate::names::{INV_PM_SH_2, NAND2_DEC, ROWEND};
 
 pub struct InvDec;
@@ -74,18 +74,7 @@ pub fn generate_inv_dec(ctx: &mut BuildContext) -> Result<()> {
     let mut inv_out_port = inv.port_bbox("Y");
     inv_out_port.ll.x = inv_out_port.ur.x - tc.layer("ct").width;
 
-    let ctbox = draw_contact(
-        m,
-        tc,
-        ContactStack {
-            top: "m1",
-            contact_drc: "ct",
-            contact_layer: "viali",
-            bot: "li",
-        },
-        inv_out_port,
-        true,
-    )?;
+    let ctbox = draw_contact(m, tc, tc.stack("viali"), inv_out_port, true)?;
 
     let wl_port = rowend.port_bbox("WL");
     let m1_box = Rect::from_dist(
@@ -105,18 +94,7 @@ pub fn generate_inv_dec(ctx: &mut BuildContext) -> Result<()> {
     m.paint_box(m2_box, "m2")?;
 
     let contact_region = m1_box.overlap(m2_box);
-    draw_contact(
-        m,
-        tc,
-        ContactStack {
-            top: "m2",
-            contact_drc: "via1",
-            contact_layer: "via1",
-            bot: "m1",
-        },
-        contact_region,
-        false,
-    )?;
+    draw_contact(m, tc, tc.stack("via1"), contact_region, false)?;
 
     m.select_cell(&rowend.name)?;
     m.delete()?;
