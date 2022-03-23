@@ -1,8 +1,9 @@
 use crate::cells::gates::{ndiff_edge_to_gate, pdiff_edge_to_gate};
 use crate::error::Result;
-use crate::factory::Component;
-use crate::layout::{draw_contact, draw_contacts, ContactStack};
-use magic_vlsi::units::Rect;
+use crate::factory::{BuildContext, Component};
+use crate::layout::{draw_contact, draw_contacts};
+use crate::names::PRECHARGE;
+use magic_vlsi::units::{Rect, Vec2};
 use magic_vlsi::Direction;
 use magic_vlsi::{units::Distance, MagicInstance};
 
@@ -17,6 +18,7 @@ pub struct PrechargeParams {
 }
 
 pub struct Precharge;
+pub struct PrechargeCenter;
 
 impl Component for Precharge {
     type Params = PrechargeParams;
@@ -37,6 +39,23 @@ impl Component for Precharge {
             params.sizing,
             params.width,
         )?;
+        ctx.layout_from_default_magic()
+    }
+}
+
+impl Component for PrechargeCenter {
+    type Params = Distance;
+    fn schematic(
+        _ctx: crate::factory::BuildContext,
+        _params: Self::Params,
+    ) -> micro_hdl::context::ContextTree {
+        todo!()
+    }
+    fn layout(
+        mut ctx: crate::factory::BuildContext,
+        params: Self::Params,
+    ) -> crate::error::Result<crate::factory::Layout> {
+        generate_precharge_center(&mut ctx, params)?;
         ctx.layout_from_default_magic()
     }
 }
@@ -124,7 +143,6 @@ pub fn generate_precharge(
     );
     let poly_pad_box = poly_pad_box.try_align_center_x(poly_box, tc.grid);
     m.paint_box(poly_pad_box, "poly")?;
-    m.paint_box(poly_pad_box, "li")?;
 
     let bl_right = poly_box.left_edge() - tc.space("gate", "licon");
     let bl_box = Rect::from_dist(
@@ -142,29 +160,8 @@ pub fn generate_precharge(
         pdiff_box3.top_edge(),
     );
 
-    let polyc_stack = ContactStack {
-        top: "li",
-        contact_drc: "licon",
-        contact_layer: "polyc",
-        bot: "poly",
-    };
-
-    let viali_stack = ContactStack {
-        top: "m1",
-        contact_drc: "ct",
-        contact_layer: "viali",
-        bot: "li",
-    };
-
-    let via1_stack = ContactStack {
-        top: "m2",
-        contact_drc: "via1",
-        contact_layer: "via1",
-        bot: "m1",
-    };
-
-    let _gate_ct = draw_contact(m, tc, polyc_stack, poly_pad_box, false)?;
-    let gate_ct = draw_contact(m, tc, via1_stack, poly_pad_box, false)?;
+    let _gate_ct = draw_contact(m, tc, tc.stack("polyc"), poly_pad_box, false)?;
+    let gate_ct = draw_contact(m, tc, tc.stack("via1"), poly_pad_box, false)?;
 
     let m2_box = Rect::from_dist(
         Distance::zero(),
@@ -176,11 +173,11 @@ pub fn generate_precharge(
     m.label_position_layer("PC_EN_BAR", Direction::Left, "m2")?;
     m.port_make_default()?;
 
-    let bl_pass_ct = draw_contact(m, tc, viali_stack, bl_box.overlap(pdiff_box1), true)?;
-    let blb_pass_ct = draw_contact(m, tc, viali_stack, blb_box.overlap(pdiff_box1), true)?;
+    let bl_pass_ct = draw_contact(m, tc, tc.stack("viali"), bl_box.overlap(pdiff_box1), true)?;
+    let blb_pass_ct = draw_contact(m, tc, tc.stack("viali"), blb_box.overlap(pdiff_box1), true)?;
 
-    let bl_rail_ct = draw_contact(m, tc, viali_stack, bl_box.overlap(pdiff_box2), true)?;
-    let blb_rail_ct = draw_contact(m, tc, viali_stack, blb_box.overlap(pdiff_box3), true)?;
+    let bl_rail_ct = draw_contact(m, tc, tc.stack("viali"), bl_box.overlap(pdiff_box2), true)?;
+    let blb_rail_ct = draw_contact(m, tc, tc.stack("viali"), blb_box.overlap(pdiff_box3), true)?;
 
     let bl_m1_box = Rect::btcxw(
         bl_pass_ct.top.bottom_edge(),
@@ -219,8 +216,8 @@ pub fn generate_precharge(
         Distance::zero(),
         Distance::zero(),
     );
-    let ct1 = draw_contact(m, tc, viali_stack, bl_vdd_ct, true)?;
-    let ct2 = draw_contact(m, tc, via1_stack, bl_vdd_ct, true)?;
+    let ct1 = draw_contact(m, tc, tc.stack("viali"), bl_vdd_ct, true)?;
+    let ct2 = draw_contact(m, tc, tc.stack("viali"), bl_vdd_ct, true)?;
     let li_box = Rect::from_dist(
         blb_m1_box.left_edge(),
         ct1.bot.bottom_edge(),
@@ -244,8 +241,8 @@ pub fn generate_precharge(
         Distance::zero(),
         Distance::zero(),
     );
-    let ct1 = draw_contact(m, tc, viali_stack, blb_vdd_ct, true)?;
-    let ct2 = draw_contact(m, tc, via1_stack, blb_vdd_ct, true)?;
+    let ct1 = draw_contact(m, tc, tc.stack("viali"), blb_vdd_ct, true)?;
+    let ct2 = draw_contact(m, tc, tc.stack("via1"), blb_vdd_ct, true)?;
     let li_box = Rect::from_dist(
         Distance::zero(),
         ct1.bot.bottom_edge(),
@@ -285,5 +282,69 @@ pub fn generate_precharge(
     m.port_renumber()?;
     m.save(name)?;
 
+    Ok(())
+}
+
+pub fn generate_precharge_center(ctx: &mut BuildContext, width: Distance) -> Result<()> {
+    let m = &mut ctx.magic;
+    let tc = &ctx.tc;
+
+    let precharge = ctx.factory.require_layout(PRECHARGE)?.cell;
+    m.drc_off()?;
+    m.load(ctx.name)?;
+    m.enable_box()?;
+    m.set_snap(magic_vlsi::SnapMode::Internal)?;
+
+    let nwell_box = Rect::ll_wh(
+        Distance::zero(),
+        Distance::zero(),
+        width,
+        precharge.bbox.height(),
+    );
+    m.paint_box(nwell_box, "nwell")?;
+
+    let pc = m.place_layout_cell(precharge, Vec2::new(width, Distance::zero()))?;
+
+    for port in ["VPWR1", "VPWR2", "PC_EN_BAR"] {
+        let bbox = pc.port_bbox(port);
+        let m2_box = Rect::from_dist(Distance::zero(), bbox.bottom_edge(), width, bbox.top_edge());
+        m.paint_box(m2_box, "m2")?;
+        m.label_position_layer(port, Direction::Left, "m2")?;
+        m.port_make_default()?;
+    }
+
+    let ct1 = Rect::ll_wh(
+        Distance::zero(),
+        pc.port_bbox("VPWR1").center_y(tc.grid),
+        Distance::zero(),
+        Distance::zero(),
+    );
+    let _ct1 = draw_contact(m, tc, tc.stack("viali"), ct1, true)?;
+
+    let ct2 = Rect::ll_wh(
+        width,
+        pc.port_bbox("VPWR2").center_y(tc.grid),
+        Distance::zero(),
+        Distance::zero(),
+    );
+    let _ct2 = draw_contact(m, tc, tc.stack("viali"), ct2, true)?;
+
+    // prune overhangs
+    let delete_box = Rect::ll_wh(
+        width,
+        Distance::from_um(-20),
+        Distance::from_um(20),
+        Distance::from_um(40),
+    );
+    m.delete_box(delete_box)?;
+    let delete_box = Rect::lr_wh(
+        Distance::zero(),
+        Distance::from_um(-20),
+        Distance::from_um(20),
+        Distance::from_um(40),
+    );
+    m.delete_box(delete_box)?;
+
+    m.save(ctx.name)?;
     Ok(())
 }

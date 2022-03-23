@@ -445,6 +445,13 @@ impl MagicInstance {
         Ok(())
     }
 
+    pub fn delete_box(&mut self, rect: Rect) -> Result<()> {
+        self.set_box_values(rect)?;
+        self.select_visible()?;
+        self.delete()?;
+        Ok(())
+    }
+
     pub fn select_clear(&mut self) -> Result<()> {
         writeln!(&mut self.stream, "select clear")?;
         read_line(&mut self.stream)?;

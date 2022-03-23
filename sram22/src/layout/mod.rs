@@ -2,19 +2,11 @@ use magic_vlsi::units::Distance;
 use magic_vlsi::Direction;
 use magic_vlsi::{units::Rect, MagicInstance};
 
-use crate::config::TechConfig;
+use crate::config::{ContactStack, TechConfig};
 use crate::error::Result;
 
 pub mod bus;
 pub mod grid;
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct ContactStack<'a> {
-    pub bot: &'a str,
-    pub contact_drc: &'a str,
-    pub contact_layer: &'a str,
-    pub top: &'a str,
-}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct ContactBox {
@@ -107,24 +99,24 @@ pub fn draw_contacts(
 pub fn draw_contact(
     m: &mut MagicInstance,
     tc: &TechConfig,
-    stack: ContactStack,
+    stack: &ContactStack,
     contact_region: Rect,
     vertical: bool,
 ) -> Result<ContactBox> {
     let contact_box = Rect::ll_wh(
         Distance::zero(),
         Distance::zero(),
-        tc.layer(stack.contact_drc).width,
-        tc.layer(stack.contact_drc).width,
+        tc.layer(&stack.contact_drc).width,
+        tc.layer(&stack.contact_drc).width,
     );
     let contact_box = contact_box.try_align_center(contact_region, tc.grid);
-    m.paint_box(contact_box, stack.contact_layer)?;
+    m.paint_box(contact_box, &stack.contact_layer)?;
 
-    let top_box = expand_contact_box(tc, contact_box, stack.contact_drc, stack.top, vertical);
-    m.paint_box(top_box, stack.top)?;
+    let top_box = expand_contact_box(tc, contact_box, &stack.contact_drc, &stack.top, vertical);
+    m.paint_box(top_box, &stack.top)?;
 
-    let bot_box = expand_contact_box(tc, contact_box, stack.contact_drc, stack.bot, vertical);
-    m.paint_box(bot_box, stack.bot)?;
+    let bot_box = expand_contact_box(tc, contact_box, &stack.contact_drc, &stack.bot, vertical);
+    m.paint_box(bot_box, &stack.bot)?;
 
     Ok(ContactBox {
         top: top_box,

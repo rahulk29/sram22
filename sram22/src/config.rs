@@ -19,6 +19,15 @@ struct TechConfigRaw {
     beta: f64,
     layers: HashMap<String, LayerConfigRaw>,
     spacing: Vec<SpacingConfigRaw>,
+    stacks: HashMap<String, ContactStack>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Deserialize)]
+pub struct ContactStack {
+    pub bot: String,
+    pub contact_drc: String,
+    pub contact_layer: String,
+    pub top: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -59,6 +68,7 @@ pub struct TechConfig {
     pub beta: f64,
     layers: HashMap<String, LayerConfig>,
     spacing: Vec<SpacingConfig>,
+    stacks: HashMap<String, ContactStack>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -110,6 +120,7 @@ impl TechConfig {
             gamma: raw.gamma,
             layers,
             spacing,
+            stacks: raw.stacks,
         }
     }
 
@@ -139,6 +150,10 @@ impl TechConfig {
     pub fn scale_pmos(&self, nmos_width: Distance) -> Distance {
         let pmos_width = (nmos_width.nm() as f64 * self.beta) / (self.grid.nm() as f64);
         (pmos_width.round() as i64) * self.grid
+    }
+
+    pub fn stack(&self, stack: &str) -> &ContactStack {
+        self.stacks.get(stack).unwrap()
     }
 }
 

@@ -5,7 +5,7 @@ import webbrowser
 
 command = "cargo r --release -- configs/sram_16x16.toml"
 out_dir = "_build/sram_16x16/layout/"
-cell = "sram22_precharge.mag"
+cell = "sram22_precharge_cent.mag"
 outsvg = "out.svg"
 
 script = f"""

@@ -122,6 +122,11 @@ pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
             width: Distance::from_nm(1_200),
         },
     )?;
+    let colend_cent = factory.require_layout(ARRAY_COLEND_CENTER)?.cell;
+    factory.generate_layout::<crate::precharge::layout::PrechargeCenter>(
+        PRECHARGE_CENTER,
+        colend_cent.bbox.width(),
+    )?;
     factory.generate_layout::<BitcellArray>(
         BITCELL_ARRAY,
         BitcellArrayParams {
