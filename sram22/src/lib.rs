@@ -69,6 +69,8 @@ pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
     let mut output_dir = cwd;
     output_dir.push(&config.output_dir);
 
+    std::fs::remove_dir_all(&output_dir)?;
+
     info!("generating {}x{} SRAM", rows, cols);
     info!("generated files will be placed in {:?}", &output_dir);
     info!("reading cells from {:?}", &cell_dir);

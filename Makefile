@@ -18,3 +18,7 @@ test:
 
 check:
 	cargo check --all-features --all-targets
+
+run:
+	rm -rf _build/ && cargo run --release -- configs/sram_16x16.toml
+
