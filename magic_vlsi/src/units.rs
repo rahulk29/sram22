@@ -483,6 +483,15 @@ impl Rect {
         self
     }
 
+    pub fn bounding_box(a: Self, b: Self) -> Self {
+        Self::from_dist(
+            Distance::min(a.ll.x, b.ll.x),
+            Distance::min(a.ll.y, b.ll.y),
+            Distance::max(a.ur.x, b.ur.x),
+            Distance::max(a.ur.y, b.ur.y),
+        )
+    }
+
     pub fn translate(&mut self, dir: Direction, dist: Distance) -> &mut Self {
         match dir {
             Direction::Up => {

@@ -6,8 +6,8 @@ use crate::{
     factory::{BuildContext, Component},
     layout::grid::{GridCell, GridLayout},
     names::{
-        ARRAY_COLEND, ARRAY_COLEND_CENTER, ARRAY_CORNER, INV_DEC, NAND2_DEC, ROWEND, SP_BITCELL,
-        WLSTRAP,
+        ARRAY_COLEND, ARRAY_COLEND_CENTER, ARRAY_CORNER, INV_DEC, NAND2_DEC, PRECHARGE,
+        PRECHARGE_CENTER, PRECHARGE_END, ROWEND, SP_BITCELL, WLSTRAP,
     },
 };
 
@@ -72,6 +72,8 @@ pub(crate) fn plan_bitcell_array(
     let bitcell_rows = bitcell_rows?;
 
     let bot_row = plan_colend_row(ctx, config, true)?;
+    let pc_row = plan_precharge_row(ctx, config)?;
+
     let mut grid: grid::Grid<Option<GridCell>> = grid::grid![];
     grid.push_row(top_row);
 
@@ -80,6 +82,7 @@ pub(crate) fn plan_bitcell_array(
     }
 
     grid.push_row(bot_row);
+    grid.push_row(pc_row);
 
     Ok(grid)
 }
@@ -110,6 +113,35 @@ pub(crate) fn plan_colend_row(
     top_row.push(Some(GridCell::new(corner, false, bottom)));
 
     info!("generated {} row cells", top_row.len());
+
+    Ok(top_row)
+}
+
+pub(crate) fn plan_precharge_row(
+    ctx: &mut BuildContext,
+    config: &BitcellArrayParams,
+) -> Result<Vec<Option<GridCell>>> {
+    let pc_end = ctx.factory.require_layout(PRECHARGE_END)?.cell;
+    let pc_cent = ctx.factory.require_layout(PRECHARGE_CENTER)?.cell;
+    let pc = ctx.factory.require_layout(PRECHARGE)?.cell;
+
+    // 2 slots for decoder gates
+    let mut top_row = vec![
+        None,
+        None,
+        Some(GridCell::new(pc_end.clone(), false, false)),
+    ];
+
+    for i in 0..config.cols as usize {
+        if i > 0 && i % 8 == 0 {
+            top_row.push(Some(GridCell::new(pc_cent.clone(), i % 2 != 0, false)));
+        }
+        top_row.push(Some(GridCell::new(pc.clone(), i % 2 != 0, false)));
+    }
+
+    top_row.push(Some(GridCell::new(pc_end, true, false)));
+
+    info!("planned precharge row");
 
     Ok(top_row)
 }
