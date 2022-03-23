@@ -21,11 +21,9 @@ jobs:
         run: |
           cargo fmt --all -- --check
           black scripts/ --check
-      - name: Compile
-        run: make check
       - name: Lint
         run: make lint
-      - name: Build and test
+      - name: Test
         run: make test
   coverage:
     name: Coverage
