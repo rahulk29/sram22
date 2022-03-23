@@ -3,6 +3,7 @@ use crate::error::Result;
 use crate::factory::{BuildContext, Component};
 use crate::layout::{draw_contact, draw_contacts};
 use crate::names::PRECHARGE;
+
 use magic_vlsi::units::{Rect, Vec2};
 use magic_vlsi::Direction;
 use magic_vlsi::{units::Distance, MagicInstance};
@@ -19,6 +20,7 @@ pub struct PrechargeParams {
 
 pub struct Precharge;
 pub struct PrechargeCenter;
+pub struct PrechargeEnd;
 
 impl Component for Precharge {
     type Params = PrechargeParams;
@@ -55,7 +57,24 @@ impl Component for PrechargeCenter {
         mut ctx: crate::factory::BuildContext,
         params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
-        generate_precharge_center(&mut ctx, params)?;
+        generate_precharge_center(&mut ctx, params, false)?;
+        ctx.layout_from_default_magic()
+    }
+}
+
+impl Component for PrechargeEnd {
+    type Params = Distance;
+    fn schematic(
+        _ctx: crate::factory::BuildContext,
+        _params: Self::Params,
+    ) -> micro_hdl::context::ContextTree {
+        todo!()
+    }
+    fn layout(
+        mut ctx: crate::factory::BuildContext,
+        params: Self::Params,
+    ) -> crate::error::Result<crate::factory::Layout> {
+        generate_precharge_center(&mut ctx, params, true)?;
         ctx.layout_from_default_magic()
     }
 }
@@ -285,7 +304,7 @@ pub fn generate_precharge(
     Ok(())
 }
 
-pub fn generate_precharge_center(ctx: &mut BuildContext, width: Distance) -> Result<()> {
+pub fn generate_precharge_center(ctx: &mut BuildContext, width: Distance, end: bool) -> Result<()> {
     let m = &mut ctx.magic;
     let tc = &ctx.tc;
 
@@ -313,13 +332,15 @@ pub fn generate_precharge_center(ctx: &mut BuildContext, width: Distance) -> Res
         m.port_make_default()?;
     }
 
-    let ct1 = Rect::ll_wh(
-        Distance::zero(),
-        pc.port_bbox("VPWR1").center_y(tc.grid),
-        Distance::zero(),
-        Distance::zero(),
-    );
-    let _ct1 = draw_contact(m, tc, tc.stack("viali"), ct1, true)?;
+    if !end {
+        let ct1 = Rect::ll_wh(
+            Distance::zero(),
+            pc.port_bbox("VPWR1").center_y(tc.grid),
+            Distance::zero(),
+            Distance::zero(),
+        );
+        let _ct1 = draw_contact(m, tc, tc.stack("viali"), ct1, true)?;
+    }
 
     let ct2 = Rect::ll_wh(
         width,
@@ -328,6 +349,21 @@ pub fn generate_precharge_center(ctx: &mut BuildContext, width: Distance) -> Res
         Distance::zero(),
     );
     let _ct2 = draw_contact(m, tc, tc.stack("viali"), ct2, true)?;
+
+    let tap = Rect::ll_wh(
+        width / 2,
+        pc.port_bbox("VPWR1").center_y(tc.grid),
+        Distance::zero(),
+        Distance::zero(),
+    );
+    draw_contact(m, tc, tc.stack("nsubdiffc"), tap, true)?;
+    let tap = Rect::ll_wh(
+        width / 2,
+        pc.port_bbox("VPWR2").center_y(tc.grid),
+        Distance::zero(),
+        Distance::zero(),
+    );
+    draw_contact(m, tc, tc.stack("nsubdiffc"), tap, true)?;
 
     // prune overhangs
     let delete_box = Rect::ll_wh(

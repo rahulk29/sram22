@@ -69,7 +69,8 @@ pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
     let mut output_dir = cwd;
     output_dir.push(&config.output_dir);
 
-    std::fs::remove_dir_all(&output_dir)?;
+    // Ignore errors when cleaning output directory
+    let _ = std::fs::remove_dir_all(&output_dir);
 
     info!("generating {}x{} SRAM", rows, cols);
     info!("generated files will be placed in {:?}", &output_dir);
@@ -125,6 +126,10 @@ pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
     let colend_cent = factory.require_layout(ARRAY_COLEND_CENTER)?.cell;
     factory.generate_layout::<crate::precharge::layout::PrechargeCenter>(
         PRECHARGE_CENTER,
+        colend_cent.bbox.width(),
+    )?;
+    factory.generate_layout::<crate::precharge::layout::PrechargeEnd>(
+        PRECHARGE_END,
         colend_cent.bbox.width(),
     )?;
     factory.generate_layout::<BitcellArray>(

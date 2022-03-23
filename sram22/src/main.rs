@@ -42,6 +42,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let cwd = cfg_path.parent().expect("invalid config file path");
     std::env::set_current_dir(cwd)?;
+
+    log::info!("Beginning SRAM generation");
     generate(cwd.to_owned(), config)?;
 
     Ok(())

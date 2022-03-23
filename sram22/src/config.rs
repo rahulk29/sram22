@@ -24,10 +24,12 @@ struct TechConfigRaw {
 
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize)]
 pub struct ContactStack {
-    pub bot: String,
-    pub contact_drc: String,
+    pub bot_layer: String,
+    pub bot_drc: String,
     pub contact_layer: String,
-    pub top: String,
+    pub contact_drc: String,
+    pub top_layer: String,
+    pub top_drc: String,
 }
 
 #[derive(Debug, Deserialize)]
