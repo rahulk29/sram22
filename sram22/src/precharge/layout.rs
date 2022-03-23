@@ -236,7 +236,7 @@ pub fn generate_precharge(
         Distance::zero(),
     );
     let ct1 = draw_contact(m, tc, tc.stack("viali"), bl_vdd_ct, true)?;
-    let ct2 = draw_contact(m, tc, tc.stack("viali"), bl_vdd_ct, true)?;
+    let ct2 = draw_contact(m, tc, tc.stack("via1"), bl_vdd_ct, true)?;
     let li_box = Rect::from_dist(
         blb_m1_box.left_edge(),
         ct1.bot.bottom_edge(),
@@ -328,18 +328,17 @@ pub fn generate_precharge_center(ctx: &mut BuildContext, width: Distance, end: b
         let bbox = pc.port_bbox(port);
         let m2_box = Rect::from_dist(Distance::zero(), bbox.bottom_edge(), width, bbox.top_edge());
         m.paint_box(m2_box, "m2")?;
-        m.label_position_layer(port, Direction::Left, "m2")?;
-        m.port_make_default()?;
     }
 
     if !end {
         let ct1 = Rect::ll_wh(
             Distance::zero(),
-            pc.port_bbox("VPWR1").center_y(tc.grid),
+            pc.port_bbox("VPWR2").center_y(tc.grid),
             Distance::zero(),
             Distance::zero(),
         );
-        let _ct1 = draw_contact(m, tc, tc.stack("viali"), ct1, true)?;
+        draw_contact(m, tc, tc.stack("viali"), ct1, true)?;
+        draw_contact(m, tc, tc.stack("via1"), ct1, true)?;
     }
 
     let ct2 = Rect::ll_wh(
@@ -348,7 +347,8 @@ pub fn generate_precharge_center(ctx: &mut BuildContext, width: Distance, end: b
         Distance::zero(),
         Distance::zero(),
     );
-    let _ct2 = draw_contact(m, tc, tc.stack("viali"), ct2, true)?;
+    draw_contact(m, tc, tc.stack("viali"), ct2, true)?;
+    draw_contact(m, tc, tc.stack("via1"), ct2, true)?;
 
     let tap = Rect::ll_wh(
         width / 2,
@@ -357,6 +357,8 @@ pub fn generate_precharge_center(ctx: &mut BuildContext, width: Distance, end: b
         Distance::zero(),
     );
     draw_contact(m, tc, tc.stack("nsubdiffc"), tap, true)?;
+    draw_contact(m, tc, tc.stack("viali"), tap, true)?;
+    let ct1 = draw_contact(m, tc, tc.stack("via1"), tap, true)?;
     let tap = Rect::ll_wh(
         width / 2,
         pc.port_bbox("VPWR2").center_y(tc.grid),
@@ -364,6 +366,12 @@ pub fn generate_precharge_center(ctx: &mut BuildContext, width: Distance, end: b
         Distance::zero(),
     );
     draw_contact(m, tc, tc.stack("nsubdiffc"), tap, true)?;
+    draw_contact(m, tc, tc.stack("viali"), tap, true)?;
+    let ct2 = draw_contact(m, tc, tc.stack("via1"), tap, true)?;
+
+    // Connect the two power nets
+    let m1_box = Rect::bounding_box(ct1.bot, ct2.bot);
+    m.paint_box(m1_box, "m1")?;
 
     // prune overhangs
     let delete_box = Rect::ll_wh(
