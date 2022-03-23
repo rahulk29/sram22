@@ -13,3 +13,4 @@ pub const PRECHARGE: &str = "precharge";
 pub const PRECHARGE_CENTER: &str = "precharge_cent";
 pub const PRECHARGE_END: &str = "precharge_end";
 pub const SRAM_TOP: &str = "sram_top";
+pub const SENSE_AMP: &str = "senseamp";

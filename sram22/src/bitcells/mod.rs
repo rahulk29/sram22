@@ -7,7 +7,7 @@ use crate::{
     layout::grid::{GridCell, GridLayout},
     names::{
         ARRAY_COLEND, ARRAY_COLEND_CENTER, ARRAY_CORNER, INV_DEC, NAND2_DEC, PRECHARGE,
-        PRECHARGE_CENTER, PRECHARGE_END, ROWEND, SP_BITCELL, WLSTRAP,
+        PRECHARGE_CENTER, PRECHARGE_END, ROWEND, SENSE_AMP, SP_BITCELL, WLSTRAP,
     },
 };
 
@@ -73,6 +73,7 @@ pub(crate) fn plan_bitcell_array(
 
     let bot_row = plan_colend_row(ctx, config, true)?;
     let pc_row = plan_precharge_row(ctx, config)?;
+    let sa_row = plan_senseamp_row(ctx, config)?;
 
     let mut grid: grid::Grid<Option<GridCell>> = grid::grid![];
     grid.push_row(top_row);
@@ -83,6 +84,7 @@ pub(crate) fn plan_bitcell_array(
 
     grid.push_row(bot_row);
     grid.push_row(pc_row);
+    grid.push_row(sa_row);
 
     Ok(grid)
 }
@@ -144,6 +146,43 @@ pub(crate) fn plan_precharge_row(
     info!("planned precharge row");
 
     Ok(top_row)
+}
+
+pub(crate) fn plan_senseamp_row(
+    ctx: &mut BuildContext,
+    config: &BitcellArrayParams,
+) -> Result<Vec<Option<GridCell>>> {
+    let sa = ctx.factory.require_layout(SENSE_AMP)?.cell;
+
+    // 2 slots for decoder gates
+    // 1 slot for row end
+    let mut row = vec![None, None, None];
+
+    for i in 0..config.cols as usize {
+        if i > 0 && i % 8 == 0 {
+            row.push(None);
+        }
+        if i % 4 == 0 {
+            let cell = GridCell::builder()
+                .cell(sa.clone())
+                .flip_x(i % 2 != 0)
+                .flip_y(false)
+                .width(4)
+                .height(1)
+                .build()
+                .unwrap();
+            row.push(Some(cell));
+        } else {
+            row.push(None);
+        }
+    }
+
+    // 1 space for colend
+    row.push(None);
+
+    info!("planned senseamp row");
+
+    Ok(row)
 }
 
 pub(crate) fn plan_bitcell_row(
