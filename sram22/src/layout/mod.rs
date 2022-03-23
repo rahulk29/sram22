@@ -112,11 +112,23 @@ pub fn draw_contact(
     let contact_box = contact_box.try_align_center(contact_region, tc.grid);
     m.paint_box(contact_box, &stack.contact_layer)?;
 
-    let top_box = expand_contact_box(tc, contact_box, &stack.contact_drc, &stack.top, vertical);
-    m.paint_box(top_box, &stack.top)?;
+    let top_box = expand_contact_box(
+        tc,
+        contact_box,
+        &stack.contact_drc,
+        &stack.top_drc,
+        vertical,
+    );
+    m.paint_box(top_box, &stack.top_layer)?;
 
-    let bot_box = expand_contact_box(tc, contact_box, &stack.contact_drc, &stack.bot, vertical);
-    m.paint_box(bot_box, &stack.bot)?;
+    let bot_box = expand_contact_box(
+        tc,
+        contact_box,
+        &stack.contact_drc,
+        &stack.bot_drc,
+        vertical,
+    );
+    m.paint_box(bot_box, &stack.bot_layer)?;
 
     Ok(ContactBox {
         top: top_box,
@@ -129,15 +141,15 @@ fn expand_contact_box(
     tc: &TechConfig,
     contact_box: Rect,
     contact_drc: &str,
-    metal_layer: &str,
+    to_layer_drc: &str,
     vertical: bool,
 ) -> Rect {
     let mut metal_box = contact_box;
-    metal_box = metal_box.grow_border(tc.layer(contact_drc).enclosure(metal_layer));
+    metal_box = metal_box.grow_border(tc.layer(contact_drc).enclosure(to_layer_drc));
     let extra = std::cmp::max(
         Distance::zero(),
-        tc.layer(contact_drc).one_side_enclosure(metal_layer)
-            - tc.layer(contact_drc).enclosure(metal_layer),
+        tc.layer(contact_drc).one_side_enclosure(to_layer_drc)
+            - tc.layer(contact_drc).enclosure(to_layer_drc),
     );
 
     if vertical {

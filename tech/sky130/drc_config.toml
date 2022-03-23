@@ -21,6 +21,24 @@ width = 0.84
 space = 1.27
 area = 0.0
 
+[layers.ntap]
+desc = "define n+ taps to nwell"
+width = 0.15
+space = 0.27
+area = 0.0
+enclosures = [
+  { layer = "nwell", enclosure = 0.18, one_side = false },
+]
+
+[layers.ptap]
+desc = "define p+ taps to substrate"
+width = 0.15
+space = 0.27
+area = 0.0
+enclosures = [
+  { layer = "pwell", enclosure = 0.13, one_side = false },
+]
+
 [layers.poly]
 desc = "define transistor gates"
 width = 0.15
@@ -60,6 +78,10 @@ enclosures = [
   { layer = "poly", enclosure = 0.05, one_side = false },
   { layer = "poly", enclosure = 0.08, one_side = true },
   { layer = "li", enclosure = 0.08, one_side = true },
+  { layer = "ntap", enclosure = 0.12, one_side = true },
+  { layer = "ntap", enclosure = 0.04, one_side = false },
+  { layer = "ptap", enclosure = 0.12, one_side = true },
+  { layer = "ptap", enclosure = 0.04, one_side = false },
 ]
 
 [layers.pdiff]
@@ -108,20 +130,36 @@ width = 0.14
 space = 0.14
 area = 0.0676
 
-[stacks.polyc]
-top = "li"
+[stacks]
+
+[stacks.nsubdiffc]
+top_layer = "li"
+top_drc = "li"
+contact_layer = "nsubdiffc"
 contact_drc = "licon"
+bot_layer = "nsubdiff"
+bot_drc = "ntap"
+
+[stacks.polyc]
+top_layer = "li"
+top_drc = "li"
 contact_layer = "polyc"
-bot = "li"
+contact_drc = "licon"
+bot_layer = "li"
+bot_drc = "li"
 
 [stacks.viali]
-top = "m1"
-contact_drc = "ct"
+top_layer = "m1"
+top_drc = "m1"
 contact_layer = "viali"
-bot = "li"
+contact_drc = "ct"
+bot_layer = "li"
+bot_drc = "li"
 
 [stacks.via1]
-top = "m2"
-contact_drc = "via1"
+top_layer = "m2"
+top_drc = "m2"
 contact_layer = "via1"
-bot = "m1"
+contact_drc = "via1"
+bot_layer = "m1"
+bot_drc = "m1"
