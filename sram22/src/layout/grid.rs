@@ -5,11 +5,13 @@ use magic_vlsi::{
     MagicInstance,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, derive_builder::Builder)]
 pub struct GridCell {
     cell: LayoutCellRef,
     flip_x: bool,
     flip_y: bool,
+    width: usize,
+    height: usize,
 }
 
 #[derive(Debug)]
@@ -25,7 +27,13 @@ impl GridCell {
             cell,
             flip_x,
             flip_y,
+            width: 1,
+            height: 1,
         }
+    }
+
+    pub fn builder() -> GridCellBuilder {
+        GridCellBuilder::default()
     }
 }
 
@@ -39,16 +47,20 @@ impl GridLayout {
         for i in 0..rows {
             for j in 0..cols {
                 if let Some(grid_cell) = grid.get(i, j).unwrap() {
-                    if let Some(h) = row_heights[i] {
-                        assert_eq!(grid_cell.cell.bbox.height(), h);
-                    } else {
-                        row_heights[i] = Some(grid_cell.cell.bbox.height());
+                    if grid_cell.height == 1 {
+                        if let Some(h) = row_heights[i] {
+                            assert_eq!(grid_cell.cell.bbox.height(), h);
+                        } else {
+                            row_heights[i] = Some(grid_cell.cell.bbox.height());
+                        }
                     }
 
-                    if let Some(w) = col_widths[j] {
-                        assert_eq!(grid_cell.cell.bbox.width(), w);
-                    } else {
-                        col_widths[j] = Some(grid_cell.cell.bbox.width());
+                    if grid_cell.width == 1 {
+                        if let Some(w) = col_widths[j] {
+                            assert_eq!(grid_cell.cell.bbox.width(), w);
+                        } else {
+                            col_widths[j] = Some(grid_cell.cell.bbox.width());
+                        }
                     }
                 }
             }

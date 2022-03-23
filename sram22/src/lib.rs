@@ -195,6 +195,7 @@ fn include_cells(factory: &mut Factory, cell_dir: impl AsRef<Path>) -> Result<()
         (ARRAY_CORNER, "corner"),
         (WLSTRAP, "wlstrap"),
         (ARRAY_COLEND_CENTER, "colend_cent"),
+        (SENSE_AMP, "sa_senseamp"),
     ]
     .iter()
     .map(|(cell_name, file_name)| {
