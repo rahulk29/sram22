@@ -4,3 +4,6 @@
 [submodule "sram22/src/verification/plugins/magic_pex"]
 	path = edatool/src/plugins/magic_pex
 	url = git@github.com:rahulk29/magic_pex.git
+[submodule "deps/Layout21"]
+	path = deps/Layout21
+	url = git@github.com:dan-fritchman/Layout21.git
