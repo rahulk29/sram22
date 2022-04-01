@@ -9,7 +9,7 @@ description = "A configurable SRAM generator"
 
 [dependencies]
 derive_builder = "0.11"
-grid = { version = "*" }
+grid = { version = "0.6" }
 thiserror = "1.0"
 magic_vlsi = { path = "../magic_vlsi" }
 micro_hdl = { path = "../micro_hdl" }
@@ -26,6 +26,8 @@ handlebars = "4.2"
 portpicker = "0.1"
 prost = "0.9"
 bytes = "1.1"
+layout21 = { path = "../deps/Layout21/layout21" }
+
 
 [build-dependencies]
 prost-build = "0.9"
