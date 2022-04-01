@@ -1,0 +1,15 @@
+* PMOS Pass Gate DC Characterization
+
+.lib /home/rahul/acads/sky130/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice tt
+
+Vin in 0
+XFET0 in 0 out pwr sky130_fd_pr__pfet_01v8 w=2 l=0.15
+Vdd pwr 0 dc 1.8
+Cout out 0 0.5p
+
+.control
+dc vin 0 1.8 0.05
+print out
+.endc
+
+.end
