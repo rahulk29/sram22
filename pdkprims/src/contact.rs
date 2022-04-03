@@ -1,6 +1,9 @@
+use std::collections::HashMap;
 use std::fmt::Display;
 
-use layout21::raw::{Cell, Element, LayerPurpose, Layout, Point, Rect, Shape};
+use layout21::raw::{
+    Abstract, AbstractPort, BoundBoxTrait, Cell, Element, LayerPurpose, Layout, Point, Rect, Shape,
+};
 use layout21::utils::Ptr;
 use serde::{Deserialize, Serialize};
 
@@ -82,6 +85,8 @@ impl Pdk {
             p1: Point::new(x0 + ctbw, y0 + ctbh),
         };
 
+        let net_name = "x".to_string();
+
         for i in 0..rows {
             for j in 0..cols {
                 let left = x0 + j * (ctw + cts);
@@ -92,13 +97,20 @@ impl Pdk {
                 };
 
                 elems.push(Element {
-                    net: None,
+                    net: Some(net_name.clone()),
                     layer: ctlay,
                     purpose: LayerPurpose::Drawing,
                     inner: Shape::Rect(ct_box),
                 });
             }
         }
+
+        let mut bboxes = Vec::with_capacity(2);
+
+        let mut aport = AbstractPort {
+            net: net_name.clone(),
+            shapes: HashMap::new(),
+        };
 
         for lay_name in [&stack.layers[0], &stack.layers[2]] {
             let lay = layers.keyname(lay_name).unwrap();
@@ -117,13 +129,24 @@ impl Pdk {
                 }
             }
 
+            let shape = Shape::Rect(laybox);
+            aport.shapes.insert(lay, vec![shape.clone()]);
+
+            bboxes.push(shape.bbox());
+
             elems.push(Element {
-                net: None,
+                net: Some(net_name.clone()),
                 layer: lay,
                 purpose: LayerPurpose::Drawing,
-                inner: Shape::Rect(laybox),
+                inner: shape,
             });
         }
+
+        let bbox = bboxes[0].union(&bboxes[1]);
+        let outline = Rect {
+            p0: bbox.p0,
+            p1: bbox.p1,
+        };
 
         let name = format!("{}", params);
 
@@ -134,9 +157,21 @@ impl Pdk {
             elems,
         };
 
+        let abs = Abstract {
+            name: name.clone(),
+            outline: Element {
+                net: Some(net_name.clone()),
+                layer: ctlay,
+                purpose: LayerPurpose::Outline,
+                inner: Shape::Rect(outline),
+            },
+            blockages: HashMap::new(),
+            ports: vec![aport],
+        };
+
         let cell = Cell {
             name,
-            abs: None,
+            abs: Some(abs),
             layout: Some(layout),
         };
 
