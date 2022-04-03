@@ -1,6 +1,9 @@
 use std::path::{Path, PathBuf};
 
-use layout21::raw::Library;
+use layout21::{
+    raw::{DepOrder, Library},
+    utils::PtrList,
+};
 
 use crate::{
     contact::ContactParams,
@@ -39,8 +42,10 @@ fn test_draw_sky130_mos_nand2() -> Result<(), Box<dyn std::error::Error>> {
     );
     lib.layers = pdk.layers();
     lib.cells.push(cell);
+    let cells = DepOrder::order(&lib);
+    lib.cells = PtrList::from_ptrs(cells);
     let gds = lib.to_gds()?;
-    gds.save("test_draw_sky130_mos_nand2.gds")?;
+    gds.save(output("test_draw_sky130_mos_nand2.gds"))?;
 
     Ok(())
 }

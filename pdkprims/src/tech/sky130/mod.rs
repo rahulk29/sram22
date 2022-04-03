@@ -1,7 +1,11 @@
-use layout21::raw::{Cell, Element, LayerPurpose, Layout, LayoutResult, Point, Rect, Shape};
+use layout21::raw::{
+    Cell, Element, Instance, LayerPurpose, Layout, LayoutResult, Point, Rect, Shape,
+};
 use layout21::utils::Ptr;
 
 use crate::config::Int;
+use crate::contact::ContactParams;
+use crate::geometry::CoarseDirection;
 use crate::mos::MosType;
 use crate::{
     config::TechConfig,
@@ -30,6 +34,7 @@ impl Pdk {
         params.validate()?;
 
         let mut elems = Vec::new();
+        let mut insts = Vec::new();
 
         let tc = self.config.read().unwrap();
         let layers = self.layers.read().unwrap();
@@ -93,9 +98,30 @@ impl Pdk {
             ypoly += finger_space(&tc);
         }
 
+        let ctp = ContactParams::builder()
+            .dir(CoarseDirection::Horizontal)
+            .rows(1)
+            .cols(1)
+            .stack("diffc".to_string())
+            .build()
+            .unwrap();
+        let ct = self.get_contact(&ctp);
+
+        // Add source/drain contacts
+        for i in 0..=nf {
+            let i = Instance {
+                inst_name: format!("sd_contact_{}", i),
+                cell: Ptr::clone(&ct),
+                loc: Point::new(x0, y0),
+                reflect_vert: false,
+                angle: None,
+            };
+            insts.push(i);
+        }
+
         let layout = Layout {
             name: "ptx".to_string(),
-            insts: vec![],
+            insts,
             annotations: vec![],
             elems,
         };
