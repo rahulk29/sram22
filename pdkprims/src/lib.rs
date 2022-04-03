@@ -1,6 +1,10 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use config::TechConfig;
+use contact::ContactParams;
 use layout21::{
     raw::{Cell, Element, LayerPurpose, Layers, Layout, LayoutResult, Library, Point, Rect, Shape},
     utils::Ptr,
@@ -12,17 +16,22 @@ pub mod geometry;
 pub mod mos;
 pub mod tech;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pdk {
     pub config: Ptr<TechConfig>,
     pub layers: Ptr<Layers>,
+    contacts: Ptr<HashMap<ContactParams, Ptr<Cell>>>,
 }
 
 impl Pdk {
     pub fn new(config: TechConfig) -> LayoutResult<Self> {
         let layers = Ptr::new(config.get_layers()?);
         let config = Ptr::new(config);
-        Ok(Self { config, layers })
+        Ok(Self {
+            config,
+            layers,
+            contacts: Ptr::new(HashMap::new()),
+        })
     }
     #[inline]
     pub fn config(&self) -> Ptr<TechConfig> {

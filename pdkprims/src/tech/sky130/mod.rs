@@ -35,15 +35,13 @@ impl Pdk {
         let layers = self.layers.read().unwrap();
 
         let poly = layers.keyname("poly").unwrap();
-        let ndiff = layers.keyname("ndiff").unwrap();
-        let pdiff = layers.keyname("pdiff").unwrap();
+        let diff = layers.keyname("diff").unwrap();
 
         let nf = params.fingers();
 
         // Diff length perpendicular to gates
-        let diff_perp = 2 * ndiff_edge_to_gate(&tc)
-            + nf * tc.layer("poly").width
-            + (nf - 1) * finger_space(&tc);
+        let diff_perp =
+            2 * diff_edge_to_gate(&tc) + nf * tc.layer("poly").width + (nf - 1) * finger_space(&tc);
 
         let mut prev = None;
         let x0 = 0;
@@ -52,16 +50,11 @@ impl Pdk {
         for d in params.devices.iter() {
             if let Some(mt) = prev {
                 if mt != d.mos_type {
-                    cx += ndiff_to_pdiff(&tc);
+                    cx += diff_to_opposite_diff(&tc);
                 } else {
-                    cx += tc.layer("ndiff").space;
+                    cx += tc.layer("diff").space;
                 }
             }
-
-            let layer = match d.mos_type {
-                MosType::Nmos => ndiff,
-                MosType::Pmos => pdiff,
-            };
 
             let rect = Rect {
                 p0: Point::new(cx, y0),
@@ -70,7 +63,7 @@ impl Pdk {
 
             elems.push(Element {
                 net: None,
-                layer,
+                layer: diff,
                 purpose: LayerPurpose::Drawing,
                 inner: Shape::Rect(rect),
             });
@@ -80,9 +73,9 @@ impl Pdk {
             prev = Some(d.mos_type);
         }
 
-        let xpoly = x0 - tc.layer("poly").extension("ndiff");
-        let mut ypoly = y0 + ndiff_edge_to_gate(&tc);
-        let wpoly = cx - xpoly + tc.layer("poly").extension("ndiff");
+        let xpoly = x0 - tc.layer("poly").extension("diff");
+        let mut ypoly = y0 + diff_edge_to_gate(&tc);
+        let wpoly = cx - xpoly + tc.layer("poly").extension("diff");
         for _ in 0..nf {
             let rect = Rect {
                 p0: Point::new(xpoly, ypoly),
@@ -127,26 +120,16 @@ pub fn finger_space(tc: &TechConfig) -> Int {
     .unwrap()
 }
 
-pub fn ndiff_edge_to_gate(tc: &TechConfig) -> Int {
+pub fn diff_edge_to_gate(tc: &TechConfig) -> Int {
     [
-        tc.layer("ndiff").extension("poly"),
-        tc.space("gate", "licon") + tc.layer("licon").width + tc.layer("licon").enclosure("ndiff"),
+        tc.layer("diff").extension("poly"),
+        tc.space("gate", "licon") + tc.layer("licon").width + tc.layer("licon").enclosure("diff"),
     ]
     .into_iter()
     .max()
     .unwrap()
 }
 
-pub fn pdiff_edge_to_gate(tc: &TechConfig) -> Int {
-    [
-        tc.layer("pdiff").extension("poly"),
-        tc.space("gate", "licon") + tc.layer("licon").width + tc.layer("licon").enclosure("ndiff"),
-    ]
-    .into_iter()
-    .max()
-    .unwrap()
-}
-
-pub fn ndiff_to_pdiff(tc: &TechConfig) -> Int {
-    tc.space("ndiff", "nwell") + tc.layer("pdiff").enclosure("nwell")
+pub fn diff_to_opposite_diff(tc: &TechConfig) -> Int {
+    tc.space("diff", "nwell") + tc.layer("diff").enclosure("nwell")
 }

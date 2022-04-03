@@ -148,7 +148,7 @@ impl LayerConfig {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "sky130"))]
 mod tests {
     use super::*;
     use std::path::PathBuf;
@@ -163,10 +163,10 @@ mod tests {
         println!("loaded config {:?}", tc);
 
         assert_eq!(&tc.tech, "sky130A");
-        assert_eq!(tc.layer("poly").extension("ndiff"), 130);
-        assert_eq!(tc.layer("poly").extension("pdiff"), 130);
+        assert_eq!(tc.layer("poly").extension("diff"), 130);
+        assert_eq!(tc.layer("poly").extension("diff"), 130);
 
-        assert_eq!(tc.layer("poly").extension("pdiff"), 130);
+        assert_eq!(tc.layer("poly").extension("diff"), 130);
 
         assert_eq!(tc.layer("licon").enclosure("poly"), 50);
         assert_eq!(tc.layer("licon").one_side_enclosure("poly"), 80);

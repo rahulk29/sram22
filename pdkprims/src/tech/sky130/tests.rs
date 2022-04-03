@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use layout21::raw::Library;
 
 use crate::{
+    contact::ContactParams,
     geometry::CoarseDirection,
     mos::{MosDevice, MosParams, MosType},
 };
@@ -55,8 +56,20 @@ fn test_sky130_draw_contact() -> Result<(), Box<dyn std::error::Error>> {
 
     for i in 1..=n {
         for j in 1..=i {
-            let cell = pdk.get_contact("polyc", i, j);
-            lib.cells.push(cell);
+            for stack in ["polyc", "viali", "via1", "via2"] {
+                for dir in [CoarseDirection::Vertical, CoarseDirection::Horizontal] {
+                    let mut cp = ContactParams::builder();
+                    let cp = cp
+                        .stack(stack.to_string())
+                        .rows(i)
+                        .cols(j)
+                        .dir(dir)
+                        .build()
+                        .unwrap();
+                    let cell = pdk.get_contact(&cp);
+                    lib.cells.push(cell);
+                }
+            }
         }
     }
 

@@ -1,16 +1,66 @@
+use std::fmt::Display;
+
 use layout21::raw::{Cell, Element, LayerPurpose, Layout, Point, Rect, Shape};
 use layout21::utils::Ptr;
+use serde::{Deserialize, Serialize};
 
 use crate::config::Int;
+use crate::geometry::CoarseDirection;
 use crate::{config::Uint, Pdk};
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, derive_builder::Builder)]
+pub struct ContactParams {
+    pub stack: String,
+    pub rows: Uint,
+    pub cols: Uint,
+    /// The "relaxed" direction, ie. the direction in which there is more margin (for overhangs,
+    /// for instance).
+    ///
+    /// If the contact generator needs more space, it will try to expand in
+    /// this direction first.
+    pub dir: CoarseDirection,
+}
+
+impl Display for ContactParams {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}_{}x{}{}",
+            &self.stack,
+            self.rows,
+            self.cols,
+            self.dir.short_form()
+        )
+    }
+}
+
+impl ContactParams {
+    pub fn builder() -> ContactParamsBuilder {
+        ContactParamsBuilder::default()
+    }
+}
+
 impl Pdk {
-    pub fn get_contact(&self, stack: impl Into<String>, rows: Uint, cols: Uint) -> Ptr<Cell> {
+    pub fn get_contact(&self, params: &ContactParams) -> Ptr<Cell> {
+        let mut map = self.contacts.write().unwrap();
+        if let Some(c) = map.get(&params) {
+            Ptr::clone(c)
+        } else {
+            let c = self.draw_contact(&params);
+            map.insert(params.to_owned(), Ptr::clone(&c));
+            c
+        }
+    }
+
+    fn draw_contact(&self, params: &ContactParams) -> Ptr<Cell> {
+        let rows = params.rows;
+        let cols = params.cols;
+
         assert!(rows > 0);
         assert!(cols > 0);
         let tc = self.config.read().unwrap();
         let layers = self.layers.read().unwrap();
-        let stack_name = stack.into();
+        let stack_name = params.stack.clone();
         let stack = tc.stack(&stack_name);
         assert_eq!(stack.layers.len(), 3);
 
@@ -55,8 +105,17 @@ impl Pdk {
             let mut laybox = ct_bbox.clone();
             expand_box(&mut laybox, tc.layer(ctlay_name).enclosure(lay_name));
             let ose = tc.layer(ctlay_name).one_side_enclosure(&lay_name);
-            laybox.p0.x = std::cmp::min(laybox.p0.x, ct_bbox.p0.x - ose);
-            laybox.p1.x = std::cmp::max(laybox.p0.x, ct_bbox.p1.x + ose);
+
+            match params.dir {
+                CoarseDirection::Vertical => {
+                    laybox.p0.y = std::cmp::min(laybox.p0.y, ct_bbox.p0.y - ose);
+                    laybox.p1.y = std::cmp::max(laybox.p0.y, ct_bbox.p1.y + ose);
+                }
+                CoarseDirection::Horizontal => {
+                    laybox.p0.x = std::cmp::min(laybox.p0.x, ct_bbox.p0.x - ose);
+                    laybox.p1.x = std::cmp::max(laybox.p0.x, ct_bbox.p1.x + ose);
+                }
+            }
 
             elems.push(Element {
                 net: None,
@@ -66,7 +125,7 @@ impl Pdk {
             });
         }
 
-        let name = format!("{}_{}x{}", stack_name, rows, cols);
+        let name = format!("{}", params);
 
         let layout = Layout {
             name: name.clone(),

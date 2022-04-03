@@ -10,9 +10,9 @@ beta = 1.54
 gamma = 1.3
 
 spacing = [
-  { from = "ndiff", to = "nwell", dist = 340 },
+  { from = "diff", to = "nwell", dist = 340 },
   { from = "gate", to = "licon", dist = 55 }, # gate to source/drain contacts
-  { from = "licon", to = "pdiff", dist = 235 },
+  { from = "licon", to = "diff", dist = 235 },
 ]
 
 [layers]
@@ -60,8 +60,8 @@ width = 150
 space = 210
 area = 0
 extensions = [
-  { layer = "ndiff", extend = 130 },
-  { layer = "pdiff", extend = 130 },
+  { layer = "diff", extend = 130 },
+  { layer = "diff", extend = 130 },
 ]
 purposes = [
   ["Drawing", 20],
@@ -98,10 +98,8 @@ width = 170
 space = 170
 area = 28900
 enclosures = [
-  { layer = "ndiff", enclosure = 40, one_side = false },
-  { layer = "pdiff", enclosure = 40, one_side = false },
-  { layer = "ndiff", enclosure = 60, one_side = true },
-  { layer = "pdiff", enclosure = 60, one_side = true },
+  { layer = "diff", enclosure = 40, one_side = false },
+  { layer = "diff", enclosure = 60, one_side = true },
   { layer = "poly", enclosure = 50, one_side = false },
   { layer = "poly", enclosure = 80, one_side = true },
   { layer = "li", enclosure = 80, one_side = true },
@@ -114,24 +112,8 @@ purposes = [
   ["Drawing", 44],
 ]
 
-[layers.pdiff]
-desc = "pmos diffusion regions"
-layernum = 65
-width = 150
-space = 270
-area = 63000
-enclosures = [
-  { layer = "nwell", enclosure = 180, one_side = false },
-]
-extensions = [
-  { layer = "poly", extend = 250 },
-]
-purposes = [
-  ["Drawing", 20],
-]
-
-[layers.ndiff]
-desc = "nmos diffusion regions"
+[layers.diff]
+desc = "nmos/pmos diffusion regions"
 layernum = 65
 width = 150
 space = 270
@@ -171,8 +153,32 @@ purposes = [
 ]
 
 [layers.m2]
-desc = "first level of metal interconnects"
+desc = "second level of metal interconnects"
 layernum = 69
+width = 140
+space = 140
+area = 67600
+purposes = [
+  ["Drawing", 20],
+]
+
+[layers.via2]
+desc = "defines contacts between metal 1 and metal 2"
+layernum = 68
+width = 260
+space = 60
+area = 67600
+enclosures = [
+  { layer = "m1", enclosure = 30, one_side = true },
+  { layer = "m2", enclosure = 30, one_side = true },
+]
+purposes = [
+  ["Drawing", 44],
+]
+
+[layers.m3]
+desc = "third level of metal interconnects"
+layernum = 70
 width = 140
 space = 140
 area = 67600
@@ -189,7 +195,7 @@ layers = ["li", "licon", "diff"]
 [stacks.viali]
 layers = ["m1", "mcon", "li"]
 [stacks.via1]
-layers = ["m2", "via1", "m1"]
+layers = ["m2", "via", "m1"]
 [stacks.via2]
 layers = ["m3", "via2", "m2"]
 
