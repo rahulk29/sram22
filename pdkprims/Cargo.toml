@@ -1,0 +1,16 @@
+[package]
+name = "pdkprims"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+layout21 = { path = "../deps/Layout21/layout21" }
+toml = "0.5"
+thiserror = "1.0"
+derive_builder = "0.11"
+
+[features]
+sky130 = []
+default = ["sky130"]
