@@ -243,6 +243,7 @@ pub mod tests {
     use crate::test_utils::*;
 
     #[test]
+    #[ignore]
     fn test_generate_pm_single_height_nf1() {
         let tc = sky130_config();
         let mut m = get_magic();
@@ -262,6 +263,7 @@ pub mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_generate_pm_single_height_nf2() {
         let tc = sky130_config();
         let mut m = get_magic();

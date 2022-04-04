@@ -1,5 +1,7 @@
 tech = "sky130A"
-grid = 0.005
+
+units = "Nano"
+grid = 5
 
 # ratio of PMOS to NMOS widths for unit inverter
 beta = 1.54
@@ -8,158 +10,237 @@ beta = 1.54
 gamma = 1.3
 
 spacing = [
-  { from = "ndiff", to = "nwell", dist = 0.34 },
-  { from = "gate", to = "licon", dist = 0.055 }, # gate to source/drain contacts
-  { from = "licon", to = "pdiff", dist = 0.235 },
+  { from = "diff", to = "nwell", dist = 340 },
+  { from = "gate", to = "licon", dist = 55 }, # gate to source/drain contacts
+  { from = "gate", to = "npc", dist = 90 }, # gate to nitride poly cut
+  { from = "licon", to = "diff", dist = 235 },
+  { from = "nsdm", to = "diff", dist = 130 }, # nsdm to opposite diff
+  { from = "psdm", to = "diff", dist = 130 }, # psdm to opposite diff
 ]
 
 [layers]
 
 [layers.nwell]
 desc = "define nwell for placing PMOS transistors"
-width = 0.84
-space = 1.27
-area = 0.0
+layernum = 64
+width = 840
+space = 1270
+area = 0
+purposes = [
+  ["Drawing", 20],
+  ["Label", 5],
+]
+
+[layers.nsdm]
+desc = "define n+ source/drain implants"
+layernum = 93
+width = 380
+space = 380
+area = 265000
+purposes = [
+  ["Drawing", 44],
+]
+
+[layers.psdm]
+desc = "define p+ source/drain implants"
+layernum = 94
+width = 380
+space = 380
+area = 255000
+purposes = [
+  ["Drawing", 20],
+]
+
+[layers.npc]
+desc = "define nitride poly cuts under licon1 areas"
+layernum = 95
+width = 270
+space = 270
+area = 1
+purposes = [
+  ["Drawing", 20],
+]
 
 [layers.ntap]
 desc = "define n+ taps to nwell"
-width = 0.15
-space = 0.27
-area = 0.0
+layernum = 65
+width = 150
+space = 270
+area = 0
 enclosures = [
-  { layer = "nwell", enclosure = 0.18, one_side = false },
+  { layer = "nwell", enclosure = 180, one_side = false },
+]
+purposes = [
+  ["Drawing", 44],
 ]
 
 [layers.ptap]
 desc = "define p+ taps to substrate"
-width = 0.15
-space = 0.27
-area = 0.0
+layernum = 65
+width = 150
+space = 270
+area = 0
 enclosures = [
-  { layer = "pwell", enclosure = 0.13, one_side = false },
+  { layer = "pwell", enclosure = 130, one_side = false },
+]
+purposes = [
+  ["Drawing", 44],
 ]
 
 [layers.poly]
 desc = "define transistor gates"
-width = 0.15
-space = 0.21
-area = 0.0
+layernum = 66
+width = 150
+space = 210
+area = 0
 extensions = [
-  { layer = "ndiff", extend = 0.13 },
-  { layer = "pdiff", extend = 0.13 },
+  { layer = "diff", extend = 130 },
+  { layer = "diff", extend = 130 },
+]
+purposes = [
+  ["Drawing", 20],
+  ["Label", 5],
 ]
 
-[layers.ct]
+[layers.mcon]
 desc = "contact between li and m1"
-width = 0.17
-space = 0.19
-area = 0.0289
+layernum = 67
+width = 170
+space = 190
+area = 28900
 enclosures = [
-  { layer = "m1", enclosure = 0.03, one_side = false },
-  { layer = "m1", enclosure = 0.06, one_side = true },
+  { layer = "m1", enclosure = 30, one_side = false },
+  { layer = "m1", enclosure = 60, one_side = true },
+]
+purposes = [
+  ["Drawing", 44],
 ]
 
 [layers.li]
 desc = "local interconnect"
-width = 0.17
-space = 0.17
-area = 0.0561
+layernum = 67
+width = 170
+space = 170
+area = 56100
+purposes = [
+  ["Drawing", 20],
+  ["Label", 5],
+]
 
 [layers.licon]
 desc = "defines contacts between poly/diff/tap and local interconnect"
-width = 0.17
-space = 0.17
-area = 0.0289
+layernum = 66
+width = 170
+space = 170
+area = 28900
 enclosures = [
-  { layer = "ndiff", enclosure = 0.04, one_side = false },
-  { layer = "pdiff", enclosure = 0.04, one_side = false },
-  { layer = "ndiff", enclosure = 0.06, one_side = true },
-  { layer = "pdiff", enclosure = 0.06, one_side = true },
-  { layer = "poly", enclosure = 0.05, one_side = false },
-  { layer = "poly", enclosure = 0.08, one_side = true },
-  { layer = "li", enclosure = 0.08, one_side = true },
-  { layer = "ntap", enclosure = 0.12, one_side = true },
-  { layer = "ntap", enclosure = 0.04, one_side = false },
-  { layer = "ptap", enclosure = 0.12, one_side = true },
-  { layer = "ptap", enclosure = 0.04, one_side = false },
+  { layer = "diff", enclosure = 40, one_side = false },
+  { layer = "diff", enclosure = 60, one_side = true },
+  { layer = "poly", enclosure = 50, one_side = false },
+  { layer = "poly", enclosure = 80, one_side = true },
+  { layer = "li", enclosure = 80, one_side = true },
+  { layer = "ntap", enclosure = 120, one_side = true },
+  { layer = "ntap", enclosure = 40, one_side = false },
+  { layer = "ptap", enclosure = 120, one_side = true },
+  { layer = "ptap", enclosure = 40, one_side = false },
+  { layer = "npc", enclosure = 100, one_side = false },
+]
+purposes = [
+  ["Drawing", 44],
 ]
 
-[layers.pdiff]
-desc = "pmos diffusion regions"
-width = 0.15
-space = 0.27
-area = 0.063
+[layers.diff]
+desc = "nmos/pmos diffusion regions"
+layernum = 65
+width = 150
+space = 270
+area = 63000
 enclosures = [
-  { layer = "nwell", enclosure = 0.18, one_side = false },
+  { layer = "nwell", enclosure = 180, one_side = false },
+  { layer = "nsdm", enclosure = 125, one_side = false },
+  { layer = "psdm", enclosure = 125, one_side = false },
 ]
 extensions = [
-  { layer = "poly", extend = 0.25 },
+  { layer = "poly", extend = 250 },
 ]
-
-[layers.ndiff]
-desc = "nmos diffusion regions"
-width = 0.15
-space = 0.27
-area = 0.063
-enclosures = [
-  { layer = "nwell", enclosure = 0.18, one_side = false },
-]
-extensions = [
-  { layer = "poly", extend = 0.25 },
+purposes = [
+  ["Drawing", 20],
+  ["Label", 6],
 ]
 
 [layers.m1]
 desc = "first level of metal interconnects"
-width = 0.14
-space = 0.14
-area = 0.083
+layernum = 68
+width = 140
+space = 140
+area = 83000
+purposes = [
+  ["Drawing", 20],
+  ["Label", 5],
+]
 
-[layers.via1]
+[layers.via]
 desc = "defines contacts between metal 1 and metal 2"
-width = 0.26
-space = 0.06
-area = 0.0676
+layernum = 68
+width = 260
+space = 60
+area = 67600
 enclosures = [
-  { layer = "m1", enclosure = 0.03, one_side = true },
-  { layer = "m2", enclosure = 0.03, one_side = true },
+  { layer = "m1", enclosure = 30, one_side = true },
+  { layer = "m2", enclosure = 30, one_side = true },
+]
+purposes = [
+  ["Drawing", 44],
 ]
 
 [layers.m2]
-desc = "first level of metal interconnects"
-width = 0.14
-space = 0.14
-area = 0.0676
+desc = "second level of metal interconnects"
+layernum = 69
+width = 140
+space = 140
+area = 67600
+purposes = [
+  ["Drawing", 20],
+  ["Label", 5],
+]
+
+[layers.via2]
+desc = "defines contacts between metal 1 and metal 2"
+layernum = 68
+width = 260
+space = 60
+area = 67600
+enclosures = [
+  { layer = "m1", enclosure = 30, one_side = true },
+  { layer = "m2", enclosure = 30, one_side = true },
+]
+purposes = [
+  ["Drawing", 44],
+]
+
+[layers.m3]
+desc = "third level of metal interconnects"
+layernum = 70
+width = 140
+space = 140
+area = 67600
+purposes = [
+  ["Drawing", 20],
+  ["Label", 5],
+]
 
 [stacks]
 
-[stacks.nsubdiffc]
-top_layer = "li"
-top_drc = "li"
-contact_layer = "nsubdiffc"
-contact_drc = "licon"
-bot_layer = "nsubdiff"
-bot_drc = "ntap"
-
 [stacks.polyc]
-top_layer = "li"
-top_drc = "li"
-contact_layer = "polyc"
-contact_drc = "licon"
-bot_layer = "li"
-bot_drc = "li"
-
+layers = ["li", "licon", "poly"]
+[stacks.ndiffc]
+layers = ["li", "licon", "diff"]
+[stacks.pdiffc]
+layers = ["li", "licon", "diff"]
 [stacks.viali]
-top_layer = "m1"
-top_drc = "m1"
-contact_layer = "viali"
-contact_drc = "ct"
-bot_layer = "li"
-bot_drc = "li"
-
+layers = ["m1", "mcon", "li"]
 [stacks.via1]
-top_layer = "m2"
-top_drc = "m2"
-contact_layer = "via1"
-contact_drc = "via1"
-bot_layer = "m1"
-bot_drc = "m1"
+layers = ["m2", "via", "m1"]
+[stacks.via2]
+layers = ["m3", "via2", "m2"]
+

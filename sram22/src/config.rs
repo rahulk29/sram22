@@ -251,30 +251,3 @@ impl Extension {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use log::info;
-    use std::path::PathBuf;
-
-    #[test]
-    fn test_sky130_design_rules() -> Result<(), Box<dyn std::error::Error>> {
-        let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        p.push("../tech/sky130/drc_config.toml");
-        let tc = TechConfig::load(p)?;
-
-        info!("loaded config {:?}", tc);
-
-        assert_eq!(&tc.tech, "sky130A");
-        assert_eq!(tc.layer("poly").extension("ndiff").nm(), 130);
-        assert_eq!(tc.layer("poly").extension("pdiff").nm(), 130);
-
-        assert_eq!(tc.layer("poly").extension("pdiff").nm(), 130);
-
-        assert_eq!(tc.layer("licon").enclosure("poly").nm(), 50);
-        assert_eq!(tc.layer("licon").one_side_enclosure("poly").nm(), 80);
-
-        Ok(())
-    }
-}
