@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::sync::Arc;
 
 use layout21::raw::{
     Abstract, AbstractPort, BoundBox, BoundBoxTrait, Cell, Element, LayerKey, LayerPurpose, Layout,
@@ -8,6 +9,7 @@ use layout21::raw::{
 use layout21::utils::Ptr;
 use serde::{Deserialize, Serialize};
 
+use crate::Ref;
 use crate::config::Int;
 use crate::geometry::{expand_box, rect_from_bbox, CoarseDirection};
 use crate::{config::Uint, Pdk};
@@ -53,7 +55,7 @@ impl ContactParams {
 }
 
 impl Pdk {
-    pub fn get_contact(&self, params: &ContactParams) -> Contact {
+    pub fn get_contact(&self, params: &ContactParams) -> Ref<Contact> {
         let mut map = self.contacts.write().unwrap();
         if let Some(c) = map.get(&params) {
             c.clone()
@@ -69,7 +71,7 @@ impl Pdk {
         stack: impl Into<String>,
         layer: LayerKey,
         width: Int,
-    ) -> Option<Contact> {
+    ) -> Option<Ref<Contact>> {
         let mut low = 1;
         let mut high = 100;
         let mut result = None;
@@ -99,7 +101,7 @@ impl Pdk {
         result
     }
 
-    fn draw_contact(&self, params: &ContactParams) -> Contact {
+    fn draw_contact(&self, params: &ContactParams) -> Ref<Contact> {
         let rows = params.rows;
         let cols = params.cols;
 
@@ -263,11 +265,11 @@ impl Pdk {
 
         let cell = Ptr::new(cell);
 
-        Contact {
+        Arc::new(Contact {
             cell,
             rows: params.rows,
             cols: params.cols,
             bboxes: bbox_map,
-        }
+        })
     }
 }

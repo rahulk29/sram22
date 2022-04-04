@@ -13,6 +13,8 @@ use layout21::{
     utils::Ptr,
 };
 
+pub type Ref<T> = std::sync::Arc<T>;
+
 pub mod config;
 pub mod contact;
 pub mod geometry;
@@ -23,7 +25,7 @@ pub mod tech;
 pub struct Pdk {
     pub config: Ptr<TechConfig>,
     pub layers: Ptr<Layers>,
-    contacts: Ptr<HashMap<ContactParams, Contact>>,
+    contacts: Ptr<HashMap<ContactParams, Ref<Contact>>>,
 }
 
 impl Pdk {

@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use layout21::{
     raw::{DepOrder, Library},
-    utils::PtrList,
+    utils::{PtrList, Ptr},
 };
 
 use crate::{
@@ -74,7 +74,7 @@ fn test_sky130_draw_contact() -> Result<(), Box<dyn std::error::Error>> {
                         .build()
                         .unwrap();
                     let ct = pdk.get_contact(&cp);
-                    lib.cells.push(ct.cell);
+                    lib.cells.push(Ptr::clone(&ct.cell));
                 }
             }
         }
