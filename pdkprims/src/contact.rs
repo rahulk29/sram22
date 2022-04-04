@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::fmt::Display;
 
 use layout21::raw::{
-    Abstract, AbstractPort, BoundBoxTrait, Cell, Element, LayerPurpose, Layout, Point, Rect, Shape,
+    Abstract, AbstractPort, BoundBox, BoundBoxTrait, Cell, Element, LayerKey, LayerPurpose, Layout,
+    Point, Rect, Shape,
 };
 use layout21::utils::Ptr;
 use serde::{Deserialize, Serialize};
@@ -22,6 +23,14 @@ pub struct ContactParams {
     /// If the contact generator needs more space, it will try to expand in
     /// this direction first.
     pub dir: CoarseDirection,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, derive_builder::Builder)]
+pub struct Contact {
+    pub cell: Ptr<Cell>,
+    pub rows: Uint,
+    pub cols: Uint,
+    pub bboxes: HashMap<LayerKey, Rect>,
 }
 
 impl Display for ContactParams {
@@ -44,18 +53,53 @@ impl ContactParams {
 }
 
 impl Pdk {
-    pub fn get_contact(&self, params: &ContactParams) -> Ptr<Cell> {
+    pub fn get_contact(&self, params: &ContactParams) -> Contact {
         let mut map = self.contacts.write().unwrap();
         if let Some(c) = map.get(&params) {
-            Ptr::clone(c)
+            c.clone()
         } else {
             let c = self.draw_contact(&params);
-            map.insert(params.to_owned(), Ptr::clone(&c));
+            map.insert(params.to_owned(), c.clone());
             c
         }
     }
 
-    fn draw_contact(&self, params: &ContactParams) -> Ptr<Cell> {
+    pub fn get_contact_sized(
+        &self,
+        stack: impl Into<String>,
+        layer: LayerKey,
+        width: Int,
+    ) -> Option<Contact> {
+        let mut low = 1;
+        let mut high = 100;
+        let mut result = None;
+
+        let stack = stack.into();
+
+        while high > low {
+            let mid = (high + low) / 2;
+            let params = ContactParams::builder()
+                .rows(1)
+                .cols(mid)
+                .stack(stack.clone())
+                .dir(CoarseDirection::Horizontal)
+                .build()
+                .unwrap();
+            let ct = self.get_contact(&params);
+            let bbox = ct.bboxes.get(&layer).unwrap();
+
+            if bbox.p1.x - bbox.p0.x < width {
+                result = Some(ct);
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+
+        result
+    }
+
+    fn draw_contact(&self, params: &ContactParams) -> Contact {
         let rows = params.rows;
         let cols = params.cols;
 
@@ -97,7 +141,7 @@ impl Pdk {
                 };
 
                 elems.push(Element {
-                    net: Some(net_name.clone()),
+                    net: None,
                     layer: ctlay,
                     purpose: LayerPurpose::Drawing,
                     inner: Shape::Rect(ct_box),
@@ -106,6 +150,8 @@ impl Pdk {
         }
 
         let mut bboxes = Vec::with_capacity(2);
+        let mut bbox_map = HashMap::with_capacity(3);
+        bbox_map.insert(ctlay, ct_bbox.clone());
 
         let mut aport = AbstractPort {
             net: net_name.clone(),
@@ -129,10 +175,11 @@ impl Pdk {
                 }
             }
 
-            let shape = Shape::Rect(laybox);
+            let shape = Shape::Rect(laybox.clone());
             aport.shapes.insert(lay, vec![shape.clone()]);
 
             bboxes.push(shape.bbox());
+            bbox_map.insert(lay, laybox);
 
             elems.push(Element {
                 net: Some(net_name.clone()),
@@ -161,8 +208,8 @@ impl Pdk {
             name: name.clone(),
             outline: Element {
                 net: Some(net_name.clone()),
-                layer: ctlay,
-                purpose: LayerPurpose::Outline,
+                layer: layers.keyname(&stack.layers[0]).unwrap(),
+                purpose: LayerPurpose::Drawing,
                 inner: Shape::Rect(outline),
             },
             blockages: HashMap::new(),
@@ -175,7 +222,14 @@ impl Pdk {
             layout: Some(layout),
         };
 
-        Ptr::new(cell)
+        let cell = Ptr::new(cell);
+
+        Contact {
+            cell,
+            rows: params.rows,
+            cols: params.cols,
+            bboxes: bbox_map,
+        }
     }
 }
 
@@ -187,4 +241,11 @@ fn expand_box(b: &mut Rect, dist: Int) {
     b.p1.x += dist;
     b.p0.y -= dist;
     b.p1.y += dist;
+}
+
+fn rect_from_bbox(bbox: &BoundBox) -> Rect {
+    Rect {
+        p0: bbox.p0.clone(),
+        p1: bbox.p1.clone(),
+    }
 }

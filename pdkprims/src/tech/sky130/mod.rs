@@ -1,5 +1,5 @@
 use layout21::raw::{
-    Cell, Element, Instance, LayerPurpose, Layout, LayoutResult, Point, Rect, Shape,
+    BoundBoxTrait, Cell, Element, Instance, LayerPurpose, Layout, LayoutResult, Point, Rect, Shape,
 };
 use layout21::utils::Ptr;
 
@@ -52,6 +52,9 @@ impl Pdk {
         let x0 = 0;
         let mut cx = x0;
         let y0 = 0;
+
+        let mut diff_xs = Vec::new();
+
         for d in params.devices.iter() {
             if let Some(mt) = prev {
                 if mt != d.mos_type {
@@ -60,6 +63,8 @@ impl Pdk {
                     cx += tc.layer("diff").space;
                 }
             }
+
+            diff_xs.push(cx);
 
             let rect = Rect {
                 p0: Point::new(cx, y0),
@@ -98,25 +103,28 @@ impl Pdk {
             ypoly += finger_space(&tc);
         }
 
-        let ctp = ContactParams::builder()
-            .dir(CoarseDirection::Horizontal)
-            .rows(1)
-            .cols(1)
-            .stack("diffc".to_string())
-            .build()
-            .unwrap();
-        let ct = self.get_contact(&ctp);
-
         // Add source/drain contacts
+        let mut cy = y0;
+
         for i in 0..=nf {
-            let i = Instance {
-                inst_name: format!("sd_contact_{}", i),
-                cell: Ptr::clone(&ct),
-                loc: Point::new(x0, y0),
-                reflect_vert: false,
-                angle: None,
-            };
-            insts.push(i);
+            for (d, (j, x)) in params.devices.iter().zip(diff_xs.iter().enumerate()) {
+                if d.skip_sd_metal.contains(&(i as usize)) {
+                    continue;
+                }
+                let ct = self.get_contact_sized("diffc", diff, d.width).unwrap();
+                let bbox = ct.bboxes.get(&diff).unwrap();
+                let ofsx = (d.width - rect_width(bbox)) / 2;
+                let inst = Instance {
+                    inst_name: format!("sd_contact_{}_{}", i, j),
+                    cell: Ptr::clone(&ct.cell),
+                    loc: Point::new(x - bbox.p0.x + ofsx, cy - bbox.p0.y),
+                    reflect_vert: false,
+                    angle: None,
+                };
+                insts.push(inst);
+            }
+            cy += params.length();
+            cy += finger_space(&tc);
         }
 
         let layout = Layout {
@@ -158,4 +166,11 @@ pub fn diff_edge_to_gate(tc: &TechConfig) -> Int {
 
 pub fn diff_to_opposite_diff(tc: &TechConfig) -> Int {
     tc.space("diff", "nwell") + tc.layer("diff").enclosure("nwell")
+}
+
+/// Calculates the width of the given rectangle.
+///
+/// Assumes that `r.p1.x > r.p0.x`.
+fn rect_width(r: &Rect) -> Int {
+    r.p1.x - r.p0.x
 }

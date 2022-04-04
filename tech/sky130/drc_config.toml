@@ -25,6 +25,7 @@ space = 1270
 area = 0
 purposes = [
   ["Drawing", 20],
+  ["Label", 5],
 ]
 
 [layers.ntap]
@@ -65,6 +66,7 @@ extensions = [
 ]
 purposes = [
   ["Drawing", 20],
+  ["Label", 5],
 ]
 
 [layers.mcon]
@@ -89,6 +91,7 @@ space = 170
 area = 56100
 purposes = [
   ["Drawing", 20],
+  ["Label", 5],
 ]
 
 [layers.licon]
@@ -126,6 +129,7 @@ extensions = [
 ]
 purposes = [
   ["Drawing", 20],
+  ["Label", 6],
 ]
 
 [layers.m1]
@@ -136,6 +140,7 @@ space = 140
 area = 83000
 purposes = [
   ["Drawing", 20],
+  ["Label", 5],
 ]
 
 [layers.via]
@@ -160,6 +165,7 @@ space = 140
 area = 67600
 purposes = [
   ["Drawing", 20],
+  ["Label", 5],
 ]
 
 [layers.via2]
@@ -184,6 +190,7 @@ space = 140
 area = 67600
 purposes = [
   ["Drawing", 20],
+  ["Label", 5],
 ]
 
 [stacks]

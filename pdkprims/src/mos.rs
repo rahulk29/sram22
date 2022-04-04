@@ -76,6 +76,7 @@ pub struct MosDevice {
     /// The type of transistor
     pub mos_type: MosType,
     /// Transistor flavor
+    #[builder(default)]
     pub intent: Intent,
     /// The channel length of the transistor. The units must match
     /// those of the `[crate::Pdk]` you will use to draw the device.
@@ -84,12 +85,28 @@ pub struct MosDevice {
     /// those of the `[crate::Pdk]` you will use to draw the device.
     pub width: Int,
     /// The number of fingers to draw
+    #[builder(default = "1")]
     pub fingers: Uint,
+
+    /// Omit placing metal contacts on these sources/drains.
+    ///
+    /// Entered as a list of indices. Index 0 corresponds to the
+    /// bottom-most source/drain region. The maximum allowed index
+    /// is the number of fingers of the transistor being drawn.
+    ///
+    /// Usually, this list should never contain 0 or `nf`. Otherwise,
+    /// those sources/drains will be floating.
+    #[builder(default)]
+    pub skip_sd_metal: Vec<usize>,
 }
 
 impl MosDevice {
     pub fn builder() -> MosDeviceBuilder {
         MosDeviceBuilder::default()
+    }
+    pub fn skip_sd_metal(&mut self, idx: usize) -> &mut Self {
+        self.skip_sd_metal.push(idx);
+        self
     }
 }
 
@@ -129,16 +146,6 @@ pub struct MosParams {
 
     /// Specifies how to place gate contacts
     pub contact_strategy: GateContactStrategy,
-
-    /// Omit placing metal contacts on these sources/drains.
-    ///
-    /// Entered as a list of indices. Index 0 corresponds to the
-    /// bottom-most source/drain region. The maximum allowed index
-    /// is the number of fingers of the transistor being drawn.
-    ///
-    /// Usually, this list should never contain 0 or `nf`. Otherwise,
-    /// those sources/drains will be floating.
-    pub skip_sd_metal: Vec<usize>,
 }
 
 impl MosParams {
@@ -164,10 +171,6 @@ impl MosParams {
 
     pub fn add_device(&mut self, device: MosDevice) -> &mut Self {
         self.devices.push(device);
-        self
-    }
-    pub fn skip_sd_metal(&mut self, idx: usize) -> &mut Self {
-        self.skip_sd_metal.push(idx);
         self
     }
 

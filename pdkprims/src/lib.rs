@@ -4,9 +4,12 @@ use std::{
 };
 
 use config::TechConfig;
-use contact::ContactParams;
+use contact::{Contact, ContactParams};
 use layout21::{
-    raw::{Cell, Element, LayerPurpose, Layers, Layout, LayoutResult, Library, Point, Rect, Shape},
+    raw::{
+        Cell, Element, LayerKey, LayerPurpose, Layers, Layout, LayoutResult, Library, Point, Rect,
+        Shape,
+    },
     utils::Ptr,
 };
 
@@ -20,7 +23,7 @@ pub mod tech;
 pub struct Pdk {
     pub config: Ptr<TechConfig>,
     pub layers: Ptr<Layers>,
-    contacts: Ptr<HashMap<ContactParams, Ptr<Cell>>>,
+    contacts: Ptr<HashMap<ContactParams, Contact>>,
 }
 
 impl Pdk {
@@ -58,6 +61,11 @@ impl Pdk {
         let gds = lib.to_gds()?;
         gds.save(path)?;
         Ok(())
+    }
+
+    pub fn get_layerkey(&self, layer: &str) -> Option<LayerKey> {
+        let layers = self.layers.read().unwrap();
+        layers.keyname(layer)
     }
 }
 
