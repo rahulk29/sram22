@@ -3,15 +3,15 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use layout21::raw::{
-    Abstract, AbstractPort, BoundBox, BoundBoxTrait, Cell, Element, LayerKey, LayerPurpose, Layout,
-    Point, Rect, Shape,
+    Abstract, AbstractPort, BoundBoxTrait, Cell, Element, LayerKey, LayerPurpose, Layout, Point,
+    Rect, Shape,
 };
 use layout21::utils::Ptr;
 use serde::{Deserialize, Serialize};
 
-use crate::Ref;
 use crate::config::Int;
 use crate::geometry::{expand_box, rect_from_bbox, CoarseDirection};
+use crate::Ref;
 use crate::{config::Uint, Pdk};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, derive_builder::Builder)]

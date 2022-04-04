@@ -1,15 +1,9 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, path::Path};
 
 use config::TechConfig;
 use contact::{Contact, ContactParams};
 use layout21::{
-    raw::{
-        Cell, Element, LayerKey, LayerPurpose, Layers, Layout, LayoutResult, Library, Point, Rect,
-        Shape,
-    },
+    raw::{Cell, LayerKey, Layers, LayoutResult, Library},
     utils::Ptr,
 };
 

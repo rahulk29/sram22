@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use layout21::{
     raw::{DepOrder, Library},
-    utils::{PtrList, Ptr},
+    utils::{Ptr, PtrList},
 };
 
 use crate::{

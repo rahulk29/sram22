@@ -1,15 +1,15 @@
 use layout21::raw::{
-    BoundBoxTrait, Cell, Element, Instance, LayerPurpose, Layout, LayoutResult, Point, Rect, Shape,
+    Cell, Element, Instance, LayerPurpose, Layout, LayoutResult, Point, Rect, Shape,
 };
 use layout21::utils::Ptr;
 
 use crate::config::Int;
-use crate::contact::ContactParams;
-use crate::geometry::{expand_box, CoarseDirection};
+
+use crate::geometry::expand_box;
 use crate::mos::MosType;
 use crate::{
     config::TechConfig,
-    mos::{MosError, MosParams, MosResult},
+    mos::{MosParams, MosResult},
     Pdk,
 };
 
