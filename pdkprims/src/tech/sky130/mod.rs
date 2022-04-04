@@ -72,6 +72,15 @@ impl Pdk {
             };
 
             if d.mos_type == MosType::Pmos {
+                let mut psdm_box = rect.clone();
+                expand_box(&mut psdm_box, tc.layer("diff").enclosure("psdm"));
+                elems.push(Element {
+                    net: None,
+                    layer: layers.keyname("psdm").unwrap(),
+                    purpose: LayerPurpose::Drawing,
+                    inner: Shape::Rect(psdm_box),
+                });
+
                 let mut well_box = rect.clone();
                 expand_box(&mut well_box, tc.layer("diff").enclosure("nwell"));
 
@@ -80,6 +89,15 @@ impl Pdk {
                     layer: layers.keyname("nwell").unwrap(),
                     purpose: LayerPurpose::Drawing,
                     inner: Shape::Rect(well_box),
+                });
+            } else {
+                let mut nsdm_box = rect.clone();
+                expand_box(&mut nsdm_box, tc.layer("diff").enclosure("nsdm"));
+                elems.push(Element {
+                    net: None,
+                    layer: layers.keyname("nsdm").unwrap(),
+                    purpose: LayerPurpose::Drawing,
+                    inner: Shape::Rect(nsdm_box),
                 });
             }
 
