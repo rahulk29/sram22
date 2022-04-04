@@ -95,7 +95,9 @@ impl TechConfig {
     }
 
     pub fn stack(&self, stack: &str) -> &ContactStack {
-        self.stacks.get(stack).unwrap()
+        self.stacks
+            .get(stack)
+            .expect(&format!("no such stack: {}", stack))
     }
 
     pub fn get_layers(&self) -> LayoutResult<Layers> {

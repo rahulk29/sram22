@@ -63,7 +63,7 @@ fn test_sky130_draw_contact() -> Result<(), Box<dyn std::error::Error>> {
 
     for i in 1..=n {
         for j in 1..=i {
-            for stack in ["diffc", "polyc", "viali", "via1", "via2"] {
+            for stack in ["ndiffc", "pdiffc", "polyc", "viali", "via1", "via2"] {
                 for dir in [CoarseDirection::Vertical, CoarseDirection::Horizontal] {
                     let mut cp = ContactParams::builder();
                     let cp = cp
@@ -90,11 +90,11 @@ fn test_sky130_contact_sized() -> Result<(), Box<dyn std::error::Error>> {
     let pdk = super::pdk()?;
 
     let diff = pdk.get_layerkey("diff").unwrap();
-    let ct = pdk.get_contact_sized("diffc", diff, 330).unwrap();
+    let ct = pdk.get_contact_sized("ndiffc", diff, 330).unwrap();
     assert_eq!(ct.cols, 1);
     assert_eq!(ct.rows, 1);
 
-    let ct = pdk.get_contact_sized("diffc", diff, 650).unwrap();
+    let ct = pdk.get_contact_sized("ndiffc", diff, 650).unwrap();
     assert_eq!(ct.cols, 2);
     assert_eq!(ct.rows, 1);
 

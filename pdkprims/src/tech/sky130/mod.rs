@@ -141,7 +141,11 @@ impl Pdk {
                 if d.skip_sd_metal.contains(&(i as usize)) {
                     continue;
                 }
-                let ct = self.get_contact_sized("diffc", diff, d.width).unwrap();
+                let ct_stack = match d.mos_type {
+                    MosType::Nmos => "ndiffc",
+                    MosType::Pmos => "pdiffc",
+                };
+                let ct = self.get_contact_sized(ct_stack, diff, d.width).unwrap();
                 let bbox = ct.bboxes.get(&diff).unwrap();
                 let ofsx = (d.width - rect_width(bbox)) / 2;
                 let inst = Instance {

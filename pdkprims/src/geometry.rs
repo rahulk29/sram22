@@ -44,7 +44,7 @@ pub fn expand_box(b: &mut Rect, dist: crate::config::Int) {
     b.p1.y += dist;
 }
 
-fn rect_from_bbox(bbox: &BoundBox) -> Rect {
+pub fn rect_from_bbox(bbox: &BoundBox) -> Rect {
     Rect {
         p0: bbox.p0.clone(),
         p1: bbox.p1.clone(),

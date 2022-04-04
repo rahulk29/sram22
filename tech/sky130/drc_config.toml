@@ -233,7 +233,9 @@ purposes = [
 
 [stacks.polyc]
 layers = ["li", "licon", "poly"]
-[stacks.diffc]
+[stacks.ndiffc]
+layers = ["li", "licon", "diff"]
+[stacks.pdiffc]
 layers = ["li", "licon", "diff"]
 [stacks.viali]
 layers = ["m1", "mcon", "li"]

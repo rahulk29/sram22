@@ -9,7 +9,7 @@ use layout21::utils::Ptr;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Int;
-use crate::geometry::{expand_box, CoarseDirection};
+use crate::geometry::{expand_box, rect_from_bbox, CoarseDirection};
 use crate::{config::Uint, Pdk};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, derive_builder::Builder)]
@@ -186,6 +186,45 @@ impl Pdk {
                 layer: lay,
                 purpose: LayerPurpose::Drawing,
                 inner: shape,
+            });
+        }
+
+        if params.stack == "ndiffc" {
+            let mut nsdm_box = rect_from_bbox(&bboxes[1]);
+            expand_box(&mut nsdm_box, tc.layer("diff").enclosure("nsdm"));
+            elems.push(Element {
+                net: None,
+                layer: layers.keyname("nsdm").unwrap(),
+                purpose: LayerPurpose::Drawing,
+                inner: Shape::Rect(nsdm_box),
+            });
+        } else if params.stack == "pdiffc" {
+            let diff_rect = rect_from_bbox(&bboxes[1]);
+            let mut psdm_box = diff_rect.clone();
+            expand_box(&mut psdm_box, tc.layer("diff").enclosure("psdm"));
+            elems.push(Element {
+                net: None,
+                layer: layers.keyname("psdm").unwrap(),
+                purpose: LayerPurpose::Drawing,
+                inner: Shape::Rect(psdm_box),
+            });
+            let mut well_box = diff_rect;
+            expand_box(&mut well_box, tc.layer("diff").enclosure("nwell"));
+
+            elems.push(Element {
+                net: None,
+                layer: layers.keyname("nwell").unwrap(),
+                purpose: LayerPurpose::Drawing,
+                inner: Shape::Rect(well_box),
+            });
+        } else if params.stack == "polyc" {
+            let mut npc_box = ct_bbox.clone();
+            expand_box(&mut npc_box, tc.layer("licon").enclosure("npc"));
+            elems.push(Element {
+                net: None,
+                layer: layers.keyname("nsdm").unwrap(),
+                purpose: LayerPurpose::Drawing,
+                inner: Shape::Rect(npc_box),
             });
         }
 
