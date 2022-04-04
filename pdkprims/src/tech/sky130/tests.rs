@@ -111,7 +111,6 @@ fn output(name: impl AsRef<Path>) -> PathBuf {
 }
 
 fn setup() -> Result<(), Box<dyn std::error::Error>> {
-    std::fs::create_dir_all( PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../_build/"))?;
+    std::fs::create_dir_all(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../_build/"))?;
     Ok(())
 }
