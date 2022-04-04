@@ -13,6 +13,7 @@ use crate::{
 
 #[test]
 fn test_draw_sky130_mos_nand2() -> Result<(), Box<dyn std::error::Error>> {
+    setup()?;
     let mut params = MosParams::new();
     params
         .dnw(false)
@@ -54,6 +55,7 @@ fn test_draw_sky130_mos_nand2() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn test_sky130_draw_contact() -> Result<(), Box<dyn std::error::Error>> {
+    setup()?;
     let n = 5;
 
     let pdk = super::pdk()?;
@@ -87,6 +89,7 @@ fn test_sky130_draw_contact() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn test_sky130_contact_sized() -> Result<(), Box<dyn std::error::Error>> {
+    setup()?;
     let pdk = super::pdk()?;
 
     let diff = pdk.get_layerkey("diff").unwrap();
@@ -105,4 +108,10 @@ fn output(name: impl AsRef<Path>) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../_build/")
         .join(name)
+}
+
+fn setup() -> Result<(), Box<dyn std::error::Error>> {
+    std::fs::create_dir_all( PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../_build/"))?;
+    Ok(())
 }
