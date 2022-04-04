@@ -57,10 +57,10 @@ impl ContactParams {
 impl Pdk {
     pub fn get_contact(&self, params: &ContactParams) -> Ref<Contact> {
         let mut map = self.contacts.write().unwrap();
-        if let Some(c) = map.get(&params) {
+        if let Some(c) = map.get(params) {
             c.clone()
         } else {
-            let c = self.draw_contact(&params);
+            let c = self.draw_contact(params);
             map.insert(params.to_owned(), c.clone());
             c
         }
@@ -121,8 +121,8 @@ impl Pdk {
         let x0 = 0;
         let y0 = 0;
 
-        let ctw = tc.layer(&ctlay_name).width;
-        let cts = tc.layer(&ctlay_name).space;
+        let ctw = tc.layer(ctlay_name).width;
+        let cts = tc.layer(ctlay_name).space;
         let ctbw = ctw * cols + cts * (cols - 1);
         let ctbh = ctw * rows + cts * (rows - 1);
 
@@ -164,7 +164,7 @@ impl Pdk {
             let lay = layers.keyname(lay_name).unwrap();
             let mut laybox = ct_bbox.clone();
             expand_box(&mut laybox, tc.layer(ctlay_name).enclosure(lay_name));
-            let ose = tc.layer(ctlay_name).one_side_enclosure(&lay_name);
+            let ose = tc.layer(ctlay_name).one_side_enclosure(lay_name);
 
             match params.dir {
                 CoarseDirection::Vertical => {
@@ -220,7 +220,7 @@ impl Pdk {
                 inner: Shape::Rect(well_box),
             });
         } else if params.stack == "polyc" {
-            let mut npc_box = ct_bbox.clone();
+            let mut npc_box = ct_bbox;
             expand_box(&mut npc_box, tc.layer("licon").enclosure("npc"));
             elems.push(Element {
                 net: None,
@@ -248,7 +248,7 @@ impl Pdk {
         let abs = Abstract {
             name: name.clone(),
             outline: Element {
-                net: Some(net_name.clone()),
+                net: Some(net_name),
                 layer: layers.keyname(&stack.layers[0]).unwrap(),
                 purpose: LayerPurpose::Drawing,
                 inner: Shape::Rect(outline),
