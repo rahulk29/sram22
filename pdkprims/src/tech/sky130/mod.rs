@@ -5,7 +5,7 @@ use layout21::utils::Ptr;
 
 use crate::config::Int;
 use crate::contact::ContactParams;
-use crate::geometry::CoarseDirection;
+use crate::geometry::{expand_box, CoarseDirection};
 use crate::mos::MosType;
 use crate::{
     config::TechConfig,
@@ -70,6 +70,18 @@ impl Pdk {
                 p0: Point::new(cx, y0),
                 p1: Point::new(cx + d.width, y0 + diff_perp),
             };
+
+            if d.mos_type == MosType::Pmos {
+                let mut well_box = rect.clone();
+                expand_box(&mut well_box, tc.layer("diff").enclosure("nwell"));
+
+                elems.push(Element {
+                    net: None,
+                    layer: layers.keyname("nwell").unwrap(),
+                    purpose: LayerPurpose::Drawing,
+                    inner: Shape::Rect(well_box),
+                });
+            }
 
             elems.push(Element {
                 net: None,
