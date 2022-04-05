@@ -137,7 +137,9 @@ impl Default for GateContactStrategy {
 /// When multiple devices are given, they will be drawn
 /// with shared gates. So all devices must have the same channel length
 /// and number of fingers.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, derive_builder::Builder,
+)]
 pub struct MosParams {
     /// A list of devices to draw.
     pub devices: Vec<MosDevice>,

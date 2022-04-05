@@ -30,24 +30,46 @@ impl Sky130Pdk for Pdk {
         self.get_layerkey("nwell").unwrap()
     }
     fn licon1(&self) -> LayerKey {
-        self.get_layerkey("licon1").unwrap()
+        self.get_layerkey("licon").unwrap()
     }
     fn li1(&self) -> LayerKey {
-        self.get_layerkey("li1").unwrap()
+        self.get_layerkey("li").unwrap()
     }
     fn met1(&self) -> LayerKey {
-        self.get_layerkey("met1").unwrap()
+        self.get_layerkey("m1").unwrap()
     }
     fn via(&self) -> LayerKey {
         self.get_layerkey("via").unwrap()
     }
     fn met2(&self) -> LayerKey {
-        self.get_layerkey("met2").unwrap()
+        self.get_layerkey("m2").unwrap()
     }
     fn via2(&self) -> LayerKey {
         self.get_layerkey("via2").unwrap()
     }
     fn met3(&self) -> LayerKey {
-        self.get_layerkey("met3").unwrap()
+        self.get_layerkey("m3").unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Sky130Pdk;
+
+    #[test]
+    fn test_sky130_pdk_layers() -> Result<(), Box<dyn std::error::Error>> {
+        let pdk = super::super::pdk()?;
+        let _ = pdk.diff();
+        let _ = pdk.poly();
+        let _ = pdk.npc();
+        let _ = pdk.nwell();
+        let _ = pdk.licon1();
+        let _ = pdk.li1();
+        let _ = pdk.met1();
+        let _ = pdk.via();
+        let _ = pdk.met2();
+        let _ = pdk.via2();
+        let _ = pdk.met3();
+        Ok(())
     }
 }
