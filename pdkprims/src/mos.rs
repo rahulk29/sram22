@@ -130,6 +130,10 @@ impl Default for GateContactStrategy {
 }
 
 /// Parameters for generating MOSFET layouts
+///
+/// When multiple devices are given, they will be drawn
+/// with shared gates. So all devices must have the same channel length
+/// and number of fingers.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct MosParams {
     /// A list of devices to draw.
