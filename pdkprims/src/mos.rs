@@ -1,6 +1,9 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
-use layout21::raw::LayoutError;
+use layout21::{
+    raw::{Cell, LayerKey, LayoutError, Rect},
+    utils::Ptr,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -130,7 +133,13 @@ impl Default for GateContactStrategy {
 }
 
 /// Parameters for generating MOSFET layouts
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+///
+/// When multiple devices are given, they will be drawn
+/// with shared gates. So all devices must have the same channel length
+/// and number of fingers.
+#[derive(
+    Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, derive_builder::Builder,
+)]
 pub struct MosParams {
     /// A list of devices to draw.
     pub devices: Vec<MosDevice>,
@@ -204,6 +213,37 @@ impl MosParams {
     pub fn fingers(&self) -> Uint {
         self.devices[0].fingers
     }
+}
+
+/// Represents the geometric arrangement of
+/// a laid-out collection of transistors.
+///
+/// The transistors are assumed to have a common set of gates,
+/// such as in a typical digital inverter layout.
+#[derive(Debug, Clone, Eq, PartialEq, derive_builder::Builder)]
+pub struct LayoutTransistors {
+    /// A pointer to the layout cell.
+    pub cell: Ptr<Cell>,
+    /// The layer to which device sources/drains are connected.
+    pub sd_metal: LayerKey,
+    /// The layer to which gates are connected.
+    pub gate_metal: LayerKey,
+    /// A collection of the positions of source/drain pins.
+    ///
+    /// `sd_pins[i][j]` is the metal region corresponding to
+    /// device `i`'s `j`'th source/drain region. Zero-indexed.
+    ///
+    /// Dimensions: (# devices) x (# fingers + 1)
+    ///
+    /// The `Option<Rect>` will be [`None`] if `skip_sd_metal` was
+    /// set for the given source/drain region; otherwise,
+    /// it will be [`Some`].
+    pub sd_pins: Vec<HashMap<Uint, Option<Rect>>>,
+    /// A collection of the positions of the gate pins.
+    ///
+    /// `gate_pins[i]` is the metal region corresponding to
+    /// the `i`'th finger of the transistors. Zero-indexed.
+    pub gate_pins: Vec<Rect>,
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -44,7 +44,7 @@ fn test_draw_sky130_mos_nand2() -> Result<(), Box<dyn std::error::Error>> {
         pdk.config.read().unwrap().units,
     );
     lib.layers = pdk.layers();
-    lib.cells.push(cell);
+    lib.cells.push(Ptr::clone(&cell.cell));
     let cells = DepOrder::order(&lib);
     lib.cells = PtrList::from_ptrs(cells);
     let gds = lib.to_gds()?;
