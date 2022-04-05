@@ -159,7 +159,7 @@ impl Pdk {
             };
 
             let ct_ofs = Point::new(ofsx, ofsy);
-            let ct_box = translate(&gate_metal_bbox, &ct_ofs);
+            let ct_box = translate(gate_metal_bbox, &ct_ofs);
             gate_pins.push(ct_box);
 
             let inst = Instance {
