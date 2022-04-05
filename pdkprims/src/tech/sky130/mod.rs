@@ -11,7 +11,9 @@ use crate::config::{Int, Uint};
 use crate::Ref;
 
 use crate::contact::{Contact, ContactParams};
-use crate::geometry::{expand_box, expand_box_min_width, rect_from_bbox, CoarseDirection};
+use crate::geometry::{
+    expand_box, expand_box_min_width, rect_from_bbox, translate, CoarseDirection,
+};
 use crate::mos::{LayoutTransistors, MosType};
 use crate::{
     config::TechConfig,
@@ -122,14 +124,53 @@ impl Pdk {
             prev = Some(d.mos_type);
         }
 
+        let gate_ctp = ContactParams::builder()
+            .rows(1)
+            .cols(1)
+            .dir(CoarseDirection::Horizontal)
+            .stack("polyc".into())
+            .build()
+            .unwrap();
+        let gate_ct = self.get_contact(&gate_ctp);
+        let gate_bbox = gate_ct.bboxes.get(&self.poly()).unwrap();
+        let gate_metal_bbox = gate_ct.bboxes.get(&self.li1()).unwrap();
+
+        let mut gate_pins = Vec::with_capacity(nf as usize);
+
         let xpoly = x0 - tc.layer("poly").extension("diff");
         let mut ypoly = y0 + diff_edge_to_gate(&tc);
         let wpoly = cx - xpoly + tc.layer("poly").extension("diff");
-        for _ in 0..nf {
+
+        // TODO: Need to move gate contacts further away from transistor.
+        // There are several relevant design rules, but for now I'll just
+        // add a constant offset.
+        let poly_fudge_x = 45;
+        for i in 0..nf {
             let rect = Rect {
-                p0: Point::new(xpoly, ypoly),
+                p0: Point::new(xpoly - poly_fudge_x, ypoly),
                 p1: Point::new(xpoly + wpoly, ypoly + params.length()),
             };
+
+            let ofsx = rect.p0.x - gate_bbox.p1.x;
+            let ofsy = if i % 2 == 0 {
+                rect.p1.y - gate_bbox.p1.y
+            } else {
+                rect.p0.y - gate_bbox.p0.y
+            };
+
+            let ct_ofs = Point::new(ofsx, ofsy);
+            let ct_box = translate(&gate_metal_bbox, &ct_ofs);
+            gate_pins.push(ct_box);
+
+            let inst = Instance {
+                inst_name: format!("gate_contact_{}", i),
+                cell: Ptr::clone(&gate_ct.cell),
+                loc: ct_ofs,
+                reflect_vert: false,
+                angle: None,
+            };
+
+            insts.push(inst);
 
             elems.push(Element {
                 net: None,
@@ -161,16 +202,17 @@ impl Pdk {
                 let ct = self.get_contact_sized(ct_stack, diff, d.width).unwrap();
                 let bbox = ct.bboxes.get(&diff).unwrap();
                 let ofsx = (d.width - rect_width(bbox)) / 2;
+                let loc = Point::new(x - bbox.p0.x + ofsx, cy - bbox.p0.y);
                 let inst = Instance {
                     inst_name: format!("sd_contact_{}_{}", i, j),
                     cell: Ptr::clone(&ct.cell),
-                    loc: Point::new(x - bbox.p0.x + ofsx, cy - bbox.p0.y),
+                    loc: loc.clone(),
                     reflect_vert: false,
                     angle: None,
                 };
                 insts.push(inst);
 
-                let sd_metal = ct.bboxes.get(&self.li1()).unwrap().clone();
+                let sd_metal = translate(ct.bboxes.get(&self.li1()).unwrap(), &loc);
                 sd_pins[j].insert(i as Uint, Some(sd_metal));
             }
             cy += params.length();
@@ -195,7 +237,7 @@ impl Pdk {
             sd_metal: self.li1(),
             gate_metal: self.li1(),
             sd_pins,
-            gate_pins: vec![], // TODO
+            gate_pins,
         };
 
         Ok(Arc::new(transistors))

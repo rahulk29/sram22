@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::config::Int;
-use layout21::raw::{BoundBox, Rect};
+use layout21::raw::{BoundBox, Point, Rect};
 use serde::{Deserialize, Serialize};
 
 /// A direction: horizontal or vertical.
@@ -84,5 +84,12 @@ pub fn rect_from_bbox(bbox: &BoundBox) -> Rect {
     Rect {
         p0: bbox.p0.clone(),
         p1: bbox.p1.clone(),
+    }
+}
+
+pub fn translate(r: &Rect, p: &Point) -> Rect {
+    Rect {
+        p0: Point::new(r.p0.x + p.x, r.p0.y + p.y),
+        p1: Point::new(r.p1.x + p.x, r.p1.y + p.y),
     }
 }
