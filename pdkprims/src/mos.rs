@@ -1,6 +1,9 @@
 use std::fmt::Display;
 
-use layout21::raw::LayoutError;
+use layout21::{
+    raw::{Cell, LayerKey, LayoutError, Rect},
+    utils::Ptr,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -208,6 +211,31 @@ impl MosParams {
     pub fn fingers(&self) -> Uint {
         self.devices[0].fingers
     }
+}
+
+/// Represents the geometric arrangement of
+/// a laid-out collection of transistors.
+///
+/// The transistors are assumed to have a common set of gates,
+/// such as in a typical digital inverter layout.
+#[derive(Debug, Clone, Eq, PartialEq, derive_builder::Builder)]
+pub struct LayoutTransistors {
+    /// A pointer to the layout cell.
+    pub cell: Ptr<Cell>,
+    /// The layer to which device sources/drains are connected.
+    pub sd_metal: LayerKey,
+    /// The layer to which gates are connected.
+    pub gate_metal: LayerKey,
+    /// A collection of the positions of source/drain pins.
+    ///
+    /// `sd_pins[i][j]` is the metal region corresponding to
+    /// device `i`'s `j`'th source/drain region. Zero-indexed.
+    pub sd_pins: Vec<Vec<Rect>>,
+    /// A collection of the positions of the gate pins.
+    ///
+    /// `gate_pins[i]` is the metal region corresponding to
+    /// the `i`'th finger of the transistors. Zero-indexed.
+    pub gate_pins: Vec<Rect>,
 }
 
 #[derive(Debug, thiserror::Error)]

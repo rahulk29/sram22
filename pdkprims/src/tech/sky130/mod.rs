@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use layout21::raw::{
     Abstract, AbstractPort, BoundBoxTrait, Cell, Element, Instance, LayerPurpose, Layout,
@@ -11,13 +12,16 @@ use crate::Ref;
 
 use crate::contact::{Contact, ContactParams};
 use crate::geometry::{expand_box, expand_box_min_width, rect_from_bbox, CoarseDirection};
-use crate::mos::MosType;
+use crate::mos::{LayoutTransistors, MosType};
 use crate::{
     config::TechConfig,
     mos::{MosParams, MosResult},
     Pdk,
 };
 
+use self::layers::Sky130Pdk;
+
+pub(crate) mod layers;
 #[cfg(test)]
 mod tests;
 
@@ -35,7 +39,7 @@ pub fn pdk() -> LayoutResult<Pdk> {
 }
 
 impl Pdk {
-    pub fn draw_sky130_mos(&self, params: MosParams) -> MosResult<Ptr<Cell>> {
+    pub fn draw_sky130_mos(&self, params: MosParams) -> MosResult<Ref<LayoutTransistors>> {
         params.validate()?;
 
         let mut elems = Vec::new();
@@ -179,7 +183,15 @@ impl Pdk {
             layout: Some(layout),
         };
 
-        Ok(Ptr::new(cell))
+        let transistors = LayoutTransistors {
+            cell: Ptr::new(cell),
+            sd_metal: self.li1(),
+            gate_metal: self.li1(),
+            sd_pins: vec![],
+            gate_pins: vec![],
+        };
+
+        Ok(Arc::new(transistors))
     }
 
     pub(crate) fn draw_contact(&self, params: &ContactParams) -> Ref<Contact> {
