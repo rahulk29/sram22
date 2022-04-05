@@ -10,7 +10,7 @@ use layout21::utils::Ptr;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Int;
-use crate::geometry::{expand_box, rect_from_bbox, CoarseDirection};
+use crate::geometry::{expand_box, expand_box_min_width, rect_from_bbox, CoarseDirection};
 use crate::Ref;
 use crate::{config::Uint, Pdk};
 
@@ -164,6 +164,7 @@ impl Pdk {
             let lay = layers.keyname(lay_name).unwrap();
             let mut laybox = ct_bbox.clone();
             expand_box(&mut laybox, tc.layer(ctlay_name).enclosure(lay_name));
+            expand_box_min_width(&mut laybox, tc.layer(lay_name).width, tc.grid);
             let ose = tc.layer(ctlay_name).one_side_enclosure(lay_name);
 
             match params.dir {
