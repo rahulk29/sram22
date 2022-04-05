@@ -64,7 +64,7 @@ fn test_sky130_draw_contact() -> Result<(), Box<dyn std::error::Error>> {
     lib.layers = pdk.layers();
 
     for i in 1..=n {
-        for j in 1..=i {
+        for j in 1..=n {
             for stack in ["ndiffc", "pdiffc", "polyc", "viali", "via1", "via2"] {
                 for dir in [CoarseDirection::Vertical, CoarseDirection::Horizontal] {
                     let mut cp = ContactParams::builder();
