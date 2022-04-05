@@ -7,7 +7,7 @@ use layout21::raw::{
 };
 use layout21::utils::Ptr;
 
-use crate::config::Int;
+use crate::config::{Int, Uint};
 use crate::Ref;
 
 use crate::contact::{Contact, ContactParams};
@@ -145,6 +145,10 @@ impl Pdk {
         // Add source/drain contacts
         let mut cy = y0;
 
+        let mut sd_pins = (0..params.devices.len())
+            .map(|_| HashMap::new())
+            .collect::<Vec<_>>();
+
         for i in 0..=nf {
             for (d, (j, x)) in params.devices.iter().zip(diff_xs.iter().enumerate()) {
                 if d.skip_sd_metal.contains(&(i as usize)) {
@@ -165,6 +169,9 @@ impl Pdk {
                     angle: None,
                 };
                 insts.push(inst);
+
+                let sd_metal = ct.bboxes.get(&self.li1()).unwrap().clone();
+                sd_pins[j].insert(i as Uint, Some(sd_metal));
             }
             cy += params.length();
             cy += finger_space(&tc);
@@ -187,8 +194,8 @@ impl Pdk {
             cell: Ptr::new(cell),
             sd_metal: self.li1(),
             gate_metal: self.li1(),
-            sd_pins: vec![],
-            gate_pins: vec![],
+            sd_pins,
+            gate_pins: vec![], // TODO
         };
 
         Ok(Arc::new(transistors))

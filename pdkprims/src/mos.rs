@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use layout21::{
     raw::{Cell, LayerKey, LayoutError, Rect},
@@ -232,7 +232,13 @@ pub struct LayoutTransistors {
     ///
     /// `sd_pins[i][j]` is the metal region corresponding to
     /// device `i`'s `j`'th source/drain region. Zero-indexed.
-    pub sd_pins: Vec<Vec<Rect>>,
+    ///
+    /// Dimensions: (# devices) x (# fingers + 1)
+    ///
+    /// The `Option<Rect>` will be [`None`] if `skip_sd_metal` was
+    /// set for the given source/drain region; otherwise,
+    /// it will be [`Some`].
+    pub sd_pins: Vec<HashMap<Uint, Option<Rect>>>,
     /// A collection of the positions of the gate pins.
     ///
     /// `gate_pins[i]` is the metal region corresponding to
