@@ -3,9 +3,10 @@ use std::{collections::HashMap, path::Path};
 use config::TechConfig;
 use contact::{Contact, ContactParams};
 use layout21::{
-    raw::{Cell, LayerKey, Layers, LayoutResult, Library},
-    utils::Ptr,
+    raw::{Cell, DepOrder, LayerKey, Layers, LayoutResult, Library},
+    utils::{Ptr, PtrList},
 };
+use mos::{LayoutTransistors, MosParams, MosResult};
 
 pub type Ref<T> = std::sync::Arc<T>;
 
@@ -17,6 +18,7 @@ pub mod tech;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pdk {
+    tech: String,
     pub config: Ptr<TechConfig>,
     pub layers: Ptr<Layers>,
     contacts: Ptr<HashMap<ContactParams, Ref<Contact>>>,
@@ -24,9 +26,11 @@ pub struct Pdk {
 
 impl Pdk {
     pub fn new(config: TechConfig) -> LayoutResult<Self> {
+        let tech = config.tech.clone();
         let layers = Ptr::new(config.get_layers()?);
         let config = Ptr::new(config);
         Ok(Self {
+            tech,
             config,
             layers,
             contacts: Ptr::new(HashMap::new()),
@@ -42,6 +46,13 @@ impl Pdk {
         Ptr::clone(&self.layers)
     }
 
+    pub fn draw_mos(&self, params: MosParams) -> MosResult<Ref<LayoutTransistors>> {
+        match self.tech.as_str() {
+            "sky130" | "sky130A" | "sky130B" => self.draw_sky130_mos(params),
+            _ => unimplemented!("pdk `{}` not supported by draw_mos", &self.tech),
+        }
+    }
+
     pub fn cell_to_gds(
         &self,
         cell: Ptr<Cell>,
@@ -54,6 +65,7 @@ impl Pdk {
         let mut lib = Library::new(&cell_name, self.config.read().unwrap().units);
         lib.layers = self.layers();
         lib.cells.push(cell);
+        lib.cells = PtrList::from_ptrs(DepOrder::order(&lib));
         let gds = lib.to_gds()?;
         gds.save(path)?;
         Ok(())

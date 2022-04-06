@@ -7,6 +7,7 @@ use micro_hdl::{
 use super::GateSize;
 
 pub mod single_height;
+pub mod v2;
 
 #[cfg(test)]
 mod tests;
