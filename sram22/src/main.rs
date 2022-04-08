@@ -18,10 +18,14 @@ use clap::Parser;
 // }
 
 #[derive(Parser)]
-#[clap(author, version,about = "A configurable SRAM generator", long_about = None)]
+#[clap(author, version, about = "A configurable SRAM generator", long_about = None)]
 struct Cli {
     /// Path to a TOML configuration file specifying memory options
     config: String,
+
+    /// Generate SPICE netlists only. No layouts will be generated.
+    #[clap(short, long)]
+    netlist_only: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -44,7 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::env::set_current_dir(cwd)?;
 
     log::info!("Beginning SRAM generation");
-    generate(cwd.to_owned(), config)?;
+    generate(cwd.to_owned(), config, cli.netlist_only)?;
 
     Ok(())
 }
