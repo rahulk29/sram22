@@ -56,7 +56,7 @@ impl Component for Sram {
     }
 }
 
-pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
+pub fn generate(cwd: PathBuf, config: SramConfig, netlist: bool) -> Result<()> {
     let rows = config.rows;
     let cols = config.cols;
     assert_eq!(rows % 4, 0, "number of sram rows must be divisible by 4");
@@ -83,6 +83,11 @@ pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
         .build()
         .unwrap();
     let mut factory = Factory::from_config(cfg)?;
+
+    if netlist {
+        log::error!("netlisting not yet supported; no files generated");
+        return Ok(());
+    }
 
     include_cells(&mut factory, cell_dir)?;
     info!("copied custom cells to output directory");
