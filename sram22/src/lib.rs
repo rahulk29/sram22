@@ -1,20 +1,13 @@
-use config::TechConfig;
-
-use factory::{Component, LayoutFile};
-
-use magic_vlsi::units::{Distance, Vec2};
-use magic_vlsi::Direction;
+use factory::{Component};
 
 use crate::bitcells::{BitcellArray, BitcellArrayParams};
 use crate::cells::gates::inv::dec::InvDec;
 use crate::cells::gates::inv::single_height::{InvParams, InvPmSh};
 use crate::cells::gates::nand::single_height::{Nand2Params, Nand2PmSh};
 use crate::cells::gates::GateSize;
-use crate::config::SramConfig;
 use crate::error::Result;
 use crate::factory::BuildContext;
 use crate::factory::{Factory, FactoryConfig};
-use crate::layout::bus::BusBuilder;
 use crate::precharge::layout::PrechargeParams;
 use crate::precharge::PrechargeSize;
 use crate::predecode::Predecoder2_4;
@@ -26,7 +19,6 @@ use log::info;
 
 pub mod bitcells;
 pub mod cells;
-pub mod config;
 pub mod decode;
 pub mod error;
 pub mod factory;
@@ -52,7 +44,7 @@ impl Component for Sram {
         _params: Self::Params,
     ) -> crate::error::Result<factory::Layout> {
         generate_sram(&mut ctx)?;
-        ctx.layout_from_default_magic()
+        todo!()
     }
 }
 
@@ -91,10 +83,10 @@ pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
     factory.generate_layout::<InvPmSh>(
         INV_PM_SH_2,
         InvParams {
-            nmos_width: Distance::from_nm(1_000),
+            nmos_width: 1_000,
             li: "li".to_string(),
             m1: "m1".to_string(),
-            height: Distance::from_nm(1_580),
+            height: 1_580,
             fingers: 2,
         },
     )?;
@@ -107,7 +99,7 @@ pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
                 pwidth_nm: 1_600,
                 plength_nm: 150,
             },
-            height: Distance::from_nm(1_580),
+            height: 1_580,
         },
     )?;
     factory.generate_layout::<InvDec>(INV_DEC, ())?;
@@ -120,17 +112,17 @@ pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
                 pass_pmos_width_nm: 420,
                 pmos_length_nm: 150,
             },
-            width: Distance::from_nm(1_200),
+            width: 1_200,
         },
     )?;
-    let colend_cent = factory.require_layout(ARRAY_COLEND_CENTER)?.cell;
+    let colend_cent = factory.require_layout(ARRAY_COLEND_CENTER)?;
     factory.generate_layout::<crate::precharge::layout::PrechargeCenter>(
         PRECHARGE_CENTER,
-        colend_cent.bbox.width(),
+        1_400,
     )?;
     factory.generate_layout::<crate::precharge::layout::PrechargeEnd>(
         PRECHARGE_END,
-        colend_cent.bbox.width(),
+        1_400,
     )?;
     factory.generate_layout::<BitcellArray>(
         BITCELL_ARRAY,
@@ -148,6 +140,7 @@ pub fn generate(cwd: PathBuf, config: SramConfig) -> Result<()> {
 }
 
 fn generate_sram(ctx: &mut BuildContext) -> Result<()> {
+    /*
     let magic = &mut ctx.magic;
     let tc = &ctx.tc;
     let bitcell_bank = ctx.factory.require_layout(BITCELL_ARRAY)?.cell;
@@ -183,6 +176,7 @@ fn generate_sram(ctx: &mut BuildContext) -> Result<()> {
 
     info!("layout complete; saving sram cell");
     magic.save(ctx.name)?;
+    */
 
     Ok(())
 }
@@ -200,7 +194,7 @@ fn include_cells(factory: &mut Factory, cell_dir: impl AsRef<Path>) -> Result<()
     .iter()
     .map(|(cell_name, file_name)| {
         let path = cell_dir.as_ref().join(&format!("{}.mag", file_name));
-        factory.include_layout(cell_name, LayoutFile::Magic(path))?;
+        factory.include_layout(cell_name, path)?;
         Ok(())
     })
     .find(|x| x.is_err())

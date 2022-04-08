@@ -1,17 +1,13 @@
-use crate::error::Result;
+use pdkprims::config::Int;
+
 use crate::factory::Component;
-use crate::{config::TechConfig, layout::draw_contacts};
-use magic_vlsi::{
-    units::{Distance, Rect},
-    Direction, MagicInstance,
-};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct InvParams {
-    pub nmos_width: Distance,
+    pub nmos_width: Int,
     pub li: String,
     pub m1: String,
-    pub height: Distance,
+    pub height: Int,
     pub fingers: usize,
 }
 
@@ -30,11 +26,11 @@ impl Component for InvPmSh {
         mut ctx: crate::factory::BuildContext,
         params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
-        generate_pm_single_height(&mut ctx.magic, &ctx.tc, ctx.name, &params)?;
-        ctx.layout_from_default_magic()
+        todo!()
     }
 }
 
+/*
 pub fn generate_pm_single_height(
     m: &mut MagicInstance,
     tc: &TechConfig,
@@ -285,27 +281,5 @@ pub fn generate_pm_single_height(
 
     Ok(())
 }
+ */
 
-fn ndiff_to_pdiff(tc: &TechConfig) -> Distance {
-    tc.space("ndiff", "nwell") + tc.layer("pdiff").enclosure("nwell")
-}
-
-fn finger_space(tc: &TechConfig) -> Distance {
-    [
-        2 * tc.space("gate", "licon") + tc.layer("li").width,
-        tc.layer("poly").space,
-    ]
-    .into_iter()
-    .max()
-    .unwrap()
-}
-
-fn ndiff_edge_to_gate(tc: &TechConfig) -> Distance {
-    [
-        tc.layer("ndiff").extension("poly"),
-        tc.space("gate", "licon") + tc.layer("licon").width + tc.layer("licon").enclosure("ndiff"),
-    ]
-    .into_iter()
-    .max()
-    .unwrap()
-}

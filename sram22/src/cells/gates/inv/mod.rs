@@ -1,8 +1,4 @@
 use crate::error::Result;
-use magic_vlsi::{
-    units::{Distance, Rect},
-    Direction, MagicInstance,
-};
 use micro_hdl::{
     context::Context,
     node::Node,
@@ -88,6 +84,8 @@ impl Inv {
 
 /// Generates an inverter pitch matched to an SRAM bitcell
 pub fn generate_pm(m: &mut MagicInstance) -> Result<()> {
+    /*
+
     m.drc_off()?;
     m.load("inv_pm")?;
     m.enable_box()?;
@@ -146,11 +144,13 @@ pub fn generate_pm(m: &mut MagicInstance) -> Result<()> {
 
     m.save("inv_pm")?;
 
-    Ok(())
+    Ok(()) */
+    todo!()
 }
 
 /// Generates two inverters matched to the pitch of two SRAM cells
-pub fn generate_pm_eo(m: &mut MagicInstance) -> Result<()> {
+pub fn generate_pm_eo() -> Result<()> {
+    /*
     m.drc_off()?;
     m.load("inv_pm_eo")?;
     m.enable_box()?;
@@ -322,7 +322,8 @@ pub fn generate_pm_eo(m: &mut MagicInstance) -> Result<()> {
 
     m.save("inv_pm_eo")?;
 
-    Ok(())
+    Ok(())*/
+    todo!()
 }
 
 #[cfg(test)]

@@ -1,11 +1,6 @@
 use crate::cells::gates::{finger_space, ndiff_edge_to_gate, GateSize};
-use crate::error::Result;
-use crate::factory::Component;
 use crate::{config::TechConfig, layout::draw_contacts};
-use magic_vlsi::{
-    units::{Distance, Rect},
-    Direction, MagicInstance,
-};
+use layout21::raw::Int;
 use micro_hdl::frontend::parse;
 
 use super::Nand2Gate;
@@ -32,12 +27,11 @@ impl Component for Nand2PmSh {
         mut ctx: crate::factory::BuildContext,
         params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
-        generate_pm_single_height(&mut ctx.magic, &ctx.tc, ctx.name, &params)?;
-        ctx.magic.save(ctx.name)?;
-        ctx.layout_from_default_magic()
+        todo!()
     }
 }
 
+/*
 pub fn generate_pm_single_height(
     m: &mut MagicInstance,
     tc: &TechConfig,
@@ -260,6 +254,7 @@ pub fn generate_pm_single_height(
     Ok(())
 }
 
-fn ndiff_to_pdiff(tc: &TechConfig) -> Distance {
+*/
+fn ndiff_to_pdiff(tc: &TechConfig) -> Int {
     tc.space("ndiff", "nwell") + tc.layer("pdiff").enclosure("nwell")
 }

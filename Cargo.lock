@@ -1264,7 +1264,6 @@ dependencies = [
  "itertools 0.10.3",
  "layout21",
  "log",
- "magic_vlsi",
  "micro_hdl",
  "pdkprims",
  "portpicker",

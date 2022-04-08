@@ -1,21 +1,16 @@
-use crate::cells::gates::{ndiff_edge_to_gate, pdiff_edge_to_gate};
 use crate::error::Result;
 use crate::factory::{BuildContext, Component};
-use crate::layout::{draw_contact, draw_contacts};
 use crate::names::PRECHARGE;
 
-use magic_vlsi::units::{Rect, Vec2};
-use magic_vlsi::Direction;
-use magic_vlsi::{units::Distance, MagicInstance};
-
 use crate::config::TechConfig;
+use pdkprims::config::Int;
 
 use super::PrechargeSize;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct PrechargeParams {
     pub sizing: PrechargeSize,
-    pub width: Distance,
+    pub width: pdkprims::config::Int,
 }
 
 pub struct Precharge;
@@ -35,18 +30,16 @@ impl Component for Precharge {
         params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
         generate_precharge(
-            &mut ctx.magic,
-            &ctx.tc,
             ctx.name,
             params.sizing,
             params.width,
         )?;
-        ctx.layout_from_default_magic()
+        todo!()
     }
 }
 
 impl Component for PrechargeCenter {
-    type Params = Distance;
+    type Params = Int;
     fn schematic(
         _ctx: crate::factory::BuildContext,
         _params: Self::Params,
@@ -58,12 +51,12 @@ impl Component for PrechargeCenter {
         params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
         generate_precharge_center(&mut ctx, params, false)?;
-        ctx.layout_from_default_magic()
+        todo!()
     }
 }
 
 impl Component for PrechargeEnd {
-    type Params = Distance;
+    type Params = Int;
     fn schematic(
         _ctx: crate::factory::BuildContext,
         _params: Self::Params,
@@ -75,17 +68,16 @@ impl Component for PrechargeEnd {
         params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
         generate_precharge_center(&mut ctx, params, true)?;
-        ctx.layout_from_default_magic()
+        todo!()
     }
 }
 
 pub fn generate_precharge(
-    m: &mut MagicInstance,
-    tc: &TechConfig,
     name: &str,
     params: PrechargeSize,
-    width: Distance,
+    width: Int,
 ) -> Result<()> {
+    /*
     m.drc_off()?;
     m.load(name)?;
     m.enable_box()?;
@@ -300,11 +292,13 @@ pub fn generate_precharge(
 
     m.port_renumber()?;
     m.save(name)?;
+    */
 
     Ok(())
 }
 
-pub fn generate_precharge_center(ctx: &mut BuildContext, width: Distance, end: bool) -> Result<()> {
+pub fn generate_precharge_center(ctx: &mut BuildContext, width: Int, end: bool) -> Result<()> {
+    /*
     let m = &mut ctx.magic;
     let tc = &ctx.tc;
 
@@ -390,5 +384,6 @@ pub fn generate_precharge_center(ctx: &mut BuildContext, width: Distance, end: b
     m.delete_box(delete_box)?;
 
     m.save(ctx.name)?;
+    */
     Ok(())
 }

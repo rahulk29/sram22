@@ -1,4 +1,3 @@
-use magic_vlsi::units::{Distance, Vec2};
 
 use micro_hdl::{context::Context, node::Node};
 
@@ -90,11 +89,12 @@ impl Component for Predecoder2_4 {
         _params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
         generate_predecoder2_4(&mut ctx)?;
-        ctx.layout_from_default_magic()
+        todo!()
     }
 }
 
 pub fn generate_predecoder2_4(ctx: &mut BuildContext) -> Result<()> {
+    /*
     let m = &mut ctx.magic;
     let nand2_pm_sh = ctx.factory.require_layout(NAND2_DEC)?.cell;
     let inv_pm_sh = ctx.factory.require_layout(INV_PM_SH_2)?.cell;
@@ -127,6 +127,9 @@ pub fn generate_predecoder2_4(ctx: &mut BuildContext) -> Result<()> {
     }
 
     m.save(ctx.name)?;
+    */
+
+    todo!();
 
     Ok(())
 }

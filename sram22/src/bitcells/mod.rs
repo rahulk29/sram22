@@ -1,5 +1,4 @@
 use log::info;
-use magic_vlsi::units::Vec2;
 
 use crate::{
     error::Result,
@@ -33,12 +32,14 @@ impl Component for BitcellArray {
         params: Self::Params,
     ) -> crate::error::Result<crate::factory::Layout> {
         generate_bitcells(&mut ctx, &params)?;
-        ctx.layout_from_default_magic()
+        todo!()
     }
 }
 
 pub(crate) fn generate_bitcells(ctx: &mut BuildContext, config: &BitcellArrayParams) -> Result<()> {
     info!("generating bitcell array");
+
+    /*
     let grid = plan_bitcell_array(ctx, config)?;
     let magic = &mut ctx.magic;
 
@@ -53,6 +54,8 @@ pub(crate) fn generate_bitcells(ctx: &mut BuildContext, config: &BitcellArrayPar
     magic.port_renumber()?;
     magic.save(ctx.name)?;
     Ok(())
+    */
+    todo!()
 }
 
 pub(crate) fn plan_bitcell_array(
@@ -94,7 +97,8 @@ pub(crate) fn plan_colend_row(
     config: &BitcellArrayParams,
     bottom: bool,
 ) -> Result<Vec<Option<GridCell>>> {
-    let corner = ctx.factory.require_layout(ARRAY_CORNER)?.cell;
+    todo!()
+    /*let corner = ctx.factory.require_layout(ARRAY_CORNER)?.cell;
     let colend = ctx.factory.require_layout(ARRAY_COLEND)?.cell;
     let colend_cent = ctx.factory.require_layout(ARRAY_COLEND_CENTER)?.cell;
 
@@ -116,13 +120,14 @@ pub(crate) fn plan_colend_row(
 
     info!("generated {} row cells", top_row.len());
 
-    Ok(top_row)
+    Ok(top_row)*/
 }
 
 pub(crate) fn plan_precharge_row(
     ctx: &mut BuildContext,
     config: &BitcellArrayParams,
 ) -> Result<Vec<Option<GridCell>>> {
+    /*
     let pc_end = ctx.factory.require_layout(PRECHARGE_END)?.cell;
     let pc_cent = ctx.factory.require_layout(PRECHARGE_CENTER)?.cell;
     let pc = ctx.factory.require_layout(PRECHARGE)?.cell;
@@ -146,12 +151,15 @@ pub(crate) fn plan_precharge_row(
     info!("planned precharge row");
 
     Ok(top_row)
+    */
+    todo!()
 }
 
 pub(crate) fn plan_senseamp_row(
     ctx: &mut BuildContext,
     config: &BitcellArrayParams,
 ) -> Result<Vec<Option<GridCell>>> {
+    /*
     let sa = ctx.factory.require_layout(SENSE_AMP)?.cell;
 
     // 2 slots for decoder gates
@@ -183,6 +191,8 @@ pub(crate) fn plan_senseamp_row(
     info!("planned senseamp row");
 
     Ok(row)
+    */
+    todo!()
 }
 
 pub(crate) fn plan_bitcell_row(
@@ -190,7 +200,8 @@ pub(crate) fn plan_bitcell_row(
     config: &BitcellArrayParams,
     idx: usize,
 ) -> Result<Vec<Option<GridCell>>> {
-    let rowend = ctx.factory.require_layout(ROWEND)?.cell;
+    todo!()
+    /* let rowend = ctx.factory.require_layout(ROWEND)?.cell;
     let bitcell = ctx.factory.require_layout(SP_BITCELL)?.cell;
     let nand2_dec = ctx.factory.require_layout(NAND2_DEC)?.cell;
     let inv_dec = ctx.factory.require_layout(INV_DEC)?.cell;
@@ -213,4 +224,5 @@ pub(crate) fn plan_bitcell_row(
     row.push(Some(GridCell::new(rowend, false, flip_y)));
 
     Ok(row)
+    */
 }
