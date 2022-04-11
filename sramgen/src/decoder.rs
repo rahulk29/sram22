@@ -4,13 +4,13 @@ use fanout::FanoutAnalyzer;
 
 use crate::{
     gate::{inv, nand2, Gate, GateParams, GateType, Size},
-    utils::{log2, sig_conn, signal},
+    utils::{log2, sig_conn, signal, BusConnection},
 };
 use pdkprims::config::Int;
 use serde::{Deserialize, Serialize};
 use vlsir::{
     circuit::{
-        connection::Stype, port, Connection, Instance, Module, Package, Port, Signal, Slice,
+        connection::Stype, port, Concat, Connection, Instance, Module, Package, Port, Signal, Slice,
     },
     reference::To,
     Reference,
@@ -148,12 +148,12 @@ fn partition_bits(bits: usize) -> Vec<usize> {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DecoderParams {
-    tree: DecoderTree,
-    lch: Int,
-    name: String,
+    pub tree: DecoderTree,
+    pub lch: Int,
+    pub name: String,
 }
 
-pub fn hierarchical_decoder(params: DecoderParams) -> Module {
+pub fn hierarchical_decoder(params: DecoderParams) -> Vec<Module> {
     let out = params.tree.root.num;
     let in_bits = log2(out) as i64;
 
@@ -196,14 +196,23 @@ pub fn hierarchical_decoder(params: DecoderParams) -> Module {
     ];
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],
         parameters: vec![],
     };
 
-    m
+    let vdd = signal("vdd");
+    let gnd = signal("gnd");
+
+    let mut gen = DecoderGen::new(&params, &vdd, &gnd);
+    gen.helper(Some(&params.tree.root), 0);
+
+    m.instances.append(&mut gen.instances);
+    gen.modules.push(m);
+
+    gen.modules
 }
 
 struct DecoderGen<'a> {
@@ -213,22 +222,62 @@ struct DecoderGen<'a> {
     gnd: &'a Signal,
     modules: Vec<Module>,
     instances: Vec<Instance>,
+    addr_bits: usize,
+    nand2s: HashMap<Size, String>,
+    invs: HashMap<Size, String>,
 }
 
 impl<'a> DecoderGen<'a> {
+    pub fn new(params: &'a DecoderParams, vdd: &'a Signal, gnd: &'a Signal) -> Self {
+        Self {
+            ctr: 0,
+            params: &params,
+            vdd: &vdd,
+            gnd: &gnd,
+            modules: vec![],
+            instances: vec![],
+            addr_bits: 0,
+            nand2s: HashMap::new(),
+            invs: HashMap::new(),
+        }
+    }
+
     fn get_id(&mut self) -> usize {
         self.ctr += 1;
         self.ctr
     }
 
-    fn helper(&mut self, node: &TreeNode, depth: usize) -> Connection {
-        if node.children.is_empty() {}
+    fn helper(&mut self, node: Option<&TreeNode>, depth: usize) -> BusConnection {
+        if node.is_none() {
+            let c = Connection {
+                stype: Some(Stype::Concat(Concat {
+                    parts: vec![
+                        Connection {
+                            stype: Some(Stype::Slice(Slice {
+                                signal: "addr".to_string(),
+                                top: self.addr_bits as i64,
+                                bot: self.addr_bits as i64,
+                            })),
+                        },
+                        Connection {
+                            stype: Some(Stype::Slice(Slice {
+                                signal: "addr_b".to_string(),
+                                top: self.addr_bits as i64,
+                                bot: self.addr_bits as i64,
+                            })),
+                        },
+                    ],
+                })),
+            };
+            self.addr_bits += 1;
+            return c.into();
+        }
 
-        assert_eq!(node.children.len(), 2);
-        let sigl = self.helper(&node.children[0], depth + 1);
-        let sigr = self.helper(&node.children[1], depth + 1);
+        let node = node.unwrap();
+        let sigl = self.helper(node.children.get(0), depth + 1);
+        let sigr = self.helper(node.children.get(1), depth + 1);
 
-        assert_eq!(sigl.width * sigr.width, node.num as i64);
+        assert_eq!(sigl.width() * sigr.width(), node.num);
 
         let out_name = if depth == 0 {
             "decode".to_string()
@@ -237,29 +286,41 @@ impl<'a> DecoderGen<'a> {
         };
 
         let out = Signal {
-            name: out_name,
+            name: out_name.clone(),
             width: node.num as i64,
         };
 
-        let nand_name = format!("decoder_nand_{}", self.get_id());
-        let nand = nand2(GateParams {
-            name: nand_name.clone(),
-            size: node.gate.size,
-            length: self.params.lch,
-        });
+        let nand_name = if let Some(nand_name) = self.nand2s.get(&node.gate.size) {
+            nand_name.to_string()
+        } else {
+            let nand_name = format!("decoder_nand_{}", self.get_id());
+            let nand = nand2(GateParams {
+                name: nand_name.clone(),
+                size: node.gate.size,
+                length: self.params.lch,
+            });
+            self.modules.push(nand);
+            self.nand2s.insert(node.gate.size, nand_name.clone());
+            nand_name
+        };
 
-        let inv_name = format!("decoder_inv_{}", self.get_id());
-        let inv = inv(GateParams {
-            name: inv_name.clone(),
-            size: node.buf.unwrap().size,
-            length: self.params.lch,
-        });
+        let inv_name = if let Some(inv_name) = self.invs.get(&node.buf.unwrap().size) {
+            inv_name.to_string()
+        } else {
+            let inv_name = format!("decoder_inv_{}", self.get_id());
+            let inv = inv(GateParams {
+                name: inv_name.clone(),
+                size: node.buf.unwrap().size,
+                length: self.params.lch,
+            });
+            self.modules.push(inv);
+            self.invs.insert(node.buf.unwrap().size, inv_name.clone());
+            inv_name
+        };
 
-        self.modules.push(nand);
-        self.modules.push(inv);
-
-        for i in 0..sigl.width {
-            for j in 0..sigr.width {
+        let mut ctr = 0;
+        for i in 0..sigl.width() {
+            for j in 0..sigr.width() {
                 let mut conns = HashMap::with_capacity(4);
                 conns.insert(
                     "vdd".to_string(),
@@ -285,23 +346,15 @@ impl<'a> DecoderGen<'a> {
                 );
 
                 let a = Connection {
-                    stype: Some(Stype::Slice(Slice {
-                        signal: sigl.name.clone(),
-                        top: i,
-                        bot: i,
-                    })),
+                    stype: Some(Stype::Slice(sigl.get(i).unwrap())),
                 };
                 let b = Connection {
-                    stype: Some(Stype::Slice(Slice {
-                        signal: sigr.name.clone(),
-                        top: j,
-                        bot: j,
-                    })),
+                    stype: Some(Stype::Slice(sigr.get(j).unwrap())),
                 };
                 conns.insert("a".to_string(), a);
                 conns.insert("b".to_string(), b);
                 let nand = Instance {
-                    name: format!("nand_{}", i),
+                    name: format!("nand_{}", self.get_id()),
                     module: Some(Reference {
                         to: Some(To::Local(nand_name.clone())),
                     }),
@@ -315,15 +368,17 @@ impl<'a> DecoderGen<'a> {
                     "din_b".to_string(),
                     Connection {
                         stype: Some(Stype::Slice(Slice {
-                            signal: "dout".to_string(),
-                            top: i,
-                            bot: i,
+                            signal: out_name.clone(),
+                            top: ctr,
+                            bot: ctr,
                         })),
                     },
                 );
 
+                ctr += 1;
+
                 let inv = Instance {
-                    name: format!("inv_{}", i),
+                    name: format!("inv_{}", self.get_id()),
                     module: Some(Reference {
                         to: Some(To::Local(inv_name.clone())),
                     }),
@@ -334,7 +389,10 @@ impl<'a> DecoderGen<'a> {
             }
         }
 
-        out
+        Connection {
+            stype: Some(Stype::Sig(out)),
+        }
+        .into()
     }
 }
 

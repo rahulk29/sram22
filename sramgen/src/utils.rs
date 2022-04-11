@@ -29,6 +29,18 @@ impl BusConnection {
     }
 }
 
+impl From<Connection> for BusConnection {
+    fn from(c: Connection) -> Self {
+        Self(c)
+    }
+}
+
+impl From<BusConnection> for Connection {
+    fn from(c: BusConnection) -> Self {
+        c.0
+    }
+}
+
 pub struct BusConnectionIter<'a> {
     conn: &'a Connection,
 }
@@ -62,13 +74,13 @@ pub mod conns {
         }
     }
 
-    pub fn get_concat(c: &Concat, idx: usize) -> Option<Slice> {
-        for part in c.parts {
+    pub fn get_concat(c: &Concat, mut idx: usize) -> Option<Slice> {
+        for part in &c.parts {
             let width = conn_width(&part);
             assert!(width >= 0);
             let width = width as usize;
             if idx < width {
-                return match part.stype.unwrap() {
+                return match part.stype.as_ref().unwrap() {
                     Stype::Sig(s) => get_sig(&s, idx),
                     Stype::Slice(s) => get_slice(&s, idx),
                     Stype::Concat(c) => get_concat(&c, idx),
@@ -80,7 +92,7 @@ pub mod conns {
     }
 
     pub fn get_conn(conn: &Connection, idx: usize) -> Option<Slice> {
-        match conn.stype.unwrap() {
+        match conn.stype.as_ref().unwrap() {
             Stype::Sig(s) => get_sig(&s, idx),
             Stype::Slice(s) => get_slice(&s, idx),
             Stype::Concat(c) => get_concat(&c, idx),
@@ -88,7 +100,7 @@ pub mod conns {
     }
 
     pub fn conn_width(conn: &Connection) -> i64 {
-        match conn.stype.unwrap() {
+        match conn.stype.as_ref().unwrap() {
             Stype::Sig(s) => s.width,
             Stype::Slice(s) => s.top - s.bot + 1,
             Stype::Concat(c) => c.parts.iter().map(conn_width).sum(),
@@ -96,11 +108,28 @@ pub mod conns {
     }
 }
 
-/// An inefficient way to calculate log2(x).
+/// Calculates log2(x). Not at all efficient or optimized.
 ///
 /// Behavior when x is not a power of 2 is undefined.
 ///
 /// x must be strictly positive.
+///
+/// # Examples
+///
+/// ```rust
+/// use sramgen::utils::log2;
+/// assert_eq!(log2(1), 0);
+/// assert_eq!(log2(2), 1);
+/// assert_eq!(log2(4), 2);
+/// assert_eq!(log2(8), 3);
+/// assert_eq!(log2(16), 4);
+/// assert_eq!(log2(32), 5);
+/// assert_eq!(log2(64), 6);
+/// assert_eq!(log2(128), 7);
+/// assert_eq!(log2(256), 8);
+/// assert_eq!(log2(512), 9);
+/// assert_eq!(log2(1024), 10);
+/// ```
 pub fn log2(mut x: usize) -> usize {
     assert!(x >= 1);
 
@@ -129,5 +158,11 @@ mod tests {
         assert_eq!(log2(256), 8);
         assert_eq!(log2(512), 9);
         assert_eq!(log2(1024), 10);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_log2_of_zero() {
+        let _ = log2(0);
     }
 }

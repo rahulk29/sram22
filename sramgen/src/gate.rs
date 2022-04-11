@@ -58,6 +58,7 @@ impl From<GateType> for fanout::GateType {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct GateParams {
     pub name: String,
     pub size: Size,

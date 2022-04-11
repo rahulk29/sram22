@@ -121,7 +121,7 @@ mod tests {
     use vlsir::{circuit::Package, spice::SimInput};
 
     use crate::{
-        decoder::{decoder_24, Decoder24Params},
+        decoder::{decoder_24, hierarchical_decoder, Decoder24Params, DecoderParams, DecoderTree},
         gate::Size,
         mos::{ext_nmos, ext_pmos},
     };
@@ -134,23 +134,21 @@ mod tests {
         let pmos = ext_pmos();
 
         let mut pkg = Package {
-            domain: "hi".to_string(),
+            domain: "sramgen_test_netlist".to_string(),
             desc: "Sramgen generated cells".to_string(),
             modules: vec![],
             ext_modules: vec![nmos, pmos],
         };
-        let mut mods = decoder_24(Decoder24Params {
-            name: "decoder_24".to_string(),
-            gate_size: Size {
-                nmos_width: 1_400,
-                pmos_width: 1_600,
-            },
-            inv_size: Size {
-                nmos_width: 1_600,
-                pmos_width: 2_000,
-            },
+
+        let tree = DecoderTree::new(8);
+        println!("tree: {:?}", &tree);
+        let params = DecoderParams {
+            tree,
+            name: "hier_decode".to_string(),
             lch: 150,
-        });
+        };
+
+        let mut mods = hierarchical_decoder(params);
 
         pkg.modules.append(&mut mods);
 
