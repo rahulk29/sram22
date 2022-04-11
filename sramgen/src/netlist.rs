@@ -121,7 +121,8 @@ mod tests {
     use vlsir::{circuit::Package, spice::SimInput};
 
     use crate::{
-        gate::{Nand2Params, Size},
+        decoder::{decoder_24, Decoder24Params},
+        gate::Size,
         mos::{ext_nmos, ext_pmos},
     };
 
@@ -129,23 +130,29 @@ mod tests {
 
     #[test]
     fn test_netlist() -> Result<()> {
-        let nand2 = crate::gate::nand2(Nand2Params {
-            length: 150,
-            size: Size {
-                nmos_width: 1_000,
-                pmos_width: 1_400,
-            },
-        });
-
         let nmos = ext_nmos();
         let pmos = ext_pmos();
 
-        let pkg = Package {
+        let mut pkg = Package {
             domain: "hi".to_string(),
             desc: "Sramgen generated cells".to_string(),
-            modules: vec![nand2],
+            modules: vec![],
             ext_modules: vec![nmos, pmos],
         };
+        let mut mods = decoder_24(Decoder24Params {
+            name: "decoder_24".to_string(),
+            gate_size: Size {
+                nmos_width: 1_400,
+                pmos_width: 1_600,
+            },
+            inv_size: Size {
+                nmos_width: 1_600,
+                pmos_width: 2_000,
+            },
+            lch: 150,
+        });
+
+        pkg.modules.append(&mut mods);
 
         let input = SimInput {
             pkg: Some(pkg),

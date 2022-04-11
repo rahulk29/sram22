@@ -7,7 +7,7 @@ with open("hi.bin", "rb") as f:
     dest = open("netlist.scs", "w")
     tmp = f.read()
     inp.ParseFromString(tmp)
-    netlist(pkg=inp.pkg, dest=dest, fmt="spectre")
+    netlist(pkg=inp.pkg, dest=dest, fmt="spice")
     dest.close()
 
 

@@ -46,7 +46,7 @@ pub fn ext_nmos() -> ExternalModule {
     ExternalModule {
         name: Some(QualifiedName {
             domain: "sky130".to_string(),
-            name: "sky130_fd_pr__nfet01v8".to_string(),
+            name: "sky130_fd_pr__nfet_01v8".to_string(),
         }),
         desc: "A SKY130 NMOS transistor".to_string(),
         ports,
@@ -73,7 +73,7 @@ pub fn ext_pmos() -> ExternalModule {
     ExternalModule {
         name: Some(QualifiedName {
             domain: "sky130".to_string(),
-            name: "sky130_fd_pr__pfet01v8".to_string(),
+            name: "sky130_fd_pr__pfet_01v8".to_string(),
         }),
         desc: "A SKY130 NMOS transistor".to_string(),
         ports,
@@ -87,13 +87,13 @@ impl From<Mosfet> for Instance {
         parameters.insert(
             "w".to_string(),
             ParameterValue {
-                value: Some(Value::Double(m.width as f64)),
+                value: Some(Value::Double(m.width as f64 / 1000.0)),
             },
         );
         parameters.insert(
             "l".to_string(),
             ParameterValue {
-                value: Some(Value::Double(m.length as f64)),
+                value: Some(Value::Double(m.length as f64 / 1000.0)),
             },
         );
 
@@ -121,7 +121,7 @@ impl From<Mosfet> for Instance {
 
 fn to_name(mos_type: pdkprims::mos::MosType) -> String {
     match mos_type {
-        MosType::Nmos => "sky130_fd_pr__nfet01v8".into(),
-        MosType::Pmos => "sky130_fd_pr__nfet01v8".into(),
+        MosType::Nmos => "sky130_fd_pr__nfet_01v8".into(),
+        MosType::Pmos => "sky130_fd_pr__pfet_01v8".into(),
     }
 }
