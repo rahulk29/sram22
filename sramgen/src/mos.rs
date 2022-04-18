@@ -4,8 +4,8 @@ use pdkprims::{config::Int, mos::MosType};
 use serde::{Deserialize, Serialize};
 use vlsir::{
     circuit::{
-        connection::Stype, parameter_value::Value, port, Connection, ExternalModule, Instance,
-        Parameter, ParameterValue, Port,
+        parameter_value::Value, port, Connection, ExternalModule, Instance, Parameter,
+        ParameterValue, Port,
     },
     reference::To,
     QualifiedName, Reference,

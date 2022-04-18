@@ -9,9 +9,7 @@ use crate::{
 use pdkprims::config::Int;
 use serde::{Deserialize, Serialize};
 use vlsir::{
-    circuit::{
-        connection::Stype, port, Concat, Connection, Instance, Module, Package, Port, Signal, Slice,
-    },
+    circuit::{connection::Stype, port, Concat, Connection, Instance, Module, Port, Signal, Slice},
     reference::To,
     Reference,
 };
@@ -118,10 +116,7 @@ fn plan_decoder(bits: usize) -> PlanTreeNode {
             _ => panic!("unexpected bit split"),
         };
 
-        let children = split
-            .into_iter()
-            .map(|b| plan_decoder(b))
-            .collect::<Vec<_>>();
+        let children = split.into_iter().map(plan_decoder).collect::<Vec<_>>();
         PlanTreeNode {
             gate,
             buf: Some(GateType::Inv),
@@ -231,9 +226,9 @@ impl<'a> DecoderGen<'a> {
     pub fn new(params: &'a DecoderParams, vdd: &'a Signal, gnd: &'a Signal) -> Self {
         Self {
             ctr: 0,
-            params: &params,
-            vdd: &vdd,
-            gnd: &gnd,
+            params,
+            vdd,
+            gnd,
             modules: vec![],
             instances: vec![],
             addr_bits: 0,
@@ -443,15 +438,15 @@ pub fn decoder_24(params: Decoder24Params) -> Vec<Module> {
             direction: port::Direction::Inout as i32,
         },
         Port {
-            signal: Some(din.clone()),
+            signal: Some(din),
             direction: port::Direction::Input as i32,
         },
         Port {
-            signal: Some(din_b.clone()),
+            signal: Some(din_b),
             direction: port::Direction::Input as i32,
         },
         Port {
-            signal: Some(dout.clone()),
+            signal: Some(dout),
             direction: port::Direction::Output as i32,
         },
     ];

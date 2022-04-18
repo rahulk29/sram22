@@ -1,0 +1,76 @@
+* Testbench for 4 bit decoder with 16 outputs
+
+.lib /Users/rahul/acads/research/sky130/pdk/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice tt
+.include ../build/decoder.spice
+
+.param cload='2p'
+.param vdd='1.8'
+.param tr='1n'
+.param tf='1n'
+
+Xdecoder vpwr 0 addr_3 addr_2 addr_1 addr_0 addr_b_3 addr_b_2 addr_b_1 addr_b_0 decode_15 decode_14 decode_13 decode_12 decode_11 decode_10 decode_9 decode_8 decode_7 decode_6 decode_5 decode_4 decode_3 decode_2 decode_1 decode_0 hier_decode
+
+C1 decode_0 0 {cload}
+C2 decode_1 0 {cload}
+C3 decode_2 0 {cload}
+C4 decode_3 0 {cload}
+C5 decode_4 0 {cload}
+C6 decode_5 0 {cload}
+C7 decode_6 0 {cload}
+C8 decode_7 0 {cload}
+C9 decode_8 0 {cload}
+C10 decode_9 0 {cload}
+C11 decode_10 0 {cload}
+C12 decode_11 0 {cload}
+C13 decode_12 0 {cload}
+C14 decode_13 0 {cload}
+C15 decode_14 0 {cload}
+C16 decode_15 0 {cload}
+
+Va0 addr_0 0 dc 0 PULSE(0 {vdd} 0 {tr} {tf} 0.8u 1.6u 0)
+Vab0 addr_b_0 0 dc 0 PULSE({vdd} 0 0 {tr} {tf} 0.8u 1.6u 0)
+
+Va1 addr_1 0 dc 0 PULSE(0 {vdd} 0 {tr} tf 0.4u 0.8u 0)
+Vab1 addr_b_1 0 dc 0 PULSE({vdd} 0 0 {tr} {tf} 0.4u 0.8u 0)
+
+Va2 addr_2 0 dc 0 PULSE(0 {vdd} 0 {tr} tf 0.2u 0.4u 0)
+Vab2 addr_b_2 0 dc 0 PULSE({vdd} 0 0 {tr} {tf} 0.2u 0.4u 0)
+
+Va3 addr_3 0 dc 0 PULSE(0 {vdd} 0 {tr} tf 0.1u 0.2u 0)
+Vab3 addr_b_3 0 dc 0 PULSE({vdd} 0 0 {tr} {tf} 0.1u 0.2u 0)
+
+Vdd vpwr 0 {vdd}
+
+.control
+tran 1n 1.6u 0u
+wrdata decoder_16.dat
++ v(decode_0)
++ v(decode_1)
++ v(decode_2)
++ v(decode_3)
++ v(decode_4)
++ v(decode_5)
++ v(decode_6)
++ v(decode_7)
++ v(decode_8)
++ v(decode_9)
++ v(decode_10)
++ v(decode_11)
++ v(decode_12)
++ v(decode_13)
++ v(decode_14)
++ v(decode_15)
++ v(addr_0)
++ v(addr_1)
++ v(addr_2)
++ v(addr_3)
++ v(addr_b_0)
++ v(addr_b_1)
++ v(addr_b_2)
++ v(addr_b_3)
+unset askquit
+quit 0
+.endc
+
+.end
+

@@ -1,6 +1,6 @@
 use pdkprims::{config::Int, mos::MosType};
 use serde::{Deserialize, Serialize};
-use vlsir::circuit::{connection::Stype, port, Connection, Module, Port, Signal};
+use vlsir::circuit::{port, Module, Port};
 
 use crate::{
     mos::Mosfet,

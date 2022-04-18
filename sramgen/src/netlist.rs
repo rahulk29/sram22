@@ -4,10 +4,10 @@ use vlsir::{
     circuit::{Instance, Package},
     reference::To,
     spice::SimInput,
-    Module, Reference,
+    Module,
 };
 
-pub const PRIMITIVE_DOMAIN: &'static str = "primitives";
+pub const PRIMITIVE_DOMAIN: &str = "primitives";
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -44,7 +44,7 @@ where
         let pkg = input.pkg.as_ref().unwrap();
         writeln!(self.sink, "* {}", pkg.domain)?;
         writeln!(self.sink, "* {}", pkg.desc)?;
-        writeln!(self.sink, "")?;
+        writeln!(self.sink)?;
 
         for m in &pkg.modules {
             write!(self.sink, ".subckt {}", &m.name)?;
@@ -58,7 +58,7 @@ where
                     write!(self.sink, " {}", &sig.name)?;
                 }
             }
-            writeln!(self.sink, "")?;
+            writeln!(self.sink)?;
 
             for inst in &m.instances {
                 self.emit_instance(inst)?;
@@ -84,15 +84,15 @@ where
         Ok(())
     }
 
-    fn emit_local_instance(&mut self, name: &str, inst: &Instance) -> Result<()> {
+    fn emit_local_instance(&mut self, name: &str, _inst: &Instance) -> Result<()> {
         let module = self.modules.get(name).unwrap();
         for p in &module.ports {
-            let sig = p.signal.as_ref().unwrap();
+            let _sig = p.signal.as_ref().unwrap();
         }
         Ok(())
     }
 
-    fn emit_primitive(&mut self, inst: &Instance) -> Result<()> {
+    fn emit_primitive(&mut self, _inst: &Instance) -> Result<()> {
         Ok(())
     }
 
@@ -115,18 +115,15 @@ impl NetlistWriter<std::fs::File> {
 
 #[cfg(test)]
 mod tests {
-    use std::io::{Read, Seek, SeekFrom};
 
-    use tempfile::tempfile;
     use vlsir::{circuit::Package, spice::SimInput};
 
     use crate::{
-        decoder::{decoder_24, hierarchical_decoder, Decoder24Params, DecoderParams, DecoderTree},
-        gate::Size,
+        decoder::{hierarchical_decoder, DecoderParams, DecoderTree},
         mos::{ext_nmos, ext_pmos},
     };
 
-    use super::{NetlistWriter, Result};
+    use super::Result;
 
     #[test]
     fn test_netlist() -> Result<()> {
@@ -140,7 +137,7 @@ mod tests {
             ext_modules: vec![nmos, pmos],
         };
 
-        let tree = DecoderTree::new(8);
+        let tree = DecoderTree::new(4);
         println!("tree: {:?}", &tree);
         let params = DecoderParams {
             tree,
@@ -160,7 +157,7 @@ mod tests {
             ctrls: vec![],
         };
 
-        vlsir::conv::save(&input, "hi.bin")?;
+        vlsir::conv::save(&input, "build/decoder.pb.bin")?;
         Ok(())
     }
 }

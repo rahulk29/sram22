@@ -1,4 +1,7 @@
-use vlsir::circuit::{connection::Stype, Connection, Signal, Slice};
+use vlsir::{
+    circuit::{connection::Stype, port, Connection, ExternalModule, Port, Signal, Slice},
+    QualifiedName,
+};
 
 use self::conns::{conn_width, get_conn};
 
@@ -6,6 +9,13 @@ pub fn signal(name: impl Into<String>) -> Signal {
     Signal {
         name: name.into(),
         width: 1,
+    }
+}
+
+pub fn bus(name: impl Into<String>, width: i64) -> Signal {
+    Signal {
+        name: name.into(),
+        width,
     }
 }
 
@@ -45,6 +55,25 @@ pub struct BusConnectionIter<'a> {
     conn: &'a Connection,
 }
 
+pub fn port_inout(s: &Signal) -> Port {
+    Port {
+        signal: Some(s.to_owned()),
+        direction: port::Direction::Inout as i32,
+    }
+}
+pub fn port_input(s: &Signal) -> Port {
+    Port {
+        signal: Some(s.to_owned()),
+        direction: port::Direction::Input as i32,
+    }
+}
+pub fn port_output(s: &Signal) -> Port {
+    Port {
+        signal: Some(s.to_owned()),
+        direction: port::Direction::Output as i32,
+    }
+}
+
 pub mod conns {
     use vlsir::circuit::{connection::Stype, Concat, Connection, Signal, Slice};
 
@@ -76,14 +105,14 @@ pub mod conns {
 
     pub fn get_concat(c: &Concat, mut idx: usize) -> Option<Slice> {
         for part in &c.parts {
-            let width = conn_width(&part);
+            let width = conn_width(part);
             assert!(width >= 0);
             let width = width as usize;
             if idx < width {
                 return match part.stype.as_ref().unwrap() {
-                    Stype::Sig(s) => get_sig(&s, idx),
-                    Stype::Slice(s) => get_slice(&s, idx),
-                    Stype::Concat(c) => get_concat(&c, idx),
+                    Stype::Sig(s) => get_sig(s, idx),
+                    Stype::Slice(s) => get_slice(s, idx),
+                    Stype::Concat(c) => get_concat(c, idx),
                 };
             }
             idx -= width;
@@ -93,9 +122,9 @@ pub mod conns {
 
     pub fn get_conn(conn: &Connection, idx: usize) -> Option<Slice> {
         match conn.stype.as_ref().unwrap() {
-            Stype::Sig(s) => get_sig(&s, idx),
-            Stype::Slice(s) => get_slice(&s, idx),
-            Stype::Concat(c) => get_concat(&c, idx),
+            Stype::Sig(s) => get_sig(s, idx),
+            Stype::Slice(s) => get_slice(s, idx),
+            Stype::Concat(c) => get_concat(c, idx),
         }
     }
 
@@ -105,6 +134,40 @@ pub mod conns {
             Stype::Slice(s) => s.top - s.bot + 1,
             Stype::Concat(c) => c.parts.iter().map(conn_width).sum(),
         }
+    }
+
+    pub fn conn_slice(signal: impl Into<String>, top: i64, bot: i64) -> Connection {
+        Connection {
+            stype: Some(Stype::Slice(Slice {
+                signal: signal.into(),
+                top,
+                bot,
+            })),
+        }
+    }
+}
+
+pub(crate) fn simple_ext_module(
+    domain: impl Into<String>,
+    name: impl Into<String>,
+    ports: &[&str],
+) -> ExternalModule {
+    let ports = ports
+        .iter()
+        .map(|&n| Port {
+            signal: Some(signal(n)),
+            direction: port::Direction::Inout as i32,
+        })
+        .collect::<Vec<_>>();
+
+    ExternalModule {
+        name: Some(QualifiedName {
+            domain: domain.into(),
+            name: name.into(),
+        }),
+        desc: "An external module".to_string(),
+        ports,
+        parameters: vec![],
     }
 }
 
@@ -135,7 +198,7 @@ pub fn log2(mut x: usize) -> usize {
 
     let mut ctr = 0;
     while x > 1 {
-        x = x >> 1;
+        x >>= 1;
         ctr += 1;
     }
     ctr
