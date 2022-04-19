@@ -7,6 +7,7 @@ inp = vlsir.spice_pb2.SimInput()
 CKTS = [
     "and2",
     "bitcells",
+    "decoder_16",
     "precharge",
     "precharge_array",
     "sense_amp_array",

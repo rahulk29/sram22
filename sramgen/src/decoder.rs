@@ -249,14 +249,14 @@ impl<'a> DecoderGen<'a> {
                     parts: vec![
                         Connection {
                             stype: Some(Stype::Slice(Slice {
-                                signal: "addr".to_string(),
+                                signal: "addr_b".to_string(),
                                 top: self.addr_bits as i64,
                                 bot: self.addr_bits as i64,
                             })),
                         },
                         Connection {
                             stype: Some(Stype::Slice(Slice {
-                                signal: "addr_b".to_string(),
+                                signal: "addr".to_string(),
                                 top: self.addr_bits as i64,
                                 bot: self.addr_bits as i64,
                             })),
@@ -314,8 +314,8 @@ impl<'a> DecoderGen<'a> {
         };
 
         let mut ctr = 0;
-        for i in 0..sigl.width() {
-            for j in 0..sigr.width() {
+        for i in 0..sigr.width() {
+            for j in 0..sigl.width() {
                 let mut conns = HashMap::with_capacity(4);
                 conns.insert(
                     "vdd".to_string(),
@@ -341,10 +341,10 @@ impl<'a> DecoderGen<'a> {
                 );
 
                 let a = Connection {
-                    stype: Some(Stype::Slice(sigl.get(i).unwrap())),
+                    stype: Some(Stype::Slice(sigr.get(i).unwrap())),
                 };
                 let b = Connection {
-                    stype: Some(Stype::Slice(sigr.get(j).unwrap())),
+                    stype: Some(Stype::Slice(sigl.get(j).unwrap())),
                 };
                 conns.insert("a".to_string(), a);
                 conns.insert("b".to_string(), b);
@@ -545,6 +545,27 @@ pub fn decoder_24(params: Decoder24Params) -> Vec<Module> {
     }
 
     vec![nand, inv, m]
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::utils::save_modules;
+
+    use super::*;
+
+    #[test]
+    fn test_netlist_decoder_16() -> Result<(), Box<dyn std::error::Error>> {
+        let tree = DecoderTree::new(4);
+        let decoder_params = DecoderParams {
+            tree,
+            lch: 150,
+            name: "decoder_16".to_string(),
+        };
+        let modules = hierarchical_decoder(decoder_params);
+
+        save_modules("decoder_16", modules)?;
+        Ok(())
+    }
 }
 
 /*

@@ -10,10 +10,10 @@ use crate::{
     precharge::{precharge_array, PrechargeArrayParams, PrechargeParams},
     sense_amp::{sense_amp_array, SenseAmpArrayParams},
     utils::{
-        bus, conn_map, conns::conn_slice, local_reference, port_inout, port_input, sig_conn, signal,
+        bus, conn_map, conns::conn_slice, local_reference, port_inout, port_input, sig_conn, signal, port_output,
     },
     wl_driver::{wordline_driver_array, WordlineDriverArrayParams, WordlineDriverParams},
-    write_driver::{bitline_driver_array, BitlineDriverArrayParams, BitlineDriverParams},
+    write_driver::{bitline_driver_array, BitlineDriverArrayParams, BitlineDriverParams}, tech::sramgen_control_ref,
 };
 
 pub struct SramParams {
@@ -33,6 +33,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
 
     let row_bits = params.row_bits as i64;
     let col_bits = params.col_bits as i64;
+    let col_mask_bits = params.col_mask_bits as i64;
     let rows = 1 << params.row_bits;
     let cols = 1 << params.col_bits;
 
@@ -67,7 +68,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         name: "bitcell_array".to_string(),
     });
 
-    let mut pc = precharge_array(PrechargeArrayParams {
+    let mut precharge = precharge_array(PrechargeArrayParams {
         name: "precharge_array".to_string(),
         width: cols as i64,
         instance_params: PrechargeParams {
@@ -102,6 +103,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
 
     let vdd = signal("vdd");
     let vss = signal("vss");
+    let clk = signal("clk");
     let din = bus("din", cols as i64);
     let din_b = bus("din_b", cols as i64);
     let dout = bus("dout", (cols / 4) as i64);
@@ -109,14 +111,14 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     let we = signal("we");
     let cs = signal("cs");
     let pc_b = signal("pc_b");
-    let _pc = signal("pc");
+    let pc = signal("pc");
     let bl = bus("bl", cols as i64);
     let br = bus("br", cols as i64);
     let bl_out = bus("bl_out", (cols / 4) as i64);
     let br_out = bus("br_out", (cols / 4) as i64);
     let wl_en = signal("wl_en");
-    let addr = bus("addr", row_bits + col_bits);
-    let addr_b = bus("addr_b", row_bits + col_bits);
+    let addr = bus("addr", row_bits + col_mask_bits);
+    let addr_b = bus("addr_b", row_bits + col_mask_bits);
     let wl = bus("wl", rows as i64);
     let wl_data = bus("wl_data", rows as i64);
     let wr_drv_en = signal("wr_drv_en");
@@ -124,9 +126,11 @@ pub fn sram(params: SramParams) -> Vec<Module> {
 
     let ports = vec![
         port_inout(&vdd),
+        port_inout(&vss),
+        port_input(&clk),
         port_inout(&din),
         port_inout(&din_b),
-        port_inout(&dout),
+        port_output(&dout),
         port_input(&we),
         port_input(&cs),
         port_input(&addr),
@@ -147,11 +151,11 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     conns.insert("gnd", sig_conn(&vss));
     conns.insert(
         "addr",
-        conn_slice("addr", row_bits + col_bits - 1, col_bits),
+        conn_slice("addr", row_bits + col_mask_bits - 1, col_mask_bits),
     );
     conns.insert(
         "addr_b",
-        conn_slice("addr_b", row_bits + col_bits - 1, col_bits),
+        conn_slice("addr_b", row_bits + col_mask_bits - 1, col_mask_bits),
     );
     conns.insert("decode", sig_conn(&wl_data));
 
@@ -234,6 +238,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         parameters: HashMap::new(),
     });
 
+    // Sense amplifier array
     let mut conns = HashMap::new();
     conns.insert("vdd", sig_conn(&vdd));
     conns.insert("vss", sig_conn(&vss));
@@ -249,12 +254,32 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         parameters: HashMap::new(),
     });
 
+    // Control logic
+    let mut conns = HashMap::new();
+    conns.insert("vdd", sig_conn(&vdd));
+    conns.insert("vss", sig_conn(&vss));
+    conns.insert("clk", sig_conn(&clk));
+    conns.insert("cs", sig_conn(&cs));
+    conns.insert("we", sig_conn(&we));
+    conns.insert("pc", sig_conn(&pc));
+    conns.insert("pc_b", sig_conn(&pc_b));
+    conns.insert("wl_en", sig_conn(&wl_en));
+    conns.insert("write_driver_en", sig_conn(&wr_drv_en));
+    conns.insert("sense_en", sig_conn(&sae));
+    m.instances.push(Instance {
+        name: "control_logic".to_string(),
+        module: Some(sramgen_control_ref()),
+        connections: conn_map(conns),
+        parameters: HashMap::new(),
+    });
+
+
     let mut modules = Vec::new();
     modules.append(&mut decoders);
     modules.append(&mut wl_drivers);
     modules.append(&mut wr_drivers);
     modules.push(bitcells);
-    modules.append(&mut pc);
+    modules.append(&mut precharge);
     modules.append(&mut muxes);
     modules.push(sense_amp_array);
     modules.push(m);

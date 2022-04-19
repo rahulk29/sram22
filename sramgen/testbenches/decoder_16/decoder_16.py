@@ -29,6 +29,8 @@ saved = [
     "addr_b_3",
 ]
 
+plot = [f"decode_{i}" for i in range(16)]
+
 
 def read_data(f):
     data = defaultdict(lambda: [])
@@ -50,10 +52,10 @@ def read_test_data():
 
 
 def plot_data(data):
-    plt.figure()
-    for i in range(16):
-        plt.plot(data["time"], data[f"decode_{i}"])
-    plt.legend([f"decode_{i}" for i in range(16)])
+    plt.figure(dpi=300)
+    for key in plot:
+        plt.plot(data["time"], data[key])
+    plt.legend(plot)
     plt.savefig("decoder_16.png")
 
 
