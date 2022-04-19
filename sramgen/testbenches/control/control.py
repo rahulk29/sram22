@@ -34,10 +34,10 @@ def read_test_data():
 
 def plot_data(data):
     plt.figure(dpi=150)
-    #plt.plot(data["time"], data["clk"])
-    #plt.plot(data["time"], data["cs"])
-    #plt.plot(data["time"], data["we"])
-    #plt.plot(data["time"], data["pc"])
+    # plt.plot(data["time"], data["clk"])
+    # plt.plot(data["time"], data["cs"])
+    # plt.plot(data["time"], data["we"])
+    # plt.plot(data["time"], data["pc"])
     plt.plot(data["time"], data["wl_en"])
     # plt.plot(data["time"], data["write_driver_en"])
     # plt.plot(data["time"], data["sense_en"])

@@ -13,5 +13,3 @@ with open(f"build/{CKT}.pb.bin", "rb") as f:
     inp.ParseFromString(tmp)
     netlist(pkg=inp.pkg, dest=dest, fmt="spice")
     dest.close()
-
-

@@ -2,17 +2,12 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use pdkprims::{config::Int, mos::MosType};
+use pdkprims::config::Int;
 
-use vlsir::{
-    circuit::{Instance, Module},
-    reference::To,
-    Reference,
-};
+use vlsir::circuit::{Instance, Module};
 
 use crate::{
     gate::{and2, AndParams, Size},
-    mos::Mosfet,
     utils::{
         bus, conn_map, conns::conn_slice, local_reference, port_inout, port_input, port_output,
         sig_conn, signal,
@@ -139,7 +134,7 @@ pub fn wordline_driver(params: WordlineDriverParams) -> Vec<Module> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{save_bin, tech::all_external_modules, utils::save_modules};
+    use crate::utils::save_modules;
 
     #[test]
     fn test_netlist_and2() -> Result<(), Box<dyn std::error::Error>> {

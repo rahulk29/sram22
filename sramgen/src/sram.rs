@@ -1,17 +1,10 @@
 use std::collections::HashMap;
 
-use pdkprims::{config::Int, mos::MosType};
-
-use vlsir::{
-    circuit::{Connection, Instance, Module},
-    reference::To,
-    Reference,
-};
+use vlsir::circuit::{Instance, Module};
 
 use crate::{
     bitcells::{bitcell_array, BitcellArrayParams},
     decoder::{hierarchical_decoder, DecoderParams, DecoderTree},
-    mos::Mosfet,
     mux::{column_mux_4_array, ColumnMuxArrayParams, ColumnMuxParams},
     precharge::{precharge_array, PrechargeArrayParams, PrechargeParams},
     utils::{
@@ -43,15 +36,15 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         lch: 150,
         name: "hierarchical_decoder".to_string(),
     };
-    let decoders = hierarchical_decoder(decoder_params);
+    let _decoders = hierarchical_decoder(decoder_params);
 
-    let bitcells = bitcell_array(BitcellArrayParams {
+    let _bitcells = bitcell_array(BitcellArrayParams {
         rows,
         cols,
         name: "bitcell_array".to_string(),
     });
 
-    let pc = precharge_array(PrechargeArrayParams {
+    let _pc = precharge_array(PrechargeArrayParams {
         name: "precharge_array".to_string(),
         width: cols as i64,
         instance_params: PrechargeParams {
@@ -61,7 +54,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         },
     });
 
-    let muxes = column_mux_4_array(ColumnMuxArrayParams {
+    let _muxes = column_mux_4_array(ColumnMuxArrayParams {
         name: "column_mux_array".to_string(),
         width: cols as i64,
         instance_params: ColumnMuxParams {
@@ -77,13 +70,13 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     let dout = bus("dout", (cols / 4) as i64);
     let we = signal("we");
     let cs = signal("cs");
-    let pc_b = signal("pc_b");
-    let pc = signal("pc");
-    let bl_out = bus("bl_out", (cols / 4) as i64);
-    let br_out = bus("br_out", (cols / 4) as i64);
+    let _pc_b = signal("pc_b");
+    let _pc = signal("pc");
+    let _bl_out = bus("bl_out", (cols / 4) as i64);
+    let _br_out = bus("br_out", (cols / 4) as i64);
     let addr = bus("addr", row_bits + col_bits);
     let addr_b = bus("addr_b", row_bits + col_bits);
-    let wl = bus("wl", rows as i64);
+    let _wl = bus("wl", rows as i64);
 
     let ports = vec![
         port_inout(&vdd),
