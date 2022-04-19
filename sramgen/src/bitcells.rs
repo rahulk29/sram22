@@ -10,10 +10,13 @@ use crate::{
     utils::{sig_conn, signal},
 };
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct BitcellArrayParams {
-    rows: usize,
-    cols: usize,
-    name: String,
+    pub rows: usize,
+    pub cols: usize,
+    pub name: String,
 }
 
 pub fn bitcell_array(params: BitcellArrayParams) -> Module {
@@ -53,7 +56,7 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
     ];
 
     let mut m = Module {
-        name,
+        name: params.name,
         ports,
         signals: vec![],
         instances: vec![],

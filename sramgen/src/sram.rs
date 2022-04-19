@@ -2,13 +2,21 @@ use std::collections::HashMap;
 
 use pdkprims::{config::Int, mos::MosType};
 
-use vlsir::{circuit::Module, reference::To, Reference};
+use vlsir::{
+    circuit::{Connection, Instance, Module},
+    reference::To,
+    Reference,
+};
 
 use crate::{
     bitcells::{bitcell_array, BitcellArrayParams},
-    decoder::{DecoderParams, DecoderTree},
+    decoder::{hierarchical_decoder, DecoderParams, DecoderTree},
     mos::Mosfet,
-    utils::{bus, conns::conn_slice, port_inout, port_input, sig_conn, signal}, precharge::{precharge_array, PrechargeArrayParams, PrechargeParams}, mux::{column_mux_4_array, ColumnMuxArrayParams, ColumnMuxParams},
+    mux::{column_mux_4_array, ColumnMuxArrayParams, ColumnMuxParams},
+    precharge::{precharge_array, PrechargeArrayParams, PrechargeParams},
+    utils::{
+        bus, conn_map, conns::conn_slice, local_reference, port_inout, port_input, sig_conn, signal,
+    },
 };
 
 pub struct SramParams {
@@ -24,6 +32,8 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     // TODO: for now we only support 4:1 sense amps and column muxes
     assert_eq!(params.col_bits, 2);
 
+    let row_bits = params.row_bits as i64;
+    let col_bits = params.col_bits as i64;
     let rows = 1 << params.row_bits;
     let cols = 1 << params.col_bits;
 
@@ -33,6 +43,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         lch: 150,
         name: "hierarchical_decoder".to_string(),
     };
+    let decoders = hierarchical_decoder(decoder_params);
 
     let bitcells = bitcell_array(BitcellArrayParams {
         rows,
@@ -59,231 +70,61 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         },
     });
 
-
     let vdd = signal("vdd");
+    let vss = signal("vss");
     let din = bus("din", cols as i64);
-    let dout = bus("dout", (cols/4) as i64);
+    let din_b = bus("din_b", cols as i64);
+    let dout = bus("dout", (cols / 4) as i64);
     let we = signal("we");
-    let bl_out = bus("bl_out", params.width / 4);
-    let br_out = bus("br_out", params.width / 4);
-    let sel = bus("sel", 2);
-    let sel_b = bus("sel_b", 2);
-
-    let ports = vec![
-        port_inout(&vdd),
-        port_inout(&bl),
-        port_inout(&br),
-        port_inout(&bl_out),
-        port_inout(&br_out),
-        port_input(&sel),
-        port_input(&sel_b),
-    ];
-
-    let mut m = Module {
-        name: format!("column_mux_4_array_{}", params.width),
-        ports,
-        signals: vec![],
-        instances: vec![],
-        parameters: vec![],
-    };
-
-    for i in (0..params.width).step_by(4) {
-        let mut connections = HashMap::new();
-        connections.insert("vdd".to_string(), sig_conn(&vdd));
-        connections.insert("din".to_string(), conn_slice("bl", i + 3, i));
-        connections.insert("sel".to_string(), sig_conn(&sel));
-        connections.insert("sel_b".to_string(), sig_conn(&sel_b));
-        connections.insert("dout".to_string(), conn_slice("bl_out", i, i));
-        m.instances.push(vlsir::circuit::Instance {
-            name: format!("mux_bl_{}", i),
-            module: Some(Reference {
-                to: Some(To::Local("column_mux_4".to_string())),
-            }),
-            parameters: HashMap::new(),
-            connections,
-        });
-
-        let mut connections = HashMap::new();
-        connections.insert("vdd".to_string(), sig_conn(&vdd));
-        connections.insert("din".to_string(), conn_slice("br", i + 3, i));
-        connections.insert("sel".to_string(), sig_conn(&sel));
-        connections.insert("sel_b".to_string(), sig_conn(&sel_b));
-        connections.insert("dout".to_string(), conn_slice("br_out", i, i));
-        m.instances.push(vlsir::circuit::Instance {
-            name: format!("mux_br_{}", i),
-            module: Some(Reference {
-                to: Some(To::Local("column_mux_4".to_string())),
-            }),
-            parameters: HashMap::new(),
-            connections,
-        });
-    }
-
-    vec![mux, m]
-}
-
-/// A 4 to 1 mux using PMOS devices
-pub fn column_mux_4(params: ColumnMuxParams) -> Module {
-    let length = params.length;
-
-    let vdd = signal("vdd");
-    let din = bus("din", 4);
-    let sel = bus("sel", 2);
-    let sel_b = bus("sel_b", 2);
-    let dout = signal("dout");
-
-    let int_0 = signal("int_0");
-    let int_1 = signal("int_1");
+    let cs = signal("cs");
+    let pc_b = signal("pc_b");
+    let pc = signal("pc");
+    let bl_out = bus("bl_out", (cols / 4) as i64);
+    let br_out = bus("br_out", (cols / 4) as i64);
+    let addr = bus("addr", row_bits + col_bits);
+    let addr_b = bus("addr_b", row_bits + col_bits);
+    let wl = bus("wl", rows as i64);
 
     let ports = vec![
         port_inout(&vdd),
         port_inout(&din),
+        port_inout(&din_b),
         port_inout(&dout),
-        port_input(&sel),
-        port_input(&sel_b),
+        port_input(&we),
+        port_input(&cs),
+        port_input(&addr),
+        port_input(&addr_b),
     ];
 
     let mut m = Module {
-        name: "column_mux_4".to_string(),
+        name: params.name,
         ports,
         signals: vec![],
         instances: vec![],
         parameters: vec![],
     };
 
-    m.instances.push(
-        Mosfet {
-            name: "s00".to_string(),
-            width: params.width,
-            length,
-            drain: sig_conn(&int_0),
-            source: conn_slice("din", 0, 0),
-            gate: conn_slice("sel", 0, 0),
-            body: sig_conn(&vdd),
-            mos_type: MosType::Pmos,
-        }
-        .into(),
+    // Decoder
+    let mut conns = HashMap::new();
+    conns.insert("vdd", sig_conn(&vdd));
+    conns.insert("gnd", sig_conn(&vss));
+    conns.insert(
+        "addr",
+        conn_slice("addr", row_bits + col_bits - 1, col_bits),
     );
-
-    m.instances.push(
-        Mosfet {
-            name: "s01".to_string(),
-            width: params.width,
-            length,
-            drain: sig_conn(&int_0),
-            source: conn_slice("din", 1, 1),
-            gate: conn_slice("sel_b", 0, 0),
-            body: sig_conn(&vdd),
-            mos_type: MosType::Pmos,
-        }
-        .into(),
+    conns.insert(
+        "addr_b",
+        conn_slice("addr_b", row_bits + col_bits - 1, col_bits),
     );
+    m.instances.push(Instance {
+        name: "decoder".to_string(),
+        module: local_reference("hierarchical_decoder"),
+        connections: conn_map(conns),
+        parameters: HashMap::new(),
+    });
 
-    m.instances.push(
-        Mosfet {
-            name: "s02".to_string(),
-            width: params.width,
-            length,
-            drain: sig_conn(&int_1),
-            source: conn_slice("din", 2, 2),
-            gate: conn_slice("sel", 0, 0),
-            body: sig_conn(&vdd),
-            mos_type: MosType::Pmos,
-        }
-        .into(),
-    );
-
-    m.instances.push(
-        Mosfet {
-            name: "s03".to_string(),
-            width: params.width,
-            length,
-            drain: sig_conn(&int_1),
-            source: conn_slice("din", 3, 3),
-            gate: conn_slice("sel_b", 0, 0),
-            body: sig_conn(&vdd),
-            mos_type: MosType::Pmos,
-        }
-        .into(),
-    );
-
-    m.instances.push(
-        Mosfet {
-            name: "s10".to_string(),
-            width: params.width,
-            length,
-            drain: sig_conn(&dout),
-            source: sig_conn(&int_0),
-            gate: conn_slice("sel", 1, 1),
-            body: sig_conn(&vdd),
-            mos_type: MosType::Pmos,
-        }
-        .into(),
-    );
-
-    m.instances.push(
-        Mosfet {
-            name: "s11".to_string(),
-            width: params.width,
-            length,
-            drain: sig_conn(&dout),
-            source: sig_conn(&int_1),
-            gate: conn_slice("sel_b", 1, 1),
-            body: sig_conn(&vdd),
-            mos_type: MosType::Pmos,
-        }
-        .into(),
-    );
-
-    m
+    vec![m]
 }
 
 #[cfg(test)]
-mod tests {
-    use vlsir::circuit::Package;
-
-    use crate::{save_bin, tech::all_external_modules};
-
-    use super::*;
-
-    #[test]
-    fn test_netlist_column_mux_4() -> Result<(), Box<dyn std::error::Error>> {
-        let mux = column_mux_4(ColumnMuxParams {
-            length: 150,
-            width: 2_000,
-        });
-        let ext_modules = all_external_modules();
-        let pkg = Package {
-            domain: "sramgen_column_mux_4".to_string(),
-            desc: "Sramgen generated cells".to_string(),
-            modules: vec![mux],
-            ext_modules,
-        };
-
-        save_bin("column_mux_4", pkg)?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_column_mux_4_array() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = column_mux_4_array(ColumnMuxArrayParams {
-            width: 64,
-            instance_params: ColumnMuxParams {
-                length: 150,
-                width: 2_000,
-            },
-        });
-        let ext_modules = all_external_modules();
-        let pkg = Package {
-            domain: "sramgen_column_mux_4_array".to_string(),
-            desc: "Sramgen generated cells".to_string(),
-            modules,
-            ext_modules,
-        };
-
-        save_bin("column_mux_4_array", pkg)?;
-
-        Ok(())
-    }
-}
+mod tests {}

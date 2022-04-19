@@ -7,6 +7,7 @@ use crate::{
 
 pub const SKY130_DOMAIN: &str = "sky130";
 pub const SRAM_SP_CELL: &str = "sram_sp_cell";
+pub const SRAM_CONTROL: &str = "sramgen_control";
 pub const SRAM_SP_SENSE_AMP: &str = "sramgen_sp_sense_amp";
 
 pub fn sram_sp_cell() -> ExternalModule {
@@ -22,6 +23,34 @@ pub fn sram_sp_cell_ref() -> Reference {
         to: Some(To::External(QualifiedName {
             domain: SKY130_DOMAIN.to_string(),
             name: SRAM_SP_CELL.to_string(),
+        })),
+    }
+}
+
+pub fn sramgen_control() -> ExternalModule {
+    simple_ext_module(
+        SKY130_DOMAIN,
+        SRAM_CONTROL,
+        &[
+            "clk",
+            "cs",
+            "we",
+            "pc",
+            "pc_b",
+            "wl_en",
+            "write_driver_en",
+            "sense_en",
+            "vdd",
+            "vss",
+        ],
+    )
+}
+
+pub fn sramgen_control_ref() -> Reference {
+    Reference {
+        to: Some(To::External(QualifiedName {
+            domain: SKY130_DOMAIN.to_string(),
+            name: SRAM_CONTROL.to_string(),
         })),
     }
 }
@@ -54,6 +83,7 @@ pub fn all_external_modules() -> Vec<ExternalModule> {
         ext_nmos(),
         ext_pmos(),
         sram_sp_cell(),
+        sramgen_control(),
         sramgen_sp_sense_amp(),
     ]
 }

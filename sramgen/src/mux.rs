@@ -207,7 +207,7 @@ pub fn column_mux_4(params: ColumnMuxParams) -> Module {
 mod tests {
     use vlsir::circuit::Package;
 
-    use crate::{save_bin, tech::all_external_modules};
+    use crate::{save_bin, tech::all_external_modules, utils::save_modules};
 
     use super::*;
 
@@ -233,22 +233,14 @@ mod tests {
     #[test]
     fn test_netlist_column_mux_4_array() -> Result<(), Box<dyn std::error::Error>> {
         let modules = column_mux_4_array(ColumnMuxArrayParams {
+            name: "column_mux_4_array".to_string(),
             width: 64,
             instance_params: ColumnMuxParams {
                 length: 150,
                 width: 2_000,
             },
         });
-        let ext_modules = all_external_modules();
-        let pkg = Package {
-            domain: "sramgen_column_mux_4_array".to_string(),
-            desc: "Sramgen generated cells".to_string(),
-            modules,
-            ext_modules,
-        };
-
-        save_bin("column_mux_4_array", pkg)?;
-
+        save_modules("column_mux_4_array", modules)?;
         Ok(())
     }
 }

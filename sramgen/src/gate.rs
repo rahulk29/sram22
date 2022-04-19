@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
 use pdkprims::{config::Int, mos::MosType};
 use serde::{Deserialize, Serialize};
-use vlsir::circuit::{port, Module, Port};
+use vlsir::circuit::{port, Instance, Module, Port};
 
 use crate::{
     mos::Mosfet,
-    utils::{sig_conn, signal},
+    utils::{conn_map, local_reference, port_inout, port_input, port_output, sig_conn, signal},
 };
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
@@ -63,6 +65,82 @@ pub struct GateParams {
     pub name: String,
     pub size: Size,
     pub length: Int,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct AndParams {
+    pub name: String,
+    pub nand_size: Size,
+    pub inv_size: Size,
+    pub length: Int,
+}
+
+pub fn and2(params: AndParams) -> Vec<Module> {
+    let vdd = signal("vdd");
+    let a = signal("a");
+    let b = signal("b");
+    let y = signal("y");
+    let vss = signal("vss");
+
+    let ports = vec![
+        port_input(&a),
+        port_input(&b),
+        port_output(&y),
+        port_inout(&vdd),
+        port_inout(&vss),
+    ];
+
+    let mut m = Module {
+        name: params.name.clone(),
+        ports,
+        signals: vec![],
+        instances: vec![],
+        parameters: vec![],
+    };
+
+    let nand_name = format!("{}_nand", &params.name);
+    let nand = nand2(GateParams {
+        name: nand_name.clone(),
+        size: params.nand_size,
+        length: params.length,
+    });
+    let inv_name = format!("{}_inv", &params.name);
+    let inv = inv(GateParams {
+        name: inv_name.clone(),
+        size: params.inv_size,
+        length: params.length,
+    });
+
+    let tmp = signal("tmp");
+
+    // nand
+    let mut conns = HashMap::new();
+    conns.insert("vdd", sig_conn(&vdd));
+    conns.insert("gnd", sig_conn(&vss));
+    conns.insert("a", sig_conn(&a));
+    conns.insert("b", sig_conn(&b));
+    conns.insert("y", sig_conn(&tmp));
+    m.instances.push(Instance {
+        name: "nand".to_string(),
+        module: local_reference(nand_name),
+        connections: conn_map(conns),
+        parameters: HashMap::new(),
+    });
+
+    // inv
+    let mut conns = HashMap::new();
+    conns.insert("vdd", sig_conn(&vdd));
+    conns.insert("gnd", sig_conn(&vss));
+    conns.insert("din", sig_conn(&tmp));
+    conns.insert("din_b", sig_conn(&y));
+    m.instances.push(Instance {
+        name: "inv".to_string(),
+        module: local_reference(inv_name),
+        connections: conn_map(conns),
+        parameters: HashMap::new(),
+    });
+
+    vec![nand, inv, m]
 }
 
 pub fn nand2(params: GateParams) -> Module {
@@ -220,4 +298,30 @@ pub fn inv(params: GateParams) -> Module {
     );
 
     m
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::utils::save_modules;
+
+    use super::*;
+
+    #[test]
+    fn test_netlist_and2() -> Result<(), Box<dyn std::error::Error>> {
+        let and2 = and2(AndParams {
+            name: "sramgen_and2".to_string(),
+            nand_size: Size {
+                nmos_width: 2_000,
+                pmos_width: 2_000,
+            },
+            inv_size: Size {
+                nmos_width: 1_000,
+                pmos_width: 2_000,
+            },
+            length: 150,
+        });
+
+        save_modules("and2", and2)?;
+        Ok(())
+    }
 }

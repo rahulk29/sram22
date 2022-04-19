@@ -15,6 +15,7 @@ pub mod sense_amp;
 pub mod sram;
 pub mod tech;
 pub mod utils;
+pub mod wl_driver;
 pub mod write_driver;
 
 pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
@@ -57,6 +58,7 @@ pub(crate) fn save_bin(name: &str, pkg: Package) -> Result<(), Box<dyn std::erro
 
     let path = out_bin(name);
     std::fs::create_dir_all(path.parent().unwrap())?;
+    println!("Saving:\n{:?}", &input);
     vlsir::conv::save(&input, path)?;
 
     Ok(())

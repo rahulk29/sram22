@@ -5,6 +5,7 @@ import vlsirtools.netlist as netlist
 inp = vlsir.spice_pb2.SimInput()
 
 CKTS = [
+    "and2",
     "bitcells",
     "precharge",
     "precharge_array",
@@ -13,6 +14,7 @@ CKTS = [
     "column_mux_4_array",
     "bitline_driver",
     "bitline_driver_array",
+    "wordline_driver_array",
 ]
 
 

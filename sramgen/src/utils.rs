@@ -1,7 +1,12 @@
+use std::collections::HashMap;
+
 use vlsir::{
-    circuit::{connection::Stype, port, Connection, ExternalModule, Port, Signal, Slice},
-    QualifiedName,
+    circuit::{connection::Stype, port, Connection, ExternalModule, Package, Port, Signal, Slice},
+    reference::To,
+    Module, QualifiedName, Reference,
 };
+
+use crate::{save_bin, tech::all_external_modules};
 
 use self::conns::{conn_width, get_conn};
 
@@ -169,6 +174,33 @@ pub(crate) fn simple_ext_module(
         ports,
         parameters: vec![],
     }
+}
+
+pub(crate) fn conn_map(map: HashMap<&str, Connection>) -> HashMap<String, Connection> {
+    map.into_iter().map(|(k, v)| (k.to_string(), v)).collect()
+}
+
+pub(crate) fn local_reference(name: impl Into<String>) -> Option<Reference> {
+    Some(Reference {
+        to: Some(To::Local(name.into())),
+    })
+}
+
+pub(crate) fn save_modules(
+    name: &str,
+    modules: Vec<Module>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let ext_modules = all_external_modules();
+    let pkg = Package {
+        domain: format!("sramgen_{}", name),
+        desc: "Sramgen generated cells".to_string(),
+        modules,
+        ext_modules,
+    };
+
+    save_bin(name, pkg)?;
+
+    Ok(())
 }
 
 /// Calculates log2(x). Not at all efficient or optimized.
