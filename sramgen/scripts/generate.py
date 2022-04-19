@@ -15,6 +15,7 @@ CKTS = [
     "bitline_driver",
     "bitline_driver_array",
     "wordline_driver_array",
+    "sram_16x16",
 ]
 
 

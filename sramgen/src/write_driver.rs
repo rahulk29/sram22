@@ -15,6 +15,7 @@ pub struct BitlineDriverParams {
 }
 
 pub struct BitlineDriverArrayParams {
+    pub name: String,
     pub width: i64,
     pub instance_params: BitlineDriverParams,
 }
@@ -42,7 +43,7 @@ pub fn bitline_driver_array(params: BitlineDriverArrayParams) -> Vec<Module> {
     ];
 
     let mut m = Module {
-        name: format!("bitline_driver_array_{}", params.width),
+        name: params.name,
         ports,
         signals: vec![],
         instances: vec![],
@@ -159,6 +160,7 @@ mod tests {
     #[test]
     fn test_netlist_bitline_driver_array() -> Result<(), Box<dyn std::error::Error>> {
         let modules = bitline_driver_array(BitlineDriverArrayParams {
+            name: "bitline_driver_array".to_string(),
             width: 64,
             instance_params: BitlineDriverParams {
                 length: 150,

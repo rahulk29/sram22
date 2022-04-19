@@ -7,8 +7,12 @@ use crate::{
     utils::{bus, conns::conn_slice, port_inout, port_input, port_output, sig_conn, signal},
 };
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct SenseAmpArrayParams {
-    width: i64,
+    pub name: String,
+    pub width: i64,
 }
 
 pub fn sense_amp_array(params: SenseAmpArrayParams) -> Module {
@@ -32,7 +36,7 @@ pub fn sense_amp_array(params: SenseAmpArrayParams) -> Module {
     ];
 
     let mut m = Module {
-        name: format!("sense_amp_array_{}", params.width),
+        name: params.name,
         ports,
         signals: vec![],
         instances: vec![],
@@ -70,7 +74,10 @@ mod tests {
 
     #[test]
     fn test_netlist_sense_amp_array() -> Result<(), Box<dyn std::error::Error>> {
-        let sense_amps = sense_amp_array(SenseAmpArrayParams { width: 64 / 4 });
+        let sense_amps = sense_amp_array(SenseAmpArrayParams {
+            name: "sense_amp_array".to_string(),
+            width: 64 / 4,
+        });
         let ext_modules = all_external_modules();
         let pkg = Package {
             domain: "sramgen_sense_amp_array".to_string(),

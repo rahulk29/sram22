@@ -45,7 +45,7 @@ pub fn column_mux_4_array(params: ColumnMuxArrayParams) -> Vec<Module> {
     ];
 
     let mut m = Module {
-        name: format!("column_mux_4_array_{}", params.width),
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],
