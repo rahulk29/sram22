@@ -4,7 +4,6 @@ from collections import defaultdict
 
 saved = [
     "clk",
-    "we",
     "dout_3",
     "dout_2",
     "dout_1",
@@ -16,7 +15,7 @@ saved = [
 
 saved.extend([f"q_{i}" for i in range(8)])
 
-plot = ["q_6", "q_7"]
+plot = ["clk", "dout_0", "dout_1"]
 
 
 def read_data(f):
@@ -34,7 +33,7 @@ def read_data(f):
 
 
 def read_test_data():
-    with open("./write.dat") as f:
+    with open("./read.dat") as f:
         return read_data(f)
 
 
@@ -43,7 +42,7 @@ def plot_data(data):
     for key in plot:
         plt.plot(data["time"], data[key])
     plt.legend(plot)
-    plt.savefig("write.png")
+    plt.savefig("read.png")
     plt.show()
 
 

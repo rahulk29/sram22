@@ -30,6 +30,7 @@ saved = [
 ]
 
 plot = [f"decode_{i}" for i in range(16)]
+plot = ["decode_9"]
 
 
 def read_data(f):
@@ -52,13 +53,35 @@ def read_test_data():
 
 
 def plot_data(data):
-    plt.figure(dpi=300)
+    plt.figure()
     for key in plot:
         plt.plot(data["time"], data[key])
     plt.legend(plot)
     plt.savefig("decoder_16.png")
 
 
+def analyze_data(data):
+    t = data["time"]
+    for i in range(1, 16):
+        tr = rise_time(t, data[f"decode_{i}"])
+        print(f"decode_{i}: {tr*1e12}ps")
+
+
+def rise_time(t, v, low_thresh=0.2, high_thresh=0.8):
+    maximum = np.max(v)
+    minimum = np.min(v)
+
+    # Normalize v
+    vnorm = (v - minimum) / (maximum - minimum)
+    t_high = (vnorm >= high_thresh).nonzero()[0][0]
+    t_low = (vnorm[:t_high] <= low_thresh).nonzero()[0][-1]
+
+    assert t_high > t_low
+
+    return t[t_high] - t[t_low]
+
+
 if __name__ == "__main__":
     data = read_test_data()
+    analyze_data(data)
     plot_data(data)

@@ -1,0 +1,32 @@
+* Testbench for 4 bit decoder with 16 outputs
+
+.lib /Users/rahul/acads/research/sky130/pdk/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice tt
+.include ../../lib/sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.spice
+
+.param cload='2p'
+.param vdd='1.8'
+.param tr='1n'
+.param tf='1n'
+
+Xcell bl br vdd 0 wl sram_sp_cell
+
+C1 outn 0 {cload}
+C2 outp 0 {cload}
+
+Vbl bl 0 dc {vdd}
+Vbr br 0 dc {vdd}
+Vwl wl 0 dc 1.6 ac 1
+
+Vdd vdd 0 {vdd}
+
+.control
+ac dec 20 10MEG 100MEG
+wrdata wl_capex.dat
++ real(-i(vwl))
++ imag(-i(vwl))
+unset askquit
+quit 0
+.endc
+
+.end
+

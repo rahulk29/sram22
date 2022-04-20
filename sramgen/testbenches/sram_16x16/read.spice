@@ -1,4 +1,4 @@
-* SRAM 16x16 simple WRITE testbench
+* SRAM 16x16 simple READ testbench
 
 .lib /Users/rahul/acads/research/sky130/pdk/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice tt
 
@@ -8,7 +8,7 @@
 
 .include ../../build/spice/sram_16x16.spice
 
-.param cload='2p'
+.param cload='20f'
 .param vdd='1.8'
 .param tr='10p'
 .param tf='10p'
@@ -22,35 +22,41 @@ Xsram
 * dout
 + dout_3 dout_2 dout_1 dout_0
 * we cs
-+ we vdd
++ 0 vdd
 * addr
-+ vdd 0 vdd 0 0 0
++ vdd 0 vdd 0 vdd 0
 * addr_b
-+ 0 vdd 0 vdd vdd vdd 
++ 0 vdd 0 vdd 0 vdd 
 + sramgen_sram_16x16
-
-Vwe we 0 dc 0 PULSE(0 {vdd} 15p {tr} {tf} 4n 8n 0)
 
 * 250 MHz clock
 Vclk clk 0 dc 0 PULSE(0 {vdd} 10p {tr} {tf} 2n 4n 0)
 Vdd vdd 0 {vdd}
+
+Co1 dout_0 0 {cload}
+Co2 dout_1 0 {cload}
+Co3 dout_2 0 {cload}
+Co4 dout_3 0 {cload}
 
 .ic 
 + v(xsram.xbitcells.xbitcell_10_0.q)={vdd}
 + v(xsram.xbitcells.xbitcell_10_1.q)={vdd}
 + v(xsram.xbitcells.xbitcell_10_2.q)={vdd}
 + v(xsram.xbitcells.xbitcell_10_3.q)={vdd}
-+ v(xsram.xbitcells.xbitcell_10_4.q)={vdd}
-+ v(xsram.xbitcells.xbitcell_10_5.q)={vdd}
-+ v(xsram.xbitcells.xbitcell_10_6.q)={vdd}
-+ v(xsram.xbitcells.xbitcell_10_7.q)={vdd}
++ v(xsram.xbitcells.xbitcell_10_4.q)=0
++ v(xsram.xbitcells.xbitcell_10_5.q)=0
++ v(xsram.xbitcells.xbitcell_10_6.q)=0
++ v(xsram.xbitcells.xbitcell_10_7.q)=0
++ v(dout_3)=0
++ v(dout_2)=0
++ v(dout_1)=0
++ v(dout_0)=0
 
 .control
 
 tran 5p 12n 0u
-wrdata write.dat
+wrdata read.dat
 + v(clk)
-+ v(we)
 + v(dout_3)
 + v(dout_2)
 + v(dout_1)

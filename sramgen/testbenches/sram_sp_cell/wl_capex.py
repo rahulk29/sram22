@@ -2,21 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
-saved = [
-    "clk",
-    "we",
-    "dout_3",
-    "dout_2",
-    "dout_1",
-    "dout_0",
-    "pc_b",
-    "wl_en",
-    "wr_drv_en",
-]
-
-saved.extend([f"q_{i}" for i in range(8)])
-
-plot = ["q_6", "q_7"]
+saved = ["ir", "ii"]
 
 
 def read_data(f):
@@ -26,7 +12,7 @@ def read_data(f):
         ctr = 0
         for key in saved:
             if ctr == 0:
-                data["time"].append(float(values[ctr]))
+                data["freq"].append(float(values[ctr]))
             ctr += 1
             data[key].append(float(values[ctr]))
             ctr += 1
@@ -34,19 +20,18 @@ def read_data(f):
 
 
 def read_test_data():
-    with open("./write.dat") as f:
+    with open("./wl_capex.dat") as f:
         return read_data(f)
 
 
-def plot_data(data):
-    plt.figure(dpi=150)
-    for key in plot:
-        plt.plot(data["time"], data[key])
-    plt.legend(plot)
-    plt.savefig("write.png")
-    plt.show()
+def analyze_data(data):
+    f = data["freq"]
+    imag = data["ii"]
+    C = imag / (2 * np.pi * f)
+    return np.average(C)
 
 
 if __name__ == "__main__":
     data = read_test_data()
-    plot_data(data)
+    C = analyze_data(data)
+    print(f"Cell wordline capacitance: {C*1e15}fF")
