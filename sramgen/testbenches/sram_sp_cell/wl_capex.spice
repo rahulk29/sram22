@@ -3,15 +3,9 @@
 .lib /Users/rahul/acads/research/sky130/pdk/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice tt
 .include ../../lib/sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.spice
 
-.param cload='2p'
 .param vdd='1.8'
-.param tr='1n'
-.param tf='1n'
 
 Xcell bl br vdd 0 wl sram_sp_cell
-
-C1 outn 0 {cload}
-C2 outp 0 {cload}
 
 Vbl bl 0 dc {vdd}
 Vbr br 0 dc {vdd}

@@ -60,35 +60,54 @@ fn size_decoder(tree: &PlanTreeNode) -> TreeNode {
             f.add_gate(buf.into());
         }
         if let Some(next) = nodes.get(i + 1) {
-            f.add_branch(next.num as f64);
+            f.add_branch((next.num/node.num) as f64);
         }
     }
     // TODO use fanout results
+    let res = f.size(32f64);
+    let mut sizes = res.sizes().collect::<Vec<_>>();
 
-    size_helper_tmp(tree)
+    sizes.reverse();
+
+    size_helper_tmp(tree, &sizes)
 }
 
-fn size_helper_tmp(x: &PlanTreeNode) -> TreeNode {
+const REF_INVERTER_WIDTH: i64 = 800;
+const BETA: f64 = 1.7;
+
+fn round_to_grid(x: f64) -> Int {
+    ((x/5.0).round() as Int)*5
+}
+
+fn size_helper_tmp(x: &PlanTreeNode, sizes: &[f64]) -> TreeNode {
+    let nscale = round_to_grid(sizes[0] * REF_INVERTER_WIDTH as f64);
+    let pscale = round_to_grid(sizes[0] * REF_INVERTER_WIDTH as f64 * BETA);
+
     let buf = x.buf.map(|b| {
         Gate::new(
             b,
             Size {
-                nmos_width: 1_000,
-                pmos_width: 1_000,
+                nmos_width: nscale,
+                pmos_width: pscale,
             },
         )
     });
+
+    // TODO: these arent correct
+    let nscale = round_to_grid(sizes[1] * REF_INVERTER_WIDTH as f64);
+    let pscale = round_to_grid(sizes[1] * REF_INVERTER_WIDTH as f64 * BETA);
+
     TreeNode {
         gate: Gate::new(
             x.gate,
             Size {
-                nmos_width: 1_000,
-                pmos_width: 1_000,
+                nmos_width: nscale,
+                pmos_width: pscale,
             },
         ),
         buf,
         num: x.num,
-        children: x.children.iter().map(size_helper_tmp).collect::<Vec<_>>(),
+        children: x.children.iter().map(|n| size_helper_tmp(n, &sizes[2..])).collect::<Vec<_>>(),
     }
 }
 

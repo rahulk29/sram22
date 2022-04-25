@@ -30,7 +30,7 @@ saved = [
 ]
 
 plot = [f"decode_{i}" for i in range(16)]
-plot = ["decode_9"]
+# plot = ["decode_9"]
 
 
 def read_data(f):
