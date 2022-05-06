@@ -7,3 +7,6 @@
 [submodule "deps/Layout21"]
 	path = deps/Layout21
 	url = git@github.com:dan-fritchman/Layout21.git
+[submodule "deps/Vlsir"]
+	path = deps/Vlsir
+	url = git@github.com:rahulk29/Vlsir.git

@@ -1,0 +1,55 @@
+* Testbench for control logic
+
+.lib /Users/rahul/acads/research/sky130/pdk/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice tt
+
+.param cload='1p'
+.param vdd='1.8'
+.param tr='1p'
+.param tf='1p'
+
+.subckt inv0 din din_b vdd vss
+Xp din_b din vdd vdd sky130_fd_pr__pfet_01v8 w='2' l='0.15'
+Xn din_b din vss vss sky130_fd_pr__nfet_01v8 w='1' l='0.15'
+.ends
+
+.subckt delay_chain_4 din dout vdd vss
+Xinv0 din tmp0 vdd vss inv0
+Xinv1 tmp0 tmp1 vdd vss inv0
+Xinv2 tmp1 tmp2 vdd vss inv0
+Xinv3 tmp2 dout vdd vss inv0
+.ends
+
+.subckt delay_chain_8 din dout vdd vss
+Xinv0 din tmp0 vdd vss inv0
+Xinv1 tmp0 tmp1 vdd vss inv0
+Xinv2 tmp1 tmp2 vdd vss inv0
+Xinv3 tmp2 tmp3 vdd vss inv0
+Xinv4 tmp3 tmp4 vdd vss inv0
+Xinv5 tmp4 tmp5 vdd vss inv0
+Xinv6 tmp5 tmp6 vdd vss inv0
+Xinv7 tmp6 dout vdd vss inv0
+.ends
+
+Xdelay4 din dout4 vdd 0 delay_chain_4
+Xdelay8 din dout8 vdd 0 delay_chain_8
+
+Cload din_b 0 {cload}
+Cload4 dout4 0 {cload}
+Cload8 dout8 0 {cload}
+
+Vin din 0 dc 0 PULSE(0 {vdd} 0 {tr} {tf} 0.1u 0.2u 0)
+
+Vdd vdd 0 {vdd}
+
+.control
+tran 10p 0.45u 0u
+wrdata delay_chain.dat
++ v(din)
++ v(dout4)
++ v(dout8)
+unset askquit
+quit 0
+.endc
+
+.end
+

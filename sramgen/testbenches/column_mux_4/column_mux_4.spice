@@ -1,0 +1,45 @@
+* Testbench for 4 bit decoder with 16 outputs
+
+.lib /Users/rahul/acads/research/sky130/pdk/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice tt
+.include ../../build/spice/column_mux_4.spice
+
+.param cload='2p'
+.param vdd='1.8'
+.param tr='1n'
+.param tf='1n'
+
+Xmux vdd din3 din2 din1 din0 dout sel1 sel0 sel_b1 sel_b0 column_mux_4
+
+Cout dout 0 {cload}
+
+Vsel0 sel0 0 dc 0 PULSE(0 {vdd} 0 {tr} {tf} 0.8u 1.6u 0)
+Vsel_b0 sel_b0 0 dc 0 PULSE({vdd} 0 0 {tr} {tf} 0.8u 1.6u 0)
+
+Vsel1 sel1 0 dc 0 PULSE(0 {vdd} 0 {tr} tf 0.4u 0.8u 0)
+Vsel_b1 sel_b1 0 dc 0 PULSE({vdd} 0 0 {tr} {tf} 0.4u 0.8u 0)
+
+Vdd vdd 0 {vdd}
+
+Vd0 din0 0 1.6
+Vd1 din1 0 1.5
+Vd2 din2 0 1.4
+Vd3 din3 0 1.3
+
+.control
+tran 1n 1.6u 0u
+wrdata column_mux_4.dat
++ v(din0)
++ v(din1)
++ v(din2)
++ v(din3)
++ v(sel0)
++ v(sel1)
++ v(sel_b0)
++ v(sel_b1)
++ v(dout)
+unset askquit
+quit 0
+.endc
+
+.end
+

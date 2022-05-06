@@ -3,4 +3,6 @@
 /_build
 scripts/protos/
 
+.DS_Store
+
 **/magic.log

@@ -1,0 +1,5 @@
+* Voltage divider
+
+Vin in 0 dc 1 ac 1
+R1 in out 1k
+R2 out 0 1k

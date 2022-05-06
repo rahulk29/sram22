@@ -1,0 +1,46 @@
+* Testbench for reading/writing a single bitcell
+
+.lib /Users/rahul/acads/research/sky130/pdk/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice tt
+.include ../../lib/sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.spice
+
+.param cload='2p'
+.param vdd='1.8'
+.param tr='3n'
+.param tf='3n'
+
+* .subckt sky130_fd_bd_sram__sram_sp_cell BL BR VDD VSS WL
+
+Xbitcell bl br vdd 0 wl sky130_fd_bd_sram__sram_sp_cell
+Xbl_driver bl we din vss sky130_fd_pr__nfet_01v8 w='2' l='0.15'
+Xbr_driver br we din_b vss sky130_fd_pr__nfet_01v8 w='2' l='0.15'
+Xbl_precharge bl pc_b vdd vdd sky130_fd_pr__pfet_01v8 w='3.4' l='0.15'
+Xbr_precharge br pc_b vdd vdd sky130_fd_pr__pfet_01v8 w='3.4' l='0.15'
+
+Cload0 bl 0 {cload}
+Cload1 br 0 {cload}
+
+Vdata din 0 dc {vdd}
+Vdata_b din_b 0 dc 0
+
+Vwe we 0 dc 0 PULSE(0 {vdd} 0.4u {tr} {tf} 0.4u 100 0)
+Vwl wl 0 dc 0 PULSE(0 {vdd} 0.5u {tr} {tf} 0.2u 0.5u 0)
+Vpc_b pc_b 0 dc {vdd} PULSE({vdd} 0 0.9u {tr} {tf} 0.09u 100 0)
+
+Vdd vdd 0 {vdd}
+
+.control
+tran 1n 1.4u 0u
+wrdata bitcell_rw.dat
++ v(we)
++ v(wl)
++ v(bl)
++ v(br)
++ v(din)
++ v(din_b)
++ v(pc_b)
+unset askquit
+quit 0
+.endc
+
+.end
+
