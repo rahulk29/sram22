@@ -36,6 +36,7 @@ fn test_netlist_nand2() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[ignore]
 #[test]
 fn test_simulate_pex_nand2() -> Result<(), Box<dyn std::error::Error>> {
     let work_dir: PathBuf = "/tmp/sram22/tests/sim/nand2".into();
