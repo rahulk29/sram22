@@ -44,6 +44,8 @@ impl Pdk {
     pub fn draw_sky130_mos(&self, params: MosParams) -> MosResult<Ref<LayoutTransistors>> {
         params.validate()?;
 
+        let name = params.name();
+
         let mut elems = Vec::new();
         let mut insts = Vec::new();
 
@@ -220,14 +222,14 @@ impl Pdk {
         }
 
         let layout = Layout {
-            name: "ptx".to_string(),
+            name: name.clone(),
             insts,
             annotations: vec![],
             elems,
         };
 
         let cell = Cell {
-            name: "ptx".to_string(),
+            name,
             abs: None,
             layout: Some(layout),
         };
