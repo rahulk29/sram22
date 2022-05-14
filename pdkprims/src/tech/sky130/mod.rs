@@ -3,12 +3,12 @@ use std::sync::Arc;
 
 use layout21::raw::{
     Abstract, AbstractPort, BoundBoxTrait, Cell, Element, Instance, LayerPurpose, Layout,
-    LayoutResult, Point, Rect, Shape,
+    LayoutResult, Point, Rect, Shape, Library, Units,
 };
 use layout21::utils::Ptr;
 
 use crate::config::{Int, Uint};
-use crate::Ref;
+use crate::{Ref, PdkLib};
 
 use crate::contact::{Contact, ContactParams};
 use crate::geometry::{
@@ -40,9 +40,19 @@ pub fn pdk() -> LayoutResult<Pdk> {
     Pdk::new(tech_config())
 }
 
+pub fn pdk_lib(name: impl Into<String>) -> LayoutResult<PdkLib> {
+    Ok(PdkLib {
+        tech: arcstr::literal!("sky130"),
+        pdk: pdk()?,
+        lib: Library::new(name, Units::Nano),
+    })
+}
+
 impl Pdk {
-    pub fn draw_sky130_mos(&self, params: MosParams) -> MosResult<Ref<LayoutTransistors>> {
+    pub(crate) fn draw_sky130_mos(&self, params: MosParams) -> MosResult<Ref<LayoutTransistors>> {
         params.validate()?;
+
+        let name = params.name();
 
         let mut elems = Vec::new();
         let mut insts = Vec::new();
@@ -220,14 +230,14 @@ impl Pdk {
         }
 
         let layout = Layout {
-            name: "ptx".to_string(),
+            name: name.clone(),
             insts,
             annotations: vec![],
             elems,
         };
 
         let cell = Cell {
-            name: "ptx".to_string(),
+            name,
             abs: None,
             layout: Some(layout),
         };

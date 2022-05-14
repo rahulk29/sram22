@@ -107,6 +107,14 @@ impl MosDevice {
     pub fn builder() -> MosDeviceBuilder {
         MosDeviceBuilder::default()
     }
+
+    pub fn name(&self) -> String {
+        format!(
+            "{}_{}_{}_{}_{}",
+            self.mos_type, self.intent, self.width, self.length, self.fingers
+        )
+    }
+
     pub fn skip_sd_metal(&mut self, idx: usize) -> &mut Self {
         self.skip_sd_metal.push(idx);
         self
@@ -160,6 +168,16 @@ pub struct MosParams {
 impl MosParams {
     pub fn new() -> Self {
         Default::default()
+    }
+
+    pub fn name(&self) -> String {
+        let mut name = String::from("ptx");
+
+        for device in self.devices.iter() {
+            name.push_str(&format!("__{}", device.name()));
+        }
+
+        name
     }
 
     #[inline]

@@ -60,7 +60,7 @@ fn size_decoder(tree: &PlanTreeNode) -> TreeNode {
             f.add_gate(buf.into());
         }
         if let Some(next) = nodes.get(i + 1) {
-            f.add_branch((next.num/node.num) as f64);
+            f.add_branch((next.num / node.num) as f64);
         }
     }
     // TODO use fanout results
@@ -76,7 +76,7 @@ const REF_INVERTER_WIDTH: i64 = 800;
 const BETA: f64 = 1.7;
 
 fn round_to_grid(x: f64) -> Int {
-    ((x/5.0).round() as Int)*5
+    ((x / 5.0).round() as Int) * 5
 }
 
 fn size_helper_tmp(x: &PlanTreeNode, sizes: &[f64]) -> TreeNode {
@@ -107,7 +107,11 @@ fn size_helper_tmp(x: &PlanTreeNode, sizes: &[f64]) -> TreeNode {
         ),
         buf,
         num: x.num,
-        children: x.children.iter().map(|n| size_helper_tmp(n, &sizes[2..])).collect::<Vec<_>>(),
+        children: x
+            .children
+            .iter()
+            .map(|n| size_helper_tmp(n, &sizes[2..]))
+            .collect::<Vec<_>>(),
     }
 }
 

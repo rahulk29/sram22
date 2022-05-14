@@ -9,11 +9,13 @@ use crate::{
     mux::{column_mux_4_array, ColumnMuxArrayParams, ColumnMuxParams},
     precharge::{precharge_array, PrechargeArrayParams, PrechargeParams},
     sense_amp::{sense_amp_array, SenseAmpArrayParams},
+    tech::sramgen_control_ref,
     utils::{
-        bus, conn_map, conns::conn_slice, local_reference, port_inout, port_input, sig_conn, signal, port_output,
+        bus, conn_map, conns::conn_slice, local_reference, port_inout, port_input, port_output,
+        sig_conn, signal,
     },
     wl_driver::{wordline_driver_array, WordlineDriverArrayParams, WordlineDriverParams},
-    write_driver::{bitline_driver_array, BitlineDriverArrayParams, BitlineDriverParams}, tech::sramgen_control_ref,
+    write_driver::{bitline_driver_array, BitlineDriverArrayParams, BitlineDriverParams},
 };
 
 pub struct SramParams {
@@ -272,7 +274,6 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         connections: conn_map(conns),
         parameters: HashMap::new(),
     });
-
 
     let mut modules = Vec::new();
     modules.append(&mut decoders);

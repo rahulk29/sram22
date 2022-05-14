@@ -27,6 +27,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arcstr"
+version = "1.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96e8a5dd56ad327e5a40d752927856e5b84a547a6ff1c6a6eedd4a7648e395a3"
+
+[[package]]
 name = "arrayvec"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -813,6 +819,7 @@ dependencies = [
 name = "pdkprims"
 version = "0.1.0"
 dependencies = [
+ "arcstr",
  "derive_builder 0.11.1",
  "layout21",
  "serde",
@@ -1281,6 +1288,7 @@ name = "sramgen"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "arcstr",
  "bytes 1.1.0",
  "clap",
  "derive_builder 0.11.1",

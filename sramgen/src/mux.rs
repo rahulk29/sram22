@@ -52,10 +52,10 @@ pub fn column_mux_4_array(params: ColumnMuxArrayParams) -> Vec<Module> {
         parameters: vec![],
     };
 
-    for i in 0..(params.width/4) {
+    for i in 0..(params.width / 4) {
         let mut connections = HashMap::new();
         connections.insert("vdd".to_string(), sig_conn(&vdd));
-        connections.insert("din".to_string(), conn_slice("bl", 4*i + 3, 4*i));
+        connections.insert("din".to_string(), conn_slice("bl", 4 * i + 3, 4 * i));
         connections.insert("sel".to_string(), sig_conn(&sel));
         connections.insert("sel_b".to_string(), sig_conn(&sel_b));
         connections.insert("dout".to_string(), conn_slice("bl_out", i, i));
@@ -70,7 +70,7 @@ pub fn column_mux_4_array(params: ColumnMuxArrayParams) -> Vec<Module> {
 
         let mut connections = HashMap::new();
         connections.insert("vdd".to_string(), sig_conn(&vdd));
-        connections.insert("din".to_string(), conn_slice("br", 4*i + 3, 4*i));
+        connections.insert("din".to_string(), conn_slice("br", 4 * i + 3, 4 * i));
         connections.insert("sel".to_string(), sig_conn(&sel));
         connections.insert("sel_b".to_string(), sig_conn(&sel_b));
         connections.insert("dout".to_string(), conn_slice("br_out", i, i));

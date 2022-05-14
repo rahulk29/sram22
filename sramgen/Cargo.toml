@@ -28,6 +28,7 @@ bytes = "1.1"
 layout21 = { path = "../deps/Layout21/layout21" }
 vlsir = { path = "../deps/Vlsir/bindings/rust" }
 pdkprims = { path = "../pdkprims" }
+arcstr = "1.1"
 
 [build-dependencies]
 prost-build = "0.9"
