@@ -6,6 +6,7 @@ use vlsir::{circuit::Package, spice::SimInput};
 pub mod bitcells;
 pub mod decoder;
 pub mod gate;
+pub mod layout;
 pub mod mos;
 pub mod mux;
 pub mod netlist;
