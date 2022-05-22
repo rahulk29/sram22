@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use layout21::{
     gds21::GdsLibrary,
-    raw::{Cell, Library},
+    raw::{Cell, Layers, Library},
     utils::Ptr,
 };
 use pdkprims::tech::sky130;
@@ -26,24 +26,34 @@ pub fn sram_sp_cell() -> ExternalModule {
     )
 }
 
-pub fn sram_sp_cell_gds() -> Result<Ptr<Cell>, Box<dyn std::error::Error>> {
+fn cell_gds(
+    layers: Ptr<Layers>,
+    gds_file: &str,
+    cell_name: &str,
+) -> Result<Ptr<Cell>, Box<dyn std::error::Error>> {
     let mut path = external_gds_path();
-    path.push("sram_sp_cell.gds");
-    println!("load gds from {:?}", &path);
+    path.push(gds_file);
     let lib = GdsLibrary::load(&path)?;
-    let pdk = sky130::pdk()?;
-    let lib = Library::from_gds(&lib, Some(pdk.layers))?;
+    let lib = Library::from_gds(&lib, Some(layers))?;
 
     let cell = lib
         .cells
         .iter()
         .find(|&x| {
             let x = x.read().unwrap();
-            x.name == "sky130_fd_bd_sram__sram_sp_cell"
+            x.name == cell_name
         })
         .unwrap();
 
     Ok(cell.clone())
+}
+
+pub fn sram_sp_cell_gds(layers: Ptr<Layers>) -> Result<Ptr<Cell>, Box<dyn std::error::Error>> {
+    cell_gds(
+        layers,
+        "sram_sp_cell.gds",
+        "sky130_fd_bd_sram__sram_sp_cell",
+    )
 }
 
 pub fn sram_sp_cell_ref() -> Reference {

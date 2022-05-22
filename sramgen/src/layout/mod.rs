@@ -123,7 +123,7 @@ fn draw_bitcell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     layout.insts.push(Instance {
         inst_name: "mcell".to_string(),
-        cell: sram_sp_cell_gds().unwrap(),
+        cell: sram_sp_cell_gds(lib.pdk.layers()).unwrap(),
         loc: Point::new(0, 0),
         reflect_vert: false,
         angle: None,

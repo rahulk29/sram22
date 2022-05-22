@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use layout21::{
-    raw::{DepOrder, Library, LayerPurpose},
+    raw::{DepOrder, LayerPurpose, Library},
     utils::{Ptr, PtrList},
 };
 
@@ -134,4 +134,3 @@ fn setup() -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../_build/"))?;
     Ok(())
 }
-
