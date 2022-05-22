@@ -3,12 +3,12 @@ use std::sync::Arc;
 
 use layout21::raw::{
     Abstract, AbstractPort, BoundBoxTrait, Cell, Element, Instance, LayerPurpose, Layout,
-    LayoutResult, Point, Rect, Shape, Library, Units,
+    LayoutResult, Library, Point, Rect, Shape, Units,
 };
 use layout21::utils::Ptr;
 
 use crate::config::{Int, Uint};
-use crate::{Ref, PdkLib};
+use crate::{PdkLib, Ref};
 
 use crate::contact::{Contact, ContactParams};
 use crate::geometry::{
@@ -27,13 +27,13 @@ pub(crate) mod layers;
 #[cfg(test)]
 mod tests;
 
-const SKY130_DRC_CONFIG_TOML: &str = include_str!(concat!(
+const SKY130_DRC_CONFIG_DATA: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../tech/sky130/drc_config.toml"
+    "/../tech/sky130/drc_config.yaml"
 ));
 
 fn tech_config() -> TechConfig {
-    TechConfig::from_toml(SKY130_DRC_CONFIG_TOML).expect("failed to load sky130A tech config")
+    TechConfig::from_yaml(SKY130_DRC_CONFIG_DATA).expect("failed to load sky130A tech config")
 }
 
 pub fn pdk() -> LayoutResult<Pdk> {

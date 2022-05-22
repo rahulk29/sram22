@@ -1,3 +1,11 @@
+use std::path::PathBuf;
+
+use layout21::{
+    gds21::GdsLibrary,
+    raw::{Cell, Library},
+    utils::Ptr,
+};
+use pdkprims::tech::sky130;
 use vlsir::{circuit::ExternalModule, reference::To, QualifiedName, Reference};
 
 use crate::{
@@ -16,6 +24,26 @@ pub fn sram_sp_cell() -> ExternalModule {
         SRAM_SP_CELL,
         &["BL", "BR", "VDD", "VSS", "WL"],
     )
+}
+
+pub fn sram_sp_cell_gds() -> Result<Ptr<Cell>, Box<dyn std::error::Error>> {
+    let mut path = external_gds_path();
+    path.push("sram_sp_cell.gds");
+    println!("load gds from {:?}", &path);
+    let lib = GdsLibrary::load(&path)?;
+    let pdk = sky130::pdk()?;
+    let lib = Library::from_gds(&lib, Some(pdk.layers))?;
+
+    let cell = lib
+        .cells
+        .iter()
+        .find(|&x| {
+            let x = x.read().unwrap();
+            x.name == "sky130_fd_bd_sram__sram_sp_cell"
+        })
+        .unwrap();
+
+    Ok(cell.clone())
 }
 
 pub fn sram_sp_cell_ref() -> Reference {
@@ -53,6 +81,13 @@ pub fn sramgen_control_ref() -> Reference {
             name: SRAM_CONTROL.to_string(),
         })),
     }
+}
+
+pub fn external_gds_path() -> PathBuf {
+    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    p.push("..");
+    p.push("tech/sky130/gds");
+    p
 }
 
 /// Reference to a single port sense amplifier.

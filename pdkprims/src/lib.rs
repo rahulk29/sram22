@@ -1,13 +1,17 @@
-use std::{collections::HashMap, path::{Path, PathBuf}};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use arcstr::ArcStr;
 use config::TechConfig;
 use contact::{Contact, ContactParams};
 use layout21::{
-    raw::{Cell, LayerKey, Layers, LayoutResult, Library, DepOrder},
-    utils::{Ptr, PtrList}, gds21::{GdsLibrary, GdsResult},
+    gds21::{GdsLibrary, GdsResult},
+    raw::{Cell, DepOrder, LayerKey, Layers, LayoutResult, Library},
+    utils::{Ptr, PtrList},
 };
-use mos::{MosParams, MosResult, LayoutTransistors};
+use mos::{LayoutTransistors, MosParams, MosResult};
 
 use crate::config::Int;
 
@@ -72,8 +76,6 @@ impl PdkLib {
 
         Ok(ptx)
     }
-
-
 }
 
 // Rounds a to the nearest multiple of b
