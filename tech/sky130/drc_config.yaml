@@ -123,6 +123,17 @@ layers:
         - 20
       - - Label
         - 5
+  dnwell:
+    desc: define dnwell region
+    width: 840
+    space: 1270
+    area: 0
+    enclosures: []
+    extensions: []
+    layernum: 64
+    purposes:
+      - - Drawing
+        - 18
   m3:
     desc: third level of metal interconnects
     width: 300
@@ -245,6 +256,8 @@ layers:
         - 20
       - - Label
         - 5
+      - - Pin
+        - 16
   nsdm:
     desc: define n+ source/drain implants
     width: 380
@@ -277,6 +290,14 @@ layers:
           - text
           - 83
         - 83
+  cp1m:
+    desc: empty
+    layernum: 33
+    purposes:
+      - - Named:
+          - add
+          - 43
+        - 43
   cfom:
     desc: empty
     layernum: 22

@@ -10,7 +10,9 @@ use pdkprims::{
 
 use crate::tech::sram_sp_cell_gds;
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+mod array;
+
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "nand2_dec".to_string();
@@ -120,7 +122,7 @@ fn draw_bitcell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     layout.insts.push(Instance {
         inst_name: "mcell".to_string(),
-        cell: sram_sp_cell_gds(lib.pdk.layers()).unwrap(),
+        cell: sram_sp_cell_gds(lib.pdk.layers())?,
         loc: Point::new(0, 0),
         reflect_vert: false,
         angle: None,
