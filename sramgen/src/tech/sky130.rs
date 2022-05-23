@@ -48,11 +48,61 @@ fn cell_gds(
     Ok(cell.clone())
 }
 
-pub fn sram_sp_cell_gds(layers: Ptr<Layers>) -> Result<Ptr<Cell>, Box<dyn std::error::Error>> {
+type CellGdsResult = Result<Ptr<Cell>, Box<dyn std::error::Error>>;
+
+pub fn sram_sp_cell_gds(layers: Ptr<Layers>) -> CellGdsResult {
     cell_gds(
         layers,
         "sram_sp_cell.gds",
         "sky130_fd_bd_sram__sram_sp_cell",
+    )
+}
+
+pub fn colend_gds(layers: Ptr<Layers>) -> CellGdsResult {
+    cell_gds(
+        layers,
+        "sram_sp_colend.gds",
+        "sky130_fd_bd_sram__sram_sp_colend",
+    )
+}
+
+pub fn colend_cent_gds(layers: Ptr<Layers>) -> CellGdsResult {
+    cell_gds(
+        layers,
+        "sram_sp_colend_cent.gds",
+        "sky130_fd_bd_sram__sram_sp_colend_cent",
+    )
+}
+
+pub fn colend_p_cent_gds(layers: Ptr<Layers>) -> CellGdsResult {
+    cell_gds(
+        layers,
+        "sram_sp_colend_p_cent.gds",
+        "sky130_fd_bd_sram__sram_sp_colend_p_cent",
+    )
+}
+
+pub fn corner_gds(layers: Ptr<Layers>) -> CellGdsResult {
+    cell_gds(
+        layers,
+        "sram_sp_corner.gds",
+        "sky130_fd_bd_sram__sram_sp_corner",
+    )
+}
+
+pub fn rowend_gds(layers: Ptr<Layers>) -> CellGdsResult {
+    cell_gds(
+        layers,
+        "sram_sp_rowend.gds",
+        "sky130_fd_bd_sram__sram_sp_rowend",
+    )
+}
+
+pub fn wlstrap_gds(layers: Ptr<Layers>) -> CellGdsResult {
+    cell_gds(
+        layers,
+        "sram_sp_wlstrap.gds",
+        "sky130_fd_bd_sram__sram_sp_wlstrap",
     )
 }
 

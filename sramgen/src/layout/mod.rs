@@ -78,7 +78,6 @@ fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         ptx.sd_metal,
     ));
 
-    println!("xmin {}, xmax {}", xmin, xmax);
     layout.elems.push(draw_rect(
         Rect {
             p0: Point::new(xmin, pdrain0.p0.y),
@@ -119,8 +118,6 @@ fn draw_bitcell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     let tc = lib.pdk.config.read().unwrap();
 
-    println!("here 1");
-
     layout.insts.push(Instance {
         inst_name: "mcell".to_string(),
         cell: sram_sp_cell_gds(lib.pdk.layers()).unwrap(),
@@ -128,8 +125,6 @@ fn draw_bitcell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         reflect_vert: false,
         angle: None,
     });
-
-    println!("here 2");
 
     let cell = Cell {
         name,
@@ -139,7 +134,6 @@ fn draw_bitcell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
-    println!("here 3");
 
     Ok(ptr)
 }
@@ -173,7 +167,6 @@ mod tests {
     fn test_sky130_bitcell() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_bitcell")?;
         draw_bitcell(&mut lib)?;
-        println!("here 4");
 
         lib.save_gds()?;
 
