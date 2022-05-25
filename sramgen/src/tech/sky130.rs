@@ -106,6 +106,14 @@ pub fn wlstrap_gds(layers: Ptr<Layers>) -> CellGdsResult {
     )
 }
 
+pub fn wlstrap_p_gds(layers: Ptr<Layers>) -> CellGdsResult {
+    cell_gds(
+        layers,
+        "sram_sp_wlstrap_p.gds",
+        "sky130_fd_bd_sram__sram_sp_wlstrap_p",
+    )
+}
+
 pub fn sram_sp_cell_ref() -> Reference {
     Reference {
         to: Some(To::External(QualifiedName {
@@ -181,4 +189,30 @@ pub fn all_external_modules() -> Vec<ExternalModule> {
         sramgen_control(),
         sramgen_sp_sense_amp(),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{bbox, Result};
+
+    #[test]
+    fn test_colend() -> Result<()> {
+        let lib = sky130::pdk_lib("test_colend")?;
+        let cell = colend_gds(lib.pdk.layers())?;
+        let bbox = bbox(&cell);
+        assert_eq!(bbox.width(), 1200);
+        assert_eq!(bbox.height(), 2055);
+        Ok(())
+    }
+
+    #[test]
+    fn test_rowend() -> Result<()> {
+        let lib = sky130::pdk_lib("test_rowend")?;
+        let cell = rowend_gds(lib.pdk.layers())?;
+        let bbox = bbox(&cell);
+        assert_eq!(bbox.width(), 1300);
+        assert_eq!(bbox.height(), 1580);
+        Ok(())
+    }
 }
