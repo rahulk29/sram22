@@ -5,12 +5,14 @@ use layout21::{
 use pdkprims::{
     geometry::CoarseDirection,
     mos::{Intent, MosDevice, MosParams, MosType},
-    Pdk, PdkLib,
+    PdkLib,
 };
 
 use crate::tech::sram_sp_cell_gds;
 
 mod array;
+mod mux;
+mod precharge;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 

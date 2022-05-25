@@ -65,7 +65,6 @@ pub(crate) fn save_bin(name: &str, pkg: Package) -> Result<()> {
 
     let path = out_bin(name);
     std::fs::create_dir_all(path.parent().unwrap())?;
-    println!("Saving:\n{:?}", &input);
     vlsir::conv::save(&input, path)?;
 
     Ok(())

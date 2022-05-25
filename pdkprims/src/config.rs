@@ -121,7 +121,6 @@ impl TechConfig {
             }
             layers.add(l);
         }
-        println!("layers: {:?}", &layers);
         Ok(layers)
     }
 }
