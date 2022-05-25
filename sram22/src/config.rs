@@ -52,7 +52,7 @@ struct ExtensionRaw {
     extend: f64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct LayerConfigRaw {
     desc: String,
     width: f64,

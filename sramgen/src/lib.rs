@@ -1,6 +1,10 @@
 use std::path::PathBuf;
 
 use decoder::DecoderTree;
+use layout21::{
+    raw::{BoundBox, Cell},
+    utils::Ptr,
+};
 use vlsir::{circuit::Package, spice::SimInput};
 
 pub mod bitcells;
@@ -19,7 +23,9 @@ pub mod utils;
 pub mod wl_driver;
 pub mod write_driver;
 
-pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+pub fn generate() -> Result<()> {
     let nmos = mos::ext_nmos();
     let pmos = mos::ext_pmos();
 
@@ -48,7 +54,7 @@ pub(crate) fn out_bin(name: &str) -> PathBuf {
     format!("build/pb/{}.pb.bin", name).into()
 }
 
-pub(crate) fn save_bin(name: &str, pkg: Package) -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn save_bin(name: &str, pkg: Package) -> Result<()> {
     let input = SimInput {
         pkg: Some(pkg),
         top: name.to_string(),
@@ -63,4 +69,9 @@ pub(crate) fn save_bin(name: &str, pkg: Package) -> Result<(), Box<dyn std::erro
     vlsir::conv::save(&input, path)?;
 
     Ok(())
+}
+
+pub fn bbox(cell: &Ptr<Cell>) -> BoundBox {
+    let cell = cell.read().unwrap();
+    cell.layout.as_ref().unwrap().bbox()
 }

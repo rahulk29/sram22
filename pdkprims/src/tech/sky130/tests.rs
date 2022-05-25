@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use layout21::{
-    raw::{DepOrder, Library},
+    raw::{DepOrder, LayerPurpose, Library},
     utils::{Ptr, PtrList},
 };
 
@@ -101,6 +101,26 @@ fn test_sky130_contact_sized() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(ct.cols, 2);
     assert_eq!(ct.rows, 1);
 
+    Ok(())
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct LayerPair {
+    purpose: LayerPurpose,
+    num: i16,
+}
+
+#[test]
+fn test_serialize_layer_purpose() -> Result<(), Box<dyn std::error::Error>> {
+    let lp = LayerPair {
+        purpose: LayerPurpose::Named("named_purpose".to_string(), 24i16),
+        num: 21,
+    };
+    let s = serde_yaml::to_string(&lp)?;
+    println!("{}", &s);
+
+    let x: LayerPair = serde_yaml::from_str(&s)?;
+    println!("{:?}", &x);
     Ok(())
 }
 

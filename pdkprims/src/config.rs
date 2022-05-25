@@ -53,9 +53,13 @@ pub struct Extension {
 
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
 pub struct LayerConfig {
+    #[serde(default)]
     pub desc: String,
+    #[serde(default)]
     pub width: Int,
+    #[serde(default)]
     pub space: Int,
+    #[serde(default)]
     pub area: Int,
     #[serde(default)]
     pub enclosures: Vec<Enclosure>,
@@ -69,11 +73,19 @@ pub struct LayerConfig {
 impl TechConfig {
     pub fn load(path: impl AsRef<Path>) -> Result<Self, Box<dyn std::error::Error>> {
         let txt = std::fs::read_to_string(path)?;
-        Self::from_toml(&txt)
+        Self::from_yaml(&txt)
     }
 
     pub fn from_toml(s: &str) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(toml::from_str(s)?)
+    }
+
+    pub fn from_yaml(s: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(serde_yaml::from_str(s)?)
+    }
+
+    pub fn to_yaml(&self) -> Result<String, Box<dyn std::error::Error>> {
+        Ok(serde_yaml::to_string(&self)?)
     }
 
     pub fn layer(&self, l: &str) -> &LayerConfig {
@@ -109,6 +121,7 @@ impl TechConfig {
             }
             layers.add(l);
         }
+        println!("layers: {:?}", &layers);
         Ok(layers)
     }
 }
@@ -158,11 +171,13 @@ mod tests {
     #[test]
     fn test_sky130_design_rules() -> Result<(), Box<dyn std::error::Error>> {
         let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        p.push("../tech/sky130/drc_config.toml");
+        p.push("../tech/sky130/drc_config.yaml");
         let tc = TechConfig::load(p)?;
-        let _layers = tc.get_layers()?;
+        let yaml = tc.to_yaml()?;
 
-        println!("loaded config {:?}", tc);
+        println!("yaml\n:{}", &yaml);
+
+        let _layers = tc.get_layers()?;
 
         assert_eq!(&tc.tech, "sky130A");
         assert_eq!(tc.layer("poly").extension("diff"), 130);
