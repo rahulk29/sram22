@@ -337,7 +337,7 @@ impl Pdk {
             bbox_map.insert(lay, laybox);
 
             elems.push(Element {
-                net: Some(net_name.clone()),
+                net: None,
                 layer: lay,
                 purpose: LayerPurpose::Drawing,
                 inner: shape,
