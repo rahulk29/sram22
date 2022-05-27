@@ -68,8 +68,6 @@ wrdata decoder_16.dat
 + v(addr_b_1)
 + v(addr_b_2)
 + v(addr_b_3)
-unset askquit
-quit 0
 .endc
 
 .end
