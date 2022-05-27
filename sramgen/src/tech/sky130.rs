@@ -54,7 +54,7 @@ pub fn sram_sp_cell_gds(layers: Ptr<Layers>) -> CellGdsResult {
     cell_gds(
         layers,
         "sram_sp_cell.gds",
-        "sky130_fd_bd_sram__sram_sp_cell",
+        "sky130_fd_bd_sram__sram_sp_cell_opt1",
     )
 }
 

@@ -123,6 +123,8 @@ layers:
         - 20
       - - Label
         - 5
+      - - Pin
+        - 16
   dnwell:
     desc: define dnwell region
     width: 840
@@ -286,10 +288,16 @@ layers:
         - 20
       - - Label
         - 5
+      - - Pin
+        - 16
       - - Named:
           - text
           - 83
         - 83
+      - - Named:
+          - net
+          - 23
+        - 23
   cp1m:
     desc: empty
     layernum: 33
@@ -342,6 +350,18 @@ layers:
           - drop
           - 42
         - 42
+  pwell:
+    desc: empty
+    layernum: 64
+    purposes:
+      - - Label
+        - 59
+  pwellpin:
+    desc: empty
+    layernum: 122
+    purposes:
+      - - Pin
+        - 16
 
 spacing:
   - from: diff
