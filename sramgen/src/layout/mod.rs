@@ -12,6 +12,7 @@ use crate::tech::sram_sp_cell_gds;
 
 mod array;
 mod gate;
+mod grid;
 mod mux;
 mod precharge;
 

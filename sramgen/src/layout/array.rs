@@ -4,7 +4,7 @@ use layout21::{
 };
 use pdkprims::PdkLib;
 
-use crate::{bbox, tech::*};
+use crate::{bbox, tech::*, layout::grid::GridCells};
 
 use super::Result;
 
@@ -37,161 +37,148 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
     let wlstrap_p = wlstrap_p_gds(lib.pdk.layers())?;
     let wlstrap_p_bbox = bbox(&wlstrap_p);
     assert_eq!(colend_bbox.width(), 1200);
+    
+    let mut grid = GridCells::new();
+    let mut row = Vec::new();
 
-    println!("rowend bbox: {:?}", rowend_bbox);
-
-    let xstart = 0;
-    let ystart = 0;
-    let mut x = xstart;
-    let mut y = ystart;
-
-    layout.insts.push(Instance {
+    row.push(Instance {
         inst_name: "corner_ul".to_string(),
         cell: corner.clone(),
-        loc: Point::new(x, y),
+        loc: Point::new(0, 0),
         reflect_vert: false,
         angle: None,
     });
-    x += rowend_width;
 
-    layout.insts.push(Instance {
+    row.push(Instance {
         inst_name: "colend_top_0".to_string(),
         cell: colend.clone(),
-        loc: Point::new(x, y),
+        loc: Point::new(0, 0),
         reflect_vert: false,
         angle: None,
     });
-    x += colend_width;
 
     for i in 1..cols {
-        layout.insts.push(Instance {
+        row.push(Instance {
             inst_name: format!("colend_cent_top_{}", i),
             cell: colend_cent.clone(),
-            loc: Point::new(x, y),
+            loc: Point::new(0, 0),
             reflect_vert: false,
             angle: None,
         });
-        x += colend_cent_bbox.width();
-
-        layout.insts.push(Instance {
+        row.push(Instance {
             inst_name: format!("colend_top_{}", i),
             cell: colend.clone(),
-            loc: Point::new(x, y),
+            loc: Point::new(0, 0),
             reflect_vert: false,
             angle: None,
         });
-        x += colend_width;
     }
 
-    layout.insts.push(Instance {
+    row.push(Instance {
         inst_name: "corner_ur".to_string(),
         cell: corner.clone(),
-        loc: Point::new(x, y),
+        loc: Point::new(0, 0),
         reflect_vert: false,
         angle: None,
     });
 
-    y -= row_height;
+    grid.add_row(row);
 
     for r in 0..rows {
-        x = xstart;
-        layout.insts.push(Instance {
+        let mut row = Vec::new();
+
+        row.push(Instance {
             inst_name: format!("rowend_l_{}", r),
             cell: rowend.clone(),
-            loc: Point::new(x, y),
+            loc: Point::new(0, 0),
             reflect_vert: false,
             angle: None,
         });
-        x += rowend_width;
 
-        layout.insts.push(Instance {
+        row.push(Instance {
             inst_name: format!("cell_{}_0", r),
             cell: bitcell.clone(),
-            loc: Point::new(x, y),
+            loc: Point::new(0, 0),
             reflect_vert: false,
             angle: None,
         });
-        x += bitcell_bbox.width();
 
         for c in 1..cols {
-            layout.insts.push(Instance {
+            row.push(Instance {
                 inst_name: format!("wlstrap_{}_{}", r, c),
                 cell: wlstrap.clone(),
-                loc: Point::new(x, y),
+                loc: Point::new(0, 0),
                 reflect_vert: false,
                 angle: None,
             });
-            x += wlstrap_bbox.width();
 
-            layout.insts.push(Instance {
+            row.push(Instance {
                 inst_name: format!("cell_{}_{}", r, c),
                 cell: bitcell.clone(),
-                loc: Point::new(x, y),
+                loc: Point::new(0, 0),
                 reflect_vert: false,
                 angle: None,
             });
-            x += bitcell_bbox.width();
         }
 
-        layout.insts.push(Instance {
+        row.push(Instance {
             inst_name: format!("rowend_r_{}", r),
             cell: rowend.clone(),
-            loc: Point::new(x, y),
+            loc: Point::new(0, 0),
             reflect_vert: false,
             angle: None,
         });
 
-        y -= row_height;
+        grid.add_row(row);
     }
 
-    y -= colend_height - row_height;
+    let mut row = Vec::new();
 
-    x = xstart;
-    layout.insts.push(Instance {
+    row.push(Instance {
         inst_name: "corner_bl".to_string(),
         cell: corner.clone(),
-        loc: Point::new(x, y),
+        loc: Point::new(0, 0),
         reflect_vert: false,
         angle: None,
     });
-    x += rowend_width;
 
-    layout.insts.push(Instance {
+    row.push(Instance {
         inst_name: "colend_bot_0".to_string(),
         cell: colend.clone(),
-        loc: Point::new(x, y),
+        loc: Point::new(0, 0),
         reflect_vert: false,
         angle: None,
     });
-    x += colend_width;
 
     for i in 1..cols {
-        layout.insts.push(Instance {
+        row.push(Instance {
             inst_name: format!("colend_cent_bot_{}", i),
             cell: colend_cent.clone(),
-            loc: Point::new(x, y),
+            loc: Point::new(0, 0),
             reflect_vert: false,
             angle: None,
         });
-        x += colend_cent_bbox.width();
 
-        layout.insts.push(Instance {
+        row.push(Instance {
             inst_name: format!("colend_bot_{}", i),
             cell: colend.clone(),
-            loc: Point::new(x, y),
+            loc: Point::new(0, 0),
             reflect_vert: false,
             angle: None,
         });
-        x += colend_width;
     }
 
-    layout.insts.push(Instance {
+    row.push(Instance {
         inst_name: "corner_br".to_string(),
         cell: corner.clone(),
-        loc: Point::new(x, y),
+        loc: Point::new(0, 0),
         reflect_vert: false,
         angle: None,
     });
+
+    grid.add_row(row);
+
+    layout.insts = grid.place();
 
     let cell = Cell {
         name,
