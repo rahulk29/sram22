@@ -45,8 +45,8 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
         inst_name: "corner_ul".to_string(),
         cell: corner.clone(),
         loc: Point::new(0, 0),
-        reflect_vert: false,
-        angle: None,
+        reflect_vert: true,
+        angle: Some(180f64),
     });
 
     row.push(Instance {
@@ -91,16 +91,16 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
             inst_name: format!("rowend_l_{}", r),
             cell: rowend.clone(),
             loc: Point::new(0, 0),
-            reflect_vert: false,
-            angle: None,
+            reflect_vert: r % 2 != 0,
+            angle: Some(180f64),
         });
 
         row.push(Instance {
             inst_name: format!("cell_{}_0", r),
             cell: bitcell.clone(),
             loc: Point::new(0, 0),
-            reflect_vert: false,
-            angle: None,
+            reflect_vert: r % 2 != 0,
+            angle: Some(180f64),
         });
 
         for c in 1..cols {
