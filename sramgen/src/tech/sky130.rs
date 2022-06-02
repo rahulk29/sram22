@@ -1,11 +1,11 @@
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 use layout21::{
     gds21::GdsLibrary,
     raw::{Cell, Layers, Library},
     utils::Ptr,
 };
-use pdkprims::tech::sky130;
+use pdkprims::{tech::sky130, PdkLib};
 use vlsir::{circuit::ExternalModule, reference::To, QualifiedName, Reference};
 
 use crate::{
@@ -26,7 +26,7 @@ pub fn sram_sp_cell() -> ExternalModule {
     )
 }
 
-fn cell_gds(
+fn cell_gds_tmp(
     layers: Ptr<Layers>,
     gds_file: &str,
     cell_name: &str,
@@ -48,67 +48,133 @@ fn cell_gds(
     Ok(cell.clone())
 }
 
+fn name_map(lib: &Library) -> HashMap<String, Ptr<Cell>> {
+    let mut map = HashMap::with_capacity(lib.cells.len());
+
+    for cell in lib.cells.iter() {
+        let icell = cell.read().unwrap();
+        map.insert(icell.name.clone(), Ptr::clone(cell));
+    }
+
+    map
+}
+
+fn cell_gds(
+    pdk_lib: &mut PdkLib,
+    gds_file: &str,
+    cell_name: &str,
+) -> Result<Ptr<Cell>, Box<dyn std::error::Error>> {
+    let mut path = external_gds_path();
+    path.push(gds_file);
+    let lib = GdsLibrary::load(&path)?;
+    let lib = Library::from_gds(&lib, Some(pdk_lib.pdk.layers.clone()))?;
+
+    let map = name_map(&pdk_lib.lib);
+
+    for cell in lib.cells.iter() {
+        let mut inner = cell.write().unwrap();
+        if let Some(ref mut lay) = inner.layout {
+            for inst in lay.insts.iter_mut() {
+                let remap_cell = {
+                    let icell = inst.cell.read().unwrap();
+                    if let Some(ncell) = map.get(&icell.name) {
+                        Ptr::clone(ncell)
+                    } else {
+                        Ptr::clone(&inst.cell)
+                    }
+                };
+                inst.cell = remap_cell;
+            }
+        }
+    }
+
+    let mut t_cell = None;
+
+    for cell in lib.cells.iter() {
+        let inner = cell.read().unwrap();
+        if inner.name == cell_name {
+            t_cell = Some(cell);
+        }
+
+        let mut flag = false;
+
+        for ecell in pdk_lib.lib.cells.iter() {
+            let ecell = ecell.read().unwrap();
+            if ecell.name == inner.name {
+                flag = true;
+                break;
+            }
+        }
+
+        if !flag {
+            pdk_lib.lib.cells.push(cell.clone());
+        }
+    }
+
+    Ok(t_cell.map(|x| Ptr::clone(x)).unwrap())
+}
+
 type CellGdsResult = Result<Ptr<Cell>, Box<dyn std::error::Error>>;
 
-pub fn sram_sp_cell_gds(layers: Ptr<Layers>) -> CellGdsResult {
+pub fn sram_sp_cell_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
-        layers,
+        lib,
         "sram_sp_cell.gds",
         "sky130_fd_bd_sram__sram_sp_cell_opt1",
     )
 }
 
-pub fn colend_gds(layers: Ptr<Layers>) -> CellGdsResult {
+pub fn colend_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
-        layers,
+        lib,
         "sram_sp_colend.gds",
         "sky130_fd_bd_sram__sram_sp_colend",
     )
 }
 
-pub fn colend_cent_gds(layers: Ptr<Layers>) -> CellGdsResult {
+pub fn colend_cent_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
-        layers,
+        lib,
         "sram_sp_colend_cent.gds",
         "sky130_fd_bd_sram__sram_sp_colend_cent",
     )
 }
 
-pub fn colend_p_cent_gds(layers: Ptr<Layers>) -> CellGdsResult {
+pub fn colend_p_cent_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
-        layers,
+        lib,
         "sram_sp_colend_p_cent.gds",
         "sky130_fd_bd_sram__sram_sp_colend_p_cent",
     )
 }
 
-pub fn corner_gds(layers: Ptr<Layers>) -> CellGdsResult {
+pub fn corner_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
-        layers,
+        lib,
         "sram_sp_corner.gds",
         "sky130_fd_bd_sram__sram_sp_corner",
     )
 }
 
-pub fn rowend_gds(layers: Ptr<Layers>) -> CellGdsResult {
+pub fn rowend_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
-        layers,
+        lib,
         "sram_sp_rowend.gds",
         "sky130_fd_bd_sram__sram_sp_rowend",
     )
 }
 
-pub fn wlstrap_gds(layers: Ptr<Layers>) -> CellGdsResult {
+pub fn wlstrap_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
-        layers,
+        lib,
         "sram_sp_wlstrap.gds",
         "sky130_fd_bd_sram__sram_sp_wlstrap",
     )
 }
 
-pub fn wlstrap_p_gds(layers: Ptr<Layers>) -> CellGdsResult {
+pub fn wlstrap_p_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
-        layers,
+        lib,
         "sram_sp_wlstrap_p.gds",
         "sky130_fd_bd_sram__sram_sp_wlstrap_p",
     )
@@ -198,8 +264,8 @@ mod tests {
 
     #[test]
     fn test_colend() -> Result<()> {
-        let lib = sky130::pdk_lib("test_colend")?;
-        let cell = colend_gds(lib.pdk.layers())?;
+        let mut lib = sky130::pdk_lib("test_colend")?;
+        let cell = colend_gds(&mut lib)?;
         let bbox = bbox(&cell);
         assert_eq!(bbox.width(), 1200);
         assert_eq!(bbox.height(), 2055);
@@ -208,8 +274,8 @@ mod tests {
 
     #[test]
     fn test_rowend() -> Result<()> {
-        let lib = sky130::pdk_lib("test_rowend")?;
-        let cell = rowend_gds(lib.pdk.layers())?;
+        let mut lib = sky130::pdk_lib("test_rowend")?;
+        let cell = rowend_gds(&mut lib)?;
         let bbox = bbox(&cell);
         assert_eq!(bbox.width(), 1300);
         assert_eq!(bbox.height(), 1580);

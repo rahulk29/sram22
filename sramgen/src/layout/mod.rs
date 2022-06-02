@@ -28,11 +28,9 @@ fn draw_bitcell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         annotations: vec![],
     };
 
-    let tc = lib.pdk.config.read().unwrap();
-
     layout.insts.push(Instance {
         inst_name: "mcell".to_string(),
-        cell: sram_sp_cell_gds(lib.pdk.layers())?,
+        cell: sram_sp_cell_gds(lib)?,
         loc: Point::new(0, 0),
         reflect_vert: false,
         angle: None,

@@ -1,5 +1,5 @@
-use layout21::raw::{Cell, Instance};
 use grid::*;
+use layout21::raw::{Cell, Instance};
 
 pub struct GridCells {
     grid: Grid<Instance>,
@@ -7,9 +7,7 @@ pub struct GridCells {
 
 impl GridCells {
     pub fn new() -> Self {
-        Self {
-            grid: grid![],
-        }
+        Self { grid: grid![] }
     }
 
     pub fn add_row(&mut self, row: Vec<Instance>) {
@@ -22,7 +20,7 @@ impl GridCells {
 
     fn place_inner(mut self) -> Vec<Instance> {
         let (rows, cols) = self.grid.size();
-        let mut insts = Vec::with_capacity(rows*cols);
+        let mut insts = Vec::with_capacity(rows * cols);
 
         let mut prev_row = None;
 

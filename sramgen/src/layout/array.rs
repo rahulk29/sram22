@@ -4,7 +4,7 @@ use layout21::{
 };
 use pdkprims::PdkLib;
 
-use crate::{bbox, tech::*, layout::grid::GridCells};
+use crate::{bbox, layout::grid::GridCells, tech::*};
 
 use super::Result;
 
@@ -18,26 +18,26 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
         annotations: vec![],
     };
 
-    let corner = corner_gds(lib.pdk.layers())?;
-    let colend_cent = colend_cent_gds(lib.pdk.layers())?;
+    let corner = corner_gds(lib)?;
+    let colend_cent = colend_cent_gds(lib)?;
     let colend_cent_bbox = bbox(&colend_cent);
-    let colend = colend_gds(lib.pdk.layers())?;
+    let colend = colend_gds(lib)?;
     let colend_bbox = bbox(&colend);
 
-    let bitcell = sram_sp_cell_gds(lib.pdk.layers())?;
+    let bitcell = sram_sp_cell_gds(lib)?;
     let bitcell_bbox = bbox(&bitcell);
-    let rowend = rowend_gds(lib.pdk.layers())?;
+    let rowend = rowend_gds(lib)?;
     let rowend_bbox = bbox(&rowend);
     let rowend_width = 1300;
     let row_height = 1580;
     let colend_width = 1200;
     let colend_height = 2055;
-    let wlstrap = wlstrap_gds(lib.pdk.layers())?;
+    let wlstrap = wlstrap_gds(lib)?;
     let wlstrap_bbox = bbox(&wlstrap);
-    let wlstrap_p = wlstrap_p_gds(lib.pdk.layers())?;
+    let wlstrap_p = wlstrap_p_gds(lib)?;
     let wlstrap_p_bbox = bbox(&wlstrap_p);
     assert_eq!(colend_bbox.width(), 1200);
-    
+
     let mut grid = GridCells::new();
     let mut row = Vec::new();
 
@@ -104,9 +104,14 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
         });
 
         for c in 1..cols {
+            let strap = if c % 2 == 0 {
+                wlstrap.clone()
+            } else {
+                wlstrap_p.clone()
+            };
             row.push(Instance {
                 inst_name: format!("wlstrap_{}_{}", r, c),
-                cell: wlstrap.clone(),
+                cell: strap,
                 loc: Point::new(0, 0),
                 reflect_vert: false,
                 angle: None,
