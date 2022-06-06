@@ -11,6 +11,7 @@ use pdkprims::{
 use crate::tech::sram_sp_cell_gds;
 
 mod array;
+mod decoder;
 mod gate;
 mod grid;
 mod mux;

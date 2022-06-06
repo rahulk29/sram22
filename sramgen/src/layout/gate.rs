@@ -11,7 +11,7 @@ use pdkprims::{
 
 use super::draw_rect;
 
-fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+pub fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "nand2_dec".to_string();
 
     let mut layout = Layout {
