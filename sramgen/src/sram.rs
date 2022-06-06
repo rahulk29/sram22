@@ -34,7 +34,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     assert_eq!(params.col_mask_bits, 2);
 
     let row_bits = params.row_bits as i64;
-    let col_bits = params.col_bits as i64;
+    let _col_bits = params.col_bits as i64;
     let col_mask_bits = params.col_mask_bits as i64;
     let rows = 1 << params.row_bits;
     let cols = 1 << params.col_bits;

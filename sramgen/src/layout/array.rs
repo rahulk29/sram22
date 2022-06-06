@@ -1,5 +1,5 @@
 use layout21::{
-    raw::{BoundBox, Cell, Instance, Layout, Point},
+    raw::{Cell, Instance, Layout, Point},
     utils::Ptr,
 };
 use pdkprims::PdkLib;
@@ -187,7 +187,7 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
 
     row.push(Instance {
         inst_name: "corner_br".to_string(),
-        cell: corner.clone(),
+        cell: corner,
         loc: Point::new(0, 0),
         reflect_vert: true,
         angle: None,

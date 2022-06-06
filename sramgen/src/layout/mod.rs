@@ -2,11 +2,7 @@ use layout21::{
     raw::{Cell, Element, Instance, LayerKey, LayerPurpose, Layout, Point, Rect, Shape},
     utils::Ptr,
 };
-use pdkprims::{
-    geometry::CoarseDirection,
-    mos::{Intent, MosDevice, MosParams, MosType},
-    PdkLib,
-};
+use pdkprims::PdkLib;
 
 use crate::tech::sram_sp_cell_gds;
 

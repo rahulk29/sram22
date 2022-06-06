@@ -5,7 +5,7 @@ use layout21::{
     raw::{Cell, Layers, Library},
     utils::Ptr,
 };
-use pdkprims::{tech::sky130, PdkLib};
+use pdkprims::PdkLib;
 use vlsir::{circuit::ExternalModule, reference::To, QualifiedName, Reference};
 
 use crate::{
@@ -111,7 +111,7 @@ fn cell_gds(
         }
     }
 
-    Ok(t_cell.map(|x| Ptr::clone(x)).unwrap())
+    Ok(t_cell.map(Ptr::clone).unwrap())
 }
 
 type CellGdsResult = Result<Ptr<Cell>, Box<dyn std::error::Error>>;

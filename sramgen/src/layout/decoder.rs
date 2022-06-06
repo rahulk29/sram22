@@ -1,15 +1,9 @@
 use crate::layout::Result;
 use layout21::{
-    raw::{Cell, Element, Instance, LayerKey, Layout, Point, Rect, Shape},
+    raw::{Cell, Instance, Layout, Point},
     utils::Ptr,
 };
-use pdkprims::{
-    geometry::CoarseDirection,
-    mos::{Intent, MosDevice, MosParams, MosType},
-    PdkLib,
-};
-
-use super::draw_rect;
+use pdkprims::PdkLib;
 
 pub fn draw_nand2_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
     let name = "nand2_dec_array".to_string();

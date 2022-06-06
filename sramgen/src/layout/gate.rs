@@ -1,6 +1,6 @@
 use crate::layout::Result;
 use layout21::{
-    raw::{Cell, Element, Instance, LayerKey, LayerPurpose, Layout, Point, Rect, Shape},
+    raw::{Cell, Instance, Layout, Point, Rect},
     utils::Ptr,
 };
 use pdkprims::{

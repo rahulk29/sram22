@@ -8,7 +8,7 @@ use pdkprims::{
     PdkLib,
 };
 
-use crate::{bbox, Result};
+use crate::Result;
 
 fn draw_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "read_mux".to_string();
