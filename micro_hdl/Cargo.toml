@@ -9,4 +9,4 @@ edition = "2021"
 micro_hdl_derive = { path = "./micro_hdl_derive" }
 
 [dev-dependencies]
-tempfile = "3.3"
+tempfile = "3.3.0"
