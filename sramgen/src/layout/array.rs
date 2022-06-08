@@ -1,12 +1,92 @@
+use layout21::raw::Int;
 use layout21::{
     raw::{Cell, Instance, Layout, Point},
     utils::Ptr,
 };
-use pdkprims::PdkLib;
+use pdkprims::{geometry::CoarseDirection, PdkLib};
 
 use crate::{bbox, layout::grid::GridCells, tech::*};
+use serde::{Deserialize, Serialize};
 
 use super::Result;
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub enum FlipMode {
+    None,
+    AlternateFlipVertical,
+    AlternateFlipHorizontal,
+}
+
+pub struct ArrayCellParams {
+    pub name: String,
+    pub num: usize,
+    pub cell: Ptr<Cell>,
+    pub spacing: Option<Int>,
+    pub flip: FlipMode,
+    pub direction: CoarseDirection,
+    /// By default, cells 0, 2, 4, ... will be flipped according to the flip mode.
+    /// If `flip_toggle` is set, cells 1, 3, 5, ... will be flipped instead.
+    pub flip_toggle: bool,
+}
+
+pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+    let mut layout = Layout {
+        name: params.name.clone(),
+        insts: vec![],
+        elems: vec![],
+        annotations: vec![],
+    };
+
+    // height of 1 sram bitcell
+    let spacing = params.spacing.unwrap_or_else(|| {
+        let cell = params.cell.read().unwrap();
+        let bbox = cell.layout.as_ref().unwrap().bbox();
+        match params.direction {
+            CoarseDirection::Horizontal => bbox.width(),
+            CoarseDirection::Vertical => bbox.height(),
+        }
+    });
+
+    for i in 0..params.num {
+        let loc = match params.direction {
+            CoarseDirection::Horizontal => Point::new(spacing * i as isize, 0),
+            CoarseDirection::Vertical => Point::new(0, spacing * i as isize),
+        };
+
+        let mut inst = Instance {
+            inst_name: format!("cell_{}", i),
+            cell: params.cell.clone(),
+            loc,
+            reflect_vert: false,
+            angle: None,
+        };
+
+        if (i % 2 == 0) ^ params.flip_toggle {
+            match params.flip {
+                FlipMode::AlternateFlipHorizontal => {
+                    inst.reflect_horiz_anchored();
+                }
+                FlipMode::AlternateFlipVertical => {
+                    inst.reflect_vert_anchored();
+                }
+                _ => {}
+            }
+        }
+
+        layout.insts.push(inst);
+    }
+
+    let cell = Cell {
+        name: params.name,
+        abs: None,
+        layout: Some(layout),
+    };
+
+    let ptr = Ptr::new(cell);
+    lib.lib.cells.push(ptr.clone());
+
+    Ok(ptr)
+}
 
 pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "sram_core".to_string();

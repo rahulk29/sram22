@@ -7,6 +7,7 @@ use pdkprims::PdkLib;
 use crate::tech::sram_sp_cell_gds;
 
 mod array;
+mod bank;
 mod decoder;
 mod gate;
 mod grid;

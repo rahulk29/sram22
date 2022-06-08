@@ -3,49 +3,25 @@ use layout21::{
     raw::{Cell, Instance, Layout, Point},
     utils::Ptr,
 };
-use pdkprims::PdkLib;
+use pdkprims::{geometry::CoarseDirection, PdkLib};
+
+use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
 
 pub fn draw_nand2_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
-    let name = "nand2_dec_array".to_string();
-
-    let mut layout = Layout {
-        name: name.clone(),
-        insts: vec![],
-        elems: vec![],
-        annotations: vec![],
-    };
-
     let nand2 = super::gate::draw_nand2(lib)?;
 
-    // height of 1 sram bitcell
-    let spacing = 1580;
-
-    for i in 0..width {
-        let mut inst = Instance {
-            inst_name: format!("nand_dec_{}", i),
-            cell: nand2.clone(),
-            loc: Point::new(0, spacing * i as isize),
-            reflect_vert: false,
-            angle: None,
-        };
-
-        if i % 2 == 0 {
-            inst.reflect_vert_anchored();
-        }
-
-        layout.insts.push(inst);
-    }
-
-    let cell = Cell {
-        name,
-        abs: None,
-        layout: Some(layout),
-    };
-
-    let ptr = Ptr::new(cell);
-    lib.lib.cells.push(ptr.clone());
-
-    Ok(ptr)
+    draw_cell_array(
+        ArrayCellParams {
+            name: "nand2_dec_array".to_string(),
+            num: width,
+            cell: nand2,
+            spacing: Some(1580),
+            flip: FlipMode::AlternateFlipVertical,
+            flip_toggle: false,
+            direction: CoarseDirection::Vertical,
+        },
+        lib,
+    )
 }
 
 pub fn draw_inv_dec_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
