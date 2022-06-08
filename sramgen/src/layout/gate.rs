@@ -105,7 +105,7 @@ pub fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-fn draw_inv_dec(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+pub fn draw_inv_dec(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "inv_dec".to_string();
 
     let mut layout = Layout {
@@ -121,17 +121,17 @@ fn draw_inv_dec(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .direction(CoarseDirection::Horizontal)
         .add_device(MosDevice {
             mos_type: MosType::Nmos,
-            width: 1_000,
+            width: 2_000,
             length: 150,
-            fingers: 2,
+            fingers: 1,
             intent: Intent::Svt,
-            skip_sd_metal: vec![1],
+            skip_sd_metal: vec![],
         })
         .add_device(MosDevice {
             mos_type: MosType::Pmos,
-            width: 1_400,
+            width: 2_800,
             length: 150,
-            fingers: 2,
+            fingers: 1,
             intent: Intent::Svt,
             skip_sd_metal: vec![],
         });
@@ -145,44 +145,13 @@ fn draw_inv_dec(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         reflect_vert: false,
     });
 
-    let tc = lib.pdk.config.read().unwrap();
-
-    let ndrain = ptx.sd_pins[0][&2].clone().unwrap();
-    let pdrain1 = ptx.sd_pins[1][&2].clone().unwrap();
-    let pdrain0 = ptx.sd_pins[1][&0].clone().unwrap();
-
-    let xlim = pdrain0.p0.x - tc.layer("li").space;
-
-    let cx = (ndrain.p1.x + pdrain1.p0.x) / 2;
-
-    let (mut xmin, mut xmax) = lib.pdk.gridded_center_span(cx, tc.layer("li").width);
-
-    if xmax > xlim {
-        let xshift = xmax - xlim;
-        xmin -= xshift;
-        xmax -= xshift;
-    }
+    let dout_n = ptx.sd_pins[0][&1].clone().unwrap();
+    let dout_p = ptx.sd_pins[1][&1].clone().unwrap();
 
     layout.elems.push(draw_rect(
         Rect {
-            p0: Point::new(ndrain.p0.x, ndrain.p0.y),
-            p1: Point::new(pdrain1.p1.x, pdrain1.p1.y),
-        },
-        ptx.sd_metal,
-    ));
-
-    layout.elems.push(draw_rect(
-        Rect {
-            p0: Point::new(xmin, pdrain0.p0.y),
-            p1: Point::new(xmax, pdrain1.p1.y),
-        },
-        ptx.sd_metal,
-    ));
-
-    layout.elems.push(draw_rect(
-        Rect {
-            p0: Point::new(xmin, pdrain0.p0.y),
-            p1: Point::new(pdrain0.p1.x, pdrain0.p1.y),
+            p0: Point::new(dout_n.p0.x, dout_n.p0.y),
+            p1: Point::new(dout_p.p1.x, dout_p.p1.y),
         },
         ptx.sd_metal,
     ));
@@ -209,6 +178,16 @@ mod tests {
     fn test_sky130_nand2() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_nand2")?;
         draw_nand2(&mut lib)?;
+
+        lib.save_gds()?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_inv_dec() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_inv_dec")?;
+        draw_inv_dec(&mut lib)?;
 
         lib.save_gds()?;
 
