@@ -18,6 +18,8 @@ pub const SRAM_SP_CELL: &str = "sram_sp_cell";
 pub const SRAM_CONTROL: &str = "sramgen_control";
 pub const SRAM_SP_SENSE_AMP: &str = "sramgen_sp_sense_amp";
 
+pub const BITCELL_HEIGHT: isize = 1580;
+
 pub fn sram_sp_cell() -> ExternalModule {
     simple_ext_module(
         SKY130_DOMAIN,
@@ -261,6 +263,7 @@ pub fn all_external_modules() -> Vec<ExternalModule> {
 mod tests {
     use super::*;
     use crate::{bbox, Result};
+    use pdkprims::tech::sky130;
 
     #[test]
     fn test_colend() -> Result<()> {
