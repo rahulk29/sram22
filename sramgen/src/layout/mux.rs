@@ -8,9 +8,10 @@ use pdkprims::{
     PdkLib,
 };
 
+use crate::layout::array::*;
 use crate::Result;
 
-fn draw_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "read_mux".to_string();
 
     let mut layout = Layout {
@@ -79,7 +80,24 @@ fn draw_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+pub fn draw_read_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+    let mux = draw_read_mux(lib)?;
+
+    draw_cell_array(
+        ArrayCellParams {
+            name: "read_mux_array".to_string(),
+            num: width,
+            cell: mux,
+            spacing: Some(2_500),
+            flip: FlipMode::AlternateFlipHorizontal,
+            flip_toggle: false,
+            direction: CoarseDirection::Horizontal,
+        },
+        lib,
+    )
+}
+
+pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "write_mux".to_string();
 
     let mut layout = Layout {
@@ -138,6 +156,23 @@ fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
+pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+    let mux = draw_write_mux(lib)?;
+
+    draw_cell_array(
+        ArrayCellParams {
+            name: "write_mux_array".to_string(),
+            num: width,
+            cell: mux,
+            spacing: Some(2_500),
+            flip: FlipMode::AlternateFlipHorizontal,
+            flip_toggle: false,
+            direction: CoarseDirection::Horizontal,
+        },
+        lib,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use pdkprims::tech::sky130;
@@ -145,9 +180,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_sky130_column_mux() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sky130_column_mux")?;
-        draw_mux(&mut lib)?;
+    fn test_sky130_column_read_mux() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_column_read_mux")?;
+        draw_read_mux(&mut lib)?;
+
+        lib.save_gds()?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_column_read_mux_array() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_column_read_mux_array")?;
+        draw_read_mux_array(&mut lib, 32)?;
 
         lib.save_gds()?;
 
@@ -158,6 +203,16 @@ mod tests {
     fn test_sky130_column_write_mux() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_column_write_mux")?;
         draw_write_mux(&mut lib)?;
+
+        lib.save_gds()?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_column_write_mux_array() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_column_write_mux_array")?;
+        draw_write_mux_array(&mut lib, 32)?;
 
         lib.save_gds()?;
 

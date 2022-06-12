@@ -8,6 +8,7 @@ use pdkprims::{
     PdkLib,
 };
 
+use super::array::*;
 use crate::Result;
 
 fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
@@ -70,6 +71,23 @@ fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
+pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+    let pc = draw_precharge(lib)?;
+
+    draw_cell_array(
+        ArrayCellParams {
+            name: "precharge_array".to_string(),
+            num: width,
+            cell: pc,
+            spacing: Some(2_500),
+            flip: FlipMode::AlternateFlipHorizontal,
+            flip_toggle: false,
+            direction: CoarseDirection::Horizontal,
+        },
+        lib,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use pdkprims::tech::sky130;
@@ -80,6 +98,16 @@ mod tests {
     fn test_sky130_precharge() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_precharge")?;
         draw_precharge(&mut lib)?;
+
+        lib.save_gds()?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_precharge_array() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_precharge_array")?;
+        draw_precharge_array(&mut lib, 32)?;
 
         lib.save_gds()?;
 

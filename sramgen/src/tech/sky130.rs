@@ -19,6 +19,8 @@ pub const SRAM_CONTROL: &str = "sramgen_control";
 pub const SRAM_SP_SENSE_AMP: &str = "sramgen_sp_sense_amp";
 
 pub const BITCELL_HEIGHT: isize = 1580;
+pub const BITCELL_WIDTH: isize = 1200;
+pub const TAPCELL_WIDTH: isize = 1300;
 
 pub fn sram_sp_cell() -> ExternalModule {
     simple_ext_module(
@@ -117,6 +119,13 @@ fn cell_gds(
 }
 
 type CellGdsResult = Result<Ptr<Cell>, Box<dyn std::error::Error>>;
+
+pub fn openram_dff_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(lib, "openram_dff.gds", "sky130_fd_bd_sram__openram_dff")
+}
+pub fn sramgen_sp_sense_amp_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(lib, "sramgen_sp_sense_amp.gds", "sramgen_sp_sense_amp")
+}
 
 pub fn sram_sp_cell_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(

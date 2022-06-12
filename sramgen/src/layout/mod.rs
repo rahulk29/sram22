@@ -6,12 +6,15 @@ use pdkprims::PdkLib;
 
 use crate::tech::sram_sp_cell_gds;
 
-mod array;
-mod decoder;
-mod gate;
-mod grid;
-mod mux;
-mod precharge;
+pub mod array;
+pub mod bank;
+pub mod decoder;
+pub mod dff;
+pub mod gate;
+pub mod grid;
+pub mod mux;
+pub mod precharge;
+pub mod sense_amp;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 

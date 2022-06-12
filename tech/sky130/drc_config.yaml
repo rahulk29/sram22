@@ -16,6 +16,8 @@ layers:
     purposes:
       - - Drawing
         - 20
+      - - Pin
+        - 16
       - - Label
         - 5
   via:
@@ -147,6 +149,8 @@ layers:
     purposes:
       - - Drawing
         - 20
+      - - Pin
+        - 16
       - - Label
         - 5
   licon:
@@ -306,6 +310,14 @@ layers:
           - add
           - 43
         - 43
+  prBndry:
+    desc: empty
+    layernum: 235
+    purposes:
+      - - Named:
+          - boundary
+          - 4
+        - 4
   cfom:
     desc: empty
     layernum: 22
@@ -330,6 +342,12 @@ layers:
     purposes:
       - - Drawing
         - 2
+  id_sc:
+    desc: define standard cells
+    layernum: 81
+    purposes:
+      - - Drawing
+        - 4
   ncm:
     desc: define N-core implant
     layernum: 92
