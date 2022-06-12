@@ -25,43 +25,20 @@ pub fn draw_nand2_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
 }
 
 pub fn draw_inv_dec_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
-    let name = "inv_dec_array".to_string();
+    let inv_dec = super::gate::draw_inv_dec(lib)?;
 
-    let mut layout = Layout {
-        name: name.clone(),
-        insts: vec![],
-        elems: vec![],
-        annotations: vec![],
-    };
-
-    let arr_cell = super::gate::draw_inv_dec(lib)?;
-
-    for i in 0..width {
-        let mut inst = Instance {
-            inst_name: format!("inv_dec_{}", i),
-            cell: arr_cell.clone(),
-            loc: Point::new(0, BITCELL_HEIGHT * i as isize),
-            reflect_vert: false,
-            angle: None,
-        };
-
-        if i % 2 == 0 {
-            inst.reflect_vert_anchored();
-        }
-
-        layout.insts.push(inst);
-    }
-
-    let cell = Cell {
-        name,
-        abs: None,
-        layout: Some(layout),
-    };
-
-    let ptr = Ptr::new(cell);
-    lib.lib.cells.push(ptr.clone());
-
-    Ok(ptr)
+    draw_cell_array(
+        ArrayCellParams {
+            name: "inv_dec_array".to_string(),
+            num: width,
+            cell: inv_dec,
+            spacing: Some(1580),
+            flip: FlipMode::AlternateFlipVertical,
+            flip_toggle: false,
+            direction: CoarseDirection::Vertical,
+        },
+        lib,
+    )
 }
 
 #[cfg(test)]
