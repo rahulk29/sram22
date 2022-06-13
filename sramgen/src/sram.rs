@@ -30,8 +30,8 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     assert!(params.col_bits > 0);
     assert!(params.col_mask_bits <= params.col_bits);
 
-    // TODO: for now we only support 4:1 sense amps and column muxes
-    assert_eq!(params.col_mask_bits, 2);
+    // TODO: for now we only support 2:1 sense amps and column muxes
+    assert_eq!(params.col_mask_bits, 1);
 
     let row_bits = params.row_bits as i64;
     let _col_bits = params.col_bits as i64;
@@ -300,10 +300,23 @@ mod tests {
             name: "sramgen_sram_16x16".to_string(),
             row_bits: 4,
             col_bits: 4,
-            col_mask_bits: 2,
+            col_mask_bits: 1,
         });
 
         save_modules("sram_16x16", modules)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_generate_sram_4x4() -> Result<(), Box<dyn std::error::Error>> {
+        let modules = sram(SramParams {
+            name: "sramgen_sram_4x4".to_string(),
+            row_bits: 2,
+            col_bits: 2,
+            col_mask_bits: 1,
+        });
+
+        save_modules("sram_4x4", modules)?;
         Ok(())
     }
 }

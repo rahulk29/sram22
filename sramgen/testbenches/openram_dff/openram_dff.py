@@ -4,16 +4,12 @@ from collections import defaultdict
 
 saved = [
     "clk",
-    "pc_b",
-    "wl_en",
-    "rbl_bl",
-    "w_en",
-    "we",
-    "rbl_bl_delay_b",
-    "rbl_bl_delay",
+    "d",
+    "q",
+    "qb",
 ]
 
-plot = saved
+plot = ["clk", "d", "q"]
 
 
 def read_data(f):
@@ -31,17 +27,16 @@ def read_data(f):
 
 
 def read_test_data():
-    with open("./openram.dat") as f:
+    with open("./openram_dff.dat") as f:
         return read_data(f)
 
 
 def plot_data(data):
-    plt.figure(dpi=150)
+    plt.figure()
     for key in plot:
         plt.plot(data["time"], data[key])
     plt.legend(plot)
-    plt.savefig("openram.png")
-    plt.show()
+    plt.savefig("openram_dff.png")
 
 
 if __name__ == "__main__":

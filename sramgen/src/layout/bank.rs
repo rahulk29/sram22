@@ -4,8 +4,6 @@ use layout21::{
 };
 use pdkprims::PdkLib;
 
-use crate::{bbox, layout::grid::GridCells, tech::*};
-
 use super::{
     array::draw_array,
     decoder::{draw_inv_dec_array, draw_nand2_array},
