@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use layout21::{
     gds21::GdsLibrary,
-    raw::{Cell, Layers, Library},
+    raw::{Cell, Library},
     utils::Ptr,
 };
 use pdkprims::PdkLib;
@@ -28,28 +28,6 @@ pub fn sram_sp_cell() -> ExternalModule {
         SRAM_SP_CELL,
         &["BL", "BR", "VDD", "VSS", "WL"],
     )
-}
-
-fn cell_gds_tmp(
-    layers: Ptr<Layers>,
-    gds_file: &str,
-    cell_name: &str,
-) -> Result<Ptr<Cell>, Box<dyn std::error::Error>> {
-    let mut path = external_gds_path();
-    path.push(gds_file);
-    let lib = GdsLibrary::load(&path)?;
-    let lib = Library::from_gds(&lib, Some(layers))?;
-
-    let cell = lib
-        .cells
-        .iter()
-        .find(|&x| {
-            let x = x.read().unwrap();
-            x.name == cell_name
-        })
-        .unwrap();
-
-    Ok(cell.clone())
 }
 
 fn name_map(lib: &Library) -> HashMap<String, Ptr<Cell>> {

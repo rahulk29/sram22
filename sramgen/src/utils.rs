@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
 use vlsir::{
-    circuit::{connection::Stype, port, Connection, ExternalModule, Package, Port, Signal, Slice},
+    circuit::{connection::Stype, port, Connection, ExternalModule, Port, Signal, Slice},
     reference::To,
     Module, QualifiedName, Reference,
 };
 
-use crate::{save_bin, tech::all_external_modules};
+use crate::save_bin;
+use crate::tech::all_external_modules;
 
 use self::conns::{conn_width, get_conn};
 
@@ -54,10 +55,6 @@ impl From<BusConnection> for Connection {
     fn from(c: BusConnection) -> Self {
         c.0
     }
-}
-
-pub struct BusConnectionIter<'a> {
-    conn: &'a Connection,
 }
 
 pub fn port_inout(s: &Signal) -> Port {
@@ -152,7 +149,7 @@ pub mod conns {
     }
 }
 
-pub(crate) fn simple_ext_module(
+pub fn simple_ext_module(
     domain: impl Into<String>,
     name: impl Into<String>,
     ports: &[&str],
@@ -176,22 +173,19 @@ pub(crate) fn simple_ext_module(
     }
 }
 
-pub(crate) fn conn_map(map: HashMap<&str, Connection>) -> HashMap<String, Connection> {
+pub fn conn_map(map: HashMap<&str, Connection>) -> HashMap<String, Connection> {
     map.into_iter().map(|(k, v)| (k.to_string(), v)).collect()
 }
 
-pub(crate) fn local_reference(name: impl Into<String>) -> Option<Reference> {
+pub fn local_reference(name: impl Into<String>) -> Option<Reference> {
     Some(Reference {
         to: Some(To::Local(name.into())),
     })
 }
 
-pub(crate) fn save_modules(
-    name: &str,
-    modules: Vec<Module>,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub fn save_modules(name: &str, modules: Vec<Module>) -> Result<(), Box<dyn std::error::Error>> {
     let ext_modules = all_external_modules();
-    let pkg = Package {
+    let pkg = vlsir::circuit::Package {
         domain: format!("sramgen_{}", name),
         desc: "Sramgen generated cells".to_string(),
         modules,

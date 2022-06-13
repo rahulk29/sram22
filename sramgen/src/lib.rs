@@ -50,11 +50,11 @@ pub fn generate() -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn out_bin(name: &str) -> PathBuf {
+pub fn out_bin(name: &str) -> PathBuf {
     format!("build/pb/{}.pb.bin", name).into()
 }
 
-pub(crate) fn save_bin(name: &str, pkg: Package) -> Result<()> {
+pub fn save_bin(name: &str, pkg: Package) -> Result<()> {
     let input = SimInput {
         pkg: Some(pkg),
         top: name.to_string(),

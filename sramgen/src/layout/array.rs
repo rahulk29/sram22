@@ -111,23 +111,22 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
     assert_eq!(colend_bbox.width(), 1200);
 
     let mut grid = GridCells::new();
-    let mut row = Vec::new();
-
-    row.push(Instance {
-        inst_name: "corner_ul".to_string(),
-        cell: corner.clone(),
-        loc: Point::new(0, 0),
-        reflect_vert: true,
-        angle: Some(180f64),
-    });
-
-    row.push(Instance {
-        inst_name: "colend_top_0".to_string(),
-        cell: colend.clone(),
-        loc: Point::new(0, 0),
-        reflect_vert: false,
-        angle: None,
-    });
+    let mut row = vec![
+        Instance {
+            inst_name: "corner_ul".to_string(),
+            cell: corner.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: true,
+            angle: Some(180f64),
+        },
+        Instance {
+            inst_name: "colend_top_0".to_string(),
+            cell: colend.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+    ];
 
     for i in 1..cols {
         let colend_cent_i = if i % 2 == 0 {
@@ -223,23 +222,22 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
         grid.add_row(row);
     }
 
-    let mut row = Vec::new();
-
-    row.push(Instance {
-        inst_name: "corner_bl".to_string(),
-        cell: corner.clone(),
-        loc: Point::new(0, 0),
-        reflect_vert: false,
-        angle: Some(180f64),
-    });
-
-    row.push(Instance {
-        inst_name: "colend_bot_0".to_string(),
-        cell: colend.clone(),
-        loc: Point::new(0, 0),
-        reflect_vert: true,
-        angle: None,
-    });
+    let mut row = vec![
+        Instance {
+            inst_name: "corner_bl".to_string(),
+            cell: corner.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: Some(180f64),
+        },
+        Instance {
+            inst_name: "colend_bot_0".to_string(),
+            cell: colend.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: true,
+            angle: None,
+        },
+    ];
 
     for i in 1..cols {
         let colend_cent_i = if i % 2 == 0 {

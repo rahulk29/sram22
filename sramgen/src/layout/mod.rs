@@ -18,7 +18,7 @@ pub mod sense_amp;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-fn draw_bitcell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+pub fn draw_bitcell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "t_bitcell".to_string();
 
     let mut layout = Layout {

@@ -44,3 +44,10 @@ impl GridCells {
         insts
     }
 }
+
+impl Default for GridCells {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
