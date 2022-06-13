@@ -7,7 +7,7 @@ use arcstr::ArcStr;
 use config::TechConfig;
 use contact::{Contact, ContactParams};
 use layout21::{
-    gds21::{GdsLibrary, GdsResult},
+    gds21::GdsLibrary,
     raw::{Cell, DepOrder, LayerKey, Layers, LayoutResult, Library},
     utils::{Ptr, PtrList},
 };

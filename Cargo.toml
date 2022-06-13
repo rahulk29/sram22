@@ -1,13 +1,8 @@
 [workspace]
 
 members = [
-  "edatool",
   "fanout",
   "pdkprims",
-  "magic_vlsi",
-  "micro_hdl",
-  "micro_hdl/micro_hdl_derive",
-  "sram22",
   "sramgen",
 ]
 

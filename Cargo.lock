@@ -348,25 +348,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "edatool"
-version = "0.1.0"
-dependencies = [
- "approx",
- "bytes",
- "handlebars",
- "log",
- "magic_vlsi",
- "portpicker",
- "prost",
- "prost-build",
- "prost-types",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
-]
-
-[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -704,15 +685,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "magic_vlsi"
-version = "0.1.0"
-dependencies = [
- "lazy_static",
- "log",
- "thiserror",
-]
-
-[[package]]
 name = "maplit"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -723,22 +695,6 @@ name = "memchr"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
-
-[[package]]
-name = "micro_hdl"
-version = "0.1.0"
-dependencies = [
- "micro_hdl_derive",
- "tempfile",
-]
-
-[[package]]
-name = "micro_hdl_derive"
-version = "0.1.0"
-dependencies = [
- "quote",
- "syn",
-]
 
 [[package]]
 name = "multimap"
@@ -1161,34 +1117,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f67ad224767faa3c7d8b6d91985b78e70a1324408abcb1cfcc2be4c06bc06043"
 
 [[package]]
-name = "sram22"
-version = "0.1.0"
-dependencies = [
- "approx",
- "bytes",
- "clap",
- "derive_builder 0.11.2",
- "edatool",
- "env_logger",
- "grid",
- "handlebars",
- "indicatif",
- "itertools",
- "layout21",
- "log",
- "magic_vlsi",
- "micro_hdl",
- "portpicker",
- "prost",
- "prost-build",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "toml",
-]
-
-[[package]]
 name = "sramgen"
 version = "0.1.0"
 dependencies = [
@@ -1197,7 +1125,6 @@ dependencies = [
  "bytes",
  "clap",
  "derive_builder 0.11.2",
- "edatool",
  "env_logger",
  "fanout",
  "grid",
@@ -1206,7 +1133,6 @@ dependencies = [
  "itertools",
  "layout21",
  "log",
- "magic_vlsi",
  "pdkprims",
  "portpicker",
  "prost",

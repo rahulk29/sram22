@@ -216,7 +216,7 @@ impl Pdk {
                 let inst = Instance {
                     inst_name: format!("sd_contact_{}_{}", i, j),
                     cell: Ptr::clone(&ct.cell),
-                    loc: loc.clone(),
+                    loc,
                     reflect_vert: false,
                     angle: None,
                 };
