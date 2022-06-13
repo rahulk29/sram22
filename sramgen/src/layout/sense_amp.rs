@@ -2,10 +2,7 @@ use layout21::{raw::Cell, utils::Ptr};
 use pdkprims::{geometry::CoarseDirection, PdkLib};
 
 use super::array::*;
-use crate::{
-    tech::{sramgen_sp_sense_amp_gds, BITCELL_WIDTH, TAPCELL_WIDTH},
-    Result,
-};
+use crate::{tech::sramgen_sp_sense_amp_gds, Result};
 
 pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
     let sa = sramgen_sp_sense_amp_gds(lib)?;

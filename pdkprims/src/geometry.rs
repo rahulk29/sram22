@@ -82,8 +82,8 @@ pub fn expand_box_min_width(b: &mut Rect, width: Int, grid: Int) {
 
 pub fn rect_from_bbox(bbox: &BoundBox) -> Rect {
     Rect {
-        p0: bbox.p0.clone(),
-        p1: bbox.p1.clone(),
+        p0: bbox.p0,
+        p1: bbox.p1,
     }
 }
 

@@ -1,8 +1,5 @@
-use crate::{layout::Result, tech::BITCELL_HEIGHT};
-use layout21::{
-    raw::{Cell, Instance, Layout, Point},
-    utils::Ptr,
-};
+use crate::layout::Result;
+use layout21::{raw::Cell, utils::Ptr};
 use pdkprims::{geometry::CoarseDirection, PdkLib};
 
 use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
