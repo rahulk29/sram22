@@ -10,9 +10,7 @@ license-file = "../LICENSE"
 derive_builder = "0.11.2"
 grid = "0.6.0"
 thiserror = "1.0.31"
-magic_vlsi = { path = "../magic_vlsi" }
 fanout = { path = "../fanout" }
-edatool = { path = "../edatool" }
 serde = { version = "1.0.137", features = ["derive"] }
 serde_json = "1.0.81"
 toml = "0.5.9"
