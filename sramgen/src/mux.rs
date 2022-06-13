@@ -87,6 +87,187 @@ pub fn column_mux_4_array(params: ColumnMuxArrayParams) -> Vec<Module> {
     vec![mux, m]
 }
 
+/// A 2 to 1 mux using PMOS devices
+pub fn column_read_mux_2(params: ColumnMuxParams) -> Module {
+    let length = params.length;
+
+    let vdd = signal("vdd");
+    let din = bus("din", 2);
+    let sel = signal("sel");
+    let sel_b = signal("sel_b");
+    let dout = signal("dout");
+
+    let ports = vec![
+        port_inout(&vdd),
+        port_inout(&din),
+        port_inout(&dout),
+        port_input(&sel),
+        port_input(&sel_b),
+    ];
+
+    let mut m = Module {
+        name: "column_mux_2".to_string(),
+        ports,
+        signals: vec![],
+        instances: vec![],
+        parameters: vec![],
+    };
+
+    m.instances.push(
+        Mosfet {
+            name: "MP0".to_string(),
+            width: params.width,
+            length,
+            drain: sig_conn(&dout),
+            source: conn_slice("din", 0, 0),
+            gate: sig_conn(&sel),
+            body: sig_conn(&vdd),
+            mos_type: MosType::Pmos,
+        }
+        .into(),
+    );
+
+    m.instances.push(
+        Mosfet {
+            name: "MP1".to_string(),
+            width: params.width,
+            length,
+            drain: sig_conn(&dout),
+            source: conn_slice("din", 1, 1),
+            gate: sig_conn(&sel_b),
+            body: sig_conn(&vdd),
+            mos_type: MosType::Pmos,
+        }
+        .into(),
+    );
+
+    m
+}
+
+/// A 2 to 1 mux using NMOS devices
+pub fn column_write_mux_2(params: ColumnMuxParams) -> Module {
+    let length = params.length;
+
+    let vss = signal("vss");
+    let din = bus("din", 2);
+    let sel = signal("sel");
+    let sel_b = signal("sel_b");
+    let dout = signal("dout");
+
+    let ports = vec![
+        port_inout(&vss),
+        port_inout(&din),
+        port_inout(&dout),
+        port_input(&sel),
+        port_input(&sel_b),
+    ];
+
+    let mut m = Module {
+        name: "column_write_mux_2".to_string(),
+        ports,
+        signals: vec![],
+        instances: vec![],
+        parameters: vec![],
+    };
+
+    m.instances.push(
+        Mosfet {
+            name: "MN0".to_string(),
+            width: params.width,
+            length,
+            drain: conn_slice("din", 0, 0),
+            source: sig_conn(&dout),
+            gate: sig_conn(&sel_b),
+            body: sig_conn(&vss),
+            mos_type: MosType::Nmos,
+        }
+        .into(),
+    );
+
+    m.instances.push(
+        Mosfet {
+            name: "MN1".to_string(),
+            width: params.width,
+            length,
+            drain: conn_slice("din", 1, 1),
+            source: sig_conn(&dout),
+            gate: sig_conn(&sel),
+            body: sig_conn(&vss),
+            mos_type: MosType::Nmos,
+        }
+        .into(),
+    );
+
+    m
+}
+
+pub fn column_write_mux_2_array(params: ColumnMuxArrayParams) -> Vec<Module> {
+    assert!(params.width > 0);
+    assert_eq!(params.width % 2, 0);
+
+    let mux = column_write_mux_2(params.instance_params);
+
+    let vss = signal("vss");
+    let bl = bus("bl", params.width);
+    let br = bus("br", params.width);
+    let bl_out = bus("bl_out", params.width / 2);
+    let br_out = bus("br_out", params.width / 2);
+    let sel = signal("sel");
+    let sel_b = signal("sel_b");
+
+    let ports = vec![
+        port_inout(&vss),
+        port_inout(&bl),
+        port_inout(&br),
+        port_inout(&bl_out),
+        port_inout(&br_out),
+        port_input(&sel),
+        port_input(&sel_b),
+    ];
+
+    let mut m = Module {
+        name: params.name.clone(),
+        ports,
+        signals: vec![],
+        instances: vec![],
+        parameters: vec![],
+    };
+
+    for i in 0..(params.width / 2) {
+        let mut connections = HashMap::new();
+        connections.insert("vss".to_string(), sig_conn(&vss));
+        connections.insert("din".to_string(), conn_slice("bl", i * 2 + 1, i * 2));
+        connections.insert("sel".to_string(), sig_conn(&sel));
+        connections.insert("sel_b".to_string(), sig_conn(&sel_b));
+        connections.insert("dout".to_string(), conn_slice("bl_out", i, i));
+        m.instances.push(vlsir::circuit::Instance {
+            name: format!("mux_bl_{}", i),
+            module: Some(Reference {
+                to: Some(To::Local("column_write_mux_2".to_string())),
+            }),
+            parameters: HashMap::new(),
+            connections,
+        });
+
+        let mut connections = HashMap::new();
+        connections.insert("vss".to_string(), sig_conn(&vss));
+        connections.insert("din".to_string(), conn_slice("br", 2 * i + 1, 2 * i));
+        connections.insert("sel".to_string(), sig_conn(&sel));
+        connections.insert("sel_b".to_string(), sig_conn(&sel_b));
+        connections.insert("dout".to_string(), conn_slice("br_out", i, i));
+        m.instances.push(vlsir::circuit::Instance {
+            name: format!("mux_br_{}", i),
+            module: Some(Reference {
+                to: Some(To::Local("column_write_mux_2".to_string())),
+            }),
+            parameters: HashMap::new(),
+            connections,
+        });
+    }
+
+    vec![mux, m]
+}
+
 /// A 4 to 1 mux using PMOS devices
 pub fn column_mux_4(params: ColumnMuxParams) -> Module {
     let length = params.length;
@@ -241,6 +422,20 @@ mod tests {
             },
         });
         save_modules("column_mux_4_array", modules)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_column_write_mux_2_array() -> Result<(), Box<dyn std::error::Error>> {
+        let modules = column_write_mux_2_array(ColumnMuxArrayParams {
+            name: "column_write_mux_2_array".to_string(),
+            width: 64,
+            instance_params: ColumnMuxParams {
+                length: 150,
+                width: 2_000,
+            },
+        });
+        save_modules("column_write_mux_2_array", modules)?;
         Ok(())
     }
 }
