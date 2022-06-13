@@ -25,24 +25,3 @@ jobs:
         run: make lint
       - name: Test
         run: make test
-  coverage:
-    name: Coverage
-    runs-on: [self-hosted]
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: 'recursive'
-      - name: Set up environment
-        run: |
-          echo "/usr/local/bin" >> $GITHUB_PATH
-      - name: Generate coverage
-        run: |
-          cargo clean
-          rm -rf /tmp/sram22/
-          cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
-      - name: Upload to codecov.io
-        uses: codecov/codecov-action@v2
-        with:
-          token: ${{secrets.CODECOV_TOKEN}}
-          fail_ci_if_error: true
-
