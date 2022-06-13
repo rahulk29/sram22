@@ -11,6 +11,7 @@ pub const PRIMITIVE_DOMAIN: &str = "primitives";
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
+#[allow(dead_code)]
 pub struct NetlistWriter<T>
 where
     T: std::io::Write,
