@@ -22,7 +22,7 @@ pub struct BitlineDriverArrayParams {
 
 pub fn bitline_driver_array(params: BitlineDriverArrayParams) -> Vec<Module> {
     assert!(params.width > 0);
-    assert_eq!(params.width % 4, 0);
+    assert_eq!(params.width % 2, 0);
 
     let drv = bitline_driver(params.instance_params);
 

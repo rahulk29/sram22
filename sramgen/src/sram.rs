@@ -5,8 +5,11 @@ use vlsir::circuit::{Instance, Module};
 use crate::{
     bitcells::{bitcell_array, BitcellArrayParams},
     decoder::{hierarchical_decoder, DecoderParams, DecoderTree},
+    dff::dff_array,
     gate::Size,
-    mux::{column_mux_4_array, ColumnMuxArrayParams, ColumnMuxParams},
+    mux::{
+        column_read_mux_2_array, column_write_mux_2_array, ColumnMuxArrayParams, ColumnMuxParams,
+    },
     precharge::{precharge_array, PrechargeArrayParams, PrechargeParams},
     sense_amp::{sense_amp_array, SenseAmpArrayParams},
     tech::sramgen_control_ref,
@@ -17,6 +20,8 @@ use crate::{
     wl_driver::{wordline_driver_array, WordlineDriverArrayParams, WordlineDriverParams},
     write_driver::{bitline_driver_array, BitlineDriverArrayParams, BitlineDriverParams},
 };
+
+use crate::dff::DffArrayParams;
 
 pub struct SramParams {
     pub row_bits: usize,
@@ -34,10 +39,12 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     assert_eq!(params.col_mask_bits, 1);
 
     let row_bits = params.row_bits as i64;
-    let _col_bits = params.col_bits as i64;
     let col_mask_bits = params.col_mask_bits as i64;
     let rows = 1 << params.row_bits;
     let cols = 1 << params.col_bits;
+    let col_mux_ratio = 1 << params.col_mask_bits;
+
+    let cols_masked = (cols / col_mux_ratio) as i64;
 
     let tree = DecoderTree::new(params.row_bits);
     let decoder_params = DecoderParams {
@@ -82,15 +89,15 @@ pub fn sram(params: SramParams) -> Vec<Module> {
 
     let mut wr_drivers = bitline_driver_array(BitlineDriverArrayParams {
         name: "write_driver_array".to_string(),
-        width: cols as i64,
+        width: cols_masked as i64,
         instance_params: BitlineDriverParams {
             length: 150,
             width: 1_800,
         },
     });
 
-    let mut muxes = column_mux_4_array(ColumnMuxArrayParams {
-        name: "column_mux_array".to_string(),
+    let mut write_muxes = column_write_mux_2_array(ColumnMuxArrayParams {
+        name: "column_write_mux_2_array".to_string(),
         width: cols as i64,
         instance_params: ColumnMuxParams {
             length: 150,
@@ -98,27 +105,51 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         },
     });
 
+    let mut read_muxes = column_read_mux_2_array(ColumnMuxArrayParams {
+        name: "column_read_mux_2_array".to_string(),
+        width: cols as i64,
+        instance_params: ColumnMuxParams {
+            length: 150,
+            width: 2_000,
+        },
+    });
+
+    let mut data_dff_array = dff_array(DffArrayParams {
+        name: "data_dff_array".to_string(),
+        width: cols / 2,
+    });
+
+    let mut addr_dff_array = dff_array(DffArrayParams {
+        name: "addr_dff_array".to_string(),
+        width: (row_bits + col_mask_bits) as usize,
+    });
+
     let sense_amp_array = sense_amp_array(SenseAmpArrayParams {
         name: "sense_amp_array".to_string(),
-        width: (cols / 4) as i64,
+        width: (cols / col_mux_ratio) as i64,
     });
 
     let vdd = signal("vdd");
     let vss = signal("vss");
     let clk = signal("clk");
-    let din = bus("din", cols as i64);
-    let din_b = bus("din_b", cols as i64);
-    let dout = bus("dout", (cols / 4) as i64);
-    let dout_b = bus("dout_b", (cols / 4) as i64);
+    let clk_b = signal("clk_b");
+    let din = bus("din", cols_masked as i64);
+    let din_b = bus("din_b", cols_masked as i64);
+    let din_in = bus("din_in", cols_masked as i64);
+    let dout = bus("dout", cols_masked);
+    let dout_b = bus("dout_b", cols_masked);
+    let dout_out = bus("dout_out", cols_masked);
     let we = signal("we");
     let cs = signal("cs");
     let pc_b = signal("pc_b");
-    let pc = signal("pc");
     let bl = bus("bl", cols as i64);
     let br = bus("br", cols as i64);
-    let bl_out = bus("bl_out", (cols / 4) as i64);
-    let br_out = bus("br_out", (cols / 4) as i64);
+    let bl_read = bus("bl_read", cols_masked);
+    let br_read = bus("br_read", cols_masked);
+    let bl_write = bus("bl_write", cols_masked);
+    let br_write = bus("br_write", cols_masked);
     let wl_en = signal("wl_en");
+    let addr_in = bus("addr_in", row_bits + col_mask_bits);
     let addr = bus("addr", row_bits + col_mask_bits);
     let addr_b = bus("addr_b", row_bits + col_mask_bits);
     let wl = bus("wl", rows as i64);
@@ -130,13 +161,17 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         port_inout(&vdd),
         port_inout(&vss),
         port_input(&clk),
-        port_inout(&din),
-        port_inout(&din_b),
-        port_output(&dout),
+        port_input(&clk_b),
+        port_input(&din_in),
+        port_output(&dout_out),
         port_input(&we),
         port_input(&cs),
-        port_input(&addr),
-        port_input(&addr_b),
+        port_input(&addr_in),
+        // control signals
+        port_input(&wl_en),
+        port_input(&sae),
+        port_input(&pc_b),
+        port_input(&wr_drv_en),
     ];
 
     let mut m = Module {
@@ -146,6 +181,68 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         instances: vec![],
         parameters: vec![],
     };
+
+    // Data dffs
+    let mut conns = HashMap::new();
+    conns.insert("vdd", sig_conn(&vdd));
+    conns.insert("vss", sig_conn(&vss));
+    conns.insert("d", sig_conn(&din_in));
+    conns.insert("clk", sig_conn(&clk));
+    conns.insert("q", sig_conn(&din));
+    conns.insert("q_b", sig_conn(&din_b));
+    m.instances.push(Instance {
+        name: "din_dffs".to_string(),
+        module: local_reference("data_dff_array"),
+        parameters: HashMap::new(),
+        connections: conn_map(conns),
+    });
+
+    let dout_negedge = bus("dout_negedge", cols_masked);
+    let dout_negedge_b = bus("dout_negedge_b", cols_masked);
+
+    let mut conns = HashMap::new();
+    conns.insert("vdd", sig_conn(&vdd));
+    conns.insert("vss", sig_conn(&vss));
+    conns.insert("d", sig_conn(&dout));
+    conns.insert("clk", sig_conn(&clk_b));
+    conns.insert("q", sig_conn(&dout_negedge));
+    conns.insert("q_b", sig_conn(&dout_negedge_b));
+    m.instances.push(Instance {
+        name: "dout_negedge_dffs".to_string(),
+        module: local_reference("data_dff_array"),
+        parameters: HashMap::new(),
+        connections: conn_map(conns),
+    });
+
+    let dout_out_b = bus("dout_out_b", (cols / col_mux_ratio) as i64);
+    let mut conns = HashMap::new();
+    conns.insert("vdd", sig_conn(&vdd));
+    conns.insert("vss", sig_conn(&vss));
+    conns.insert("d", sig_conn(&dout_negedge));
+    conns.insert("clk", sig_conn(&clk));
+    conns.insert("q", sig_conn(&dout_out));
+    conns.insert("q_b", sig_conn(&dout_out_b));
+    m.instances.push(Instance {
+        name: "dout_dffs".to_string(),
+        module: local_reference("data_dff_array"),
+        parameters: HashMap::new(),
+        connections: conn_map(conns),
+    });
+
+    // Address dffs
+    let mut conns = HashMap::new();
+    conns.insert("vdd", sig_conn(&vdd));
+    conns.insert("vss", sig_conn(&vss));
+    conns.insert("d", sig_conn(&addr_in));
+    conns.insert("clk", sig_conn(&clk));
+    conns.insert("q", sig_conn(&addr));
+    conns.insert("q_b", sig_conn(&addr_b));
+    m.instances.push(Instance {
+        name: "addr_dffs".to_string(),
+        module: local_reference("addr_dff_array"),
+        parameters: HashMap::new(),
+        connections: conn_map(conns),
+    });
 
     // Decoder
     let mut conns = HashMap::new();
@@ -212,8 +309,8 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     // Write driver array
     let mut conns = HashMap::new();
     conns.insert("vss", sig_conn(&vss));
-    conns.insert("bl", sig_conn(&bl));
-    conns.insert("br", sig_conn(&br));
+    conns.insert("bl", sig_conn(&bl_write));
+    conns.insert("br", sig_conn(&br_write));
     conns.insert("din", sig_conn(&din));
     conns.insert("din_b", sig_conn(&din_b));
     conns.insert("we", sig_conn(&wr_drv_en));
@@ -224,18 +321,35 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         parameters: HashMap::new(),
     });
 
-    // Column muxes
+    // Column write muxes
+    let mut conns = HashMap::new();
+    conns.insert("vss", sig_conn(&vss));
+    conns.insert("bl", sig_conn(&bl));
+    conns.insert("br", sig_conn(&br));
+    conns.insert("bl_out", sig_conn(&bl_write));
+    conns.insert("br_out", sig_conn(&br_write));
+    // Note addr is flipped here because devices are NMOS
+    conns.insert("sel", conn_slice("addr_b", 0, 0));
+    conns.insert("sel_b", conn_slice("addr", 0, 0));
+    m.instances.push(Instance {
+        name: "column_write_mux_2_array".to_string(),
+        module: local_reference("column_write_mux_2_array"),
+        connections: conn_map(conns),
+        parameters: HashMap::new(),
+    });
+
+    // Column read muxes
     let mut conns = HashMap::new();
     conns.insert("vdd", sig_conn(&vdd));
     conns.insert("bl", sig_conn(&bl));
     conns.insert("br", sig_conn(&br));
-    conns.insert("bl_out", sig_conn(&bl_out));
-    conns.insert("br_out", sig_conn(&br_out));
-    conns.insert("sel", conn_slice("addr", 1, 0));
-    conns.insert("sel_b", conn_slice("addr_b", 1, 0));
+    conns.insert("bl_out", sig_conn(&bl_read));
+    conns.insert("br_out", sig_conn(&br_read));
+    conns.insert("sel", conn_slice("addr", 0, 0));
+    conns.insert("sel_b", conn_slice("addr_b", 0, 0));
     m.instances.push(Instance {
-        name: "column_mux_array".to_string(),
-        module: local_reference("column_mux_array"),
+        name: "column_read_mux_2_array".to_string(),
+        module: local_reference("column_read_mux_2_array"),
         connections: conn_map(conns),
         parameters: HashMap::new(),
     });
@@ -245,32 +359,13 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     conns.insert("vdd", sig_conn(&vdd));
     conns.insert("vss", sig_conn(&vss));
     conns.insert("clk", sig_conn(&sae));
-    conns.insert("bl", sig_conn(&bl_out));
-    conns.insert("br", sig_conn(&br_out));
+    conns.insert("bl", sig_conn(&bl_read));
+    conns.insert("br", sig_conn(&br_read));
     conns.insert("data", sig_conn(&dout));
     conns.insert("data_b", sig_conn(&dout_b));
     m.instances.push(Instance {
         name: "sense_amp_array".to_string(),
         module: local_reference("sense_amp_array"),
-        connections: conn_map(conns),
-        parameters: HashMap::new(),
-    });
-
-    // Control logic
-    let mut conns = HashMap::new();
-    conns.insert("vdd", sig_conn(&vdd));
-    conns.insert("vss", sig_conn(&vss));
-    conns.insert("clk", sig_conn(&clk));
-    conns.insert("cs", sig_conn(&cs));
-    conns.insert("we", sig_conn(&we));
-    conns.insert("pc", sig_conn(&pc));
-    conns.insert("pc_b", sig_conn(&pc_b));
-    conns.insert("wl_en", sig_conn(&wl_en));
-    conns.insert("write_driver_en", sig_conn(&wr_drv_en));
-    conns.insert("sense_en", sig_conn(&sae));
-    m.instances.push(Instance {
-        name: "control_logic".to_string(),
-        module: Some(sramgen_control_ref()),
         connections: conn_map(conns),
         parameters: HashMap::new(),
     });
@@ -281,7 +376,10 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     modules.append(&mut wr_drivers);
     modules.push(bitcells);
     modules.append(&mut precharge);
-    modules.append(&mut muxes);
+    modules.append(&mut read_muxes);
+    modules.append(&mut write_muxes);
+    modules.append(&mut data_dff_array);
+    modules.append(&mut addr_dff_array);
     modules.push(sense_amp_array);
     modules.push(m);
 

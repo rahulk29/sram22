@@ -5,11 +5,23 @@ Xp din_b din vdd vdd sky130_fd_pr__pfet_01v8 w='1' l='0.15'
 Xn din_b din vss vss sky130_fd_pr__nfet_01v8 w='0.6' l='0.15'
 .ends
 
-.subckt control_logic_delay_chain din dout vdd vss
-Xinv0 din tmp0 vdd vss control_logic_inv0
-Xinv1 tmp0 tmp1 vdd vss control_logic_inv0
+.subckt control_logic_delay_chain din din_b dout vdd vss
+Xinv0 din din_b vdd vss control_logic_inv0
+Xinv1 din_b tmp1 vdd vss control_logic_inv0
 Xinv2 tmp1 tmp2 vdd vss control_logic_inv0
-Xinv3 tmp2 dout vdd vss control_logic_inv0
+Xinv3 tmp2 tmp3 vdd vss control_logic_inv0
+Xinv4 tmp3 tmp4 vdd vss control_logic_inv0
+Xinv5 tmp4 tmp5 vdd vss control_logic_inv0
+Xinv6 tmp5 tmp6 vdd vss control_logic_inv0
+Xinv7 tmp6 tmp7 vdd vss control_logic_inv0
+Xinv8 tmp7 tmp8 vdd vss control_logic_inv0
+Xinv9 tmp8 tmp9 vdd vss control_logic_inv0
+Xinv10 tmp9 tmp10 vdd vss control_logic_inv0
+Xinv11 tmp10 tmp11 vdd vss control_logic_inv0
+Xinv12 tmp11 tmp12 vdd vss control_logic_inv0
+Xinv13 tmp12 tmp13 vdd vss control_logic_inv0
+Xinv14 tmp13 tmp14 vdd vss control_logic_inv0
+Xinv15 tmp14 dout vdd vss control_logic_inv0
 .ends
 
 .subckt control_logic_nand0 a b y vdd vss

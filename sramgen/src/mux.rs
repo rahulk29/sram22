@@ -6,7 +6,7 @@ use vlsir::{circuit::Module, reference::To, Reference};
 
 use crate::{
     mos::Mosfet,
-    utils::{bus, conns::conn_slice, port_inout, port_input, sig_conn, signal},
+    utils::{bus, conn_map, conns::conn_slice, port_inout, port_input, sig_conn, signal},
 };
 
 pub struct ColumnMuxParams {
@@ -87,6 +87,101 @@ pub fn column_mux_4_array(params: ColumnMuxArrayParams) -> Vec<Module> {
     vec![mux, m]
 }
 
+pub fn column_read_mux_2_array(params: ColumnMuxArrayParams) -> Vec<Module> {
+    let mux = column_read_mux_2(params.instance_params);
+
+    let reference = Reference {
+        to: Some(To::Local("column_read_mux_2".to_string())),
+    };
+    vec![
+        mux,
+        mux_2_array_inner(params.width, params.name, &reference, true),
+    ]
+}
+
+pub fn column_write_mux_2_array(params: ColumnMuxArrayParams) -> Vec<Module> {
+    let mux = column_write_mux_2(params.instance_params);
+
+    let reference = Reference {
+        to: Some(To::Local("column_write_mux_2".to_string())),
+    };
+    vec![
+        mux,
+        mux_2_array_inner(params.width, params.name, &reference, false),
+    ]
+}
+
+fn mux_2_array_inner(
+    width: i64,
+    name: impl Into<String>,
+    reference: &Reference,
+    vdd: bool,
+) -> Module {
+    assert!(width > 0);
+    assert_eq!(width % 2, 0);
+
+    let (pwr_name, pwr_sig) = if vdd {
+        ("vdd", signal("vdd"))
+    } else {
+        ("vss", signal("vss"))
+    };
+
+    let bl = bus("bl", width);
+    let br = bus("br", width);
+    let bl_out = bus("bl_out", width / 2);
+    let br_out = bus("br_out", width / 2);
+    let sel = signal("sel");
+    let sel_b = signal("sel_b");
+
+    let ports = vec![
+        port_inout(&pwr_sig),
+        port_inout(&bl),
+        port_inout(&br),
+        port_inout(&bl_out),
+        port_inout(&br_out),
+        port_input(&sel),
+        port_input(&sel_b),
+    ];
+
+    let mut m = Module {
+        name: name.into(),
+        ports,
+        signals: vec![],
+        instances: vec![],
+        parameters: vec![],
+    };
+
+    for i in 0..(width / 2) {
+        let mut connections = HashMap::new();
+        connections.insert(pwr_name, sig_conn(&pwr_sig));
+        connections.insert("din", conn_slice("bl", 2 * i + 1, 2 * i));
+        connections.insert("sel", sig_conn(&sel));
+        connections.insert("sel_b", sig_conn(&sel_b));
+        connections.insert("dout", conn_slice("bl_out", i, i));
+        m.instances.push(vlsir::circuit::Instance {
+            name: format!("mux_bl_{}", i),
+            module: Some(reference.clone()),
+            parameters: HashMap::new(),
+            connections: conn_map(connections),
+        });
+
+        let mut connections = HashMap::new();
+        connections.insert(pwr_name, sig_conn(&pwr_sig));
+        connections.insert("din", conn_slice("br", 2 * i + 1, 2 * i));
+        connections.insert("sel", sig_conn(&sel));
+        connections.insert("sel_b", sig_conn(&sel_b));
+        connections.insert("dout", conn_slice("br_out", i, i));
+        m.instances.push(vlsir::circuit::Instance {
+            name: format!("mux_br_{}", i),
+            module: Some(reference.clone()),
+            parameters: HashMap::new(),
+            connections: conn_map(connections),
+        });
+    }
+
+    m
+}
+
 /// A 2 to 1 mux using PMOS devices
 pub fn column_read_mux_2(params: ColumnMuxParams) -> Module {
     let length = params.length;
@@ -106,7 +201,7 @@ pub fn column_read_mux_2(params: ColumnMuxParams) -> Module {
     ];
 
     let mut m = Module {
-        name: "column_mux_2".to_string(),
+        name: "column_read_mux_2".to_string(),
         ports,
         signals: vec![],
         instances: vec![],
@@ -199,73 +294,6 @@ pub fn column_write_mux_2(params: ColumnMuxParams) -> Module {
     );
 
     m
-}
-
-pub fn column_write_mux_2_array(params: ColumnMuxArrayParams) -> Vec<Module> {
-    assert!(params.width > 0);
-    assert_eq!(params.width % 2, 0);
-
-    let mux = column_write_mux_2(params.instance_params);
-
-    let vss = signal("vss");
-    let bl = bus("bl", params.width);
-    let br = bus("br", params.width);
-    let bl_out = bus("bl_out", params.width / 2);
-    let br_out = bus("br_out", params.width / 2);
-    let sel = signal("sel");
-    let sel_b = signal("sel_b");
-
-    let ports = vec![
-        port_inout(&vss),
-        port_inout(&bl),
-        port_inout(&br),
-        port_inout(&bl_out),
-        port_inout(&br_out),
-        port_input(&sel),
-        port_input(&sel_b),
-    ];
-
-    let mut m = Module {
-        name: params.name.clone(),
-        ports,
-        signals: vec![],
-        instances: vec![],
-        parameters: vec![],
-    };
-
-    for i in 0..(params.width / 2) {
-        let mut connections = HashMap::new();
-        connections.insert("vss".to_string(), sig_conn(&vss));
-        connections.insert("din".to_string(), conn_slice("bl", i * 2 + 1, i * 2));
-        connections.insert("sel".to_string(), sig_conn(&sel));
-        connections.insert("sel_b".to_string(), sig_conn(&sel_b));
-        connections.insert("dout".to_string(), conn_slice("bl_out", i, i));
-        m.instances.push(vlsir::circuit::Instance {
-            name: format!("mux_bl_{}", i),
-            module: Some(Reference {
-                to: Some(To::Local("column_write_mux_2".to_string())),
-            }),
-            parameters: HashMap::new(),
-            connections,
-        });
-
-        let mut connections = HashMap::new();
-        connections.insert("vss".to_string(), sig_conn(&vss));
-        connections.insert("din".to_string(), conn_slice("br", 2 * i + 1, 2 * i));
-        connections.insert("sel".to_string(), sig_conn(&sel));
-        connections.insert("sel_b".to_string(), sig_conn(&sel_b));
-        connections.insert("dout".to_string(), conn_slice("br_out", i, i));
-        m.instances.push(vlsir::circuit::Instance {
-            name: format!("mux_br_{}", i),
-            module: Some(Reference {
-                to: Some(To::Local("column_write_mux_2".to_string())),
-            }),
-            parameters: HashMap::new(),
-            connections,
-        });
-    }
-
-    vec![mux, m]
 }
 
 /// A 4 to 1 mux using PMOS devices

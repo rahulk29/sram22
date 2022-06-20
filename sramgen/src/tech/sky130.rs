@@ -15,6 +15,7 @@ use crate::{
 
 pub const SKY130_DOMAIN: &str = "sky130";
 pub const SRAM_SP_CELL: &str = "sram_sp_cell";
+pub const OPENRAM_DFF: &str = "openram_dff";
 pub const SRAM_CONTROL: &str = "sramgen_control";
 pub const SRAM_SP_SENSE_AMP: &str = "sramgen_sp_sense_amp";
 
@@ -22,11 +23,21 @@ pub const BITCELL_HEIGHT: isize = 1580;
 pub const BITCELL_WIDTH: isize = 1200;
 pub const TAPCELL_WIDTH: isize = 1300;
 
+#[inline]
 pub fn sram_sp_cell() -> ExternalModule {
     simple_ext_module(
         SKY130_DOMAIN,
         SRAM_SP_CELL,
         &["BL", "BR", "VDD", "VSS", "WL"],
+    )
+}
+
+#[inline]
+pub fn openram_dff() -> ExternalModule {
+    simple_ext_module(
+        SKY130_DOMAIN,
+        OPENRAM_DFF,
+        &["VDD", "GND", "CLK", "D", "Q", "Q_N"],
     )
 }
 
@@ -105,6 +116,7 @@ pub fn sramgen_sp_sense_amp_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(lib, "sramgen_sp_sense_amp.gds", "sramgen_sp_sense_amp")
 }
 
+#[inline]
 pub fn sram_sp_cell_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
         lib,
@@ -113,6 +125,7 @@ pub fn sram_sp_cell_gds(lib: &mut PdkLib) -> CellGdsResult {
     )
 }
 
+#[inline]
 pub fn colend_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
         lib,
@@ -121,6 +134,7 @@ pub fn colend_gds(lib: &mut PdkLib) -> CellGdsResult {
     )
 }
 
+#[inline]
 pub fn colend_cent_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
         lib,
@@ -129,6 +143,7 @@ pub fn colend_cent_gds(lib: &mut PdkLib) -> CellGdsResult {
     )
 }
 
+#[inline]
 pub fn colend_p_cent_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
         lib,
@@ -137,6 +152,7 @@ pub fn colend_p_cent_gds(lib: &mut PdkLib) -> CellGdsResult {
     )
 }
 
+#[inline]
 pub fn corner_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
         lib,
@@ -145,6 +161,7 @@ pub fn corner_gds(lib: &mut PdkLib) -> CellGdsResult {
     )
 }
 
+#[inline]
 pub fn rowend_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
         lib,
@@ -153,6 +170,7 @@ pub fn rowend_gds(lib: &mut PdkLib) -> CellGdsResult {
     )
 }
 
+#[inline]
 pub fn wlstrap_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
         lib,
@@ -161,6 +179,7 @@ pub fn wlstrap_gds(lib: &mut PdkLib) -> CellGdsResult {
     )
 }
 
+#[inline]
 pub fn wlstrap_p_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
         lib,
@@ -169,6 +188,7 @@ pub fn wlstrap_p_gds(lib: &mut PdkLib) -> CellGdsResult {
     )
 }
 
+#[inline]
 pub fn sram_sp_cell_ref() -> Reference {
     Reference {
         to: Some(To::External(QualifiedName {
@@ -178,6 +198,17 @@ pub fn sram_sp_cell_ref() -> Reference {
     }
 }
 
+#[inline]
+pub fn openram_dff_ref() -> Reference {
+    Reference {
+        to: Some(To::External(QualifiedName {
+            domain: SKY130_DOMAIN.to_string(),
+            name: OPENRAM_DFF.to_string(),
+        })),
+    }
+}
+
+#[inline]
 pub fn sramgen_control() -> ExternalModule {
     simple_ext_module(
         SKY130_DOMAIN,
@@ -197,6 +228,7 @@ pub fn sramgen_control() -> ExternalModule {
     )
 }
 
+#[inline]
 pub fn sramgen_control_ref() -> Reference {
     Reference {
         to: Some(To::External(QualifiedName {
@@ -206,6 +238,7 @@ pub fn sramgen_control_ref() -> Reference {
     }
 }
 
+#[inline]
 pub fn external_gds_path() -> PathBuf {
     let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     p.push("..");
@@ -219,6 +252,7 @@ pub fn external_gds_path() -> PathBuf {
 /// ```spice
 /// .SUBCKT AAA_Comp_SA_sense clk inn inp outn outp VDD VSS
 /// ```
+#[inline]
 pub fn sramgen_sp_sense_amp() -> ExternalModule {
     simple_ext_module(
         SKY130_DOMAIN,
@@ -227,6 +261,7 @@ pub fn sramgen_sp_sense_amp() -> ExternalModule {
     )
 }
 
+#[inline]
 pub fn sramgen_sp_sense_amp_ref() -> Reference {
     Reference {
         to: Some(To::External(QualifiedName {
@@ -236,6 +271,7 @@ pub fn sramgen_sp_sense_amp_ref() -> Reference {
     }
 }
 
+#[inline]
 pub fn all_external_modules() -> Vec<ExternalModule> {
     vec![
         ext_nmos(),
@@ -243,6 +279,7 @@ pub fn all_external_modules() -> Vec<ExternalModule> {
         sram_sp_cell(),
         sramgen_control(),
         sramgen_sp_sense_amp(),
+        openram_dff(),
     ]
 }
 
