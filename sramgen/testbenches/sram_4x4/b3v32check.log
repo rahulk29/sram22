@@ -1,0 +1,3 @@
+
+Checking parameters for BSIM 3.2 model xsram.xbitcells.xbitcell_0_0.x5:sky130_fd_pr__special_pfet_pass__model.0
+Warning: Ps = 0 is less than W.
