@@ -33,8 +33,8 @@ Xclk_dly clk clk_b clk_delayed vdd 0 control_logic_delay_chain
 Vdd vdd 0 {vdd}
 
 .ic
-+ v(xsram.xbitcells.xbitcell_2_0.q)={vdd}
-+ v(xsram.xbitcells.xbitcell_2_2.q)=0
++ v(xsram.xbitcells.xbitcell_2_0.q)=0
++ v(xsram.xbitcells.xbitcell_2_2.q)={vdd}
 
 .control
 tran 5p 18n 0n
