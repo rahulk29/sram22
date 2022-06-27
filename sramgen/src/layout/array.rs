@@ -1,4 +1,4 @@
-use layout21::raw::Int;
+use layout21::raw::{Abstract, AbstractPort, Int};
 use layout21::{
     raw::{Cell, Instance, Layout, Point},
     utils::Ptr,

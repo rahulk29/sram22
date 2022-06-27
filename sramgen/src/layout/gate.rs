@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use crate::layout::Result;
 use layout21::{
-    raw::{Cell, Instance, Layout, Point, Rect},
+    raw::{Abstract, AbstractPort, Cell, Instance, Layout, Point, Rect, Shape},
     utils::Ptr,
 };
 use pdkprims::{
@@ -20,6 +22,8 @@ pub fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         elems: vec![],
         annotations: vec![],
     };
+
+    let mut abs = Abstract::new(&name);
 
     let mut params = MosParams::new();
     params
@@ -53,9 +57,9 @@ pub fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     let tc = lib.pdk.config.read().unwrap();
 
-    let ndrain = ptx.sd_pins[0][&2].clone().unwrap();
-    let pdrain1 = ptx.sd_pins[1][&2].clone().unwrap();
-    let pdrain0 = ptx.sd_pins[1][&0].clone().unwrap();
+    let ndrain = ptx.sd_pin(0, 2).unwrap();
+    let pdrain1 = ptx.sd_pin(1, 2).unwrap();
+    let pdrain0 = ptx.sd_pin(1, 0).unwrap();
 
     let xlim = pdrain0.p0.x - tc.layer("li").space;
 
@@ -69,33 +73,39 @@ pub fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         xmax -= xshift;
     }
 
-    layout.elems.push(draw_rect(
+    let mut port_a = ptx.gate_port(0).unwrap();
+    port_a.net = "A".to_string();
+
+    let mut port_b = ptx.gate_port(1).unwrap();
+    port_b.net = "B".to_string();
+
+    let mut port_y = AbstractPort::new("Y");
+
+    let rects = [
         Rect {
             p0: Point::new(ndrain.p0.x, ndrain.p0.y),
             p1: Point::new(pdrain1.p1.x, pdrain1.p1.y),
         },
-        ptx.sd_metal,
-    ));
-
-    layout.elems.push(draw_rect(
         Rect {
             p0: Point::new(xmin, pdrain0.p0.y),
             p1: Point::new(xmax, pdrain1.p1.y),
         },
-        ptx.sd_metal,
-    ));
-
-    layout.elems.push(draw_rect(
         Rect {
             p0: Point::new(xmin, pdrain0.p0.y),
             p1: Point::new(pdrain0.p1.x, pdrain0.p1.y),
         },
-        ptx.sd_metal,
-    ));
+    ];
+
+    for r in rects {
+        layout.elems.push(draw_rect(r, ptx.sd_metal));
+        port_y.add_shape(ptx.sd_metal, Shape::Rect(r));
+    }
+
+    abs.add_port(port_y);
 
     let cell = Cell {
         name,
-        abs: None,
+        abs: Some(abs),
         layout: Some(layout),
     };
 

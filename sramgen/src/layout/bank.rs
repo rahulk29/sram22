@@ -4,6 +4,8 @@ use layout21::{
 };
 use pdkprims::PdkLib;
 
+use crate::layout::route::Router;
+
 use super::{
     array::draw_array,
     decoder::{draw_inv_dec_array, draw_nand2_array},
@@ -129,6 +131,9 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     layout.insts.push(write_mux);
     layout.insts.push(sense_amp);
     layout.insts.push(dffs);
+
+    // Top level routing
+    let router = Router::new(lib.pdk.clone());
 
     let cell = Cell {
         name,

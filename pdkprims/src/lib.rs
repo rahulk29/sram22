@@ -16,6 +16,7 @@ use mos::{LayoutTransistors, MosParams, MosResult};
 use crate::config::Int;
 
 pub type Ref<T> = std::sync::Arc<T>;
+pub type LayerIdx = u32;
 
 pub mod config;
 pub mod contact;

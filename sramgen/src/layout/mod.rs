@@ -14,6 +14,7 @@ pub mod gate;
 pub mod grid;
 pub mod mux;
 pub mod precharge;
+pub mod route;
 pub mod sense_amp;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;

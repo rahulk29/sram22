@@ -1,6 +1,6 @@
 use layout21::raw::LayerKey;
 
-use crate::Pdk;
+use crate::{LayerIdx, Pdk};
 
 pub trait Sky130Pdk {
     fn diff(&self) -> LayerKey;
