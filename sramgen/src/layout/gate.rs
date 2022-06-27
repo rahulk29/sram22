@@ -75,15 +75,19 @@ pub fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     let mut port_vss = ptx.sd_port(0, 0).unwrap();
     port_vss.set_net("VSS");
+    abs.add_port(port_vss);
 
     let mut port_vdd = AbstractPort::new("VDD");
     port_vdd.set_net("VDD");
+    abs.add_port(port_vdd);
 
     let mut port_a = ptx.gate_port(0).unwrap();
     port_a.set_net("A");
+    abs.add_port(port_a);
 
     let mut port_b = ptx.gate_port(1).unwrap();
     port_b.set_net("B");
+    abs.add_port(port_b);
 
     let mut port_y = AbstractPort::new("Y");
 
@@ -131,6 +135,8 @@ pub fn draw_inv_dec(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         annotations: vec![],
     };
 
+    let mut abs = Abstract::new(name.clone());
+
     let mut params = MosParams::new();
     params
         .dnw(false)
@@ -161,16 +167,31 @@ pub fn draw_inv_dec(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         reflect_vert: false,
     });
 
-    let dout_n = ptx.sd_pins[0][&1].clone().unwrap();
-    let dout_p = ptx.sd_pins[1][&1].clone().unwrap();
+    let mut port_vss = ptx.sd_port(0, 0).unwrap();
+    port_vss.set_net("gnd");
+    abs.add_port(port_vss);
 
-    layout.elems.push(draw_rect(
-        Rect {
-            p0: Point::new(dout_n.p0.x, dout_n.p0.y),
-            p1: Point::new(dout_p.p1.x, dout_p.p1.y),
-        },
-        ptx.sd_metal,
-    ));
+    let mut port_vdd = ptx.sd_port(1, 0).unwrap();
+    port_vdd.set_net("vdd");
+    abs.add_port(port_vdd);
+
+    let dout_n = ptx.sd_pin(0, 1).unwrap();
+    let dout_p = ptx.sd_pin(1, 1).unwrap();
+
+    let rect = Rect {
+        p0: Point::new(dout_n.p0.x, dout_n.p0.y),
+        p1: Point::new(dout_p.p1.x, dout_p.p1.y),
+    };
+
+    let mut port_din_b = AbstractPort::new("din_b");
+    port_din_b.add_shape(ptx.sd_metal, Shape::Rect(rect));
+    abs.add_port(port_din_b);
+
+    let mut port_din = ptx.gate_port(0).unwrap();
+    port_din.set_net("din");
+    abs.add_port(port_din);
+
+    layout.elems.push(draw_rect(rect, ptx.sd_metal));
 
     let cell = Cell {
         name,

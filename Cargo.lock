@@ -592,7 +592,7 @@ dependencies = [
 name = "layout21protos"
 version = "0.2.1"
 dependencies = [
- "vlsir",
+ "vlsir 0.2.0 (git+https://github.com/rahulk29/Vlsir.git?branch=main)",
 ]
 
 [[package]]
@@ -1142,7 +1142,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "toml",
- "vlsir",
+ "vlsir 0.2.0",
 ]
 
 [[package]]
@@ -1299,6 +1299,18 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "vlsir"
 version = "0.2.0"
+dependencies = [
+ "prost",
+ "prost-build",
+ "prost-types",
+ "serde",
+ "serde_derive",
+]
+
+[[package]]
+name = "vlsir"
+version = "0.2.0"
+source = "git+https://github.com/rahulk29/Vlsir.git?branch=main#7fc07feaadbe40fc4b60f8e19715cc013f02a1f2"
 dependencies = [
  "prost",
  "prost-build",
