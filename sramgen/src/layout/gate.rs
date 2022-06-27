@@ -73,11 +73,17 @@ pub fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         xmax -= xshift;
     }
 
+    let mut port_vss = ptx.sd_port(0, 0).unwrap();
+    port_vss.set_net("VSS");
+
+    let mut port_vdd = AbstractPort::new("VDD");
+    port_vdd.set_net("VDD");
+
     let mut port_a = ptx.gate_port(0).unwrap();
-    port_a.net = "A".to_string();
+    port_a.set_net("A");
 
     let mut port_b = ptx.gate_port(1).unwrap();
-    port_b.net = "B".to_string();
+    port_b.set_net("B");
 
     let mut port_y = AbstractPort::new("Y");
 
