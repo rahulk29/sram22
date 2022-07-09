@@ -40,6 +40,7 @@ pub fn pdk() -> LayoutResult<Pdk> {
     Pdk::new(tech_config())
 }
 
+/// Creates a new [`PdkLib`] with a cell library of the given `name`.
 pub fn pdk_lib(name: impl Into<String>) -> LayoutResult<PdkLib> {
     Ok(PdkLib {
         tech: arcstr::literal!("sky130"),

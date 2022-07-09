@@ -1,4 +1,4 @@
-use pdkprims::{LayerIdx, Pdk};
+use pdkprims::{contact::ContactParams, LayerIdx, Pdk, PdkLib};
 use serde::{Deserialize, Serialize};
 use std::{
     ops::Deref,
@@ -6,7 +6,7 @@ use std::{
 };
 
 use layout21::{
-    raw::{Cell, Int, LayerKey, Layout, Point, Rect},
+    raw::{align::AlignRect, BoundBoxTrait, Cell, Instance, Int, LayerKey, Layout, Point, Rect},
     utils::Ptr,
 };
 
@@ -41,6 +41,15 @@ impl RouterConfig {
     pub fn layerkey(&self, layer: LayerIdx) -> LayerKey {
         self.pdk.metal(layer)
     }
+
+    fn stack(&self, layer: LayerIdx) -> &str {
+        match layer {
+            1 => "viali",
+            2 => "via1",
+            3 => "via2",
+            _ => todo!(),
+        }
+    }
 }
 
 pub struct Router {
@@ -49,7 +58,7 @@ pub struct Router {
 }
 
 impl Router {
-    pub fn new(pdk: Pdk) -> Self {
+    pub fn new(pdklib: PdkLib) -> Self {
         let cell = Cell {
             name: "router".to_string(),
             abs: None,
@@ -60,7 +69,7 @@ impl Router {
         };
 
         Self {
-            cfg: Arc::new(RouterConfig::new(pdk)),
+            cfg: Arc::new(RouterConfig::new(pdklib.pdk)),
             cell: Ptr::new(cell),
         }
     }
@@ -73,6 +82,7 @@ impl Router {
             rect: pin,
             dir: TraceDir::None,
             cell: Ptr::clone(&self.cell),
+            ctr: 0,
         }
     }
 }
@@ -93,6 +103,7 @@ pub struct Trace {
     dir: TraceDir,
     cfg: Arc<RouterConfig>,
     cell: Ptr<Cell>,
+    ctr: usize,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -204,6 +215,32 @@ impl Trace {
     }
 
     pub fn down(&mut self) -> &mut Self {
+        self
+    }
+
+    pub fn down_on(&mut self, rect: Rect) -> &mut Self {
+        let intersect = self.rect.intersection(&rect.bbox());
+        let ct = self.cfg.pdk.get_contact(
+            &ContactParams::builder()
+                .rows(1)
+                .cols(1)
+                .stack(self.cfg.stack(self.layer).to_string())
+                .build()
+                .unwrap(),
+        );
+
+        self.ctr += 1;
+
+        let mut inst = Instance {
+            inst_name: format!("contact_{}", self.ctr),
+            cell: ct.cell,
+            loc: Point::new(0, 0),
+            angle: None,
+            reflect_vert: false,
+        };
+
+        inst.align_centers_gridded(intersect.into(), self.cfg.pdk.config().read().unwrap().grid);
+
         self
     }
 }

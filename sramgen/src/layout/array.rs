@@ -29,7 +29,11 @@ pub struct ArrayCellParams {
     pub flip_toggle: bool,
 }
 
-pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+pub struct ArrayedCell {
+    cell: Ptr<Cell>,
+}
+
+pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<ArrayedCell> {
     let mut layout = Layout {
         name: params.name.clone(),
         insts: vec![],
@@ -46,6 +50,8 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Ptr<
             CoarseDirection::Vertical => bbox.height(),
         }
     });
+
+    let mut abs = Abstract::new(params.name.clone());
 
     for i in 0..params.num {
         let loc = match params.direction {
@@ -73,19 +79,27 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Ptr<
             }
         }
 
+        let ports = inst.ports();
+        for (i, p) in ports.iter_mut().enumerate() {
+            p.net = format!("{}_{}", p.net, i);
+        }
+        for port in ports {
+            abs.add_port(port);
+        }
+
         layout.insts.push(inst);
     }
 
     let cell = Cell {
         name: params.name,
-        abs: None,
+        abs: Some(abs),
         layout: Some(layout),
     };
 
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
 
-    Ok(ptr)
+    Ok(ArrayedCell { cell: ptr })
 }
 
 pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell>> {

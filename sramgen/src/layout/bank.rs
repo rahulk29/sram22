@@ -133,7 +133,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     layout.insts.push(dffs);
 
     // Top level routing
-    let router = Router::new(lib.pdk.clone());
+    let router = Router::new(lib.clone());
 
     let cell = Cell {
         name,
