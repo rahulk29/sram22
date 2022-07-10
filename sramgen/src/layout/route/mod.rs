@@ -1,9 +1,6 @@
 use pdkprims::{contact::ContactParams, LayerIdx, Pdk, PdkLib};
 use serde::{Deserialize, Serialize};
-use std::{
-    ops::Deref,
-    sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 
 use layout21::{
     raw::{align::AlignRect, BoundBoxTrait, Cell, Instance, Int, LayerKey, Layout, Point, Rect},
@@ -55,9 +52,15 @@ impl RouterConfig {
 pub struct Router {
     cfg: Arc<RouterConfig>,
     cell: Ptr<Cell>,
+    ctr: usize,
 }
 
 impl Router {
+    #[inline]
+    pub fn cfg(&self) -> Arc<RouterConfig> {
+        Arc::clone(&self.cfg)
+    }
+
     pub fn new(pdklib: PdkLib) -> Self {
         let cell = Cell {
             name: "router".to_string(),
@@ -71,18 +74,33 @@ impl Router {
         Self {
             cfg: Arc::new(RouterConfig::new(pdklib.pdk)),
             cell: Ptr::new(cell),
+            ctr: 0,
         }
     }
 
-    pub fn trace(&self, pin: Rect, layer: LayerIdx) -> Trace {
-        Trace {
+    pub fn trace(&mut self, pin: Rect, layer: LayerIdx) -> Trace {
+        self.ctr += 1;
+        let trace = Trace {
             width: self.cfg.line(layer),
             layer,
             cfg: Arc::clone(&self.cfg),
             rect: pin,
             dir: TraceDir::None,
             cell: Ptr::clone(&self.cell),
+            id: self.ctr,
             ctr: 0,
+        };
+        trace.add_rect(pin);
+        trace
+    }
+
+    pub fn finish(self) -> Instance {
+        Instance {
+            inst_name: "__route".to_string(),
+            cell: self.cell,
+            loc: Point::new(0, 0),
+            angle: None,
+            reflect_vert: false,
         }
     }
 }
@@ -103,6 +121,8 @@ pub struct Trace {
     dir: TraceDir,
     cfg: Arc<RouterConfig>,
     cell: Ptr<Cell>,
+
+    id: usize,
     ctr: usize,
 }
 
@@ -232,16 +252,26 @@ impl Trace {
         self.ctr += 1;
 
         let mut inst = Instance {
-            inst_name: format!("contact_{}", self.ctr),
-            cell: ct.cell,
+            inst_name: format!("contact_{}_{}", self.id, self.ctr),
+            cell: Ptr::clone(&ct.cell),
             loc: Point::new(0, 0),
             angle: None,
             reflect_vert: false,
         };
 
-        inst.align_centers_gridded(intersect.into(), self.cfg.pdk.config().read().unwrap().grid);
+        inst.align_centers_gridded(intersect.into(), self.grid());
+        self.add_inst(inst);
 
         self
+    }
+
+    fn grid(&self) -> Int {
+        self.cfg.pdk.config().read().unwrap().grid
+    }
+
+    fn add_inst(&self, inst: Instance) {
+        let mut cell = self.cell.write().unwrap();
+        cell.layout.as_mut().unwrap().insts.push(inst);
     }
 }
 

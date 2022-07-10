@@ -1,10 +1,13 @@
 use crate::{layout::Result, tech::openram_dff_gds};
-use layout21::{raw::Cell, utils::Ptr};
-use pdkprims::{geometry::CoarseDirection, PdkLib};
+use layout21::{
+    raw::{Cell, Dir},
+    utils::Ptr,
+};
+use pdkprims::PdkLib;
 
 use crate::layout::array::*;
 
-pub fn draw_dff_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+pub fn draw_dff_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
     let dff = openram_dff_gds(lib)?;
 
     draw_cell_array(
@@ -15,7 +18,7 @@ pub fn draw_dff_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
             spacing: None,
             flip: FlipMode::None,
             flip_toggle: false,
-            direction: CoarseDirection::Horizontal,
+            direction: Dir::Horiz,
         },
         lib,
     )

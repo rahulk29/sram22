@@ -1,9 +1,10 @@
+use layout21::raw::geom::Dir;
 use layout21::raw::{Abstract, AbstractPort, Int};
 use layout21::{
     raw::{Cell, Instance, Layout, Point},
     utils::Ptr,
 };
-use pdkprims::{geometry::CoarseDirection, PdkLib};
+use pdkprims::PdkLib;
 
 use crate::{bbox, layout::grid::GridCells, tech::*};
 use serde::{Deserialize, Serialize};
@@ -23,14 +24,14 @@ pub struct ArrayCellParams {
     pub cell: Ptr<Cell>,
     pub spacing: Option<Int>,
     pub flip: FlipMode,
-    pub direction: CoarseDirection,
+    pub direction: Dir,
     /// By default, cells 0, 2, 4, ... will be flipped according to the flip mode.
     /// If `flip_toggle` is set, cells 1, 3, 5, ... will be flipped instead.
     pub flip_toggle: bool,
 }
 
 pub struct ArrayedCell {
-    cell: Ptr<Cell>,
+    pub cell: Ptr<Cell>,
 }
 
 pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<ArrayedCell> {
@@ -41,22 +42,27 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Arra
         annotations: vec![],
     };
 
-    // height of 1 sram bitcell
     let spacing = params.spacing.unwrap_or_else(|| {
         let cell = params.cell.read().unwrap();
         let bbox = cell.layout.as_ref().unwrap().bbox();
         match params.direction {
-            CoarseDirection::Horizontal => bbox.width(),
-            CoarseDirection::Vertical => bbox.height(),
+            Dir::Horiz => bbox.width(),
+            Dir::Vert => bbox.height(),
         }
     });
 
-    let mut abs = Abstract::new(params.name.clone());
+    let has_abstract = { params.cell.read().unwrap().has_abstract() };
+
+    let mut abs = if has_abstract {
+        Some(Abstract::new(params.name.clone()))
+    } else {
+        None
+    };
 
     for i in 0..params.num {
         let loc = match params.direction {
-            CoarseDirection::Horizontal => Point::new(spacing * i as isize, 0),
-            CoarseDirection::Vertical => Point::new(0, spacing * i as isize),
+            Dir::Horiz => Point::new(spacing * i as isize, 0),
+            Dir::Vert => Point::new(0, spacing * i as isize),
         };
 
         let mut inst = Instance {
@@ -79,12 +85,14 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Arra
             }
         }
 
-        let ports = inst.ports();
-        for (i, p) in ports.iter_mut().enumerate() {
-            p.net = format!("{}_{}", p.net, i);
-        }
-        for port in ports {
-            abs.add_port(port);
+        if let Some(ref mut abs) = abs.as_mut() {
+            let mut ports = inst.ports();
+            for p in ports.iter_mut() {
+                p.net = format!("{}_{}", &p.net, i);
+            }
+            for port in ports {
+                abs.add_port(port);
+            }
         }
 
         layout.insts.push(inst);
@@ -92,7 +100,7 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Arra
 
     let cell = Cell {
         name: params.name,
-        abs: Some(abs),
+        abs,
         layout: Some(layout),
     };
 

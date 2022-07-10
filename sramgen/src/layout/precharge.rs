@@ -1,9 +1,9 @@
+use layout21::raw::geom::Dir;
 use layout21::{
     raw::{Cell, Instance, Layout, Point},
     utils::Ptr,
 };
 use pdkprims::{
-    geometry::CoarseDirection,
     mos::{Intent, MosDevice, MosParams, MosType},
     PdkLib,
 };
@@ -24,7 +24,7 @@ fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let mut params = MosParams::new();
     params
         .dnw(false)
-        .direction(CoarseDirection::Horizontal)
+        .direction(Dir::Horiz)
         .add_device(MosDevice {
             mos_type: MosType::Pmos,
             width: 600,
@@ -71,7 +71,7 @@ fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
     let pc = draw_precharge(lib)?;
 
     draw_cell_array(
@@ -82,7 +82,7 @@ pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
             spacing: Some(2_500),
             flip: FlipMode::AlternateFlipHorizontal,
             flip_toggle: false,
-            direction: CoarseDirection::Horizontal,
+            direction: Dir::Horiz,
         },
         lib,
     )

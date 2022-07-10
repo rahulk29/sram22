@@ -1,5 +1,7 @@
+use layout21::raw::align::AlignRect;
+use layout21::raw::geom::Rect;
 use layout21::{
-    raw::{AlignMode, Cell, Instance, Layout, Point},
+    raw::{BoundBoxTrait, Cell, Instance, Layout, Point, Span},
     utils::Ptr,
 };
 use pdkprims::PdkLib;
@@ -28,6 +30,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     assert_eq!(cols % 2, 0);
 
+    let grid = { lib.pdk.config().read().unwrap().grid };
+
     let core = draw_array(rows, cols, lib)?;
     let nand2_dec = draw_nand2_array(lib, rows)?;
     let inv_dec = draw_inv_dec_array(lib, rows)?;
@@ -46,7 +50,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut nand2_dec = Instance {
-        cell: nand2_dec,
+        cell: nand2_dec.cell,
         loc: Point::new(0, 0),
         angle: None,
         inst_name: "nand2_dec_array".to_string(),
@@ -54,7 +58,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut inv_dec = Instance {
-        cell: inv_dec,
+        cell: inv_dec.cell,
         inst_name: "inv_dec_array".to_string(),
         reflect_vert: false,
         angle: None,
@@ -62,7 +66,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut pc = Instance {
-        cell: pc,
+        cell: pc.cell,
         inst_name: "precharge_array".to_string(),
         reflect_vert: false,
         angle: None,
@@ -70,7 +74,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut read_mux = Instance {
-        cell: read_mux,
+        cell: read_mux.cell,
         inst_name: "read_mux_array".to_string(),
         reflect_vert: false,
         angle: None,
@@ -78,7 +82,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut write_mux = Instance {
-        cell: write_mux,
+        cell: write_mux.cell,
         inst_name: "write_mux_array".to_string(),
         reflect_vert: false,
         angle: None,
@@ -86,7 +90,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut sense_amp = Instance {
-        cell: sense_amp,
+        cell: sense_amp.cell,
         inst_name: "sense_amp_array".to_string(),
         reflect_vert: false,
         angle: None,
@@ -94,34 +98,54 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut dffs = Instance {
-        cell: dffs,
+        cell: dffs.cell,
         inst_name: "dff_array".to_string(),
         reflect_vert: false,
         angle: None,
         loc: Point::new(0, 0),
     };
 
-    inv_dec
-        .align(&core, AlignMode::ToTheLeft, 1_000)
-        .align(&core, AlignMode::CenterVertical, 0);
-    nand2_dec
-        .align(&inv_dec, AlignMode::ToTheLeft, 1_000)
-        .align(&core, AlignMode::CenterVertical, 0);
-    pc.align(&core, AlignMode::Beneath, 1_000)
-        .align(&core, AlignMode::CenterHorizontal, 0);
-    read_mux
-        .align(&pc, AlignMode::Beneath, 1_000)
-        .align(&core, AlignMode::CenterHorizontal, 0);
-    write_mux.align(&read_mux, AlignMode::Beneath, 1_000).align(
-        &core,
-        AlignMode::CenterHorizontal,
-        0,
-    );
-    sense_amp
-        .align(&write_mux, AlignMode::Beneath, 1_000)
-        .align(&core, AlignMode::CenterHorizontal, 0);
-    dffs.align(&sense_amp, AlignMode::Beneath, 1_000)
-        .align(&core, AlignMode::CenterHorizontal, 0);
+    inv_dec.align_to_the_left_of(core.bbox(), 1_000);
+    inv_dec.align_centers_vertically_gridded(core.bbox(), grid);
+
+    nand2_dec.align_to_the_left_of(inv_dec.bbox(), grid);
+    nand2_dec.align_to_the_left_of(inv_dec.bbox(), 1_000);
+    nand2_dec.align_centers_vertically_gridded(core.bbox(), grid);
+
+    pc.align_beneath(core.bbox(), 1_000);
+    pc.align_centers_horizontally_gridded(core.bbox(), grid);
+
+    read_mux.align_beneath(pc.bbox(), 1_000);
+    read_mux.align_centers_horizontally_gridded(core.bbox(), grid);
+
+    write_mux.align_beneath(read_mux.bbox(), 1_000);
+    write_mux.align_centers_horizontally_gridded(core.bbox(), grid);
+
+    sense_amp.align_beneath(write_mux.bbox(), 1_000);
+    sense_amp.align_centers_horizontally_gridded(core.bbox(), grid);
+
+    dffs.align_beneath(sense_amp.bbox(), 1_000);
+    dffs.align_centers_horizontally_gridded(core.bbox(), grid);
+
+    // Top level routing
+    let mut router = Router::new(lib.clone());
+    let cfg = router.cfg();
+
+    let m0 = cfg.layerkey(0);
+    let m1 = cfg.layerkey(1);
+    println!("PORTS: {:?}", nand2_dec.ports());
+    let port_start = nand2_dec.port("VDD_0").bbox(m0).unwrap();
+    let port_stop = nand2_dec
+        .port(format!("VDD_{}", rows - 1))
+        .bbox(m0)
+        .unwrap();
+
+    let vdd_area = Rect::from(port_start.union(&port_stop));
+    let trace_hspan = Span::from_center_span_gridded(vdd_area.center().x, cfg.line(1), cfg.grid());
+
+    let trace = router.trace(Rect::from_spans(trace_hspan, vdd_area.vspan()), 1);
+
+    let routing = router.finish();
 
     layout.insts.push(core);
     layout.insts.push(nand2_dec);
@@ -131,9 +155,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     layout.insts.push(write_mux);
     layout.insts.push(sense_amp);
     layout.insts.push(dffs);
-
-    // Top level routing
-    let router = Router::new(lib.clone());
+    layout.insts.push(routing);
 
     let cell = Cell {
         name,

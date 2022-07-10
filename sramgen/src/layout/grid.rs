@@ -1,5 +1,6 @@
 use grid::*;
-use layout21::raw::Instance;
+use layout21::raw::align::AlignRect;
+use layout21::raw::{BoundBoxTrait, Instance};
 
 pub struct GridCells {
     grid: Grid<Instance>,
@@ -22,16 +23,18 @@ impl GridCells {
         let (rows, cols) = self.grid.size();
         let mut insts = Vec::with_capacity(rows * cols);
 
-        let mut prev_row = None;
+        let mut prev_row: Option<Instance> = None;
 
         for r in 0..rows {
-            let mut prev = None;
+            let mut prev: Option<Instance> = None;
             for c in 0..self.grid.cols() {
                 let mut instance = self.grid.get(r, c).unwrap().clone();
                 if let Some(ref p) = prev {
-                    instance.align_left_to_right(p).align_bottoms(p);
+                    instance.align_to_the_right_of(p.bbox(), 0);
+                    instance.align_beneath(p.bbox(), 0);
                 } else if let Some(ref p) = prev_row {
-                    instance.align_top_to_bottom(p).align_lefts(p);
+                    instance.align_beneath(p.bbox(), 0);
+                    instance.align_left(p.bbox());
                 }
                 insts.push(instance.clone());
                 prev = Some(instance.clone());

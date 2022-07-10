@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use crate::layout::Result;
+use layout21::raw::geom::Dir;
 use layout21::{
     raw::{Abstract, AbstractPort, Cell, Instance, Layout, Point, Rect, Shape},
     utils::Ptr,
 };
 use pdkprims::{
-    geometry::CoarseDirection,
     mos::{Intent, MosDevice, MosParams, MosType},
     PdkLib,
 };
@@ -28,7 +28,7 @@ pub fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let mut params = MosParams::new();
     params
         .dnw(false)
-        .direction(CoarseDirection::Horizontal)
+        .direction(Dir::Horiz)
         .add_device(MosDevice {
             mos_type: MosType::Nmos,
             width: 1_000,
@@ -77,7 +77,7 @@ pub fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     port_vss.set_net("VSS");
     abs.add_port(port_vss);
 
-    let mut port_vdd = AbstractPort::new("VDD");
+    let mut port_vdd = ptx.sd_port(1, 1).unwrap();
     port_vdd.set_net("VDD");
     abs.add_port(port_vdd);
 
@@ -140,7 +140,7 @@ pub fn draw_inv_dec(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let mut params = MosParams::new();
     params
         .dnw(false)
-        .direction(CoarseDirection::Horizontal)
+        .direction(Dir::Horiz)
         .add_device(MosDevice {
             mos_type: MosType::Nmos,
             width: 2_000,

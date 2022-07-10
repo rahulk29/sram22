@@ -1,9 +1,9 @@
+use layout21::raw::geom::Dir;
 use layout21::{
-    raw::{Cell, Instance, Layout, Point},
+    raw::{BoundBoxTrait, Cell, Instance, Layout, Point},
     utils::Ptr,
 };
 use pdkprims::{
-    geometry::CoarseDirection,
     mos::{Intent, MosDevice, MosParams, MosType},
     PdkLib,
 };
@@ -24,7 +24,7 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let mut params = MosParams::new();
     params
         .dnw(false)
-        .direction(CoarseDirection::Horizontal)
+        .direction(Dir::Horiz)
         .add_device(MosDevice {
             mos_type: MosType::Pmos,
             width: 1_200,
@@ -80,7 +80,7 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_read_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+pub fn draw_read_mux_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
     let mux = draw_read_mux(lib)?;
 
     draw_cell_array(
@@ -91,7 +91,7 @@ pub fn draw_read_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> 
             spacing: Some(2_500),
             flip: FlipMode::AlternateFlipHorizontal,
             flip_toggle: false,
-            direction: CoarseDirection::Horizontal,
+            direction: Dir::Horiz,
         },
         lib,
     )
@@ -110,7 +110,7 @@ pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let mut params = MosParams::new();
     params
         .dnw(false)
-        .direction(CoarseDirection::Horizontal)
+        .direction(Dir::Horiz)
         .add_device(MosDevice {
             mos_type: MosType::Nmos,
             width: 1_200,
@@ -156,7 +156,7 @@ pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
     let mux = draw_write_mux(lib)?;
 
     draw_cell_array(
@@ -167,7 +167,7 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
             spacing: Some(2_500),
             flip: FlipMode::AlternateFlipHorizontal,
             flip_toggle: false,
-            direction: CoarseDirection::Horizontal,
+            direction: Dir::Horiz,
         },
         lib,
     )
