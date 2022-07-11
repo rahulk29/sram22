@@ -11,7 +11,6 @@ pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCel
     {
         let sa = sa.read().unwrap();
         let lay = sa.layout.as_ref().unwrap();
-        println!("sa bbox: {:?}", lay.bbox());
     }
 
     draw_cell_array(

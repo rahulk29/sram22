@@ -1,6 +1,7 @@
 /target
 .idea/
 /_build
+build/
 scripts/protos/
 
 .DS_Store

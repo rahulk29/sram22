@@ -58,7 +58,6 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let tc = tc.read().unwrap();
 
     let space = tc.layer("diff").space;
-    println!("bbox width: {}", bbox.width());
 
     layout.insts.push(Instance {
         inst_name: "mos_2".to_string(),
