@@ -3,7 +3,10 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
 
 use layout21::{
-    raw::{align::AlignRect, BoundBoxTrait, Cell, Instance, Int, LayerKey, Layout, Point, Rect},
+    raw::{
+        align::AlignRect, BoundBoxTrait, Cell, Dir, Instance, Int, LayerKey, Layout, Point, Rect,
+        Span,
+    },
     utils::Ptr,
 };
 
@@ -222,7 +225,39 @@ impl Trace {
         });
     }
 
-    pub fn s_bend(&mut self, target: Point, dir: TraceDir) -> &mut Self {
+    pub fn s_bend(&mut self, target: Rect, width: Int, dir: Dir) -> &mut Self {
+        use std::cmp::{max, min};
+
+        // TODO: Vert not implemented yet
+        assert!(dir == Dir::Horiz);
+
+        let bot = min(self.rect.bottom(), target.bottom());
+        let top = max(self.rect.top(), target.top());
+
+        let vspan = Span::new(bot, top);
+
+        // An S-bend does not make sense if the spans overlap
+        assert!(!self.rect.hspan().intersects(&target.hspan()));
+
+        let (inner_left, inner_right) = if self.rect.left() < target.left() {
+            (self.rect.right(), target.left())
+        } else {
+            (target.right(), self.rect.left())
+        };
+
+        let inner_span = Span::new(inner_left, inner_right);
+
+        let mid = Span::from_center_span_gridded(inner_span.center(), width, self.grid());
+        let mid = Rect::from_spans(mid, vspan);
+        self.add_rect(mid);
+
+        let src = Rect::from_spans(Span::new(self.rect.right(), mid.left()), self.rect.vspan());
+        self.add_rect(src);
+
+        let dst = Rect::from_spans(Span::new(mid.right(), target.left()), target.vspan());
+        self.add_rect(dst);
+
+        self.rect = target;
         self
     }
 
@@ -238,12 +273,13 @@ impl Trace {
         self
     }
 
-    pub fn down_on(&mut self, rect: Rect) -> &mut Self {
-        let intersect = self.rect.intersection(&rect.bbox());
+    pub fn contact_down(&mut self, rect: Rect) -> &mut Self {
+        let intersect = Rect::from(self.rect.intersection(&rect.bbox()));
         let ct = self.cfg.pdk.get_contact(
             &ContactParams::builder()
                 .rows(1)
                 .cols(1)
+                .dir(intersect.longer_dir())
                 .stack(self.cfg.stack(self.layer).to_string())
                 .build()
                 .unwrap(),

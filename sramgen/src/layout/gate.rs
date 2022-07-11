@@ -195,7 +195,7 @@ pub fn draw_inv_dec(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     let cell = Cell {
         name,
-        abs: None,
+        abs: Some(abs),
         layout: Some(layout),
     };
 

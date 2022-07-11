@@ -1,10 +1,11 @@
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Rect;
+use layout21::raw::Dir;
 use layout21::{
     raw::{BoundBoxTrait, Cell, Instance, Layout, Point, Span},
     utils::Ptr,
 };
-use pdkprims::PdkLib;
+use pdkprims::{LayerIdx, PdkLib};
 
 use crate::layout::route::Router;
 
@@ -130,20 +131,49 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     // Top level routing
     let mut router = Router::new(lib.clone());
     let cfg = router.cfg();
-
     let m0 = cfg.layerkey(0);
-    let m1 = cfg.layerkey(1);
-    println!("PORTS: {:?}", nand2_dec.ports());
-    let port_start = nand2_dec.port("VDD_0").bbox(m0).unwrap();
-    let port_stop = nand2_dec
-        .port(format!("VDD_{}", rows - 1))
-        .bbox(m0)
-        .unwrap();
 
-    let vdd_area = Rect::from(port_start.union(&port_stop));
-    let trace_hspan = Span::from_center_span_gridded(vdd_area.center().x, cfg.line(1), cfg.grid());
+    vertical_connect(ConnectArgs {
+        metal_idx: 1,
+        port_idx: 0,
+        router: &mut router,
+        inst: &nand2_dec,
+        port_name: "VDD",
+        count: rows,
+    });
+    vertical_connect(ConnectArgs {
+        metal_idx: 1,
+        port_idx: 0,
+        router: &mut router,
+        inst: &nand2_dec,
+        port_name: "VSS",
+        count: rows,
+    });
 
-    let trace = router.trace(Rect::from_spans(trace_hspan, vdd_area.vspan()), 1);
+    vertical_connect(ConnectArgs {
+        metal_idx: 1,
+        port_idx: 0,
+        router: &mut router,
+        inst: &inv_dec,
+        port_name: "vdd",
+        count: rows,
+    });
+    vertical_connect(ConnectArgs {
+        metal_idx: 1,
+        port_idx: 0,
+        router: &mut router,
+        inst: &inv_dec,
+        port_name: "gnd",
+        count: rows,
+    });
+
+    // connect nand decoder output to inv decoder input
+    for i in 0..rows {
+        let src = nand2_dec.port(format!("Y_{}", i)).largest_rect(m0).unwrap();
+        let dst = inv_dec.port(format!("din_{}", i)).largest_rect(m0).unwrap();
+        let mut trace = router.trace(src, 0);
+        trace.s_bend(dst, cfg.line(0), Dir::Horiz);
+    }
 
     let routing = router.finish();
 
@@ -167,6 +197,50 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     lib.lib.cells.push(ptr.clone());
 
     Ok(ptr)
+}
+
+struct ConnectArgs<'a> {
+    metal_idx: LayerIdx,
+    port_idx: LayerIdx,
+    router: &'a mut Router,
+    inst: &'a Instance,
+    port_name: &'a str,
+    count: usize,
+}
+
+fn vertical_connect(args: ConnectArgs) {
+    let cfg = args.router.cfg();
+    let m0 = cfg.layerkey(args.port_idx);
+    let port_start = args
+        .inst
+        .port(format!("{}_0", args.port_name))
+        .bbox(m0)
+        .unwrap();
+    let port_stop = args
+        .inst
+        .port(format!("{}_{}", args.port_name, args.count - 1))
+        .bbox(m0)
+        .unwrap();
+
+    let target_area = Rect::from(port_start.union(&port_stop));
+    let trace_hspan = Span::from_center_span_gridded(
+        target_area.center().x,
+        3 * cfg.line(args.metal_idx),
+        cfg.grid(),
+    );
+    let mut trace = args.router.trace(
+        Rect::from_spans(trace_hspan, target_area.vspan()),
+        args.metal_idx,
+    );
+
+    for i in 0..args.count {
+        let port = args
+            .inst
+            .port(format!("{}_{}", args.port_name, i))
+            .bbox(m0)
+            .unwrap();
+        trace.contact_down(port.into());
+    }
 }
 
 #[cfg(test)]

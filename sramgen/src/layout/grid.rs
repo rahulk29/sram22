@@ -31,7 +31,7 @@ impl GridCells {
                 let mut instance = self.grid.get(r, c).unwrap().clone();
                 if let Some(ref p) = prev {
                     instance.align_to_the_right_of(p.bbox(), 0);
-                    instance.align_beneath(p.bbox(), 0);
+                    instance.align_bottom(p.bbox());
                 } else if let Some(ref p) = prev_row {
                     instance.align_beneath(p.bbox(), 0);
                     instance.align_left(p.bbox());
