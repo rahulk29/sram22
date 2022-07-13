@@ -228,33 +228,42 @@ impl Trace {
     pub fn s_bend(&mut self, target: Rect, width: Int, dir: Dir) -> &mut Self {
         use std::cmp::{max, min};
 
-        // TODO: Vert not implemented yet
-        assert!(dir == Dir::Horiz);
+        let bot = min(self.rect.lower_edge(!dir), target.lower_edge(!dir));
+        let top = max(self.rect.upper_edge(!dir), target.upper_edge(!dir));
 
-        let bot = min(self.rect.bottom(), target.bottom());
-        let top = max(self.rect.top(), target.top());
-
-        let vspan = Span::new(bot, top);
+        let x_span = Span::new(bot, top);
 
         // An S-bend does not make sense if the spans overlap
-        assert!(!self.rect.hspan().intersects(&target.hspan()));
+        assert!(!self.rect.span(dir).intersects(&target.span(dir)));
 
-        let (inner_left, inner_right) = if self.rect.left() < target.left() {
-            (self.rect.right(), target.left())
+        let (inner_left, inner_right) = if self.rect.lower_edge(dir) < target.lower_edge(dir) {
+            (self.rect.upper_edge(dir), target.lower_edge(dir))
         } else {
-            (target.right(), self.rect.left())
+            (target.upper_edge(dir), self.rect.lower_edge(dir))
         };
 
         let inner_span = Span::new(inner_left, inner_right);
 
         let mid = Span::from_center_span_gridded(inner_span.center(), width, self.grid());
-        let mid = Rect::from_spans(mid, vspan);
+        let mid = Rect::span_builder()
+            .with(dir, mid)
+            .with(!dir, x_span)
+            .build();
         self.add_rect(mid);
 
-        let src = Rect::from_spans(Span::new(self.rect.right(), mid.left()), self.rect.vspan());
+        let src = Rect::span_builder()
+            .with(
+                dir,
+                Span::new(self.rect.upper_edge(dir), mid.lower_edge(dir)),
+            )
+            .with(!dir, self.rect.span(!dir))
+            .build();
         self.add_rect(src);
 
-        let dst = Rect::from_spans(Span::new(mid.right(), target.left()), target.vspan());
+        let dst = Rect::span_builder()
+            .with(dir, Span::new(mid.upper_edge(dir), target.lower_edge(dir)))
+            .with(!dir, target.span(!dir))
+            .build();
         self.add_rect(dst);
 
         self.rect = target;

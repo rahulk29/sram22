@@ -314,6 +314,10 @@ mod tests {
         let bbox = bbox(&cell);
         assert_eq!(bbox.width(), 1300);
         assert_eq!(bbox.height(), 1580);
+
+        let cell = cell.read().unwrap();
+        let abs = cell.abs.as_ref().unwrap();
+        assert_eq!(abs.ports.len(), 3);
         Ok(())
     }
 }
