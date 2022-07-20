@@ -132,6 +132,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let mut router = Router::new(lib.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
+    let m1 = cfg.layerkey(1);
+    let m2 = cfg.layerkey(2);
 
     vertical_connect(ConnectArgs {
         metal_idx: 1,
@@ -167,12 +169,32 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         count: rows,
     });
 
-    // connect nand decoder output to inv decoder input
     for i in 0..rows {
+        // Connect nand decoder output to inv decoder input.
         let src = nand2_dec.port(format!("Y_{}", i)).largest_rect(m0).unwrap();
         let dst = inv_dec.port(format!("din_{}", i)).largest_rect(m0).unwrap();
         let mut trace = router.trace(src, 0);
-        trace.s_bend(dst, cfg.line(0), Dir::Horiz);
+        trace.s_bend(dst, Dir::Horiz);
+
+        // Then connect inv decoder output to wordline.
+        let src = inv_dec
+            .port(format!("din_b_{}", i))
+            .largest_rect(m0)
+            .unwrap();
+        let dst = core.port(format!("wl_{}", i)).largest_rect(m2).unwrap();
+        let mut trace = router.trace(src, 0);
+        // move right
+        trace
+            .place_cursor(Dir::Horiz, true)
+            .up()
+            .up()
+            .set_min_width()
+            .s_bend(dst, Dir::Horiz);
+    }
+
+    for i in 0..cols {
+        let src = core.port(format!("bl0_{}", i)).largest_rect(m1).unwrap();
+        let mut trace = router.trace(src, 1);
     }
 
     let routing = router.finish();

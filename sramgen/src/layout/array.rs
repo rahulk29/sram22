@@ -120,6 +120,8 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
         annotations: vec![],
     };
 
+    let mut abs = Abstract::new(name.clone());
+
     let corner = corner_gds(lib)?;
     let colend_cent = colend_cent_gds(lib)?;
     let colend_p_cent = colend_p_cent_gds(lib)?;
@@ -295,11 +297,39 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
 
     grid.add_row(row);
 
-    layout.insts = grid.place();
+    grid.place();
+
+    for (i, inst) in grid.grid().iter_col(0).rev().enumerate() {
+        if i == 0 {
+            continue;
+        }
+        if inst.has_abstract() {
+            for mut port in inst.ports() {
+                port.set_net(format!("{}_{}", &port.net, i - 1));
+                println!("adding port: {:?}", port);
+                abs.add_port(port);
+            }
+        }
+    }
+
+    for (i, inst) in grid.grid().iter_row(rows + 1).enumerate() {
+        if i == 0 {
+            continue;
+        }
+        if inst.has_abstract() {
+            for mut port in inst.ports() {
+                port.set_net(format!("{}_{}", &port.net, (i - 1) / 2));
+                println!("adding port: {:?}", port);
+                abs.add_port(port);
+            }
+        }
+    }
+
+    layout.insts = grid.into_instances();
 
     let cell = Cell {
         name,
-        abs: None,
+        abs: Some(abs),
         layout: Some(layout),
     };
 

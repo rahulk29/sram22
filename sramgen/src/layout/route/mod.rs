@@ -88,7 +88,7 @@ impl Router {
             layer,
             cfg: Arc::clone(&self.cfg),
             rect: pin,
-            dir: TraceDir::None,
+            cursor: None,
             cell: Ptr::clone(&self.cell),
             id: self.ctr,
             ctr: 0,
@@ -108,25 +108,43 @@ impl Router {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub enum TraceDir {
-    None,
-    Up,
-    Down,
-    Left,
-    Right,
-}
-
 pub struct Trace {
     width: Int,
     layer: LayerIdx,
     rect: Rect,
-    dir: TraceDir,
+    cursor: Option<Cursor>,
     cfg: Arc<RouterConfig>,
     cell: Ptr<Cell>,
 
     id: usize,
     ctr: usize,
+}
+
+struct Cursor {
+    rect: Rect,
+}
+
+impl Cursor {
+    #[inline]
+    fn new(rect: Rect) -> Self {
+        Self { rect }
+    }
+
+    #[inline]
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+
+    #[inline]
+    fn move_to(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+
+    fn resize(&mut self, width: Int, grid: Int) {
+        let mut next = Rect::new(Point::new(0, width), Point::new(0, width));
+        next.align_centers_gridded(self.rect.bbox(), grid);
+        self.rect = next;
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -171,46 +189,81 @@ pub fn gridded_center_span(center: Int, span: Int, grid: Int) -> (Int, Int) {
 }
 
 impl Trace {
-    pub fn horiz(&mut self, x: Int) -> &mut Self {
-        let next_dir = if x > self.rect.p1.x {
-            TraceDir::Right
-        } else if x < self.rect.p0.x {
-            TraceDir::Left
-        } else {
-            return self;
-        };
+    #[inline]
+    pub fn horiz_to(&mut self, x: Int) -> &mut Self {
+        self.draw_to(x, Dir::Horiz)
+    }
+    #[inline]
+    pub fn vert_to(&mut self, x: Int) -> &mut Self {
+        self.draw_to(x, Dir::Vert)
+    }
 
-        let (p0, p1) = match self.dir {
-            TraceDir::Up => (
-                Point::new(self.rect.p0.x, self.rect.p1.y - self.width),
-                Point::new(x, self.rect.p1.y),
-            ),
-            TraceDir::Down => (
-                Point::new(self.rect.p0.x, self.rect.p0.y),
-                Point::new(x, self.rect.p0.y + self.width),
-            ),
-            TraceDir::Left | TraceDir::Right | TraceDir::None => {
-                let (y_min, y_max) = self
-                    .cfg
-                    .pdk
-                    .gridded_center_span(self.rect.center().y, self.width);
-                let (x_min, x_max) = if self.dir == TraceDir::Left {
-                    (x, self.rect.p0.x)
-                } else {
-                    (self.rect.p1.x, x)
-                };
+    pub fn draw_to(&mut self, x: Int, dir: Dir) -> &mut Self {
+        let cr = self.cursor_rect();
 
-                (Point::new(x_min, y_min), Point::new(x_max, y_max))
-            }
-        };
+        let x_span = cr.span(!dir);
+        let src_edge = cr.edge_closer_to(x, dir);
+        let l_span = Span::new(x, src_edge);
 
-        self.dir = next_dir;
-
-        let rect = rect_from_corners(p0, p1);
-        self.rect = rect;
+        let rect = Rect::span_builder()
+            .with(dir, l_span)
+            .with(!dir, x_span)
+            .build();
         self.add_rect(rect);
 
+        let l_span = if x > src_edge {
+            Span::new(x - cr.span(dir).length(), x)
+        } else {
+            Span::new(x, x + cr.span(dir).length())
+        };
+
+        let nc = Rect::span_builder()
+            .with(dir, l_span)
+            .with(!dir, x_span)
+            .build();
+        self.move_cursor_to(nc);
+
         self
+    }
+
+    pub fn set_width(&mut self, width: Int) -> &mut Self {
+        self.width = width;
+        let grid = self.grid();
+        if let Some(ref mut cursor) = self.cursor {
+            cursor.resize(width, grid);
+        }
+        self
+    }
+
+    #[inline]
+    pub fn set_min_width(&mut self) -> &mut Self {
+        self.set_width(self.cfg.line(self.layer))
+    }
+
+    pub fn place_cursor(&mut self, dir: Dir, pos: bool) -> &mut Self {
+        let x_span =
+            Span::from_center_span_gridded(self.rect.span(!dir).center(), self.width, self.grid());
+        let edge_1 = self.rect.span(dir).edge(pos);
+        let edge_2 = if pos {
+            edge_1 - self.width
+        } else {
+            edge_1 + self.width
+        };
+        let l_span = Span::new(edge_1, edge_2);
+        let rect = Rect::span_builder()
+            .with(dir, l_span)
+            .with(!dir, x_span)
+            .build();
+        self.cursor = Some(Cursor::new(rect));
+        self
+    }
+
+    fn cursor_rect(&self) -> Rect {
+        self.cursor.as_ref().unwrap().rect()
+    }
+
+    fn move_cursor_to(&mut self, rect: Rect) {
+        self.cursor.as_mut().unwrap().move_to(rect);
     }
 
     fn add_rect(&self, rect: Rect) {
@@ -225,7 +278,7 @@ impl Trace {
         });
     }
 
-    pub fn s_bend(&mut self, target: Rect, width: Int, dir: Dir) -> &mut Self {
+    pub fn s_bend(&mut self, target: Rect, dir: Dir) -> &mut Self {
         use std::cmp::{max, min};
 
         let bot = min(self.rect.lower_edge(!dir), target.lower_edge(!dir));
@@ -244,7 +297,7 @@ impl Trace {
 
         let inner_span = Span::new(inner_left, inner_right);
 
-        let mid = Span::from_center_span_gridded(inner_span.center(), width, self.grid());
+        let mid = Span::from_center_span_gridded(inner_span.center(), self.width, self.grid());
         let mid = Rect::span_builder()
             .with(dir, mid)
             .with(!dir, x_span)
@@ -270,25 +323,34 @@ impl Trace {
         self
     }
 
-    pub fn vert(&mut self, x: Int) -> &mut Self {
-        self
-    }
-
     pub fn up(&mut self) -> &mut Self {
+        self.layer += 1;
+        // important: increment self.layer, then place the contact
+        let rect = self.cursor_rect();
+        self.inner_contact_on(rect);
         self
     }
 
     pub fn down(&mut self) -> &mut Self {
+        let rect = self.cursor_rect();
+        // important: place the contact, then decrement self.layer
+        self.inner_contact_on(rect);
+        self.layer -= 1;
         self
     }
 
     pub fn contact_down(&mut self, rect: Rect) -> &mut Self {
         let intersect = Rect::from(self.rect.intersection(&rect.bbox()));
+        self.inner_contact_on(intersect);
+        self
+    }
+
+    fn inner_contact_on(&mut self, rect: Rect) {
         let ct = self.cfg.pdk.get_contact(
             &ContactParams::builder()
                 .rows(1)
                 .cols(1)
-                .dir(intersect.longer_dir())
+                .dir(rect.longer_dir())
                 .stack(self.cfg.stack(self.layer).to_string())
                 .build()
                 .unwrap(),
@@ -304,10 +366,8 @@ impl Trace {
             reflect_vert: false,
         };
 
-        inst.align_centers_gridded(intersect.into(), self.grid());
+        inst.align_centers_gridded(rect.into(), self.grid());
         self.add_inst(inst);
-
-        self
     }
 
     fn grid(&self) -> Int {
