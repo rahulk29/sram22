@@ -141,7 +141,8 @@ impl Cursor {
     }
 
     fn resize(&mut self, width: Int, grid: Int) {
-        let mut next = Rect::new(Point::new(0, width), Point::new(0, width));
+        assert!(width > 0);
+        let mut next = Rect::new(Point::new(0, 0), Point::new(width, width));
         next.align_centers_gridded(self.rect.bbox(), grid);
         self.rect = next;
     }
@@ -190,9 +191,18 @@ pub fn gridded_center_span(center: Int, span: Int, grid: Int) -> (Int, Int) {
 
 impl Trace {
     #[inline]
+    pub fn horiz_to_trace(&mut self, other: &Self) -> &mut Self {
+        let target = other
+            .rect
+            .edge_farther_from(self.rect.center().x, Dir::Horiz);
+        self.horiz_to(target)
+    }
+
+    #[inline]
     pub fn horiz_to(&mut self, x: Int) -> &mut Self {
         self.draw_to(x, Dir::Horiz)
     }
+
     #[inline]
     pub fn vert_to(&mut self, x: Int) -> &mut Self {
         self.draw_to(x, Dir::Vert)
@@ -210,6 +220,7 @@ impl Trace {
             .with(!dir, x_span)
             .build();
         self.add_rect(rect);
+        self.rect = rect;
 
         let l_span = if x > src_edge {
             Span::new(x - cr.span(dir).length(), x)
@@ -238,6 +249,15 @@ impl Trace {
     #[inline]
     pub fn set_min_width(&mut self) -> &mut Self {
         self.set_width(self.cfg.line(self.layer))
+    }
+
+    pub fn place_cursor_centered(&mut self) -> &mut Self {
+        let mut rect = Rect::new(Point::new(0, 0), Point::new(self.width, self.width));
+        rect.align_centers_gridded(self.rect.into(), self.grid());
+        self.cursor = Some(Cursor::new(rect));
+        assert_eq!(rect.width(), self.width);
+        assert_eq!(rect.height(), self.width);
+        self
     }
 
     pub fn place_cursor(&mut self, dir: Dir, pos: bool) -> &mut Self {

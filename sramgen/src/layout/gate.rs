@@ -31,7 +31,7 @@ pub fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .direction(Dir::Horiz)
         .add_device(MosDevice {
             mos_type: MosType::Nmos,
-            width: 1_000,
+            width: 1_800,
             length: 150,
             fingers: 2,
             intent: Intent::Svt,
@@ -39,7 +39,7 @@ pub fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         })
         .add_device(MosDevice {
             mos_type: MosType::Pmos,
-            width: 1_400,
+            width: 2_400,
             length: 150,
             fingers: 2,
             intent: Intent::Svt,

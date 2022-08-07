@@ -65,7 +65,7 @@ fn test_sky130_draw_contact() -> Result<(), Box<dyn std::error::Error>> {
 
     for i in 1..=n {
         for j in 1..=n {
-            for stack in ["ndiffc", "pdiffc", "polyc", "viali", "via1", "via2"] {
+            for stack in ["ntap", "ndiffc", "pdiffc", "polyc", "viali", "via1", "via2"] {
                 for dir in [Dir::Horiz, Dir::Vert] {
                     let mut cp = ContactParams::builder();
                     let cp = cp

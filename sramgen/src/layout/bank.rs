@@ -193,8 +193,30 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     }
 
     for i in 0..cols {
-        let src = core.port(format!("bl0_{}", i)).largest_rect(m1).unwrap();
+        let src = core.port(format!("bl1_{}", i)).largest_rect(m1).unwrap();
+        let bl1 = pc.port(format!("bl1_{}", i)).largest_rect(m0).unwrap();
+        let bl0 = pc.port(format!("bl0_{}", i)).largest_rect(m0).unwrap();
+        let midpt = Span::new(bl1.top(), src.bottom()).center();
         let mut trace = router.trace(src, 1);
+        let target = if i % 2 == 0 {
+            bl0.left() - cfg.space(0) - cfg.line(1)
+        } else {
+            bl0.right() + cfg.space(0) + cfg.line(1)
+        };
+
+        trace
+            .place_cursor(Dir::Vert, false)
+            .vert_to(midpt)
+            .horiz_to(target)
+            .vert_to(bl0.bottom());
+
+        let mut t1 = router.trace(bl0, 0);
+        t1.place_cursor_centered().horiz_to_trace(&trace).up();
+
+        // let src = core.port(format!("bl1_{}", i)).largest_rect(m1).unwrap();
+        // let dst = pc.port(format!("br0_{}", i)).largest_rect(m0).unwrap();
+        // let mut trace = router.trace(src, 1);
+        // trace.place_cursor(Dir::Vert, false).vert_to(dst.bottom());
     }
 
     let routing = router.finish();
