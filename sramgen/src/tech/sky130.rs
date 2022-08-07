@@ -163,11 +163,19 @@ pub fn corner_gds(lib: &mut PdkLib) -> CellGdsResult {
 
 #[inline]
 pub fn rowend_gds(lib: &mut PdkLib) -> CellGdsResult {
-    cell_gds(
+    let res = cell_gds(
         lib,
         "sram_sp_rowend.gds",
         "sky130_fd_bd_sram__sram_sp_rowend",
-    )
+    );
+
+    {
+        let cell = res.as_ref().unwrap();
+        let cell = cell.read().unwrap();
+        let abs = cell.abs.as_ref().unwrap();
+        println!("rowend ports: {:?}", &abs.ports);
+    }
+    res
 }
 
 #[inline]
@@ -306,6 +314,10 @@ mod tests {
         let bbox = bbox(&cell);
         assert_eq!(bbox.width(), 1300);
         assert_eq!(bbox.height(), 1580);
+
+        let cell = cell.read().unwrap();
+        let abs = cell.abs.as_ref().unwrap();
+        assert_eq!(abs.ports.len(), 3);
         Ok(())
     }
 }

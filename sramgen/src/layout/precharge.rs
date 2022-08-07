@@ -1,9 +1,10 @@
+use layout21::raw::geom::Dir;
+use layout21::raw::{Abstract, TransformTrait};
 use layout21::{
     raw::{Cell, Instance, Layout, Point},
     utils::Ptr,
 };
 use pdkprims::{
-    geometry::CoarseDirection,
     mos::{Intent, MosDevice, MosParams, MosType},
     PdkLib,
 };
@@ -21,18 +22,12 @@ fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         annotations: vec![],
     };
 
+    let mut abs = Abstract::new(&name);
+
     let mut params = MosParams::new();
     params
         .dnw(false)
-        .direction(CoarseDirection::Horizontal)
-        .add_device(MosDevice {
-            mos_type: MosType::Pmos,
-            width: 600,
-            length: 150,
-            fingers: 1,
-            intent: Intent::Svt,
-            skip_sd_metal: vec![],
-        })
+        .direction(Dir::Horiz)
         .add_device(MosDevice {
             mos_type: MosType::Pmos,
             width: 1_000,
@@ -43,7 +38,15 @@ fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         })
         .add_device(MosDevice {
             mos_type: MosType::Pmos,
-            width: 1_000,
+            width: 1_200,
+            length: 150,
+            fingers: 1,
+            intent: Intent::Svt,
+            skip_sd_metal: vec![],
+        })
+        .add_device(MosDevice {
+            mos_type: MosType::Pmos,
+            width: 1_200,
             length: 150,
             fingers: 1,
             intent: Intent::Svt,
@@ -51,17 +54,50 @@ fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         });
     let ptx = lib.draw_mos(params)?;
 
-    layout.insts.push(Instance {
+    let inst = Instance {
         inst_name: "mos".to_string(),
         cell: ptx.cell.clone(),
         loc: Point::new(0, 0),
         angle: Some(90f64),
         reflect_vert: false,
-    });
+    };
+    let xform = inst.transform();
+
+    layout.insts.push(inst);
+
+    let mut port = ptx.gate_port(0).unwrap();
+    port.set_net("pc_b");
+    let port = port.transform(&xform);
+    abs.add_port(port);
+
+    let mut port = ptx.sd_port(0, 0).unwrap();
+    port.set_net("bl0");
+    let port = port.transform(&xform);
+    abs.add_port(port);
+
+    let mut port = ptx.sd_port(0, 1).unwrap();
+    port.set_net("br0");
+    let port = port.transform(&xform);
+    abs.add_port(port);
+
+    let mut port = ptx.sd_port(1, 0).unwrap();
+    port.set_net("bl1");
+    let port = port.transform(&xform);
+    abs.add_port(port);
+
+    let mut port = ptx.sd_port(1, 1).unwrap();
+    port.set_net("vdd0");
+    let port = port.transform(&xform);
+    abs.add_port(port);
+
+    let mut port = ptx.sd_port(2, 0).unwrap();
+    port.set_net("vdd1");
+    let port = port.transform(&xform);
+    abs.add_port(port);
 
     let cell = Cell {
         name,
-        abs: None,
+        abs: Some(abs),
         layout: Some(layout),
     };
 
@@ -71,7 +107,7 @@ fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
     let pc = draw_precharge(lib)?;
 
     draw_cell_array(
@@ -82,7 +118,7 @@ pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
             spacing: Some(2_500),
             flip: FlipMode::AlternateFlipHorizontal,
             flip_toggle: false,
-            direction: CoarseDirection::Horizontal,
+            direction: Dir::Horiz,
         },
         lib,
     )

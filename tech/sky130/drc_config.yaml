@@ -401,6 +401,11 @@ spacing:
     to: diff
     dist: 130
 stacks:
+  ntap:
+    layers:
+      - li
+      - licon
+      - ntap
   ndiffc:
     layers:
       - li

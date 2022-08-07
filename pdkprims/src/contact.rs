@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 
+use layout21::raw::geom::Dir;
 use layout21::raw::{Cell, LayerKey, Rect};
 use layout21::utils::Ptr;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Int;
-use crate::geometry::CoarseDirection;
 use crate::Ref;
 use crate::{config::Uint, Pdk};
 
@@ -20,7 +20,7 @@ pub struct ContactParams {
     ///
     /// If the contact generator needs more space, it will try to expand in
     /// this direction first.
-    pub dir: CoarseDirection,
+    pub dir: Dir,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, derive_builder::Builder)]
@@ -80,7 +80,7 @@ impl Pdk {
                 .rows(1)
                 .cols(mid)
                 .stack(stack.clone())
-                .dir(CoarseDirection::Horizontal)
+                .dir(Dir::Horiz)
                 .build()
                 .unwrap();
             let ct = self.get_contact(&params);

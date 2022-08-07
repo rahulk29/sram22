@@ -1,10 +1,10 @@
 use crate::layout::Result;
-use layout21::{raw::Cell, utils::Ptr};
-use pdkprims::{geometry::CoarseDirection, PdkLib};
+use layout21::raw::geom::Dir;
+use pdkprims::PdkLib;
 
-use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
+use super::array::{draw_cell_array, ArrayCellParams, ArrayedCell, FlipMode};
 
-pub fn draw_nand2_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+pub fn draw_nand2_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
     let nand2 = super::gate::draw_nand2(lib)?;
 
     draw_cell_array(
@@ -15,13 +15,13 @@ pub fn draw_nand2_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
             spacing: Some(1580),
             flip: FlipMode::AlternateFlipVertical,
             flip_toggle: false,
-            direction: CoarseDirection::Vertical,
+            direction: Dir::Vert,
         },
         lib,
     )
 }
 
-pub fn draw_inv_dec_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+pub fn draw_inv_dec_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
     let inv_dec = super::gate::draw_inv_dec(lib)?;
 
     draw_cell_array(
@@ -32,7 +32,7 @@ pub fn draw_inv_dec_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
             spacing: Some(1580),
             flip: FlipMode::AlternateFlipVertical,
             flip_toggle: false,
-            direction: CoarseDirection::Vertical,
+            direction: Dir::Vert,
         },
         lib,
     )

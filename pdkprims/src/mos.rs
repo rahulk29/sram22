@@ -1,15 +1,14 @@
 use std::{collections::HashMap, fmt::Display};
 
+use layout21::raw::geom::Dir;
 use layout21::{
-    raw::{Cell, LayerKey, LayoutError, Rect},
+    raw::{AbstractPort, Cell, LayerKey, LayoutError, Rect},
     utils::Ptr,
 };
+
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    config::{Int, Uint},
-    geometry::CoarseDirection,
-};
+use crate::config::{Int, Uint};
 
 /// MOSFET Types
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -155,7 +154,7 @@ pub struct MosParams {
     ///
     /// Note that some processes do not allow transistors
     /// to be rotated 90 degrees.
-    pub direction: CoarseDirection,
+    pub direction: Dir,
     /// If true, place devices in a deep n-well.
     ///
     /// May not be supported by all processes.
@@ -181,7 +180,7 @@ impl MosParams {
     }
 
     #[inline]
-    pub fn direction(&mut self, direction: CoarseDirection) -> &mut Self {
+    pub fn direction(&mut self, direction: Dir) -> &mut Self {
         self.direction = direction;
         self
     }
@@ -262,6 +261,40 @@ pub struct LayoutTransistors {
     /// `gate_pins[i]` is the metal region corresponding to
     /// the `i`'th finger of the transistors. Zero-indexed.
     pub gate_pins: Vec<Rect>,
+}
+
+impl LayoutTransistors {
+    pub fn gate_port(&self, i: Uint) -> Option<AbstractPort> {
+        assert!(i >= 0);
+
+        self.get_port(&format!("gate_{}", i))
+    }
+
+    pub fn sd_port(&self, i: Uint, j: Uint) -> Option<AbstractPort> {
+        assert!(i >= 0);
+        assert!(j >= 0);
+
+        self.get_port(&format!("sd_{}_{}", i, j))
+    }
+
+    fn get_port(&self, name: &str) -> Option<AbstractPort> {
+        let cell = self.cell.read().unwrap();
+        let abs = cell.abs.as_ref().unwrap();
+        abs.ports.iter().find(|p| p.net == name).map(Clone::clone)
+    }
+
+    pub fn sd_pin(&self, i: Uint, j: Uint) -> Option<Rect> {
+        assert!(i >= 0);
+        assert!(j >= 0);
+
+        *self.sd_pins.get(i as usize)?.get(&j)?
+    }
+
+    pub fn gate_pin(&self, i: Uint) -> Option<Rect> {
+        assert!(i >= 0);
+
+        self.gate_pins.get(i as usize).copied()
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use layout21::raw::geom::Dir;
 use layout21::{
     raw::{DepOrder, LayerPurpose, Library},
     utils::{Ptr, PtrList},
@@ -7,7 +8,6 @@ use layout21::{
 
 use crate::{
     contact::ContactParams,
-    geometry::CoarseDirection,
     mos::{MosDevice, MosParams, MosType},
 };
 
@@ -17,7 +17,7 @@ fn test_draw_sky130_mos_nand2() -> Result<(), Box<dyn std::error::Error>> {
     let mut params = MosParams::new();
     params
         .dnw(false)
-        .direction(CoarseDirection::Horizontal)
+        .direction(Dir::Horiz)
         .add_device(MosDevice {
             mos_type: MosType::Nmos,
             width: 1_000,
@@ -65,8 +65,8 @@ fn test_sky130_draw_contact() -> Result<(), Box<dyn std::error::Error>> {
 
     for i in 1..=n {
         for j in 1..=n {
-            for stack in ["ndiffc", "pdiffc", "polyc", "viali", "via1", "via2"] {
-                for dir in [CoarseDirection::Vertical, CoarseDirection::Horizontal] {
+            for stack in ["ntap", "ndiffc", "pdiffc", "polyc", "viali", "via1", "via2"] {
+                for dir in [Dir::Horiz, Dir::Vert] {
                     let mut cp = ContactParams::builder();
                     let cp = cp
                         .stack(stack.to_string())

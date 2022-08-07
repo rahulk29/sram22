@@ -1,9 +1,10 @@
-use layout21::raw::Int;
+use layout21::raw::geom::Dir;
+use layout21::raw::{Abstract, AbstractPort, Int};
 use layout21::{
     raw::{Cell, Instance, Layout, Point},
     utils::Ptr,
 };
-use pdkprims::{geometry::CoarseDirection, PdkLib};
+use pdkprims::PdkLib;
 
 use crate::{bbox, layout::grid::GridCells, tech::*};
 use serde::{Deserialize, Serialize};
@@ -23,13 +24,17 @@ pub struct ArrayCellParams {
     pub cell: Ptr<Cell>,
     pub spacing: Option<Int>,
     pub flip: FlipMode,
-    pub direction: CoarseDirection,
+    pub direction: Dir,
     /// By default, cells 0, 2, 4, ... will be flipped according to the flip mode.
     /// If `flip_toggle` is set, cells 1, 3, 5, ... will be flipped instead.
     pub flip_toggle: bool,
 }
 
-pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+pub struct ArrayedCell {
+    pub cell: Ptr<Cell>,
+}
+
+pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<ArrayedCell> {
     let mut layout = Layout {
         name: params.name.clone(),
         insts: vec![],
@@ -37,20 +42,27 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Ptr<
         annotations: vec![],
     };
 
-    // height of 1 sram bitcell
     let spacing = params.spacing.unwrap_or_else(|| {
         let cell = params.cell.read().unwrap();
         let bbox = cell.layout.as_ref().unwrap().bbox();
         match params.direction {
-            CoarseDirection::Horizontal => bbox.width(),
-            CoarseDirection::Vertical => bbox.height(),
+            Dir::Horiz => bbox.width(),
+            Dir::Vert => bbox.height(),
         }
     });
 
+    let has_abstract = { params.cell.read().unwrap().has_abstract() };
+
+    let mut abs = if has_abstract {
+        Some(Abstract::new(params.name.clone()))
+    } else {
+        None
+    };
+
     for i in 0..params.num {
         let loc = match params.direction {
-            CoarseDirection::Horizontal => Point::new(spacing * i as isize, 0),
-            CoarseDirection::Vertical => Point::new(0, spacing * i as isize),
+            Dir::Horiz => Point::new(spacing * i as isize, 0),
+            Dir::Vert => Point::new(0, spacing * i as isize),
         };
 
         let mut inst = Instance {
@@ -73,19 +85,29 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Ptr<
             }
         }
 
+        if let Some(ref mut abs) = abs.as_mut() {
+            let mut ports = inst.ports();
+            for p in ports.iter_mut() {
+                p.net = format!("{}_{}", &p.net, i);
+            }
+            for port in ports {
+                abs.add_port(port);
+            }
+        }
+
         layout.insts.push(inst);
     }
 
     let cell = Cell {
         name: params.name,
-        abs: None,
+        abs,
         layout: Some(layout),
     };
 
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
 
-    Ok(ptr)
+    Ok(ArrayedCell { cell: ptr })
 }
 
 pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell>> {
@@ -97,6 +119,8 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
         elems: vec![],
         annotations: vec![],
     };
+
+    let mut abs = Abstract::new(name.clone());
 
     let corner = corner_gds(lib)?;
     let colend_cent = colend_cent_gds(lib)?;
@@ -273,11 +297,39 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
 
     grid.add_row(row);
 
-    layout.insts = grid.place();
+    grid.place();
+
+    for (i, inst) in grid.grid().iter_col(0).rev().enumerate() {
+        if i == 0 {
+            continue;
+        }
+        if inst.has_abstract() {
+            for mut port in inst.ports() {
+                port.set_net(format!("{}_{}", &port.net, i - 1));
+                println!("adding port: {:?}", port);
+                abs.add_port(port);
+            }
+        }
+    }
+
+    for (i, inst) in grid.grid().iter_row(rows + 1).enumerate() {
+        if i == 0 {
+            continue;
+        }
+        if inst.has_abstract() {
+            for mut port in inst.ports() {
+                port.set_net(format!("{}_{}", &port.net, (i - 1) / 2));
+                println!("adding port: {:?}", port);
+                abs.add_port(port);
+            }
+        }
+    }
+
+    layout.insts = grid.into_instances();
 
     let cell = Cell {
         name,
-        abs: None,
+        abs: Some(abs),
         layout: Some(layout),
     };
 

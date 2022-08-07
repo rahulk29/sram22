@@ -1,16 +1,16 @@
+use layout21::raw::geom::Dir;
 use layout21::{raw::Cell, utils::Ptr};
-use pdkprims::{geometry::CoarseDirection, PdkLib};
+use pdkprims::PdkLib;
 
 use super::array::*;
 use crate::{tech::sramgen_sp_sense_amp_gds, Result};
 
-pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
     let sa = sramgen_sp_sense_amp_gds(lib)?;
 
     {
         let sa = sa.read().unwrap();
         let lay = sa.layout.as_ref().unwrap();
-        println!("sa bbox: {:?}", lay.bbox());
     }
 
     draw_cell_array(
@@ -21,7 +21,7 @@ pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
             spacing: Some(2 * 2500),
             flip: FlipMode::None,
             flip_toggle: false,
-            direction: CoarseDirection::Horizontal,
+            direction: Dir::Horiz,
         },
         lib,
     )

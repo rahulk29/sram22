@@ -1,8 +1,13 @@
+use layout21::raw::align::AlignRect;
+use layout21::raw::geom::Rect;
+use layout21::raw::Dir;
 use layout21::{
-    raw::{AlignMode, Cell, Instance, Layout, Point},
+    raw::{BoundBoxTrait, Cell, Instance, Layout, Point, Span},
     utils::Ptr,
 };
-use pdkprims::PdkLib;
+use pdkprims::{LayerIdx, PdkLib};
+
+use crate::layout::route::Router;
 
 use super::{
     array::draw_array,
@@ -26,6 +31,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     assert_eq!(cols % 2, 0);
 
+    let grid = { lib.pdk.config().read().unwrap().grid };
+
     let core = draw_array(rows, cols, lib)?;
     let nand2_dec = draw_nand2_array(lib, rows)?;
     let inv_dec = draw_inv_dec_array(lib, rows)?;
@@ -44,7 +51,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut nand2_dec = Instance {
-        cell: nand2_dec,
+        cell: nand2_dec.cell,
         loc: Point::new(0, 0),
         angle: None,
         inst_name: "nand2_dec_array".to_string(),
@@ -52,7 +59,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut inv_dec = Instance {
-        cell: inv_dec,
+        cell: inv_dec.cell,
         inst_name: "inv_dec_array".to_string(),
         reflect_vert: false,
         angle: None,
@@ -60,7 +67,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut pc = Instance {
-        cell: pc,
+        cell: pc.cell,
         inst_name: "precharge_array".to_string(),
         reflect_vert: false,
         angle: None,
@@ -68,7 +75,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut read_mux = Instance {
-        cell: read_mux,
+        cell: read_mux.cell,
         inst_name: "read_mux_array".to_string(),
         reflect_vert: false,
         angle: None,
@@ -76,7 +83,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut write_mux = Instance {
-        cell: write_mux,
+        cell: write_mux.cell,
         inst_name: "write_mux_array".to_string(),
         reflect_vert: false,
         angle: None,
@@ -84,7 +91,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut sense_amp = Instance {
-        cell: sense_amp,
+        cell: sense_amp.cell,
         inst_name: "sense_amp_array".to_string(),
         reflect_vert: false,
         angle: None,
@@ -92,34 +99,127 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut dffs = Instance {
-        cell: dffs,
+        cell: dffs.cell,
         inst_name: "dff_array".to_string(),
         reflect_vert: false,
         angle: None,
         loc: Point::new(0, 0),
     };
 
-    inv_dec
-        .align(&core, AlignMode::ToTheLeft, 1_000)
-        .align(&core, AlignMode::CenterVertical, 0);
-    nand2_dec
-        .align(&inv_dec, AlignMode::ToTheLeft, 1_000)
-        .align(&core, AlignMode::CenterVertical, 0);
-    pc.align(&core, AlignMode::Beneath, 1_000)
-        .align(&core, AlignMode::CenterHorizontal, 0);
-    read_mux
-        .align(&pc, AlignMode::Beneath, 1_000)
-        .align(&core, AlignMode::CenterHorizontal, 0);
-    write_mux.align(&read_mux, AlignMode::Beneath, 1_000).align(
-        &core,
-        AlignMode::CenterHorizontal,
-        0,
-    );
-    sense_amp
-        .align(&write_mux, AlignMode::Beneath, 1_000)
-        .align(&core, AlignMode::CenterHorizontal, 0);
-    dffs.align(&sense_amp, AlignMode::Beneath, 1_000)
-        .align(&core, AlignMode::CenterHorizontal, 0);
+    inv_dec.align_to_the_left_of(core.bbox(), 1_000);
+    inv_dec.align_centers_vertically_gridded(core.bbox(), grid);
+
+    nand2_dec.align_to_the_left_of(inv_dec.bbox(), grid);
+    nand2_dec.align_to_the_left_of(inv_dec.bbox(), 1_000);
+    nand2_dec.align_centers_vertically_gridded(core.bbox(), grid);
+
+    pc.align_beneath(core.bbox(), 1_000);
+    pc.align_centers_horizontally_gridded(core.bbox(), grid);
+
+    read_mux.align_beneath(pc.bbox(), 1_000);
+    read_mux.align_centers_horizontally_gridded(core.bbox(), grid);
+
+    write_mux.align_beneath(read_mux.bbox(), 1_000);
+    write_mux.align_centers_horizontally_gridded(core.bbox(), grid);
+
+    sense_amp.align_beneath(write_mux.bbox(), 1_000);
+    sense_amp.align_centers_horizontally_gridded(core.bbox(), grid);
+
+    dffs.align_beneath(sense_amp.bbox(), 1_000);
+    dffs.align_centers_horizontally_gridded(core.bbox(), grid);
+
+    // Top level routing
+    let mut router = Router::new(lib.clone());
+    let cfg = router.cfg();
+    let m0 = cfg.layerkey(0);
+    let m1 = cfg.layerkey(1);
+    let m2 = cfg.layerkey(2);
+
+    vertical_connect(ConnectArgs {
+        metal_idx: 1,
+        port_idx: 0,
+        router: &mut router,
+        inst: &nand2_dec,
+        port_name: "VDD",
+        count: rows,
+    });
+    vertical_connect(ConnectArgs {
+        metal_idx: 1,
+        port_idx: 0,
+        router: &mut router,
+        inst: &nand2_dec,
+        port_name: "VSS",
+        count: rows,
+    });
+
+    vertical_connect(ConnectArgs {
+        metal_idx: 1,
+        port_idx: 0,
+        router: &mut router,
+        inst: &inv_dec,
+        port_name: "vdd",
+        count: rows,
+    });
+    vertical_connect(ConnectArgs {
+        metal_idx: 1,
+        port_idx: 0,
+        router: &mut router,
+        inst: &inv_dec,
+        port_name: "gnd",
+        count: rows,
+    });
+
+    for i in 0..rows {
+        // Connect nand decoder output to inv decoder input.
+        let src = nand2_dec.port(format!("Y_{}", i)).largest_rect(m0).unwrap();
+        let dst = inv_dec.port(format!("din_{}", i)).largest_rect(m0).unwrap();
+        let mut trace = router.trace(src, 0);
+        trace.s_bend(dst, Dir::Horiz);
+
+        // Then connect inv decoder output to wordline.
+        let src = inv_dec
+            .port(format!("din_b_{}", i))
+            .largest_rect(m0)
+            .unwrap();
+        let dst = core.port(format!("wl_{}", i)).largest_rect(m2).unwrap();
+        let mut trace = router.trace(src, 0);
+        // move right
+        trace
+            .place_cursor(Dir::Horiz, true)
+            .up()
+            .up()
+            .set_min_width()
+            .s_bend(dst, Dir::Horiz);
+    }
+
+    for i in 0..cols {
+        let src = core.port(format!("bl1_{}", i)).largest_rect(m1).unwrap();
+        let bl1 = pc.port(format!("bl1_{}", i)).largest_rect(m0).unwrap();
+        let bl0 = pc.port(format!("bl0_{}", i)).largest_rect(m0).unwrap();
+        let midpt = Span::new(bl1.top(), src.bottom()).center();
+        let mut trace = router.trace(src, 1);
+        let target = if i % 2 == 0 {
+            bl0.left() - cfg.space(0) - cfg.line(1)
+        } else {
+            bl0.right() + cfg.space(0) + cfg.line(1)
+        };
+
+        trace
+            .place_cursor(Dir::Vert, false)
+            .vert_to(midpt)
+            .horiz_to(target)
+            .vert_to(bl0.bottom());
+
+        let mut t1 = router.trace(bl0, 0);
+        t1.place_cursor_centered().horiz_to_trace(&trace).up();
+
+        // let src = core.port(format!("bl1_{}", i)).largest_rect(m1).unwrap();
+        // let dst = pc.port(format!("br0_{}", i)).largest_rect(m0).unwrap();
+        // let mut trace = router.trace(src, 1);
+        // trace.place_cursor(Dir::Vert, false).vert_to(dst.bottom());
+    }
+
+    let routing = router.finish();
 
     layout.insts.push(core);
     layout.insts.push(nand2_dec);
@@ -129,6 +229,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     layout.insts.push(write_mux);
     layout.insts.push(sense_amp);
     layout.insts.push(dffs);
+    layout.insts.push(routing);
 
     let cell = Cell {
         name,
@@ -140,6 +241,50 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     lib.lib.cells.push(ptr.clone());
 
     Ok(ptr)
+}
+
+struct ConnectArgs<'a> {
+    metal_idx: LayerIdx,
+    port_idx: LayerIdx,
+    router: &'a mut Router,
+    inst: &'a Instance,
+    port_name: &'a str,
+    count: usize,
+}
+
+fn vertical_connect(args: ConnectArgs) {
+    let cfg = args.router.cfg();
+    let m0 = cfg.layerkey(args.port_idx);
+    let port_start = args
+        .inst
+        .port(format!("{}_0", args.port_name))
+        .bbox(m0)
+        .unwrap();
+    let port_stop = args
+        .inst
+        .port(format!("{}_{}", args.port_name, args.count - 1))
+        .bbox(m0)
+        .unwrap();
+
+    let target_area = Rect::from(port_start.union(&port_stop));
+    let trace_hspan = Span::from_center_span_gridded(
+        target_area.center().x,
+        3 * cfg.line(args.metal_idx),
+        cfg.grid(),
+    );
+    let mut trace = args.router.trace(
+        Rect::from_spans(trace_hspan, target_area.vspan()),
+        args.metal_idx,
+    );
+
+    for i in 0..args.count {
+        let port = args
+            .inst
+            .port(format!("{}_{}", args.port_name, i))
+            .bbox(m0)
+            .unwrap();
+        trace.contact_down(port.into());
+    }
 }
 
 #[cfg(test)]

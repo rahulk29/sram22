@@ -1,19 +1,18 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use layout21::raw::Dir;
 use layout21::raw::{
-    Abstract, AbstractPort, BoundBoxTrait, Cell, Element, Instance, LayerPurpose, Layout,
+    Abstract, AbstractPort, BoundBoxTrait, Cell, Element, Instance, LayerKey, LayerPurpose, Layout,
     LayoutResult, Library, Point, Rect, Shape, Units,
 };
 use layout21::utils::Ptr;
 
 use crate::config::{Int, Uint};
-use crate::{PdkLib, Ref};
+use crate::{LayerIdx, PdkLib, Ref};
 
 use crate::contact::{Contact, ContactParams};
-use crate::geometry::{
-    expand_box, expand_box_min_width, rect_from_bbox, translate, CoarseDirection,
-};
+use crate::geometry::{expand_box, expand_box_min_width, rect_from_bbox, translate};
 use crate::mos::{LayoutTransistors, MosType};
 use crate::{
     config::TechConfig,
@@ -40,6 +39,7 @@ pub fn pdk() -> LayoutResult<Pdk> {
     Pdk::new(tech_config())
 }
 
+/// Creates a new [`PdkLib`] with a cell library of the given `name`.
 pub fn pdk_lib(name: impl Into<String>) -> LayoutResult<PdkLib> {
     Ok(PdkLib {
         tech: arcstr::literal!("sky130"),
@@ -53,6 +53,11 @@ impl Pdk {
         params.validate()?;
 
         let name = params.name();
+
+        let gate_metal = self.li1();
+        let sd_metal = self.li1();
+
+        let mut abs = Abstract::new(&name);
 
         let mut elems = Vec::new();
         let mut insts = Vec::new();
@@ -137,7 +142,7 @@ impl Pdk {
         let gate_ctp = ContactParams::builder()
             .rows(1)
             .cols(1)
-            .dir(CoarseDirection::Horizontal)
+            .dir(Dir::Horiz)
             .stack("polyc".into())
             .build()
             .unwrap();
@@ -170,6 +175,9 @@ impl Pdk {
 
             let ct_ofs = Point::new(ofsx, ofsy);
             let ct_box = translate(gate_metal_bbox, &ct_ofs);
+            let mut port = AbstractPort::new(format!("gate_{}", i));
+            port.add_shape(gate_metal, Shape::Rect(ct_box));
+            abs.add_port(port);
             gate_pins.push(ct_box);
 
             let inst = Instance {
@@ -222,8 +230,11 @@ impl Pdk {
                 };
                 insts.push(inst);
 
-                let sd_metal = translate(ct.bboxes.get(&self.li1()).unwrap(), &loc);
-                sd_pins[j].insert(i as Uint, Some(sd_metal));
+                let sd_rect = translate(ct.bboxes.get(&self.li1()).unwrap(), &loc);
+                let mut port = AbstractPort::new(format!("sd_{}_{}", j, i));
+                port.add_shape(sd_metal, Shape::Rect(sd_rect));
+                abs.add_port(port);
+                sd_pins[j].insert(i as Uint, Some(sd_rect));
             }
             cy += params.length();
             cy += finger_space(&tc);
@@ -238,14 +249,14 @@ impl Pdk {
 
         let cell = Cell {
             name,
-            abs: None,
+            abs: Some(abs),
             layout: Some(layout),
         };
 
         let transistors = LayoutTransistors {
             cell: Ptr::new(cell),
-            sd_metal: self.li1(),
-            gate_metal: self.li1(),
+            sd_metal,
+            gate_metal,
             sd_pins,
             gate_pins,
         };
@@ -320,11 +331,11 @@ impl Pdk {
             let ose = tc.layer(ctlay_name).one_side_enclosure(lay_name);
 
             match params.dir {
-                CoarseDirection::Vertical => {
+                Dir::Vert => {
                     laybox.p0.y = std::cmp::min(laybox.p0.y, ct_bbox.p0.y - ose);
                     laybox.p1.y = std::cmp::max(laybox.p0.y, ct_bbox.p1.y + ose);
                 }
-                CoarseDirection::Horizontal => {
+                Dir::Horiz => {
                     laybox.p0.x = std::cmp::min(laybox.p0.x, ct_bbox.p0.x - ose);
                     laybox.p1.x = std::cmp::max(laybox.p0.x, ct_bbox.p1.x + ose);
                 }
@@ -400,12 +411,12 @@ impl Pdk {
 
         let abs = Abstract {
             name: name.clone(),
-            outline: Element {
+            outline: Some(Element {
                 net: Some(net_name),
                 layer: layers.keyname(&stack.layers[0]).unwrap(),
                 purpose: LayerPurpose::Drawing,
                 inner: Shape::Rect(outline),
-            },
+            }),
             blockages: HashMap::new(),
             ports: vec![aport],
         };
@@ -424,6 +435,22 @@ impl Pdk {
             cols: params.cols,
             bboxes: bbox_map,
         })
+    }
+
+    pub fn metal_name(&self, i: LayerIdx) -> &'static str {
+        match i {
+            0 => "li",
+            1 => "m1",
+            2 => "m2",
+            3 => "m3",
+            4 => "m4",
+            5 => "m5",
+            _ => panic!("sky130 has no metal layer numbered {}", i),
+        }
+    }
+
+    pub fn metal(&self, i: LayerIdx) -> LayerKey {
+        self.get_layerkey(self.metal_name(i)).unwrap()
     }
 }
 
