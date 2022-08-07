@@ -388,7 +388,7 @@ impl Pdk {
             expand_box(&mut npc_box, tc.layer("licon").enclosure("npc"));
             elems.push(Element {
                 net: None,
-                layer: layers.keyname("nsdm").unwrap(),
+                layer: layers.keyname("npc").unwrap(),
                 purpose: LayerPurpose::Drawing,
                 inner: Shape::Rect(npc_box),
             });
