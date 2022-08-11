@@ -103,11 +103,13 @@ impl Pdk {
         })
     }
 
+    pub fn grid(&self) -> Int {
+        let tc = self.config.read().unwrap();
+        tc.grid
+    }
+
     pub fn gridded_center_span(&self, center: Int, span: Int) -> (Int, Int) {
-        let grid = {
-            let tc = self.config.read().unwrap();
-            tc.grid
-        };
+        let grid = self.grid();
         // Span must be a multiple of the grid size
         assert!(span % grid == 0);
 

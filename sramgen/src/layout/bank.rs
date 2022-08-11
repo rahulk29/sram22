@@ -67,7 +67,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut pc = Instance {
-        cell: pc.cell,
+        cell: pc,
         inst_name: "precharge_array".to_string(),
         reflect_vert: false,
         angle: None,
@@ -192,31 +192,52 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .s_bend(dst, Dir::Horiz);
     }
 
+    let core_bot = core.bbox().into_rect().bottom();
+    let pc_top = pc.bbox().into_rect().top();
+    let pc_midpt = Span::new(pc_top, core_bot).center();
+
     for i in 0..cols {
-        let src = core.port(format!("bl1_{}", i)).largest_rect(m1).unwrap();
-        let bl1 = pc.port(format!("bl1_{}", i)).largest_rect(m0).unwrap();
-        let bl0 = pc.port(format!("bl0_{}", i)).largest_rect(m0).unwrap();
-        let midpt = Span::new(bl1.top(), src.bottom()).center();
-        let mut trace = router.trace(src, 1);
-        let target = if i % 2 == 0 {
-            bl0.left() - cfg.space(0) - cfg.line(1)
-        } else {
-            bl0.right() + cfg.space(0) + cfg.line(1)
-        };
+        for j in 0..2 {
+            let bl = if j == 0 { "bl" } else { "br" };
+            let src = core.port(format!("bl{j}_{}", i)).largest_rect(m1).unwrap();
+            let bl1 = pc.port(format!("{bl}1_{}", i)).largest_rect(m0).unwrap();
+            let bl0 = pc.port(format!("{bl}0_{}", i)).largest_rect(m0).unwrap();
 
-        trace
-            .place_cursor(Dir::Vert, false)
-            .vert_to(midpt)
-            .horiz_to(target)
-            .vert_to(bl0.bottom());
+            let mut trace = router.trace(src, 1);
+            let target = if (i % 2 == 0) ^ (j == 0) {
+                bl0.left() - cfg.space(0) - cfg.line(1)
+            } else {
+                bl0.right() + cfg.space(0) + cfg.line(1)
+            };
 
-        let mut t1 = router.trace(bl0, 0);
-        t1.place_cursor_centered().horiz_to_trace(&trace).up();
+            trace
+                .place_cursor(Dir::Vert, false)
+                .vert_to(pc_midpt)
+                .horiz_to(target)
+                .vert_to(bl0.bottom());
 
-        // let src = core.port(format!("bl1_{}", i)).largest_rect(m1).unwrap();
-        // let dst = pc.port(format!("br0_{}", i)).largest_rect(m0).unwrap();
-        // let mut trace = router.trace(src, 1);
-        // trace.place_cursor(Dir::Vert, false).vert_to(dst.bottom());
+            let mut t0 = router.trace(bl0, 0);
+            t0.place_cursor_centered().horiz_to_trace(&trace).up();
+            let mut t1 = router.trace(bl1, 0);
+            t1.place_cursor_centered().horiz_to_trace(&trace).up();
+        }
+
+        let vdd_tap_left = pc.port(format!("vdd_{}", i)).largest_rect(m0).unwrap();
+        let vdd_tap_right = pc.port(format!("vdd_{}", i + 1)).largest_rect(m0).unwrap();
+        let vdd0 = pc
+            .port(format!("vdd{}_{}", i % 2, i))
+            .largest_rect(m0)
+            .unwrap();
+        let vdd1 = pc
+            .port(format!("vdd{}_{}", 1 - (i % 2), i))
+            .largest_rect(m0)
+            .unwrap();
+
+        let mut trace = router.trace(vdd0, 0);
+        trace.place_cursor_centered().horiz_to(vdd_tap_right.left());
+
+        let mut trace = router.trace(vdd1, 0);
+        trace.place_cursor_centered().horiz_to(vdd_tap_left.right());
     }
 
     let routing = router.finish();

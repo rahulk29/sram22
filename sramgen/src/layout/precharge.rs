@@ -1,9 +1,11 @@
+use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
-use layout21::raw::{Abstract, TransformTrait};
+use layout21::raw::{Abstract, BoundBoxTrait, TransformTrait};
 use layout21::{
     raw::{Cell, Instance, Layout, Point},
     utils::Ptr,
 };
+use pdkprims::contact::ContactParams;
 use pdkprims::{
     mos::{Intent, MosDevice, MosParams, MosType},
     PdkLib,
@@ -71,17 +73,17 @@ fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     abs.add_port(port);
 
     let mut port = ptx.sd_port(0, 0).unwrap();
-    port.set_net("bl0");
-    let port = port.transform(&xform);
-    abs.add_port(port);
-
-    let mut port = ptx.sd_port(0, 1).unwrap();
     port.set_net("br0");
     let port = port.transform(&xform);
     abs.add_port(port);
 
+    let mut port = ptx.sd_port(0, 1).unwrap();
+    port.set_net("bl0");
+    let port = port.transform(&xform);
+    abs.add_port(port);
+
     let mut port = ptx.sd_port(1, 0).unwrap();
-    port.set_net("bl1");
+    port.set_net("br1");
     let port = port.transform(&xform);
     abs.add_port(port);
 
@@ -92,6 +94,11 @@ fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     let mut port = ptx.sd_port(2, 0).unwrap();
     port.set_net("vdd1");
+    let port = port.transform(&xform);
+    abs.add_port(port);
+
+    let mut port = ptx.sd_port(2, 1).unwrap();
+    port.set_net("bl1");
     let port = port.transform(&xform);
     abs.add_port(port);
 
@@ -107,12 +114,13 @@ fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
+pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+    assert!(width >= 2);
     let pc = draw_precharge(lib)?;
 
-    draw_cell_array(
+    let core = draw_cell_array(
         ArrayCellParams {
-            name: "precharge_array".to_string(),
+            name: "precharge_pc_array".to_string(),
             num: width,
             cell: pc,
             spacing: Some(2_500),
@@ -121,7 +129,66 @@ pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCel
             direction: Dir::Horiz,
         },
         lib,
-    )
+    )?;
+
+    let ct = lib.pdk.get_contact(
+        &ContactParams::builder()
+            .stack("ntap".to_string())
+            .rows(12)
+            .cols(1)
+            .dir(Dir::Vert)
+            .build()
+            .unwrap(),
+    );
+
+    let taps = draw_cell_array(
+        ArrayCellParams {
+            name: "precharge_tap_array".to_string(),
+            num: width + 1,
+            cell: Ptr::clone(&ct.cell),
+            spacing: Some(2_500),
+            flip: FlipMode::AlternateFlipHorizontal,
+            flip_toggle: false,
+            direction: Dir::Horiz,
+        },
+        lib,
+    )?;
+
+    let mut layout = Layout::new("precharge_array");
+    let mut abs = Abstract::new("precharge_array");
+    let core = Instance {
+        inst_name: "pc_array".to_string(),
+        cell: core.cell.clone(),
+        reflect_vert: false,
+        angle: None,
+        loc: Point::new(0, 0),
+    };
+    let mut taps = Instance {
+        inst_name: "tap_array".to_string(),
+        cell: taps.cell.clone(),
+        reflect_vert: false,
+        angle: None,
+        loc: Point::new(0, 0),
+    };
+    taps.align_centers_gridded(core.bbox(), lib.pdk.grid());
+
+    abs.ports.append(&mut core.ports());
+
+    let iter = taps.ports().into_iter().enumerate().map(|(i, mut p)| {
+        p.set_net(format!("vdd_{}", i));
+        p
+    });
+    abs.ports.extend(iter);
+    abs.ports.append(&mut taps.ports());
+
+    layout.add_inst(core);
+    layout.add_inst(taps);
+
+    Ok(Ptr::new(Cell {
+        name: "precharge_array".to_string(),
+        layout: Some(layout),
+        abs: Some(abs),
+    }))
 }
 
 #[cfg(test)]
