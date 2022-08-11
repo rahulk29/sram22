@@ -114,6 +114,50 @@ fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
+pub fn draw_tap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+    let bot = lib.pdk.get_contact(
+        &ContactParams::builder()
+            .stack("ntap".to_string())
+            .rows(12)
+            .cols(1)
+            .dir(Dir::Vert)
+            .build()
+            .unwrap(),
+    );
+    let top = lib.pdk.get_contact(
+        &ContactParams::builder()
+            .stack("viali".to_string())
+            .rows(11)
+            .cols(1)
+            .dir(Dir::Vert)
+            .build()
+            .unwrap(),
+    );
+
+    let bot = Instance::new("bot", bot.cell.clone());
+    let mut top = Instance::new("top", top.cell.clone());
+    top.align_centers_gridded(bot.bbox(), lib.pdk.grid());
+
+    let mut p0 = bot.port("x");
+    let p1 = top.port("x");
+
+    p0.merge(p1);
+
+    let name = "pc_tap_cell";
+
+    let mut layout = Layout::new(name);
+    let mut abs = Abstract::new(name);
+    abs.add_port(p0);
+    layout.add_inst(bot);
+    layout.add_inst(top);
+
+    Ok(Ptr::new(Cell {
+        layout: Some(layout),
+        abs: Some(abs),
+        name: name.into(),
+    }))
+}
+
 pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
     assert!(width >= 2);
     let pc = draw_precharge(lib)?;
@@ -131,21 +175,13 @@ pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
         lib,
     )?;
 
-    let ct = lib.pdk.get_contact(
-        &ContactParams::builder()
-            .stack("ntap".to_string())
-            .rows(12)
-            .cols(1)
-            .dir(Dir::Vert)
-            .build()
-            .unwrap(),
-    );
+    let tap = draw_tap_cell(lib)?;
 
     let taps = draw_cell_array(
         ArrayCellParams {
             name: "precharge_tap_array".to_string(),
             num: width + 1,
-            cell: Ptr::clone(&ct.cell),
+            cell: tap,
             spacing: Some(2_500),
             flip: FlipMode::AlternateFlipHorizontal,
             flip_toggle: false,

@@ -135,38 +135,42 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let m1 = cfg.layerkey(1);
     let m2 = cfg.layerkey(2);
 
-    vertical_connect(ConnectArgs {
+    connect(ConnectArgs {
         metal_idx: 1,
         port_idx: 0,
         router: &mut router,
         inst: &nand2_dec,
         port_name: "VDD",
         count: rows,
+        dir: Dir::Vert,
     });
-    vertical_connect(ConnectArgs {
+    connect(ConnectArgs {
         metal_idx: 1,
         port_idx: 0,
         router: &mut router,
         inst: &nand2_dec,
         port_name: "VSS",
         count: rows,
+        dir: Dir::Vert,
     });
 
-    vertical_connect(ConnectArgs {
+    connect(ConnectArgs {
         metal_idx: 1,
         port_idx: 0,
         router: &mut router,
         inst: &inv_dec,
         port_name: "vdd",
         count: rows,
+        dir: Dir::Vert,
     });
-    vertical_connect(ConnectArgs {
+    connect(ConnectArgs {
         metal_idx: 1,
         port_idx: 0,
         router: &mut router,
         inst: &inv_dec,
         port_name: "gnd",
         count: rows,
+        dir: Dir::Vert,
     });
 
     for i in 0..rows {
@@ -240,6 +244,16 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         trace.place_cursor_centered().horiz_to(vdd_tap_left.right());
     }
 
+    connect(ConnectArgs {
+        metal_idx: 2,
+        port_idx: 1,
+        router: &mut router,
+        inst: &pc,
+        port_name: "vdd",
+        count: cols + 1,
+        dir: Dir::Horiz,
+    });
+
     let routing = router.finish();
 
     layout.insts.push(core);
@@ -271,9 +285,10 @@ struct ConnectArgs<'a> {
     inst: &'a Instance,
     port_name: &'a str,
     count: usize,
+    dir: Dir,
 }
 
-fn vertical_connect(args: ConnectArgs) {
+fn connect(args: ConnectArgs) {
     let cfg = args.router.cfg();
     let m0 = cfg.layerkey(args.port_idx);
     let port_start = args
@@ -288,13 +303,18 @@ fn vertical_connect(args: ConnectArgs) {
         .unwrap();
 
     let target_area = Rect::from(port_start.union(&port_stop));
-    let trace_hspan = Span::from_center_span_gridded(
-        target_area.center().x,
+    let trace_xspan = Span::from_center_span_gridded(
+        target_area.span(!args.dir).center(),
         3 * cfg.line(args.metal_idx),
         cfg.grid(),
     );
+
+    let dir = args.dir;
     let mut trace = args.router.trace(
-        Rect::from_spans(trace_hspan, target_area.vspan()),
+        Rect::span_builder()
+            .with(dir, target_area.span(dir))
+            .with(!dir, trace_xspan)
+            .build(),
         args.metal_idx,
     );
 
