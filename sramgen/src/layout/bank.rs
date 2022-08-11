@@ -67,7 +67,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut pc = Instance {
-        cell: pc.cell,
+        cell: pc,
         inst_name: "precharge_array".to_string(),
         reflect_vert: false,
         angle: None,
@@ -135,38 +135,42 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let m1 = cfg.layerkey(1);
     let m2 = cfg.layerkey(2);
 
-    vertical_connect(ConnectArgs {
+    connect(ConnectArgs {
         metal_idx: 1,
         port_idx: 0,
         router: &mut router,
         inst: &nand2_dec,
         port_name: "VDD",
         count: rows,
+        dir: Dir::Vert,
     });
-    vertical_connect(ConnectArgs {
+    connect(ConnectArgs {
         metal_idx: 1,
         port_idx: 0,
         router: &mut router,
         inst: &nand2_dec,
         port_name: "VSS",
         count: rows,
+        dir: Dir::Vert,
     });
 
-    vertical_connect(ConnectArgs {
+    connect(ConnectArgs {
         metal_idx: 1,
         port_idx: 0,
         router: &mut router,
         inst: &inv_dec,
         port_name: "vdd",
         count: rows,
+        dir: Dir::Vert,
     });
-    vertical_connect(ConnectArgs {
+    connect(ConnectArgs {
         metal_idx: 1,
         port_idx: 0,
         router: &mut router,
         inst: &inv_dec,
         port_name: "gnd",
         count: rows,
+        dir: Dir::Vert,
     });
 
     for i in 0..rows {
@@ -192,32 +196,63 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .s_bend(dst, Dir::Horiz);
     }
 
+    let core_bot = core.bbox().into_rect().bottom();
+    let pc_top = pc.bbox().into_rect().top();
+    let pc_midpt = Span::new(pc_top, core_bot).center();
+
     for i in 0..cols {
-        let src = core.port(format!("bl1_{}", i)).largest_rect(m1).unwrap();
-        let bl1 = pc.port(format!("bl1_{}", i)).largest_rect(m0).unwrap();
-        let bl0 = pc.port(format!("bl0_{}", i)).largest_rect(m0).unwrap();
-        let midpt = Span::new(bl1.top(), src.bottom()).center();
-        let mut trace = router.trace(src, 1);
-        let target = if i % 2 == 0 {
-            bl0.left() - cfg.space(0) - cfg.line(1)
-        } else {
-            bl0.right() + cfg.space(0) + cfg.line(1)
-        };
+        for j in 0..2 {
+            let bl = if j == 0 { "bl" } else { "br" };
+            let src = core.port(format!("bl{j}_{}", i)).largest_rect(m1).unwrap();
+            let bl1 = pc.port(format!("{bl}1_{}", i)).largest_rect(m0).unwrap();
+            let bl0 = pc.port(format!("{bl}0_{}", i)).largest_rect(m0).unwrap();
 
-        trace
-            .place_cursor(Dir::Vert, false)
-            .vert_to(midpt)
-            .horiz_to(target)
-            .vert_to(bl0.bottom());
+            let mut trace = router.trace(src, 1);
+            let target = if (i % 2 == 0) ^ (j == 0) {
+                bl0.left() - cfg.space(0) - cfg.line(1)
+            } else {
+                bl0.right() + cfg.space(0) + cfg.line(1)
+            };
 
-        let mut t1 = router.trace(bl0, 0);
-        t1.place_cursor_centered().horiz_to_trace(&trace).up();
+            trace
+                .place_cursor(Dir::Vert, false)
+                .vert_to(pc_midpt)
+                .horiz_to(target)
+                .vert_to(bl0.bottom());
 
-        // let src = core.port(format!("bl1_{}", i)).largest_rect(m1).unwrap();
-        // let dst = pc.port(format!("br0_{}", i)).largest_rect(m0).unwrap();
-        // let mut trace = router.trace(src, 1);
-        // trace.place_cursor(Dir::Vert, false).vert_to(dst.bottom());
+            let mut t0 = router.trace(bl0, 0);
+            t0.place_cursor_centered().horiz_to_trace(&trace).up();
+            let mut t1 = router.trace(bl1, 0);
+            t1.place_cursor_centered().horiz_to_trace(&trace).up();
+        }
+
+        let vdd_tap_left = pc.port(format!("vdd_{}", i)).largest_rect(m0).unwrap();
+        let vdd_tap_right = pc.port(format!("vdd_{}", i + 1)).largest_rect(m0).unwrap();
+        let vdd0 = pc
+            .port(format!("vdd{}_{}", i % 2, i))
+            .largest_rect(m0)
+            .unwrap();
+        let vdd1 = pc
+            .port(format!("vdd{}_{}", 1 - (i % 2), i))
+            .largest_rect(m0)
+            .unwrap();
+
+        let mut trace = router.trace(vdd0, 0);
+        trace.place_cursor_centered().horiz_to(vdd_tap_right.left());
+
+        let mut trace = router.trace(vdd1, 0);
+        trace.place_cursor_centered().horiz_to(vdd_tap_left.right());
     }
+
+    connect(ConnectArgs {
+        metal_idx: 2,
+        port_idx: 1,
+        router: &mut router,
+        inst: &pc,
+        port_name: "vdd",
+        count: cols + 1,
+        dir: Dir::Horiz,
+    });
 
     let routing = router.finish();
 
@@ -250,9 +285,10 @@ struct ConnectArgs<'a> {
     inst: &'a Instance,
     port_name: &'a str,
     count: usize,
+    dir: Dir,
 }
 
-fn vertical_connect(args: ConnectArgs) {
+fn connect(args: ConnectArgs) {
     let cfg = args.router.cfg();
     let m0 = cfg.layerkey(args.port_idx);
     let port_start = args
@@ -267,13 +303,18 @@ fn vertical_connect(args: ConnectArgs) {
         .unwrap();
 
     let target_area = Rect::from(port_start.union(&port_stop));
-    let trace_hspan = Span::from_center_span_gridded(
-        target_area.center().x,
+    let trace_xspan = Span::from_center_span_gridded(
+        target_area.span(!args.dir).center(),
         3 * cfg.line(args.metal_idx),
         cfg.grid(),
     );
+
+    let dir = args.dir;
     let mut trace = args.router.trace(
-        Rect::from_spans(trace_hspan, target_area.vspan()),
+        Rect::span_builder()
+            .with(dir, target_area.span(dir))
+            .with(!dir, trace_xspan)
+            .build(),
         args.metal_idx,
     );
 
