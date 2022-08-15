@@ -2,7 +2,6 @@
 
 members = [
   "fanout",
-  "pdkprims",
   "sramgen",
 ]
 

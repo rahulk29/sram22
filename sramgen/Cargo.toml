@@ -23,9 +23,9 @@ handlebars = "4.3.0"
 portpicker = "0.1.1"
 prost = "0.10.4"
 bytes = "1.1.0"
-layout21 = { path = "../deps/Layout21/layout21" }
+layout21 = { git = "https://github.com/rahulk29/Layout21.git", branch = "main" }
 vlsir = { path = "../deps/Vlsir/bindings/rust" }
-pdkprims = { path = "../pdkprims" }
+pdkprims = { git = "https://github.com/rahulk29/pdkprims.git", branch = "master" }
 arcstr = "1.1.4"
 
 [build-dependencies]

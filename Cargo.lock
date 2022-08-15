@@ -440,6 +440,7 @@ dependencies = [
 [[package]]
 name = "gds21"
 version = "0.2.1"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#fbc78d78148b178e979df019cfe31c4c0b9a7bc6"
 dependencies = [
  "byteorder",
  "chrono",
@@ -579,6 +580,7 @@ checksum = "112c678d4050afce233f4f2852bb2eb519230b3cf12f33585275537d7e41578d"
 [[package]]
 name = "layout21"
 version = "0.2.1"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#fbc78d78148b178e979df019cfe31c4c0b9a7bc6"
 dependencies = [
  "gds21",
  "layout21protos",
@@ -591,6 +593,7 @@ dependencies = [
 [[package]]
 name = "layout21protos"
 version = "0.2.1"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#fbc78d78148b178e979df019cfe31c4c0b9a7bc6"
 dependencies = [
  "vlsir 0.2.0 (git+https://github.com/rahulk29/Vlsir.git?branch=main)",
 ]
@@ -598,6 +601,7 @@ dependencies = [
 [[package]]
 name = "layout21raw"
 version = "0.2.1"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#fbc78d78148b178e979df019cfe31c4c0b9a7bc6"
 dependencies = [
  "enum_dispatch",
  "gds21",
@@ -614,6 +618,7 @@ dependencies = [
 [[package]]
 name = "layout21tetris"
 version = "0.2.1"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#fbc78d78148b178e979df019cfe31c4c0b9a7bc6"
 dependencies = [
  "derive_builder 0.9.0",
  "derive_more",
@@ -630,6 +635,7 @@ dependencies = [
 [[package]]
 name = "layout21utils"
 version = "0.2.1"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#fbc78d78148b178e979df019cfe31c4c0b9a7bc6"
 dependencies = [
  "by_address",
  "serde",
@@ -649,6 +655,7 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 [[package]]
 name = "lef21"
 version = "0.2.1"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#fbc78d78148b178e979df019cfe31c4c0b9a7bc6"
 dependencies = [
  "derive_builder 0.9.0",
  "derive_more",
@@ -765,6 +772,7 @@ checksum = "21326818e99cfe6ce1e524c2a805c189a99b5ae555a35d19f9a284b427d86afa"
 [[package]]
 name = "pdkprims"
 version = "0.1.0"
+source = "git+https://github.com/rahulk29/pdkprims.git?branch=master#24b45fca54a78d6b0b1d9a8c86d0b265c5a6d531"
 dependencies = [
  "anyhow",
  "arcstr",
