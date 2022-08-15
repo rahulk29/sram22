@@ -1,6 +1,10 @@
-use std::{path::Path, collections::HashMap};
+use std::{collections::HashMap, path::Path};
 
-use layout21::{utils::Ptr, raw::{Cell, Library}, gds21::GdsLibrary};
+use layout21::{
+    gds21::GdsLibrary,
+    raw::{Cell, Library},
+    utils::Ptr,
+};
 
 use crate::PdkLib;
 
@@ -15,15 +19,12 @@ fn name_map(lib: &Library) -> HashMap<String, Ptr<Cell>> {
     map
 }
 
-pub fn cell_gds(
-    pdk_lib: &mut PdkLib,
-    gds_file: impl AsRef<Path>,
-    cell_name: &str,
-) -> anyhow::Result<Ptr<Cell>> {
+/// Loads GDS file `gds_file` into the given library.
+pub fn load_gds(pdk_lib: &mut PdkLib, gds_file: impl AsRef<Path>) -> anyhow::Result<()> {
     let lib = GdsLibrary::load(gds_file)?;
     let lib = Library::from_gds(&lib, Some(pdk_lib.pdk.layers.clone()))?;
 
-    let map = name_map(&pdk_lib.lib);
+    let mut map = name_map(&pdk_lib.lib);
 
     for cell in lib.cells.iter() {
         let mut inner = cell.write().unwrap();
@@ -42,28 +43,16 @@ pub fn cell_gds(
         }
     }
 
-    let mut t_cell = None;
-
+    // Do not add cells that already exist.
     for cell in lib.cells.iter() {
-        let inner = cell.read().unwrap();
-        if inner.name == cell_name {
-            t_cell = Some(cell);
-        }
+        let new_cell = cell.read().unwrap();
 
-        let mut flag = false;
-
-        for ecell in pdk_lib.lib.cells.iter() {
-            let ecell = ecell.read().unwrap();
-            if ecell.name == inner.name {
-                flag = true;
-                break;
-            }
-        }
-
-        if !flag {
-            pdk_lib.lib.cells.push(cell.clone());
+        if !map.contains_key(&new_cell.name) {
+            pdk_lib.lib.cells.push(Ptr::clone(cell));
+            map.insert(new_cell.name.clone(), Ptr::clone(cell));
         }
     }
 
-    Ok(t_cell.map(Ptr::clone).unwrap())
+    Ok(())
 }
+
