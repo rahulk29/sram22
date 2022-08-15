@@ -20,6 +20,7 @@ pub type LayerIdx = u32;
 
 pub mod config;
 pub mod contact;
+pub mod gds;
 pub mod geometry;
 pub mod mos;
 pub mod tech;
