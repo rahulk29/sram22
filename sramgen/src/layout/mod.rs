@@ -64,13 +64,14 @@ mod tests {
 
     use super::*;
     use crate::layout::Result;
+    use crate::utils::test_path;
 
     #[test]
     fn test_sky130_bitcell() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_bitcell")?;
         draw_bitcell(&mut lib)?;
 
-        lib.save_gds()?;
+        lib.save_gds(test_path(&lib))?;
 
         Ok(())
     }

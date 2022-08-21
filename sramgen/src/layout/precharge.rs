@@ -231,6 +231,8 @@ pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
 mod tests {
     use pdkprims::tech::sky130;
 
+    use crate::utils::test_path;
+
     use super::*;
 
     #[test]
@@ -238,7 +240,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sky130_precharge")?;
         draw_precharge(&mut lib)?;
 
-        lib.save_gds()?;
+        lib.save_gds(test_path(&lib))?;
 
         Ok(())
     }
@@ -248,7 +250,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sky130_precharge_array")?;
         draw_precharge_array(&mut lib, 32)?;
 
-        lib.save_gds()?;
+        lib.save_gds(test_path(&lib))?;
 
         Ok(())
     }

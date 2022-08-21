@@ -209,6 +209,8 @@ pub fn draw_inv_dec(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 mod tests {
     use pdkprims::tech::sky130;
 
+    use crate::utils::test_path;
+
     use super::*;
 
     #[test]
@@ -216,7 +218,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sky130_nand2")?;
         draw_nand2(&mut lib)?;
 
-        lib.save_gds()?;
+        lib.save_gds(test_path(&lib))?;
 
         Ok(())
     }
@@ -226,7 +228,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sky130_inv_dec")?;
         draw_inv_dec(&mut lib)?;
 
-        lib.save_gds()?;
+        lib.save_gds(test_path(&lib))?;
 
         Ok(())
     }

@@ -31,6 +31,8 @@ pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCel
 mod tests {
     use pdkprims::tech::sky130;
 
+    use crate::utils::test_path;
+
     use super::*;
 
     #[test]
@@ -38,7 +40,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sky130_sense_amp_array")?;
         draw_sense_amp_array(&mut lib, 16)?;
 
-        lib.save_gds()?;
+        lib.save_gds(test_path(&lib))?;
 
         Ok(())
     }

@@ -306,7 +306,6 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
         if inst.has_abstract() {
             for mut port in inst.ports() {
                 port.set_net(format!("{}_{}", &port.net, i - 1));
-                println!("adding port: {:?}", port);
                 abs.add_port(port);
             }
         }
@@ -319,7 +318,6 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
         if inst.has_abstract() {
             for mut port in inst.ports() {
                 port.set_net(format!("{}_{}", &port.net, (i - 1) / 2));
-                println!("adding port: {:?}", port);
                 abs.add_port(port);
             }
         }
@@ -343,6 +341,8 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
 mod tests {
     use pdkprims::tech::sky130;
 
+    use crate::utils::test_path;
+
     use super::*;
 
     #[test]
@@ -350,7 +350,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sram_array")?;
         draw_array(32, 32, &mut lib)?;
 
-        lib.save_gds()?;
+        lib.save_gds(test_path(&lib))?;
 
         Ok(())
     }

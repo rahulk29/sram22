@@ -37,7 +37,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let nand2_dec = draw_nand2_array(lib, rows)?;
     let inv_dec = draw_inv_dec_array(lib, rows)?;
     let pc = draw_precharge_array(lib, cols)?;
-    let read_mux = draw_read_mux_array(lib, cols)?;
+    let read_mux = draw_read_mux_array(lib, cols / 2)?;
     let write_mux = draw_write_mux_array(lib, cols)?;
     let sense_amp = draw_sense_amp_array(lib, cols / 2)?;
     let dffs = draw_dff_array(lib, cols / 2)?;
@@ -129,7 +129,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     dffs.align_centers_horizontally_gridded(core.bbox(), grid);
 
     // Top level routing
-    let mut router = Router::new(lib.clone());
+    let mut router = Router::new("bank_route", lib.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
@@ -332,14 +332,16 @@ fn connect(args: ConnectArgs) {
 mod tests {
     use pdkprims::tech::sky130;
 
+    use crate::utils::{panic_on_err, test_path};
+
     use super::*;
 
     #[test]
     fn test_sram_bank() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_bank")?;
-        draw_sram_bank(32, 32, &mut lib)?;
+        draw_sram_bank(32, 32, &mut lib).map_err(panic_on_err)?;
 
-        lib.save_gds()?;
+        lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
 
         Ok(())
     }

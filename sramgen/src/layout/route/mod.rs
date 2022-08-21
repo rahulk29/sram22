@@ -10,6 +10,8 @@ use layout21::{
     utils::Ptr,
 };
 
+pub mod grid;
+
 pub struct RouterConfig {
     pub(crate) pdk: Pdk,
 }
@@ -64,12 +66,13 @@ impl Router {
         Arc::clone(&self.cfg)
     }
 
-    pub fn new(pdklib: PdkLib) -> Self {
+    pub fn new(name: impl Into<String>, pdklib: PdkLib) -> Self {
+        let name = name.into();
         let cell = Cell {
-            name: "router".to_string(),
+            name: name.clone(),
             abs: None,
             layout: Some(Layout {
-                name: "router".to_string(),
+                name,
                 ..Default::default()
             }),
         };
@@ -190,6 +193,11 @@ pub fn gridded_center_span(center: Int, span: Int, grid: Int) -> (Int, Int) {
 }
 
 impl Trace {
+    #[inline]
+    pub fn rect(&self) -> Rect {
+        self.rect
+    }
+
     #[inline]
     pub fn horiz_to_trace(&mut self, other: &Self) -> &mut Self {
         let target = other
@@ -361,6 +369,13 @@ impl Trace {
 
     pub fn contact_down(&mut self, rect: Rect) -> &mut Self {
         let intersect = Rect::from(self.rect.intersection(&rect.bbox()));
+        self.inner_contact_on(intersect);
+        self
+    }
+
+    pub fn contact_up(&mut self, rect: Rect) -> &mut Self {
+        let intersect = Rect::from(self.rect.intersection(&rect.bbox()));
+        self.layer += 1;
         self.inner_contact_on(intersect);
         self
     }

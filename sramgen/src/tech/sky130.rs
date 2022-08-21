@@ -173,7 +173,6 @@ pub fn rowend_gds(lib: &mut PdkLib) -> CellGdsResult {
         let cell = res.as_ref().unwrap();
         let cell = cell.read().unwrap();
         let abs = cell.abs.as_ref().unwrap();
-        println!("rowend ports: {:?}", &abs.ports);
     }
     res
 }

@@ -1,5 +1,8 @@
 use std::collections::HashMap;
+use std::fmt::Debug;
+use std::path::PathBuf;
 
+use pdkprims::PdkLib;
 use vlsir::{
     circuit::{connection::Stype, port, Connection, ExternalModule, Port, Signal, Slice},
     reference::To,
@@ -197,6 +200,13 @@ pub fn save_modules(name: &str, modules: Vec<Module>) -> Result<(), Box<dyn std:
     Ok(())
 }
 
+#[cfg(test)]
+pub(crate) fn test_path(lib: &PdkLib) -> PathBuf {
+    let mut path = PathBuf::from("/Users/rahul/acads/research/sky130/sram22/_build");
+    path.push(format!("{}.gds", &lib.lib.name));
+    path
+}
+
 /// Calculates log2(x). Not at all efficient or optimized.
 ///
 /// Behavior when x is not a power of 2 is undefined.
@@ -228,6 +238,12 @@ pub fn log2(mut x: usize) -> usize {
         ctr += 1;
     }
     ctr
+}
+
+#[cfg(test)]
+pub(crate) fn panic_on_err<E: Debug>(e: E) -> ! {
+    println!("ERROR: {e:?}");
+    panic!("ERROR: {e:?}");
 }
 
 #[cfg(test)]

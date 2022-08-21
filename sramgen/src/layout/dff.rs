@@ -28,13 +28,15 @@ pub fn draw_dff_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
 mod tests {
     use pdkprims::tech::sky130;
 
+    use crate::utils::test_path;
+
     use super::*;
     #[test]
     fn test_sky130_dff_array() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_dff_array")?;
         draw_dff_array(&mut lib, 16)?;
 
-        lib.save_gds()?;
+        lib.save_gds(test_path(&lib))?;
 
         Ok(())
     }
