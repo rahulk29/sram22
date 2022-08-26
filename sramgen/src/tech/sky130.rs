@@ -52,11 +52,9 @@ fn name_map(lib: &Library) -> HashMap<String, Ptr<Cell>> {
     map
 }
 
-fn cell_gds(
-    pdk_lib: &mut PdkLib,
-    gds_file: &str,
-    cell_name: &str,
-) -> Result<Ptr<Cell>, Box<dyn std::error::Error>> {
+type CellGdsResult = anyhow::Result<Ptr<Cell>>;
+
+fn cell_gds(pdk_lib: &mut PdkLib, gds_file: &str, cell_name: &str) -> CellGdsResult {
     let mut path = external_gds_path();
     path.push(gds_file);
     let lib = GdsLibrary::load(&path)?;
@@ -106,8 +104,6 @@ fn cell_gds(
 
     Ok(t_cell.map(Ptr::clone).unwrap())
 }
-
-type CellGdsResult = Result<Ptr<Cell>, Box<dyn std::error::Error>>;
 
 pub fn openram_dff_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(lib, "openram_dff.gds", "sky130_fd_bd_sram__openram_dff")

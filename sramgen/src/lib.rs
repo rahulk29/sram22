@@ -24,7 +24,7 @@ pub mod utils;
 pub mod wl_driver;
 pub mod write_driver;
 
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+pub use anyhow::Result;
 
 pub fn generate() -> Result<()> {
     let nmos = mos::ext_nmos();
@@ -47,7 +47,8 @@ pub fn generate() -> Result<()> {
         ctrls: vec![],
     };
 
-    vlsir::conv::save(&input, "hi.bin")?;
+    vlsir::conv::save(&input, "hi.bin").expect("Failed to save VLSIR data");
+
     Ok(())
 }
 
@@ -66,7 +67,7 @@ pub fn save_bin(name: &str, pkg: Package) -> Result<()> {
 
     let path = out_bin(name);
     std::fs::create_dir_all(path.parent().unwrap())?;
-    vlsir::conv::save(&input, path)?;
+    vlsir::conv::save(&input, path).expect("Failed to save VLSIR data");
 
     Ok(())
 }

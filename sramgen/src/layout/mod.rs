@@ -5,6 +5,7 @@ use layout21::{
 use pdkprims::PdkLib;
 
 use crate::tech::sram_sp_cell_gds;
+use crate::Result;
 
 pub mod array;
 pub mod bank;
@@ -16,8 +17,6 @@ pub mod mux;
 pub mod precharge;
 pub mod route;
 pub mod sense_amp;
-
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 pub fn draw_bitcell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "t_bitcell".to_string();
@@ -63,8 +62,8 @@ mod tests {
     use pdkprims::tech::sky130;
 
     use super::*;
-    use crate::layout::Result;
     use crate::utils::test_path;
+    use crate::Result;
 
     #[test]
     fn test_sky130_bitcell() -> Result<()> {

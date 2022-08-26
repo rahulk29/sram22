@@ -177,7 +177,7 @@ pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .direction(Dir::Horiz)
         .add_device(MosDevice {
             mos_type: MosType::Nmos,
-            width: 1_200,
+            width: 2_000,
             length: 150,
             fingers: 1,
             intent: Intent::Svt,
@@ -185,28 +185,44 @@ pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         });
     let ptx = lib.draw_mos(params)?;
 
-    let mos = Instance {
-        inst_name: "mos_1".to_string(),
-        cell: ptx.cell.clone(),
-        loc: Point::new(0, 0),
-        angle: Some(90f64),
-        reflect_vert: false,
-    };
-    let bbox = mos.bbox();
-    layout.insts.push(mos);
+    let mos_gnd = Instance::builder()
+        .inst_name("mos_1")
+        .cell(ptx.cell.clone())
+        .angle(90f64)
+        .build()?;
+
+    let bbox = mos_gnd.bbox();
+    layout.insts.push(mos_gnd);
+
+    let mut params = MosParams::new();
+    params
+        .dnw(false)
+        .direction(Dir::Horiz)
+        .add_device(MosDevice {
+            mos_type: MosType::Nmos,
+            width: 2_000,
+            length: 150,
+            fingers: 2,
+            intent: Intent::Svt,
+            skip_sd_metal: vec![],
+        });
+    let ptx = lib.draw_mos(params)?;
 
     let tc = lib.pdk.config();
     let tc = tc.read().unwrap();
 
     let space = tc.layer("diff").space;
 
-    layout.insts.push(Instance {
-        inst_name: "mos_2".to_string(),
-        cell: ptx.cell.clone(),
-        loc: Point::new(0, bbox.height() + space),
-        angle: Some(90f64),
-        reflect_vert: false,
-    });
+    let mos_bls = Instance::builder()
+        .inst_name("mos_2")
+        .cell(ptx.cell.clone())
+        .angle(90f64)
+        .loc(Point::new(0, bbox.height() + space))
+        .build()?;
+
+    layout.insts.push(mos_bls.clone());
+
+    let mut router = Router::new("write_mux_route", lib.clone());
 
     let cell = Cell {
         name,
