@@ -105,14 +105,9 @@ impl Router {
         trace
     }
 
+    #[inline]
     pub fn finish(self) -> Instance {
-        Instance {
-            inst_name: "__route".to_string(),
-            cell: self.cell,
-            loc: Point::new(0, 0),
-            angle: None,
-            reflect_vert: false,
-        }
+        Instance::new("__route", self.cell)
     }
 }
 

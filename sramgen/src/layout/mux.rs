@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
-use layout21::raw::{Abstract, Element, Int, Rect, Shape, Span};
+use layout21::raw::{Abstract, AbstractPort, Element, Int, Rect, Shape, Span};
 use layout21::{
     raw::{BoundBoxTrait, Cell, Instance, Layout, Point},
     utils::Ptr,
@@ -164,14 +164,12 @@ pub fn draw_read_mux_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell
 }
 
 pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
-    let name = "write_mux".to_string();
+    let name = "write_mux";
 
-    let mut layout = Layout {
-        name: name.clone(),
-        insts: vec![],
-        elems: vec![],
-        annotations: vec![],
-    };
+    let mut layout = Layout::new(name);
+    let mut abs = Abstract::new(name);
+    let mut router = Router::new("write_mux_route", lib.clone());
+    let m0 = lib.pdk.metal(0);
 
     let mut params = MosParams::new();
     params
@@ -192,6 +190,10 @@ pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .cell(ptx.cell.clone())
         .angle(90f64)
         .build()?;
+
+    let mut port = mos_gnd.port("sd_0_0");
+    port.set_net("vss");
+    abs.add_port(port);
 
     let bbox = mos_gnd.bbox();
     layout.insts.push(mos_gnd.clone());
@@ -222,10 +224,15 @@ pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .loc(Point::new(0, bbox.height() + space))
         .build()?;
 
+    let ports = [(0, "bl"), (2, "br")];
+    for (idx, name) in ports {
+        let mut port = mos_bls.port(format!("sd_0_{idx}"));
+        port.set_net(name);
+        abs.add_port(port);
+    }
+
     layout.insts.push(mos_bls.clone());
 
-    let mut router = Router::new("write_mux_route", lib.clone());
-    let m0 = lib.pdk.metal(0);
     let mut trace = router.trace(mos_bls.port(format!("sd_0_1")).largest_rect(m0).unwrap(), 0);
     trace
         .contact_up(trace.rect())
@@ -246,8 +253,8 @@ pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     layout.insts.push(router.finish());
 
     let cell = Cell {
-        name,
-        abs: None,
+        name: name.to_string(),
+        abs: Some(abs),
         layout: Some(layout),
     };
 
@@ -258,6 +265,9 @@ pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 }
 
 pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+    assert!(width >= 2);
+    assert_eq!(width % 2, 0);
+
     let mux = draw_write_mux(lib)?;
     let muxes = draw_cell_array(
         ArrayCellParams {
@@ -290,13 +300,66 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
 
     let name = "write_mux_array";
     let mut layout = Layout::new(name);
+    let mut abs = Abstract::new(name);
 
     let core_inst = Instance::new("write_mux_core_array", muxes.cell.clone());
     let mut tap_inst = Instance::new("write_mux_tap_array", taps.cell.clone());
     tap_inst.align_centers_gridded(core_inst.bbox(), lib.pdk.grid());
 
+    let mut router = Router::new("write_mux_array_route", lib.clone());
+    let m0 = router.cfg().layerkey(0);
+    let m1 = router.cfg().layerkey(1);
+    let m2 = router.cfg().layerkey(2);
+
+    let mut span = Span::new(0, 0);
+
+    for i in 0..width {
+        let src = core_inst.port(format!("vss_{i}")).largest_rect(m0).unwrap();
+        let dst = tap_inst
+            .port(format!("vss_{}", (i + 1) / 2))
+            .largest_rect(m0)
+            .unwrap();
+        let dst = router.trace(dst, 0);
+        let mut trace = router.trace(src, 0);
+        trace.place_cursor_centered().horiz_to_trace(&dst);
+        span = trace.rect().vspan();
+
+        abs.add_port(core_inst.port(format!("bl_{i}")));
+        abs.add_port(core_inst.port(format!("br_{i}")));
+    }
+
+    let start = tap_inst.port("vss_0").largest_rect(m1).unwrap();
+    let end = tap_inst
+        .port(format!("vss_{}", width / 2))
+        .largest_rect(m1)
+        .unwrap();
+
+    let length = span.length();
+    span.expand(true, length).expand(false, length);
+
+    let rect = Rect::span_builder()
+        .with(Dir::Horiz, Span::new(start.left(), end.right()))
+        .with(Dir::Vert, span)
+        .build();
+
+    let mut trace = router.trace(rect, 2);
+
+    for i in 0..(width / 2 + 1) {
+        let target = tap_inst.port(format!("vss_{i}")).largest_rect(m0).unwrap();
+        trace.contact_on(
+            target.intersection(&trace.rect().into()).into_rect(),
+            VertDir::Below,
+            ContactBounds::Minimum,
+        );
+    }
+
+    let mut port = AbstractPort::new("vss");
+    port.add_shape(m2, Shape::Rect(rect));
+    abs.add_port(port);
+
     layout.add_inst(core_inst);
     layout.add_inst(tap_inst);
+    layout.add_inst(router.finish());
 
     Ok(Ptr::new(Cell {
         name: name.into(),
@@ -334,8 +397,8 @@ fn draw_write_mux_tap_cell(lib: &mut PdkLib, height: Int) -> Result<Ptr<Cell>> {
         .build()?;
     ct_inst.align_centers_gridded(tap_inst.bbox(), lib.pdk.grid());
 
-    let mut port = tap_inst.port("x");
-    port.set_net("VDD");
+    let mut port = ct_inst.port("x");
+    port.set_net("vss");
     abs.add_port(port);
 
     layout.insts.push(tap_inst);
