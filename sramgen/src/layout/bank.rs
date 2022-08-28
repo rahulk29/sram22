@@ -83,7 +83,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut write_mux = Instance {
-        cell: write_mux.cell,
+        cell: write_mux,
         inst_name: "write_mux_array".to_string(),
         reflect_vert: false,
         angle: None,

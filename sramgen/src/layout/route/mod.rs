@@ -10,6 +10,11 @@ use layout21::{
     utils::Ptr,
 };
 
+pub enum VertDir {
+    Above,
+    Below,
+}
+
 pub mod grid;
 
 pub struct RouterConfig {
@@ -49,7 +54,7 @@ impl RouterConfig {
             1 => "viali",
             2 => "via1",
             3 => "via2",
-            _ => todo!(),
+            _ => panic!("No stack for layer index {}", layer),
         }
     }
 }
@@ -190,6 +195,16 @@ pub fn gridded_center_span(center: Int, span: Int, grid: Int) -> (Int, Int) {
     assert!(xmax - xmin == span);
 
     (xmin, xmax)
+}
+
+pub enum ContactBounds {
+    /// Place a minimum size contact, even if it requires expanding all layers.
+    Minimum,
+    /// Fit the contact into the given rectangle on all layers.
+    Fit(Rect),
+    /// Fit the contact into the given rectangle on the specified layer.
+    /// All other layers can be expanded.
+    FitOne(LayerKey, Rect),
 }
 
 impl Trace {
@@ -352,44 +367,77 @@ impl Trace {
     }
 
     pub fn up(&mut self) -> &mut Self {
-        self.layer += 1;
-        // important: increment self.layer, then place the contact
         let rect = self.cursor_rect();
-        self.inner_contact_on(rect);
+        self.contact_on(rect, VertDir::Above, ContactBounds::Minimum);
+        self.layer += 1;
         self
     }
 
     pub fn down(&mut self) -> &mut Self {
         let rect = self.cursor_rect();
-        // important: place the contact, then decrement self.layer
-        self.inner_contact_on(rect);
+        self.contact_on(rect, VertDir::Below, ContactBounds::Minimum);
         self.layer -= 1;
         self
     }
 
     pub fn contact_down(&mut self, rect: Rect) -> &mut Self {
         let intersect = Rect::from(self.rect.intersection(&rect.bbox()));
-        self.inner_contact_on(intersect);
+        self.contact_on(
+            intersect,
+            VertDir::Below,
+            ContactBounds::FitOne(self.cfg.layerkey(self.layer), intersect),
+        );
         self
     }
 
     pub fn contact_up(&mut self, rect: Rect) -> &mut Self {
         let intersect = Rect::from(self.rect.intersection(&rect.bbox()));
-        self.layer += 1;
-        self.inner_contact_on(intersect);
+        self.contact_on(
+            intersect,
+            VertDir::Above,
+            ContactBounds::FitOne(self.cfg.layerkey(self.layer), intersect),
+        );
         self
     }
 
-    fn inner_contact_on(&mut self, rect: Rect) {
-        let ct = self.cfg.pdk.get_contact(
-            &ContactParams::builder()
-                .rows(1)
-                .cols(1)
-                .dir(rect.longer_dir())
-                .stack(self.cfg.stack(self.layer).to_string())
-                .build()
+    pub fn increment_layer(&mut self) -> &mut Self {
+        self.layer += 1;
+        self
+    }
+
+    pub fn decrement_layer(&mut self) -> &mut Self {
+        self.layer -= 1;
+        self
+    }
+
+    /// If bounded, place contacts only within `rect`.
+    pub fn contact_on(
+        &mut self,
+        rect: Rect,
+        vert_dir: VertDir,
+        bounds: ContactBounds,
+    ) -> &mut Self {
+        let stack_layer = match vert_dir {
+            VertDir::Above => self.layer + 1,
+            VertDir::Below => self.layer,
+        };
+        let min_params = ContactParams::builder()
+            .rows(1)
+            .cols(1)
+            .dir(rect.longer_dir())
+            .stack(self.cfg.stack(stack_layer).to_string())
+            .build()
+            .unwrap();
+        let ct = match bounds {
+            ContactBounds::Minimum => self.cfg.pdk.get_contact(&min_params),
+            ContactBounds::FitOne(layerkey, rect) => self
+                .cfg
+                .pdk
+                .get_contact_within(self.cfg.stack(stack_layer), layerkey, rect)
+                .or_else(|| Some(self.cfg.pdk.get_contact(&min_params)))
                 .unwrap(),
-        );
+            _ => todo!(),
+        };
 
         self.ctr += 1;
 
@@ -403,6 +451,7 @@ impl Trace {
 
         inst.align_centers_gridded(rect.into(), self.grid());
         self.add_inst(inst);
+        self
     }
 
     fn grid(&self) -> Int {
