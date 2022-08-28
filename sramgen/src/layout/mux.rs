@@ -311,13 +311,15 @@ fn draw_write_mux_tap_cell(lib: &mut PdkLib, height: Int) -> Result<Ptr<Cell>> {
     let mut abs = Abstract::new(name);
 
     let m0 = lib.pdk.metal(0);
+    let m1 = lib.pdk.metal(1);
+
     let tap = lib
         .pdk
         .get_contact_sized("ptap", m0, height)
         .ok_or_else(|| anyhow!("Failed to generate contact of correct size"))?;
     let ct = lib
         .pdk
-        .get_contact_sized("viali", m0, height)
+        .get_contact_sized("viali", m1, height)
         .ok_or_else(|| anyhow!("Failed to generate contact of correct size"))?;
 
     let tap_inst = Instance::builder()
