@@ -2,9 +2,8 @@
 
 ## A Configurable SRAM Generator
 
-![test](https://github.com/rahulk29/sram22/actions/workflows/ci.yaml/badge.svg)
-
 Sram22 parametrically generates SRAM blocks. At the moment, we only support the SKY130 process.
+Sram22 is still a work in progress.
 
 ### Usage
 
@@ -44,6 +43,6 @@ See the `tech/sky130/` directory for an example of how to set up a new process t
 
 In order to use Sram22, your system will need to have the following components:
 
-- Rust (Sram22 is tested with version 1.58.1)
-- Magic (version 8.3.X)
+- Rust (Sram22 is tested with version 1.63.0)
+- Cmake
 
