@@ -20,6 +20,7 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "read_mux".to_string();
 
     let mut layout = Layout::new(&name);
+    let mut abs = Abstract::new(&name);
 
     let mut params = MosParams::new();
     params
@@ -83,7 +84,18 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let mut router = Router::new("read_mux_route", lib.clone());
     let mut traces = Vec::with_capacity(5);
 
-    for i in [-track - 2, -track, -1, 1, track, track + 2] {
+    let cfg = router.cfg();
+    let m0 = cfg.layerkey(0);
+    let m1 = cfg.layerkey(1);
+
+    for (i, port) in [
+        (-track - 2, "br_0"),
+        (-track, "bl_0"),
+        (-1, "bl_out"),
+        (1, "br_out"),
+        (track, "bl_1"),
+        (track + 2, "br_1"),
+    ] {
         let rect = Rect::span_builder()
             .with(Dir::Horiz, grid.vtrack(i))
             .with(Dir::Vert, Span::new(bbox.bottom(), bbox.top()))
@@ -95,10 +107,10 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
             inner: Shape::Rect(rect),
             purpose: layout21::raw::LayerPurpose::Drawing,
         });
+        let mut port = AbstractPort::new(port);
+        port.add_shape(m1, Shape::Rect(rect));
+        abs.add_port(port);
     }
-
-    let cfg = router.cfg();
-    let m0 = cfg.layerkey(0);
 
     let src = mos1.port("sd_1_1").largest_rect(m0).unwrap();
     let mut tbr = router.trace(src, 0);
@@ -136,7 +148,7 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     let cell = Cell {
         name,
-        abs: None,
+        abs: Some(abs),
         layout: Some(layout),
     };
 
@@ -170,6 +182,7 @@ pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let mut abs = Abstract::new(name);
     let mut router = Router::new("write_mux_route", lib.clone());
     let m0 = lib.pdk.metal(0);
+    let m1 = lib.pdk.metal(1);
 
     let mut params = MosParams::new();
     params
@@ -224,13 +237,6 @@ pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .loc(Point::new(0, bbox.height() + space))
         .build()?;
 
-    let ports = [(0, "bl"), (2, "br")];
-    for (idx, name) in ports {
-        let mut port = mos_bls.port(format!("sd_0_{idx}"));
-        port.set_net(name);
-        abs.add_port(port);
-    }
-
     layout.insts.push(mos_bls.clone());
 
     let mut trace = router.trace(mos_bls.port(format!("sd_0_1")).largest_rect(m0).unwrap(), 0);
@@ -247,8 +253,15 @@ pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     let mut trace = router.trace(mos_bls.port(format!("sd_0_0")).largest_rect(m0).unwrap(), 0);
     trace.contact_up(trace.rect());
+    let mut port = AbstractPort::new("br");
+    port.add_shape(m1, Shape::Rect(trace.rect()));
+    abs.add_port(port);
+
     let mut trace = router.trace(mos_bls.port(format!("sd_0_2")).largest_rect(m0).unwrap(), 0);
     trace.contact_up(trace.rect());
+    let mut port = AbstractPort::new("bl");
+    port.add_shape(m1, Shape::Rect(trace.rect()));
+    abs.add_port(port);
 
     layout.insts.push(router.finish());
 
@@ -364,7 +377,7 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
     Ok(Ptr::new(Cell {
         name: name.into(),
         layout: Some(layout),
-        abs: None,
+        abs: Some(abs),
     }))
 }
 
@@ -378,22 +391,20 @@ fn draw_write_mux_tap_cell(lib: &mut PdkLib, height: Int) -> Result<Ptr<Cell>> {
 
     let tap = lib
         .pdk
-        .get_contact_sized("ptap", m0, height)
+        .get_contact_sized("ptap", Dir::Vert, m0, height)
         .ok_or_else(|| anyhow!("Failed to generate contact of correct size"))?;
     let ct = lib
         .pdk
-        .get_contact_sized("viali", m1, height)
+        .get_contact_sized("viali", Dir::Vert, m1, height)
         .ok_or_else(|| anyhow!("Failed to generate contact of correct size"))?;
 
     let tap_inst = Instance::builder()
         .inst_name("tap")
         .cell(tap.cell.clone())
-        .angle(90f64)
         .build()?;
     let mut ct_inst = Instance::builder()
         .inst_name("contact")
         .cell(ct.cell.clone())
-        .angle(90f64)
         .build()?;
     ct_inst.align_centers_gridded(tap_inst.bbox(), lib.pdk.grid());
 

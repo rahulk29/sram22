@@ -200,6 +200,12 @@ pub enum ContactBounds {
     /// Fit the contact into the given rectangle on the specified layer.
     /// All other layers can be expanded.
     FitOne(LayerKey, Rect),
+    /// Fill contacts within the given size in the given direction on the given layer
+    FillDir {
+        dir: Dir,
+        size: Int,
+        layer: LayerKey,
+    },
 }
 
 impl Trace {
@@ -429,6 +435,12 @@ impl Trace {
                 .cfg
                 .pdk
                 .get_contact_within(self.cfg.stack(stack_layer), layerkey, rect)
+                .or_else(|| Some(self.cfg.pdk.get_contact(&min_params)))
+                .unwrap(),
+            ContactBounds::FillDir { dir, layer, size } => self
+                .cfg
+                .pdk
+                .get_contact_sized(self.cfg.stack(stack_layer), dir, layer, size)
                 .or_else(|| Some(self.cfg.pdk.get_contact(&min_params)))
                 .unwrap(),
             _ => todo!(),

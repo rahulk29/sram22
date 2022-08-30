@@ -201,6 +201,9 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let pc_midpt = Span::new(pc_top, core_bot).center();
 
     for i in 0..cols {
+        let mut bl_rect = Rect::new(Point::zero(), Point::zero());
+        let mut br_rect = Rect::new(Point::zero(), Point::zero());
+
         for j in 0..2 {
             let bl = if j == 0 { "bl" } else { "br" };
             let src = core.port(format!("bl{j}_{}", i)).largest_rect(m1).unwrap();
@@ -219,6 +222,12 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
                 .vert_to(pc_midpt)
                 .horiz_to(target)
                 .vert_to(bl0.bottom());
+
+            if j == 0 {
+                bl_rect = trace.rect();
+            } else {
+                br_rect = trace.rect();
+            }
 
             let mut t0 = router.trace(bl0, 0);
             t0.place_cursor_centered().horiz_to_trace(&trace).up();
@@ -242,6 +251,34 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
         let mut trace = router.trace(vdd1, 0);
         trace.place_cursor_centered().horiz_to(vdd_tap_left.right());
+
+        let mut trace = router.trace(bl_rect, 1);
+        let dst = read_mux
+            .port(format!("bl_{}_{}", i % 2, i / 2))
+            .largest_rect(m1)
+            .unwrap();
+        let dst2 = write_mux
+            .port(format!("bl_{}", i))
+            .largest_rect(m1)
+            .unwrap();
+        trace.s_bend(dst, Dir::Vert).s_bend(dst2, Dir::Vert);
+
+        let mut trace = router.trace(br_rect, 1);
+        let dst = read_mux
+            .port(format!("br_{}_{}", i % 2, i / 2))
+            .largest_rect(m1)
+            .unwrap();
+        let dst2 = write_mux
+            .port(format!("br_{}", i))
+            .largest_rect(m1)
+            .unwrap();
+        trace.s_bend(dst, Dir::Vert).s_bend(dst2, Dir::Vert);
+
+        let src = read_mux
+            .port(format!("bl_out_{}", i / 2))
+            .largest_rect(m1)
+            .unwrap();
+        let mut trace = router.trace(src, 1);
     }
 
     connect(ConnectArgs {

@@ -1,6 +1,6 @@
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
-use layout21::raw::{Abstract, BoundBoxTrait, TransformTrait};
+use layout21::raw::{Abstract, AbstractPort, BoundBoxTrait, Rect, Shape, Span, TransformTrait};
 use layout21::{
     raw::{Cell, Instance, Layout, Point},
     utils::Ptr,
@@ -12,6 +12,7 @@ use pdkprims::{
 };
 
 use super::array::*;
+use crate::layout::route::{ContactBounds, Router, VertDir};
 use crate::Result;
 
 fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
@@ -217,8 +218,53 @@ pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
     abs.ports.extend(iter);
     abs.ports.append(&mut taps.ports());
 
+    let m0 = lib.pdk.metal(0);
+    let m2 = lib.pdk.metal(2);
+
+    let mut router = Router::new("precharge_array_route", lib.clone());
+    router.cfg().line(2);
+
+    let pc_b_0 = core.port("pc_b_0").largest_rect(m0).unwrap();
+
+    let span = Span::new(
+        pc_b_0.left(),
+        core.port(format!("pc_b_{}", width - 1))
+            .largest_rect(m0)
+            .unwrap()
+            .right(),
+    );
+    let top = pc_b_0.bottom();
+    let rect = Rect::span_builder()
+        .with(Dir::Horiz, span)
+        .with(Dir::Vert, Span::new(top - 3 * router.cfg().line(2), top))
+        .build();
+
+    router.trace(rect, 2);
+
+    let mut port = AbstractPort::new("pc_b");
+    port.add_shape(m2, Shape::Rect(rect));
+    abs.add_port(port);
+
+    for i in 0..width {
+        let src = core.port(format!("pc_b_{i}")).largest_rect(m0).unwrap();
+        let mut trace = router.trace(src, 0);
+        trace.place_cursor(Dir::Vert, false).vert_to(rect.bottom());
+
+        let intersect = trace.rect().intersection(&rect.bbox()).into_rect();
+        trace.contact_up(rect).increment_layer().contact_on(
+            intersect,
+            VertDir::Above,
+            ContactBounds::FillDir {
+                dir: Dir::Vert,
+                size: rect.height(),
+                layer: lib.pdk.metal(1),
+            },
+        );
+    }
+
     layout.add_inst(core);
     layout.add_inst(taps);
+    layout.add_inst(router.finish());
 
     Ok(Ptr::new(Cell {
         name: "precharge_array".to_string(),
