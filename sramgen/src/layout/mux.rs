@@ -112,6 +112,14 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         abs.add_port(port);
     }
 
+    let mut port = mos1.port("gate_0");
+    port.set_net("sel");
+    abs.add_port(port);
+
+    let mut port = mos2.port("gate_0");
+    port.set_net("sel_b");
+    abs.add_port(port);
+
     let src = mos1.port("sd_1_1").largest_rect(m0).unwrap();
     let mut tbr = router.trace(src, 0);
     tbr.place_cursor_centered().horiz_to_trace(&traces[1]).up();
@@ -158,12 +166,18 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_read_mux_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
+pub fn draw_read_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+    let name = "read_mux_array";
+    let mut layout = Layout::new(name);
+    let mut abs = Abstract::new(name);
+    let tc = lib.pdk.config();
+    let tc = tc.read().unwrap();
+
     let mux = draw_read_mux(lib)?;
 
-    draw_cell_array(
+    let cell = draw_cell_array(
         ArrayCellParams {
-            name: "read_mux_array".to_string(),
+            name: "read_mux_array_core".to_string(),
             num: width,
             cell: mux,
             spacing: Some(2_500 * 2),
@@ -172,7 +186,67 @@ pub fn draw_read_mux_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell
             direction: Dir::Horiz,
         },
         lib,
-    )
+    )?;
+
+    let inst = Instance::new("read_mux_array_core", cell.cell);
+
+    for port in inst.ports() {
+        abs.add_port(port);
+    }
+
+    layout.insts.push(inst.clone());
+    let bbox = layout.bbox().into_rect();
+
+    let mut router = Router::new("read_mux_array_route", lib.clone());
+
+    // Route gate signals
+    let grid = Grid::builder()
+        .line(3 * tc.layer("m2").width)
+        .space(tc.layer("m2").space)
+        .center(Point::zero())
+        .grid(tc.grid)
+        .build()?;
+
+    let track = grid.get_track_index(Dir::Horiz, bbox.bottom(), TrackLocator::EndsBefore);
+    let rect = Rect::span_builder()
+        .with(Dir::Vert, grid.htrack(track))
+        .with(Dir::Horiz, bbox.hspan())
+        .build();
+    let sel_m2 = router.trace(rect, 2);
+
+    let rect = Rect::span_builder()
+        .with(Dir::Vert, grid.htrack(track - 1))
+        .with(Dir::Horiz, bbox.hspan())
+        .build();
+    let sel_b_m2 = router.trace(rect, 2);
+
+    for i in 0..width {
+        let m0 = router.cfg().layerkey(0);
+        let src = inst.port(format!("sel_{i}")).largest_rect(m0).unwrap();
+        let mut trace = router.trace(src, 0);
+        trace
+            .place_cursor(Dir::Vert, false)
+            .vert_to(sel_m2.rect().bottom())
+            .contact_up(sel_m2.rect())
+            .increment_layer()
+            .contact_up(sel_m2.rect());
+        let src = inst.port(format!("sel_b_{i}")).largest_rect(m0).unwrap();
+        let mut trace = router.trace(src, 0);
+        trace
+            .place_cursor(Dir::Vert, false)
+            .vert_to(sel_b_m2.rect().bottom())
+            .contact_up(sel_b_m2.rect())
+            .increment_layer()
+            .contact_up(sel_b_m2.rect());
+    }
+
+    layout.insts.push(router.finish());
+
+    Ok(Ptr::new(Cell {
+        name: name.into(),
+        layout: Some(layout),
+        abs: Some(abs),
+    }))
 }
 
 pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {

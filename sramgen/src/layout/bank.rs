@@ -75,7 +75,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut read_mux = Instance {
-        cell: read_mux.cell,
+        cell: read_mux,
         inst_name: "read_mux_array".to_string(),
         reflect_vert: false,
         angle: None,
@@ -197,7 +197,9 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     }
 
     let core_bot = core.bbox().into_rect().bottom();
-    let pc_top = pc.bbox().into_rect().top();
+    let pc_bbox = pc.bbox().into_rect();
+    let read_mux_bbox = read_mux.bbox().into_rect();
+    let pc_top = pc_bbox.top();
     let pc_midpt = Span::new(pc_top, core_bot).center();
 
     for i in 0..cols {
@@ -261,7 +263,12 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .port(format!("bl_{}", i))
             .largest_rect(m1)
             .unwrap();
-        trace.s_bend(dst, Dir::Vert).s_bend(dst2, Dir::Vert);
+        trace
+            .place_cursor(Dir::Vert, false)
+            .vert_to(pc_bbox.bottom())
+            .s_bend(dst, Dir::Vert)
+            .vert_to(read_mux_bbox.bottom())
+            .s_bend(dst2, Dir::Vert);
 
         let mut trace = router.trace(br_rect, 1);
         let dst = read_mux
@@ -272,7 +279,12 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .port(format!("br_{}", i))
             .largest_rect(m1)
             .unwrap();
-        trace.s_bend(dst, Dir::Vert).s_bend(dst2, Dir::Vert);
+        trace
+            .place_cursor(Dir::Vert, false)
+            .vert_to(pc_bbox.bottom())
+            .s_bend(dst, Dir::Vert)
+            .vert_to(read_mux_bbox.bottom())
+            .s_bend(dst2, Dir::Vert);
 
         let src = read_mux
             .port(format!("bl_out_{}", i / 2))
