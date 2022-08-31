@@ -42,6 +42,7 @@ The output `dout` is routed to the sense amps.
 During read, BL at VDD, BR decreases from VDD.
 Read mux sets bl-read to one of the two.
 
+The same set of select signals are sent to each of the read muxes.
 
 ## Control Signals
 

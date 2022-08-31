@@ -47,26 +47,43 @@ impl Grid {
     /// Gets the index of the track in the given direction nearest to `pos`.
     pub fn get_track_index(&self, dir: Dir, pos: Int, loc: TrackLocator) -> Int {
         let m = self.line + self.space;
-        let idx = round(pos - self.center.coord(!dir), m) / m;
-        let track = self.track(dir, idx);
+        let mut idx = round(pos - self.center.coord(!dir), m) / m;
+        println!("pos = {pos}, idx = {idx}");
 
+        // FIXME: should not need a loop here...
+        let idx = loop {
+            let track = self.track(dir, idx);
+            match loc {
+                TrackLocator::Nearest => break idx,
+                TrackLocator::StartsBeyond => {
+                    if pos > track.start() {
+                        idx += 1;
+                    } else {
+                        break idx;
+                    }
+                }
+                TrackLocator::EndsBefore => {
+                    if track.stop() <= pos {
+                        break idx;
+                    } else {
+                        idx -= 1;
+                    }
+                }
+            }
+        };
+
+        let span = self.track(dir, idx);
         match loc {
-            TrackLocator::Nearest => idx,
-            TrackLocator::StartsBeyond => {
-                if pos > track.start() {
-                    idx + 1
-                } else {
-                    idx
-                }
-            }
             TrackLocator::EndsBefore => {
-                if track.stop() <= pos {
-                    idx
-                } else {
-                    idx - 1
-                }
+                debug_assert!(span.stop() <= pos);
             }
-        }
+            TrackLocator::StartsBeyond => {
+                debug_assert!(span.start() >= pos);
+            }
+            _ => (),
+        };
+
+        idx
     }
 
     /// Gets the track in the given direction nearest to `pos`.
