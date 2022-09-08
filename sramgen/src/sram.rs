@@ -12,7 +12,6 @@ use crate::{
     },
     precharge::{precharge_array, PrechargeArrayParams, PrechargeParams},
     sense_amp::{sense_amp_array, SenseAmpArrayParams},
-    tech::sramgen_control_ref,
     utils::{
         bus, conn_map, conns::conn_slice, local_reference, port_inout, port_input, port_output,
         sig_conn, signal,
@@ -81,6 +80,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         name: "precharge_array".to_string(),
         width: cols as i64,
         instance_params: PrechargeParams {
+            name: "precharge".to_string(),
             length: 150,
             pull_up_width: 2_000,
             equalizer_width: 1_000,

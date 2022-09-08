@@ -13,12 +13,15 @@ use crate::{
     utils::{bus, port_inout, port_input, sig_conn, signal},
 };
 
+#[derive(Debug, Clone)]
 pub struct PrechargeParams {
+    pub name: String,
     pub length: Int,
     pub pull_up_width: Int,
     pub equalizer_width: Int,
 }
 
+#[derive(Debug, Clone)]
 pub struct PrechargeArrayParams {
     pub width: i64,
     pub instance_params: PrechargeParams,
@@ -28,7 +31,7 @@ pub struct PrechargeArrayParams {
 pub fn precharge_array(params: PrechargeArrayParams) -> Vec<Module> {
     assert!(params.width > 0);
 
-    let pc = precharge(params.instance_params);
+    let pc = precharge(params.instance_params.clone());
 
     let vdd = signal("vdd");
     let en_b = signal("en_b");
@@ -77,7 +80,7 @@ pub fn precharge_array(params: PrechargeArrayParams) -> Vec<Module> {
         m.instances.push(vlsir::circuit::Instance {
             name: format!("precharge_{}", i),
             module: Some(Reference {
-                to: Some(To::Local("precharge".to_string())),
+                to: Some(To::Local(params.instance_params.name.clone())),
             }),
             parameters: HashMap::new(),
             connections,
@@ -103,7 +106,7 @@ pub fn precharge(params: PrechargeParams) -> Module {
     ];
 
     let mut m = Module {
-        name: "precharge".to_string(),
+        name: params.name,
         ports,
         signals: vec![],
         instances: vec![],
@@ -165,6 +168,7 @@ mod tests {
     #[test]
     fn test_netlist_precharge() -> Result<(), Box<dyn std::error::Error>> {
         let pc = precharge(PrechargeParams {
+            name: "precharge_inst".to_string(),
             length: 150,
             pull_up_width: 1_400,
             equalizer_width: 800,
@@ -188,6 +192,7 @@ mod tests {
             name: "precharge_array_64".to_string(),
             width: 64,
             instance_params: PrechargeParams {
+                name: "precharge_inst".to_string(),
                 length: 150,
                 pull_up_width: 1_400,
                 equalizer_width: 800,

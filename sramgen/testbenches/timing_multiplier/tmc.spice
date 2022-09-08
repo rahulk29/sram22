@@ -21,7 +21,7 @@ Vsae_in sae_in 0 dc 0 PULSE(0 {vdd} 300p {tr} {tf} 1u 2u 0)
 Vdd vdd 0 {vdd}
 
 .control
-tran 5p 1.6n 0u
+tran 5p 20n 0u
 wrdata tmc.dat
 + v(clk)
 + v(sae_in)

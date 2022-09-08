@@ -36,15 +36,30 @@ Xnand a b y_bar vdd vss control_logic_nand0
 Xinv y_bar y vdd vss control_logic_inv0
 .ends
 
-.subckt sramgen_control clk cs we pc pc_b wl_en write_driver_en sense_en vdd vss
+.subckt sramgen_control clk cs we sae_i pc pc_b wl_en write_driver_en sense_en vdd vss
+* INPUT: clk cs we sae_i
+* OUTPUT: pc pc_b wl_en write_driver_en sense_en
+* INOUT: vdd vss
+
+* PC = CLK && CS
 Xand0 clk cs pc vdd vss control_logic_and0
+
+* PC_B = !PC
 Xinv_pc pc pc_b vdd vss control_logic_inv0
+
+* CLK_B = !CLK
 Xinv_clk clk clk_b vdd vss control_logic_inv0
+
+* CLK_B_GATED = CLK_B && CS
 Xand1 clk_b cs clk_b_gated vdd vss control_logic_and0
-Xdelay_wl_en clk_b_gated wl_en vdd vss control_logic_delay_chain
+
+* WRITE_DRIVER_EN = CLK_B_GATED && WE
 Xand2 clk_b_gated we write_driver_en vdd vss control_logic_and0
-CL sense_en vss 10f
-Xdelay_sense_en_0 wl_en tmp0 vdd vss control_logic_delay_chain
-Xdelay_sense_en_1 tmp0 sense_en vdd vss control_logic_delay_chain
+
+* WL_EN = delay(CLK_B_GATED)
+Xdelay_wl_en clk_b_gated clk_b_gated_b wl_en vdd vss control_logic_delay_chain
+
+* SENSE_EN = delay WL_EN by 3 times T(sae_i) - T(wl_en)
+Xtmc wl_en sae_i sense_en vdd vss timing_multiplier_3
 .ends
 
