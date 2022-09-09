@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::gate::{GateParams, Size};
 use crate::layout::Result;
 use layout21::raw::geom::Dir;
 use layout21::{
@@ -13,17 +14,23 @@ use pdkprims::{
 
 use super::draw_rect;
 
-pub fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
-    let name = "nand2_dec".to_string();
+pub fn draw_nand2_dec(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+    draw_nand2(
+        lib,
+        GateParams {
+            name: "nand2_dec".to_string(),
+            size: Size {
+                nmos_width: 1_600,
+                pmos_width: 2_400,
+            },
+            length: 150,
+        },
+    )
+}
 
-    let mut layout = Layout {
-        name: name.clone(),
-        insts: vec![],
-        elems: vec![],
-        annotations: vec![],
-    };
-
-    let mut abs = Abstract::new(&name);
+pub fn draw_nand2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
+    let mut layout = Layout::new(&args.name);
+    let mut abs = Abstract::new(&args.name);
 
     let mut params = MosParams::new();
     params
@@ -31,29 +38,23 @@ pub fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .direction(Dir::Horiz)
         .add_device(MosDevice {
             mos_type: MosType::Nmos,
-            width: 1_800,
-            length: 150,
+            width: args.size.nmos_width,
+            length: args.length,
             fingers: 2,
             intent: Intent::Svt,
             skip_sd_metal: vec![1],
         })
         .add_device(MosDevice {
             mos_type: MosType::Pmos,
-            width: 2_400,
-            length: 150,
+            width: args.size.pmos_width,
+            length: args.length,
             fingers: 2,
             intent: Intent::Svt,
             skip_sd_metal: vec![],
         });
     let ptx = lib.draw_mos(params)?;
 
-    layout.insts.push(Instance {
-        inst_name: "mos".to_string(),
-        cell: ptx.cell.clone(),
-        loc: Point::new(0, 0),
-        angle: None,
-        reflect_vert: false,
-    });
+    layout.insts.push(Instance::new("mos", ptx.cell.clone()));
 
     let tc = lib.pdk.config.read().unwrap();
 
@@ -114,7 +115,7 @@ pub fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     abs.add_port(port_y);
 
     let cell = Cell {
-        name,
+        name: args.name,
         abs: Some(abs),
         layout: Some(layout),
     };
@@ -126,16 +127,22 @@ pub fn draw_nand2(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 }
 
 pub fn draw_inv_dec(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
-    let name = "inv_dec".to_string();
+    draw_inv(
+        lib,
+        GateParams {
+            name: "inv_dec".to_string(),
+            size: Size {
+                nmos_width: 2_000,
+                pmos_width: 2_800,
+            },
+            length: 150,
+        },
+    )
+}
 
-    let mut layout = Layout {
-        name: name.clone(),
-        insts: vec![],
-        elems: vec![],
-        annotations: vec![],
-    };
-
-    let mut abs = Abstract::new(name.clone());
+pub fn draw_inv(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
+    let mut layout = Layout::new(&args.name);
+    let mut abs = Abstract::new(&args.name);
 
     let mut params = MosParams::new();
     params
@@ -143,16 +150,16 @@ pub fn draw_inv_dec(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .direction(Dir::Horiz)
         .add_device(MosDevice {
             mos_type: MosType::Nmos,
-            width: 2_000,
-            length: 150,
+            width: args.size.nmos_width,
+            length: args.length,
             fingers: 1,
             intent: Intent::Svt,
             skip_sd_metal: vec![],
         })
         .add_device(MosDevice {
             mos_type: MosType::Pmos,
-            width: 2_800,
-            length: 150,
+            width: args.size.pmos_width,
+            length: args.length,
             fingers: 1,
             intent: Intent::Svt,
             skip_sd_metal: vec![],
@@ -194,7 +201,7 @@ pub fn draw_inv_dec(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     layout.elems.push(draw_rect(rect, ptx.sd_metal));
 
     let cell = Cell {
-        name,
+        name: args.name,
         abs: Some(abs),
         layout: Some(layout),
     };
@@ -214,9 +221,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_sky130_nand2() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sky130_nand2")?;
-        draw_nand2(&mut lib)?;
+    fn test_sky130_nand2_dec() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_nand2_dec")?;
+        draw_nand2_dec(&mut lib)?;
 
         lib.save_gds(test_path(&lib))?;
 

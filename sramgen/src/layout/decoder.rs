@@ -5,7 +5,7 @@ use pdkprims::PdkLib;
 use super::array::{draw_cell_array, ArrayCellParams, ArrayedCell, FlipMode};
 
 pub fn draw_nand2_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
-    let nand2 = super::gate::draw_nand2(lib)?;
+    let nand2 = super::gate::draw_nand2_dec(lib)?;
 
     draw_cell_array(
         ArrayCellParams {
