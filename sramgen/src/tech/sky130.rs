@@ -15,6 +15,7 @@ use crate::{
 
 pub const SKY130_DOMAIN: &str = "sky130";
 pub const SRAM_SP_CELL: &str = "sram_sp_cell";
+pub const SRAM_SP_REPLICA_CELL: &str = "sram_sp_replica_cell";
 pub const OPENRAM_DFF: &str = "openram_dff";
 pub const SRAM_CONTROL: &str = "sramgen_control";
 pub const SRAM_SP_SENSE_AMP: &str = "sramgen_sp_sense_amp";
@@ -29,6 +30,15 @@ pub fn sram_sp_cell() -> ExternalModule {
         SKY130_DOMAIN,
         SRAM_SP_CELL,
         &["BL", "BR", "VDD", "VSS", "WL"],
+    )
+}
+
+#[inline]
+pub fn sram_sp_replica_cell() -> ExternalModule {
+    simple_ext_module(
+        SKY130_DOMAIN,
+        SRAM_SP_REPLICA_CELL,
+        &["BL", "BR", "VGND", "VPWR", "VPB", "VNB", "WL"],
     )
 }
 
@@ -202,6 +212,16 @@ pub fn sram_sp_cell_ref() -> Reference {
 }
 
 #[inline]
+pub fn sram_sp_replica_cell_ref() -> Reference {
+    Reference {
+        to: Some(To::External(QualifiedName {
+            domain: SKY130_DOMAIN.to_string(),
+            name: SRAM_SP_REPLICA_CELL.to_string(),
+        })),
+    }
+}
+
+#[inline]
 pub fn openram_dff_ref() -> Reference {
     Reference {
         to: Some(To::External(QualifiedName {
@@ -280,6 +300,7 @@ pub fn all_external_modules() -> Vec<ExternalModule> {
         ext_nmos(),
         ext_pmos(),
         sram_sp_cell(),
+        sram_sp_replica_cell(),
         sramgen_control(),
         sramgen_sp_sense_amp(),
         openram_dff(),

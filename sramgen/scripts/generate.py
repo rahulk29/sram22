@@ -17,6 +17,8 @@ CKTS = [
     "bitline_driver_array",
     "wordline_driver_array",
     "dff_array",
+    "replica_bitcell_column",
+    "replica_column",
     "sram_4x4",
     "sram_16x16",
 ]

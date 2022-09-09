@@ -1,0 +1,43 @@
+* Testbench for control logic with a timing multiplier and a replica bitline
+
+.lib /Users/rahul/acads/research/sky130/pdk/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice tt
+.include ../../lib/sram_sp_replica_cell/sram_sp_replica_cell.spice
+.include ../../lib/dbdr_delay_cell/dbdr_delay_cell.spice
+.include ../../lib/timing_multiplier/timing_multiplier.spice
+.include ../../lib/sramgen_control/sramgen_control.spice
+.include ../../build/spice/replica_column.spice
+
+.param vdd='1.8'
+.param tr='20p'
+.param tf='20p'
+
+Xreplica_column vdd vss wl_en pc_b sae_i replica_column
+Xctrl clk cs we sae_i pc pc_b wl_en write_driver_en sense_en vdd vss sramgen_control
+
+Vclk clk vss dc 0 PULSE(0 {vdd} 0 {tr} {tf} 100n 200n 0)
+Vcs cs vss dc {vdd}
+Vwe we vss dc 0
+
+Vdd vdd 0 {vdd}
+Vss vss 0 dc 0
+
+.control
+tran 1n 1000n 0n
+wrdata control.dat
++ v(clk)
++ v(cs)
++ v(we)
++ v(sae_i)
++ v(pc)
++ v(pc_b)
++ v(wl_en)
++ v(write_driver_en)
++ v(sense_en)
++ v(xreplica_column.rbl)
++ v(xreplica_column.rbr)
+unset askquit
+quit 0
+.endc
+
+.end
+

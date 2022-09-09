@@ -1,0 +1,4 @@
+
+Checking parameters for BSIM 3.2 model xreplica_column.xreplica_bitcells.xreplica_bitcell_0.x5:sky130_fd_pr__special_pfet_pass__model.0
+Warning: Pd = 0 is less than W.
+Warning: Ps = 0 is less than W.

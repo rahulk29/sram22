@@ -58,3 +58,11 @@ S_EN = RBL_BL_DELAY && !CLK && !WE
 PC = CLK && RBL_BL_DELAY
 ```
 
+In English:
+
+Read:
+1. During the first half of a clock cycle, the bitlines are precharged.
+2. The wordlines are enabled.
+3. The replica bitline discharges faster, since multiple cells are discharging the bitline.
+4. A timing multiplier circuit multiplies the delay from the bitlines.
+5. The delayed signal is sent to the sense amplifiers.
