@@ -221,7 +221,7 @@ pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
     let m0 = lib.pdk.metal(0);
     let m2 = lib.pdk.metal(2);
 
-    let mut router = Router::new("precharge_array_route", lib.clone());
+    let mut router = Router::new("precharge_array_route", lib.pdk.clone());
     router.cfg().line(2);
 
     let pc_b_0 = core.port("pc_b_0").largest_rect(m0).unwrap();

@@ -129,7 +129,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     dffs.align_centers_horizontally_gridded(core.bbox(), grid);
 
     // Top level routing
-    let mut router = Router::new("bank_route", lib.clone());
+    let mut router = Router::new("bank_route", lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);

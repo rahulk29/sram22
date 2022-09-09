@@ -81,7 +81,7 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     assert!(track >= 3);
 
     let bbox = layout.bbox().into_rect();
-    let mut router = Router::new("read_mux_route", lib.clone());
+    let mut router = Router::new("read_mux_route", lib.pdk.clone());
     let mut traces = Vec::with_capacity(5);
 
     let cfg = router.cfg();
@@ -197,7 +197,7 @@ pub fn draw_read_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> 
     layout.insts.push(inst.clone());
     let bbox = layout.bbox().into_rect();
 
-    let mut router = Router::new("read_mux_array_route", lib.clone());
+    let mut router = Router::new("read_mux_array_route", lib.pdk.clone());
 
     // Route gate signals
     let grid = Grid::builder()
@@ -254,7 +254,7 @@ pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     let mut layout = Layout::new(name);
     let mut abs = Abstract::new(name);
-    let mut router = Router::new("write_mux_route", lib.clone());
+    let mut router = Router::new("write_mux_route", lib.pdk.clone());
     let m0 = lib.pdk.metal(0);
     let m1 = lib.pdk.metal(1);
 
@@ -407,7 +407,7 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
     let mut tap_inst = Instance::new("write_mux_tap_array", taps.cell.clone());
     tap_inst.align_centers_gridded(core_inst.bbox(), lib.pdk.grid());
 
-    let mut router = Router::new("write_mux_array_route", lib.clone());
+    let mut router = Router::new("write_mux_array_route", lib.pdk.clone());
     let m0 = router.cfg().layerkey(0);
     let m1 = router.cfg().layerkey(1);
     let m2 = router.cfg().layerkey(2);
