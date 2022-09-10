@@ -3,8 +3,9 @@ use crate::gate::{GateParams, Size};
 use crate::layout::Result;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
-use layout21::raw::{Abstract, Cell, Instance, Layout, Point, Rect};
+use layout21::raw::{Abstract, AbstractPort, Cell, Instance, Layout, Point, Rect, Shape};
 use layout21::utils::Ptr;
+use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::PdkLib;
 
 use super::array::{draw_cell_array, ArrayCellParams, ArrayedCell, FlipMode};
@@ -148,21 +149,83 @@ fn draw_hier_decode_node(
         }
         inst.loc.y = i as isize * (bbox.height() + 200);
         layout.add_inst(inst.clone());
+        abs.add_port(inst.port("Y").named(format!("dec_{}", i)));
         gates.push(inst);
     }
 
     let mut bbox = layout.bbox();
 
+    let mut decoder_insts = Vec::with_capacity(decoders.len());
+
     for (i, decoder) in decoders.into_iter().enumerate() {
         println!("Adding child decoder {}", i);
         let mut inst = Instance::new(format!("decoder_{}", i), decoder);
         inst.align_beneath(bbox, 500);
-        layout.add_inst(inst);
+        layout.add_inst(inst.clone());
+        decoder_insts.push(inst);
         bbox = layout.bbox();
     }
 
+    let mut router = Router::new(format!("hier_decode_{}_route", id), lib.pdk.clone());
+    let cfg = router.cfg();
+    let space = lib.pdk.bus_min_spacing(
+        1,
+        cfg.line(1),
+        ContactPolicy {
+            above: None,
+            below: Some(ContactPosition::CenteredNonAdjacent),
+        },
+    );
+
+    let bbox = bbox.into_rect();
+    let m0 = cfg.layerkey(0);
+    let m1 = cfg.layerkey(1);
+    let grid = Grid::builder()
+        .center(Point::zero())
+        .line(cfg.line(1))
+        .space(space)
+        .grid(lib.pdk.grid())
+        .build()?;
+
+    // If no child decoders, we're done.
     if bus_width == 0 {
-        // TODO reduce copy-pasted code
+        // TODO this only supports 2 to 4 decoder nodes
+        // We'll eventually want 3-8 or 4-16 decoder nodes
+
+        // TODO make this output dir independent
+        let track_start = grid.get_track_index(Dir::Vert, bbox.p0.x, TrackLocator::EndsBefore) - 4;
+        let traces = (track_start..(track_start + 4))
+            .map(|track| {
+                let rect = Rect::span_builder()
+                    .with(Dir::Vert, bbox.vspan())
+                    .with(Dir::Horiz, grid.vtrack(track))
+                    .build();
+                router.trace(rect, 1)
+            })
+            .collect::<Vec<_>>();
+
+        for (i, gate) in gates.iter().enumerate() {
+            let (a, b) = (i % 2, 2 + (i / 2));
+            for (port, idx) in [("A", a), ("B", b)] {
+                let src = gate.port(port).largest_rect(m0).unwrap();
+                let mut trace = router.trace(src, 0);
+                let target = &traces[idx];
+                trace
+                    .place_cursor_centered()
+                    .horiz_to_trace(&target)
+                    .contact_up(target.rect());
+            }
+
+            let addr_bit = if i < 2 { 0 } else { 1 };
+            let addr_bar = if i % 2 == 0 { "" } else { "_b" };
+            let mut port = AbstractPort::new(format!("addr{}_{}", addr_bar, addr_bit));
+            port.add_shape(m1, Shape::Rect(traces[i].rect()));
+            abs.add_port(port);
+        }
+
+        layout.add_inst(router.finish());
+
+        // TODO reduce copy-pasted code.
         let cell = Cell {
             name,
             layout: Some(layout),
@@ -175,19 +238,7 @@ fn draw_hier_decode_node(
         return Ok(ptr);
     }
 
-    let mut router = Router::new(format!("hier_decode_{}_route", id), lib.pdk.clone());
-    let cfg = router.cfg();
-    let grid = Grid::builder()
-        .center(Point::zero())
-        .line(cfg.line(1))
-        .space(cfg.line(1))
-        .grid(lib.pdk.grid())
-        .build()?;
-
     let track_start = grid.get_track_index(Dir::Vert, bbox.p1.x, TrackLocator::StartsBeyond);
-
-    let bbox = bbox.into_rect();
-    let m0 = cfg.layerkey(0);
 
     let traces = (track_start..(track_start + bus_width as isize))
         .map(|track| {
@@ -209,12 +260,45 @@ fn draw_hier_decode_node(
             let src = gate.port(port).largest_rect(m0).unwrap();
 
             let mut trace = router.trace(src, 0);
+            let target = &traces[idxs[j]];
             trace
                 .place_cursor_centered()
-                .horiz_to_trace(&traces[idxs[j]])
-                .up();
+                .horiz_to_trace(target)
+                .contact_up(target.rect());
         }
     }
+
+    let mut base_idx = 0;
+    let mut addr_idx = 0;
+    let mut addr_b_idx = 0;
+
+    for (decoder, node) in decoder_insts.iter().zip(node.children.iter()) {
+        for i in 0..node.num {
+            let src = decoder.port(format!("dec_{}", i)).largest_rect(m0).unwrap();
+            let mut trace = router.trace(src, 0);
+            let target = &traces[base_idx + i];
+            trace
+                .place_cursor_centered()
+                .horiz_to_trace(target)
+                .contact_up(target.rect());
+        }
+
+        // Bubble up ports
+        for mut port in decoder.ports().into_iter() {
+            if port.net.starts_with("addr_b") {
+                port.set_net(format!("addr_b_{}", addr_b_idx));
+                addr_b_idx += 1;
+            } else if port.net.starts_with("addr") {
+                port.set_net(format!("addr_{}", addr_idx));
+                addr_idx += 1;
+            }
+            abs.add_port(port);
+        }
+
+        base_idx += node.num;
+    }
+
+    assert_eq!(addr_idx, addr_b_idx);
 
     layout.add_inst(router.finish());
 
