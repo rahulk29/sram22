@@ -357,7 +357,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         .space(space)
         .grid(lib.pdk.grid())
         .build()?;
-    let vspan = Span::new(decoder2.bbox().p0.y, core_bbox.p1.y);
+    let vspan = Span::new(decoder2.bbox().p0.y, nand_dec.bbox().p1.y);
 
     let track_start = grid.get_track_index(
         Dir::Vert,
@@ -461,6 +461,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "5 bit decoders not yet supported"]
     fn test_sram_bank_32x32() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_bank_32x32")?;
         draw_sram_bank(32, 32, &mut lib).map_err(panic_on_err)?;
@@ -481,6 +482,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "7 bit decoders not yet supported"]
     fn test_sram_bank_128x128() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_bank_128x128")?;
         draw_sram_bank(128, 128, &mut lib).map_err(panic_on_err)?;
