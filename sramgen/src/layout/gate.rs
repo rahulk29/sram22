@@ -71,6 +71,56 @@ pub fn draw_and2(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
+pub fn draw_and3(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
+    let nand = draw_nand3(lib, params.nand)?;
+    let inv = draw_inv(lib, params.inv)?;
+
+    let mut layout = Layout::new(&params.name);
+    let mut abs = Abstract::new(&params.name);
+
+    let nand = Instance::new("nand3", nand.clone());
+    let mut inv = Instance::new("inv", inv.clone());
+
+    let nand_bbox = nand.bbox();
+
+    inv.align_centers_vertically_gridded(nand_bbox, lib.pdk.grid());
+    inv.align_to_the_right_of(nand_bbox, 1_000);
+
+    let mut router = Router::new(format!("{}_routing", &params.name), lib.pdk.clone());
+    let m0 = lib.pdk.metal(0);
+
+    let src = nand.port("Y").largest_rect(m0).unwrap();
+    let dst = inv.port("din").largest_rect(m0).unwrap();
+    let mut trace = router.trace(src, 0);
+    trace.s_bend(dst, Dir::Horiz);
+
+    // Add ports
+    abs.add_port(nand.port("A"));
+    abs.add_port(nand.port("B"));
+    abs.add_port(nand.port("C"));
+    abs.add_port(nand.port("VSS").named("vss0"));
+    abs.add_port(nand.port("VDD0").named("vdd0"));
+    abs.add_port(nand.port("VDD1").named("vdd1"));
+    abs.add_port(inv.port("gnd").named("vss1"));
+    abs.add_port(inv.port("vdd").named("vdd2"));
+    abs.add_port(inv.port("din_b").named("Y"));
+
+    layout.add_inst(nand);
+    layout.add_inst(inv);
+    layout.add_inst(router.finish());
+
+    let cell = Cell {
+        name: params.name,
+        layout: Some(layout),
+        abs: Some(abs),
+    };
+
+    let ptr = Ptr::new(cell);
+    lib.lib.cells.push(ptr.clone());
+
+    Ok(ptr)
+}
+
 pub fn draw_nand2_dec(lib: &mut PdkLib, name: impl Into<String>) -> Result<Ptr<Cell>> {
     draw_nand2(
         lib,
@@ -254,8 +304,9 @@ pub fn draw_nand3(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
 
     for r in rects {
         layout.elems.push(draw_rect(r, ptx.sd_metal));
-        port_y.add_shape(ptx.sd_metal, Shape::Rect(r));
     }
+
+    port_y.add_shape(ptx.sd_metal, Shape::Rect(rects[3]));
 
     abs.add_port(port_y);
 
@@ -428,6 +479,37 @@ mod tests {
                     pmos_width: 2_400,
                 },
                 length: 150,
+            },
+        )?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_and3() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_and3")?;
+        draw_and3(
+            &mut lib,
+            AndParams {
+                name: "sky130_and3".to_string(),
+                nand: GateParams {
+                    name: "and3_nand".to_string(),
+                    length: 150,
+                    size: Size {
+                        pmos_width: 2_400,
+                        nmos_width: 2_800,
+                    },
+                },
+                inv: GateParams {
+                    name: "and3_inv".to_string(),
+                    length: 150,
+                    size: Size {
+                        pmos_width: 2_400,
+                        nmos_width: 1_800,
+                    },
+                },
             },
         )?;
 
