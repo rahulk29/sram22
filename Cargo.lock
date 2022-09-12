@@ -4,27 +4,27 @@ version = 3
 
 [[package]]
 name = "aho-corasick"
-version = "0.7.18"
+version = "0.7.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e37cfd5e7657ada45f742d6e99ca5788580b5c529dc78faf11ece6dc702656f"
+checksum = "b4f55bd91a0978cbfd91c457a164bab8b4001c833b7f323132c0a4e1922dd44e"
 dependencies = [
  "memchr",
 ]
 
 [[package]]
 name = "android_system_properties"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7ed72e1635e121ca3e79420540282af22da58be50de153d36f81ddc6b83aa9e"
+checksum = "819e7219dbd41043ac279b19830f2efc897156490d7fd6ea916720117ee66311"
 dependencies = [
  "libc",
 ]
 
 [[package]]
 name = "anyhow"
-version = "1.0.62"
+version = "1.0.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1485d4d2cc45e7b201ee3767015c96faa5904387c9d87c6efdd0fb511f12d305"
+checksum = "b9a8f622bcf6ff3df478e9deba3e03e4e04b300f8e6a139e192c05fa3490afc7"
 
 [[package]]
 name = "approx"
@@ -72,9 +72,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "block-buffer"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bf7fe51849ea569fd452f37822f606a5cabb684dc918707a0193fd4664ff324"
+checksum = "69cce20737498f97b993470a6e536b8523f0af7892a4f928cceb1ac5e52ebe7e"
 dependencies = [
  "generic-array",
 ]
@@ -133,9 +133,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.2.18"
+version = "3.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b15f2ea93df33549dbe2e8eecd1ca55269d63ae0b3ba1f55db030817d1c2867f"
+checksum = "23b71c3ce99b7611011217b366d923f1d0a7e07a92bb2dbf1e84508c673ca3bd"
 dependencies = [
  "atty",
  "bitflags",
@@ -206,9 +206,9 @@ checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
 
 [[package]]
 name = "cpufeatures"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc948ebb96241bb40ab73effeb80d9f93afaad49359d159a5e61be51619fe813"
+checksum = "28d997bd5e24a5928dd43e46dc529867e207907fe0b239c3477d924f7f2ca320"
 dependencies = [
  "libc",
 ]
@@ -459,7 +459,7 @@ dependencies = [
 [[package]]
 name = "gds21"
 version = "0.2.1"
-source = "git+https://github.com/rahulk29/Layout21.git?branch=main#ca05e5d268b0d9dc1c06058124b45e2a3e651d5c"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#16a249030c987d7d4fb149f33b1c0d58bafbf71a"
 dependencies = [
  "byteorder",
  "chrono",
@@ -547,13 +547,14 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "iana-time-zone"
-version = "0.1.46"
+version = "0.1.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad2bfd338099682614d3ee3fe0cd72e0b6a41ca6a87f6a74a3bd593c91650501"
+checksum = "4c495f162af0bf17656d0014a0eded5f3cd2f365fdd204548c2869db89359dc7"
 dependencies = [
  "android_system_properties",
  "core-foundation-sys",
  "js-sys",
+ "once_cell",
  "wasm-bindgen",
  "winapi",
 ]
@@ -622,7 +623,7 @@ dependencies = [
 [[package]]
 name = "layout21"
 version = "0.2.1"
-source = "git+https://github.com/rahulk29/Layout21.git?branch=main#ca05e5d268b0d9dc1c06058124b45e2a3e651d5c"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#16a249030c987d7d4fb149f33b1c0d58bafbf71a"
 dependencies = [
  "gds21",
  "layout21protos",
@@ -635,7 +636,7 @@ dependencies = [
 [[package]]
 name = "layout21protos"
 version = "0.2.1"
-source = "git+https://github.com/rahulk29/Layout21.git?branch=main#ca05e5d268b0d9dc1c06058124b45e2a3e651d5c"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#16a249030c987d7d4fb149f33b1c0d58bafbf71a"
 dependencies = [
  "vlsir 0.2.0 (git+https://github.com/rahulk29/Vlsir.git?branch=main)",
 ]
@@ -643,7 +644,7 @@ dependencies = [
 [[package]]
 name = "layout21raw"
 version = "0.2.1"
-source = "git+https://github.com/rahulk29/Layout21.git?branch=main#ca05e5d268b0d9dc1c06058124b45e2a3e651d5c"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#16a249030c987d7d4fb149f33b1c0d58bafbf71a"
 dependencies = [
  "anyhow",
  "derive_builder 0.11.2",
@@ -662,7 +663,7 @@ dependencies = [
 [[package]]
 name = "layout21tetris"
 version = "0.2.1"
-source = "git+https://github.com/rahulk29/Layout21.git?branch=main#ca05e5d268b0d9dc1c06058124b45e2a3e651d5c"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#16a249030c987d7d4fb149f33b1c0d58bafbf71a"
 dependencies = [
  "derive_builder 0.9.0",
  "derive_more",
@@ -679,7 +680,7 @@ dependencies = [
 [[package]]
 name = "layout21utils"
 version = "0.2.1"
-source = "git+https://github.com/rahulk29/Layout21.git?branch=main#ca05e5d268b0d9dc1c06058124b45e2a3e651d5c"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#16a249030c987d7d4fb149f33b1c0d58bafbf71a"
 dependencies = [
  "by_address",
  "serde",
@@ -699,7 +700,7 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 [[package]]
 name = "lef21"
 version = "0.2.1"
-source = "git+https://github.com/rahulk29/Layout21.git?branch=main#ca05e5d268b0d9dc1c06058124b45e2a3e651d5c"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#16a249030c987d7d4fb149f33b1c0d58bafbf71a"
 dependencies = [
  "derive_builder 0.9.0",
  "derive_more",
@@ -791,9 +792,9 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "once_cell"
-version = "1.13.1"
+version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "074864da206b4973b84eb91683020dbefd6a8c3f0f38e054d93954e891935e4e"
+checksum = "2f7254b99e31cad77da24b08ebf628882739a608578bb1bcdfc1f9c21260d7c0"
 
 [[package]]
 name = "os_str_bytes"
@@ -804,7 +805,7 @@ checksum = "9ff7415e9ae3fff1225851df9e0d9e4e5479f947619774677a63572e55e80eff"
 [[package]]
 name = "pdkprims"
 version = "0.0.1"
-source = "git+https://github.com/rahulk29/pdkprims.git?branch=master#1ca2ec5dd861cc621a78f2252408e1a3b9f6e5e4"
+source = "git+https://github.com/rahulk29/pdkprims.git?branch=master#4bf9f2aee4b49a7275164f00562499afc155d6ac"
 dependencies = [
  "arcstr",
  "derive_builder 0.11.2",
@@ -1261,18 +1262,18 @@ checksum = "b1141d4d61095b28419e22cb0bbf02755f5e54e0526f97f1e3d1d160e60885fb"
 
 [[package]]
 name = "thiserror"
-version = "1.0.32"
+version = "1.0.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5f6586b7f764adc0231f4c79be7b920e766bb2f3e51b3661cdb263828f19994"
+checksum = "8c1b05ca9d106ba7d2e31a9dab4a64e7be2cce415321966ea3132c49a656e252"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.32"
+version = "1.0.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12bafc5b54507e0149cdf1b145a5d80ab80a90bcd9275df43d4fff68460f6c21"
+checksum = "e8f2591983642de85c921015f3f070c665a197ed69e417af436115e3a1407487"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1307,9 +1308,9 @@ checksum = "dcf81ac59edc17cc8697ff311e8f5ef2d99fcbd9817b34cec66f90b6c3dfd987"
 
 [[package]]
 name = "ucd-trie"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89570599c4fe5585de2b388aab47e99f7fa4e9238a1399f707a02e356058141c"
+checksum = "9e79c4d996edb816c91e4308506774452e55e95c3c9de07b6729e17e15a5ef81"
 
 [[package]]
 name = "unicode-ident"
@@ -1429,13 +1430,13 @@ checksum = "6598dd0bd3c7d51095ff6531a5b23e02acdc81804e30d8f07afb77b7215a140a"
 
 [[package]]
 name = "which"
-version = "4.2.5"
+version = "4.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c4fb54e6113b6a8772ee41c3404fb0301ac79604489467e0a9ce1f3e97c24ae"
+checksum = "1c831fbbee9e129a8cf93e7747a82da9d95ba8e16621cae60ec2cdc849bacb7b"
 dependencies = [
  "either",
- "lazy_static",
  "libc",
+ "once_cell",
 ]
 
 [[package]]

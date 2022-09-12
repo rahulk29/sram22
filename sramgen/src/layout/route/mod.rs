@@ -71,7 +71,7 @@ impl Router {
         Arc::clone(&self.cfg)
     }
 
-    pub fn new(name: impl Into<String>, pdklib: PdkLib) -> Self {
+    pub fn new(name: impl Into<String>, pdk: Pdk) -> Self {
         let name = name.into();
         let cell = Cell {
             name: name.clone(),
@@ -83,7 +83,7 @@ impl Router {
         };
 
         Self {
-            cfg: Arc::new(RouterConfig::new(pdklib.pdk)),
+            cfg: Arc::new(RouterConfig::new(pdk)),
             cell: Ptr::new(cell),
             ctr: 0,
         }
