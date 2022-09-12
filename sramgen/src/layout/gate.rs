@@ -71,11 +71,11 @@ pub fn draw_and2(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_nand2_dec(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+pub fn draw_nand2_dec(lib: &mut PdkLib, name: impl Into<String>) -> Result<Ptr<Cell>> {
     draw_nand2(
         lib,
         GateParams {
-            name: "nand2_dec".to_string(),
+            name: name.into(),
             size: Size {
                 nmos_width: 1_600,
                 pmos_width: 2_400,
@@ -183,11 +183,11 @@ pub fn draw_nand2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_inv_dec(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+pub fn draw_inv_dec(lib: &mut PdkLib, name: impl Into<String>) -> Result<Ptr<Cell>> {
     draw_inv(
         lib,
         GateParams {
-            name: "inv_dec".to_string(),
+            name: name.into(),
             size: Size {
                 nmos_width: 2_000,
                 pmos_width: 2_800,
@@ -280,7 +280,7 @@ mod tests {
     #[test]
     fn test_sky130_nand2_dec() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_nand2_dec")?;
-        draw_nand2_dec(&mut lib)?;
+        draw_nand2_dec(&mut lib, "nand2_dec")?;
 
         lib.save_gds(test_path(&lib))?;
 
@@ -290,7 +290,7 @@ mod tests {
     #[test]
     fn test_sky130_inv_dec() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_inv_dec")?;
-        draw_inv_dec(&mut lib)?;
+        draw_inv_dec(&mut lib, "inv_dec")?;
 
         lib.save_gds(test_path(&lib))?;
 

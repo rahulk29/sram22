@@ -5,8 +5,13 @@ use layout21::{
     raw::{BoundBoxTrait, Cell, Instance, Layout, Point, Span},
     utils::Ptr,
 };
+use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::{LayerIdx, PdkLib};
 
+use crate::clog2;
+use crate::decoder::DecoderTree;
+use crate::layout::decoder::{bus_width, draw_hier_decode, ConnectSubdecodersArgs, GateList};
+use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
 
 use super::{
@@ -22,20 +27,26 @@ use super::{
 pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "sram_bank".to_string();
 
-    let mut layout = Layout {
-        name: name.clone(),
-        insts: vec![],
-        elems: vec![],
-        annotations: vec![],
-    };
+    let mut layout = Layout::new(&name);
 
     assert_eq!(cols % 2, 0);
+    assert_eq!(rows % 2, 0);
 
-    let grid = { lib.pdk.config().read().unwrap().grid };
+    let grid = lib.pdk.grid();
+
+    let row_bits = clog2(rows);
+
+    let decoder_tree = DecoderTree::new(row_bits);
+    assert_eq!(decoder_tree.root.children.len(), 2);
+
+    let decoder1 = draw_hier_decode(lib, "predecoder_1", &decoder_tree.root.children[0])?;
+    let decoder2 = draw_hier_decode(lib, "predecoder_2", &decoder_tree.root.children[1])?;
 
     let core = draw_array(rows, cols, lib)?;
-    let nand2_dec = draw_nand2_array(lib, rows)?;
-    let inv_dec = draw_inv_dec_array(lib, rows)?;
+    let nand_dec = draw_nand2_array(lib, "nand2_dec", rows)?;
+    let inv_dec = draw_inv_dec_array(lib, "inv_dec", rows)?;
+    let wldrv_nand = draw_nand2_array(lib, "wldrv_nand2", rows)?;
+    let wldrv_inv = draw_inv_dec_array(lib, "wldrv_inv", rows)?;
     let pc = draw_precharge_array(lib, cols)?;
     let read_mux = draw_read_mux_array(lib, cols / 2)?;
     let write_mux = draw_write_mux_array(lib, cols)?;
@@ -50,21 +61,13 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         reflect_vert: false,
     };
 
-    let mut nand2_dec = Instance {
-        cell: nand2_dec.cell,
-        loc: Point::new(0, 0),
-        angle: None,
-        inst_name: "nand2_dec_array".to_string(),
-        reflect_vert: false,
-    };
+    let mut decoder1 = Instance::new("hierarchical_decoder", decoder1);
+    let mut decoder2 = Instance::new("hierarchical_decoder", decoder2);
 
-    let mut inv_dec = Instance {
-        cell: inv_dec.cell,
-        inst_name: "inv_dec_array".to_string(),
-        reflect_vert: false,
-        angle: None,
-        loc: Point::new(0, 0),
-    };
+    let mut wldrv_nand = Instance::new("wldrv_nand_array", wldrv_nand.cell);
+    let mut wldrv_inv = Instance::new("wldrv_inv_array", wldrv_inv.cell);
+    let mut nand_dec = Instance::new("nand2_dec_array", nand_dec.cell);
+    let mut inv_dec = Instance::new("inv_dec_array", inv_dec.cell);
 
     let mut pc = Instance {
         cell: pc,
@@ -106,27 +109,38 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         loc: Point::new(0, 0),
     };
 
-    inv_dec.align_to_the_left_of(core.bbox(), 1_000);
-    inv_dec.align_centers_vertically_gridded(core.bbox(), grid);
+    let core_bbox = core.bbox();
 
-    nand2_dec.align_to_the_left_of(inv_dec.bbox(), grid);
-    nand2_dec.align_to_the_left_of(inv_dec.bbox(), 1_000);
-    nand2_dec.align_centers_vertically_gridded(core.bbox(), grid);
+    wldrv_inv.align_to_the_left_of(core_bbox, 1_000);
+    wldrv_inv.align_centers_vertically_gridded(core_bbox, grid);
+    wldrv_nand.align_to_the_left_of(wldrv_inv.bbox(), 1_000);
+    wldrv_nand.align_centers_vertically_gridded(core_bbox, grid);
 
-    pc.align_beneath(core.bbox(), 1_000);
-    pc.align_centers_horizontally_gridded(core.bbox(), grid);
+    inv_dec.align_to_the_left_of(wldrv_nand.bbox(), 1_000);
+    inv_dec.align_centers_vertically_gridded(core_bbox, grid);
+    nand_dec.align_to_the_left_of(inv_dec.bbox(), 1_000);
+    nand_dec.align_centers_vertically_gridded(core_bbox, grid);
+
+    pc.align_beneath(core_bbox, 1_000);
+    pc.align_centers_horizontally_gridded(core_bbox, grid);
 
     read_mux.align_beneath(pc.bbox(), 1_000);
-    read_mux.align_centers_horizontally_gridded(core.bbox(), grid);
+    read_mux.align_centers_horizontally_gridded(core_bbox, grid);
 
     write_mux.align_beneath(read_mux.bbox(), 1_000);
-    write_mux.align_centers_horizontally_gridded(core.bbox(), grid);
+    write_mux.align_centers_horizontally_gridded(core_bbox, grid);
 
     sense_amp.align_beneath(write_mux.bbox(), 1_000);
-    sense_amp.align_centers_horizontally_gridded(core.bbox(), grid);
+    sense_amp.align_centers_horizontally_gridded(core_bbox, grid);
 
     dffs.align_beneath(sense_amp.bbox(), 1_000);
-    dffs.align_centers_horizontally_gridded(core.bbox(), grid);
+    dffs.align_centers_horizontally_gridded(core_bbox, grid);
+
+    decoder1.align_beneath(core_bbox, 1_000);
+    decoder1.align_to_the_left_of(sense_amp.bbox(), 1_000);
+
+    decoder2.align_beneath(decoder1.bbox(), 1_000);
+    decoder2.align_to_the_left_of(sense_amp.bbox(), 1_000);
 
     // Top level routing
     let mut router = Router::new("bank_route", lib.pdk.clone());
@@ -135,53 +149,79 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let m1 = cfg.layerkey(1);
     let m2 = cfg.layerkey(2);
 
-    connect(ConnectArgs {
-        metal_idx: 1,
-        port_idx: 0,
-        router: &mut router,
-        inst: &nand2_dec,
-        port_name: "VDD",
-        count: rows,
-        dir: Dir::Vert,
-    });
-    connect(ConnectArgs {
-        metal_idx: 1,
-        port_idx: 0,
-        router: &mut router,
-        inst: &nand2_dec,
-        port_name: "VSS",
-        count: rows,
-        dir: Dir::Vert,
-    });
+    for (nand, inv) in [(&nand_dec, &inv_dec), (&wldrv_nand, &wldrv_inv)] {
+        connect(ConnectArgs {
+            metal_idx: 1,
+            port_idx: 0,
+            router: &mut router,
+            inst: nand,
+            port_name: "VDD",
+            count: rows,
+            dir: Dir::Vert,
+        });
+        connect(ConnectArgs {
+            metal_idx: 1,
+            port_idx: 0,
+            router: &mut router,
+            inst: nand,
+            port_name: "VSS",
+            count: rows,
+            dir: Dir::Vert,
+        });
 
-    connect(ConnectArgs {
-        metal_idx: 1,
-        port_idx: 0,
-        router: &mut router,
-        inst: &inv_dec,
-        port_name: "vdd",
-        count: rows,
-        dir: Dir::Vert,
-    });
-    connect(ConnectArgs {
-        metal_idx: 1,
-        port_idx: 0,
-        router: &mut router,
-        inst: &inv_dec,
-        port_name: "gnd",
-        count: rows,
-        dir: Dir::Vert,
-    });
+        connect(ConnectArgs {
+            metal_idx: 1,
+            port_idx: 0,
+            router: &mut router,
+            inst: inv,
+            port_name: "vdd",
+            count: rows,
+            dir: Dir::Vert,
+        });
+        connect(ConnectArgs {
+            metal_idx: 1,
+            port_idx: 0,
+            router: &mut router,
+            inst: inv,
+            port_name: "gnd",
+            count: rows,
+            dir: Dir::Vert,
+        });
+    }
 
     for i in 0..rows {
-        // Connect nand decoder output to inv decoder input.
-        let src = nand2_dec.port(format!("Y_{}", i)).largest_rect(m0).unwrap();
+        // Connect decoder nand to decoder inverter
+        let src = nand_dec.port(format!("Y_{}", i)).largest_rect(m0).unwrap();
         let dst = inv_dec.port(format!("din_{}", i)).largest_rect(m0).unwrap();
         let mut trace = router.trace(src, 0);
         trace.s_bend(dst, Dir::Horiz);
 
-        // Then connect inv decoder output to wordline.
+        // Connect inverter to WL driver
         let src = inv_dec
+            .port(format!("din_b_{}", i))
+            .largest_rect(m0)
+            .unwrap();
+        let dst = wldrv_nand
+            .port(format!("A_{}", i))
+            .largest_rect(m0)
+            .unwrap();
+        let mut trace = router.trace(src, 0);
+        trace.s_bend(dst, Dir::Horiz);
+
+        // Connect nand wldriver output to inv wldriver input.
+        let src = wldrv_nand
+            .port(format!("Y_{}", i))
+            .largest_rect(m0)
+            .unwrap();
+        let dst = wldrv_inv
+            .port(format!("din_{}", i))
+            .largest_rect(m0)
+            .unwrap();
+        let mut trace = router.trace(src, 0);
+        trace.s_bend(dst, Dir::Horiz);
+
+        // Then connect inv decoder output to wordline.
+        let src = wldrv_inv
             .port(format!("din_b_{}", i))
             .largest_rect(m0)
             .unwrap();
@@ -303,10 +343,45 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         dir: Dir::Horiz,
     });
 
+    let space = lib.pdk.bus_min_spacing(
+        1,
+        cfg.line(1),
+        ContactPolicy {
+            above: None,
+            below: Some(ContactPosition::CenteredNonAdjacent),
+        },
+    );
+    let grid = Grid::builder()
+        .center(Point::zero())
+        .line(cfg.line(1))
+        .space(space)
+        .grid(lib.pdk.grid())
+        .build()?;
+    let vspan = Span::new(decoder2.bbox().p0.y, core_bbox.p1.y);
+
+    let track_start = grid.get_track_index(
+        Dir::Vert,
+        nand_dec.bbox().into_rect().left(),
+        TrackLocator::EndsBefore,
+    ) - bus_width(&decoder_tree.root) as isize;
+    crate::layout::decoder::connect_subdecoders(ConnectSubdecodersArgs {
+        node: &decoder_tree.root,
+        grid: &grid,
+        track_start,
+        vspan,
+        router: &mut router,
+        gates: GateList::Array(&nand_dec, rows),
+        subdecoders: &[&decoder1, &decoder2],
+    });
+
     let routing = router.finish();
 
     layout.insts.push(core);
-    layout.insts.push(nand2_dec);
+    layout.insts.push(decoder1);
+    layout.insts.push(decoder2);
+    layout.insts.push(wldrv_nand);
+    layout.insts.push(wldrv_inv);
+    layout.insts.push(nand_dec);
     layout.insts.push(inv_dec);
     layout.insts.push(pc);
     layout.insts.push(read_mux);
@@ -386,9 +461,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_sram_bank() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_bank")?;
+    fn test_sram_bank_32x32() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sram_bank_32x32")?;
         draw_sram_bank(32, 32, &mut lib).map_err(panic_on_err)?;
+
+        lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sram_bank_16x16() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sram_bank_16x16")?;
+        draw_sram_bank(16, 16, &mut lib).map_err(panic_on_err)?;
+
+        lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sram_bank_128x128() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sram_bank_128x128")?;
+        draw_sram_bank(128, 128, &mut lib).map_err(panic_on_err)?;
 
         lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
 

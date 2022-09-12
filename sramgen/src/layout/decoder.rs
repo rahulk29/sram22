@@ -1,9 +1,9 @@
-use crate::decoder::{DecoderTree, TreeNode};
+use crate::decoder::TreeNode;
 use crate::gate::{GateParams, Size};
 use crate::layout::Result;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
-use layout21::raw::{Abstract, AbstractPort, Cell, Instance, Layout, Point, Rect, Shape};
+use layout21::raw::{Abstract, AbstractPort, Cell, Instance, Layout, Point, Rect, Shape, Span};
 use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::PdkLib;
@@ -13,12 +13,12 @@ use super::gate::{draw_and2, AndParams};
 use super::route::grid::{Grid, TrackLocator};
 use super::route::Router;
 
-pub fn draw_nand2_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
-    let nand2 = super::gate::draw_nand2_dec(lib)?;
+pub fn draw_nand2_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<ArrayedCell> {
+    let nand2 = super::gate::draw_nand2_dec(lib, format!("{}_nand", prefix))?;
 
     draw_cell_array(
         ArrayCellParams {
-            name: "nand2_dec_array".to_string(),
+            name: format!("{}_array", prefix),
             num: width,
             cell: nand2,
             spacing: Some(1580),
@@ -30,12 +30,12 @@ pub fn draw_nand2_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
     )
 }
 
-pub fn draw_inv_dec_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
-    let inv_dec = super::gate::draw_inv_dec(lib)?;
+pub fn draw_inv_dec_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<ArrayedCell> {
+    let inv_dec = super::gate::draw_inv_dec(lib, format!("{}_inv", prefix))?;
 
     draw_cell_array(
         ArrayCellParams {
-            name: "inv_dec_array".to_string(),
+            name: format!("{}_array", prefix),
             num: width,
             cell: inv_dec,
             spacing: Some(1580),
@@ -64,6 +64,7 @@ impl std::ops::Not for OutputDir {
 }
 
 struct NodeContext<'a> {
+    prefix: &'a str,
     output_dir: OutputDir,
     ctr: &'a mut usize,
 }
@@ -78,13 +79,14 @@ impl<'a> NodeContext<'a> {
 /// Generates a hierarchical decoder.
 ///
 /// Only 2 input AND gates are supported.
-pub fn draw_hier_decode(lib: &mut PdkLib, tree: &DecoderTree) -> Result<Ptr<Cell>> {
+pub fn draw_hier_decode(lib: &mut PdkLib, prefix: &str, node: &TreeNode) -> Result<Ptr<Cell>> {
     let mut id = 0;
     let root_ctx = NodeContext {
+        prefix,
         output_dir: OutputDir::Left,
         ctr: &mut id,
     };
-    draw_hier_decode_node(lib, &tree.root, root_ctx)
+    draw_hier_decode_node(lib, node, root_ctx)
 }
 
 fn draw_hier_decode_node(
@@ -92,6 +94,7 @@ fn draw_hier_decode_node(
     node: &TreeNode,
     mut ctx: NodeContext,
 ) -> Result<Ptr<Cell>> {
+    // Generate all child decoders
     let decoders = node
         .children
         .iter()
@@ -100,6 +103,7 @@ fn draw_hier_decode_node(
                 lib,
                 n,
                 NodeContext {
+                    prefix: ctx.prefix,
                     output_dir: !ctx.output_dir,
                     ctr: ctx.ctr,
                 },
@@ -112,14 +116,14 @@ fn draw_hier_decode_node(
 
     let id = ctx.alloc_id();
 
-    let name = format!("hier_decode_block_{}", id);
+    let name = format!("{}_{}", ctx.prefix, id);
     let mut layout = Layout::new(&name);
     let mut abs = Abstract::new(&name);
 
     let and_params = AndParams {
-        name: format!("and_hier_decode_{}", id),
+        name: format!("{}_and_{}", ctx.prefix, id),
         nand: GateParams {
-            name: format!("nand_hier_decode_{}", id),
+            name: format!("{}_nand_{}", ctx.prefix, id),
             size: Size {
                 nmos_width: 2_000,
                 pmos_width: 1_200,
@@ -127,7 +131,7 @@ fn draw_hier_decode_node(
             length: 150,
         },
         inv: GateParams {
-            name: format!("inv_hier_decode_{}", id),
+            name: format!("{}_inv_{}", ctx.prefix, id),
             size: Size {
                 nmos_width: 2_000,
                 pmos_width: 1_200,
@@ -158,7 +162,6 @@ fn draw_hier_decode_node(
     let mut decoder_insts = Vec::with_capacity(decoders.len());
 
     for (i, decoder) in decoders.into_iter().enumerate() {
-        println!("Adding child decoder {}", i);
         let mut inst = Instance::new(format!("decoder_{}", i), decoder);
         inst.align_beneath(bbox, 500);
         layout.add_inst(inst.clone());
@@ -166,13 +169,13 @@ fn draw_hier_decode_node(
         bbox = layout.bbox();
     }
 
-    let mut router = Router::new(format!("hier_decode_{}_route", id), lib.pdk.clone());
+    let mut router = Router::new(format!("{}_{}_route", ctx.prefix, id), lib.pdk.clone());
     let cfg = router.cfg();
     let space = lib.pdk.bus_min_spacing(
         1,
         cfg.line(1),
         ContactPolicy {
-            above: None,
+            above: Some(ContactPosition::CenteredNonAdjacent),
             below: Some(ContactPosition::CenteredNonAdjacent),
         },
     );
@@ -192,8 +195,14 @@ fn draw_hier_decode_node(
         // TODO this only supports 2 to 4 decoder nodes
         // We'll eventually want 3-8 or 4-16 decoder nodes
 
-        // TODO make this output dir independent
-        let track_start = grid.get_track_index(Dir::Vert, bbox.p0.x, TrackLocator::EndsBefore) - 4;
+        let track_start = match ctx.output_dir {
+            OutputDir::Left => {
+                grid.get_track_index(Dir::Vert, bbox.p1.x, TrackLocator::StartsBeyond)
+            }
+            OutputDir::Right => {
+                grid.get_track_index(Dir::Vert, bbox.p0.x, TrackLocator::EndsBefore) - 4
+            }
+        };
         let traces = (track_start..(track_start + 4))
             .map(|track| {
                 let rect = Rect::span_builder()
@@ -239,51 +248,21 @@ fn draw_hier_decode_node(
     }
 
     let track_start = grid.get_track_index(Dir::Vert, bbox.p1.x, TrackLocator::StartsBeyond);
+    connect_subdecoders(ConnectSubdecodersArgs {
+        node,
+        grid: &grid,
+        track_start,
+        vspan: layout.bbox().into_rect().vspan(),
+        router: &mut router,
+        gates: GateList::Cells(&gates),
+        subdecoders: &decoder_insts.iter().collect::<Vec<_>>(),
+    });
 
-    let traces = (track_start..(track_start + bus_width as isize))
-        .map(|track| {
-            let rect = Rect::span_builder()
-                .with(Dir::Vert, bbox.vspan())
-                .with(Dir::Horiz, grid.vtrack(track))
-                .build();
-            router.trace(rect, 1)
-        })
-        .collect::<Vec<_>>();
-
-    for (i, gate) in gates.iter().enumerate() {
-        let mut idxs = get_idxs(i, &child_sizes);
-        to_bus_idxs(&mut idxs, &child_sizes);
-
-        assert_eq!(idxs.len(), 2);
-
-        for (j, port) in ["A", "B"].into_iter().enumerate() {
-            let src = gate.port(port).largest_rect(m0).unwrap();
-
-            let mut trace = router.trace(src, 0);
-            let target = &traces[idxs[j]];
-            trace
-                .place_cursor_centered()
-                .horiz_to_trace(target)
-                .contact_up(target.rect());
-        }
-    }
-
-    let mut base_idx = 0;
+    // bubble up ports
     let mut addr_idx = 0;
     let mut addr_b_idx = 0;
 
-    for (decoder, node) in decoder_insts.iter().zip(node.children.iter()) {
-        for i in 0..node.num {
-            let src = decoder.port(format!("dec_{}", i)).largest_rect(m0).unwrap();
-            let mut trace = router.trace(src, 0);
-            let target = &traces[base_idx + i];
-            trace
-                .place_cursor_centered()
-                .horiz_to_trace(target)
-                .contact_up(target.rect());
-        }
-
-        // Bubble up ports
+    for decoder in decoder_insts.iter() {
         for mut port in decoder.ports().into_iter() {
             if port.net.starts_with("addr_b") {
                 port.set_net(format!("addr_b_{}", addr_b_idx));
@@ -294,11 +273,10 @@ fn draw_hier_decode_node(
             }
             abs.add_port(port);
         }
-
-        base_idx += node.num;
     }
 
     assert_eq!(addr_idx, addr_b_idx);
+    assert_eq!(2usize.pow(addr_idx), node.num);
 
     layout.add_inst(router.finish());
 
@@ -312,6 +290,94 @@ fn draw_hier_decode_node(
     lib.lib.cells.push(ptr.clone());
 
     Ok(ptr)
+}
+
+pub(crate) struct ConnectSubdecodersArgs<'a> {
+    pub(crate) node: &'a TreeNode,
+    pub(crate) grid: &'a Grid,
+    pub(crate) track_start: isize,
+    pub(crate) vspan: Span,
+    pub(crate) router: &'a mut Router,
+    pub(crate) gates: GateList<'a>,
+    pub(crate) subdecoders: &'a [&'a Instance],
+}
+
+pub(crate) enum GateList<'a> {
+    Cells(&'a [Instance]),
+    Array(&'a Instance, usize),
+}
+
+impl<'a> GateList<'a> {
+    #[inline]
+    fn width(&self) -> usize {
+        match self {
+            Self::Cells(v) => v.len(),
+            Self::Array(_, width) => *width,
+        }
+    }
+
+    fn port(&self, name: &str, num: usize) -> AbstractPort {
+        match self {
+            Self::Cells(v) => v[num].port(name),
+            Self::Array(v, _) => v.port(format!("{}_{}", name, num)),
+        }
+    }
+}
+
+pub(crate) fn bus_width(node: &TreeNode) -> usize {
+    node.children.iter().map(|n| n.num).sum()
+}
+
+pub(crate) fn connect_subdecoders(args: ConnectSubdecodersArgs) {
+    let child_sizes = args.node.children.iter().map(|n| n.num).collect::<Vec<_>>();
+    let bus_width = bus_width(args.node);
+
+    let cfg = args.router.cfg();
+    let m0 = cfg.layerkey(0);
+
+    let traces = (args.track_start..(args.track_start + bus_width as isize))
+        .map(|track| {
+            let rect = Rect::span_builder()
+                .with(Dir::Vert, args.vspan)
+                .with(Dir::Horiz, args.grid.vtrack(track))
+                .build();
+            args.router.trace(rect, 1)
+        })
+        .collect::<Vec<_>>();
+
+    for i in 0..args.gates.width() {
+        let mut idxs = get_idxs(i, &child_sizes);
+        to_bus_idxs(&mut idxs, &child_sizes);
+
+        assert_eq!(idxs.len(), 2);
+
+        // TODO generalize for 3 input gates
+        for (j, port) in ["A", "B"].into_iter().enumerate() {
+            let src = args.gates.port(port, i).largest_rect(m0).unwrap();
+
+            let mut trace = args.router.trace(src, 0);
+            let target = &traces[idxs[j]];
+            trace
+                .place_cursor_centered()
+                .horiz_to_trace(target)
+                .contact_up(target.rect());
+        }
+    }
+
+    let mut base_idx = 0;
+
+    for (decoder, node) in args.subdecoders.iter().zip(args.node.children.iter()) {
+        for i in 0..node.num {
+            let src = decoder.port(format!("dec_{}", i)).largest_rect(m0).unwrap();
+            let mut trace = args.router.trace(src, 0);
+            let target = &traces[base_idx + i];
+            trace
+                .place_cursor_centered()
+                .horiz_to_trace(target)
+                .contact_up(target.rect());
+        }
+        base_idx += node.num;
+    }
 }
 
 fn get_idxs(mut num: usize, bases: &[usize]) -> Vec<usize> {
@@ -346,6 +412,7 @@ fn to_bus_idxs(idxs: &mut [usize], bases: &[usize]) {
 mod tests {
     use pdkprims::tech::sky130;
 
+    use crate::decoder::DecoderTree;
     use crate::utils::test_path;
 
     use super::*;
@@ -353,7 +420,7 @@ mod tests {
     #[test]
     fn test_sky130_nand2_dec_array() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_nand2_dec_array")?;
-        draw_nand2_array(&mut lib, 32)?;
+        draw_nand2_array(&mut lib, "nand2_dec_array", 32)?;
 
         lib.save_gds(test_path(&lib))?;
 
@@ -363,7 +430,7 @@ mod tests {
     #[test]
     fn test_sky130_inv_dec_array() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_inv_dec_array")?;
-        draw_inv_dec_array(&mut lib, 32)?;
+        draw_inv_dec_array(&mut lib, "inv_dec_array", 32)?;
 
         lib.save_gds(test_path(&lib))?;
 
@@ -374,7 +441,7 @@ mod tests {
     fn test_sky130_hier_decode_4bit() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_hier_decode_4bit")?;
         let tree = DecoderTree::new(4);
-        draw_hier_decode(&mut lib, &tree)?;
+        draw_hier_decode(&mut lib, "hier_decode_4b", &tree.root)?;
 
         lib.save_gds(test_path(&lib))?;
 

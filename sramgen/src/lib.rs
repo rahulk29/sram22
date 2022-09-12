@@ -77,3 +77,8 @@ pub fn bbox(cell: &Ptr<Cell>) -> BoundBox {
     let cell = cell.read().unwrap();
     cell.layout.as_ref().unwrap().bbox()
 }
+
+#[inline]
+pub(crate) fn clog2(x: usize) -> usize {
+    (x as f64).log2().ceil() as usize
+}
