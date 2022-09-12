@@ -183,6 +183,94 @@ pub fn draw_nand2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
+pub fn draw_nand3(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
+    let mut layout = Layout::new(&args.name);
+    let mut abs = Abstract::new(&args.name);
+
+    let mut params = MosParams::new();
+    params
+        .dnw(false)
+        .direction(Dir::Horiz)
+        .add_device(MosDevice {
+            mos_type: MosType::Nmos,
+            width: args.size.nmos_width,
+            length: args.length,
+            fingers: 3,
+            intent: Intent::Svt,
+            skip_sd_metal: vec![1, 2],
+        })
+        .add_device(MosDevice {
+            mos_type: MosType::Pmos,
+            width: args.size.pmos_width,
+            length: args.length,
+            fingers: 3,
+            intent: Intent::Svt,
+            skip_sd_metal: Vec::new(),
+        });
+    let ptx = lib.draw_mos(params)?;
+
+    layout.insts.push(Instance::new("mos", ptx.cell.clone()));
+
+    let tc = lib.pdk.config.read().unwrap();
+
+    let ny = ptx.sd_pin(0, 3).unwrap();
+    let py1 = ptx.sd_pin(1, 0).unwrap();
+    let py2 = ptx.sd_pin(1, 2).unwrap();
+
+    // Check that metal 0 spacing restrictions are satisfied
+    // (In SKY130, metal 0 is local interconnect)
+    let m0 = lib.pdk.metal_name(0);
+    let xlim_h = py1.p0.x - tc.layer(m0).space;
+    let xlim_l = ny.p1.x + tc.layer(m0).space;
+    let width = tc.layer(m0).width;
+
+    assert!(
+        xlim_h - xlim_l >= width,
+        "Not enough space to route NAND3 gate"
+    );
+
+    let cx = (xlim_l + xlim_h) / 2;
+
+    let (xmin, xmax) = lib.pdk.gridded_center_span(cx, tc.layer("li").width);
+
+    assert!(xmax <= xlim_h);
+    assert!(xmin >= xlim_l);
+
+    abs.add_port(ptx.sd_port(0, 0).unwrap().named("VSS"));
+    abs.add_port(ptx.sd_port(1, 1).unwrap().named("VDD0"));
+    abs.add_port(ptx.sd_port(1, 3).unwrap().named("VDD1"));
+    abs.add_port(ptx.gate_port(0).unwrap().named("C"));
+    abs.add_port(ptx.gate_port(1).unwrap().named("B"));
+    abs.add_port(ptx.gate_port(2).unwrap().named("A"));
+
+    let mut port_y = AbstractPort::new("Y");
+
+    let rects = [
+        Rect::new(Point::new(ny.p0.x, ny.p0.y), Point::new(xmax, ny.p1.y)),
+        Rect::new(Point::new(xmin, py1.p0.y), Point::new(xmax, ny.p1.y)),
+        Rect::new(Point::new(xmin, py1.p0.y), Point::new(py1.p1.x, py1.p1.y)),
+        Rect::new(Point::new(xmin, py2.p0.y), Point::new(py2.p1.x, py2.p1.y)),
+    ];
+
+    for r in rects {
+        layout.elems.push(draw_rect(r, ptx.sd_metal));
+        port_y.add_shape(ptx.sd_metal, Shape::Rect(r));
+    }
+
+    abs.add_port(port_y);
+
+    let cell = Cell {
+        name: args.name,
+        abs: Some(abs),
+        layout: Some(layout),
+    };
+
+    let ptr = Ptr::new(cell);
+    lib.lib.cells.push(ptr.clone());
+
+    Ok(ptr)
+}
+
 pub fn draw_inv_dec(lib: &mut PdkLib, name: impl Into<String>) -> Result<Ptr<Cell>> {
     draw_inv(
         lib,
@@ -320,6 +408,26 @@ mod tests {
                         nmos_width: 1_800,
                     },
                 },
+            },
+        )?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_nand3() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_nand3")?;
+        draw_nand3(
+            &mut lib,
+            GateParams {
+                name: "nand3".to_string(),
+                size: Size {
+                    nmos_width: 1_600,
+                    pmos_width: 2_400,
+                },
+                length: 150,
             },
         )?;
 
