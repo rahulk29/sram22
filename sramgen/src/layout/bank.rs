@@ -461,7 +461,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "5 bit decoders not yet supported"]
     fn test_sram_bank_32x32() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_bank_32x32")?;
         draw_sram_bank(32, 32, &mut lib).map_err(panic_on_err)?;
@@ -482,7 +481,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "7 bit decoders not yet supported"]
+    #[ignore = "slow"]
     fn test_sram_bank_128x128() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_bank_128x128")?;
         draw_sram_bank(128, 128, &mut lib).map_err(panic_on_err)?;
