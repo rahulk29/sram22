@@ -37,7 +37,7 @@ struct PlanTreeNode {
 
 impl DecoderTree {
     pub fn new(bits: usize) -> Self {
-        let plan = plan_decoder(bits);
+        let plan = plan_decoder(bits, true);
         let root = size_decoder(&plan);
         DecoderTree { root }
     }
@@ -79,30 +79,24 @@ fn round_to_grid(x: f64) -> Int {
     ((x / 5.0).round() as Int) * 5
 }
 
-fn size_helper_tmp(x: &PlanTreeNode, sizes: &[f64]) -> TreeNode {
-    let nscale = round_to_grid(sizes[0] * REF_INVERTER_WIDTH as f64);
-    let pscale = round_to_grid(sizes[0] * REF_INVERTER_WIDTH as f64 * BETA);
-
+fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64]) -> TreeNode {
+    // TODO size decoder
     let buf = x.buf.map(|b| {
         Gate::new(
             b,
             Size {
-                nmos_width: nscale,
-                pmos_width: pscale,
+                nmos_width: 2_400,
+                pmos_width: 2_400,
             },
         )
     });
-
-    // TODO: these arent correct
-    let nscale = round_to_grid(sizes[1] * REF_INVERTER_WIDTH as f64);
-    let pscale = round_to_grid(sizes[1] * REF_INVERTER_WIDTH as f64 * BETA);
 
     TreeNode {
         gate: Gate::new(
             x.gate,
             Size {
-                nmos_width: nscale,
-                pmos_width: pscale,
+                nmos_width: 2_400,
+                pmos_width: 2_400,
             },
         ),
         buf,
@@ -110,12 +104,12 @@ fn size_helper_tmp(x: &PlanTreeNode, sizes: &[f64]) -> TreeNode {
         children: x
             .children
             .iter()
-            .map(|n| size_helper_tmp(n, &sizes[2..]))
+            .map(|n| size_helper_tmp(n, _sizes))
             .collect::<Vec<_>>(),
     }
 }
 
-fn plan_decoder(bits: usize) -> PlanTreeNode {
+fn plan_decoder(bits: usize, top: bool) -> PlanTreeNode {
     assert!(bits > 1);
     if bits == 2 {
         PlanTreeNode {
@@ -132,14 +126,17 @@ fn plan_decoder(bits: usize) -> PlanTreeNode {
             children: vec![],
         }
     } else {
-        let split = partition_bits(bits);
+        let split = partition_bits(bits, top);
         let gate = match split.len() {
             2 => GateType::Nand2,
             3 => GateType::Nand3,
             _ => panic!("unexpected bit split"),
         };
 
-        let children = split.into_iter().map(plan_decoder).collect::<Vec<_>>();
+        let children = split
+            .into_iter()
+            .map(|x| plan_decoder(x, false))
+            .collect::<Vec<_>>();
         PlanTreeNode {
             gate,
             buf: Some(GateType::Inv),
@@ -149,8 +146,13 @@ fn plan_decoder(bits: usize) -> PlanTreeNode {
     }
 }
 
-fn partition_bits(bits: usize) -> Vec<usize> {
+fn partition_bits(bits: usize, top: bool) -> Vec<usize> {
     assert!(bits > 3);
+
+    if top {
+        let left = bits / 2;
+        return vec![left, bits - left];
+    }
 
     if bits % 2 == 0 {
         vec![bits / 2, bits / 2]

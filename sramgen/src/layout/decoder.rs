@@ -1,5 +1,7 @@
+use crate::clog2;
 use crate::decoder::TreeNode;
 use crate::gate::{GateParams, Size};
+use crate::layout::gate::draw_and3;
 use crate::layout::Result;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
@@ -112,6 +114,11 @@ fn draw_hier_decode_node(
         .collect::<Result<Vec<_>>>()?;
 
     let child_sizes = node.children.iter().map(|n| n.num).collect::<Vec<_>>();
+    let gate_size = if node.children.len() > 0 {
+        node.children.len()
+    } else {
+        clog2(node.num)
+    };
     let bus_width: usize = child_sizes.iter().sum();
 
     let id = ctx.alloc_id();
@@ -139,7 +146,17 @@ fn draw_hier_decode_node(
             length: 150,
         },
     };
-    let and_gate = draw_and2(lib, and_params)?;
+
+    let and_gate = if gate_size == 2 {
+        draw_and2(lib, and_params)?
+    } else if gate_size == 3 {
+        draw_and3(lib, and_params)?
+    } else {
+        panic!(
+            "Invalid gate size: expected 2 or 3 input gate, found {}",
+            gate_size
+        );
+    };
     let bbox = {
         let gate = and_gate.read().unwrap();
         gate.layout.as_ref().unwrap().bbox()
@@ -192,18 +209,24 @@ fn draw_hier_decode_node(
 
     // If no child decoders, we're done.
     if bus_width == 0 {
-        // TODO this only supports 2 to 4 decoder nodes
-        // We'll eventually want 3-8 or 4-16 decoder nodes
+        // Note: this only supports 2-4 and 3-8 predecoders.
+
+        // Log2(node.num) is the number of address bits handled by this decoder.
+        // The bus width is twice that, since we have addr and addr_b bits.
+        let bus_width = 2 * clog2(node.num);
+        // Only 2 input and 3 input gates are supported.
+        assert!(bus_width == 4 || bus_width == 6);
 
         let track_start = match ctx.output_dir {
             OutputDir::Left => {
                 grid.get_track_index(Dir::Vert, bbox.p1.x, TrackLocator::StartsBeyond)
             }
             OutputDir::Right => {
-                grid.get_track_index(Dir::Vert, bbox.p0.x, TrackLocator::EndsBefore) - 4
+                grid.get_track_index(Dir::Vert, bbox.p0.x, TrackLocator::EndsBefore)
+                    - bus_width as isize
             }
         };
-        let traces = (track_start..(track_start + 4))
+        let traces = (track_start..(track_start + bus_width as isize))
             .map(|track| {
                 let rect = Rect::span_builder()
                     .with(Dir::Vert, bbox.vspan())
@@ -214,8 +237,12 @@ fn draw_hier_decode_node(
             .collect::<Vec<_>>();
 
         for (i, gate) in gates.iter().enumerate() {
-            let (a, b) = (i % 2, 2 + (i / 2));
-            for (port, idx) in [("A", a), ("B", b)] {
+            let conns = match bus_width {
+                4 => vec![("A", i % 2), ("B", 2 + (i / 2))],
+                6 => vec![("A", i % 2), ("B", 2 + ((i / 2) % 2)), ("C", 4 + i / 4)],
+                _ => unreachable!("bus width must be 4 or 6"),
+            };
+            for (port, idx) in conns {
                 let src = gate.port(port).largest_rect(m0).unwrap();
                 let mut trace = router.trace(src, 0);
                 let target = &traces[idx];
@@ -224,8 +251,11 @@ fn draw_hier_decode_node(
                     .horiz_to_trace(&target)
                     .contact_up(target.rect());
             }
+        }
 
-            let addr_bit = if i < 2 { 0 } else { 1 };
+        // place ports
+        for i in 0..bus_width {
+            let addr_bit = i / 2;
             let addr_bar = if i % 2 == 0 { "" } else { "_b" };
             let mut port = AbstractPort::new(format!("addr{}_{}", addr_bar, addr_bit));
             port.add_shape(m1, Shape::Rect(traces[i].rect()));
@@ -351,8 +381,12 @@ pub(crate) fn connect_subdecoders(args: ConnectSubdecodersArgs) {
 
         assert_eq!(idxs.len(), 2);
 
+        let ports = ["A", "B", "C", "D"]
+            .into_iter()
+            .take(args.node.children.len());
+
         // TODO generalize for 3 input gates
-        for (j, port) in ["A", "B"].into_iter().enumerate() {
+        for (j, port) in ports.enumerate() {
             let src = args.gates.port(port, i).largest_rect(m0).unwrap();
 
             let mut trace = args.router.trace(src, 0);
@@ -442,6 +476,17 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sky130_hier_decode_4bit")?;
         let tree = DecoderTree::new(4);
         draw_hier_decode(&mut lib, "hier_decode_4b", &tree.root)?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_hier_decode_5bit() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_hier_decode_5bit")?;
+        let tree = DecoderTree::new(5);
+        draw_hier_decode(&mut lib, "hier_decode_5b", &tree.root)?;
 
         lib.save_gds(test_path(&lib))?;
 
