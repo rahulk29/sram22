@@ -66,52 +66,15 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     let mut decoder1 = Instance::new("hierarchical_decoder", decoder1);
     let mut decoder2 = Instance::new("hierarchical_decoder", decoder2);
-
     let mut wldrv_nand = Instance::new("wldrv_nand_array", wldrv_nand.cell);
     let mut wldrv_inv = Instance::new("wldrv_inv_array", wldrv_inv.cell);
     let mut nand_dec = Instance::new("nand2_dec_array", nand_dec.cell);
     let mut inv_dec = Instance::new("inv_dec_array", inv_dec.cell);
-
-    let mut pc = Instance {
-        cell: pc,
-        inst_name: "precharge_array".to_string(),
-        reflect_vert: false,
-        angle: None,
-        loc: Point::new(0, 0),
-    };
-
-    let mut read_mux = Instance {
-        cell: read_mux,
-        inst_name: "read_mux_array".to_string(),
-        reflect_vert: false,
-        angle: None,
-        loc: Point::new(0, 0),
-    };
-
-    let mut write_mux = Instance {
-        cell: write_mux,
-        inst_name: "write_mux_array".to_string(),
-        reflect_vert: false,
-        angle: None,
-        loc: Point::new(0, 0),
-    };
-
-    let mut sense_amp = Instance {
-        cell: sense_amp.cell,
-        inst_name: "sense_amp_array".to_string(),
-        reflect_vert: false,
-        angle: None,
-        loc: Point::new(0, 0),
-    };
-
-    let mut dffs = Instance {
-        cell: data_dffs.cell,
-        inst_name: "dff_array".to_string(),
-        reflect_vert: false,
-        angle: None,
-        loc: Point::new(0, 0),
-    };
-
+    let mut pc = Instance::new("precharge_array", pc);
+    let mut read_mux = Instance::new("read_mux_array", read_mux);
+    let mut write_mux = Instance::new("write_mux_array", write_mux);
+    let mut sense_amp = Instance::new("sense_amp_array", sense_amp.cell);
+    let mut dffs = Instance::new("dff_array", data_dffs.cell);
     let mut addr_dffs = Instance::new("addr_dffs", addr_dffs);
 
     let core_bbox = core.bbox();
