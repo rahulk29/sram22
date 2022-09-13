@@ -355,7 +355,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         1,
         cfg.line(1),
         ContactPolicy {
-            above: None,
+            above: Some(ContactPosition::CenteredNonAdjacent),
             below: Some(ContactPosition::CenteredNonAdjacent),
         },
     );
@@ -367,11 +367,13 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         .build()?;
     let vspan = Span::new(decoder2.bbox().p0.y, nand_dec.bbox().p1.y);
 
+    let bus_width = bus_width(&decoder_tree.root);
+
     let track_start = grid.get_track_index(
         Dir::Vert,
         nand_dec.bbox().into_rect().left(),
         TrackLocator::EndsBefore,
-    ) - bus_width(&decoder_tree.root) as isize;
+    ) - bus_width as isize;
     crate::layout::decoder::connect_subdecoders(ConnectSubdecodersArgs {
         node: &decoder_tree.root,
         grid: &grid,
@@ -381,6 +383,31 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         gates: GateList::Array(&nand_dec, rows),
         subdecoders: &[&decoder1, &decoder2],
     });
+
+    let track_start = track_start + bus_width as isize;
+    let traces = (track_start..(track_start + 2 * row_bits as isize))
+        .map(|track| {
+            let rect = Rect::span_builder()
+                .with(Dir::Vert, Span::new(addr_dffs.bbox().p0.y, core_bbox.p0.y))
+                .with(Dir::Horiz, grid.vtrack(track))
+                .build();
+            router.trace(rect, 1)
+        })
+        .collect::<Vec<_>>();
+
+    for i in 0..row_bits {
+        for (port, idx) in [("q", 2 * i), ("qn", 2 * i + 1)] {
+            let src = addr_dffs
+                .port(format!("{}_{}", port, i + col_sel_bits))
+                .largest_rect(m2)
+                .unwrap();
+            let mut trace = router.trace(src, 2);
+            trace
+                .place_cursor_centered()
+                .horiz_to_trace(&traces[idx])
+                .contact_down(traces[idx].rect());
+        }
+    }
 
     let routing = router.finish();
 
@@ -490,6 +517,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_sram_bank_128x128() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_bank_128x128")?;
         draw_sram_bank(128, 128, &mut lib).map_err(panic_on_err)?;
