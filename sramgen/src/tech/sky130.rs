@@ -65,6 +65,10 @@ fn name_map(lib: &Library) -> HashMap<String, Ptr<Cell>> {
 type CellGdsResult = anyhow::Result<Ptr<Cell>>;
 
 fn cell_gds(pdk_lib: &mut PdkLib, gds_file: &str, cell_name: &str) -> CellGdsResult {
+    if let Some(cell) = pdk_lib.lib.cell(cell_name) {
+        return Ok(cell);
+    }
+
     let mut path = external_gds_path();
     path.push(gds_file);
     let lib = GdsLibrary::load(&path)?;

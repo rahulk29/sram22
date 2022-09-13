@@ -9,7 +9,7 @@ saved = [
     "qb",
 ]
 
-plot = ["clk", "d", "q"]
+plot = ["clk", "d", "q", "qb"]
 
 
 def read_data(f):

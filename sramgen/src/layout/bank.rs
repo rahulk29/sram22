@@ -11,6 +11,7 @@ use pdkprims::{LayerIdx, PdkLib};
 use crate::clog2;
 use crate::decoder::DecoderTree;
 use crate::layout::decoder::{bus_width, draw_hier_decode, ConnectSubdecodersArgs, GateList};
+use crate::layout::dff::draw_vert_dff_array;
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
 
@@ -35,12 +36,14 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let grid = lib.pdk.grid();
 
     let row_bits = clog2(rows);
+    let col_sel_bits = 1;
 
     let decoder_tree = DecoderTree::new(row_bits);
     assert_eq!(decoder_tree.root.children.len(), 2);
 
     let decoder1 = draw_hier_decode(lib, "predecoder_1", &decoder_tree.root.children[0])?;
     let decoder2 = draw_hier_decode(lib, "predecoder_2", &decoder_tree.root.children[1])?;
+    let addr_dffs = draw_vert_dff_array(lib, "addr_dffs", row_bits + col_sel_bits)?;
 
     let core = draw_array(rows, cols, lib)?;
     let nand_dec = draw_nand2_array(lib, "nand2_dec", rows)?;
@@ -51,7 +54,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let read_mux = draw_read_mux_array(lib, cols / 2)?;
     let write_mux = draw_write_mux_array(lib, cols)?;
     let sense_amp = draw_sense_amp_array(lib, cols / 2)?;
-    let dffs = draw_dff_array(lib, cols / 2)?;
+    let data_dffs = draw_dff_array(lib, "data_dff_array", cols / 2)?;
 
     let core = Instance {
         cell: core,
@@ -102,12 +105,14 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     };
 
     let mut dffs = Instance {
-        cell: dffs.cell,
+        cell: data_dffs.cell,
         inst_name: "dff_array".to_string(),
         reflect_vert: false,
         angle: None,
         loc: Point::new(0, 0),
     };
+
+    let mut addr_dffs = Instance::new("addr_dffs", addr_dffs);
 
     let core_bbox = core.bbox();
 
@@ -141,6 +146,9 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     decoder2.align_beneath(decoder1.bbox(), 1_000);
     decoder2.align_to_the_left_of(sense_amp.bbox(), 1_000);
+
+    addr_dffs.align_beneath(decoder2.bbox(), 1_270);
+    addr_dffs.align_to_the_left_of(dffs.bbox(), 1_270);
 
     // Top level routing
     let mut router = Router::new("bank_route", lib.pdk.clone());
@@ -388,6 +396,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     layout.insts.push(write_mux);
     layout.insts.push(sense_amp);
     layout.insts.push(dffs);
+    layout.insts.push(addr_dffs);
     layout.insts.push(routing);
 
     let cell = Cell {
@@ -481,7 +490,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "slow"]
     fn test_sram_bank_128x128() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_bank_128x128")?;
         draw_sram_bank(128, 128, &mut lib).map_err(panic_on_err)?;
