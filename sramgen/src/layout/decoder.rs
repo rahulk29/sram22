@@ -116,7 +116,7 @@ fn draw_hier_decode_node(
         .collect::<Result<Vec<_>>>()?;
 
     let child_sizes = node.children.iter().map(|n| n.num).collect::<Vec<_>>();
-    let gate_size = if node.children.len() > 0 {
+    let gate_size = if !node.children.is_empty() {
         node.children.len()
     } else {
         clog2(node.num)
@@ -268,17 +268,17 @@ fn draw_hier_decode_node(
                 let target = &traces[idx];
                 trace
                     .place_cursor_centered()
-                    .horiz_to_trace(&target)
+                    .horiz_to_trace(target)
                     .contact_up(target.rect());
             }
         }
 
         // place ports
-        for i in 0..bus_width {
+        for (i, trace) in traces.iter().enumerate().take(bus_width) {
             let addr_bit = i / 2;
             let addr_bar = if i % 2 == 0 { "" } else { "_b" };
             let mut port = AbstractPort::new(format!("addr{}_{}", addr_bar, addr_bit));
-            port.add_shape(m1, Shape::Rect(traces[i].rect()));
+            port.add_shape(m1, Shape::Rect(trace.rect()));
             abs.add_port(port);
         }
 
@@ -418,7 +418,7 @@ fn get_idxs(mut num: usize, bases: &[usize]) -> Vec<usize> {
         .rev()
         .scan(1, |state, &elem| {
             let val = *state;
-            *state = *state * elem;
+            *state *= elem;
             Some(val)
         })
         .collect::<Vec<_>>();

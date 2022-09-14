@@ -313,7 +313,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .port(format!("bl_out_{}", i / 2))
             .largest_rect(m1)
             .unwrap();
-        let mut trace = router.trace(src, 1);
+        let _ = router.trace(src, 1);
     }
 
     connect(ConnectArgs {

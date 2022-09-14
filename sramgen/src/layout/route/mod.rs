@@ -151,20 +151,6 @@ impl Cursor {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub enum BusDir {
-    Horizontal,
-    Vertical,
-}
-
-pub struct Bus {
-    dir: BusDir,
-    layer: LayerIdx,
-    tracks: usize,
-    line: Int,
-    space: Int,
-}
-
 // Rounds a to the nearest multiple of b
 #[inline]
 fn round(a: Int, b: Int) -> Int {
@@ -477,15 +463,5 @@ impl Trace {
     fn add_inst(&self, inst: Instance) {
         let mut cell = self.cell.write().unwrap();
         cell.layout.as_mut().unwrap().insts.push(inst);
-    }
-}
-
-fn rect_from_corners(p0: Point, p1: Point) -> Rect {
-    use std::cmp::max;
-    use std::cmp::min;
-
-    Rect {
-        p0: Point::new(min(p0.x, p1.x), min(p0.y, p1.y)),
-        p1: Point::new(max(p0.x, p1.x), max(p0.y, p1.y)),
     }
 }
