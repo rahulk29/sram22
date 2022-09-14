@@ -17,6 +17,7 @@ pub mod mux;
 pub mod precharge;
 pub mod route;
 pub mod sense_amp;
+pub mod tmc;
 
 pub fn draw_bitcell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "t_bitcell".to_string();
