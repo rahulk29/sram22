@@ -43,6 +43,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     let decoder1 = draw_hier_decode(lib, "predecoder_1", &decoder_tree.root.children[0])?;
     let decoder2 = draw_hier_decode(lib, "predecoder_2", &decoder_tree.root.children[1])?;
+    let decoder1_bits = clog2(decoder_tree.root.children[0].num);
     let addr_dffs = draw_vert_dff_array(lib, "addr_dffs", row_bits + col_sel_bits)?;
 
     let core = draw_array(rows, cols, lib)?;
@@ -359,7 +360,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         .collect::<Vec<_>>();
 
     for i in 0..row_bits {
-        for (port, idx) in [("q", 2 * i), ("qn", 2 * i + 1)] {
+        for (port, addr_prefix, idx) in [("q", "addr", 2 * i), ("qn", "addr_b", 2 * i + 1)] {
             let src = addr_dffs
                 .port(format!("{}_{}", port, i + col_sel_bits))
                 .largest_rect(m2)
@@ -367,6 +368,22 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             let mut trace = router.trace(src, 2);
             trace
                 .place_cursor_centered()
+                .horiz_to_trace(&traces[idx])
+                .contact_down(traces[idx].rect());
+
+            let target_port = if i < decoder1_bits {
+                // Route to decoder1
+                decoder1.port(format!("{}_{}", addr_prefix, i))
+            } else {
+                // Route to decoder2
+                decoder2.port(format!("{}_{}", addr_prefix, i - decoder1_bits))
+            };
+            let mut target = target_port.largest_rect(m1).unwrap();
+            target.p0.y += 1_000 * idx as isize;
+            let mut trace = router.trace(target, 1);
+            trace
+                .place_cursor_centered()
+                .up()
                 .horiz_to_trace(&traces[idx])
                 .contact_down(traces[idx].rect());
         }
@@ -480,7 +497,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "slow"]
     fn test_sram_bank_128x128() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_bank_128x128")?;
         draw_sram_bank(128, 128, &mut lib).map_err(panic_on_err)?;
