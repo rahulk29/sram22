@@ -1,6 +1,7 @@
+use derive_builder::Builder;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Rect;
-use layout21::raw::Dir;
+use layout21::raw::{AbstractPort, Dir, Int};
 use layout21::{
     raw::{BoundBoxTrait, Cell, Instance, Layout, Point, Span},
     utils::Ptr,
@@ -10,7 +11,7 @@ use pdkprims::{LayerIdx, PdkLib};
 
 use crate::clog2;
 use crate::decoder::DecoderTree;
-use crate::layout::decoder::{bus_width, draw_hier_decode, ConnectSubdecodersArgs, GateList};
+use crate::layout::decoder::{bus_width, draw_hier_decode, ConnectSubdecodersArgs};
 use crate::layout::dff::draw_vert_dff_array;
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
@@ -24,6 +25,8 @@ use super::{
     sense_amp::draw_sense_amp_array,
     Result,
 };
+
+pub const M1_PWR_OVERHANG: Int = 200;
 
 pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "sram_bank".to_string();
@@ -126,38 +129,38 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             metal_idx: 1,
             port_idx: 0,
             router: &mut router,
-            inst: nand,
+            insts: GateList::Array(nand, rows),
             port_name: "VDD",
-            count: rows,
             dir: Dir::Vert,
+            overhang: Some(M1_PWR_OVERHANG),
         });
         connect(ConnectArgs {
             metal_idx: 1,
             port_idx: 0,
             router: &mut router,
-            inst: nand,
+            insts: GateList::Array(nand, rows),
             port_name: "VSS",
-            count: rows,
             dir: Dir::Vert,
+            overhang: Some(M1_PWR_OVERHANG),
         });
 
         connect(ConnectArgs {
             metal_idx: 1,
             port_idx: 0,
             router: &mut router,
-            inst: inv,
+            insts: GateList::Array(inv, rows),
             port_name: "vdd",
-            count: rows,
             dir: Dir::Vert,
+            overhang: Some(M1_PWR_OVERHANG),
         });
         connect(ConnectArgs {
             metal_idx: 1,
             port_idx: 0,
             router: &mut router,
-            inst: inv,
+            insts: GateList::Array(inv, rows),
             port_name: "gnd",
-            count: rows,
             dir: Dir::Vert,
+            overhang: Some(M1_PWR_OVERHANG),
         });
     }
 
@@ -309,10 +312,10 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         metal_idx: 2,
         port_idx: 1,
         router: &mut router,
-        inst: &pc,
+        insts: GateList::Array(&pc, cols + 1),
         port_name: "vdd",
-        count: cols + 1,
         dir: Dir::Horiz,
+        overhang: None,
     });
 
     let space = lib.pdk.bus_min_spacing(
@@ -379,7 +382,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
                 decoder2.port(format!("{}_{}", addr_prefix, i - decoder1_bits))
             };
             let mut target = target_port.largest_rect(m1).unwrap();
-            target.p0.y += 1_000 * idx as isize;
+            target.p0.y += 800 * idx as isize;
             let mut trace = router.trace(target, 1);
             trace
                 .place_cursor_centered()
@@ -418,52 +421,74 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     Ok(ptr)
 }
 
-struct ConnectArgs<'a> {
-    metal_idx: LayerIdx,
-    port_idx: LayerIdx,
-    router: &'a mut Router,
-    inst: &'a Instance,
-    port_name: &'a str,
-    count: usize,
-    dir: Dir,
+#[derive(Builder)]
+#[builder(pattern = "owned")]
+pub(crate) struct ConnectArgs<'a> {
+    pub(crate) metal_idx: LayerIdx,
+    pub(crate) port_idx: LayerIdx,
+    pub(crate) router: &'a mut Router,
+    pub(crate) insts: GateList<'a>,
+    pub(crate) port_name: &'a str,
+    pub(crate) dir: Dir,
+    #[builder(setter(strip_option))]
+    pub(crate) overhang: Option<isize>,
 }
 
-fn connect(args: ConnectArgs) {
+#[derive(Copy, Clone)]
+pub(crate) enum GateList<'a> {
+    Cells(&'a [Instance]),
+    Array(&'a Instance, usize),
+}
+
+impl<'a> GateList<'a> {
+    #[inline]
+    pub(crate) fn width(&self) -> usize {
+        match self {
+            Self::Cells(v) => v.len(),
+            Self::Array(_, width) => *width,
+        }
+    }
+
+    pub(crate) fn port(&self, name: &str, num: usize) -> AbstractPort {
+        match self {
+            Self::Cells(v) => v[num].port(name),
+            Self::Array(v, _) => v.port(format!("{}_{}", name, num)),
+        }
+    }
+}
+
+pub(crate) fn connect(args: ConnectArgs) {
     let cfg = args.router.cfg();
     let m0 = cfg.layerkey(args.port_idx);
-    let port_start = args
-        .inst
-        .port(format!("{}_0", args.port_name))
-        .bbox(m0)
-        .unwrap();
+    let port_start = args.insts.port(args.port_name, 0).bbox(m0).unwrap();
     let port_stop = args
-        .inst
-        .port(format!("{}_{}", args.port_name, args.count - 1))
+        .insts
+        .port(args.port_name, args.insts.width() - 1)
         .bbox(m0)
         .unwrap();
 
     let target_area = Rect::from(port_start.union(&port_stop));
+    let mut span = target_area.span(args.dir);
     let trace_xspan = Span::from_center_span_gridded(
         target_area.span(!args.dir).center(),
         3 * cfg.line(args.metal_idx),
         cfg.grid(),
     );
 
-    let dir = args.dir;
-    let mut trace = args.router.trace(
-        Rect::span_builder()
-            .with(dir, target_area.span(dir))
-            .with(!dir, trace_xspan)
-            .build(),
-        args.metal_idx,
-    );
+    if let Some(overhang) = args.overhang {
+        span.expand(true, overhang).expand(false, overhang);
+    }
 
-    for i in 0..args.count {
-        let port = args
-            .inst
-            .port(format!("{}_{}", args.port_name, i))
-            .bbox(m0)
-            .unwrap();
+    let rect = Rect::span_builder()
+        .with(args.dir, span)
+        .with(!args.dir, trace_xspan)
+        .build();
+
+    let dir = args.dir;
+    let mut trace = args.router.trace(rect, args.metal_idx);
+
+    for i in 0..args.insts.width() {
+        let port = args.insts.port(args.port_name, i).bbox(m0).unwrap();
         trace.contact_down(port.into());
     }
 }

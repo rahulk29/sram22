@@ -1,6 +1,7 @@
 use crate::clog2;
 use crate::decoder::TreeNode;
 use crate::gate::{GateParams, Size};
+use crate::layout::bank::{ConnectArgs, M1_PWR_OVERHANG};
 use crate::layout::gate::draw_and3;
 use crate::layout::Result;
 use layout21::raw::align::AlignRect;
@@ -11,6 +12,7 @@ use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::PdkLib;
 
 use super::array::{draw_cell_array, ArrayCellParams, ArrayedCell, FlipMode};
+use super::bank::GateList;
 use super::gate::{draw_and2, AndParams};
 use super::route::grid::{Grid, TrackLocator};
 use super::route::Router;
@@ -207,6 +209,24 @@ fn draw_hier_decode_node(
         .grid(lib.pdk.grid())
         .build()?;
 
+    let ports = match gate_size {
+        2 => vec!["vss0", "vdd0", "vss1", "vdd1"],
+        3 => vec!["vss0", "vdd0", "vdd1", "vss1", "vdd2"],
+        _ => unimplemented!(),
+    };
+
+    for port in ports {
+        crate::layout::bank::connect(ConnectArgs {
+            metal_idx: 1,
+            port_idx: 0,
+            router: &mut router,
+            insts: GateList::Cells(&gates),
+            port_name: port,
+            dir: Dir::Vert,
+            overhang: Some(M1_PWR_OVERHANG),
+        });
+    }
+
     // If no child decoders, we're done.
     if bus_width == 0 {
         // Note: this only supports 2-4 and 3-8 predecoders.
@@ -330,28 +350,6 @@ pub(crate) struct ConnectSubdecodersArgs<'a> {
     pub(crate) router: &'a mut Router,
     pub(crate) gates: GateList<'a>,
     pub(crate) subdecoders: &'a [&'a Instance],
-}
-
-pub(crate) enum GateList<'a> {
-    Cells(&'a [Instance]),
-    Array(&'a Instance, usize),
-}
-
-impl<'a> GateList<'a> {
-    #[inline]
-    fn width(&self) -> usize {
-        match self {
-            Self::Cells(v) => v.len(),
-            Self::Array(_, width) => *width,
-        }
-    }
-
-    fn port(&self, name: &str, num: usize) -> AbstractPort {
-        match self {
-            Self::Cells(v) => v[num].port(name),
-            Self::Array(v, _) => v.port(format!("{}_{}", name, num)),
-        }
-    }
 }
 
 pub(crate) fn bus_width(node: &TreeNode) -> usize {
