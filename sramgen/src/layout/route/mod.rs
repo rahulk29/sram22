@@ -1,6 +1,6 @@
-use pdkprims::{contact::ContactParams, LayerIdx, Pdk, PdkLib};
-use serde::{Deserialize, Serialize};
-use std::sync::{Arc, RwLock};
+use pdkprims::{contact::ContactParams, LayerIdx, Pdk};
+
+use std::sync::Arc;
 
 use layout21::{
     raw::{
@@ -108,6 +108,11 @@ impl Router {
     #[inline]
     pub fn finish(self) -> Instance {
         Instance::new("__route", self.cell)
+    }
+
+    #[inline]
+    pub fn cell(&self) -> Instance {
+        Instance::new("__route", self.cell.clone())
     }
 }
 

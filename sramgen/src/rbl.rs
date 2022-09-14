@@ -6,11 +6,8 @@ use crate::gate::{inv, GateParams, Size};
 use crate::precharge::precharge;
 use crate::tech::sram_sp_replica_cell_ref;
 use crate::{
-    precharge::{precharge_array, PrechargeArrayParams, PrechargeParams},
-    utils::{
-        bus, conn_map, conns::conn_slice, local_reference, port_inout, port_input, port_output,
-        sig_conn, signal,
-    },
+    precharge::PrechargeParams,
+    utils::{conn_map, local_reference, port_inout, port_input, port_output, sig_conn, signal},
 };
 
 #[derive(Debug, Clone)]

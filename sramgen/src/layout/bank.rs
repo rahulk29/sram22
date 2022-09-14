@@ -114,16 +114,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     decoder2.align_beneath(decoder1.bbox(), 1_000);
     decoder2.align_to_the_left_of(sense_amp.bbox(), 1_000);
 
-    addr_dffs.align_centers_vertically_gridded(decoder2.bbox(), lib.pdk.grid());
-
-    let nand_dec_bbox = nand_dec.bbox();
-    let data_dff_bbox = dffs.bbox();
-
-    if data_dff_bbox.p0.x < nand_dec_bbox.p0.x {
-        addr_dffs.align_to_the_left_of(data_dff_bbox, 1_800);
-    } else {
-        addr_dffs.align_to_the_left_of(nand_dec_bbox, 1_800);
-    }
+    addr_dffs.align_top(decoder2.bbox());
 
     // Top level routing
     let mut router = Router::new("bank_route", lib.pdk.clone());
@@ -359,6 +350,9 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         subdecoders: &[&decoder1, &decoder2],
     });
 
+    let bbox = router.cell().bbox();
+    addr_dffs.align_to_the_left_of(bbox, 1_270);
+
     let track_start = track_start + bus_width as isize;
     let traces = (track_start..(track_start + 2 * row_bits as isize))
         .map(|track| {
@@ -390,7 +384,11 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
                 decoder2.port(format!("{}_{}", addr_prefix, i - decoder1_bits))
             };
             let mut target = target_port.largest_rect(m1).unwrap();
-            target.p0.y += 800 * idx as isize;
+            let base = target.p0.y + 200 + 400 * idx as isize;
+            let top = base + 400;
+            assert!(top <= target.p1.y);
+            target.p0.y = base;
+            target.p1.y = top;
             let mut trace = router.trace(target, 1);
             trace
                 .place_cursor_centered()

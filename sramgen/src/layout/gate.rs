@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::gate::{GateParams, Size};
 use crate::layout::Result;
 use layout21::raw::align::AlignRect;

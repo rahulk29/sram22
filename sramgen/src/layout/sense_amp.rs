@@ -1,5 +1,5 @@
 use layout21::raw::geom::Dir;
-use layout21::{raw::Cell, utils::Ptr};
+
 use pdkprims::PdkLib;
 
 use super::array::*;
