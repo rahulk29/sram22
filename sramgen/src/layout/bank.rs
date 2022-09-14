@@ -43,6 +43,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     let decoder1 = draw_hier_decode(lib, "predecoder_1", &decoder_tree.root.children[0])?;
     let decoder2 = draw_hier_decode(lib, "predecoder_2", &decoder_tree.root.children[1])?;
+    let decoder1_bits = clog2(decoder_tree.root.children[0].num);
     let addr_dffs = draw_vert_dff_array(lib, "addr_dffs", row_bits + col_sel_bits)?;
 
     let core = draw_array(rows, cols, lib)?;
@@ -66,52 +67,15 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     let mut decoder1 = Instance::new("hierarchical_decoder", decoder1);
     let mut decoder2 = Instance::new("hierarchical_decoder", decoder2);
-
     let mut wldrv_nand = Instance::new("wldrv_nand_array", wldrv_nand.cell);
     let mut wldrv_inv = Instance::new("wldrv_inv_array", wldrv_inv.cell);
     let mut nand_dec = Instance::new("nand2_dec_array", nand_dec.cell);
     let mut inv_dec = Instance::new("inv_dec_array", inv_dec.cell);
-
-    let mut pc = Instance {
-        cell: pc,
-        inst_name: "precharge_array".to_string(),
-        reflect_vert: false,
-        angle: None,
-        loc: Point::new(0, 0),
-    };
-
-    let mut read_mux = Instance {
-        cell: read_mux,
-        inst_name: "read_mux_array".to_string(),
-        reflect_vert: false,
-        angle: None,
-        loc: Point::new(0, 0),
-    };
-
-    let mut write_mux = Instance {
-        cell: write_mux,
-        inst_name: "write_mux_array".to_string(),
-        reflect_vert: false,
-        angle: None,
-        loc: Point::new(0, 0),
-    };
-
-    let mut sense_amp = Instance {
-        cell: sense_amp.cell,
-        inst_name: "sense_amp_array".to_string(),
-        reflect_vert: false,
-        angle: None,
-        loc: Point::new(0, 0),
-    };
-
-    let mut dffs = Instance {
-        cell: data_dffs.cell,
-        inst_name: "dff_array".to_string(),
-        reflect_vert: false,
-        angle: None,
-        loc: Point::new(0, 0),
-    };
-
+    let mut pc = Instance::new("precharge_array", pc);
+    let mut read_mux = Instance::new("read_mux_array", read_mux);
+    let mut write_mux = Instance::new("write_mux_array", write_mux);
+    let mut sense_amp = Instance::new("sense_amp_array", sense_amp.cell);
+    let mut dffs = Instance::new("dff_array", data_dffs.cell);
     let mut addr_dffs = Instance::new("addr_dffs", addr_dffs);
 
     let core_bbox = core.bbox();
@@ -355,7 +319,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         1,
         cfg.line(1),
         ContactPolicy {
-            above: None,
+            above: Some(ContactPosition::CenteredNonAdjacent),
             below: Some(ContactPosition::CenteredNonAdjacent),
         },
     );
@@ -367,11 +331,13 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         .build()?;
     let vspan = Span::new(decoder2.bbox().p0.y, nand_dec.bbox().p1.y);
 
+    let bus_width = bus_width(&decoder_tree.root);
+
     let track_start = grid.get_track_index(
         Dir::Vert,
         nand_dec.bbox().into_rect().left(),
         TrackLocator::EndsBefore,
-    ) - bus_width(&decoder_tree.root) as isize;
+    ) - bus_width as isize;
     crate::layout::decoder::connect_subdecoders(ConnectSubdecodersArgs {
         node: &decoder_tree.root,
         grid: &grid,
@@ -381,6 +347,47 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         gates: GateList::Array(&nand_dec, rows),
         subdecoders: &[&decoder1, &decoder2],
     });
+
+    let track_start = track_start + bus_width as isize;
+    let traces = (track_start..(track_start + 2 * row_bits as isize))
+        .map(|track| {
+            let rect = Rect::span_builder()
+                .with(Dir::Vert, Span::new(addr_dffs.bbox().p0.y, core_bbox.p0.y))
+                .with(Dir::Horiz, grid.vtrack(track))
+                .build();
+            router.trace(rect, 1)
+        })
+        .collect::<Vec<_>>();
+
+    for i in 0..row_bits {
+        for (port, addr_prefix, idx) in [("q", "addr", 2 * i), ("qn", "addr_b", 2 * i + 1)] {
+            let src = addr_dffs
+                .port(format!("{}_{}", port, i + col_sel_bits))
+                .largest_rect(m2)
+                .unwrap();
+            let mut trace = router.trace(src, 2);
+            trace
+                .place_cursor_centered()
+                .horiz_to_trace(&traces[idx])
+                .contact_down(traces[idx].rect());
+
+            let target_port = if i < decoder1_bits {
+                // Route to decoder1
+                decoder1.port(format!("{}_{}", addr_prefix, i))
+            } else {
+                // Route to decoder2
+                decoder2.port(format!("{}_{}", addr_prefix, i - decoder1_bits))
+            };
+            let mut target = target_port.largest_rect(m1).unwrap();
+            target.p0.y += 1_000 * idx as isize;
+            let mut trace = router.trace(target, 1);
+            trace
+                .place_cursor_centered()
+                .up()
+                .horiz_to_trace(&traces[idx])
+                .contact_down(traces[idx].rect());
+        }
+    }
 
     let routing = router.finish();
 
@@ -490,6 +497,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "slow"]
     fn test_sram_bank_128x128() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_bank_128x128")?;
         draw_sram_bank(128, 128, &mut lib).map_err(panic_on_err)?;

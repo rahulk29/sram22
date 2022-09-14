@@ -75,7 +75,7 @@ pub fn draw_vert_dff_array(
     let ptr = Ptr::new(Cell {
         name,
         layout: Some(layout),
-        abs: None,
+        abs: Some(abs),
     });
 
     lib.lib.cells.push(ptr.clone());
