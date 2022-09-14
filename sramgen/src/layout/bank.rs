@@ -114,8 +114,16 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     decoder2.align_beneath(decoder1.bbox(), 1_000);
     decoder2.align_to_the_left_of(sense_amp.bbox(), 1_000);
 
-    addr_dffs.align_beneath(decoder2.bbox(), 1_270);
-    addr_dffs.align_to_the_left_of(dffs.bbox(), 1_270);
+    addr_dffs.align_centers_vertically_gridded(decoder2.bbox(), lib.pdk.grid());
+
+    let nand_dec_bbox = nand_dec.bbox();
+    let data_dff_bbox = dffs.bbox();
+
+    if data_dff_bbox.p0.x < nand_dec_bbox.p0.x {
+        addr_dffs.align_to_the_left_of(data_dff_bbox, 1_800);
+    } else {
+        addr_dffs.align_to_the_left_of(nand_dec_bbox, 1_800);
+    }
 
     // Top level routing
     let mut router = Router::new("bank_route", lib.pdk.clone());
@@ -484,7 +492,6 @@ pub(crate) fn connect(args: ConnectArgs) {
         .with(!args.dir, trace_xspan)
         .build();
 
-    let dir = args.dir;
     let mut trace = args.router.trace(rect, args.metal_idx);
 
     for i in 0..args.insts.width() {
@@ -522,7 +529,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "slow"]
     fn test_sram_bank_128x128() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_bank_128x128")?;
         draw_sram_bank(128, 128, &mut lib).map_err(panic_on_err)?;
