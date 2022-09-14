@@ -1,16 +1,11 @@
 use std::collections::HashMap;
 
-use pdkprims::{config::Int, mos::MosType};
-
 use vlsir::circuit::Instance;
-use vlsir::{circuit::Module, reference::To, Reference};
+use vlsir::circuit::Module;
 
 use crate::tech::openram_dff_ref;
 use crate::utils::port_output;
-use crate::{
-    mos::Mosfet,
-    utils::{bus, conns::conn_slice, port_inout, port_input, sig_conn, signal},
-};
+use crate::utils::{bus, conns::conn_slice, port_inout, port_input, sig_conn, signal};
 
 pub struct DffArrayParams {
     pub name: String,
@@ -71,7 +66,7 @@ pub fn dff_array(params: DffArrayParams) -> Vec<Module> {
 mod tests {
     use vlsir::circuit::Package;
 
-    use crate::{save_bin, tech::all_external_modules, utils::save_modules};
+    use crate::{save_bin, tech::all_external_modules};
 
     use super::*;
 

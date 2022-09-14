@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::gate::{GateParams, Size};
 use crate::layout::Result;
 use layout21::raw::align::AlignRect;
@@ -30,8 +28,8 @@ pub fn draw_and2(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
     let mut layout = Layout::new(&params.name);
     let mut abs = Abstract::new(&params.name);
 
-    let nand = Instance::new("nand2", nand.clone());
-    let mut inv = Instance::new("inv", inv.clone());
+    let nand = Instance::new("nand2", nand);
+    let mut inv = Instance::new("inv", inv);
 
     let nand_bbox = nand.bbox();
 
@@ -78,8 +76,8 @@ pub fn draw_and3(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
     let mut layout = Layout::new(&params.name);
     let mut abs = Abstract::new(&params.name);
 
-    let nand = Instance::new("nand3", nand.clone());
-    let mut inv = Instance::new("inv", inv.clone());
+    let nand = Instance::new("nand3", nand);
+    let mut inv = Instance::new("inv", inv);
 
     let nand_bbox = nand.bbox();
 

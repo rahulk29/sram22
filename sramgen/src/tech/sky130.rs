@@ -173,18 +173,11 @@ pub fn corner_gds(lib: &mut PdkLib) -> CellGdsResult {
 
 #[inline]
 pub fn rowend_gds(lib: &mut PdkLib) -> CellGdsResult {
-    let res = cell_gds(
+    cell_gds(
         lib,
         "sram_sp_rowend.gds",
         "sky130_fd_bd_sram__sram_sp_rowend",
-    );
-
-    {
-        let cell = res.as_ref().unwrap();
-        let cell = cell.read().unwrap();
-        let abs = cell.abs.as_ref().unwrap();
-    }
-    res
+    )
 }
 
 #[inline]

@@ -327,25 +327,25 @@ pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     port.set_net("data_b");
     abs.add_port(port);
 
-    let mut trace = router.trace(mos_bls.port(format!("sd_0_1")).largest_rect(m0).unwrap(), 0);
+    let mut trace = router.trace(mos_bls.port("sd_0_1").largest_rect(m0).unwrap(), 0);
     trace
         .contact_up(trace.rect())
         .increment_layer()
         .place_cursor(Dir::Vert, false);
 
-    let dst = mos_gnd.port(format!("sd_0_1")).largest_rect(m0).unwrap();
+    let dst = mos_gnd.port("sd_0_1").largest_rect(m0).unwrap();
     trace
         .vert_to(dst.bottom())
         .contact_on(dst, VertDir::Below, ContactBounds::FitOne(m0, dst))
         .decrement_layer();
 
-    let mut trace = router.trace(mos_bls.port(format!("sd_0_0")).largest_rect(m0).unwrap(), 0);
+    let mut trace = router.trace(mos_bls.port("sd_0_0").largest_rect(m0).unwrap(), 0);
     trace.contact_up(trace.rect());
     let mut port = AbstractPort::new("br");
     port.add_shape(m1, Shape::Rect(trace.rect()));
     abs.add_port(port);
 
-    let mut trace = router.trace(mos_bls.port(format!("sd_0_2")).largest_rect(m0).unwrap(), 0);
+    let mut trace = router.trace(mos_bls.port("sd_0_2").largest_rect(m0).unwrap(), 0);
     trace.contact_up(trace.rect());
     let mut port = AbstractPort::new("bl");
     port.add_shape(m1, Shape::Rect(trace.rect()));
@@ -390,7 +390,7 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
         ArrayCellParams {
             name: "write_mux_tap_array".to_string(),
             num: width / 2 + 1,
-            cell: tap.clone(),
+            cell: tap,
             spacing: Some(2 * 2_500),
             flip: FlipMode::AlternateFlipHorizontal,
             flip_toggle: false,
@@ -403,8 +403,8 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
     let mut layout = Layout::new(name);
     let mut abs = Abstract::new(name);
 
-    let core_inst = Instance::new("write_mux_core_array", muxes.cell.clone());
-    let mut tap_inst = Instance::new("write_mux_tap_array", taps.cell.clone());
+    let core_inst = Instance::new("write_mux_core_array", muxes.cell);
+    let mut tap_inst = Instance::new("write_mux_tap_array", taps.cell);
     tap_inst.align_centers_gridded(core_inst.bbox(), lib.pdk.grid());
 
     let mut router = Router::new("write_mux_array_route", lib.pdk.clone());
@@ -466,7 +466,7 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
 
     // Route gate signals
     let grid = Grid::builder()
-        .line(1 * tc.layer("m2").width)
+        .line(tc.layer("m2").width)
         .space(tc.layer("m2").space)
         .center(Point::zero())
         .grid(tc.grid)

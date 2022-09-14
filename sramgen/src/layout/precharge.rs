@@ -195,14 +195,14 @@ pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
     let mut abs = Abstract::new("precharge_array");
     let core = Instance {
         inst_name: "pc_array".to_string(),
-        cell: core.cell.clone(),
+        cell: core.cell,
         reflect_vert: false,
         angle: None,
         loc: Point::new(0, 0),
     };
     let mut taps = Instance {
         inst_name: "tap_array".to_string(),
-        cell: taps.cell.clone(),
+        cell: taps.cell,
         reflect_vert: false,
         angle: None,
         loc: Point::new(0, 0),

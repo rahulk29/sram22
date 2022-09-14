@@ -72,13 +72,6 @@ fn size_decoder(tree: &PlanTreeNode) -> TreeNode {
     size_helper_tmp(tree, &sizes)
 }
 
-const REF_INVERTER_WIDTH: i64 = 800;
-const BETA: f64 = 1.7;
-
-fn round_to_grid(x: f64) -> Int {
-    ((x / 5.0).round() as Int) * 5
-}
-
 fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64]) -> TreeNode {
     // TODO size decoder
     let buf = x.buf.map(|b| {

@@ -1,5 +1,5 @@
 use layout21::raw::geom::Dir;
-use layout21::{raw::Cell, utils::Ptr};
+
 use pdkprims::PdkLib;
 
 use super::array::*;
@@ -7,11 +7,6 @@ use crate::{tech::sramgen_sp_sense_amp_gds, Result};
 
 pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
     let sa = sramgen_sp_sense_amp_gds(lib)?;
-
-    {
-        let sa = sa.read().unwrap();
-        let lay = sa.layout.as_ref().unwrap();
-    }
 
     draw_cell_array(
         ArrayCellParams {

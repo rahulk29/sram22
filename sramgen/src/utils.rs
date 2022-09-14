@@ -1,8 +1,5 @@
 use std::collections::HashMap;
-use std::fmt::Debug;
-use std::path::PathBuf;
 
-use pdkprims::PdkLib;
 use vlsir::{
     circuit::{connection::Stype, port, Connection, ExternalModule, Port, Signal, Slice},
     reference::To,
@@ -201,6 +198,11 @@ pub fn save_modules(name: &str, modules: Vec<Module>) -> Result<(), Box<dyn std:
 }
 
 #[cfg(test)]
+use pdkprims::PdkLib;
+#[cfg(test)]
+use std::path::PathBuf;
+
+#[cfg(test)]
 pub(crate) fn test_path(lib: &PdkLib) -> PathBuf {
     let mut path = PathBuf::from("/Users/rahul/acads/research/sky130/sram22/_build");
     path.push(format!("{}.gds", &lib.lib.name));
@@ -239,6 +241,9 @@ pub fn log2(mut x: usize) -> usize {
     }
     ctr
 }
+
+#[cfg(test)]
+use std::fmt::Debug;
 
 #[cfg(test)]
 pub(crate) fn panic_on_err<E: Debug>(e: E) -> ! {
