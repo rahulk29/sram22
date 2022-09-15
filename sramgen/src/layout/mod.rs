@@ -13,6 +13,7 @@ pub mod decoder;
 pub mod dff;
 pub mod gate;
 pub mod grid;
+pub mod latch;
 pub mod mux;
 pub mod precharge;
 pub mod route;
