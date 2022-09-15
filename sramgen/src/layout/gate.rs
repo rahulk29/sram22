@@ -231,6 +231,93 @@ pub fn draw_nand2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
+pub fn draw_nor2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
+    let mut layout = Layout::new(&args.name);
+    let mut abs = Abstract::new(&args.name);
+
+    let mut params = MosParams::new();
+    params
+        .dnw(false)
+        .direction(Dir::Horiz)
+        .add_device(MosDevice {
+            mos_type: MosType::Nmos,
+            width: args.size.nmos_width,
+            length: args.length,
+            fingers: 2,
+            intent: Intent::Svt,
+            skip_sd_metal: vec![],
+        })
+        .add_device(MosDevice {
+            mos_type: MosType::Pmos,
+            width: args.size.pmos_width,
+            length: args.length,
+            fingers: 2,
+            intent: Intent::Svt,
+            skip_sd_metal: vec![1],
+        });
+    let ptx = lib.draw_mos(params)?;
+
+    layout.insts.push(Instance::new("mos", ptx.cell.clone()));
+
+    let tc = lib.pdk.config.read().unwrap();
+
+    let ndrain1 = ptx.sd_pin(0, 2).unwrap();
+    let ndrain2 = ptx.sd_pin(0, 0).unwrap();
+    let pdrain = ptx.sd_pin(1, 0).unwrap();
+
+    let xlim = pdrain.p0.x - tc.layer("li").space;
+
+    let cx = (ndrain1.p1.x + pdrain.p0.x) / 2;
+
+    let (mut xmin, mut xmax) = lib.pdk.gridded_center_span(cx, tc.layer("li").width);
+
+    if xmax > xlim {
+        let xshift = xmax - xlim;
+        xmin -= xshift;
+        xmax -= xshift;
+    }
+
+    abs.add_port(ptx.sd_port(0, 0).unwrap().named("VSS"));
+    abs.add_port(ptx.sd_port(1, 2).unwrap().named("VDD"));
+    abs.add_port(ptx.gate_port(0).unwrap().named("A"));
+    abs.add_port(ptx.gate_port(1).unwrap().named("B"));
+
+    let mut port_y = AbstractPort::new("Y");
+
+    let rects = [
+        Rect {
+            p0: Point::new(ndrain2.p0.x, ndrain2.p0.y),
+            p1: Point::new(pdrain.p1.x, pdrain.p1.y),
+        },
+        Rect {
+            p0: Point::new(xmin, pdrain.p0.y),
+            p1: Point::new(xmax, ndrain1.p1.y),
+        },
+        Rect {
+            p0: Point::new(ndrain1.p0.x, ndrain1.p0.y),
+            p1: Point::new(xmax, ndrain1.p1.y),
+        },
+    ];
+
+    for r in rects {
+        layout.elems.push(draw_rect(r, ptx.sd_metal));
+        port_y.add_shape(ptx.sd_metal, Shape::Rect(r));
+    }
+
+    abs.add_port(port_y);
+
+    let cell = Cell {
+        name: args.name,
+        abs: Some(abs),
+        layout: Some(layout),
+    };
+
+    let ptr = Ptr::new(cell);
+    lib.lib.cells.push(ptr.clone());
+
+    Ok(ptr)
+}
+
 pub fn draw_nand3(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     let mut layout = Layout::new(&args.name);
     let mut abs = Abstract::new(&args.name);
@@ -457,6 +544,26 @@ mod tests {
                         nmos_width: 1_800,
                     },
                 },
+            },
+        )?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_nor2() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_nor2")?;
+        draw_nor2(
+            &mut lib,
+            GateParams {
+                name: "test_sky130_nor2".to_string(),
+                size: Size {
+                    nmos_width: 1_200,
+                    pmos_width: 3_000,
+                },
+                length: 150,
             },
         )?;
 
