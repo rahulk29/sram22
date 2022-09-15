@@ -1,6 +1,8 @@
 use anyhow::Result;
 use layout21::raw::align::AlignRect;
-use layout21::raw::{Abstract, BoundBoxTrait, Cell, Dir, Instance, Layout, Rect, Span};
+use layout21::raw::{
+    Abstract, AbstractPort, BoundBoxTrait, Cell, Dir, Instance, Layout, Rect, Shape, Span,
+};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
@@ -11,7 +13,7 @@ use super::route::Router;
 
 pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     let mut layout = Layout::new(name);
-    let abs = Abstract::new(name);
+    let mut abs = Abstract::new(name);
 
     let nand = draw_nand2(
         lib,
@@ -37,9 +39,9 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
         },
     )?;
 
-    let inv = Instance::new("inv", inv.clone());
+    let inv = Instance::new("inv", inv);
     let mut nand1 = Instance::new("nand_forward", nand.clone());
-    let mut nand2 = Instance::new("nand_out", nand.clone());
+    let mut nand2 = Instance::new("nand_out", nand);
 
     let inv_bbox = inv.bbox();
     nand1.align_above(inv_bbox, 200);
@@ -50,6 +52,7 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
+    let m1 = cfg.layerkey(1);
 
     let src = inv.port("din_b").largest_rect(m0).unwrap();
     let dst2 = nand2.port("A").largest_rect(m0).unwrap();
@@ -101,9 +104,19 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
             .contact_down(dst3)
             .contact_down(dst4);
 
+        let mut port = AbstractPort::new(nand_port.to_lowercase());
+        port.add_shape(m1, Shape::Rect(rect));
+        abs.add_port(port);
+
         layout.add_inst(top_tap);
         layout.add_inst(bot_tap);
     }
+
+    abs.add_port(inv.port("din").named("clk_in"));
+    abs.add_port(nand1.port("B").named("din"));
+    abs.add_port(nand1.port("Y").named("clk_out"));
+    abs.add_port(nand2.port("B").named("en"));
+    abs.add_port(nand2.port("Y").named("dout"));
 
     layout.add_inst(inv);
     layout.add_inst(nand1);
