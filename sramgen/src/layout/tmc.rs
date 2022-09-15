@@ -1,3 +1,5 @@
+//! Timing multiplier circuit layout.
+
 use anyhow::Result;
 use layout21::raw::align::AlignRect;
 use layout21::raw::{
@@ -133,6 +135,51 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
+pub struct TMCUnitParams {
+    /// The name of the timing multiplier circuit cell.
+    name: String,
+    /// The timing multiplier (must be at least 2).
+    multiplier: usize,
+}
+
+/// A single delay unit (one forward cell and `multiplier-1` backwards cells).
+pub fn draw_tmc_unit(lib: &mut PdkLib, params: TMCUnitParams) -> Result<Ptr<Cell>> {
+    assert!(params.multiplier >= 2);
+    let mut layout = Layout::new(&params.name);
+    let abs = Abstract::new(&params.name);
+
+    let delay_cell = draw_dbdr_delay_cell(lib, &format!("{}_delay_cell", &params.name))?;
+    let fwd = Instance::new("forwards", delay_cell.clone());
+
+    let mut bbox = fwd.bbox();
+
+    for i in 0..(params.multiplier - 1) {
+        let mut backwards = Instance::new(format!("backwards_{i}"), delay_cell.clone());
+        backwards.align_to_the_right_of(bbox, 600);
+        bbox = backwards.bbox();
+        layout.add_inst(backwards);
+    }
+
+    /* TODO: routing
+    let mut router = Router::new(format!("{}_route", &params.name), lib.pdk.clone());
+    let cfg = router.cfg();
+    let m0 = cfg.layerkey(0);
+    let m1 = cfg.layerkey(1);
+    layout.add_inst(router.finish());
+    */
+
+    layout.add_inst(fwd);
+
+    let ptr = Ptr::new(Cell {
+        name: params.name,
+        layout: Some(layout),
+        abs: Some(abs),
+    });
+    lib.lib.cells.push(ptr.clone());
+
+    Ok(ptr)
+}
+
 #[cfg(test)]
 mod tests {
     use pdkprims::tech::sky130;
@@ -145,6 +192,22 @@ mod tests {
     fn test_sky130_dbdr_delay_cell() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_dbdr_delay_cell")?;
         draw_dbdr_delay_cell(&mut lib, "test_sky130_dbdr_delay_cell")?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_tmc_unit() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_tmc_unit")?;
+        draw_tmc_unit(
+            &mut lib,
+            TMCUnitParams {
+                name: "test_sky130_tmc_unit".to_string(),
+                multiplier: 3,
+            },
+        )?;
 
         lib.save_gds(test_path(&lib))?;
 
