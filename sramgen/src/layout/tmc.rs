@@ -1,9 +1,12 @@
+//! Timing multiplier circuit layout.
+
 use anyhow::Result;
 use layout21::raw::align::AlignRect;
 use layout21::raw::{
     Abstract, AbstractPort, BoundBoxTrait, Cell, Dir, Instance, Layout, Rect, Shape, Span,
 };
 use layout21::utils::Ptr;
+use pdkprims::bus::ContactPolicy;
 use pdkprims::PdkLib;
 
 use crate::gate::{GateParams, Size};
@@ -39,14 +42,15 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
         },
     )?;
 
-    let inv = Instance::new("inv", inv);
+    let mut inv = Instance::new("inv", inv);
+    inv.reflect_vert_anchored();
     let mut nand1 = Instance::new("nand_forward", nand.clone());
     let mut nand2 = Instance::new("nand_out", nand);
 
     let inv_bbox = inv.bbox();
-    nand1.align_above(inv_bbox, 200);
+    nand1.align_beneath(inv_bbox, 200);
     let nand1_bbox = nand1.bbox();
-    nand2.align_above(nand1_bbox, 200);
+    nand2.align_beneath(nand1_bbox, 200);
     let nand2_bbox = nand2.bbox();
 
     let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());
@@ -55,15 +59,15 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     let m1 = cfg.layerkey(1);
 
     let src = inv.port("din_b").largest_rect(m0).unwrap();
-    let dst2 = nand2.port("A").largest_rect(m0).unwrap();
-    let dst1 = nand1.port("A").largest_rect(m0).unwrap();
+    let dst2 = nand2.port("B").largest_rect(m0).unwrap();
+    let dst1 = nand1.port("B").largest_rect(m0).unwrap();
     let mut trace = router.trace(src, 0);
     trace
         .place_cursor_centered()
-        .vert_to(nand1_bbox.p0.y)
-        .horiz_to(dst2.left())
+        .vert_to(nand1_bbox.p1.y)
+        .horiz_to(dst1.left())
         .up()
-        .vert_to(dst2.top())
+        .vert_to(dst2.bottom())
         .contact_down(dst2)
         .contact_down(dst1);
 
@@ -80,12 +84,12 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
             .get_contact_sized(stack, Dir::Horiz, m0, dst0.width())
             .unwrap();
         let mut top_tap = Instance::new(format!("{}_tap_top", inv_port), tap.cell.clone());
-        top_tap.align_above(nand2_bbox, 200);
+        top_tap.align_above(inv_bbox, 200);
         top_tap.align_centers_horizontally_gridded(dst2.into(), cfg.grid());
         let dst3 = top_tap.port("x").largest_rect(m0).unwrap();
 
         let mut bot_tap = Instance::new(format!("{}_tap_bot", inv_port), tap.cell.clone());
-        bot_tap.align_beneath(inv_bbox, 200);
+        bot_tap.align_beneath(nand2_bbox, 200);
         bot_tap.align_centers_horizontally_gridded(dst2.into(), cfg.grid());
         let dst4 = bot_tap.port("x").largest_rect(m0).unwrap();
 
@@ -113,9 +117,9 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     }
 
     abs.add_port(inv.port("din").named("clk_in"));
-    abs.add_port(nand1.port("B").named("din"));
+    abs.add_port(nand1.port("A").named("din"));
     abs.add_port(nand1.port("Y").named("clk_out"));
-    abs.add_port(nand2.port("B").named("en"));
+    abs.add_port(nand2.port("A").named("en"));
     abs.add_port(nand2.port("Y").named("dout"));
 
     layout.add_inst(inv);
@@ -125,6 +129,226 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
 
     let ptr = Ptr::new(Cell {
         name: name.to_string(),
+        layout: Some(layout),
+        abs: Some(abs),
+    });
+    lib.lib.cells.push(ptr.clone());
+
+    Ok(ptr)
+}
+
+pub struct TmcUnitParams {
+    /// The name of the timing multiplier circuit cell.
+    name: String,
+    /// The timing multiplier (must be at least 2).
+    multiplier: usize,
+}
+
+pub struct TmcParams {
+    /// The name of the timing multiplier circuit cell.
+    name: String,
+    /// The timing multiplier (must be at least 2).
+    multiplier: usize,
+    /// The number of delay units.
+    units: usize,
+}
+
+/// A single delay unit (one forward cell and `multiplier-1` backwards cells).
+pub fn draw_tmc_unit(lib: &mut PdkLib, params: TmcUnitParams) -> Result<Ptr<Cell>> {
+    assert!(params.multiplier >= 2);
+
+    let delay_cell = draw_dbdr_delay_cell(lib, &format!("{}_delay_cell", &params.name))?;
+    let mut router = Router::new(format!("{}_route", &params.name), lib.pdk.clone());
+
+    let mut cell = Cell::empty(params.name);
+
+    let fwd = Instance::new("forwards", delay_cell.clone());
+
+    let fwd_bbox = fwd.bbox();
+    let mut bbox = fwd_bbox;
+
+    let cfg = router.cfg();
+    let m0 = cfg.layerkey(0);
+    let m1 = cfg.layerkey(1);
+    let space = lib.pdk.bus_min_spacing(
+        1,
+        cfg.line(1),
+        ContactPolicy {
+            above: Some(pdkprims::bus::ContactPosition::CenteredNonAdjacent),
+            below: Some(pdkprims::bus::ContactPosition::CenteredNonAdjacent),
+        },
+    );
+
+    // allocate space for VDD and forward/backward connections
+    let cell_spacing = 2 * space + 3 * cfg.line(1);
+
+    let mut backwards_cells = Vec::with_capacity(params.multiplier - 1);
+    for i in 0..(params.multiplier - 1) {
+        let mut backwards = Instance::new(format!("backwards_{i}"), delay_cell.clone());
+        backwards.align_to_the_right_of(bbox, cell_spacing);
+        bbox = backwards.bbox();
+        backwards_cells.push(backwards.clone());
+        cell.layout_mut().add_inst(backwards);
+    }
+
+    for i in 0..(params.multiplier - 2) {
+        let src = backwards_cells[i].port("clk_out").largest_rect(m0).unwrap();
+        let dst = backwards_cells[i + 1]
+            .port("clk_in")
+            .largest_rect(m0)
+            .unwrap();
+        let mut trace = router.trace(src, 0);
+        trace
+            .place_cursor_centered()
+            .horiz_to(src.p1.x + cfg.line(0) + cfg.space(0) + 50)
+            .vert_to(dst.p1.y)
+            .horiz_to(dst.p1.x);
+    }
+
+    let mut leftmost_rect = None;
+    let mut vdd_port_num = 0;
+    let mut vss_port_num = 0;
+
+    #[allow(clippy::explicit_counter_loop)]
+    for inst in std::iter::once(&fwd).chain(backwards_cells.iter()) {
+        let dst = inst.port("din").largest_rect(m0).unwrap();
+        let mut rect = Rect::span_builder()
+            .with(Dir::Vert, bbox.into_rect().vspan())
+            .with(
+                Dir::Horiz,
+                Span::new(
+                    dst.left() - 3 * cfg.line(1) - 2 * cfg.space(1),
+                    dst.left() - 2 * cfg.space(1),
+                ),
+            )
+            .build();
+
+        if inst.inst_name != "backwards_0" {
+            let vdd = router.trace(rect, 1);
+            cell.add_pin(format!("vdd{}", vdd_port_num), m1, rect);
+            vdd_port_num += 1;
+            let mut trace = router.trace(dst, 0);
+            trace
+                .place_cursor(Dir::Horiz, false)
+                .horiz_to_trace(&vdd)
+                .contact_up(vdd.rect());
+        } else {
+            let dst = inst.port("clk_in").largest_rect(m0).unwrap();
+            rect.p1.y = dst.p1.y + 100;
+            let clk_in = router.trace(rect, 1);
+            cell.add_pin("clk_rev", m1, rect);
+
+            let mut trace = router.trace(dst, 0);
+            trace
+                .place_cursor(Dir::Horiz, false)
+                .horiz_to_trace(&clk_in)
+                .contact_up(clk_in.rect());
+        }
+
+        if inst.inst_name == "forwards" {
+            // Enable
+            let rect = Rect::span_builder()
+                .with(Dir::Vert, bbox.into_rect().vspan())
+                .with(
+                    Dir::Horiz,
+                    Span::new(
+                        rect.left() - 3 * cfg.line(1) - 2 * cfg.space(1),
+                        rect.left() - 2 * cfg.space(1),
+                    ),
+                )
+                .build();
+            let en = router.trace(rect, 1);
+            cell.add_pin("sae_in", m1, rect);
+            let dst = inst.port("en").largest_rect(m0).unwrap();
+            let mut trace = router.trace(dst, 0);
+            trace
+                .place_cursor(Dir::Horiz, false)
+                .horiz_to_trace(&en)
+                .contact_up(en.rect());
+            leftmost_rect = Some(rect);
+        }
+
+        cell.add_pin_from_port(inst.port("vdd").named(format!("vdd{}", vdd_port_num)), m1);
+        vdd_port_num += 1;
+        cell.add_pin_from_port(inst.port("vss").named(format!("vss{}", vss_port_num)), m1);
+        vss_port_num += 1;
+    }
+
+    // clk_in
+    cell.add_pin_from_port(fwd.port("clk_in"), m0);
+
+    // sae_out
+    let last = backwards_cells.last().unwrap();
+    cell.add_pin_from_port(last.port("clk_out").named("sae_out"), m0);
+
+    let src = fwd.port("dout").largest_rect(m0).unwrap();
+    let dst = backwards_cells[0].port("din").largest_rect(m0).unwrap();
+    let mut trace = router.trace(src, 0);
+    trace
+        .place_cursor_centered()
+        .horiz_to(src.p1.x + cfg.line(0) + cfg.space(0) + 50)
+        .vert_to(dst.p1.y)
+        .horiz_to(dst.p1.x);
+
+    let src = fwd.port("clk_out").largest_rect(m0).unwrap();
+    let rect = leftmost_rect.unwrap();
+    let mut rect = Rect::span_builder()
+        .with(Dir::Vert, bbox.into_rect().vspan())
+        .with(
+            Dir::Horiz,
+            Span::new(
+                rect.left() - 3 * cfg.line(1) - 2 * cfg.space(1),
+                rect.left() - 2 * cfg.space(1),
+            ),
+        )
+        .build();
+    rect.p1.y = src.p1.y + 200;
+    let clk_out = router.trace(rect, 1);
+
+    let mut trace = router.trace(src, 0);
+    trace
+        .place_cursor_centered()
+        .up()
+        .up()
+        .horiz_to(rect.left())
+        .contact_down(clk_out.rect());
+
+    cell.add_pin("clk_out", m1, clk_out.rect());
+    cell.layout_mut().add_inst(router.finish());
+    cell.layout_mut().add_inst(fwd);
+
+    let ptr = Ptr::new(cell);
+    lib.lib.cells.push(ptr.clone());
+
+    Ok(ptr)
+}
+
+pub fn draw_tmc(lib: &mut PdkLib, params: TmcParams) -> Result<Ptr<Cell>> {
+    assert!(params.multiplier >= 2);
+
+    let delay_unit = draw_tmc_unit(
+        lib,
+        TmcUnitParams {
+            name: format!("{}_delay_unit", &params.name),
+            multiplier: params.multiplier,
+        },
+    )?;
+
+    let mut layout = Layout::new(&params.name);
+    let abs = Abstract::new(&params.name);
+
+    let mut bbox = None;
+    for i in 0..params.units {
+        let mut inst = Instance::new(format!("delay_{i}"), delay_unit.clone());
+        if let Some(bbox) = bbox {
+            inst.align_beneath(bbox, 500);
+        }
+        bbox = Some(inst.bbox());
+        layout.add_inst(inst);
+    }
+
+    let ptr = Ptr::new(Cell {
+        name: params.name,
         layout: Some(layout),
         abs: Some(abs),
     });
@@ -145,6 +369,39 @@ mod tests {
     fn test_sky130_dbdr_delay_cell() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_dbdr_delay_cell")?;
         draw_dbdr_delay_cell(&mut lib, "test_sky130_dbdr_delay_cell")?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_tmc_unit_6() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_tmc_unit_6")?;
+        draw_tmc_unit(
+            &mut lib,
+            TmcUnitParams {
+                name: "test_sky130_tmc_unit_6".to_string(),
+                multiplier: 6,
+            },
+        )?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_tmc() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_tmc")?;
+        draw_tmc(
+            &mut lib,
+            TmcParams {
+                name: "test_sky130_tmc".to_string(),
+                multiplier: 6,
+                units: 16,
+            },
+        )?;
 
         lib.save_gds(test_path(&lib))?;
 
