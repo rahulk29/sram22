@@ -15,6 +15,7 @@ use crate::layout::decoder::{bus_width, draw_hier_decode, ConnectSubdecodersArgs
 use crate::layout::dff::draw_vert_dff_array;
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
+use crate::layout::tmc::{draw_tmc, TmcParams};
 
 use super::{
     array::draw_array,
@@ -59,6 +60,14 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let write_mux = draw_write_mux_array(lib, cols)?;
     let sense_amp = draw_sense_amp_array(lib, cols / 2)?;
     let data_dffs = draw_dff_array(lib, "data_dff_array", cols / 2)?;
+    let tmc = draw_tmc(
+        lib,
+        TmcParams {
+            name: "tmc".to_string(),
+            multiplier: 6,
+            units: 16,
+        },
+    )?;
 
     let core = Instance {
         cell: core,
@@ -80,6 +89,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let mut sense_amp = Instance::new("sense_amp_array", sense_amp.cell);
     let mut dffs = Instance::new("dff_array", data_dffs.cell);
     let mut addr_dffs = Instance::new("addr_dffs", addr_dffs);
+    let mut tmc = Instance::new("tmc", tmc);
 
     let core_bbox = core.bbox();
 
@@ -115,6 +125,9 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     decoder2.align_to_the_left_of(sense_amp.bbox(), 1_000);
 
     addr_dffs.align_top(decoder2.bbox());
+
+    tmc.align_above(dffs.bbox(), 1_270);
+    tmc.align_to_the_right_of(core_bbox, 1_270);
 
     // Top level routing
     let mut router = Router::new("bank_route", lib.pdk.clone());
@@ -413,6 +426,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     layout.insts.push(sense_amp);
     layout.insts.push(dffs);
     layout.insts.push(addr_dffs);
+    layout.insts.push(tmc);
     layout.insts.push(routing);
 
     let cell = Cell {
