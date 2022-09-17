@@ -16,18 +16,18 @@ use super::route::Router;
 
 pub struct TmcUnitParams {
     /// The name of the timing multiplier circuit cell.
-    name: String,
+    pub name: String,
     /// The timing multiplier (must be at least 2).
-    multiplier: usize,
+    pub multiplier: usize,
 }
 
 pub struct TmcParams {
     /// The name of the timing multiplier circuit cell.
-    name: String,
+    pub name: String,
     /// The timing multiplier (must be at least 2).
-    multiplier: usize,
+    pub multiplier: usize,
     /// The number of delay units.
-    units: usize,
+    pub units: usize,
 }
 
 pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
