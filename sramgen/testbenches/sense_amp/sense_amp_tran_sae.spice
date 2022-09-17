@@ -1,7 +1,7 @@
 * Testbench for 4 bit decoder with 16 outputs
 
 .lib /Users/rahul/acads/research/sky130/pdk/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice tt
-.include ../../lib/sramgen_sp_sense_amp/sramgen_sp_sense_amp.sp
+.include ../../lib/sramgen_sp_sense_amp/sramgen_sp_sense_amp.spice
 
 .param cload='2p'
 .param vdd='1.8'

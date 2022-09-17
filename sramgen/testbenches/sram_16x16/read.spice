@@ -4,7 +4,7 @@
 
 .include ../../lib/sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.spice
 .include ../../lib/sramgen_control/sramgen_control.spice
-.include ../../lib/sramgen_sp_sense_amp/sramgen_sp_sense_amp.sp
+.include ../../lib/sramgen_sp_sense_amp/sramgen_sp_sense_amp.spice
 
 .include ../../build/spice/sram_16x16.spice
 
