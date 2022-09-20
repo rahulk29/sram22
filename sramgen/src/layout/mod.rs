@@ -15,6 +15,7 @@ pub mod gate;
 pub mod grid;
 pub mod latch;
 pub mod mux;
+pub mod power;
 pub mod precharge;
 pub mod route;
 pub mod sense_amp;

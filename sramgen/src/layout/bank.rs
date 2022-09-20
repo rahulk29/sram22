@@ -13,6 +13,7 @@ use crate::clog2;
 use crate::decoder::DecoderTree;
 use crate::layout::decoder::{bus_width, draw_hier_decode, ConnectSubdecodersArgs};
 use crate::layout::dff::draw_vert_dff_array;
+use crate::layout::power::{PowerStrapGen, PowerStrapOpts};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
 use crate::layout::tmc::{draw_tmc, TmcParams};
@@ -428,6 +429,21 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     layout.insts.push(addr_dffs);
     layout.insts.push(tmc);
     layout.insts.push(routing);
+
+    let power_grid = PowerStrapGen::new(
+        PowerStrapOpts::builder()
+            .h_metal(2)
+            .h_line(5 * cfg.line(2))
+            .h_space(8 * cfg.line(2))
+            .v_metal(3)
+            .v_line(3 * cfg.line(3))
+            .v_space(5 * cfg.line(3))
+            .pdk(lib.pdk.clone())
+            .name("bank_power_strap")
+            .enclosure(layout.bbox())
+            .build()?,
+    );
+    layout.insts.push(power_grid.generate()?);
 
     let cell = Cell {
         name,
