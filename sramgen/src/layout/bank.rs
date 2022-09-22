@@ -13,10 +13,12 @@ use crate::clog2;
 use crate::decoder::DecoderTree;
 use crate::layout::decoder::{bus_width, draw_hier_decode, ConnectSubdecodersArgs};
 use crate::layout::dff::draw_vert_dff_array;
+use crate::layout::power::{PowerStrapGen, PowerStrapOpts};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
 use crate::layout::tmc::{draw_tmc, TmcParams};
 
+use super::route::Trace;
 use super::{
     array::draw_array,
     decoder::{draw_inv_dec_array, draw_nand2_array},
@@ -136,8 +138,22 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let m1 = cfg.layerkey(1);
     let m2 = cfg.layerkey(2);
 
+    let mut power_grid = PowerStrapGen::new(
+        PowerStrapOpts::builder()
+            .h_metal(2)
+            .h_line(5 * cfg.line(2))
+            .h_space(8 * cfg.line(2))
+            .v_metal(3)
+            .v_line(3 * cfg.line(3))
+            .v_space(5 * cfg.line(3))
+            .pdk(lib.pdk.clone())
+            .name("bank_power_strap")
+            .enclosure(Rect::new(Point::zero(), Point::zero()))
+            .build()?,
+    );
+
     for (nand, inv) in [(&nand_dec, &inv_dec), (&wldrv_nand, &wldrv_inv)] {
-        connect(ConnectArgs {
+        let trace = connect(ConnectArgs {
             metal_idx: 1,
             port_idx: 0,
             router: &mut router,
@@ -146,7 +162,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             dir: Dir::Vert,
             overhang: Some(M1_PWR_OVERHANG),
         });
-        connect(ConnectArgs {
+        power_grid.add_vdd_target(1, trace.rect());
+        let trace = connect(ConnectArgs {
             metal_idx: 1,
             port_idx: 0,
             router: &mut router,
@@ -155,8 +172,9 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             dir: Dir::Vert,
             overhang: Some(M1_PWR_OVERHANG),
         });
+        power_grid.add_gnd_target(1, trace.rect());
 
-        connect(ConnectArgs {
+        let trace = connect(ConnectArgs {
             metal_idx: 1,
             port_idx: 0,
             router: &mut router,
@@ -165,7 +183,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             dir: Dir::Vert,
             overhang: Some(M1_PWR_OVERHANG),
         });
-        connect(ConnectArgs {
+        power_grid.add_vdd_target(1, trace.rect());
+        let trace = connect(ConnectArgs {
             metal_idx: 1,
             port_idx: 0,
             router: &mut router,
@@ -174,6 +193,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             dir: Dir::Vert,
             overhang: Some(M1_PWR_OVERHANG),
         });
+        power_grid.add_gnd_target(1, trace.rect());
     }
 
     for i in 0..rows {
@@ -411,7 +431,13 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         }
     }
 
-    let routing = router.finish();
+    power_grid.add_padded_blockage(2, pc.bbox().into_rect());
+    power_grid.add_padded_blockage(2, read_mux.bbox().into_rect());
+    power_grid.add_padded_blockage(2, write_mux.bbox().into_rect());
+
+    let sense_amp_blockage = sense_amp.bbox().into_rect().expand_dir(Dir::Vert, -5_600);
+    power_grid.add_padded_blockage(2, sense_amp_blockage);
+    power_grid.add_padded_blockage(3, sense_amp_blockage);
 
     layout.insts.push(core);
     layout.insts.push(decoder1);
@@ -427,7 +453,14 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     layout.insts.push(dffs);
     layout.insts.push(addr_dffs);
     layout.insts.push(tmc);
+
+    let bbox = layout.bbox();
+    let routing = router.finish();
     layout.insts.push(routing);
+
+    power_grid.set_enclosure(bbox);
+    power_grid.add_blockage(2, core_bbox.into_rect());
+    layout.insts.push(power_grid.generate()?);
 
     let cell = Cell {
         name,
@@ -477,7 +510,7 @@ impl<'a> GateList<'a> {
     }
 }
 
-pub(crate) fn connect(args: ConnectArgs) {
+pub(crate) fn connect(args: ConnectArgs) -> Trace {
     let cfg = args.router.cfg();
     let m0 = cfg.layerkey(args.port_idx);
     let port_start = args.insts.port(args.port_name, 0).bbox(m0).unwrap();
@@ -510,6 +543,8 @@ pub(crate) fn connect(args: ConnectArgs) {
         let port = args.insts.port(args.port_name, i).bbox(m0).unwrap();
         trace.contact_down(port.into());
     }
+
+    trace
 }
 
 #[cfg(test)]
