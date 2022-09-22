@@ -431,6 +431,14 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         }
     }
 
+    power_grid.add_padded_blockage(2, pc.bbox().into_rect());
+    power_grid.add_padded_blockage(2, read_mux.bbox().into_rect());
+    power_grid.add_padded_blockage(2, write_mux.bbox().into_rect());
+
+    let sense_amp_blockage = sense_amp.bbox().into_rect().expand_dir(Dir::Vert, -5_600);
+    power_grid.add_padded_blockage(2, sense_amp_blockage);
+    power_grid.add_padded_blockage(3, sense_amp_blockage);
+
     layout.insts.push(core);
     layout.insts.push(decoder1);
     layout.insts.push(decoder2);

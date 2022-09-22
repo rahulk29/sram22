@@ -74,14 +74,14 @@ impl PowerStrapGen {
         targets.push(rect);
     }
 
-    pub fn add_blockage(&mut self, layer: LayerIdx, rect: Rect) {
+    pub fn add_blockage(&mut self, layer: LayerIdx, rect: impl Into<Rect>) {
         let blockages = self.blockages.entry(layer).or_insert(Vec::new());
-        blockages.push(rect);
+        blockages.push(rect.into());
     }
 
     #[inline]
-    pub fn add_padded_blockage(&mut self, layer: LayerIdx, rect: Rect) {
-        self.add_blockage(layer, rect.expanded(self.router.cfg().space(layer)));
+    pub fn add_padded_blockage(&mut self, layer: LayerIdx, rect: impl Into<Rect>) {
+        self.add_blockage(layer, rect.into().expand(self.router.cfg().space(layer)));
     }
 
     pub fn generate(mut self) -> crate::Result<Instance> {
