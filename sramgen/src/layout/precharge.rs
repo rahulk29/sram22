@@ -5,7 +5,6 @@ use layout21::{
     raw::{Cell, Instance, Layout, Point},
     utils::Ptr,
 };
-use pdkprims::contact::ContactParams;
 use pdkprims::{
     mos::{Intent, MosDevice, MosParams, MosType},
     PdkLib,

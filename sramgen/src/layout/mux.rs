@@ -302,20 +302,13 @@ pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         });
     let ptx = lib.draw_mos(params)?;
 
-    let tc = lib.pdk.config();
-    let tc = tc.read().unwrap();
-
-    // FIXME pass width here instead of hardcoding to 16
-    let bus_space = (32 + 1) * (tc.layer("m2").space + tc.layer("m2").width);
-
     let mut mos_bls = Instance::builder()
         .inst_name("mos_2")
         .cell(ptx.cell.clone())
         .angle(90f64)
-        .loc(Point::new(0, bus_space))
         .build()?;
 
-    mos_bls.align_above(mos_gnd.bbox(), bus_space);
+    mos_bls.align_above(mos_gnd.bbox(), 1_000);
 
     layout.insts.push(mos_bls.clone());
 
@@ -471,49 +464,6 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
         .center(Point::zero())
         .grid(tc.grid)
         .build()?;
-
-    let data_port = core_inst.port("data_0").largest_rect(m0).unwrap();
-    let track = grid.get_track_index(Dir::Horiz, data_port.bottom(), TrackLocator::EndsBefore)
-        - (width as isize - 1);
-
-    let data_bus = (0..(width as isize))
-        .map(|i| {
-            Rect::span_builder()
-                .with(Dir::Vert, grid.htrack(track + i))
-                .with(Dir::Horiz, bbox.hspan())
-                .build()
-        })
-        .collect::<Vec<_>>();
-
-    for rect in data_bus.iter() {
-        router.trace(*rect, 2);
-    }
-
-    for i in 0..width {
-        for (j, port) in ["data", "data_b"].into_iter().enumerate() {
-            let src = core_inst
-                .port(format!("{port}_{i}"))
-                .largest_rect(m0)
-                .unwrap();
-            let offset_space = tc.layer("m1").width + tc.layer("m1").space;
-            let (htarget, pos) = if (j == 0) ^ (i % 2 == 0) {
-                (src.right() + offset_space, true)
-            } else {
-                (src.left() - offset_space, false)
-            };
-
-            let mut trace = router.trace(src, 0);
-            let target = data_bus[(i / 2) * 2 + j];
-            trace
-                .place_cursor(Dir::Horiz, pos)
-                .horiz_to(htarget)
-                .vert_to(target.bottom())
-                .contact_up(target)
-                .increment_layer()
-                .contact_up(target)
-                .increment_layer();
-        }
-    }
 
     let track = grid.get_track_index(Dir::Horiz, bbox.bottom(), TrackLocator::EndsBefore);
     let rect = Rect::span_builder()
