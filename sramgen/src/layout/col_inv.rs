@@ -1,5 +1,6 @@
 use crate::gate::{GateParams, Size};
 use crate::layout::Result;
+use crate::tech::COLUMN_WIDTH;
 use layout21::raw::geom::Dir;
 use layout21::raw::{Cell, Instance};
 use layout21::utils::Ptr;
@@ -15,7 +16,7 @@ pub fn draw_col_inv_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Resul
             name: format!("{}_array", prefix),
             num: width,
             cell,
-            spacing: Some(2_500),
+            spacing: Some(COLUMN_WIDTH * 2),
             flip: FlipMode::AlternateFlipHorizontal,
             flip_toggle: false,
             direction: Dir::Horiz,
