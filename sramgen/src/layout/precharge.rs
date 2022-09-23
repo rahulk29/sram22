@@ -12,6 +12,7 @@ use pdkprims::{
 };
 
 use super::array::*;
+use super::common::{draw_two_level_contact, TwoLevelContactParams};
 use crate::layout::route::{ContactBounds, Router, VertDir};
 use crate::Result;
 
@@ -116,47 +117,15 @@ fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 }
 
 pub fn draw_tap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
-    let bot = lib.pdk.get_contact(
-        &ContactParams::builder()
-            .stack("ntap".to_string())
-            .rows(12)
-            .cols(1)
-            .dir(Dir::Vert)
-            .build()
-            .unwrap(),
-    );
-    let top = lib.pdk.get_contact(
-        &ContactParams::builder()
-            .stack("viali".to_string())
-            .rows(11)
-            .cols(1)
-            .dir(Dir::Vert)
-            .build()
-            .unwrap(),
-    );
-
-    let bot = Instance::new("bot", bot.cell.clone());
-    let mut top = Instance::new("top", top.cell.clone());
-    top.align_centers_gridded(bot.bbox(), lib.pdk.grid());
-
-    let mut p0 = bot.port("x");
-    let p1 = top.port("x");
-
-    p0.merge(p1);
-
-    let name = "pc_tap_cell";
-
-    let mut layout = Layout::new(name);
-    let mut abs = Abstract::new(name);
-    abs.add_port(p0);
-    layout.add_inst(bot);
-    layout.add_inst(top);
-
-    Ok(Ptr::new(Cell {
-        layout: Some(layout),
-        abs: Some(abs),
-        name: name.into(),
-    }))
+    let params = TwoLevelContactParams::builder()
+        .name("pc_tap_cell")
+        .bot_stack("ntap")
+        .top_stack("viali")
+        .bot_rows(12)
+        .top_rows(11)
+        .build()?;
+    let contact = draw_two_level_contact(lib, params)?;
+    Ok(contact)
 }
 
 pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
