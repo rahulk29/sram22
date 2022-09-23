@@ -11,6 +11,7 @@ use pdkprims::{LayerIdx, PdkLib};
 
 use crate::clog2;
 use crate::decoder::DecoderTree;
+use crate::layout::col_inv::draw_col_inv_array;
 use crate::layout::decoder::{bus_width, draw_hier_decode, ConnectSubdecodersArgs};
 use crate::layout::dff::draw_vert_dff_array;
 use crate::layout::power::{PowerStrapGen, PowerStrapOpts};
@@ -60,6 +61,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let pc = draw_precharge_array(lib, cols)?;
     let read_mux = draw_read_mux_array(lib, cols / 2)?;
     let write_mux = draw_write_mux_array(lib, cols)?;
+    let col_inv = draw_col_inv_array(lib, "col_data_inv", cols / 2)?.cell;
     let sense_amp = draw_sense_amp_array(lib, cols / 2)?;
     let data_dffs = draw_dff_array(lib, "data_dff_array", cols / 2)?;
     let tmc = draw_tmc(
@@ -88,6 +90,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let mut pc = Instance::new("precharge_array", pc);
     let mut read_mux = Instance::new("read_mux_array", read_mux);
     let mut write_mux = Instance::new("write_mux_array", write_mux);
+    let mut col_inv = Instance::new("col_inv_array", col_inv);
     let mut sense_amp = Instance::new("sense_amp_array", sense_amp.cell);
     let mut dffs = Instance::new("dff_array", data_dffs.cell);
     let mut addr_dffs = Instance::new("addr_dffs", addr_dffs);
@@ -114,7 +117,10 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     write_mux.align_beneath(read_mux.bbox(), 1_000);
     write_mux.align_centers_horizontally_gridded(core_bbox, grid);
 
-    sense_amp.align_beneath(write_mux.bbox(), 1_000);
+    col_inv.align_beneath(write_mux.bbox(), 1_000);
+    col_inv.align_centers_horizontally_gridded(core_bbox, grid);
+
+    sense_amp.align_beneath(col_inv.bbox(), 1_000);
     sense_amp.align_centers_horizontally_gridded(core_bbox, grid);
 
     dffs.align_beneath(sense_amp.bbox(), 1_000);
@@ -449,6 +455,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     layout.insts.push(pc);
     layout.insts.push(read_mux);
     layout.insts.push(write_mux);
+    layout.insts.push(col_inv);
     layout.insts.push(sense_amp);
     layout.insts.push(dffs);
     layout.insts.push(addr_dffs);

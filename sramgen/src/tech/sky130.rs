@@ -23,6 +23,7 @@ pub const SRAM_SP_SENSE_AMP: &str = "sramgen_sp_sense_amp";
 pub const BITCELL_HEIGHT: isize = 1580;
 pub const BITCELL_WIDTH: isize = 1200;
 pub const TAPCELL_WIDTH: isize = 1300;
+pub const COLUMN_WIDTH: isize = BITCELL_WIDTH + TAPCELL_WIDTH;
 
 #[inline]
 pub fn sram_sp_cell() -> ExternalModule {
