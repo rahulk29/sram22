@@ -420,6 +420,8 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
 
         abs.add_port(core_inst.port(format!("bl_{i}")));
         abs.add_port(core_inst.port(format!("br_{i}")));
+        abs.add_port(core_inst.port(format!("data_{i}")));
+        abs.add_port(core_inst.port(format!("data_b_{i}")));
     }
 
     let start = tap_inst.port("vss_0").largest_rect(m1).unwrap();

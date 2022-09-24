@@ -18,6 +18,7 @@ use crate::layout::power::{PowerStrapGen, PowerStrapOpts};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
 use crate::layout::tmc::{draw_tmc, TmcParams};
+use crate::tech::COLUMN_WIDTH;
 
 use super::route::Trace;
 use super::{
@@ -150,8 +151,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .h_line(5 * cfg.line(2))
             .h_space(8 * cfg.line(2))
             .v_metal(3)
-            .v_line(3 * cfg.line(3))
-            .v_space(5 * cfg.line(3))
+            .v_line(800)
+            .v_space(COLUMN_WIDTH - 800)
             .pdk(lib.pdk.clone())
             .name("bank_power_strap")
             .enclosure(Rect::new(Point::zero(), Point::zero()))
@@ -339,11 +340,57 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .vert_to(read_mux_bbox.bottom())
             .s_bend(dst2, Dir::Vert);
 
+        // TODO route bitlines
         let src = read_mux
             .port(format!("bl_out_{}", i / 2))
             .largest_rect(m1)
             .unwrap();
         let _ = router.trace(src, 1);
+
+        if i % 2 == 0 {
+            // Route data and data bar to 2:1 write muxes
+            let src = write_mux
+                .port(format!("data_b_{}", i))
+                .largest_rect(m0)
+                .unwrap();
+            let dst = write_mux
+                .port(format!("data_b_{}", i + 1))
+                .largest_rect(m0)
+                .unwrap();
+
+            let mut data_b = router.trace(src, 0);
+            let dst = router.trace(dst, 0);
+            data_b.place_cursor(Dir::Vert, false).horiz_to_trace(&dst);
+            let data_b_pin = data_b.rect();
+
+            let src = write_mux
+                .port(format!("data_{}", i))
+                .largest_rect(m0)
+                .unwrap();
+            let dst = write_mux
+                .port(format!("data_{}", i + 1))
+                .largest_rect(m0)
+                .unwrap();
+
+            let mut data = router.trace(src, 0);
+            let dst = router.trace(dst, 0);
+            data.place_cursor(Dir::Vert, false)
+                .vert_to(src.bottom() - cfg.line(0) - 2 * cfg.space(0))
+                .horiz_to_trace(&dst);
+            let data_pin = data.rect();
+            data.vert_to_trace(&dst);
+
+            let src = col_inv
+                .port(format!("din_b_{}", i / 2))
+                .largest_rect(m0)
+                .unwrap();
+            let mut trace = router.trace(src, 0);
+            trace
+                .place_cursor(Dir::Vert, true)
+                .up()
+                .vert_to(data_b_pin.top())
+                .contact_down(data_b_pin);
+        }
     }
 
     connect(ConnectArgs {
