@@ -324,6 +324,17 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .vert_to(read_mux_bbox.bottom())
             .s_bend(dst2, Dir::Vert);
 
+        let src = read_mux
+            .port(format!("bl_out_{}", i / 2))
+            .largest_rect(m1)
+            .unwrap();
+        let mut blread = router.trace(src, 1);
+        blread
+            .place_cursor(Dir::Vert, false)
+            .up()
+            .set_width(cfg.line(2))
+            .horiz_to(trace.rect().right());
+
         let mut trace = router.trace(br_rect, 1);
         let dst = read_mux
             .port(format!("br_{}_{}", i % 2, i / 2))
@@ -339,13 +350,6 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .s_bend(dst, Dir::Vert)
             .vert_to(read_mux_bbox.bottom())
             .s_bend(dst2, Dir::Vert);
-
-        // TODO route bitlines
-        let src = read_mux
-            .port(format!("bl_out_{}", i / 2))
-            .largest_rect(m1)
-            .unwrap();
-        let _ = router.trace(src, 1);
 
         if i % 2 == 0 {
             // Route data and data bar to 2:1 write muxes
