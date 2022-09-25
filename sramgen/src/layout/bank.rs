@@ -324,17 +324,6 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .vert_to(read_mux_bbox.bottom())
             .s_bend(dst2, Dir::Vert);
 
-        let src = read_mux
-            .port(format!("bl_out_{}", i / 2))
-            .largest_rect(m1)
-            .unwrap();
-        let mut blread = router.trace(src, 1);
-        blread
-            .place_cursor(Dir::Vert, false)
-            .up()
-            .set_width(cfg.line(2))
-            .horiz_to(trace.rect().right());
-
         let mut trace = router.trace(br_rect, 1);
         let dst = read_mux
             .port(format!("br_{}_{}", i % 2, i / 2))
@@ -351,50 +340,124 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .vert_to(read_mux_bbox.bottom())
             .s_bend(dst2, Dir::Vert);
 
-        if i % 2 == 0 {
-            // Route data and data bar to 2:1 write muxes
-            let src = write_mux
-                .port(format!("data_b_{}", i))
-                .largest_rect(m0)
-                .unwrap();
-            let dst = write_mux
-                .port(format!("data_b_{}", i + 1))
-                .largest_rect(m0)
-                .unwrap();
+        if i % 2 == 0 {}
+    }
 
-            let mut data_b = router.trace(src, 0);
-            let dst = router.trace(dst, 0);
-            data_b.place_cursor(Dir::Vert, false).horiz_to_trace(&dst);
-            let data_b_pin = data_b.rect();
+    let sa_bbox = sense_amp.bbox().into_rect();
+    let bl_bot = sense_amp.port("inn_0").largest_rect(m2).unwrap().bottom();
+    // Route read bitlines
+    for i in 0..cols / 2 {
+        // Route data and data bar to 2:1 write muxes
+        let src = write_mux
+            .port(format!("data_b_{}", 2 * i))
+            .largest_rect(m0)
+            .unwrap();
+        let dst = write_mux
+            .port(format!("data_b_{}", 2 * i + 1))
+            .largest_rect(m0)
+            .unwrap();
 
-            let src = write_mux
-                .port(format!("data_{}", i))
-                .largest_rect(m0)
-                .unwrap();
-            let dst = write_mux
-                .port(format!("data_{}", i + 1))
-                .largest_rect(m0)
-                .unwrap();
+        let mut data_b = router.trace(src, 0);
+        let dst = router.trace(dst, 0);
+        data_b.place_cursor(Dir::Vert, false).horiz_to_trace(&dst);
+        let data_b_pin = data_b.rect();
 
-            let mut data = router.trace(src, 0);
-            let dst = router.trace(dst, 0);
-            data.place_cursor(Dir::Vert, false)
-                .vert_to(src.bottom() - cfg.line(0) - 2 * cfg.space(0))
-                .horiz_to_trace(&dst);
-            let data_pin = data.rect();
-            data.vert_to_trace(&dst);
+        let src = write_mux
+            .port(format!("data_{}", 2 * i))
+            .largest_rect(m0)
+            .unwrap();
+        let dst = write_mux
+            .port(format!("data_{}", 2 * i + 1))
+            .largest_rect(m0)
+            .unwrap();
 
-            let src = col_inv
-                .port(format!("din_b_{}", i / 2))
-                .largest_rect(m0)
-                .unwrap();
-            let mut trace = router.trace(src, 0);
-            trace
-                .place_cursor(Dir::Vert, true)
+        let mut data = router.trace(src, 0);
+        let dst = router.trace(dst, 0);
+        data.place_cursor(Dir::Vert, false)
+            .vert_to(src.bottom() - cfg.line(0) - 2 * cfg.space(0))
+            .horiz_to_trace(&dst);
+        let data_pin = data.rect();
+        data.vert_to_trace(&dst);
+
+        let src = col_inv
+            .port(format!("din_b_{}", i))
+            .largest_rect(m0)
+            .unwrap();
+        let mut trace = router.trace(src, 0);
+        trace
+            .place_cursor(Dir::Vert, true)
+            .up()
+            .vert_to(data_b_pin.top())
+            .contact_down(data_b_pin);
+
+        let bl = read_mux
+            .port(format!("bl_out_{}", i))
+            .largest_rect(m1)
+            .unwrap();
+        let br = read_mux
+            .port(format!("br_out_{}", i))
+            .largest_rect(m1)
+            .unwrap();
+        let center = Span::merge([bl.hspan(), br.hspan()]).center();
+
+        let data_span = Span::from_center_span_gridded(center, cfg.line(3), cfg.grid());
+        let bl_span = Span::new(
+            data_span.start() - 2 * cfg.space(3) - cfg.line(3),
+            data_span.start() - 2 * cfg.space(3),
+        );
+        let br_span = Span::new(
+            data_span.stop() + 2 * cfg.space(3),
+            data_span.stop() + 2 * cfg.space(3) + cfg.line(3),
+        );
+
+        let bl_vspan = Span::new(bl_bot, bl.bottom());
+
+        let mut bl_m3 = router.trace(Rect::from_spans(bl_span, bl_vspan), 3);
+        let mut br_m3 = router.trace(Rect::from_spans(br_span, bl_vspan), 3);
+
+        let inp = sense_amp
+            .port(format!("inp_{}", i))
+            .largest_rect(m2)
+            .unwrap();
+        let inn = sense_amp
+            .port(format!("inn_{}", i))
+            .largest_rect(m2)
+            .unwrap();
+
+        for (src, m3, dst) in [(bl, &mut bl_m3, inp), (br, &mut br_m3, inn)] {
+            router
+                .trace(src, 1)
+                .place_cursor(Dir::Vert, false)
                 .up()
-                .vert_to(data_b_pin.top())
-                .contact_down(data_b_pin);
+                .set_width(cfg.line(2))
+                .horiz_to_trace(m3)
+                .contact_up(m3.rect());
+            m3.contact_down(dst);
         }
+
+        // data
+        let rect = Rect::from_spans(data_span, sa_bbox.vspan());
+        let mut trace = router.trace(rect, 3);
+        let dst1 = col_inv.port(format!("din_{}", i)).largest_rect(m0).unwrap();
+        trace
+            .place_cursor(Dir::Vert, true)
+            .vert_to(dst1.top())
+            .down()
+            .down()
+            .down();
+
+        let mut trace = router.trace(rect, 3);
+        trace
+            .place_cursor(Dir::Vert, true)
+            .vert_to(data_pin.top())
+            .down()
+            .set_width(2 * cfg.line(2));
+        if i % 2 == 0 {
+            trace.horiz_to(trace.rect().left() - 3 * cfg.space(1));
+        } else {
+            trace.horiz_to(trace.rect().right() + 3 * cfg.space(1));
+        }
+        trace.down().down();
     }
 
     connect(ConnectArgs {
