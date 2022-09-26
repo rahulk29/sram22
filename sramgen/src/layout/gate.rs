@@ -50,10 +50,14 @@ pub fn draw_and2(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
     abs.add_port(nand.port("VSS").named("vss0"));
     abs.add_port(nand.port("vpb").named("vpb0"));
     abs.add_port(nand.port("VDD").named("vdd0"));
+    abs.add_port(nand.port("nsdm").named("nsdm0"));
+    abs.add_port(nand.port("psdm").named("psdm0"));
     abs.add_port(inv.port("gnd").named("vss1"));
     abs.add_port(inv.port("vdd").named("vdd1"));
     abs.add_port(inv.port("din_b").named("Y"));
     abs.add_port(inv.port("vpb").named("vpb1"));
+    abs.add_port(inv.port("nsdm").named("nsdm1"));
+    abs.add_port(inv.port("psdm").named("psdm1"));
 
     layout.add_inst(nand);
     layout.add_inst(inv);
@@ -102,10 +106,14 @@ pub fn draw_and3(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
     abs.add_port(nand.port("VDD0").named("vdd0"));
     abs.add_port(nand.port("VDD1").named("vdd1"));
     abs.add_port(nand.port("vpb").named("vpb0"));
+    abs.add_port(nand.port("nsdm").named("nsdm0"));
+    abs.add_port(nand.port("psdm").named("psdm0"));
     abs.add_port(inv.port("gnd").named("vss1"));
     abs.add_port(inv.port("vdd").named("vdd2"));
     abs.add_port(inv.port("din_b").named("Y"));
     abs.add_port(inv.port("vpb").named("vpb1"));
+    abs.add_port(inv.port("nsdm").named("nsdm1"));
+    abs.add_port(inv.port("psdm").named("psdm1"));
 
     layout.add_inst(nand);
     layout.add_inst(inv);
@@ -163,7 +171,8 @@ pub fn draw_nand2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
         });
     let ptx = lib.draw_mos(params)?;
 
-    layout.insts.push(Instance::new("mos", ptx.cell.clone()));
+    let inst = Instance::new("mos", ptx.cell.clone());
+    layout.insts.push(inst.clone());
 
     let tc = lib.pdk.config.read().unwrap();
 
@@ -222,6 +231,8 @@ pub fn draw_nand2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     }
 
     abs.add_port(ptx.merged_vpb_port(1));
+    abs.add_port(inst.port("nsdm_0").named("nsdm"));
+    abs.add_port(inst.port("psdm_1").named("psdm"));
 
     abs.add_port(port_y);
 
@@ -350,7 +361,9 @@ pub fn draw_nand3(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
         });
     let ptx = lib.draw_mos(params)?;
 
-    layout.insts.push(Instance::new("mos", ptx.cell.clone()));
+    let inst = Instance::new("mos", ptx.cell.clone());
+
+    layout.insts.push(inst.clone());
 
     let tc = lib.pdk.config.read().unwrap();
 
@@ -384,6 +397,8 @@ pub fn draw_nand3(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     abs.add_port(ptx.gate_port(1).unwrap().named("B"));
     abs.add_port(ptx.gate_port(2).unwrap().named("A"));
     abs.add_port(ptx.merged_vpb_port(1));
+    abs.add_port(inst.port("nsdm_0").named("nsdm"));
+    abs.add_port(inst.port("psdm_1").named("psdm"));
 
     let mut port_y = AbstractPort::new("Y");
 
@@ -454,13 +469,9 @@ pub fn draw_inv(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
         });
     let ptx = lib.draw_mos(params)?;
 
-    layout.insts.push(Instance {
-        inst_name: "mos".to_string(),
-        cell: ptx.cell.clone(),
-        loc: Point::new(0, 0),
-        angle: None,
-        reflect_vert: false,
-    });
+    let inst = Instance::new("mos", ptx.cell.clone());
+
+    layout.insts.push(inst.clone());
 
     let mut port_vss = ptx.sd_port(0, 0).unwrap();
     port_vss.set_net("gnd");
@@ -487,6 +498,8 @@ pub fn draw_inv(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     abs.add_port(port_din);
 
     abs.add_port(ptx.merged_vpb_port(1));
+    abs.add_port(inst.port("nsdm_0").named("nsdm"));
+    abs.add_port(inst.port("psdm_1").named("psdm"));
 
     layout.elems.push(draw_rect(rect, ptx.sd_metal));
 

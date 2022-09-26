@@ -39,14 +39,16 @@ pub fn draw_nand2_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<
     let mut cell = Cell::empty(prefix);
     cell.abs_mut().ports.extend(inst.ports());
 
-    let nwell = lib.pdk.get_layerkey("nwell").unwrap();
-    let elt = MergeArgs::builder()
-        .layer(nwell)
-        .insts(GateList::Array(&inst, width))
-        .port_name("vpb")
-        .build()?
-        .element();
-    cell.layout_mut().add(elt);
+    for (layer, port) in [("nwell", "vpb"), ("nsdm", "nsdm"), ("psdm", "psdm")] {
+        let layer = lib.pdk.get_layerkey(layer).unwrap();
+        let elt = MergeArgs::builder()
+            .layer(layer)
+            .insts(GateList::Array(&inst, width))
+            .port_name(port)
+            .build()?
+            .element();
+        cell.layout_mut().add(elt);
+    }
 
     cell.layout_mut().add_inst(inst);
     let ptr = Ptr::new(cell);
@@ -76,14 +78,16 @@ pub fn draw_inv_dec_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Resul
     let mut cell = Cell::empty(prefix);
     cell.abs_mut().ports.extend(inst.ports());
 
-    let nwell = lib.pdk.get_layerkey("nwell").unwrap();
-    let elt = MergeArgs::builder()
-        .layer(nwell)
-        .insts(GateList::Array(&inst, width))
-        .port_name("vpb")
-        .build()?
-        .element();
-    cell.layout_mut().add(elt);
+    for (layer, port) in [("nwell", "vpb"), ("nsdm", "nsdm"), ("psdm", "psdm")] {
+        let layer = lib.pdk.get_layerkey(layer).unwrap();
+        let elt = MergeArgs::builder()
+            .layer(layer)
+            .insts(GateList::Array(&inst, width))
+            .port_name(port)
+            .build()?
+            .element();
+        cell.layout_mut().add(elt);
+    }
 
     cell.layout_mut().add_inst(inst);
     let ptr = Ptr::new(cell);
@@ -217,15 +221,23 @@ fn draw_hier_decode_node(
         gates.push(inst);
     }
 
-    let nwell = lib.pdk.get_layerkey("nwell").unwrap();
-    let mut merge_args = MergeArgs::builder()
-        .layer(nwell)
-        .insts(GateList::Cells(&gates))
-        .port_name("vpb0")
-        .build()?;
-    layout.add(merge_args.element());
-    merge_args.port_name = "vpb1";
-    layout.add(merge_args.element());
+    for (layer, port) in [
+        ("nwell", "vpb0"),
+        ("nwell", "vpb1"),
+        ("nsdm", "nsdm0"),
+        ("nsdm", "nsdm1"),
+        ("psdm", "psdm0"),
+        ("psdm", "psdm1"),
+    ] {
+        let layer = lib.pdk.get_layerkey(layer).unwrap();
+        let elt = MergeArgs::builder()
+            .layer(layer)
+            .insts(GateList::Cells(&gates))
+            .port_name(port)
+            .build()?
+            .element();
+        layout.add(elt);
+    }
 
     let mut bbox = layout.bbox();
 
