@@ -48,10 +48,12 @@ pub fn draw_and2(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
     abs.add_port(nand.port("A"));
     abs.add_port(nand.port("B"));
     abs.add_port(nand.port("VSS").named("vss0"));
+    abs.add_port(nand.port("vpb").named("vpb0"));
     abs.add_port(nand.port("VDD").named("vdd0"));
     abs.add_port(inv.port("gnd").named("vss1"));
     abs.add_port(inv.port("vdd").named("vdd1"));
     abs.add_port(inv.port("din_b").named("Y"));
+    abs.add_port(inv.port("vpb").named("vpb1"));
 
     layout.add_inst(nand);
     layout.add_inst(inv);
@@ -99,9 +101,11 @@ pub fn draw_and3(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
     abs.add_port(nand.port("VSS").named("vss0"));
     abs.add_port(nand.port("VDD0").named("vdd0"));
     abs.add_port(nand.port("VDD1").named("vdd1"));
+    abs.add_port(nand.port("vpb").named("vpb0"));
     abs.add_port(inv.port("gnd").named("vss1"));
     abs.add_port(inv.port("vdd").named("vdd2"));
     abs.add_port(inv.port("din_b").named("Y"));
+    abs.add_port(inv.port("vpb").named("vpb1"));
 
     layout.add_inst(nand);
     layout.add_inst(inv);
@@ -216,6 +220,8 @@ pub fn draw_nand2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
         layout.elems.push(draw_rect(r, ptx.sd_metal));
         port_y.add_shape(ptx.sd_metal, Shape::Rect(r));
     }
+
+    abs.add_port(ptx.merged_vpb_port(1));
 
     abs.add_port(port_y);
 
@@ -377,6 +383,7 @@ pub fn draw_nand3(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     abs.add_port(ptx.gate_port(0).unwrap().named("C"));
     abs.add_port(ptx.gate_port(1).unwrap().named("B"));
     abs.add_port(ptx.gate_port(2).unwrap().named("A"));
+    abs.add_port(ptx.merged_vpb_port(1));
 
     let mut port_y = AbstractPort::new("Y");
 
@@ -478,6 +485,8 @@ pub fn draw_inv(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     let mut port_din = ptx.gate_port(0).unwrap();
     port_din.set_net("din");
     abs.add_port(port_din);
+
+    abs.add_port(ptx.merged_vpb_port(1));
 
     layout.elems.push(draw_rect(rect, ptx.sd_metal));
 

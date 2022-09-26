@@ -6,14 +6,16 @@ use layout21::raw::{Cell, Instance};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use super::array::{draw_cell_array, ArrayCellParams, ArrayedCell, FlipMode};
+use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
+use super::bank::GateList;
+use super::common::{MergeArgs, NWELL_COL_SIDE_EXTEND, NWELL_COL_VERT_EXTEND};
 
-pub fn draw_col_inv_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<ArrayedCell> {
+pub fn draw_col_inv_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<Ptr<Cell>> {
     let cell = draw_col_inv(lib, &format!("{prefix}_cell"))?;
 
-    draw_cell_array(
+    let array = draw_cell_array(
         ArrayCellParams {
-            name: format!("{}_array", prefix),
+            name: format!("{}_array_inst", prefix),
             num: width,
             cell,
             spacing: Some(COLUMN_WIDTH * 2),
@@ -22,7 +24,32 @@ pub fn draw_col_inv_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Resul
             direction: Dir::Horiz,
         },
         lib,
-    )
+    )?;
+
+    let inst = Instance::new("array", array.cell);
+
+    let mut cell = Cell::empty(prefix);
+    for port in inst.ports() {
+        cell.abs_mut().add_port(port);
+    }
+
+    let nwell = lib.pdk.get_layerkey("nwell").unwrap();
+    let elt = MergeArgs::builder()
+        .layer(nwell)
+        .insts(GateList::Array(&inst, width))
+        .port_name("vpb")
+        .left_overhang(NWELL_COL_SIDE_EXTEND)
+        .right_overhang(NWELL_COL_SIDE_EXTEND)
+        .build()?
+        .element();
+    cell.layout_mut().add(elt);
+
+    cell.layout_mut().add_inst(inst);
+
+    let ptr = Ptr::new(cell);
+    lib.lib.cells.push(ptr.clone());
+
+    Ok(ptr)
 }
 
 pub fn draw_col_inv(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
