@@ -13,14 +13,15 @@ use pdkprims::PdkLib;
 
 use super::array::{draw_cell_array, ArrayCellParams, ArrayedCell, FlipMode};
 use super::bank::GateList;
+use super::common::MergeArgs;
 use super::gate::{draw_and2, AndParams};
 use super::route::grid::{Grid, TrackLocator};
 use super::route::Router;
 
-pub fn draw_nand2_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<ArrayedCell> {
+pub fn draw_nand2_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<Ptr<Cell>> {
     let nand2 = super::gate::draw_nand2_dec(lib, format!("{}_nand", prefix))?;
 
-    draw_cell_array(
+    let array = draw_cell_array(
         ArrayCellParams {
             name: format!("{}_array", prefix),
             num: width,
@@ -31,13 +32,33 @@ pub fn draw_nand2_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<
             direction: Dir::Vert,
         },
         lib,
-    )
+    )?;
+
+    let inst = Instance::new("array", array.cell);
+
+    let mut cell = Cell::empty(prefix);
+    cell.abs_mut().ports.extend(inst.ports());
+
+    let nwell = lib.pdk.get_layerkey("nwell").unwrap();
+    let elt = MergeArgs::builder()
+        .layer(nwell)
+        .insts(GateList::Array(&inst, width))
+        .port_name("vpb")
+        .build()?
+        .element();
+    cell.layout_mut().add(elt);
+
+    cell.layout_mut().add_inst(inst);
+    let ptr = Ptr::new(cell);
+    lib.lib.cells.push(ptr.clone());
+
+    Ok(ptr)
 }
 
-pub fn draw_inv_dec_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<ArrayedCell> {
+pub fn draw_inv_dec_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<Ptr<Cell>> {
     let inv_dec = super::gate::draw_inv_dec(lib, format!("{}_inv", prefix))?;
 
-    draw_cell_array(
+    let array = draw_cell_array(
         ArrayCellParams {
             name: format!("{}_array", prefix),
             num: width,
@@ -48,7 +69,27 @@ pub fn draw_inv_dec_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Resul
             direction: Dir::Vert,
         },
         lib,
-    )
+    )?;
+
+    let inst = Instance::new("array", array.cell);
+
+    let mut cell = Cell::empty(prefix);
+    cell.abs_mut().ports.extend(inst.ports());
+
+    let nwell = lib.pdk.get_layerkey("nwell").unwrap();
+    let elt = MergeArgs::builder()
+        .layer(nwell)
+        .insts(GateList::Array(&inst, width))
+        .port_name("vpb")
+        .build()?
+        .element();
+    cell.layout_mut().add(elt);
+
+    cell.layout_mut().add_inst(inst);
+    let ptr = Ptr::new(cell);
+    lib.lib.cells.push(ptr.clone());
+
+    Ok(ptr)
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -175,6 +216,16 @@ fn draw_hier_decode_node(
         abs.add_port(inst.port("Y").named(format!("dec_{}", i)));
         gates.push(inst);
     }
+
+    let nwell = lib.pdk.get_layerkey("nwell").unwrap();
+    let mut merge_args = MergeArgs::builder()
+        .layer(nwell)
+        .insts(GateList::Cells(&gates))
+        .port_name("vpb0")
+        .build()?;
+    layout.add(merge_args.element());
+    merge_args.port_name = "vpb1";
+    layout.add(merge_args.element());
 
     let mut bbox = layout.bbox();
 

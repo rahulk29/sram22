@@ -1,6 +1,8 @@
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
-use layout21::raw::{Abstract, AbstractPort, BoundBoxTrait, Rect, Shape, Span, TransformTrait};
+use layout21::raw::{
+    Abstract, AbstractPort, BoundBox, BoundBoxTrait, Rect, Shape, Span, TransformTrait,
+};
 use layout21::{
     raw::{Cell, Instance, Layout, Point},
     utils::Ptr,
@@ -12,6 +14,8 @@ use pdkprims::{
 
 use super::array::*;
 use super::common::{draw_two_level_contact, TwoLevelContactParams};
+use crate::layout::bank::GateList;
+use crate::layout::common::{MergeArgs, NWELL_COL_SIDE_EXTEND, NWELL_COL_VERT_EXTEND};
 use crate::layout::route::{ContactBounds, Router, VertDir};
 use crate::Result;
 
@@ -66,8 +70,6 @@ fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     };
     let xform = inst.transform();
 
-    layout.insts.push(inst);
-
     let mut port = ptx.gate_port(0).unwrap();
     port.set_net("pc_b");
     let port = port.transform(&xform);
@@ -102,6 +104,10 @@ fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     port.set_net("bl1");
     let port = port.transform(&xform);
     abs.add_port(port);
+
+    abs.add_port(ptx.merged_vpb_port(0).transform(&xform));
+
+    layout.insts.push(inst);
 
     let cell = Cell {
         name,
@@ -229,6 +235,20 @@ pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
             },
         );
     }
+
+    let nwell = lib.pdk.get_layerkey("nwell").unwrap();
+
+    let elt = MergeArgs::builder()
+        .layer(nwell)
+        .insts(GateList::Array(&core, width))
+        .port_name("vpb")
+        .top_overhang(NWELL_COL_VERT_EXTEND)
+        .bot_overhang(NWELL_COL_VERT_EXTEND)
+        .left_overhang(NWELL_COL_SIDE_EXTEND)
+        .right_overhang(NWELL_COL_SIDE_EXTEND)
+        .build()?
+        .element();
+    layout.add(elt);
 
     layout.add_inst(core);
     layout.add_inst(taps);

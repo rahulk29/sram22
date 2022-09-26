@@ -62,7 +62,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let pc = draw_precharge_array(lib, cols)?;
     let read_mux = draw_read_mux_array(lib, cols / 2)?;
     let write_mux = draw_write_mux_array(lib, cols)?;
-    let col_inv = draw_col_inv_array(lib, "col_data_inv", cols / 2)?.cell;
+    let col_inv = draw_col_inv_array(lib, "col_data_inv", cols / 2)?;
     let sense_amp = draw_sense_amp_array(lib, cols / 2)?;
     let data_dffs = draw_dff_array(lib, "data_dff_array", cols / 2)?;
     let tmc = draw_tmc(
@@ -84,10 +84,10 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     let mut decoder1 = Instance::new("hierarchical_decoder", decoder1);
     let mut decoder2 = Instance::new("hierarchical_decoder", decoder2);
-    let mut wldrv_nand = Instance::new("wldrv_nand_array", wldrv_nand.cell);
-    let mut wldrv_inv = Instance::new("wldrv_inv_array", wldrv_inv.cell);
-    let mut nand_dec = Instance::new("nand2_dec_array", nand_dec.cell);
-    let mut inv_dec = Instance::new("inv_dec_array", inv_dec.cell);
+    let mut wldrv_nand = Instance::new("wldrv_nand_array", wldrv_nand);
+    let mut wldrv_inv = Instance::new("wldrv_inv_array", wldrv_inv);
+    let mut nand_dec = Instance::new("nand2_dec_array", nand_dec);
+    let mut inv_dec = Instance::new("inv_dec_array", inv_dec);
     let mut pc = Instance::new("precharge_array", pc);
     let mut read_mux = Instance::new("read_mux_array", read_mux);
     let mut write_mux = Instance::new("write_mux_array", write_mux);

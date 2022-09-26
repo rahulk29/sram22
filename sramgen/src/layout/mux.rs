@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
-use layout21::raw::{Abstract, AbstractPort, Element, Int, Rect, Shape, Span};
+use layout21::raw::{Abstract, AbstractPort, Element, Int, Rect, Shape, Span, TransformTrait};
 use layout21::{
     raw::{BoundBoxTrait, Cell, Instance, Layout, Point},
     utils::Ptr,
@@ -15,6 +15,9 @@ use crate::layout::array::*;
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::{ContactBounds, Router, VertDir};
 use crate::Result;
+
+use super::bank::GateList;
+use super::common::{MergeArgs, NWELL_COL_SIDE_EXTEND, NWELL_COL_VERT_EXTEND};
 
 pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "read_mux".to_string();
@@ -52,6 +55,8 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .build()
         .unwrap();
 
+    let vpb1 = ptx.merged_vpb_port(0).transform(&mos1.transform());
+
     let bbox = mos1.bbox();
     layout.insts.push(mos1.clone());
 
@@ -66,6 +71,11 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .loc(Point::new(bbox.width() + space, 0))
         .angle(90f64)
         .build()?;
+
+    let mut vpb = ptx.merged_vpb_port(0).transform(&mos1.transform());
+    vpb.merge(vpb1);
+    abs.add_port(vpb);
+
     layout.insts.push(mos2.clone());
 
     let center = layout.bbox().center();
@@ -239,6 +249,21 @@ pub fn draw_read_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> 
             .increment_layer()
             .contact_up(sel_b_m2.rect());
     }
+
+    let nwell = lib.pdk.get_layerkey("nwell").unwrap();
+
+    let vpb = MergeArgs::builder()
+        .layer(nwell)
+        .insts(GateList::Array(&inst, width))
+        .port_name("vpb")
+        .top_overhang(NWELL_COL_VERT_EXTEND)
+        .bot_overhang(NWELL_COL_VERT_EXTEND)
+        .left_overhang(NWELL_COL_SIDE_EXTEND)
+        .right_overhang(NWELL_COL_SIDE_EXTEND)
+        .build()?
+        .element();
+
+    layout.add(vpb);
 
     layout.insts.push(router.finish());
 
