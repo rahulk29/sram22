@@ -40,8 +40,8 @@ pub fn draw_sr_latch(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
 
-    let src = nor2.port("Y").largest_rect(m0).unwrap();
-    let dst = nor1.port("A").largest_rect(m0).unwrap();
+    let src = nor2.port("y").largest_rect(m0).unwrap();
+    let dst = nor1.port("a").largest_rect(m0).unwrap();
     let mut trace = router.trace(src, 0);
     trace
         .place_cursor(Dir::Horiz, false)
@@ -49,8 +49,8 @@ pub fn draw_sr_latch(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
         .horiz_to(dst.p0.x)
         .vert_to(dst.p1.y);
 
-    let src = nor1.port("Y").largest_rect(m0).unwrap();
-    let dst = nor2.port("A").largest_rect(m0).unwrap();
+    let src = nor1.port("y").largest_rect(m0).unwrap();
+    let dst = nor2.port("a").largest_rect(m0).unwrap();
     let mut trace = router.trace(src, 0);
     trace
         .place_cursor(Dir::Horiz, false)
@@ -59,13 +59,13 @@ pub fn draw_sr_latch(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
         .vert_to(dst.p0.y)
         .contact_down(dst);
 
-    abs.add_port(nor1.port("B").named("set"));
-    abs.add_port(nor2.port("B").named("reset"));
-    abs.add_port(nor1.port("Y").named("q_b"));
-    abs.add_port(nor2.port("Y").named("q"));
+    abs.add_port(nor1.port("b").named("set"));
+    abs.add_port(nor2.port("b").named("reset"));
+    abs.add_port(nor1.port("y").named("q_b"));
+    abs.add_port(nor2.port("y").named("q"));
 
     let width = 3 * cfg.line(1);
-    for port in ["VDD", "VSS"] {
+    for port in ["vdd", "vss"] {
         let src = nor1.port(port).largest_rect(m0).unwrap();
         let src2 = nor2.port(port).largest_rect(m0).unwrap();
         let xspan = Span::from_center_span_gridded(src.center().x, width, cfg.grid());

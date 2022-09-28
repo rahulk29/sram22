@@ -75,8 +75,8 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     let m1 = cfg.layerkey(1);
 
     let src = inv.port("din_b").largest_rect(m0).unwrap();
-    let dst2 = nand2.port("B").largest_rect(m0).unwrap();
-    let dst1 = nand1.port("B").largest_rect(m0).unwrap();
+    let dst2 = nand2.port("b").largest_rect(m0).unwrap();
+    let dst1 = nand1.port("b").largest_rect(m0).unwrap();
     let mut trace = router.trace(src, 0);
     trace
         .place_cursor_centered()
@@ -90,7 +90,7 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     // Join VDD
     let width = 3 * cfg.line(1);
 
-    for (inv_port, nand_port, stack) in [("vdd", "VDD", "ntap"), ("gnd", "VSS", "ptap")] {
+    for (inv_port, nand_port, stack) in [("vdd", "vdd", "ntap"), ("vss", "vss", "ptap")] {
         let dst0 = inv.port(inv_port).largest_rect(m0).unwrap();
         let dst1 = nand1.port(nand_port).largest_rect(m0).unwrap();
         let dst2 = nand2.port(nand_port).largest_rect(m0).unwrap();
@@ -133,10 +133,10 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     }
 
     abs.add_port(inv.port("din").named("clk_in"));
-    abs.add_port(nand1.port("A").named("din"));
-    abs.add_port(nand1.port("Y").named("clk_out"));
-    abs.add_port(nand2.port("A").named("en"));
-    abs.add_port(nand2.port("Y").named("dout"));
+    abs.add_port(nand1.port("a").named("din"));
+    abs.add_port(nand1.port("y").named("clk_out"));
+    abs.add_port(nand2.port("a").named("en"));
+    abs.add_port(nand2.port("y").named("dout"));
 
     layout.add_inst(inv);
     layout.add_inst(nand1);

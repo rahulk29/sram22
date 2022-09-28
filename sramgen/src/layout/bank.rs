@@ -159,53 +159,9 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .build()?,
     );
 
-    for (nand, inv) in [(&nand_dec, &inv_dec), (&wldrv_nand, &wldrv_inv)] {
-        let trace = connect(ConnectArgs {
-            metal_idx: 1,
-            port_idx: 0,
-            router: &mut router,
-            insts: GateList::Array(nand, rows),
-            port_name: "VDD",
-            dir: Dir::Vert,
-            overhang: Some(M1_PWR_OVERHANG),
-        });
-        power_grid.add_vdd_target(1, trace.rect());
-        let trace = connect(ConnectArgs {
-            metal_idx: 1,
-            port_idx: 0,
-            router: &mut router,
-            insts: GateList::Array(nand, rows),
-            port_name: "VSS",
-            dir: Dir::Vert,
-            overhang: Some(M1_PWR_OVERHANG),
-        });
-        power_grid.add_gnd_target(1, trace.rect());
-
-        let trace = connect(ConnectArgs {
-            metal_idx: 1,
-            port_idx: 0,
-            router: &mut router,
-            insts: GateList::Array(inv, rows),
-            port_name: "vdd",
-            dir: Dir::Vert,
-            overhang: Some(M1_PWR_OVERHANG),
-        });
-        power_grid.add_vdd_target(1, trace.rect());
-        let trace = connect(ConnectArgs {
-            metal_idx: 1,
-            port_idx: 0,
-            router: &mut router,
-            insts: GateList::Array(inv, rows),
-            port_name: "gnd",
-            dir: Dir::Vert,
-            overhang: Some(M1_PWR_OVERHANG),
-        });
-        power_grid.add_gnd_target(1, trace.rect());
-    }
-
     for i in 0..rows {
         // Connect decoder nand to decoder inverter
-        let src = nand_dec.port(format!("Y_{}", i)).largest_rect(m0).unwrap();
+        let src = nand_dec.port(format!("y_{}", i)).largest_rect(m0).unwrap();
         let dst = inv_dec.port(format!("din_{}", i)).largest_rect(m0).unwrap();
         let mut trace = router.trace(src, 0);
         trace.s_bend(dst, Dir::Horiz);
@@ -216,7 +172,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .largest_rect(m0)
             .unwrap();
         let dst = wldrv_nand
-            .port(format!("A_{}", i))
+            .port(format!("a_{}", i))
             .largest_rect(m0)
             .unwrap();
         let mut trace = router.trace(src, 0);
@@ -224,7 +180,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
         // Connect nand wldriver output to inv wldriver input.
         let src = wldrv_nand
-            .port(format!("Y_{}", i))
+            .port(format!("y_{}", i))
             .largest_rect(m0)
             .unwrap();
         let dst = wldrv_inv
@@ -606,6 +562,13 @@ pub(crate) struct ConnectArgs<'a> {
     pub(crate) dir: Dir,
     #[builder(setter(strip_option))]
     pub(crate) overhang: Option<isize>,
+}
+
+impl<'a> ConnectArgs<'a> {
+    #[inline]
+    pub fn builder() -> ConnectArgsBuilder<'a> {
+        ConnectArgsBuilder::default()
+    }
 }
 
 #[derive(Copy, Clone)]
