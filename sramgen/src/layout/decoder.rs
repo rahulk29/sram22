@@ -6,14 +6,17 @@ use crate::layout::gate::draw_and3;
 use crate::layout::Result;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
-use layout21::raw::{Abstract, AbstractPort, Cell, Instance, Layout, Point, Rect, Shape, Span};
+use layout21::raw::{
+    Abstract, AbstractPort, BoundBoxTrait, Cell, Instance, Layout, Point, Rect, Shape, Span,
+};
 use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
+use pdkprims::contact::ContactParams;
 use pdkprims::PdkLib;
 
 use super::array::{draw_cell_array, ArrayCellParams, ArrayedCell, FlipMode};
-use super::bank::GateList;
-use super::common::MergeArgs;
+use super::bank::{connect, GateList};
+use super::common::{draw_two_level_contact, MergeArgs, TwoLevelContactParams};
 use super::gate::{draw_and2, AndParams};
 use super::route::grid::{Grid, TrackLocator};
 use super::route::Router;
@@ -41,14 +44,27 @@ pub fn draw_nand2_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<
 
     for (layer, port) in [("nwell", "vpb"), ("nsdm", "nsdm"), ("psdm", "psdm")] {
         let layer = lib.pdk.get_layerkey(layer).unwrap();
-        let elt = MergeArgs::builder()
+        let mut builder = MergeArgs::builder();
+        builder
             .layer(layer)
             .insts(GateList::Array(&inst, width))
-            .port_name(port)
-            .build()?
-            .element();
+            .port_name(port);
+
+        if port == "vpb" {
+            // Add space for taps
+            builder.right_overhang(900);
+        }
+        let elt = builder.build()?.element();
         cell.layout_mut().add(elt);
     }
+
+    connect_taps_and_pwr(TapFillContext {
+        lib,
+        cell: &mut cell,
+        prefix,
+        inst: &inst,
+        width,
+    })?;
 
     cell.layout_mut().add_inst(inst);
     let ptr = Ptr::new(cell);
@@ -80,20 +96,174 @@ pub fn draw_inv_dec_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Resul
 
     for (layer, port) in [("nwell", "vpb"), ("nsdm", "nsdm"), ("psdm", "psdm")] {
         let layer = lib.pdk.get_layerkey(layer).unwrap();
-        let elt = MergeArgs::builder()
+        let mut builder = MergeArgs::builder();
+        builder
             .layer(layer)
             .insts(GateList::Array(&inst, width))
-            .port_name(port)
-            .build()?
-            .element();
+            .port_name(port);
+
+        if port == "vpb" {
+            // Add space for taps
+            builder.right_overhang(900);
+        }
+        let elt = builder.build()?.element();
         cell.layout_mut().add(elt);
     }
+
+    connect_taps_and_pwr(TapFillContext {
+        lib,
+        cell: &mut cell,
+        prefix,
+        inst: &inst,
+        width,
+    })?;
 
     cell.layout_mut().add_inst(inst);
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
 
     Ok(ptr)
+}
+
+struct TapFillContext<'a> {
+    lib: &'a mut PdkLib,
+    cell: &'a mut Cell,
+    prefix: &'a str,
+    inst: &'a Instance,
+    width: usize,
+}
+
+fn connect_taps_and_pwr(ctx: TapFillContext) -> Result<()> {
+    let TapFillContext {
+        lib,
+        cell,
+        prefix,
+        inst,
+        width,
+    } = ctx;
+    let ntapcell = draw_ntap(lib, &format!("{}_ntap", prefix))?;
+    let ptapcell = draw_ptap(lib, &format!("{}_ptap", prefix))?;
+
+    let psdm = lib.pdk.get_layerkey("psdm").unwrap();
+    let nsdm = lib.pdk.get_layerkey("nsdm").unwrap();
+
+    let mut ntaps = Vec::with_capacity(width / 2);
+    let mut ptaps = Vec::with_capacity(width / 2);
+
+    for i in 0..(width / 2) {
+        let pwr1 = inst
+            .port(format!("psdm_{}", 2 * i))
+            .largest_rect(psdm)
+            .unwrap();
+        let pwr2 = inst
+            .port(format!("psdm_{}", 2 * i + 1))
+            .largest_rect(psdm)
+            .unwrap();
+        let gnd1 = inst
+            .port(format!("nsdm_{}", 2 * i))
+            .largest_rect(nsdm)
+            .unwrap();
+        let gnd2 = inst
+            .port(format!("nsdm_{}", 2 * i + 1))
+            .largest_rect(nsdm)
+            .unwrap();
+
+        let bbox = pwr1.bbox().union(&pwr2.bbox());
+        let mut tapinst = Instance::new(format!("ntap_{}", i), ntapcell.clone());
+        tapinst.align_to_the_right_of(bbox, 130);
+        tapinst.align_centers_vertically_gridded(bbox, lib.pdk.grid());
+        ntaps.push(tapinst);
+
+        let bbox = gnd1.bbox().union(&gnd2.bbox());
+        let mut tapinst = Instance::new(format!("ptap_{}", i), ptapcell.clone());
+        tapinst.align_to_the_left_of(bbox, 130);
+        tapinst.align_centers_vertically_gridded(bbox, lib.pdk.grid());
+        ptaps.push(tapinst);
+    }
+
+    let mut router = Router::new(format!("{}_route", prefix), lib.pdk.clone());
+    let cfg = router.cfg();
+    let m1 = cfg.layerkey(1);
+
+    let args = ConnectArgs::builder()
+        .metal_idx(1)
+        .port_idx(0)
+        .router(&mut router)
+        .insts(GateList::Cells(&ntaps))
+        .port_name("x")
+        .dir(Dir::Vert)
+        .overhang(100)
+        .build()?;
+    let trace = connect(args);
+    cell.add_pin("vpb", m1, trace.rect());
+
+    let args = ConnectArgs::builder()
+        .metal_idx(1)
+        .port_idx(0)
+        .router(&mut router)
+        .insts(GateList::Cells(&ptaps))
+        .port_name("x")
+        .dir(Dir::Vert)
+        .overhang(100)
+        .build()?;
+    let trace = connect(args);
+    cell.add_pin("vnb", m1, trace.rect());
+
+    let args = ConnectArgs::builder()
+        .metal_idx(1)
+        .port_idx(0)
+        .router(&mut router)
+        .insts(GateList::Array(&inst, width))
+        .port_name("vdd")
+        .dir(Dir::Vert)
+        .overhang(100)
+        .build()?;
+    let trace = connect(args);
+    cell.add_pin("vdd", m1, trace.rect());
+
+    let args = ConnectArgs::builder()
+        .metal_idx(1)
+        .port_idx(0)
+        .router(&mut router)
+        .insts(GateList::Array(&inst, width))
+        .port_name("vss")
+        .dir(Dir::Vert)
+        .overhang(100)
+        .build()?;
+    let trace = connect(args);
+    cell.add_pin("vss", m1, trace.rect());
+
+    cell.layout_mut().insts.append(&mut ntaps);
+    cell.layout_mut().insts.append(&mut ptaps);
+    cell.layout_mut().add_inst(router.finish());
+
+    Ok(())
+}
+
+pub fn draw_ntap(lib: &mut PdkLib, _name: &str) -> Result<Ptr<Cell>> {
+    let ct = lib.pdk.get_contact(
+        &ContactParams::builder()
+            .stack("ntap")
+            .rows(1)
+            .cols(1)
+            .dir(Dir::Vert)
+            .build()
+            .unwrap(),
+    );
+    Ok(ct.cell.clone())
+}
+
+pub fn draw_ptap(lib: &mut PdkLib, _name: &str) -> Result<Ptr<Cell>> {
+    let ct = lib.pdk.get_contact(
+        &ContactParams::builder()
+            .stack("ptap")
+            .rows(1)
+            .cols(1)
+            .dir(Dir::Vert)
+            .build()
+            .unwrap(),
+    );
+    Ok(ct.cell.clone())
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -321,8 +491,8 @@ fn draw_hier_decode_node(
 
         for (i, gate) in gates.iter().enumerate() {
             let conns = match bus_width {
-                4 => vec![("A", i % 2), ("B", 2 + (i / 2))],
-                6 => vec![("A", i % 2), ("B", 2 + ((i / 2) % 2)), ("C", 4 + i / 4)],
+                4 => vec![("a", i % 2), ("b", 2 + (i / 2))],
+                6 => vec![("a", i % 2), ("b", 2 + ((i / 2) % 2)), ("c", 4 + i / 4)],
                 _ => unreachable!("bus width must be 4 or 6"),
             };
             for (port, idx) in conns {
@@ -442,7 +612,7 @@ pub(crate) fn connect_subdecoders(args: ConnectSubdecodersArgs) {
 
         assert_eq!(idxs.len(), 2);
 
-        let ports = ["A", "B", "C", "D"]
+        let ports = ["a", "b", "c", "d"]
             .into_iter()
             .take(args.node.children.len());
 

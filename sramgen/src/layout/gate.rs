@@ -39,20 +39,20 @@ pub fn draw_and2(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
     let mut router = Router::new(format!("{}_routing", &params.name), lib.pdk.clone());
     let m0 = lib.pdk.metal(0);
 
-    let src = nand.port("Y").largest_rect(m0).unwrap();
+    let src = nand.port("y").largest_rect(m0).unwrap();
     let dst = inv.port("din").largest_rect(m0).unwrap();
     let mut trace = router.trace(src, 0);
     trace.s_bend(dst, Dir::Horiz);
 
     // Add ports
-    abs.add_port(nand.port("A"));
-    abs.add_port(nand.port("B"));
-    abs.add_port(nand.port("VSS").named("vss0"));
+    abs.add_port(nand.port("a"));
+    abs.add_port(nand.port("b"));
+    abs.add_port(nand.port("vss").named("vss0"));
     abs.add_port(nand.port("vpb").named("vpb0"));
-    abs.add_port(nand.port("VDD").named("vdd0"));
+    abs.add_port(nand.port("vdd").named("vdd0"));
     abs.add_port(nand.port("nsdm").named("nsdm0"));
     abs.add_port(nand.port("psdm").named("psdm0"));
-    abs.add_port(inv.port("gnd").named("vss1"));
+    abs.add_port(inv.port("vss").named("vss1"));
     abs.add_port(inv.port("vdd").named("vdd1"));
     abs.add_port(inv.port("din_b").named("Y"));
     abs.add_port(inv.port("vpb").named("vpb1"));
@@ -93,22 +93,22 @@ pub fn draw_and3(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
     let mut router = Router::new(format!("{}_routing", &params.name), lib.pdk.clone());
     let m0 = lib.pdk.metal(0);
 
-    let src = nand.port("Y").largest_rect(m0).unwrap();
+    let src = nand.port("y").largest_rect(m0).unwrap();
     let dst = inv.port("din").largest_rect(m0).unwrap();
     let mut trace = router.trace(src, 0);
     trace.s_bend(dst, Dir::Horiz);
 
     // Add ports
-    abs.add_port(nand.port("A"));
-    abs.add_port(nand.port("B"));
-    abs.add_port(nand.port("C"));
-    abs.add_port(nand.port("VSS").named("vss0"));
-    abs.add_port(nand.port("VDD0").named("vdd0"));
-    abs.add_port(nand.port("VDD1").named("vdd1"));
+    abs.add_port(nand.port("a"));
+    abs.add_port(nand.port("b"));
+    abs.add_port(nand.port("c"));
+    abs.add_port(nand.port("vss").named("vss0"));
+    abs.add_port(nand.port("vdd0").named("vdd0"));
+    abs.add_port(nand.port("vdd1").named("vdd1"));
     abs.add_port(nand.port("vpb").named("vpb0"));
     abs.add_port(nand.port("nsdm").named("nsdm0"));
     abs.add_port(nand.port("psdm").named("psdm0"));
-    abs.add_port(inv.port("gnd").named("vss1"));
+    abs.add_port(inv.port("vss").named("vss1"));
     abs.add_port(inv.port("vdd").named("vdd2"));
     abs.add_port(inv.port("din_b").named("Y"));
     abs.add_port(inv.port("vpb").named("vpb1"));
@@ -193,22 +193,22 @@ pub fn draw_nand2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     }
 
     let mut port_vss = ptx.sd_port(0, 0).unwrap();
-    port_vss.set_net("VSS");
+    port_vss.set_net("vss");
     abs.add_port(port_vss);
 
     let mut port_vdd = ptx.sd_port(1, 1).unwrap();
-    port_vdd.set_net("VDD");
+    port_vdd.set_net("vdd");
     abs.add_port(port_vdd);
 
     let mut port_a = ptx.gate_port(0).unwrap();
-    port_a.set_net("A");
+    port_a.set_net("a");
     abs.add_port(port_a);
 
     let mut port_b = ptx.gate_port(1).unwrap();
-    port_b.set_net("B");
+    port_b.set_net("b");
     abs.add_port(port_b);
 
-    let mut port_y = AbstractPort::new("Y");
+    let mut port_y = AbstractPort::new("y");
 
     let rects = [
         Rect {
@@ -294,12 +294,12 @@ pub fn draw_nor2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
         xmax -= xshift;
     }
 
-    abs.add_port(ptx.sd_port(0, 0).unwrap().named("VSS"));
-    abs.add_port(ptx.sd_port(1, 2).unwrap().named("VDD"));
-    abs.add_port(ptx.gate_port(0).unwrap().named("A"));
-    abs.add_port(ptx.gate_port(1).unwrap().named("B"));
+    abs.add_port(ptx.sd_port(0, 0).unwrap().named("vss"));
+    abs.add_port(ptx.sd_port(1, 2).unwrap().named("vdd"));
+    abs.add_port(ptx.gate_port(0).unwrap().named("a"));
+    abs.add_port(ptx.gate_port(1).unwrap().named("b"));
 
-    let mut port_y = AbstractPort::new("Y");
+    let mut port_y = AbstractPort::new("y");
 
     let rects = [
         Rect {
@@ -390,17 +390,17 @@ pub fn draw_nand3(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     assert!(xmax <= xlim_h);
     assert!(xmin >= xlim_l);
 
-    abs.add_port(ptx.sd_port(0, 0).unwrap().named("VSS"));
-    abs.add_port(ptx.sd_port(1, 1).unwrap().named("VDD0"));
-    abs.add_port(ptx.sd_port(1, 3).unwrap().named("VDD1"));
-    abs.add_port(ptx.gate_port(0).unwrap().named("C"));
-    abs.add_port(ptx.gate_port(1).unwrap().named("B"));
-    abs.add_port(ptx.gate_port(2).unwrap().named("A"));
+    abs.add_port(ptx.sd_port(0, 0).unwrap().named("vss"));
+    abs.add_port(ptx.sd_port(1, 1).unwrap().named("vdd0"));
+    abs.add_port(ptx.sd_port(1, 3).unwrap().named("vdd1"));
+    abs.add_port(ptx.gate_port(0).unwrap().named("c"));
+    abs.add_port(ptx.gate_port(1).unwrap().named("b"));
+    abs.add_port(ptx.gate_port(2).unwrap().named("a"));
     abs.add_port(ptx.merged_vpb_port(1));
     abs.add_port(inst.port("nsdm_0").named("nsdm"));
     abs.add_port(inst.port("psdm_1").named("psdm"));
 
-    let mut port_y = AbstractPort::new("Y");
+    let mut port_y = AbstractPort::new("y");
 
     let rects = [
         Rect::new(Point::new(ny.p0.x, ny.p0.y), Point::new(xmax, ny.p1.y)),
@@ -474,7 +474,7 @@ pub fn draw_inv(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     layout.insts.push(inst.clone());
 
     let mut port_vss = ptx.sd_port(0, 0).unwrap();
-    port_vss.set_net("gnd");
+    port_vss.set_net("vss");
     abs.add_port(port_vss);
 
     let mut port_vdd = ptx.sd_port(1, 0).unwrap();

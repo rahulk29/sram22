@@ -84,7 +84,6 @@ pub fn draw_two_level_contact(
 }
 
 #[derive(Copy, Clone, Builder)]
-#[builder(pattern = "owned")]
 pub(crate) struct MergeArgs<'a> {
     pub(crate) layer: LayerKey,
     pub(crate) insts: GateList<'a>,
