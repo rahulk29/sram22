@@ -539,6 +539,10 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     power_grid.add_blockage(2, core_bbox.into_rect());
     layout.insts.push(power_grid.generate()?);
 
+    // Draw dnwell
+    let dnwell_rect = bbox.into_rect().expand(1_600);
+    layout.draw_rect(lib.pdk.get_layerkey("dnwell").unwrap(), dnwell_rect);
+
     let cell = Cell {
         name,
         abs: None,
