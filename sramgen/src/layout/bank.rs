@@ -12,13 +12,15 @@ use pdkprims::{LayerIdx, PdkLib};
 use crate::clog2;
 use crate::decoder::DecoderTree;
 use crate::layout::col_inv::draw_col_inv_array;
-use crate::layout::decoder::{bus_width, draw_hier_decode, ConnectSubdecodersArgs};
+use crate::layout::decoder::{
+    bus_width, draw_hier_decode, ConnectSubdecodersArgs, GateArrayParams,
+};
 use crate::layout::dff::draw_vert_dff_array;
 use crate::layout::power::{PowerStrapGen, PowerStrapOpts};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
 use crate::layout::tmc::{draw_tmc, TmcParams};
-use crate::tech::COLUMN_WIDTH;
+use crate::tech::{BITCELL_HEIGHT, COLUMN_WIDTH};
 
 use super::route::Trace;
 use super::{
@@ -56,9 +58,25 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     let core = draw_array(rows, cols, lib)?;
     let nand_dec = draw_nand2_array(lib, "nand2_dec", rows)?;
-    let inv_dec = draw_inv_dec_array(lib, "inv_dec", rows)?;
+    let inv_dec = draw_inv_dec_array(
+        lib,
+        GateArrayParams {
+            prefix: "inv_dec",
+            width: rows,
+            dir: Dir::Vert,
+            pitch: Some(BITCELL_HEIGHT),
+        },
+    )?;
     let wldrv_nand = draw_nand2_array(lib, "wldrv_nand2", rows)?;
-    let wldrv_inv = draw_inv_dec_array(lib, "wldrv_inv", rows)?;
+    let wldrv_inv = draw_inv_dec_array(
+        lib,
+        GateArrayParams {
+            prefix: "wldrv_inv",
+            width: rows,
+            dir: Dir::Vert,
+            pitch: Some(BITCELL_HEIGHT),
+        },
+    )?;
     let pc = draw_precharge_array(lib, cols)?;
     let read_mux = draw_read_mux_array(lib, cols / 2)?;
     let write_mux = draw_write_mux_array(lib, cols)?;

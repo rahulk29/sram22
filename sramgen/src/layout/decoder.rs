@@ -7,7 +7,7 @@ use crate::layout::Result;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
 use layout21::raw::{
-    Abstract, AbstractPort, BoundBoxTrait, Cell, Instance, Layout, Point, Rect, Shape, Span,
+    Abstract, AbstractPort, BoundBoxTrait, Cell, Instance, Int, Layout, Point, Rect, Shape, Span,
 };
 use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
@@ -73,15 +73,38 @@ pub fn draw_nand2_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<
     Ok(ptr)
 }
 
-pub fn draw_inv_dec_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<Ptr<Cell>> {
-    let inv_dec = super::gate::draw_inv_dec(lib, format!("{}_inv", prefix))?;
+pub struct GateArrayParams<'a> {
+    pub prefix: &'a str,
+    pub width: usize,
+    pub dir: Dir,
+    pub pitch: Option<Int>,
+}
+
+pub fn draw_gate_array(
+    lib: &mut PdkLib,
+    params: GateArrayParams,
+    cell: Ptr<Cell>,
+) -> Result<Ptr<Cell>> {
+    let GateArrayParams {
+        prefix,
+        width,
+        dir,
+        pitch,
+    } = params;
+
+    let bbox = {
+        let cell = cell.read().unwrap();
+        cell.layout.as_ref().unwrap().bbox()
+    };
+
+    let spacing = params.pitch.unwrap_or(bbox.width() + 3 * 130);
 
     let array = draw_cell_array(
         ArrayCellParams {
             name: format!("{}_array", prefix),
             num: width,
-            cell: inv_dec,
-            spacing: Some(1580),
+            cell,
+            spacing: Some(spacing),
             flip: FlipMode::AlternateFlipVertical,
             flip_toggle: false,
             direction: Dir::Vert,
@@ -123,6 +146,11 @@ pub fn draw_inv_dec_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Resul
     lib.lib.cells.push(ptr.clone());
 
     Ok(ptr)
+}
+
+pub fn draw_inv_dec_array(lib: &mut PdkLib, params: GateArrayParams) -> Result<Ptr<Cell>> {
+    let inv_dec = super::gate::draw_inv_dec(lib, format!("{}_inv", params.prefix))?;
+    draw_gate_array(lib, params, inv_dec)
 }
 
 struct TapFillContext<'a> {
@@ -678,6 +706,7 @@ mod tests {
     use pdkprims::tech::sky130;
 
     use crate::decoder::DecoderTree;
+    use crate::tech::BITCELL_HEIGHT;
     use crate::utils::test_path;
 
     use super::*;
@@ -695,7 +724,15 @@ mod tests {
     #[test]
     fn test_sky130_inv_dec_array() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_inv_dec_array")?;
-        draw_inv_dec_array(&mut lib, "inv_dec_array", 32)?;
+        draw_inv_dec_array(
+            &mut lib,
+            GateArrayParams {
+                prefix: "inv_dec_array",
+                width: 32,
+                dir: Dir::Vert,
+                pitch: Some(BITCELL_HEIGHT),
+            },
+        )?;
 
         lib.save_gds(test_path(&lib))?;
 
