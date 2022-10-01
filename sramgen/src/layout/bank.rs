@@ -25,7 +25,7 @@ use crate::tech::{BITCELL_HEIGHT, COLUMN_WIDTH};
 use super::route::Trace;
 use super::{
     array::draw_array,
-    decoder::{draw_inv_dec_array, draw_nand2_array},
+    decoder::{draw_inv_dec_array, draw_nand2_dec_array},
     dff::draw_dff_array,
     mux::{draw_read_mux_array, draw_write_mux_array},
     precharge::draw_precharge_array,
@@ -57,7 +57,15 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let addr_dffs = draw_vert_dff_array(lib, "addr_dffs", row_bits + col_sel_bits)?;
 
     let core = draw_array(rows, cols, lib)?;
-    let nand_dec = draw_nand2_array(lib, "nand2_dec", rows)?;
+    let nand_dec = draw_nand2_dec_array(
+        lib,
+        GateArrayParams {
+            prefix: "nand2_dec",
+            width: rows,
+            dir: Dir::Vert,
+            pitch: Some(BITCELL_HEIGHT),
+        },
+    )?;
     let inv_dec = draw_inv_dec_array(
         lib,
         GateArrayParams {
@@ -67,7 +75,15 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             pitch: Some(BITCELL_HEIGHT),
         },
     )?;
-    let wldrv_nand = draw_nand2_array(lib, "wldrv_nand2", rows)?;
+    let wldrv_nand = draw_nand2_dec_array(
+        lib,
+        GateArrayParams {
+            prefix: "wldrv_nand",
+            width: rows,
+            dir: Dir::Vert,
+            pitch: Some(BITCELL_HEIGHT),
+        },
+    )?;
     let wldrv_inv = draw_inv_dec_array(
         lib,
         GateArrayParams {
