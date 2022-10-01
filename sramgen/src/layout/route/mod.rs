@@ -1,14 +1,11 @@
-use pdkprims::{contact::ContactParams, LayerIdx, Pdk};
+use pdkprims::contact::ContactParams;
+use pdkprims::{LayerIdx, Pdk};
 
 use std::sync::Arc;
 
-use layout21::{
-    raw::{
-        align::AlignRect, BoundBoxTrait, Cell, Dir, Instance, Int, LayerKey, Layout, Point, Rect,
-        Span,
-    },
-    utils::Ptr,
-};
+use layout21::raw::align::AlignRect;
+use layout21::raw::{BoundBoxTrait, Cell, Dir, Instance, Int, LayerKey, Layout, Point, Rect, Span};
+use layout21::utils::Ptr;
 
 pub enum VertDir {
     Above,

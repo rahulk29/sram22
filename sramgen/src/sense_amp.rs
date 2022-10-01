@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use vlsir::{circuit::Instance, Module};
+use vlsir::circuit::Instance;
+use vlsir::Module;
 
-use crate::{
-    tech::sramgen_sp_sense_amp_ref,
-    utils::{bus, conns::conn_slice, port_inout, port_input, port_output, sig_conn, signal},
-};
+use crate::tech::sramgen_sp_sense_amp_ref;
+use crate::utils::conns::conn_slice;
+use crate::utils::{bus, port_inout, port_input, port_output, sig_conn, signal};
 
 use serde::{Deserialize, Serialize};
 
@@ -68,7 +68,8 @@ pub fn sense_amp_array(params: SenseAmpArrayParams) -> Module {
 mod tests {
     use vlsir::circuit::Package;
 
-    use crate::{save_bin, tech::all_external_modules};
+    use crate::save_bin;
+    use crate::tech::all_external_modules;
 
     use super::*;
 

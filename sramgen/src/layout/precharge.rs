@@ -1,16 +1,12 @@
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
 use layout21::raw::{
-    Abstract, AbstractPort, BoundBox, BoundBoxTrait, Rect, Shape, Span, TransformTrait,
+    Abstract, AbstractPort, BoundBox, BoundBoxTrait, Cell, Instance, Layout, Point, Rect, Shape,
+    Span, TransformTrait,
 };
-use layout21::{
-    raw::{Cell, Instance, Layout, Point},
-    utils::Ptr,
-};
-use pdkprims::{
-    mos::{Intent, MosDevice, MosParams, MosType},
-    PdkLib,
-};
+use layout21::utils::Ptr;
+use pdkprims::mos::{Intent, MosDevice, MosParams, MosType};
+use pdkprims::PdkLib;
 
 use super::array::*;
 use super::common::{draw_two_level_contact, TwoLevelContactParams};

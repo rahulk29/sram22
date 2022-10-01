@@ -3,7 +3,8 @@ use layout21::raw::geom::Dir;
 use pdkprims::PdkLib;
 
 use super::array::*;
-use crate::{tech::sramgen_sp_sense_amp_gds, Result};
+use crate::tech::sramgen_sp_sense_amp_gds;
+use crate::Result;
 
 pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize) -> Result<ArrayedCell> {
     let sa = sramgen_sp_sense_amp_gds(lib)?;

@@ -1,17 +1,16 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
+use std::path::PathBuf;
 
-use layout21::{
-    gds21::GdsLibrary,
-    raw::{Cell, Library},
-    utils::Ptr,
-};
+use layout21::gds21::GdsLibrary;
+use layout21::raw::{Cell, Library};
+use layout21::utils::Ptr;
 use pdkprims::PdkLib;
-use vlsir::{circuit::ExternalModule, reference::To, QualifiedName, Reference};
+use vlsir::circuit::ExternalModule;
+use vlsir::reference::To;
+use vlsir::{QualifiedName, Reference};
 
-use crate::{
-    mos::{ext_nmos, ext_pmos},
-    utils::simple_ext_module,
-};
+use crate::mos::{ext_nmos, ext_pmos};
+use crate::utils::simple_ext_module;
 
 pub const SKY130_DOMAIN: &str = "sky130";
 pub const SRAM_SP_CELL: &str = "sram_sp_cell";

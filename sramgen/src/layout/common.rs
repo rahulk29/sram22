@@ -1,11 +1,10 @@
 use derive_builder::Builder;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
-use layout21::raw::{AbstractPort, BoundBox, BoundBoxTrait, Element, Int, LayerKey, Rect};
-use layout21::{
-    raw::{Cell, Instance},
-    utils::Ptr,
+use layout21::raw::{
+    AbstractPort, BoundBox, BoundBoxTrait, Cell, Element, Instance, Int, LayerKey, Rect,
 };
+use layout21::utils::Ptr;
 use pdkprims::config::Uint;
 use pdkprims::contact::ContactParams;
 use pdkprims::PdkLib;

@@ -1,14 +1,12 @@
 use std::collections::HashMap;
 
-use vlsir::{
-    circuit::{connection::Stype, port::Direction, Connection, Instance, Port, Signal, Slice},
-    Module,
-};
+use vlsir::circuit::connection::Stype;
+use vlsir::circuit::port::Direction;
+use vlsir::circuit::{Connection, Instance, Port, Signal, Slice};
+use vlsir::Module;
 
-use crate::{
-    tech::sram_sp_cell_ref,
-    utils::{sig_conn, signal},
-};
+use crate::tech::sram_sp_cell_ref;
+use crate::utils::{sig_conn, signal};
 
 use serde::{Deserialize, Serialize};
 
@@ -115,7 +113,8 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
 mod tests {
     use vlsir::circuit::Package;
 
-    use crate::{save_bin, tech::all_external_modules};
+    use crate::save_bin;
+    use crate::tech::all_external_modules;
 
     use super::*;
 

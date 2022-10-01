@@ -2,15 +2,12 @@ use crate::gate::{GateParams, Size};
 use crate::layout::Result;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
-use layout21::raw::BoundBoxTrait;
-use layout21::{
-    raw::{Abstract, AbstractPort, Cell, Instance, Layout, Point, Rect, Shape},
-    utils::Ptr,
+use layout21::raw::{
+    Abstract, AbstractPort, BoundBoxTrait, Cell, Instance, Layout, Point, Rect, Shape,
 };
-use pdkprims::{
-    mos::{Intent, MosDevice, MosParams, MosType},
-    PdkLib,
-};
+use layout21::utils::Ptr;
+use pdkprims::mos::{Intent, MosDevice, MosParams, MosType};
+use pdkprims::PdkLib;
 
 use super::draw_rect;
 use super::route::Router;

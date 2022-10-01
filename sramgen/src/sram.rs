@@ -2,23 +2,21 @@ use std::collections::HashMap;
 
 use vlsir::circuit::{Instance, Module};
 
-use crate::{
-    bitcells::{bitcell_array, BitcellArrayParams},
-    decoder::{hierarchical_decoder, DecoderParams, DecoderTree},
-    dff::dff_array,
-    gate::Size,
-    mux::{
-        column_read_mux_2_array, column_write_mux_2_array, ColumnMuxArrayParams, ColumnMuxParams,
-    },
-    precharge::{precharge_array, PrechargeArrayParams, PrechargeParams},
-    sense_amp::{sense_amp_array, SenseAmpArrayParams},
-    utils::{
-        bus, conn_map, conns::conn_slice, local_reference, port_inout, port_input, port_output,
-        sig_conn, signal,
-    },
-    wl_driver::{wordline_driver_array, WordlineDriverArrayParams, WordlineDriverParams},
-    write_driver::{bitline_driver_array, BitlineDriverArrayParams, BitlineDriverParams},
+use crate::bitcells::{bitcell_array, BitcellArrayParams};
+use crate::decoder::{hierarchical_decoder, DecoderParams, DecoderTree};
+use crate::dff::dff_array;
+use crate::gate::Size;
+use crate::mux::{
+    column_read_mux_2_array, column_write_mux_2_array, ColumnMuxArrayParams, ColumnMuxParams,
 };
+use crate::precharge::{precharge_array, PrechargeArrayParams, PrechargeParams};
+use crate::sense_amp::{sense_amp_array, SenseAmpArrayParams};
+use crate::utils::conns::conn_slice;
+use crate::utils::{
+    bus, conn_map, local_reference, port_inout, port_input, port_output, sig_conn, signal,
+};
+use crate::wl_driver::{wordline_driver_array, WordlineDriverArrayParams, WordlineDriverParams};
+use crate::write_driver::{bitline_driver_array, BitlineDriverArrayParams, BitlineDriverParams};
 
 use crate::dff::DffArrayParams;
 
