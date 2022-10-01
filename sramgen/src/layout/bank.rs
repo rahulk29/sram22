@@ -1,11 +1,8 @@
 use derive_builder::Builder;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Rect;
-use layout21::raw::{AbstractPort, Dir, Int};
-use layout21::{
-    raw::{BoundBoxTrait, Cell, Instance, Layout, Point, Span},
-    utils::Ptr,
-};
+use layout21::raw::{AbstractPort, BoundBoxTrait, Cell, Dir, Instance, Int, Layout, Point, Span};
+use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::{LayerIdx, PdkLib};
 
@@ -22,16 +19,14 @@ use crate::layout::route::Router;
 use crate::layout::tmc::{draw_tmc, TmcParams};
 use crate::tech::{BITCELL_HEIGHT, COLUMN_WIDTH};
 
+use super::array::draw_array;
+use super::decoder::{draw_inv_dec_array, draw_nand2_dec_array};
+use super::dff::draw_dff_array;
+use super::mux::{draw_read_mux_array, draw_write_mux_array};
+use super::precharge::draw_precharge_array;
 use super::route::Trace;
-use super::{
-    array::draw_array,
-    decoder::{draw_inv_dec_array, draw_nand2_dec_array},
-    dff::draw_dff_array,
-    mux::{draw_read_mux_array, draw_write_mux_array},
-    precharge::draw_precharge_array,
-    sense_amp::draw_sense_amp_array,
-    Result,
-};
+use super::sense_amp::draw_sense_amp_array;
+use super::Result;
 
 pub const M1_PWR_OVERHANG: Int = 200;
 

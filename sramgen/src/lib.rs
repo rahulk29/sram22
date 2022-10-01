@@ -1,11 +1,10 @@
 use std::path::PathBuf;
 
 use decoder::DecoderTree;
-use layout21::{
-    raw::{BoundBox, Cell},
-    utils::Ptr,
-};
-use vlsir::{circuit::Package, spice::SimInput};
+use layout21::raw::{BoundBox, Cell};
+use layout21::utils::Ptr;
+use vlsir::circuit::Package;
+use vlsir::spice::SimInput;
 
 pub mod bitcells;
 pub mod decoder;

@@ -1,11 +1,11 @@
-use std::{collections::HashMap, fs::File, path::Path};
+use std::collections::HashMap;
+use std::fs::File;
+use std::path::Path;
 
-use vlsir::{
-    circuit::{Instance, Package},
-    reference::To,
-    spice::SimInput,
-    Module,
-};
+use vlsir::circuit::{Instance, Package};
+use vlsir::reference::To;
+use vlsir::spice::SimInput;
+use vlsir::Module;
 
 pub const PRIMITIVE_DOMAIN: &str = "primitives";
 
@@ -117,12 +117,11 @@ impl NetlistWriter<std::fs::File> {
 #[cfg(test)]
 mod tests {
 
-    use vlsir::{circuit::Package, spice::SimInput};
+    use vlsir::circuit::Package;
+    use vlsir::spice::SimInput;
 
-    use crate::{
-        decoder::{hierarchical_decoder, DecoderParams, DecoderTree},
-        mos::{ext_nmos, ext_pmos},
-    };
+    use crate::decoder::{hierarchical_decoder, DecoderParams, DecoderTree};
+    use crate::mos::{ext_nmos, ext_pmos};
 
     use super::Result;
 

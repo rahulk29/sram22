@@ -1,7 +1,5 @@
-use layout21::{
-    raw::{Cell, Element, Instance, LayerKey, LayerPurpose, Layout, Point, Rect, Shape},
-    utils::Ptr,
-};
+use layout21::raw::{Cell, Element, Instance, LayerKey, LayerPurpose, Layout, Point, Rect, Shape};
+use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
 use crate::tech::sram_sp_cell_gds;

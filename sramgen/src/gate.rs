@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use pdkprims::{config::Int, mos::MosType};
+use pdkprims::config::Int;
+use pdkprims::mos::MosType;
 use serde::{Deserialize, Serialize};
 use vlsir::circuit::{port, Instance, Module, Port};
 
-use crate::{
-    mos::Mosfet,
-    utils::{conn_map, local_reference, port_inout, port_input, port_output, sig_conn, signal},
+use crate::mos::Mosfet;
+use crate::utils::{
+    conn_map, local_reference, port_inout, port_input, port_output, sig_conn, signal,
 };
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]

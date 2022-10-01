@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 
-use pdkprims::{config::Int, mos::MosType};
+use pdkprims::config::Int;
+use pdkprims::mos::MosType;
 
-use vlsir::{circuit::Module, reference::To, Reference};
+use vlsir::circuit::Module;
+use vlsir::reference::To;
+use vlsir::Reference;
 
-use crate::{
-    mos::Mosfet,
-    utils::{bus, conn_map, conns::conn_slice, port_inout, port_input, sig_conn, signal},
-};
+use crate::mos::Mosfet;
+use crate::utils::conns::conn_slice;
+use crate::utils::{bus, conn_map, port_inout, port_input, sig_conn, signal};
 
 pub struct ColumnMuxParams {
     pub length: Int,
@@ -416,7 +418,9 @@ pub fn column_mux_4(params: ColumnMuxParams) -> Module {
 mod tests {
     use vlsir::circuit::Package;
 
-    use crate::{save_bin, tech::all_external_modules, utils::save_modules};
+    use crate::save_bin;
+    use crate::tech::all_external_modules;
+    use crate::utils::save_modules;
 
     use super::*;
 

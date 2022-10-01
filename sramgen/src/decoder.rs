@@ -2,17 +2,14 @@ use std::collections::HashMap;
 
 use fanout::FanoutAnalyzer;
 
-use crate::{
-    gate::{inv, nand2, Gate, GateParams, GateType, Size},
-    utils::{log2, sig_conn, signal, BusConnection},
-};
+use crate::gate::{inv, nand2, Gate, GateParams, GateType, Size};
+use crate::utils::{log2, sig_conn, signal, BusConnection};
 use pdkprims::config::Int;
 use serde::{Deserialize, Serialize};
-use vlsir::{
-    circuit::{connection::Stype, port, Concat, Connection, Instance, Module, Port, Signal, Slice},
-    reference::To,
-    Reference,
-};
+use vlsir::circuit::connection::Stype;
+use vlsir::circuit::{port, Concat, Connection, Instance, Module, Port, Signal, Slice};
+use vlsir::reference::To;
+use vlsir::Reference;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DecoderTree {

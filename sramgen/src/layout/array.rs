@@ -1,12 +1,11 @@
 use layout21::raw::geom::Dir;
-use layout21::raw::{Abstract, Int};
-use layout21::{
-    raw::{Cell, Instance, Layout, Point},
-    utils::Ptr,
-};
+use layout21::raw::{Abstract, Cell, Instance, Int, Layout, Point};
+use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use crate::{bbox, layout::grid::GridCells, tech::*};
+use crate::bbox;
+use crate::layout::grid::GridCells;
+use crate::tech::*;
 use serde::{Deserialize, Serialize};
 
 use super::Result;

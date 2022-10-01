@@ -1,17 +1,15 @@
 use std::collections::HashMap;
 
-use pdkprims::{config::Int, mos::MosType};
+use pdkprims::config::Int;
+use pdkprims::mos::MosType;
 
-use vlsir::{
-    circuit::{connection::Stype, Connection, Module, Slice},
-    reference::To,
-    Reference,
-};
+use vlsir::circuit::connection::Stype;
+use vlsir::circuit::{Connection, Module, Slice};
+use vlsir::reference::To;
+use vlsir::Reference;
 
-use crate::{
-    mos::Mosfet,
-    utils::{bus, port_inout, port_input, sig_conn, signal},
-};
+use crate::mos::Mosfet;
+use crate::utils::{bus, port_inout, port_input, sig_conn, signal};
 
 #[derive(Debug, Clone)]
 pub struct PrechargeParams {
@@ -161,7 +159,8 @@ pub fn precharge(params: PrechargeParams) -> Module {
 mod tests {
     use vlsir::circuit::Package;
 
-    use crate::{save_bin, tech::all_external_modules};
+    use crate::save_bin;
+    use crate::tech::all_external_modules;
 
     use super::*;
 

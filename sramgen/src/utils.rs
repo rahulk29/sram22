@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
-use vlsir::{
-    circuit::{connection::Stype, port, Connection, ExternalModule, Port, Signal, Slice},
-    reference::To,
-    Module, QualifiedName, Reference,
-};
+use vlsir::circuit::connection::Stype;
+use vlsir::circuit::{port, Connection, ExternalModule, Port, Signal, Slice};
+use vlsir::reference::To;
+use vlsir::{Module, QualifiedName, Reference};
 
 use crate::save_bin;
 use crate::tech::all_external_modules;
@@ -77,7 +76,8 @@ pub fn port_output(s: &Signal) -> Port {
 }
 
 pub mod conns {
-    use vlsir::circuit::{connection::Stype, Concat, Connection, Signal, Slice};
+    use vlsir::circuit::connection::Stype;
+    use vlsir::circuit::{Concat, Connection, Signal, Slice};
 
     pub fn get_sig(s: &Signal, idx: usize) -> Option<Slice> {
         let idx = idx as i64;

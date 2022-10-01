@@ -3,11 +3,10 @@ use std::collections::HashMap;
 use vlsir::circuit::{Instance, Module};
 
 use crate::gate::{inv, GateParams, Size};
-use crate::precharge::precharge;
+use crate::precharge::{precharge, PrechargeParams};
 use crate::tech::sram_sp_replica_cell_ref;
-use crate::{
-    precharge::PrechargeParams,
-    utils::{conn_map, local_reference, port_inout, port_input, port_output, sig_conn, signal},
+use crate::utils::{
+    conn_map, local_reference, port_inout, port_input, port_output, sig_conn, signal,
 };
 
 #[derive(Debug, Clone)]

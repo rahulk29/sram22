@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 
-use pdkprims::{config::Int, mos::MosType};
+use pdkprims::config::Int;
+use pdkprims::mos::MosType;
 use serde::{Deserialize, Serialize};
-use vlsir::{
-    circuit::{
-        parameter_value::Value, port, Connection, ExternalModule, Instance, Parameter,
-        ParameterValue, Port,
-    },
-    reference::To,
-    QualifiedName, Reference,
-};
+use vlsir::circuit::parameter_value::Value;
+use vlsir::circuit::{port, Connection, ExternalModule, Instance, Parameter, ParameterValue, Port};
+use vlsir::reference::To;
+use vlsir::{QualifiedName, Reference};
 
 use crate::utils::signal;
 

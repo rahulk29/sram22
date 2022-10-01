@@ -1,10 +1,8 @@
-use crate::{layout::Result, tech::openram_dff_gds};
+use crate::layout::Result;
+use crate::tech::openram_dff_gds;
 use layout21::raw::translate::Translate;
-use layout21::raw::{Abstract, Instance, Layout, Point};
-use layout21::{
-    raw::{Cell, Dir},
-    utils::Ptr,
-};
+use layout21::raw::{Abstract, Cell, Dir, Instance, Layout, Point};
+use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
 use crate::layout::array::*;
