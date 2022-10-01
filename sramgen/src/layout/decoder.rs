@@ -32,6 +32,7 @@ pub fn draw_gate_array(
     lib: &mut PdkLib,
     params: GateArrayParams,
     cell: Ptr<Cell>,
+    connect_ports: &[&str],
 ) -> Result<Ptr<Cell>> {
     let GateArrayParams {
         prefix,
@@ -40,12 +41,14 @@ pub fn draw_gate_array(
         pitch,
     } = params;
 
+    assert_eq!(dir, Dir::Vert, "Only vertical gate arrays are supported.");
+
     let bbox = {
         let cell = cell.read().unwrap();
         cell.layout.as_ref().unwrap().bbox()
     };
 
-    let spacing = params.pitch.unwrap_or(bbox.width() + 3 * 130);
+    let spacing = pitch.unwrap_or(bbox.width() + 3 * 130);
 
     let array = draw_cell_array(
         ArrayCellParams {
@@ -87,6 +90,7 @@ pub fn draw_gate_array(
         prefix,
         inst: &inst,
         width,
+        m1_connect_ports: connect_ports,
     })?;
 
     cell.layout_mut().add_inst(inst);
@@ -98,12 +102,21 @@ pub fn draw_gate_array(
 
 pub fn draw_inv_dec_array(lib: &mut PdkLib, params: GateArrayParams) -> Result<Ptr<Cell>> {
     let inv_dec = super::gate::draw_inv_dec(lib, format!("{}_inv", params.prefix))?;
-    draw_gate_array(lib, params, inv_dec)
+    draw_gate_array(lib, params, inv_dec, &["vdd", "vss"])
 }
 
 pub fn draw_nand2_dec_array(lib: &mut PdkLib, params: GateArrayParams) -> Result<Ptr<Cell>> {
-    let nand2 = super::gate::draw_nand2_dec(lib, format!("{}_nand", &params.prefix))?;
-    draw_gate_array(lib, params, nand2)
+    let nand = super::gate::draw_nand2_dec(lib, format!("{}_nand", &params.prefix))?;
+    draw_gate_array(lib, params, nand, &["vdd", "vss"])
+}
+
+pub fn draw_nand3_array(
+    lib: &mut PdkLib,
+    params: GateArrayParams,
+    gate: GateParams,
+) -> Result<Ptr<Cell>> {
+    let nand = super::gate::draw_nand3(lib, gate)?;
+    draw_gate_array(lib, params, nand, &["vdd0", "vdd1", "vss"])
 }
 
 struct TapFillContext<'a> {
@@ -112,6 +125,7 @@ struct TapFillContext<'a> {
     prefix: &'a str,
     inst: &'a Instance,
     width: usize,
+    m1_connect_ports: &'a [&'a str],
 }
 
 fn connect_taps_and_pwr(ctx: TapFillContext) -> Result<()> {
@@ -121,6 +135,7 @@ fn connect_taps_and_pwr(ctx: TapFillContext) -> Result<()> {
         prefix,
         inst,
         width,
+        m1_connect_ports,
     } = ctx;
     let ntapcell = draw_ntap(lib, &format!("{}_ntap", prefix))?;
     let ptapcell = draw_ptap(lib, &format!("{}_ptap", prefix))?;
@@ -190,29 +205,19 @@ fn connect_taps_and_pwr(ctx: TapFillContext) -> Result<()> {
     let trace = connect(args);
     cell.add_pin("vnb", m1, trace.rect());
 
-    let args = ConnectArgs::builder()
-        .metal_idx(1)
-        .port_idx(0)
-        .router(&mut router)
-        .insts(GateList::Array(&inst, width))
-        .port_name("vdd")
-        .dir(Dir::Vert)
-        .overhang(100)
-        .build()?;
-    let trace = connect(args);
-    cell.add_pin("vdd", m1, trace.rect());
-
-    let args = ConnectArgs::builder()
-        .metal_idx(1)
-        .port_idx(0)
-        .router(&mut router)
-        .insts(GateList::Array(&inst, width))
-        .port_name("vss")
-        .dir(Dir::Vert)
-        .overhang(100)
-        .build()?;
-    let trace = connect(args);
-    cell.add_pin("vss", m1, trace.rect());
+    for port in m1_connect_ports {
+        let args = ConnectArgs::builder()
+            .metal_idx(1)
+            .port_idx(0)
+            .router(&mut router)
+            .insts(GateList::Array(&inst, width))
+            .port_name(port)
+            .dir(Dir::Vert)
+            .overhang(100)
+            .build()?;
+        let trace = connect(args);
+        cell.add_pin(*port, m1, trace.rect());
+    }
 
     cell.layout_mut().insts.append(&mut ntaps);
     cell.layout_mut().insts.append(&mut ptaps);
@@ -692,6 +697,32 @@ mod tests {
                 width: 32,
                 dir: Dir::Vert,
                 pitch: Some(BITCELL_HEIGHT),
+            },
+        )?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_nand3_array() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_nand3_array")?;
+        draw_nand3_array(
+            &mut lib,
+            GateArrayParams {
+                prefix: "nand3_dec_array",
+                width: 16,
+                dir: Dir::Vert,
+                pitch: Some(BITCELL_HEIGHT),
+            },
+            GateParams {
+                name: "nand3_dec_gate".to_string(),
+                size: Size {
+                    nmos_width: 2_400,
+                    pmos_width: 2_000,
+                },
+                length: 150,
             },
         )?;
 
