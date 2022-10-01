@@ -7,7 +7,7 @@ use crate::layout::Result;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
 use layout21::raw::{
-    Abstract, AbstractPort, BoundBoxTrait, Cell, Instance, Layout, Point, Rect, Shape, Span,
+    Abstract, AbstractPort, BoundBoxTrait, Cell, Instance, Int, Layout, Point, Rect, Shape, Span,
 };
 use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
@@ -21,15 +21,38 @@ use super::gate::{draw_and2, AndParams};
 use super::route::grid::{Grid, TrackLocator};
 use super::route::Router;
 
-pub fn draw_nand2_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<Ptr<Cell>> {
-    let nand2 = super::gate::draw_nand2_dec(lib, format!("{}_nand", prefix))?;
+pub struct GateArrayParams<'a> {
+    pub prefix: &'a str,
+    pub width: usize,
+    pub dir: Dir,
+    pub pitch: Option<Int>,
+}
+
+pub fn draw_gate_array(
+    lib: &mut PdkLib,
+    params: GateArrayParams,
+    cell: Ptr<Cell>,
+) -> Result<Ptr<Cell>> {
+    let GateArrayParams {
+        prefix,
+        width,
+        dir,
+        pitch,
+    } = params;
+
+    let bbox = {
+        let cell = cell.read().unwrap();
+        cell.layout.as_ref().unwrap().bbox()
+    };
+
+    let spacing = params.pitch.unwrap_or(bbox.width() + 3 * 130);
 
     let array = draw_cell_array(
         ArrayCellParams {
             name: format!("{}_array", prefix),
             num: width,
-            cell: nand2,
-            spacing: Some(1580),
+            cell,
+            spacing: Some(spacing),
             flip: FlipMode::AlternateFlipVertical,
             flip_toggle: false,
             direction: Dir::Vert,
@@ -73,56 +96,14 @@ pub fn draw_nand2_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<
     Ok(ptr)
 }
 
-pub fn draw_inv_dec_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<Ptr<Cell>> {
-    let inv_dec = super::gate::draw_inv_dec(lib, format!("{}_inv", prefix))?;
+pub fn draw_inv_dec_array(lib: &mut PdkLib, params: GateArrayParams) -> Result<Ptr<Cell>> {
+    let inv_dec = super::gate::draw_inv_dec(lib, format!("{}_inv", params.prefix))?;
+    draw_gate_array(lib, params, inv_dec)
+}
 
-    let array = draw_cell_array(
-        ArrayCellParams {
-            name: format!("{}_array", prefix),
-            num: width,
-            cell: inv_dec,
-            spacing: Some(1580),
-            flip: FlipMode::AlternateFlipVertical,
-            flip_toggle: false,
-            direction: Dir::Vert,
-        },
-        lib,
-    )?;
-
-    let inst = Instance::new("array", array.cell);
-
-    let mut cell = Cell::empty(prefix);
-    cell.abs_mut().ports.extend(inst.ports());
-
-    for (layer, port) in [("nwell", "vpb"), ("nsdm", "nsdm"), ("psdm", "psdm")] {
-        let layer = lib.pdk.get_layerkey(layer).unwrap();
-        let mut builder = MergeArgs::builder();
-        builder
-            .layer(layer)
-            .insts(GateList::Array(&inst, width))
-            .port_name(port);
-
-        if port == "vpb" {
-            // Add space for taps
-            builder.right_overhang(900);
-        }
-        let elt = builder.build()?.element();
-        cell.layout_mut().add(elt);
-    }
-
-    connect_taps_and_pwr(TapFillContext {
-        lib,
-        cell: &mut cell,
-        prefix,
-        inst: &inst,
-        width,
-    })?;
-
-    cell.layout_mut().add_inst(inst);
-    let ptr = Ptr::new(cell);
-    lib.lib.cells.push(ptr.clone());
-
-    Ok(ptr)
+pub fn draw_nand2_dec_array(lib: &mut PdkLib, params: GateArrayParams) -> Result<Ptr<Cell>> {
+    let nand2 = super::gate::draw_nand2_dec(lib, format!("{}_nand", &params.prefix))?;
+    draw_gate_array(lib, params, nand2)
 }
 
 struct TapFillContext<'a> {
@@ -678,14 +659,23 @@ mod tests {
     use pdkprims::tech::sky130;
 
     use crate::decoder::DecoderTree;
+    use crate::tech::BITCELL_HEIGHT;
     use crate::utils::test_path;
 
     use super::*;
 
     #[test]
-    fn test_sky130_nand2_dec_array() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sky130_nand2_dec_array")?;
-        draw_nand2_array(&mut lib, "nand2_dec_array", 32)?;
+    fn test_sky130_inv_dec_array() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_inv_dec_array")?;
+        draw_inv_dec_array(
+            &mut lib,
+            GateArrayParams {
+                prefix: "inv_dec_array",
+                width: 32,
+                dir: Dir::Vert,
+                pitch: Some(BITCELL_HEIGHT),
+            },
+        )?;
 
         lib.save_gds(test_path(&lib))?;
 
@@ -693,9 +683,17 @@ mod tests {
     }
 
     #[test]
-    fn test_sky130_inv_dec_array() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sky130_inv_dec_array")?;
-        draw_inv_dec_array(&mut lib, "inv_dec_array", 32)?;
+    fn test_sky130_nand2_dec_array() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_nand2_dec_array")?;
+        draw_inv_dec_array(
+            &mut lib,
+            GateArrayParams {
+                prefix: "nand2_dec_array",
+                width: 32,
+                dir: Dir::Vert,
+                pitch: Some(BITCELL_HEIGHT),
+            },
+        )?;
 
         lib.save_gds(test_path(&lib))?;
 
