@@ -123,6 +123,98 @@ pub fn draw_nand3_array(
     draw_gate_array(lib, params, nand, &["vdd0", "vdd1", "vss"], &["vdd1"])
 }
 
+pub fn draw_and2_array(
+    lib: &mut PdkLib,
+    prefix: &str,
+    width: usize,
+    nand: GateParams,
+    inv: GateParams,
+) -> Result<Ptr<Cell>> {
+    // TODO reduce code duplication between this and draw_and3_array.
+
+    let nand = super::gate::draw_nand2(lib, nand)?;
+    let inv = super::gate::draw_inv(lib, inv)?;
+
+    let pitch = {
+        let nand = nand.read().unwrap();
+        nand.layout().bbox().height() + 240
+    };
+
+    let nand_arr = draw_gate_array(
+        lib,
+        GateArrayParams {
+            prefix: &format!("{}_nand_array", prefix),
+            width,
+            dir: Dir::Vert,
+            pitch: Some(pitch),
+        },
+        nand,
+        &["vdd", "vss"],
+        &[],
+    )?;
+    let inv_arr = draw_gate_array(
+        lib,
+        GateArrayParams {
+            prefix: &format!("{}_inv_array", prefix),
+            width,
+            dir: Dir::Vert,
+            pitch: Some(pitch),
+        },
+        inv,
+        &["vdd", "vss"],
+        &[],
+    )?;
+
+    let mut cell = Cell::empty(prefix);
+
+    let nand = Instance::new("nand_array", nand_arr);
+    let nand_bbox = nand.bbox();
+
+    let mut inv = Instance::new("inv_array", inv_arr);
+    inv.align_to_the_right_of(nand_bbox, 1_000);
+    inv.align_centers_vertically_gridded(nand_bbox, lib.pdk.grid());
+
+    let mut router = Router::new(format!("{}_route", prefix), lib.pdk.clone());
+    let cfg = router.cfg();
+    let m0 = cfg.layerkey(0);
+    let m1 = cfg.layerkey(1);
+
+    for i in 0..width {
+        let src = nand.port(format!("y_{}", i)).largest_rect(m0).unwrap();
+        let dst = inv.port(format!("din_{}", i)).largest_rect(m0).unwrap();
+
+        let mut trace = router.trace(src, 0);
+        trace.place_cursor(Dir::Horiz, true).s_bend(dst, Dir::Horiz);
+
+        for port in ["a", "b"] {
+            cell.add_pin_from_port(nand.port(format!("{}_{}", port, i)), m0);
+        }
+
+        cell.add_pin_from_port(
+            inv.port(format!("din_b_{}", i)).named(format!("y_{}", i)),
+            m0,
+        );
+    }
+
+    cell.add_pin_from_port(nand.port("vdd").named("vdd0"), m1);
+    cell.add_pin_from_port(nand.port("vss").named("vss0"), m1);
+    cell.add_pin_from_port(nand.port("vnb").named("vnb0"), m1);
+    cell.add_pin_from_port(nand.port("vpb").named("vpb0"), m1);
+    cell.add_pin_from_port(inv.port("vdd").named("vdd1"), m1);
+    cell.add_pin_from_port(inv.port("vss").named("vss1"), m1);
+    cell.add_pin_from_port(inv.port("vnb").named("vnb1"), m1);
+    cell.add_pin_from_port(inv.port("vpb").named("vpb1"), m1);
+
+    cell.layout_mut().add_inst(nand);
+    cell.layout_mut().add_inst(inv);
+    cell.layout_mut().add_inst(router.finish());
+
+    let ptr = Ptr::new(cell);
+    lib.lib.cells.push(ptr.clone());
+
+    Ok(ptr)
+}
+
 pub fn draw_and3_array(
     lib: &mut PdkLib,
     prefix: &str,
@@ -206,8 +298,6 @@ pub fn draw_and3_array(
     cell.layout_mut().add_inst(nand);
     cell.layout_mut().add_inst(inv);
     cell.layout_mut().add_inst(router.finish());
-
-    // Add abstract-view ports
 
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
@@ -849,6 +939,36 @@ mod tests {
             },
             GateParams {
                 name: "and3_inv".to_string(),
+                size: Size {
+                    nmos_width: 2_000,
+                    pmos_width: 4_000,
+                },
+                length: 150,
+            },
+        )?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_and2_array() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_and2_array")?;
+        draw_and2_array(
+            &mut lib,
+            "test_sky130_and2_array",
+            16,
+            GateParams {
+                name: "and2_nand".to_string(),
+                size: Size {
+                    nmos_width: 2_400,
+                    pmos_width: 2_000,
+                },
+                length: 150,
+            },
+            GateParams {
+                name: "and2_inv".to_string(),
                 size: Size {
                     nmos_width: 2_000,
                     pmos_width: 4_000,
