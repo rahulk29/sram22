@@ -104,12 +104,13 @@ impl<'a> MergeArgs<'a> {
     }
 
     #[inline]
-    pub(crate) fn rect(self) -> Rect {
+    #[allow(unused)]
+    pub fn rect(self) -> Rect {
         merge(&self)
     }
 
     #[inline]
-    pub(crate) fn element(self) -> Element {
+    pub fn element(self) -> Element {
         let rect = merge(&self);
         Element {
             net: None,
@@ -120,7 +121,8 @@ impl<'a> MergeArgs<'a> {
     }
 
     #[inline]
-    pub(crate) fn port(self) -> AbstractPort {
+    #[allow(unused)]
+    pub fn port(self) -> AbstractPort {
         let rect = merge(&self);
         let mut port = AbstractPort::new(self.port_name);
         port.add_shape(self.layer, layout21::raw::Shape::Rect(rect));

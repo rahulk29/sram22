@@ -1,8 +1,8 @@
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
 use layout21::raw::{
-    Abstract, AbstractPort, BoundBox, BoundBoxTrait, Cell, Instance, Layout, Point, Rect, Shape,
-    Span, TransformTrait,
+    Abstract, AbstractPort, BoundBoxTrait, Cell, Instance, Layout, Point, Rect, Shape, Span,
+    TransformTrait,
 };
 use layout21::utils::Ptr;
 use pdkprims::mos::{Intent, MosDevice, MosParams, MosType};

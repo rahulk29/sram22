@@ -8,7 +8,7 @@ use pdkprims::PdkLib;
 
 use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
 use super::bank::GateList;
-use super::common::{MergeArgs, NWELL_COL_SIDE_EXTEND, NWELL_COL_VERT_EXTEND};
+use super::common::{MergeArgs, NWELL_COL_SIDE_EXTEND};
 
 pub fn draw_col_inv_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<Ptr<Cell>> {
     let cell = draw_col_inv(lib, &format!("{prefix}_cell"))?;

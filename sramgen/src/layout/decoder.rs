@@ -1,8 +1,8 @@
 use crate::clog2;
 use crate::decoder::TreeNode;
 use crate::gate::{GateParams, Size};
-use crate::layout::bank::{ConnectArgs, M1_PWR_OVERHANG};
-use crate::layout::gate::draw_and3;
+use crate::layout::bank::ConnectArgs;
+
 use crate::layout::Result;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
@@ -15,10 +15,10 @@ use pdkprims::contact::ContactParams;
 use pdkprims::PdkLib;
 use serde::{Deserialize, Serialize};
 
-use super::array::{draw_cell_array, ArrayCellParams, ArrayedCell, FlipMode};
+use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
 use super::bank::{connect, GateList};
-use super::common::{draw_two_level_contact, MergeArgs, TwoLevelContactParams};
-use super::gate::{draw_and2, AndParams};
+use super::common::MergeArgs;
+
 use super::route::grid::{Grid, TrackLocator};
 use super::route::Router;
 
@@ -398,7 +398,7 @@ fn connect_taps_and_pwr(ctx: TapFillContext) -> Result<()> {
             .metal_idx(1)
             .port_idx(0)
             .router(&mut router)
-            .insts(GateList::Array(&inst, width))
+            .insts(GateList::Array(inst, width))
             .port_name(port)
             .dir(Dir::Vert)
             .overhang(100)
