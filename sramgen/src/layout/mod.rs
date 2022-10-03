@@ -13,6 +13,7 @@ pub mod decoder;
 pub mod dff;
 pub mod gate;
 pub mod grid;
+pub mod guard_ring;
 pub mod latch;
 pub mod mux;
 pub mod power;
