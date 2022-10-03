@@ -521,69 +521,48 @@ fn draw_hier_decode_node(
     let mut layout = Layout::new(&name);
     let mut abs = Abstract::new(&name);
 
-    let and_params = AndParams {
-        name: format!("{}_and_{}", ctx.prefix, id),
-        nand: GateParams {
-            name: format!("{}_nand_{}", ctx.prefix, id),
-            size: Size {
-                nmos_width: 2_000,
-                pmos_width: 1_200,
-            },
-            length: 150,
+    let nand_params = GateParams {
+        name: format!("{}_nand_{}", ctx.prefix, id),
+        size: Size {
+            nmos_width: 2_000,
+            pmos_width: 1_200,
         },
-        inv: GateParams {
-            name: format!("{}_inv_{}", ctx.prefix, id),
-            size: Size {
-                nmos_width: 2_000,
-                pmos_width: 1_200,
-            },
-            length: 150,
+        length: 150,
+    };
+    let inv_params = GateParams {
+        name: format!("{}_inv_{}", ctx.prefix, id),
+        size: Size {
+            nmos_width: 2_000,
+            pmos_width: 1_200,
         },
+        length: 150,
     };
 
-    let and_gate = if gate_size == 2 {
-        draw_and2(lib, and_params)?
+    let array_name = format!("{}_{}_and_array", &ctx.prefix, id);
+
+    let and_array = if gate_size == 2 {
+        draw_and2_array(lib, &array_name, node.num, nand_params, inv_params)?
     } else if gate_size == 3 {
-        draw_and3(lib, and_params)?
+        draw_and3_array(lib, &array_name, node.num, nand_params, inv_params)?
     } else {
         panic!(
             "Invalid gate size: expected 2 or 3 input gate, found {}",
             gate_size
         );
     };
-    let bbox = {
-        let gate = and_gate.read().unwrap();
-        gate.layout.as_ref().unwrap().bbox()
-    };
 
-    let mut gates = Vec::with_capacity(node.num);
-    for i in 0..node.num {
-        let mut inst = Instance::new(format!("and2_{}", i), and_gate.clone());
-        if ctx.output_dir == OutputDir::Left {
-            inst.reflect_horiz_anchored();
-        }
-        inst.loc.y = i as isize * (bbox.height() + 200);
-        layout.add_inst(inst.clone());
-        abs.add_port(inst.port("Y").named(format!("dec_{}", i)));
-        gates.push(inst);
+    let mut and_array = Instance::new("and_array", and_array);
+    if ctx.output_dir == OutputDir::Left {
+        and_array.reflect_horiz_anchored();
     }
+    layout.add_inst(and_array.clone());
 
-    for (layer, port) in [
-        ("nwell", "vpb0"),
-        ("nwell", "vpb1"),
-        ("nsdm", "nsdm0"),
-        ("nsdm", "nsdm1"),
-        ("psdm", "psdm0"),
-        ("psdm", "psdm1"),
-    ] {
-        let layer = lib.pdk.get_layerkey(layer).unwrap();
-        let elt = MergeArgs::builder()
-            .layer(layer)
-            .insts(GateList::Cells(&gates))
-            .port_name(port)
-            .build()?
-            .element();
-        layout.add(elt);
+    for i in 0..node.num {
+        abs.add_port(
+            and_array
+                .port(format!("y_{}", i))
+                .named(format!("dec_{}", i)),
+        );
     }
 
     let mut bbox = layout.bbox();
@@ -592,7 +571,7 @@ fn draw_hier_decode_node(
 
     for (i, decoder) in decoders.into_iter().enumerate() {
         let mut inst = Instance::new(format!("decoder_{}", i), decoder);
-        inst.align_beneath(bbox, 500);
+        inst.align_beneath(bbox, 1_270);
         layout.add_inst(inst.clone());
         decoder_insts.push(inst);
         bbox = layout.bbox();
@@ -619,24 +598,6 @@ fn draw_hier_decode_node(
         .grid(lib.pdk.grid())
         .build()?;
 
-    let ports = match gate_size {
-        2 => vec!["vss0", "vdd0", "vss1", "vdd1"],
-        3 => vec!["vss0", "vdd0", "vdd1", "vss1", "vdd2"],
-        _ => unimplemented!(),
-    };
-
-    for port in ports {
-        crate::layout::bank::connect(ConnectArgs {
-            metal_idx: 1,
-            port_idx: 0,
-            router: &mut router,
-            insts: GateList::Cells(&gates),
-            port_name: port,
-            dir: Dir::Vert,
-            overhang: Some(M1_PWR_OVERHANG),
-        });
-    }
-
     // If no child decoders, we're done.
     if bus_width == 0 {
         // Note: this only supports 2-4 and 3-8 predecoders.
@@ -649,11 +610,12 @@ fn draw_hier_decode_node(
 
         let track_start = match ctx.output_dir {
             OutputDir::Left => {
-                grid.get_track_index(Dir::Vert, bbox.p1.x, TrackLocator::StartsBeyond)
+                grid.get_track_index(Dir::Vert, bbox.p1.x, TrackLocator::StartsBeyond) + 1
             }
             OutputDir::Right => {
                 grid.get_track_index(Dir::Vert, bbox.p0.x, TrackLocator::EndsBefore)
                     - bus_width as isize
+                    - 1
             }
         };
         let traces = (track_start..(track_start + bus_width as isize))
@@ -666,14 +628,17 @@ fn draw_hier_decode_node(
             })
             .collect::<Vec<_>>();
 
-        for (i, gate) in gates.iter().enumerate() {
+        for i in 0..node.num {
             let conns = match bus_width {
                 4 => vec![("a", i % 2), ("b", 2 + (i / 2))],
                 6 => vec![("a", i % 2), ("b", 2 + ((i / 2) % 2)), ("c", 4 + i / 4)],
                 _ => unreachable!("bus width must be 4 or 6"),
             };
             for (port, idx) in conns {
-                let src = gate.port(port).largest_rect(m0).unwrap();
+                let src = and_array
+                    .port(format!("{}_{}", port, i))
+                    .largest_rect(m0)
+                    .unwrap();
                 let mut trace = router.trace(src, 0);
                 let target = &traces[idx];
                 trace
@@ -707,14 +672,14 @@ fn draw_hier_decode_node(
         return Ok(ptr);
     }
 
-    let track_start = grid.get_track_index(Dir::Vert, bbox.p1.x, TrackLocator::StartsBeyond);
+    let track_start = grid.get_track_index(Dir::Vert, bbox.p1.x, TrackLocator::StartsBeyond) + 1;
     connect_subdecoders(ConnectSubdecodersArgs {
         node,
         grid: &grid,
         track_start,
         vspan: layout.bbox().into_rect().vspan(),
         router: &mut router,
-        gates: GateList::Cells(&gates),
+        gates: GateList::Array(&and_array, node.num),
         subdecoders: &decoder_insts.iter().collect::<Vec<_>>(),
     });
 
