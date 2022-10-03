@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use derive_builder::Builder;
-use layout21::raw::{BoundBoxTrait, Cell, Dir, Element, Instance, Int, Point, Rect, Span};
-use layout21::utils::Ptr;
+use layout21::raw::{BoundBoxTrait, Dir, Instance, Int, Point, Rect, Span};
+
 use pdkprims::{LayerIdx, Pdk};
 
 use super::route::grid::{Grid, TrackLocator};
@@ -19,7 +19,6 @@ pub struct PowerStrapGen {
     enclosure: Rect,
 
     router: Router,
-    ctr: usize,
     blockages: HashMap<LayerIdx, Vec<Rect>>,
     vdd_targets: HashMap<LayerIdx, Vec<Rect>>,
     gnd_targets: HashMap<LayerIdx, Vec<Rect>>,
@@ -53,7 +52,6 @@ impl PowerStrapGen {
             enclosure: opts.enclosure,
 
             router: Router::new(opts.name, opts.pdk),
-            ctr: 0,
             blockages: HashMap::new(),
             vdd_targets: HashMap::new(),
             gnd_targets: HashMap::new(),
@@ -162,17 +160,15 @@ impl PowerStrapGen {
                         Some(s) => trace_span = Some(Span::merge([s, span])),
                         None => trace_span = Some(span),
                     };
-                } else {
-                    if let Some(span) = trace_span {
-                        let rect = Rect::span_builder()
-                            .with(dir, span)
-                            .with(!dir, xspan)
-                            .build();
-                        let mut trace = self.router.trace(rect, metal);
-                        self.contact_targets(metal - 1, source, &mut trace);
-                        traces.push((source, trace));
-                        trace_span = None;
-                    }
+                } else if let Some(span) = trace_span {
+                    let rect = Rect::span_builder()
+                        .with(dir, span)
+                        .with(!dir, xspan)
+                        .build();
+                    let mut trace = self.router.trace(rect, metal);
+                    self.contact_targets(metal - 1, source, &mut trace);
+                    traces.push((source, trace));
+                    trace_span = None;
                 }
 
                 if j == xend && trace_span.is_some() {
@@ -199,11 +195,7 @@ impl PowerStrapGen {
         traces
     }
 
-    fn connect_traces(
-        &mut self,
-        h: &mut Vec<(PowerSource, Trace)>,
-        v: &mut [(PowerSource, Trace)],
-    ) {
+    fn connect_traces(&mut self, h: &mut [(PowerSource, Trace)], v: &mut [(PowerSource, Trace)]) {
         for (asrc, atrace) in h.iter_mut() {
             for (bsrc, btrace) in v.iter_mut() {
                 if asrc != bsrc {
