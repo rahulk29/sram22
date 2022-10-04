@@ -139,7 +139,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     nand_dec.align_to_the_left_of(inv_dec.bbox(), 1_000);
     nand_dec.align_centers_vertically_gridded(core_bbox, grid);
 
-    pc.align_beneath(core_bbox, 1_000);
+    pc.align_beneath(core_bbox, 1_270);
     pc.align_centers_horizontally_gridded(core_bbox, grid);
 
     read_mux.align_beneath(pc.bbox(), 1_000);
