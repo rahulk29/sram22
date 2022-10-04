@@ -1,14 +1,14 @@
 use layout21::raw::align::AlignRect;
 use layout21::raw::{BoundBoxTrait, Cell, Instance, Point, Rect, Span};
 use layout21::utils::Ptr;
-use pdkprims::{PdkLib};
+use pdkprims::PdkLib;
 
 use super::common::{draw_two_level_contact, rect_cutout, TwoLevelContactParams};
 use super::route::Router;
 
 pub struct GuardRingParams {
-    enclosure: Rect,
-    prefix: String,
+    pub enclosure: Rect,
+    pub prefix: String,
 }
 
 pub const WIDTH_MULTIPLIER: isize = 8;
