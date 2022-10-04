@@ -1,9 +1,9 @@
 use layout21::raw::align::AlignRect;
 use layout21::raw::{BoundBoxTrait, Cell, Instance, Point, Rect, Span};
 use layout21::utils::Ptr;
-use pdkprims::{LayerIdx, PdkLib};
+use pdkprims::{PdkLib};
 
-use super::common::{draw_two_level_contact, TwoLevelContactParams};
+use super::common::{draw_two_level_contact, rect_cutout, TwoLevelContactParams};
 use super::route::Router;
 
 pub struct GuardRingParams {
@@ -80,18 +80,20 @@ pub fn draw_guard_ring(lib: &mut PdkLib, params: GuardRingParams) -> crate::Resu
 
     let area = params.enclosure.expand(400);
 
-    let mut x = area.left();
-    while x < area.right() - width {
-        let mut inst = Instance::new("contact", contact.clone());
-        inst.loc = Point::new(x, area.top());
-        inst.align_centers_vertically_gridded(top.bbox(), cfg.grid());
-        cell.layout_mut().add_inst(inst);
+    let m1 = cfg.layerkey(1);
 
-        let mut inst = Instance::new("contact", contact.clone());
-        inst.loc = Point::new(x, area.bottom());
-        inst.align_centers_vertically_gridded(bot.bbox(), cfg.grid());
+    let mut x = area.left() + 2 * width;
+    while x < area.right() - 2 * width {
+        for target in [top, bot] {
+            let mut inst = Instance::new("contact", contact.clone());
+            inst.loc = Point::new(x, 0);
+            inst.align_centers_vertically_gridded(target.bbox(), cfg.grid());
+            let src = inst.port("x").largest_rect(m1).unwrap();
+            let mut trace = router.trace(src, 1);
+            trace.contact_up(target);
+            cell.layout_mut().add_inst(inst);
+        }
         x += 3 * width;
-        cell.layout_mut().add_inst(inst);
     }
 
     let mut y = area.bottom() + 2 * height;
@@ -107,6 +109,16 @@ pub fn draw_guard_ring(lib: &mut PdkLib, params: GuardRingParams) -> crate::Resu
         y += 3 * height;
         cell.layout_mut().add_inst(inst);
     }
+
+    let nwell = lib.pdk.get_layerkey("nwell").unwrap();
+    let dnw = lib.pdk.get_layerkey("dnwell").unwrap();
+    let dnw_boundary = enclosure.expand(NWELL_HOLE_ENCLOSURE);
+    let nwell_boundary = enclosure.expand(nwell_width);
+
+    for rect in rect_cutout(nwell_boundary, enclosure) {
+        cell.layout_mut().draw_rect(nwell, rect);
+    }
+    cell.layout_mut().draw_rect(dnw, dnw_boundary);
 
     cell.layout_mut().add_inst(router.finish());
 
