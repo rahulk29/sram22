@@ -129,7 +129,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     let core_bbox = core.bbox();
 
-    wldrv_inv.align_to_the_left_of(core_bbox, 1_000);
+    wldrv_inv.align_to_the_left_of(core_bbox, 1_270);
     wldrv_inv.align_centers_vertically_gridded(core_bbox, grid);
     wldrv_nand.align_to_the_left_of(wldrv_inv.bbox(), 1_000);
     wldrv_nand.align_centers_vertically_gridded(core_bbox, grid);
