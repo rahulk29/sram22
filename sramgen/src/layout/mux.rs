@@ -11,12 +11,16 @@ use pdkprims::mos::{Intent, MosDevice, MosParams, MosType};
 use pdkprims::PdkLib;
 
 use crate::layout::array::*;
+use crate::layout::bank::{connect, ConnectArgs};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::{ContactBounds, Router, VertDir};
 use crate::Result;
 
 use super::bank::GateList;
-use super::common::{MergeArgs, NWELL_COL_SIDE_EXTEND, NWELL_COL_VERT_EXTEND};
+use super::common::{
+    draw_two_level_contact, MergeArgs, TwoLevelContactParams, NWELL_COL_SIDE_EXTEND,
+    NWELL_COL_VERT_EXTEND,
+};
 
 pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "read_mux".to_string();
@@ -71,7 +75,7 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .angle(90f64)
         .build()?;
 
-    let mut vpb = ptx.merged_vpb_port(0).transform(&mos1.transform());
+    let mut vpb = ptx.merged_vpb_port(0).transform(&mos2.transform());
     vpb.merge(vpb1);
     abs.add_port(vpb);
 
@@ -183,6 +187,7 @@ pub fn draw_read_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> 
     let tc = tc.read().unwrap();
 
     let mux = draw_read_mux(lib)?;
+    let tap = draw_read_mux_tap_cell(lib)?;
 
     let cell = draw_cell_array(
         ArrayCellParams {
@@ -197,13 +202,29 @@ pub fn draw_read_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> 
         lib,
     )?;
 
+    let taps = draw_cell_array(
+        ArrayCellParams {
+            name: "read_mux_array_taps".to_string(),
+            num: width + 1,
+            cell: tap,
+            spacing: Some(2_500 * 2),
+            flip: FlipMode::None,
+            flip_toggle: false,
+            direction: Dir::Horiz,
+        },
+        lib,
+    )?;
+
     let inst = Instance::new("read_mux_array_core", cell.cell);
+    let mut tap_inst = Instance::new("read_mux_array_taps", taps.cell);
+    tap_inst.align_centers_gridded(inst.bbox(), lib.pdk.grid());
 
     for port in inst.ports() {
         abs.add_port(port);
     }
 
     layout.insts.push(inst.clone());
+    layout.insts.push(tap_inst.clone());
     let bbox = layout.bbox().into_rect();
 
     let mut router = Router::new("read_mux_array_route", lib.pdk.clone());
@@ -257,10 +278,25 @@ pub fn draw_read_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> 
         .port_name("vpb")
         .top_overhang(NWELL_COL_VERT_EXTEND)
         .bot_overhang(NWELL_COL_VERT_EXTEND)
-        .left_overhang(NWELL_COL_SIDE_EXTEND)
-        .right_overhang(NWELL_COL_SIDE_EXTEND)
+        .left_overhang(NWELL_COL_SIDE_EXTEND + 800)
+        .right_overhang(NWELL_COL_SIDE_EXTEND + 800)
         .build()?
         .element();
+
+    let args = ConnectArgs::builder()
+        .metal_idx(2)
+        .port_idx(1)
+        .router(&mut router)
+        .insts(GateList::Array(&tap_inst, width + 1))
+        .port_name("x")
+        .dir(Dir::Horiz)
+        .overhang(100)
+        .build()?;
+    let trace = connect(args);
+
+    let cfg = router.cfg();
+    let mut port = AbstractPort::new("vdd");
+    port.add_shape(cfg.layerkey(2), Shape::Rect(trace.rect()));
 
     layout.add(vpb);
 
@@ -539,8 +575,20 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
     }))
 }
 
+pub fn draw_read_mux_tap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+    let params = TwoLevelContactParams::builder()
+        .name("read_mux_tap_cell")
+        .bot_stack("ntap")
+        .top_stack("viali")
+        .bot_rows(7)
+        .top_rows(6)
+        .build()?;
+    let contact = draw_two_level_contact(lib, params)?;
+    Ok(contact)
+}
+
 fn draw_write_mux_tap_cell(lib: &mut PdkLib, height: Int) -> Result<Ptr<Cell>> {
-    let name = "write_mux_tapcell";
+    let name = "write_mux_tap_cell";
     let mut layout = Layout::new(name);
     let mut abs = Abstract::new(name);
 
