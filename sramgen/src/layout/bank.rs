@@ -129,7 +129,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     let core_bbox = core.bbox();
 
-    wldrv_inv.align_to_the_left_of(core_bbox, 1_000);
+    wldrv_inv.align_to_the_left_of(core_bbox, 1_270);
     wldrv_inv.align_centers_vertically_gridded(core_bbox, grid);
     wldrv_nand.align_to_the_left_of(wldrv_inv.bbox(), 1_000);
     wldrv_nand.align_centers_vertically_gridded(core_bbox, grid);
@@ -139,7 +139,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     nand_dec.align_to_the_left_of(inv_dec.bbox(), 1_000);
     nand_dec.align_centers_vertically_gridded(core_bbox, grid);
 
-    pc.align_beneath(core_bbox, 1_000);
+    pc.align_beneath(core_bbox, 1_270);
     pc.align_centers_horizontally_gridded(core_bbox, grid);
 
     read_mux.align_beneath(pc.bbox(), 1_000);
@@ -160,7 +160,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     decoder1.align_beneath(core_bbox, 1_000);
     decoder1.align_to_the_left_of(sense_amp.bbox(), 1_000);
 
-    decoder2.align_beneath(decoder1.bbox(), 1_000);
+    decoder2.align_beneath(decoder1.bbox(), 1_270);
     decoder2.align_to_the_left_of(sense_amp.bbox(), 1_000);
 
     addr_dffs.align_top(decoder2.bbox());
@@ -517,16 +517,19 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
                 .horiz_to_trace(&traces[idx])
                 .contact_down(traces[idx].rect());
 
-            let target_port = if i < decoder1_bits {
+            let (target_port, target_idx) = if i < decoder1_bits {
                 // Route to decoder1
-                decoder1.port(format!("{}_{}", addr_prefix, i))
+                (decoder1.port(format!("{}_{}", addr_prefix, i)), i)
             } else {
                 // Route to decoder2
-                decoder2.port(format!("{}_{}", addr_prefix, i - decoder1_bits))
+                (
+                    decoder2.port(format!("{}_{}", addr_prefix, i - decoder1_bits)),
+                    i - decoder1_bits,
+                )
             };
             let mut target = target_port.largest_rect(m1).unwrap();
-            let base = target.p0.y + 200 + 400 * idx as isize;
-            let top = base + 400;
+            let base = target.p0.y + 160 + 600 * (2 * target_idx + idx % 2) as isize;
+            let top = base + 320;
             assert!(top <= target.p1.y);
             target.p0.y = base;
             target.p1.y = top;
@@ -561,7 +564,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     layout.insts.push(sense_amp);
     layout.insts.push(dffs);
     layout.insts.push(addr_dffs);
-    layout.insts.push(tmc);
+    // layout.insts.push(tmc);
 
     let bbox = layout.bbox();
     let routing = router.finish();
@@ -569,7 +572,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     power_grid.set_enclosure(bbox);
     power_grid.add_blockage(2, core_bbox.into_rect());
-    layout.insts.push(power_grid.generate()?);
+    // layout.insts.push(power_grid.generate()?);
 
     let guard_ring = draw_guard_ring(
         lib,

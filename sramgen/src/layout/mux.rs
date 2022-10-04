@@ -6,6 +6,7 @@ use layout21::raw::{
     Shape, Span, TransformTrait,
 };
 use layout21::utils::Ptr;
+use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::mos::{Intent, MosDevice, MosParams, MosType};
 use pdkprims::PdkLib;
 
@@ -424,9 +425,10 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
     tap_inst.align_centers_gridded(core_inst.bbox(), lib.pdk.grid());
 
     let mut router = Router::new("write_mux_array_route", lib.pdk.clone());
-    let m0 = router.cfg().layerkey(0);
-    let m1 = router.cfg().layerkey(1);
-    let m2 = router.cfg().layerkey(2);
+    let cfg = router.cfg();
+    let m0 = cfg.layerkey(0);
+    let m1 = cfg.layerkey(1);
+    let m2 = cfg.layerkey(2);
 
     let mut span = Span::new(0, 0);
 
@@ -483,9 +485,17 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
     let tc = tc.read().unwrap();
 
     // Route gate signals
+    let space = lib.pdk.bus_min_spacing(
+        2,
+        cfg.line(2),
+        ContactPolicy {
+            above: Some(ContactPosition::CenteredNonAdjacent),
+            below: Some(ContactPosition::CenteredNonAdjacent),
+        },
+    );
     let grid = Grid::builder()
         .line(tc.layer("m2").width)
-        .space(tc.layer("m2").space)
+        .space(space)
         .center(Point::zero())
         .grid(tc.grid)
         .build()?;

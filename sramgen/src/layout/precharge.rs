@@ -240,8 +240,8 @@ pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
         .port_name("vpb")
         .top_overhang(NWELL_COL_VERT_EXTEND)
         .bot_overhang(NWELL_COL_VERT_EXTEND)
-        .left_overhang(NWELL_COL_SIDE_EXTEND)
-        .right_overhang(NWELL_COL_SIDE_EXTEND)
+        .left_overhang(NWELL_COL_SIDE_EXTEND + 200)
+        .right_overhang(NWELL_COL_SIDE_EXTEND + 200)
         .build()?
         .element();
     layout.add(elt);
