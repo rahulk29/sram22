@@ -2,7 +2,7 @@ use derive_builder::Builder;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
 use layout21::raw::{
-    AbstractPort, BoundBox, BoundBoxTrait, Cell, Element, Instance, Int, LayerKey, Rect,
+    AbstractPort, BoundBox, BoundBoxTrait, Cell, Element, Instance, Int, LayerKey, Rect, Span,
 };
 use layout21::utils::Ptr;
 use pdkprims::config::Uint;
@@ -152,4 +152,18 @@ fn merge(args: &MergeArgs) -> Rect {
     rect.p1.y += args.top_overhang;
 
     rect
+}
+
+pub(crate) fn rect_cutout(src: Rect, clip: Rect) -> [Rect; 4] {
+    let t_span = Span::new(clip.top(), src.top());
+    let b_span = Span::new(src.bottom(), clip.bottom());
+    let l_span = Span::new(src.left(), clip.left());
+    let r_span = Span::new(clip.right(), src.right());
+
+    [
+        Rect::from_spans(src.hspan(), t_span),
+        Rect::from_spans(src.hspan(), b_span),
+        Rect::from_spans(l_span, src.vspan()),
+        Rect::from_spans(r_span, src.vspan()),
+    ]
 }
