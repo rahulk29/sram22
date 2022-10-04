@@ -583,7 +583,7 @@ fn draw_hier_decode_node(
         1,
         cfg.line(1),
         ContactPolicy {
-            above: Some(ContactPosition::CenteredNonAdjacent),
+            above: Some(ContactPosition::CenteredAdjacent),
             below: Some(ContactPosition::CenteredNonAdjacent),
         },
     );

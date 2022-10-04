@@ -517,16 +517,19 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
                 .horiz_to_trace(&traces[idx])
                 .contact_down(traces[idx].rect());
 
-            let target_port = if i < decoder1_bits {
+            let (target_port, target_idx) = if i < decoder1_bits {
                 // Route to decoder1
-                decoder1.port(format!("{}_{}", addr_prefix, i))
+                (decoder1.port(format!("{}_{}", addr_prefix, i)), i)
             } else {
                 // Route to decoder2
-                decoder2.port(format!("{}_{}", addr_prefix, i - decoder1_bits))
+                (
+                    decoder2.port(format!("{}_{}", addr_prefix, i - decoder1_bits)),
+                    i - decoder1_bits,
+                )
             };
             let mut target = target_port.largest_rect(m1).unwrap();
-            let base = target.p0.y + 200 + 400 * idx as isize;
-            let top = base + 400;
+            let base = target.p0.y + 160 + 420 * (2 * target_idx + idx % 2) as isize;
+            let top = base + 320;
             assert!(top <= target.p1.y);
             target.p0.y = base;
             target.p1.y = top;
