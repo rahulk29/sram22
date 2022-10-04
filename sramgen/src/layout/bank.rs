@@ -528,7 +528,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
                 )
             };
             let mut target = target_port.largest_rect(m1).unwrap();
-            let base = target.p0.y + 160 + 420 * (2 * target_idx + idx % 2) as isize;
+            let base = target.p0.y + 160 + 600 * (2 * target_idx + idx % 2) as isize;
             let top = base + 320;
             assert!(top <= target.p1.y);
             target.p0.y = base;
