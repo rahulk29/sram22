@@ -13,6 +13,7 @@ use crate::layout::decoder::{
     bus_width, draw_hier_decode, ConnectSubdecodersArgs, GateArrayParams,
 };
 use crate::layout::dff::draw_vert_dff_array;
+use crate::layout::guard_ring::{draw_guard_ring, GuardRingParams};
 use crate::layout::power::{PowerStrapGen, PowerStrapOpts};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
@@ -569,6 +570,18 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     power_grid.set_enclosure(bbox);
     power_grid.add_blockage(2, core_bbox.into_rect());
     layout.insts.push(power_grid.generate()?);
+
+    let guard_ring = draw_guard_ring(
+        lib,
+        GuardRingParams {
+            enclosure: bbox.into_rect().expand(3_000),
+            prefix: "sram_guard_ring".to_string(),
+        },
+    )?;
+
+    layout
+        .insts
+        .push(Instance::new("sram_guard_ring", guard_ring));
 
     // Draw dnwell
     let dnwell_rect = bbox.into_rect().expand(1_600);
