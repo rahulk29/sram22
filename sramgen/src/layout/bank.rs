@@ -160,7 +160,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     decoder1.align_beneath(core_bbox, 1_000);
     decoder1.align_to_the_left_of(sense_amp.bbox(), 1_000);
 
-    decoder2.align_beneath(decoder1.bbox(), 1_000);
+    decoder2.align_beneath(decoder1.bbox(), 1_270);
     decoder2.align_to_the_left_of(sense_amp.bbox(), 1_000);
 
     addr_dffs.align_top(decoder2.bbox());
