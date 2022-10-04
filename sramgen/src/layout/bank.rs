@@ -561,7 +561,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     layout.insts.push(sense_amp);
     layout.insts.push(dffs);
     layout.insts.push(addr_dffs);
-    layout.insts.push(tmc);
+    // layout.insts.push(tmc);
 
     let bbox = layout.bbox();
     let routing = router.finish();
@@ -569,7 +569,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     power_grid.set_enclosure(bbox);
     power_grid.add_blockage(2, core_bbox.into_rect());
-    layout.insts.push(power_grid.generate()?);
+    // layout.insts.push(power_grid.generate()?);
 
     let guard_ring = draw_guard_ring(
         lib,
