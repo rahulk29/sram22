@@ -18,7 +18,7 @@ use crate::layout::power::{PowerStrapGen, PowerStrapOpts};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
 use crate::layout::tmc::{draw_tmc, TmcParams};
-use crate::tech::{BITCELL_HEIGHT, COLUMN_WIDTH};
+use crate::tech::BITCELL_HEIGHT;
 
 use super::array::draw_array;
 use super::decoder::{draw_inv_dec_array, draw_nand2_dec_array};
@@ -428,13 +428,9 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         power_grid.add_padded_blockage(3, rect);
         let mut trace = router.trace(rect, 3);
         let dst1 = col_inv.port(format!("din_{}", i)).largest_rect(m0).unwrap();
-        trace
-            .place_cursor(Dir::Vert, true)
-            .vert_to(dst1.top());
+        trace.place_cursor(Dir::Vert, true).vert_to(dst1.top());
         power_grid.add_padded_blockage(3, trace.rect());
-            trace.down()
-            .down()
-            .down();
+        trace.down().down().down();
 
         let mut trace = router.trace(rect, 3);
         trace
