@@ -611,7 +611,7 @@ pub(crate) struct ConnectArgs<'a> {
     pub(crate) insts: GateList<'a>,
     pub(crate) port_name: &'a str,
     pub(crate) dir: Dir,
-    #[builder(setter(strip_option))]
+    #[builder(setter(strip_option), default)]
     pub(crate) overhang: Option<isize>,
 }
 
