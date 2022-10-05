@@ -430,9 +430,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .vert_to(dst1.top())
             .down()
             .down()
-            .down()
-            .set_min_width()
-            .horiz_to(dst1.left());
+            .down();
 
         let mut trace = router.trace(rect, 3);
         trace
