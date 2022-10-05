@@ -1,11 +1,15 @@
 use crate::layout::Result;
 use crate::tech::openram_dff_gds;
+use derive_builder::Builder;
 use layout21::raw::translate::Translate;
-use layout21::raw::{Abstract, Cell, Dir, Instance, Layout, Point};
+use layout21::raw::{Abstract, Cell, Dir, Instance, Int, Layout, Point};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
 use crate::layout::array::*;
+
+use super::bank::GateList;
+use super::common::{GridOrder, MergeArgs};
 
 pub fn draw_dff_array(
     lib: &mut PdkLib,
@@ -81,10 +85,102 @@ pub fn draw_vert_dff_array(
     Ok(ptr)
 }
 
+#[derive(Clone, Eq, PartialEq, Builder)]
+pub struct DffGridParams {
+    #[builder(setter(into))]
+    pub name: String,
+    pub rows: usize,
+    pub cols: usize,
+    #[builder(setter(strip_option), default)]
+    pub row_pitch: Option<Int>,
+    #[builder(default = "GridOrder::ColumnMajor")]
+    pub order: GridOrder,
+}
+
+impl DffGridParams {
+    #[inline]
+    pub fn builder() -> DffGridParamsBuilder {
+        DffGridParamsBuilder::default()
+    }
+}
+
+pub fn draw_dff_grid(lib: &mut PdkLib, params: DffGridParams) -> Result<Ptr<Cell>> {
+    let DffGridParams {
+        name,
+        rows,
+        cols,
+        row_pitch,
+        order,
+    } = params;
+
+    let mut cell = Cell::empty(name);
+
+    let dff = openram_dff_gds(lib)?;
+    let mut tmp = Instance::new("", dff.clone());
+    let m0 = lib.pdk.metal(0);
+    let vdd = tmp.port("vdd").largest_rect(m0).unwrap();
+    let vss = tmp.port("gnd").largest_rect(m0).unwrap();
+
+    tmp.reflect_vert = true;
+    let vss_flipped = tmp.port("gnd").largest_rect(m0).unwrap();
+    let y_offset_flip = vss.top() - vss_flipped.top();
+    let y_offset = vdd.top() - vss.top();
+
+    let horiz_pitch = row_pitch.unwrap_or_else(|| vdd.width());
+
+    for j in 0..rows {
+        let mut row_dffs = Vec::with_capacity(cols);
+        for i in 0..cols {
+            let mut inst = Instance::new(format!("dff_{}_{}", i, j), dff.clone());
+            inst.loc.x = (i as isize) * horiz_pitch;
+            let ji = j as isize;
+            inst.loc.y = -((ji / 2) * 2 * y_offset + (ji % 2) * y_offset_flip);
+            inst.reflect_vert = (ji % 2) == 1;
+
+            let port_idx = match order {
+                GridOrder::RowMajor => i + j * rows,
+                GridOrder::ColumnMajor => j + i * cols,
+            };
+
+            let mut ports = inst.ports();
+            for p in ports.iter_mut() {
+                p.net = format!("{}_{}", &p.net, port_idx);
+            }
+            for port in ports {
+                cell.abs_mut().add_port(port);
+            }
+
+            cell.layout_mut().add_inst(inst.clone());
+            row_dffs.push(inst);
+        }
+
+        for port in ["vdd", "gnd", "vpb"] {
+            let layer = if port == "vpb" {
+                lib.pdk.get_layerkey("nwell").unwrap()
+            } else {
+                m0
+            };
+            let elt = MergeArgs::builder()
+                .layer(layer)
+                .insts(GateList::Cells(&row_dffs))
+                .port_name(port)
+                .build()?
+                .element();
+            cell.layout_mut().add(elt);
+        }
+    }
+
+    let ptr = Ptr::new(cell);
+    lib.lib.cells.push(ptr.clone());
+
+    Ok(ptr)
+}
+
 #[cfg(test)]
 mod tests {
     use pdkprims::tech::sky130;
 
+    use crate::tech::{BITCELL_WIDTH, COLUMN_WIDTH};
     use crate::utils::test_path;
 
     use super::*;
@@ -103,6 +199,22 @@ mod tests {
     fn test_sky130_vert_dff_array() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_vert_dff_array")?;
         draw_vert_dff_array(&mut lib, "test_sky130_vert_dff_array", 8)?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_dff_grid() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_dff_grid")?;
+        let params = DffGridParams::builder()
+            .name("test_sky130_dff_grid")
+            .rows(4)
+            .cols(8)
+            .row_pitch(4 * COLUMN_WIDTH)
+            .build()?;
+        draw_dff_grid(&mut lib, params)?;
 
         lib.save_gds(test_path(&lib))?;
 

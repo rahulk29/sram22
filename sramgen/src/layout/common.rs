@@ -35,6 +35,12 @@ pub struct TwoLevelContactParams {
     pub top_cols: Uint,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum GridOrder {
+    RowMajor,
+    ColumnMajor,
+}
+
 impl TwoLevelContactParams {
     #[inline]
     pub fn builder() -> TwoLevelContactParamsBuilder {
