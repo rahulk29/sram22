@@ -181,8 +181,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .h_line(5 * cfg.line(2))
             .h_space(8 * cfg.line(2))
             .v_metal(3)
-            .v_line(800)
-            .v_space(COLUMN_WIDTH - 800)
+            .v_line(400)
+            .v_space(400)
             .pdk(lib.pdk.clone())
             .name("bank_power_strap")
             .enclosure(Rect::new(Point::zero(), Point::zero()))
@@ -400,6 +400,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
         let mut bl_m3 = router.trace(Rect::from_spans(bl_span, bl_vspan), 3);
         let mut br_m3 = router.trace(Rect::from_spans(br_span, bl_vspan), 3);
+        power_grid.add_padded_blockage(3, bl_m3.rect());
+        power_grid.add_padded_blockage(3, br_m3.rect());
 
         let inp = sense_amp
             .port(format!("inp_{}", i))
@@ -423,12 +425,14 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
         // data
         let rect = Rect::from_spans(data_span, sa_bbox.vspan());
+        power_grid.add_padded_blockage(3, rect);
         let mut trace = router.trace(rect, 3);
         let dst1 = col_inv.port(format!("din_{}", i)).largest_rect(m0).unwrap();
         trace
             .place_cursor(Dir::Vert, true)
-            .vert_to(dst1.top())
-            .down()
+            .vert_to(dst1.top());
+        power_grid.add_padded_blockage(3, trace.rect());
+            trace.down()
             .down()
             .down();
 
