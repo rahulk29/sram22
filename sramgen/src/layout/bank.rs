@@ -1,6 +1,7 @@
 use derive_builder::Builder;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Rect;
+use layout21::raw::translate::Translate;
 use layout21::raw::{AbstractPort, BoundBoxTrait, Cell, Dir, Instance, Int, Layout, Point, Span};
 use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
@@ -90,7 +91,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         },
     )?;
     let pc = draw_precharge_array(lib, cols)?;
-    let read_mux = draw_read_mux_array(lib, cols / 2)?;
+    let read_mux = draw_read_mux_array(lib, cols / 2, 2)?;
     let write_mux = draw_write_mux_array(lib, cols)?;
     let col_inv = draw_col_inv_array(lib, "col_data_inv", cols / 2)?;
     let sense_amp = draw_sense_amp_array(lib, cols / 2)?;
@@ -378,11 +379,11 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
         let bl = read_mux
             .port(format!("bl_out_{}", i))
-            .largest_rect(m1)
+            .largest_rect(m2)
             .unwrap();
         let br = read_mux
             .port(format!("br_out_{}", i))
-            .largest_rect(m1)
+            .largest_rect(m2)
             .unwrap();
         let center = Span::merge([bl.hspan(), br.hspan()]).center();
 
@@ -414,9 +415,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
         for (src, m3, dst) in [(bl, &mut bl_m3, inp), (br, &mut br_m3, inn)] {
             router
-                .trace(src, 1)
+                .trace(src, 2)
                 .place_cursor(Dir::Vert, false)
-                .up()
                 .set_width(cfg.line(2))
                 .horiz_to_trace(m3)
                 .contact_up(m3.rect());
@@ -454,6 +454,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         port_name: "vdd",
         dir: Dir::Horiz,
         overhang: None,
+        transverse_offset: 0,
     });
 
     let space = lib.pdk.bus_min_spacing(
@@ -611,6 +612,8 @@ pub(crate) struct ConnectArgs<'a> {
     pub(crate) dir: Dir,
     #[builder(setter(strip_option), default)]
     pub(crate) overhang: Option<isize>,
+    #[builder(default)]
+    pub(crate) transverse_offset: isize,
 }
 
 impl<'a> ConnectArgs<'a> {
@@ -624,6 +627,7 @@ impl<'a> ConnectArgs<'a> {
 pub(crate) enum GateList<'a> {
     Cells(&'a [Instance]),
     Array(&'a Instance, usize),
+    ArraySlice(&'a Instance, usize, usize),
 }
 
 impl<'a> GateList<'a> {
@@ -632,6 +636,7 @@ impl<'a> GateList<'a> {
         match self {
             Self::Cells(v) => v.len(),
             Self::Array(_, width) => *width,
+            Self::ArraySlice(_, _, width) => *width,
         }
     }
 
@@ -639,6 +644,7 @@ impl<'a> GateList<'a> {
         match self {
             Self::Cells(v) => v[num].port(name),
             Self::Array(v, _) => v.port(format!("{}_{}", name, num)),
+            Self::ArraySlice(v, start, _) => v.port(format!("{}_{}", name, start + num)),
         }
     }
 }
@@ -665,10 +671,15 @@ pub(crate) fn connect(args: ConnectArgs) -> Trace {
         span.expand(true, overhang).expand(false, overhang);
     }
 
-    let rect = Rect::span_builder()
+    let mut rect = Rect::span_builder()
         .with(args.dir, span)
         .with(!args.dir, trace_xspan)
         .build();
+
+    rect.translate(match args.dir {
+        Dir::Horiz => Point::new(0, args.transverse_offset),
+        Dir::Vert => Point::new(args.transverse_offset, 0),
+    });
 
     let mut trace = args.router.trace(rect, args.metal_idx);
 
