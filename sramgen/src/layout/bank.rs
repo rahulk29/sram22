@@ -335,36 +335,14 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     // Route read bitlines
     for i in 0..cols / 2 {
         // Route data and data bar to 2:1 write muxes
-        let src = write_mux
-            .port(format!("data_b_{}", 2 * i))
-            .largest_rect(m0)
+        let data_b_pin = write_mux
+            .port(format!("data_b_{}", i))
+            .largest_rect(m2)
             .unwrap();
-        let dst = write_mux
-            .port(format!("data_b_{}", 2 * i + 1))
-            .largest_rect(m0)
+        let data_pin = write_mux
+            .port(format!("data_{}", i))
+            .largest_rect(m2)
             .unwrap();
-
-        let mut data_b = router.trace(src, 0);
-        let dst = router.trace(dst, 0);
-        data_b.place_cursor(Dir::Vert, false).horiz_to_trace(&dst);
-        let data_b_pin = data_b.rect();
-
-        let src = write_mux
-            .port(format!("data_{}", 2 * i))
-            .largest_rect(m0)
-            .unwrap();
-        let dst = write_mux
-            .port(format!("data_{}", 2 * i + 1))
-            .largest_rect(m0)
-            .unwrap();
-
-        let mut data = router.trace(src, 0);
-        let dst = router.trace(dst, 0);
-        data.place_cursor(Dir::Vert, false)
-            .vert_to(src.bottom() - cfg.line(0) - 2 * cfg.space(0))
-            .horiz_to_trace(&dst);
-        let data_pin = data.rect();
-        data.vert_to_trace(&dst);
 
         let src = col_inv
             .port(format!("din_b_{}", i))
@@ -375,7 +353,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .place_cursor(Dir::Vert, true)
             .up()
             .vert_to(data_b_pin.top())
-            .contact_down(data_b_pin);
+            .contact_up(data_b_pin);
 
         let bl = read_mux
             .port(format!("bl_out_{}", i))
@@ -436,14 +414,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         trace
             .place_cursor(Dir::Vert, true)
             .vert_to(data_pin.top())
-            .down()
-            .set_width(2 * cfg.line(2));
-        if i % 2 == 0 {
-            trace.horiz_to(trace.rect().left() - 3 * cfg.space(1));
-        } else {
-            trace.horiz_to(trace.rect().right() + 3 * cfg.space(1));
-        }
-        trace.down().down();
+            .contact_down(data_pin);
     }
 
     connect(ConnectArgs {
