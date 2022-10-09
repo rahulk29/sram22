@@ -126,6 +126,16 @@ pub fn sramgen_sp_sense_amp_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(lib, "sramgen_sp_sense_amp.gds", "sramgen_sp_sense_amp")
 }
 
+pub fn sc_and2_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(lib, "sc_and2_2.gds", "sky130_fd_sc_lp__and2_2")
+}
+pub fn sc_inv_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(lib, "sc_inv_2.gds", "sky130_fd_sc_lp__inv_2")
+}
+pub fn sc_tap_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(lib, "sc_tap_2.gds", "sky130_fd_sc_lp__tap_2")
+}
+
 #[inline]
 pub fn sram_sp_cell_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
@@ -331,6 +341,15 @@ mod tests {
         let cell = cell.read().unwrap();
         let abs = cell.abs.as_ref().unwrap();
         assert_eq!(abs.ports.len(), 3);
+        Ok(())
+    }
+
+    #[test]
+    fn test_standard_cells() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_standard_cells")?;
+        sc_inv_gds(&mut lib)?;
+        sc_and2_gds(&mut lib)?;
+        sc_tap_gds(&mut lib)?;
         Ok(())
     }
 }
