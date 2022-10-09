@@ -92,7 +92,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     )?;
     let pc = draw_precharge_array(lib, cols)?;
     let read_mux = draw_read_mux_array(lib, cols / 2, 2)?;
-    let write_mux = draw_write_mux_array(lib, cols)?;
+    let write_mux = draw_write_mux_array(lib, cols, 2, 1)?;
     let col_inv = draw_col_inv_array(lib, "col_data_inv", cols / 2)?;
     let sense_amp = draw_sense_amp_array(lib, cols / 2)?;
     let data_dffs = draw_dff_array(lib, "data_dff_array", cols / 2)?;
@@ -571,7 +571,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     power_grid.set_enclosure(bbox);
     power_grid.add_blockage(2, core_bbox.into_rect());
-    // layout.insts.push(power_grid.generate()?);
+    layout.insts.push(power_grid.generate()?);
 
     let guard_ring = draw_guard_ring(
         lib,

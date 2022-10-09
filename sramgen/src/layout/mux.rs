@@ -458,7 +458,12 @@ pub fn draw_write_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+pub fn draw_write_mux_array(
+    lib: &mut PdkLib,
+    width: usize,
+    mux_ratio: usize,
+    wmask: usize,
+) -> Result<Ptr<Cell>> {
     assert!(width >= 2);
     assert_eq!(width % 2, 0);
 
@@ -493,8 +498,7 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
     )?;
 
     let name = "write_mux_array";
-    let mut layout = Layout::new(name);
-    let mut abs = Abstract::new(name);
+    let mut cell = Cell::empty(name);
 
     let core_inst = Instance::new("write_mux_core_array", muxes.cell);
     let mut tap_inst = Instance::new("write_mux_tap_array", taps.cell);
@@ -519,10 +523,11 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
         trace.place_cursor_centered().horiz_to_trace(&dst);
         span = trace.rect().vspan();
 
-        abs.add_port(core_inst.port(format!("bl_{i}")));
-        abs.add_port(core_inst.port(format!("br_{i}")));
-        abs.add_port(core_inst.port(format!("data_{i}")));
-        abs.add_port(core_inst.port(format!("data_b_{i}")));
+        cell.abs_mut().add_port(core_inst.port(format!("bl_{i}")));
+        cell.abs_mut().add_port(core_inst.port(format!("br_{i}")));
+        cell.abs_mut().add_port(core_inst.port(format!("data_{i}")));
+        cell.abs_mut()
+            .add_port(core_inst.port(format!("data_b_{i}")));
     }
 
     let start = tap_inst.port("vss_0").largest_rect(m1).unwrap();
@@ -552,11 +557,11 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
 
     let mut port = AbstractPort::new("vss");
     port.add_shape(m2, Shape::Rect(rect));
-    abs.add_port(port);
+    cell.abs_mut().add_port(port);
 
-    layout.add_inst(core_inst.clone());
-    layout.add_inst(tap_inst);
-    let bbox = layout.bbox().into_rect();
+    cell.layout_mut().add_inst(core_inst.clone());
+    cell.layout_mut().add_inst(tap_inst);
+    let bbox = cell.layout_mut().bbox().into_rect();
     let tc = lib.pdk.config();
     let tc = tc.read().unwrap();
 
@@ -570,49 +575,119 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
         },
     );
     let grid = Grid::builder()
-        .line(tc.layer("m2").width)
+        .line(3 * cfg.line(2))
         .space(space)
         .center(Point::zero())
         .grid(tc.grid)
         .build()?;
 
-    let track = grid.get_track_index(Dir::Horiz, bbox.bottom(), TrackLocator::EndsBefore);
-    let rect = Rect::span_builder()
-        .with(Dir::Vert, grid.htrack(track))
-        .with(Dir::Horiz, bbox.hspan())
-        .build();
-    let we0_m2 = router.trace(rect, 2);
+    let data = core_inst.port("data_0").largest_rect(m0).unwrap();
+    let data_track = grid.get_track_index(Dir::Horiz, data.bottom(), TrackLocator::EndsBefore);
+    let data_b_track = data_track - 1;
 
-    let rect = Rect::span_builder()
-        .with(Dir::Vert, grid.htrack(track - 1))
-        .with(Dir::Horiz, bbox.hspan())
-        .build();
-    let we1_m2 = router.trace(rect, 2);
+    for i in (0..width).step_by(mux_ratio) {
+        for port in ["data", "data_b"] {
+            let track = match port {
+                "data" => data_track,
+                "data_b" => data_b_track,
+                _ => unreachable!(),
+            };
+            let start = core_inst
+                .port(format!("{}_{}", port, i))
+                .largest_rect(m0)
+                .unwrap();
+            let stop = core_inst
+                .port(format!("{}_{}", port, i + mux_ratio - 1))
+                .largest_rect(m0)
+                .unwrap();
+            let mut hspan = Span::new(start.left(), stop.right());
+            hspan.expand(true, 400).expand(false, 400);
+            let rect = Rect::from_spans(hspan, grid.track(Dir::Horiz, track));
+            let data = router.trace(rect, 2);
 
-    for i in 0..width {
-        let m0 = router.cfg().layerkey(0);
-        let src = core_inst.port(format!("we_{i}")).largest_rect(m0).unwrap();
-        let mut trace = router.trace(src, 0);
-        let target = if i % 2 == 0 {
-            we0_m2.rect()
-        } else {
-            we1_m2.rect()
-        };
-        trace
-            .place_cursor(Dir::Vert, false)
-            .vert_to(target.bottom())
-            .contact_up(target)
-            .increment_layer()
-            .contact_up(target);
+            for delta in 0..mux_ratio {
+                let src = core_inst
+                    .port(format!("{}_{}", port, i + delta))
+                    .largest_rect(m0)
+                    .unwrap();
+                let mut trace = router.trace(src, 0);
+                let offset = match (port, delta % 2) {
+                    ("data", 0) | ("data_b", 1) => src.left() - 280,
+                    ("data", 1) | ("data_b", 0) => src.right() + 280,
+                    _ => unreachable!(),
+                };
+                trace
+                    .place_cursor(Dir::Vert, false)
+                    .horiz_to(offset)
+                    .vert_to_trace(&data)
+                    .contact_up(data.rect())
+                    .increment_layer()
+                    .contact_up(data.rect());
+            }
+        }
     }
 
-    layout.add_inst(router.finish());
+    let track = grid.get_track_index(Dir::Horiz, bbox.bottom(), TrackLocator::EndsBefore);
 
-    Ok(Ptr::new(Cell {
-        name: name.into(),
-        layout: Some(layout),
-        abs: Some(abs),
-    }))
+    assert_eq!(
+        width % (mux_ratio * wmask),
+        0,
+        "Width must be divisible by mux_ratio * wmask"
+    );
+    let bits_per_wmask = width / (mux_ratio * wmask);
+
+    for i in 0..mux_ratio {
+        for j in 0..wmask {
+            let idxs = ((bits_per_wmask * mux_ratio * j + i)
+                ..(bits_per_wmask * mux_ratio * (j + 1) + i))
+                .step_by(mux_ratio)
+                .collect::<Vec<_>>();
+            assert_eq!(idxs.len(), bits_per_wmask);
+
+            let start = idxs[0];
+            let stop = idxs[idxs.len() - 1];
+
+            let start = core_inst
+                .port(format!("we_{}", start))
+                .largest_rect(m0)
+                .unwrap();
+            let stop = core_inst
+                .port(format!("we_{}", stop))
+                .largest_rect(m0)
+                .unwrap();
+
+            let mut hspan = Span::new(start.left(), stop.right());
+            hspan.expand(true, 100).expand(false, 100);
+
+            let track = track - i as isize;
+            let rect = Rect::from_spans(hspan, grid.htrack(track));
+
+            cell.add_pin(format!("we_{}_{}", i, j), m2, rect);
+            let we = router.trace(rect, 2);
+
+            for idx in idxs {
+                let src = core_inst
+                    .port(format!("we_{}", idx))
+                    .largest_rect(m0)
+                    .unwrap();
+                let mut trace = router.trace(src, 0);
+
+                trace
+                    .place_cursor(Dir::Vert, false)
+                    .vert_to_trace(&we)
+                    .contact_up(we.rect())
+                    .increment_layer()
+                    .contact_up(we.rect());
+            }
+        }
+    }
+
+    cell.layout_mut().add_inst(router.finish());
+
+    let ptr = Ptr::new(cell);
+    lib.lib.cells.push(ptr.clone());
+
+    Ok(ptr)
 }
 
 pub fn draw_read_mux_tap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
@@ -729,9 +804,39 @@ mod tests {
     }
 
     #[test]
-    fn test_sky130_column_write_mux_array() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sky130_column_write_mux_array")?;
-        draw_write_mux_array(&mut lib, 32)?;
+    fn test_sky130_column_write_mux_array_m2() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_column_write_mux_array_m2")?;
+        draw_write_mux_array(&mut lib, 32, 2, 1)?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_column_write_mux_array_m4() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_column_write_mux_array_m4")?;
+        draw_write_mux_array(&mut lib, 32, 4, 1)?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_column_write_mux_array_m8() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_column_write_mux_array_m8")?;
+        draw_write_mux_array(&mut lib, 32, 8, 1)?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_column_write_mux_array_m4w4() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_column_write_mux_array_m4w4")?;
+        draw_write_mux_array(&mut lib, 128, 4, 4)?;
 
         lib.save_gds(test_path(&lib))?;
 
