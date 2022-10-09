@@ -180,7 +180,7 @@ pub fn draw_dff_grid(lib: &mut PdkLib, params: DffGridParams) -> Result<Ptr<Cell
 mod tests {
     use pdkprims::tech::sky130;
 
-    use crate::tech::{BITCELL_WIDTH, COLUMN_WIDTH};
+    use crate::tech::COLUMN_WIDTH;
     use crate::utils::test_path;
 
     use super::*;
