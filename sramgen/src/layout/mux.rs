@@ -525,9 +525,6 @@ pub fn draw_write_mux_array(
 
         cell.abs_mut().add_port(core_inst.port(format!("bl_{i}")));
         cell.abs_mut().add_port(core_inst.port(format!("br_{i}")));
-        cell.abs_mut().add_port(core_inst.port(format!("data_{i}")));
-        cell.abs_mut()
-            .add_port(core_inst.port(format!("data_b_{i}")));
     }
 
     let start = tap_inst.port("vss_0").largest_rect(m1).unwrap();
@@ -585,7 +582,7 @@ pub fn draw_write_mux_array(
     let data_track = grid.get_track_index(Dir::Horiz, data.bottom(), TrackLocator::EndsBefore);
     let data_b_track = data_track - 1;
 
-    for i in (0..width).step_by(mux_ratio) {
+    for (idx, i) in (0..width).step_by(mux_ratio).enumerate() {
         for port in ["data", "data_b"] {
             let track = match port {
                 "data" => data_track,
@@ -603,6 +600,9 @@ pub fn draw_write_mux_array(
             let mut hspan = Span::new(start.left(), stop.right());
             hspan.expand(true, 400).expand(false, 400);
             let rect = Rect::from_spans(hspan, grid.track(Dir::Horiz, track));
+
+            cell.add_pin(format!("{}_{}", port, idx), m2, rect);
+
             let data = router.trace(rect, 2);
 
             for delta in 0..mux_ratio {
