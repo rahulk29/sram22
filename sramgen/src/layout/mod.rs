@@ -9,6 +9,7 @@ pub mod array;
 pub mod bank;
 pub mod col_inv;
 pub mod common;
+pub mod control;
 pub mod decoder;
 pub mod dff;
 pub mod gate;
