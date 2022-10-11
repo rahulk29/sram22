@@ -7,7 +7,7 @@ use layout21::raw::{
 use layout21::utils::Ptr;
 use pdkprims::config::Uint;
 use pdkprims::contact::ContactParams;
-use pdkprims::PdkLib;
+use pdkprims::{Pdk, PdkLib};
 use serde::{Deserialize, Serialize};
 
 use crate::Result;
@@ -172,4 +172,15 @@ pub(crate) fn rect_cutout(src: Rect, clip: Rect) -> [Rect; 4] {
         Rect::from_spans(l_span, src.vspan()),
         Rect::from_spans(r_span, src.vspan()),
     ]
+}
+
+pub(crate) fn sc_outline(pdk: &Pdk, inst: &Instance) -> Rect {
+    let outline = pdk.get_layerkey("outline").unwrap();
+    let cell = inst.cell.read().unwrap();
+    for elem in cell.layout().elems.iter() {
+        if elem.layer == outline {
+            return elem.inner.bbox().into_rect();
+        }
+    }
+    panic!("No outline found for cell `{}`", cell.name);
 }
