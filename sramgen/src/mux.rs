@@ -470,4 +470,18 @@ mod tests {
         save_modules("column_write_mux_2_array", modules)?;
         Ok(())
     }
+
+    #[test]
+    fn test_column_read_mux_2_array() -> Result<(), Box<dyn std::error::Error>> {
+        let modules = column_read_mux_2_array(ColumnMuxArrayParams {
+            name: "column_read_mux_2_array".to_string(),
+            width: 64,
+            instance_params: ColumnMuxParams {
+                length: 150,
+                width: 2_000,
+            },
+        });
+        save_modules("column_read_mux_2_array", modules)?;
+        Ok(())
+    }
 }

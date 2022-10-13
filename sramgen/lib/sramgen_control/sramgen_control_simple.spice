@@ -57,16 +57,10 @@ Xnor2 reset q_b q vdd vss control_logic_nor
 * PC_B = !CLK
 Xinv_pc clk pc_b vdd vss control_logic_inv0
 
-* CLK_B = !CLK
-Xinv_clk clk clk_b vdd vss control_logic_inv0
-
 * WRITE_DRIVER_EN = PC_B && WE
-Xand2 clk_b_gated we write_driver_en vdd vss control_logic_and0
-
-* WL_EN = !CLK
-Xinv_wl_en clk wl_en vdd vss control_logic_inv0
+Xand2 pc_b we write_driver_en vdd vss control_logic_and0
 
 * SENSE_EN = delay(WL_EN)
-X_delay_sae wl_en wl_en_b sense_en vdd vss
+X_delay_sae pc_b wl_en_b sense_en vdd vss control_logic_delay_chain
 .ends
 
