@@ -117,6 +117,7 @@ fn plan_decoder(bits: usize, top: bool) -> PlanTreeNode {
         }
     } else {
         let split = partition_bits(bits, top);
+        println!("Splitting bits: {:?}", split);
         let gate = match split.len() {
             2 => GateType::Nand2,
             3 => GateType::Nand3,
@@ -146,13 +147,16 @@ fn partition_bits(bits: usize, top: bool) -> Vec<usize> {
 
     if bits % 2 == 0 {
         vec![bits / 2, bits / 2]
-    } else {
+    } else if bits / 3 >= 2 {
         match bits % 3 {
             0 => vec![bits / 3, bits / 3, bits / 3],
             1 => vec![bits / 3 + 1, bits / 3, bits / 3],
             2 => vec![bits / 3 + 1, bits / 3 + 1, bits / 3],
             _ => panic!("unexpected remainder of `bits` divided by 3"),
         }
+    } else {
+        let left = bits / 2;
+        vec![left, bits - left]
     }
 }
 
