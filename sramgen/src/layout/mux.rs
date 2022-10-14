@@ -225,9 +225,32 @@ pub fn draw_read_mux_array(
     let mut router = Router::new("read_mux_array_route", lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
+    let m1 = cfg.layerkey(1);
     let m2 = cfg.layerkey(2);
 
     let inst = Instance::new("read_mux_array_core", array.cell);
+    for i in 0..width {
+        cell.add_pin_from_port(
+            inst.port(format!("bl_0_{i}"))
+                .named(format!("bl_{}", 2 * i)),
+            m1,
+        );
+        cell.add_pin_from_port(
+            inst.port(format!("bl_1_{i}"))
+                .named(format!("bl_{}", 2 * i + 1)),
+            m1,
+        );
+        cell.add_pin_from_port(
+            inst.port(format!("br_0_{i}"))
+                .named(format!("br_{}", 2 * i)),
+            m1,
+        );
+        cell.add_pin_from_port(
+            inst.port(format!("br_1_{i}"))
+                .named(format!("br_{}", 2 * i + 1)),
+            m1,
+        );
+    }
     let mut tap_inst = Instance::new("read_mux_array_taps", taps.cell);
     tap_inst.align_centers_gridded(inst.bbox(), lib.pdk.grid());
 
