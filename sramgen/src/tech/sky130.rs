@@ -5,8 +5,8 @@ use layout21::gds21::GdsLibrary;
 use layout21::raw::{Cell, Library};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
-use vlsir::circuit::port::Direction;
-use vlsir::circuit::{ExternalModule, Port, Signal};
+
+use vlsir::circuit::{ExternalModule};
 use vlsir::reference::To;
 use vlsir::{QualifiedName, Reference};
 
