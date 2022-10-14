@@ -321,7 +321,7 @@ pub fn draw_read_mux_array(
             .port_name("bl_out")
             .dir(Dir::Horiz)
             .overhang(100)
-            .transverse_offset(880)
+            .transverse_offset(800)
             .build()?;
         let trace = connect(args);
         cell.add_pin(format!("bl_out_{}", i / mux_ratio), m2, trace.rect());
@@ -334,7 +334,7 @@ pub fn draw_read_mux_array(
             .port_name("br_out")
             .dir(Dir::Horiz)
             .overhang(100)
-            .transverse_offset(-880)
+            .transverse_offset(-800)
             .build()?;
         let trace = connect(args);
         cell.add_pin(format!("br_out_{}", i / mux_ratio), m2, trace.rect());

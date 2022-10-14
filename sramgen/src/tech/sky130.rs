@@ -6,7 +6,7 @@ use layout21::raw::{Cell, Library};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use vlsir::circuit::{ExternalModule};
+use vlsir::circuit::ExternalModule;
 use vlsir::reference::To;
 use vlsir::{QualifiedName, Reference};
 
