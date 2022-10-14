@@ -24,6 +24,17 @@ CKTS = [
     "sram_16x16",
 ]
 
+SPECTRE_PRELUDE = """* SPICE NETLIST
+* * NMOS
+.SUBCKT sky130_fd_pr__nfet_01v8 d g s b PARAMS: w=1.0 l=1.0
+M0 d g s b nshort l={l} w={w}
+.ENDS
+* * PMOS
+.SUBCKT sky130_fd_pr__pfet_01v8 d g s b PARAMS: w=1.0 l=1.0
+M0 d g s b pshort l={l} w={w}
+.ENDS
+"""
+
 
 def make_dirs():
     os.makedirs("build/spice/", exist_ok=True)
@@ -35,7 +46,8 @@ def netlist_all():
             dest = open(f"build/spice/{CKT}.spice", "w")
             tmp = f.read()
             inp.ParseFromString(tmp)
-            netlist(pkg=inp.pkg, dest=dest, fmt="spectre")
+            dest.write(SPECTRE_PRELUDE)
+            netlist(pkg=inp.pkg, dest=dest, fmt="spice")
             dest.close()
         print(f"generated {CKT}")
 
