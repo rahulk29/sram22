@@ -478,7 +478,7 @@ mod tests {
             width: 64,
             instance_params: ColumnMuxParams {
                 length: 150,
-                width: 2_000,
+                width: 1_200,
             },
         });
         save_modules("column_read_mux_2_array", modules)?;
