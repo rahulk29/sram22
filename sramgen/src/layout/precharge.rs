@@ -13,9 +13,10 @@ use super::common::{draw_two_level_contact, TwoLevelContactParams};
 use crate::layout::bank::GateList;
 use crate::layout::common::{MergeArgs, NWELL_COL_SIDE_EXTEND, NWELL_COL_VERT_EXTEND};
 use crate::layout::route::{ContactBounds, Router, VertDir};
+use crate::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::Result;
 
-fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+fn draw_precharge(lib: &mut PdkLib, args: PrechargeParams) -> Result<Ptr<Cell>> {
     let name = "precharge".to_string();
 
     let mut layout = Layout {
@@ -33,24 +34,24 @@ fn draw_precharge(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .direction(Dir::Horiz)
         .add_device(MosDevice {
             mos_type: MosType::Pmos,
-            width: 1_000,
-            length: 150,
+            width: args.equalizer_width,
+            length: args.length,
             fingers: 1,
             intent: Intent::Svt,
             skip_sd_metal: vec![],
         })
         .add_device(MosDevice {
             mos_type: MosType::Pmos,
-            width: 1_200,
-            length: 150,
+            width: args.pull_up_width,
+            length: args.length,
             fingers: 1,
             intent: Intent::Svt,
             skip_sd_metal: vec![],
         })
         .add_device(MosDevice {
             mos_type: MosType::Pmos,
-            width: 1_200,
-            length: 150,
+            width: args.pull_up_width,
+            length: args.length,
             fingers: 1,
             intent: Intent::Svt,
             skip_sd_metal: vec![],
@@ -129,9 +130,14 @@ pub fn draw_tap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(contact)
 }
 
-pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Result<Ptr<Cell>> {
+    let PrechargeArrayParams {
+        width,
+        instance_params,
+        name,
+    } = args;
     assert!(width >= 2);
-    let pc = draw_precharge(lib)?;
+    let pc = draw_precharge(lib, instance_params)?;
 
     let core = draw_cell_array(
         ArrayCellParams {
@@ -161,8 +167,8 @@ pub fn draw_precharge_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
         lib,
     )?;
 
-    let mut layout = Layout::new("precharge_array");
-    let mut abs = Abstract::new("precharge_array");
+    let mut layout = Layout::new(&name);
+    let mut abs = Abstract::new(&name);
     let core = Instance {
         inst_name: "pc_array".to_string(),
         cell: core.cell,
@@ -268,7 +274,15 @@ mod tests {
     #[test]
     fn test_sky130_precharge() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_precharge")?;
-        draw_precharge(&mut lib)?;
+        draw_precharge(
+            &mut lib,
+            PrechargeParams {
+                name: "test_sky130_precharge".to_string(),
+                length: 150,
+                pull_up_width: 1_200,
+                equalizer_width: 1_000,
+            },
+        )?;
 
         lib.save_gds(test_path(&lib))?;
 
@@ -278,7 +292,19 @@ mod tests {
     #[test]
     fn test_sky130_precharge_array() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_precharge_array")?;
-        draw_precharge_array(&mut lib, 32)?;
+        draw_precharge_array(
+            &mut lib,
+            PrechargeArrayParams {
+                width: 32,
+                instance_params: PrechargeParams {
+                    name: "precharge".to_string(),
+                    length: 150,
+                    pull_up_width: 1_200,
+                    equalizer_width: 1_000,
+                },
+                name: "precharge_array".to_string(),
+            },
+        )?;
 
         lib.save_gds(test_path(&lib))?;
 

@@ -21,7 +21,7 @@ pub struct PrechargeParams {
 
 #[derive(Debug, Clone)]
 pub struct PrechargeArrayParams {
-    pub width: i64,
+    pub width: usize,
     pub instance_params: PrechargeParams,
     pub name: String,
 }
@@ -33,8 +33,8 @@ pub fn precharge_array(params: PrechargeArrayParams) -> Vec<Module> {
 
     let vdd = signal("vdd");
     let en_b = signal("en_b");
-    let bl = bus("bl", params.width);
-    let br = bus("br", params.width);
+    let bl = bus("bl", params.width as i64);
+    let br = bus("br", params.width as i64);
 
     let ports = vec![
         port_inout(&vdd),
@@ -51,7 +51,7 @@ pub fn precharge_array(params: PrechargeArrayParams) -> Vec<Module> {
         parameters: vec![],
     };
 
-    for i in 0..params.width {
+    for i in 0..params.width as i64 {
         let mut connections = HashMap::new();
         connections.insert("vdd".to_string(), sig_conn(&vdd));
         connections.insert("en_b".to_string(), sig_conn(&en_b));
@@ -169,8 +169,8 @@ mod tests {
         let pc = precharge(PrechargeParams {
             name: "precharge_inst".to_string(),
             length: 150,
-            pull_up_width: 1_400,
-            equalizer_width: 800,
+            pull_up_width: 1_200,
+            equalizer_width: 1_000,
         });
         let ext_modules = all_external_modules();
         let pkg = Package {
@@ -193,8 +193,8 @@ mod tests {
             instance_params: PrechargeParams {
                 name: "precharge_inst".to_string(),
                 length: 150,
-                pull_up_width: 1_400,
-                equalizer_width: 800,
+                pull_up_width: 1_200,
+                equalizer_width: 1_000,
             },
         });
         let ext_modules = all_external_modules();

@@ -19,6 +19,7 @@ use crate::layout::power::{PowerStrapGen, PowerStrapOpts};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
 use crate::layout::tmc::{draw_tmc, TmcParams};
+use crate::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::tech::BITCELL_HEIGHT;
 
 use super::array::draw_array;
@@ -90,7 +91,19 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             pitch: Some(BITCELL_HEIGHT),
         },
     )?;
-    let pc = draw_precharge_array(lib, cols)?;
+    let pc = draw_precharge_array(
+        lib,
+        PrechargeArrayParams {
+            width: cols,
+            instance_params: PrechargeParams {
+                name: "precharge".to_string(),
+                length: 150,
+                pull_up_width: 1_200,
+                equalizer_width: 1_000,
+            },
+            name: "precharge_array".to_string(),
+        },
+    )?;
     let read_mux = draw_read_mux_array(lib, cols / 2, 2)?;
     let write_mux = draw_write_mux_array(lib, cols, 2, 1)?;
     let col_inv = draw_col_inv_array(lib, "col_data_inv", cols / 2)?;
