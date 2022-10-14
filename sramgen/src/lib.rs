@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use decoder::DecoderTree;
 use layout21::raw::{BoundBox, Cell};
 use layout21::utils::Ptr;
+use mos::NetlistFormat;
 use vlsir::circuit::Package;
 use vlsir::spice::SimInput;
 
@@ -26,9 +27,11 @@ pub mod write_driver;
 
 pub use anyhow::Result;
 
+pub const NETLIST_FORMAT: NetlistFormat = NetlistFormat::Spectre;
+
 pub fn generate() -> Result<()> {
-    let nmos = mos::ext_nmos();
-    let pmos = mos::ext_pmos();
+    let nmos = mos::ext_nmos(NETLIST_FORMAT);
+    let pmos = mos::ext_pmos(NETLIST_FORMAT);
 
     let pkg = Package {
         domain: "sramgen".to_string(),
