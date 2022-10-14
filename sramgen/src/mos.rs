@@ -23,7 +23,12 @@ pub struct Mosfet {
     pub mos_type: pdkprims::mos::MosType,
 }
 
-pub fn ext_nmos() -> ExternalModule {
+pub enum NetlistFormat {
+    NgSpice,
+    Spectre,
+}
+
+pub fn ext_nmos(format: NetlistFormat) -> ExternalModule {
     let ports = ["d", "g", "s", "b"]
         .into_iter()
         .map(|n| Port {
@@ -40,17 +45,23 @@ pub fn ext_nmos() -> ExternalModule {
         })
         .collect::<Vec<_>>();
 
+    let name = match format {
+        NetlistFormat::NgSpice => "sky130_fd_pr__nfet_01v8",
+        NetlistFormat::Spectre => "sky130_fd_pr__nfet_01v8",
+    };
+
     ExternalModule {
         name: Some(QualifiedName {
             domain: "sky130".to_string(),
-            name: "sky130_fd_pr__nfet_01v8".to_string(),
+            name: name.to_string(),
         }),
         desc: "A SKY130 NMOS transistor".to_string(),
         ports,
         parameters,
     }
 }
-pub fn ext_pmos() -> ExternalModule {
+
+pub fn ext_pmos(format: NetlistFormat) -> ExternalModule {
     let ports = ["d", "g", "s", "b"]
         .into_iter()
         .map(|n| Port {
@@ -67,10 +78,15 @@ pub fn ext_pmos() -> ExternalModule {
         })
         .collect::<Vec<_>>();
 
+    let name = match format {
+        NetlistFormat::NgSpice => "sky130_fd_pr__pfet_01v8",
+        NetlistFormat::Spectre => "sky130_fd_pr__pfet_01v8",
+    };
+
     ExternalModule {
         name: Some(QualifiedName {
             domain: "sky130".to_string(),
-            name: "sky130_fd_pr__pfet_01v8".to_string(),
+            name: name.to_string(),
         }),
         desc: "A SKY130 NMOS transistor".to_string(),
         ports,

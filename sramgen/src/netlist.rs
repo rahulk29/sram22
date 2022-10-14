@@ -122,13 +122,14 @@ mod tests {
 
     use crate::decoder::{hierarchical_decoder, DecoderParams, DecoderTree};
     use crate::mos::{ext_nmos, ext_pmos};
+    use crate::NETLIST_FORMAT;
 
     use super::Result;
 
     #[test]
     fn test_netlist() -> Result<()> {
-        let nmos = ext_nmos();
-        let pmos = ext_pmos();
+        let nmos = ext_nmos(NETLIST_FORMAT);
+        let pmos = ext_pmos(NETLIST_FORMAT);
 
         let mut pkg = Package {
             domain: "sramgen_test_netlist".to_string(),

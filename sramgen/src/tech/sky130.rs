@@ -5,12 +5,14 @@ use layout21::gds21::GdsLibrary;
 use layout21::raw::{Cell, Library};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
-use vlsir::circuit::ExternalModule;
+use vlsir::circuit::port::Direction;
+use vlsir::circuit::{ExternalModule, Port, Signal};
 use vlsir::reference::To;
 use vlsir::{QualifiedName, Reference};
 
 use crate::mos::{ext_nmos, ext_pmos};
 use crate::utils::simple_ext_module;
+use crate::NETLIST_FORMAT;
 
 pub const SKY130_DOMAIN: &str = "sky130";
 pub const SRAM_SP_CELL: &str = "sram_sp_cell";
@@ -304,8 +306,8 @@ pub fn sramgen_sp_sense_amp_ref() -> Reference {
 #[inline]
 pub fn all_external_modules() -> Vec<ExternalModule> {
     vec![
-        ext_nmos(),
-        ext_pmos(),
+        ext_nmos(NETLIST_FORMAT),
+        ext_pmos(NETLIST_FORMAT),
         sram_sp_cell(),
         sram_sp_replica_cell(),
         sramgen_control(),
