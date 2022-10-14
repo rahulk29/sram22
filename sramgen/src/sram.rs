@@ -76,7 +76,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
 
     let mut precharge = precharge_array(PrechargeArrayParams {
         name: "precharge_array".to_string(),
-        width: cols as i64,
+        width: cols,
         instance_params: PrechargeParams {
             name: "precharge".to_string(),
             length: 150,
