@@ -8,6 +8,7 @@ use vlsir::circuit::Package;
 use vlsir::spice::SimInput;
 
 pub mod bitcells;
+pub mod col_inv;
 pub mod decoder;
 pub mod dff;
 pub mod gate;

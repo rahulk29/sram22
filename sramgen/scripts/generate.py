@@ -11,6 +11,8 @@ CKTS = [
     "precharge",
     "precharge_array",
     "sense_amp_array",
+    "col_inv",
+    "col_inv_array",
     "column_mux_4",
     "column_mux_4_array",
     "column_read_mux_2_array",
