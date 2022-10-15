@@ -575,9 +575,7 @@ pub fn draw_write_mux_array(
         );
     }
 
-    let mut port = AbstractPort::new("vss");
-    port.add_shape(m2, Shape::Rect(rect));
-    cell.abs_mut().add_port(port);
+    cell.add_pin("vss", m2, rect);
 
     cell.layout_mut().add_inst(core_inst.clone());
     cell.layout_mut().add_inst(tap_inst);
