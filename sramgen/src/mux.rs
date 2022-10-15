@@ -195,8 +195,7 @@ fn mux_2_array_inner(
     let br = bus("br", width);
     let bl_out = bus("bl_out", width / 2);
     let br_out = bus("br_out", width / 2);
-    let sel = signal("sel");
-    let sel_b = signal("sel_b");
+    let sel = bus("sel", 2);
 
     let ports = vec![
         port_inout(&pwr_sig),
@@ -205,7 +204,6 @@ fn mux_2_array_inner(
         port_inout(&bl_out),
         port_inout(&br_out),
         port_input(&sel),
-        port_input(&sel_b),
     ];
 
     let mut m = Module {
@@ -221,7 +219,6 @@ fn mux_2_array_inner(
         connections.insert(pwr_name, sig_conn(&pwr_sig));
         connections.insert("din", conn_slice("bl", 2 * i + 1, 2 * i));
         connections.insert("sel", sig_conn(&sel));
-        connections.insert("sel_b", sig_conn(&sel_b));
         connections.insert("dout", conn_slice("bl_out", i, i));
         m.instances.push(vlsir::circuit::Instance {
             name: format!("mux_bl_{}", i),
@@ -234,7 +231,6 @@ fn mux_2_array_inner(
         connections.insert(pwr_name, sig_conn(&pwr_sig));
         connections.insert("din", conn_slice("br", 2 * i + 1, 2 * i));
         connections.insert("sel", sig_conn(&sel));
-        connections.insert("sel_b", sig_conn(&sel_b));
         connections.insert("dout", conn_slice("br_out", i, i));
         m.instances.push(vlsir::circuit::Instance {
             name: format!("mux_br_{}", i),
@@ -253,8 +249,7 @@ pub fn column_read_mux_2(params: ColumnMuxParams) -> Module {
 
     let vdd = signal("vdd");
     let din = bus("din", 2);
-    let sel = signal("sel");
-    let sel_b = signal("sel_b");
+    let sel = bus("sel", 2);
     let dout = signal("dout");
 
     let ports = vec![
@@ -262,7 +257,6 @@ pub fn column_read_mux_2(params: ColumnMuxParams) -> Module {
         port_inout(&din),
         port_inout(&dout),
         port_input(&sel),
-        port_input(&sel_b),
     ];
 
     let mut m = Module {
@@ -280,7 +274,7 @@ pub fn column_read_mux_2(params: ColumnMuxParams) -> Module {
             length,
             drain: sig_conn(&dout),
             source: conn_slice("din", 0, 0),
-            gate: sig_conn(&sel),
+            gate: conn_slice("sel", 0, 0),
             body: sig_conn(&vdd),
             mos_type: MosType::Pmos,
         }
@@ -294,7 +288,7 @@ pub fn column_read_mux_2(params: ColumnMuxParams) -> Module {
             length,
             drain: sig_conn(&dout),
             source: conn_slice("din", 1, 1),
-            gate: sig_conn(&sel_b),
+            gate: conn_slice("sel", 1, 1),
             body: sig_conn(&vdd),
             mos_type: MosType::Pmos,
         }
