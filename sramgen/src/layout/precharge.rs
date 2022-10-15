@@ -167,8 +167,7 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Res
         lib,
     )?;
 
-    let mut layout = Layout::new(&name);
-    let mut abs = Abstract::new(&name);
+    let mut cell = Cell::empty(name);
     let core = Instance {
         inst_name: "pc_array".to_string(),
         cell: core.cell,
@@ -185,14 +184,14 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Res
     };
     taps.align_centers_gridded(core.bbox(), lib.pdk.grid());
 
-    abs.ports.append(&mut core.ports());
+    cell.abs_mut().ports.append(&mut core.ports());
 
     let iter = taps.ports().into_iter().enumerate().map(|(i, mut p)| {
         p.set_net(format!("vdd_{}", i));
         p
     });
-    abs.ports.extend(iter);
-    abs.ports.append(&mut taps.ports());
+    cell.abs_mut().ports.extend(iter);
+    cell.abs_mut().ports.append(&mut taps.ports());
 
     let m0 = lib.pdk.metal(0);
     let m2 = lib.pdk.metal(2);
@@ -219,7 +218,7 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Res
 
     let mut port = AbstractPort::new("pc_b");
     port.add_shape(m2, Shape::Rect(rect));
-    abs.add_port(port);
+    cell.abs_mut().add_port(port);
 
     for i in 0..width {
         let src = core.port(format!("pc_b_{i}")).largest_rect(m0).unwrap();
@@ -250,17 +249,16 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Res
         .right_overhang(NWELL_COL_SIDE_EXTEND + 200)
         .build()?
         .element();
-    layout.add(elt);
+    cell.layout_mut().add(elt);
 
-    layout.add_inst(core);
-    layout.add_inst(taps);
-    layout.add_inst(router.finish());
+    cell.layout_mut().add_inst(core);
+    cell.layout_mut().add_inst(taps);
+    cell.layout_mut().add_inst(router.finish());
 
-    Ok(Ptr::new(Cell {
-        name: "precharge_array".to_string(),
-        layout: Some(layout),
-        abs: Some(abs),
-    }))
+    let ptr = Ptr::new(cell);
+    lib.lib.cells.push(ptr.clone());
+
+    Ok(ptr)
 }
 
 #[cfg(test)]
