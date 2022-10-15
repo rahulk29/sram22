@@ -75,9 +75,6 @@ pub fn draw_col_inv_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Resul
     ptaps.align_centers_vertically_gridded(pwell_region.bbox(), lib.pdk.grid());
 
     let mut cell = Cell::empty(prefix);
-    for port in inst.ports() {
-        cell.abs_mut().add_port(port);
-    }
 
     let nwell = lib.pdk.get_layerkey("nwell").unwrap();
     let elt = MergeArgs::builder()
@@ -94,6 +91,11 @@ pub fn draw_col_inv_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Resul
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m2 = cfg.layerkey(2);
+
+    for i in 0..width {
+        cell.add_pin_from_port(inst.port(format!("din_{i}")), m0);
+        cell.add_pin_from_port(inst.port(format!("din_b_{i}")), m0);
+    }
 
     let args = ConnectArgs::builder()
         .metal_idx(2)
