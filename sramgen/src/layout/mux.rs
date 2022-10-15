@@ -546,8 +546,8 @@ pub fn draw_write_mux_array(
         trace.place_cursor_centered().horiz_to_trace(&dst);
         span = trace.rect().vspan();
 
-        cell.abs_mut().add_port(core_inst.port(format!("bl_{i}")));
-        cell.abs_mut().add_port(core_inst.port(format!("br_{i}")));
+        cell.add_pin_from_port(core_inst.port(format!("bl_{i}")), m1);
+        cell.add_pin_from_port(core_inst.port(format!("br_{i}")), m1);
     }
 
     let start = tap_inst.port("vss_0").largest_rect(m1).unwrap();

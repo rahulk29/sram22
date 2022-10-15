@@ -109,8 +109,71 @@ pub fn column_write_mux_2_array(params: ColumnMuxArrayParams) -> Vec<Module> {
     };
     vec![
         mux,
-        mux_2_array_inner(params.width, params.name, &reference, false),
+        write_mux_2_array_inner(params.width, params.name, &reference),
     ]
+}
+
+fn write_mux_2_array_inner(width: i64, name: String, reference: &Reference) -> Module {
+    assert!(width > 0);
+    assert_eq!(width % 2, 0);
+
+    let vss = signal("vss");
+    let bl = bus("bl", width);
+    let br = bus("br", width);
+    let data = bus("data", width / 2);
+    let data_b = bus("data_b", width / 2);
+    let we0 = signal("we_0_0");
+    let we1 = signal("we_1_0");
+
+    let ports = vec![
+        port_input(&we0),
+        port_input(&we1),
+        port_inout(&bl),
+        port_inout(&br),
+        port_input(&data),
+        port_input(&data_b),
+        port_inout(&vss),
+    ];
+
+    let mut m = Module {
+        name,
+        ports,
+        signals: vec![],
+        instances: vec![],
+        parameters: vec![],
+    };
+
+    for i in 0..(width / 2) {
+        let mut connections = HashMap::new();
+        connections.insert("en", sig_conn(&we0));
+        connections.insert("data", conn_slice("data", i, i));
+        connections.insert("data_b", conn_slice("data_b", i, i));
+        connections.insert("bl", conn_slice("bl", 2 * i, 2 * i));
+        connections.insert("br", conn_slice("br", 2 * i, 2 * i));
+        connections.insert("vss", sig_conn(&vss));
+        m.instances.push(vlsir::circuit::Instance {
+            name: format!("mux_0_{}", i),
+            module: Some(reference.clone()),
+            parameters: HashMap::new(),
+            connections: conn_map(connections),
+        });
+
+        let mut connections = HashMap::new();
+        connections.insert("en", sig_conn(&we1));
+        connections.insert("data", conn_slice("data", i, i));
+        connections.insert("data_b", conn_slice("data_b", i, i));
+        connections.insert("bl", conn_slice("bl", 2 * i + 1, 2 * i + 1));
+        connections.insert("br", conn_slice("br", 2 * i + 1, 2 * i + 1));
+        connections.insert("vss", sig_conn(&vss));
+        m.instances.push(vlsir::circuit::Instance {
+            name: format!("mux_1_{}", i),
+            module: Some(reference.clone()),
+            parameters: HashMap::new(),
+            connections: conn_map(connections),
+        });
+    }
+
+    m
 }
 
 fn mux_2_array_inner(
@@ -245,18 +308,21 @@ pub fn column_read_mux_2(params: ColumnMuxParams) -> Module {
 pub fn column_write_mux_2(params: ColumnMuxParams) -> Module {
     let length = params.length;
 
+    let en = signal("en");
+    let data = signal("data");
+    let data_b = signal("data_b");
+    let bl = signal("bl");
+    let br = signal("br");
     let vss = signal("vss");
-    let din = bus("din", 2);
-    let sel = signal("sel");
-    let sel_b = signal("sel_b");
-    let dout = signal("dout");
+    let int = signal("int");
 
     let ports = vec![
+        port_input(&en),
+        port_input(&data),
+        port_input(&data_b),
+        port_inout(&bl),
+        port_inout(&br),
         port_inout(&vss),
-        port_inout(&din),
-        port_inout(&dout),
-        port_input(&sel),
-        port_input(&sel_b),
     ];
 
     let mut m = Module {
@@ -272,9 +338,9 @@ pub fn column_write_mux_2(params: ColumnMuxParams) -> Module {
             name: "MN0".to_string(),
             width: params.width,
             length,
-            drain: conn_slice("din", 0, 0),
-            source: sig_conn(&dout),
-            gate: sig_conn(&sel_b),
+            drain: sig_conn(&bl),
+            source: sig_conn(&int),
+            gate: sig_conn(&data),
             body: sig_conn(&vss),
             mos_type: MosType::Nmos,
         }
@@ -286,9 +352,23 @@ pub fn column_write_mux_2(params: ColumnMuxParams) -> Module {
             name: "MN1".to_string(),
             width: params.width,
             length,
-            drain: conn_slice("din", 1, 1),
-            source: sig_conn(&dout),
-            gate: sig_conn(&sel),
+            drain: sig_conn(&br),
+            source: sig_conn(&int),
+            gate: sig_conn(&data_b),
+            body: sig_conn(&vss),
+            mos_type: MosType::Nmos,
+        }
+        .into(),
+    );
+
+    m.instances.push(
+        Mosfet {
+            name: "MN2".to_string(),
+            width: params.width,
+            length,
+            drain: sig_conn(&int),
+            source: sig_conn(&vss),
+            gate: sig_conn(&en),
             body: sig_conn(&vss),
             mos_type: MosType::Nmos,
         }
