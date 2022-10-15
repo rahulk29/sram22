@@ -22,7 +22,7 @@ Notable things that are missing from the layout include:
 ### LVS
 
 The following are LVS clean:
-* Precharge drivers
+* Read muxes
 * Write muxes
 * Column inverters
 * Sense amplifiers
