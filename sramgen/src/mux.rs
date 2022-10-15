@@ -541,7 +541,7 @@ mod tests {
     fn test_column_write_mux_2_array() -> Result<(), Box<dyn std::error::Error>> {
         let modules = column_write_mux_2_array(ColumnMuxArrayParams {
             name: "column_write_mux_2_array".to_string(),
-            width: 64,
+            width: 32,
             instance_params: ColumnMuxParams {
                 length: 150,
                 width: 2_000,
