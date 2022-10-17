@@ -293,6 +293,30 @@ pub fn sramgen_sp_sense_amp() -> ExternalModule {
     )
 }
 
+/// Reference to the simplest control logic available.
+///
+/// The SPICE subcircuit definition looks like this:
+/// ```spice
+/// .SUBCKT sramgen_control clk we pc_b wl_en write_driver_en sense_en vdd vss
+/// ```
+#[inline]
+pub fn sramgen_control_simple() -> ExternalModule {
+    simple_ext_module(
+        SKY130_DOMAIN,
+        SRAM_CONTROL,
+        &[
+            "clk",
+            "we",
+            "pc_b",
+            "wl_en",
+            "write_driver_en",
+            "sense_en",
+            "vdd",
+            "vss",
+        ],
+    )
+}
+
 #[inline]
 pub fn sramgen_sp_sense_amp_ref() -> Reference {
     Reference {
@@ -310,7 +334,7 @@ pub fn all_external_modules() -> Vec<ExternalModule> {
         ext_pmos(NETLIST_FORMAT),
         sram_sp_cell(),
         sram_sp_replica_cell(),
-        sramgen_control(),
+        sramgen_control_simple(),
         sramgen_sp_sense_amp(),
         openram_dff(),
     ]

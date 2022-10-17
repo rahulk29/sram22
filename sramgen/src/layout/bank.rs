@@ -694,16 +694,6 @@ mod tests {
     }
 
     #[test]
-    fn test_sram_bank_512x16() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_bank_512x16")?;
-        draw_sram_bank(512, 16, &mut lib).map_err(panic_on_err)?;
-
-        lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
-
-        Ok(())
-    }
-
-    #[test]
     fn test_sram_bank_32x64() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_bank_32x64")?;
         draw_sram_bank(32, 64, &mut lib).map_err(panic_on_err)?;
@@ -717,16 +707,6 @@ mod tests {
     fn test_sram_bank_16x16() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_bank_16x16")?;
         draw_sram_bank(16, 16, &mut lib).map_err(panic_on_err)?;
-
-        lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_sram_bank_128x128() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_bank_128x128")?;
-        draw_sram_bank(128, 128, &mut lib).map_err(panic_on_err)?;
 
         lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
 

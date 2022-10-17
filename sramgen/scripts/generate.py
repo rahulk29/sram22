@@ -49,7 +49,7 @@ def netlist_all():
             dest = open(f"build/spice/{CKT}.spice", "w")
             tmp = f.read()
             inp.ParseFromString(tmp)
-            dest.write(SPECTRE_PRELUDE)
+            # dest.write(SPECTRE_PRELUDE)
             netlist(pkg=inp.pkg, dest=dest, fmt="spice")
             dest.close()
         print(f"generated {CKT}")

@@ -3,31 +3,34 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 
 saved = [
+    "vdd",
+    "vss",
     "clk",
-    "clk_b",
-    "dout_out_1",
-    "dout_out_0",
+    "dout_1",
+    "dout_0",
     "wl_3",
     "wl_2",
     "wl_1",
     "wl_0",
+    "bl_3",
     "bl_2",
-    "br_2",
+    "bl_1",
     "bl_0",
+    "br_3",
+    "br_2",
+    "br_1",
     "br_0",
-    "sae",
     "blr_1",
     "brr_1",
     "blr_0",
     "brr_0",
     "addr_0",
-    "dout_1",
-    "dout_0",
-    "dout_negedge_1",
-    "dout_negedge_0",
+    "addr_b_0",
+    "sense_amp_en",
+    "dout_b_0",
 ]
 
-plot = ["dout_out_0", "dout_out_1"]
+plot = ["blr_0", "brr_0", "sense_amp_en", "dout_0", "dout_b_0"]
 
 
 def read_data(f):

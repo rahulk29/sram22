@@ -1,8 +1,8 @@
 * Sramgen control circuit
 
 .subckt control_logic_inv0 din din_b vdd vss
-Xp din_b din vdd vdd sky130_fd_pr__pfet_01v8 w='1' l='0.15'
-Xn din_b din vss vss sky130_fd_pr__nfet_01v8 w='0.6' l='0.15'
+Xp din_b din vdd vdd sky130_fd_pr__pfet_01v8 w='0.8' l='0.15'
+Xn din_b din vss vss sky130_fd_pr__nfet_01v8 w='0.5' l='0.15'
 .ends
 
 .subckt control_logic_delay_chain din din_b dout vdd vss
@@ -21,7 +21,17 @@ Xinv11 tmp10 tmp11 vdd vss control_logic_inv0
 Xinv12 tmp11 tmp12 vdd vss control_logic_inv0
 Xinv13 tmp12 tmp13 vdd vss control_logic_inv0
 Xinv14 tmp13 tmp14 vdd vss control_logic_inv0
-Xinv15 tmp14 dout vdd vss control_logic_inv0
+Xinv15 tmp14 tmp15 vdd vss control_logic_inv0
+Xinv16 tmp15 tmp16 vdd vss control_logic_inv0
+Xinv17 tmp16 tmp17 vdd vss control_logic_inv0
+Xinv18 tmp17 tmp18 vdd vss control_logic_inv0
+Xinv19 tmp18 tmp19 vdd vss control_logic_inv0
+Xinv20 tmp19 tmp20 vdd vss control_logic_inv0
+Xinv21 tmp20 tmp21 vdd vss control_logic_inv0
+Xinv22 tmp21 tmp22 vdd vss control_logic_inv0
+Xinv23 tmp22 tmp23 vdd vss control_logic_inv0
+Xinv24 tmp23 tmp24 vdd vss control_logic_inv0
+Xinv25 tmp24 dout vdd vss control_logic_inv0
 .ends
 
 .subckt control_logic_nand0 a b y vdd vss

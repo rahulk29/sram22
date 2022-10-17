@@ -24,6 +24,7 @@ pub mod sram;
 pub mod tech;
 pub mod utils;
 pub mod wl_driver;
+pub mod wmask_control;
 pub mod write_driver;
 
 pub use anyhow::Result;
