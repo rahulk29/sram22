@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
-use pdkprims::config::Int;
-use pdkprims::mos::MosType;
+
+
 
 use vlsir::circuit::Module;
 use vlsir::reference::To;
 use vlsir::Reference;
 
 use crate::gate::{and2, AndParams};
-use crate::mos::Mosfet;
+
 use crate::utils::conns::conn_slice;
 use crate::utils::{bus, port_inout, port_input, port_output, sig_conn, signal};
 

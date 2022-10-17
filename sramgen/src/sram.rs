@@ -19,7 +19,7 @@ use crate::utils::{
 };
 use crate::wl_driver::{wordline_driver_array, WordlineDriverArrayParams, WordlineDriverParams};
 use crate::wmask_control::{write_mask_control, WriteMaskControlParams};
-use crate::write_driver::{bitline_driver_array, BitlineDriverArrayParams, BitlineDriverParams};
+
 
 use crate::dff::DffArrayParams;
 
