@@ -1,10 +1,10 @@
 * SRAM 4x4 read testbench
 
-.lib /Users/rahul/acads/research/sky130/pdk/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice tt
+.lib /Users/rahul/acads/research/sky130/pdk/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice ff
 
 .include ../../lib/sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.spice
 .include ../../lib/sramgen_sp_sense_amp/sramgen_sp_sense_amp.spice
-.include ../../lib/sramgen_control/sramgen_control.spice
+.include ../../lib/sramgen_control/sramgen_control_simple.spice
 .include ../../lib/openram_dff/openram_dff.spice
 .include ../../build/spice/sram_4x4.spice
 
@@ -14,53 +14,56 @@
 
 
 Xsram
-* vdd vss clk clk_b
-+ vdd 0 clk clk_b
-* din in
-+ vdd 0
-* dout
-+ dout_out_1 dout_out_0
-* we cs
-+ 0 vdd
-* addr
-+ vdd 0 0
-* wl_en sae pcb wr_drv_en
-+ clk clk_delayed clk 0
+* vdd vss clk 
++ vdd vss clk
+* din_in_1 din_in_0
++ vdd vss
+* dout_1 dout_0
++ dout_1 dout_0
+* we
++ vss
+* addr_in_2 addr_in_1 addr_in_0 
++ vdd vss vss
 + sramgen_sram_4x4
 
 Vclk clk 0 dc 0 PULSE(0 {vdd} 10p {tr} {tf} 2n 4n 0)
-Xclk_dly clk clk_b clk_delayed vdd 0 control_logic_delay_chain
+Vss vss 0 dc 0
 Vdd vdd 0 {vdd}
 
-.ic
-+ v(xsram.xbitcells.xbitcell_2_0.q)=0
-+ v(xsram.xbitcells.xbitcell_2_2.q)={vdd}
-
 .control
+ic
++ v(xsram.xbitcells.xbitcell_2_0.q)=0.0
++ v(xsram.xbitcells.xbitcell_2_0.qb)={vdd}
++ v(xsram.xbitcells.xbitcell_2_2.q)={vdd}
++ v(xsram.xbitcells.xbitcell_2_2.qb)=0.0
+
 tran 5p 18n 0n
 wrdata read.dat
++ v(vdd)
++ v(vss)
 + v(clk)
-+ v(clk_b)
-+ v(dout_out_1)
-+ v(dout_out_0)
++ v(dout_1)
++ v(dout_0)
 + v(xsram.wl_3)
 + v(xsram.wl_2)
 + v(xsram.wl_1)
 + v(xsram.wl_0)
++ v(xsram.bl_3)
 + v(xsram.bl_2)
-+ v(xsram.br_2)
++ v(xsram.bl_1)
 + v(xsram.bl_0)
++ v(xsram.br_3)
++ v(xsram.br_2)
++ v(xsram.br_1)
 + v(xsram.br_0)
-+ v(clk_delayed)
 + v(xsram.bl_read_1)
 + v(xsram.br_read_1)
 + v(xsram.bl_read_0)
 + v(xsram.br_read_0)
 + v(xsram.addr_0)
-+ v(xsram.dout_1)
-+ v(xsram.dout_0)
-+ v(xsram.dout_negedge_1)
-+ v(xsram.dout_negedge_0)
++ v(xsram.addr_b_0)
++ v(xsram.sense_amp_en)
++ v(xsram.xsense_amp_array.data_b_0)
 .endc
 
 .end

@@ -274,7 +274,7 @@ pub fn column_read_mux_2(params: ColumnMuxParams) -> Module {
             length,
             drain: sig_conn(&dout),
             source: conn_slice("din", 0, 0),
-            gate: conn_slice("sel", 0, 0),
+            gate: conn_slice("sel", 1, 1),
             body: sig_conn(&vdd),
             mos_type: MosType::Pmos,
         }
@@ -288,7 +288,7 @@ pub fn column_read_mux_2(params: ColumnMuxParams) -> Module {
             length,
             drain: sig_conn(&dout),
             source: conn_slice("din", 1, 1),
-            gate: conn_slice("sel", 1, 1),
+            gate: conn_slice("sel", 0, 0),
             body: sig_conn(&vdd),
             mos_type: MosType::Pmos,
         }

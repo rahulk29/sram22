@@ -5,8 +5,8 @@
 
 .param cload='2p'
 .param vdd='1.8'
-.param tr='1n'
-.param tf='1n'
+.param tr='10n'
+.param tf='10n'
 
 Xamp sae inn inp outn outp vdd 0 sramgen_sp_sense_amp
 
@@ -14,8 +14,8 @@ C1 outn 0 {cload}
 C2 outp 0 {cload}
 
 Vsae sae 0 dc 0 PULSE(0 {vdd} 0.1u {tr} {tf} 0.5u 1u 0)
-Vp inp 0 dc {vdd} PULSE({vdd} 1.7 1u {tr} {tf} 1u 2u 0)
-Vn inn 0 dc 1.7 PULSE(1.7 {vdd} 1u {tr} {tf} 1u 2u 0)
+Vp inp 0 dc 0.5 PULSE(0.5 1.7 1u {tr} {tf} 1u 2u 0)
+Vn inn 0 dc 1.7 PULSE(1.7 0.5 1u {tr} {tf} 1u 2u 0)
 
 Vdd vdd 0 {vdd}
 

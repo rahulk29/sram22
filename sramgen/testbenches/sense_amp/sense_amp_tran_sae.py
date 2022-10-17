@@ -10,7 +10,7 @@ saved = [
     "sae",
 ]
 
-plot = ["outp", "sae"]
+plot = ["inp", "inn", "outp", "sae"]
 
 
 def read_data(f):
