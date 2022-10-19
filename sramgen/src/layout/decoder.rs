@@ -6,7 +6,7 @@ use crate::layout::bank::ConnectArgs;
 use crate::layout::Result;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
-use layout21::raw::{AbstractPort, BoundBoxTrait, Cell, Instance, Int, Point, Rect, Shape, Span};
+use layout21::raw::{BoundBoxTrait, Cell, Instance, Int, Point, Rect, Span};
 use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::contact::ContactParams;
@@ -554,11 +554,24 @@ fn draw_hier_decode_node(
     }
     cell.layout_mut().add_inst(and_array.clone());
 
+    let mut router = Router::new(format!("{}_{}_route", ctx.prefix, id), lib.pdk.clone());
+    let cfg = router.cfg();
+    let space = lib.pdk.bus_min_spacing(
+        1,
+        cfg.line(1),
+        ContactPolicy {
+            above: Some(ContactPosition::CenteredAdjacent),
+            below: Some(ContactPosition::CenteredNonAdjacent),
+        },
+    );
+
+    let m0 = cfg.layerkey(0);
+    let m1 = cfg.layerkey(1);
+
     for i in 0..node.num {
-        cell.abs_mut().add_port(
-            and_array
-                .port(format!("y_{}", i))
-                .named(format!("dec_{}", i)),
+        cell.add_pin_from_port(
+            and_array.port(format!("y_{i}")).named(format!("dec_{i}")),
+            m0,
         );
     }
 
@@ -574,20 +587,7 @@ fn draw_hier_decode_node(
         bbox = cell.layout_mut().bbox();
     }
 
-    let mut router = Router::new(format!("{}_{}_route", ctx.prefix, id), lib.pdk.clone());
-    let cfg = router.cfg();
-    let space = lib.pdk.bus_min_spacing(
-        1,
-        cfg.line(1),
-        ContactPolicy {
-            above: Some(ContactPosition::CenteredAdjacent),
-            below: Some(ContactPosition::CenteredNonAdjacent),
-        },
-    );
-
     let bbox = bbox.into_rect();
-    let m0 = cfg.layerkey(0);
-    let m1 = cfg.layerkey(1);
     let grid = Grid::builder()
         .center(Point::zero())
         .line(cfg.line(1))
@@ -649,9 +649,7 @@ fn draw_hier_decode_node(
         for (i, trace) in traces.iter().enumerate().take(bus_width) {
             let addr_bit = i / 2;
             let addr_bar = if i % 2 == 0 { "" } else { "_b" };
-            let mut port = AbstractPort::new(format!("addr{}_{}", addr_bar, addr_bit));
-            port.add_shape(m1, Shape::Rect(trace.rect()));
-            cell.abs_mut().add_port(port);
+            cell.add_pin(format!("addr{}_{}", addr_bar, addr_bit), m1, trace.rect())
         }
 
         cell.layout_mut().add_inst(router.finish());
@@ -682,11 +680,12 @@ fn draw_hier_decode_node(
             if port.net.starts_with("addr_b") {
                 port.set_net(format!("addr_b_{}", addr_b_idx));
                 addr_b_idx += 1;
+                cell.add_pin_from_port(port, m1);
             } else if port.net.starts_with("addr") {
                 port.set_net(format!("addr_{}", addr_idx));
                 addr_idx += 1;
+                cell.add_pin_from_port(port, m1);
             }
-            cell.abs_mut().add_port(port);
         }
     }
 
