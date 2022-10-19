@@ -3,6 +3,7 @@ use crate::decoder::TreeNode;
 use crate::gate::{GateParams, Size};
 use crate::layout::bank::ConnectArgs;
 
+use crate::layout::common::bubble_ports;
 use crate::layout::Result;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
@@ -653,6 +654,7 @@ fn draw_hier_decode_node(
         }
 
         cell.layout_mut().add_inst(router.finish());
+        bubble_ports(&mut cell, &["vpb", "vnb", "vdd", "vss"], m1);
 
         let ptr = Ptr::new(cell);
         lib.lib.cells.push(ptr.clone());
@@ -693,6 +695,7 @@ fn draw_hier_decode_node(
     assert_eq!(2usize.pow(addr_idx), node.num);
 
     cell.layout_mut().add_inst(router.finish());
+    bubble_ports(&mut cell, &["vpb", "vnb", "vdd", "vss"], m1);
 
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
