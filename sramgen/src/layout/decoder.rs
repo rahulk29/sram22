@@ -6,9 +6,7 @@ use crate::layout::bank::ConnectArgs;
 use crate::layout::Result;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
-use layout21::raw::{
-    Abstract, AbstractPort, BoundBoxTrait, Cell, Instance, Int, Layout, Point, Rect, Shape, Span,
-};
+use layout21::raw::{AbstractPort, BoundBoxTrait, Cell, Instance, Int, Point, Rect, Shape, Span};
 use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::contact::ContactParams;
@@ -518,8 +516,7 @@ fn draw_hier_decode_node(
     let id = ctx.alloc_id();
 
     let name = format!("{}_{}", ctx.prefix, id);
-    let mut layout = Layout::new(&name);
-    let mut abs = Abstract::new(&name);
+    let mut cell = Cell::empty(&name);
 
     let nand_params = GateParams {
         name: format!("{}_nand_{}", ctx.prefix, id),
@@ -555,26 +552,26 @@ fn draw_hier_decode_node(
     if ctx.output_dir == OutputDir::Left {
         and_array.reflect_horiz_anchored();
     }
-    layout.add_inst(and_array.clone());
+    cell.layout_mut().add_inst(and_array.clone());
 
     for i in 0..node.num {
-        abs.add_port(
+        cell.abs_mut().add_port(
             and_array
                 .port(format!("y_{}", i))
                 .named(format!("dec_{}", i)),
         );
     }
 
-    let mut bbox = layout.bbox();
+    let mut bbox = cell.layout_mut().bbox();
 
     let mut decoder_insts = Vec::with_capacity(decoders.len());
 
     for (i, decoder) in decoders.into_iter().enumerate() {
         let mut inst = Instance::new(format!("decoder_{}", i), decoder);
         inst.align_beneath(bbox, 1_270);
-        layout.add_inst(inst.clone());
+        cell.layout_mut().add_inst(inst.clone());
         decoder_insts.push(inst);
-        bbox = layout.bbox();
+        bbox = cell.layout_mut().bbox();
     }
 
     let mut router = Router::new(format!("{}_{}_route", ctx.prefix, id), lib.pdk.clone());
@@ -654,17 +651,10 @@ fn draw_hier_decode_node(
             let addr_bar = if i % 2 == 0 { "" } else { "_b" };
             let mut port = AbstractPort::new(format!("addr{}_{}", addr_bar, addr_bit));
             port.add_shape(m1, Shape::Rect(trace.rect()));
-            abs.add_port(port);
+            cell.abs_mut().add_port(port);
         }
 
-        layout.add_inst(router.finish());
-
-        // TODO reduce copy-pasted code.
-        let cell = Cell {
-            name,
-            layout: Some(layout),
-            abs: Some(abs),
-        };
+        cell.layout_mut().add_inst(router.finish());
 
         let ptr = Ptr::new(cell);
         lib.lib.cells.push(ptr.clone());
@@ -677,7 +667,7 @@ fn draw_hier_decode_node(
         node,
         grid: &grid,
         track_start,
-        vspan: layout.bbox().into_rect().vspan(),
+        vspan: cell.layout().bbox().into_rect().vspan(),
         router: &mut router,
         gates: GateList::Array(&and_array, node.num),
         subdecoders: &decoder_insts.iter().collect::<Vec<_>>(),
@@ -696,20 +686,14 @@ fn draw_hier_decode_node(
                 port.set_net(format!("addr_{}", addr_idx));
                 addr_idx += 1;
             }
-            abs.add_port(port);
+            cell.abs_mut().add_port(port);
         }
     }
 
     assert_eq!(addr_idx, addr_b_idx);
     assert_eq!(2usize.pow(addr_idx), node.num);
 
-    layout.add_inst(router.finish());
-
-    let cell = Cell {
-        name,
-        layout: Some(layout),
-        abs: Some(abs),
-    };
+    cell.layout_mut().add_inst(router.finish());
 
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
@@ -963,6 +947,17 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sky130_hier_decode_5bit")?;
         let tree = DecoderTree::new(5);
         draw_hier_decode(&mut lib, "hier_decode_5b", &tree.root)?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_hier_decode_7bit() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_hier_decode_7bit")?;
+        let tree = DecoderTree::new(7);
+        draw_hier_decode(&mut lib, "hier_decode_7b", &tree.root)?;
 
         lib.save_gds(test_path(&lib))?;
 
