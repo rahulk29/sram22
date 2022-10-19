@@ -30,6 +30,7 @@ pub fn sig_conn(sig: &Signal) -> Connection {
     }
 }
 
+#[derive(Debug)]
 pub struct BusConnection(Connection);
 
 impl BusConnection {

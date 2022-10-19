@@ -787,7 +787,7 @@ pub(crate) fn connect_subdecoders(args: ConnectSubdecodersArgs) {
     }
 }
 
-fn get_idxs(mut num: usize, bases: &[usize]) -> Vec<usize> {
+pub(crate) fn get_idxs(mut num: usize, bases: &[usize]) -> Vec<usize> {
     let products = bases
         .iter()
         .rev()

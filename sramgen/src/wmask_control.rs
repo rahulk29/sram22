@@ -1,8 +1,5 @@
 use std::collections::HashMap;
 
-
-
-
 use vlsir::circuit::Module;
 use vlsir::reference::To;
 use vlsir::Reference;

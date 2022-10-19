@@ -235,6 +235,125 @@ pub fn nand2(params: GateParams) -> Module {
     m
 }
 
+pub fn nand3(params: GateParams) -> Module {
+    let length = params.length;
+    let size = params.size;
+
+    let mut m = Module {
+        name: params.name,
+        ports: vec![],
+        signals: vec![],
+        instances: vec![],
+        parameters: vec![],
+    };
+    let gnd = signal("gnd");
+    let vdd = signal("vdd");
+    let a = signal("a");
+    let b = signal("b");
+    let c = signal("c");
+    let y = signal("y");
+    let x1 = signal("x1");
+    let x2 = signal("x2");
+
+    for sig in [gnd.clone(), vdd.clone()] {
+        m.ports.push(Port {
+            signal: Some(sig),
+            direction: port::Direction::Inout as i32,
+        });
+    }
+    for sig in [a.clone(), b.clone(), c.clone()] {
+        m.ports.push(Port {
+            signal: Some(sig),
+            direction: port::Direction::Input as i32,
+        });
+    }
+    m.ports.push(Port {
+        signal: Some(y.clone()),
+        direction: port::Direction::Output as i32,
+    });
+
+    m.instances.push(
+        Mosfet {
+            name: "n1".to_string(),
+            width: size.nmos_width,
+            length,
+            drain: sig_conn(&x1),
+            source: sig_conn(&gnd),
+            gate: sig_conn(&a),
+            body: sig_conn(&gnd),
+            mos_type: MosType::Nmos,
+        }
+        .into(),
+    );
+    m.instances.push(
+        Mosfet {
+            name: "n2".to_string(),
+            width: size.nmos_width,
+            length,
+            drain: sig_conn(&x2),
+            source: sig_conn(&x1),
+            gate: sig_conn(&b),
+            body: sig_conn(&gnd),
+            mos_type: MosType::Nmos,
+        }
+        .into(),
+    );
+    m.instances.push(
+        Mosfet {
+            name: "n3".to_string(),
+            width: size.nmos_width,
+            length,
+            drain: sig_conn(&y),
+            source: sig_conn(&x2),
+            gate: sig_conn(&c),
+            body: sig_conn(&gnd),
+            mos_type: MosType::Nmos,
+        }
+        .into(),
+    );
+    m.instances.push(
+        Mosfet {
+            name: "p1".to_string(),
+            width: size.pmos_width,
+            length,
+            drain: sig_conn(&y),
+            source: sig_conn(&vdd),
+            gate: sig_conn(&a),
+            body: sig_conn(&vdd),
+            mos_type: MosType::Pmos,
+        }
+        .into(),
+    );
+    m.instances.push(
+        Mosfet {
+            name: "p2".to_string(),
+            width: size.pmos_width,
+            length,
+            drain: sig_conn(&y),
+            source: sig_conn(&vdd),
+            gate: sig_conn(&b),
+            body: sig_conn(&vdd),
+            mos_type: MosType::Pmos,
+        }
+        .into(),
+    );
+    m.instances.push(
+        Mosfet {
+            name: "p3".to_string(),
+            width: size.pmos_width,
+            length,
+            drain: sig_conn(&y),
+            source: sig_conn(&vdd),
+            gate: sig_conn(&c),
+            body: sig_conn(&vdd),
+            mos_type: MosType::Pmos,
+        }
+        .into(),
+    );
+
+    m
+}
+
 pub fn inv(params: GateParams) -> Module {
     let length = params.length;
     let size = params.size;

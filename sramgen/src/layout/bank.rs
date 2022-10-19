@@ -694,9 +694,9 @@ mod tests {
     }
 
     #[test]
-    fn test_sram_bank_32x64() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_bank_32x64")?;
-        draw_sram_bank(32, 64, &mut lib).map_err(panic_on_err)?;
+    fn test_sram_bank_128x64() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sram_bank_128x64")?;
+        draw_sram_bank(128, 64, &mut lib).map_err(panic_on_err)?;
 
         lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
 
