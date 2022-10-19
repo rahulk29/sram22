@@ -184,3 +184,20 @@ pub(crate) fn sc_outline(pdk: &Pdk, inst: &Instance) -> Rect {
     }
     panic!("No outline found for cell `{}`", cell.name);
 }
+
+pub(crate) fn bubble_ports<'a>(cell: &'a mut Cell, prefixes: &'a [&'a str], layer: LayerKey) {
+    let insts = cell
+        .layout()
+        .insts
+        .iter()
+        .filter(|&i| i.has_abstract())
+        .cloned()
+        .collect::<Vec<_>>();
+    for inst in insts {
+        for prefix in prefixes {
+            for port in inst.ports_starting_with(prefix) {
+                cell.add_pin_from_port(port, layer)
+            }
+        }
+    }
+}
