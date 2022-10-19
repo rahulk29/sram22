@@ -20,7 +20,6 @@ use crate::utils::{
 use crate::wl_driver::{wordline_driver_array, WordlineDriverArrayParams, WordlineDriverParams};
 use crate::wmask_control::{write_mask_control, WriteMaskControlParams};
 
-
 use crate::dff::DffArrayParams;
 
 pub struct SramParams {
@@ -439,6 +438,19 @@ mod tests {
         });
 
         save_modules("sram_4x4", modules)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_netlist_sram_32x64() -> Result<(), Box<dyn std::error::Error>> {
+        let modules = sram(SramParams {
+            name: "sramgen_sram_32x64".to_string(),
+            row_bits: 5,
+            col_bits: 6,
+            col_mask_bits: 1,
+        });
+
+        save_modules("sram_32x64", modules)?;
         Ok(())
     }
 }

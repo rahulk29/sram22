@@ -2,8 +2,10 @@ use std::collections::HashMap;
 
 use fanout::FanoutAnalyzer;
 
-use crate::gate::{inv, nand2, Gate, GateParams, GateType, Size};
-use crate::utils::{log2, sig_conn, signal, BusConnection};
+use crate::gate::{inv, nand2, nand3, Gate, GateParams, GateType, Size};
+use crate::layout::decoder::get_idxs;
+use crate::utils::conns::conn_slice;
+use crate::utils::{conn_map, log2, sig_conn, signal, BusConnection};
 use pdkprims::config::Int;
 use serde::{Deserialize, Serialize};
 use vlsir::circuit::connection::Stype;
@@ -220,7 +222,7 @@ pub fn hierarchical_decoder(params: DecoderParams) -> Vec<Module> {
     let vdd = signal("vdd");
     let gnd = signal("gnd");
 
-    let mut gen = DecoderGen::new(&params, &vdd, &gnd);
+    let mut gen = DecoderGen::new(&params, &vdd, &gnd, in_bits as usize);
     gen.helper(Some(&params.tree.root), 0);
 
     m.instances.append(&mut gen.instances);
@@ -237,12 +239,17 @@ struct DecoderGen<'a> {
     modules: Vec<Module>,
     instances: Vec<Instance>,
     addr_bits: usize,
-    nand2s: HashMap<Size, String>,
+    nands: HashMap<(usize, Size), String>,
     invs: HashMap<Size, String>,
 }
 
 impl<'a> DecoderGen<'a> {
-    pub fn new(params: &'a DecoderParams, vdd: &'a Signal, gnd: &'a Signal) -> Self {
+    pub fn new(
+        params: &'a DecoderParams,
+        vdd: &'a Signal,
+        gnd: &'a Signal,
+        addr_bits: usize,
+    ) -> Self {
         Self {
             ctr: 0,
             params,
@@ -250,8 +257,8 @@ impl<'a> DecoderGen<'a> {
             gnd,
             modules: vec![],
             instances: vec![],
-            addr_bits: 0,
-            nand2s: HashMap::new(),
+            addr_bits,
+            nands: HashMap::new(),
             invs: HashMap::new(),
         }
     }
@@ -263,6 +270,8 @@ impl<'a> DecoderGen<'a> {
 
     fn helper(&mut self, node: Option<&TreeNode>, depth: usize) -> BusConnection {
         if node.is_none() {
+            assert!(self.addr_bits >= 1);
+            self.addr_bits -= 1;
             let c = Connection {
                 stype: Some(Stype::Concat(Concat {
                     parts: vec![
@@ -283,15 +292,25 @@ impl<'a> DecoderGen<'a> {
                     ],
                 })),
             };
-            self.addr_bits += 1;
             return c.into();
         }
 
         let node = node.unwrap();
-        let sigl = self.helper(node.children.get(0), depth + 1);
-        let sigr = self.helper(node.children.get(1), depth + 1);
+        let gate_size = match node.gate.gate_type {
+            GateType::Nand2 => 2,
+            GateType::Nand3 => 3,
+            _ => unreachable!(),
+        };
+        let sigs = (0..gate_size)
+            .map(|i| node.children.get(i))
+            .map(|n| self.helper(n, depth + 1))
+            .collect::<Vec<_>>();
+        let child_sizes = (0..gate_size)
+            .map(|i| node.children.get(i).map(|n| n.num).unwrap_or(2))
+            .collect::<Vec<_>>();
 
-        assert_eq!(sigl.width() * sigr.width(), node.num);
+        println!("sigs = {:?}, num = {}", sigs, node.num);
+        assert_eq!(sigs.iter().map(|s| s.width()).product::<usize>(), node.num);
 
         let out_name = if depth == 0 {
             "decode".to_string()
@@ -304,17 +323,26 @@ impl<'a> DecoderGen<'a> {
             width: node.num as i64,
         };
 
-        let nand_name = if let Some(nand_name) = self.nand2s.get(&node.gate.size) {
+        let nand_name = if let Some(nand_name) = self.nands.get(&(gate_size, node.gate.size)) {
             nand_name.to_string()
         } else {
             let nand_name = format!("decoder_nand_{}", self.get_id());
-            let nand = nand2(GateParams {
-                name: nand_name.clone(),
-                size: node.gate.size,
-                length: self.params.lch,
-            });
+            let nand = match gate_size {
+                2 => nand2(GateParams {
+                    name: nand_name.clone(),
+                    size: node.gate.size,
+                    length: self.params.lch,
+                }),
+                3 => nand3(GateParams {
+                    name: nand_name.clone(),
+                    size: node.gate.size,
+                    length: self.params.lch,
+                }),
+                _ => unreachable!(),
+            };
             self.modules.push(nand);
-            self.nand2s.insert(node.gate.size, nand_name.clone());
+            self.nands
+                .insert((gate_size, node.gate.size), nand_name.clone());
             nand_name
         };
 
@@ -332,75 +360,55 @@ impl<'a> DecoderGen<'a> {
             inv_name
         };
 
-        let mut ctr = 0;
-        for i in 0..sigr.width() {
-            for j in 0..sigl.width() {
-                let mut conns = HashMap::with_capacity(4);
-                conns.insert(
-                    "vdd".to_string(),
-                    Connection {
-                        stype: Some(Stype::Sig(self.vdd.clone())),
-                    },
-                );
-                conns.insert(
-                    "gnd".to_string(),
-                    Connection {
-                        stype: Some(Stype::Sig(self.gnd.clone())),
-                    },
-                );
+        for i in 0..node.num {
+            let idxs = get_idxs(i, &child_sizes);
 
-                let mut inv_conns = conns.clone();
+            let tmp = signal(format!("net_{}", self.get_id()));
 
-                let tmp = signal(format!("net_{}", self.get_id()));
-                conns.insert(
-                    "y".to_string(),
-                    Connection {
-                        stype: Some(Stype::Sig(tmp.clone())),
-                    },
-                );
+            assert!(node.children.len() <= 4);
+            let ports = ["a", "b", "c", "d"].into_iter().take(gate_size);
 
-                let a = Connection {
-                    stype: Some(Stype::Slice(sigr.get(i).unwrap())),
+            let mut conns: HashMap<_, _> = [
+                ("vdd", sig_conn(self.vdd)),
+                ("gnd", sig_conn(self.gnd)),
+                ("y", sig_conn(&tmp)),
+            ]
+            .into();
+
+            for (j, port) in ports.enumerate() {
+                let conn = Connection {
+                    stype: Some(Stype::Slice(sigs[j].get(idxs[j]).unwrap())),
                 };
-                let b = Connection {
-                    stype: Some(Stype::Slice(sigl.get(j).unwrap())),
-                };
-                conns.insert("a".to_string(), a);
-                conns.insert("b".to_string(), b);
-                let nand = Instance {
-                    name: format!("nand_{}", self.get_id()),
-                    module: Some(Reference {
-                        to: Some(To::Local(nand_name.clone())),
-                    }),
-                    connections: conns,
-                    ..Default::default()
-                };
-                self.instances.push(nand);
-
-                inv_conns.insert("din".to_string(), sig_conn(&tmp));
-                inv_conns.insert(
-                    "din_b".to_string(),
-                    Connection {
-                        stype: Some(Stype::Slice(Slice {
-                            signal: out_name.clone(),
-                            top: ctr,
-                            bot: ctr,
-                        })),
-                    },
-                );
-
-                ctr += 1;
-
-                let inv = Instance {
-                    name: format!("inv_{}", self.get_id()),
-                    module: Some(Reference {
-                        to: Some(To::Local(inv_name.clone())),
-                    }),
-                    connections: inv_conns,
-                    ..Default::default()
-                };
-                self.instances.push(inv);
+                conns.insert(port, conn);
             }
+
+            let nand = Instance {
+                name: format!("nand_{}", self.get_id()),
+                module: Some(Reference {
+                    to: Some(To::Local(nand_name.clone())),
+                }),
+                connections: conn_map(conns),
+                ..Default::default()
+            };
+            self.instances.push(nand);
+
+            let conns: HashMap<_, _> = [
+                ("vdd", sig_conn(self.vdd)),
+                ("gnd", sig_conn(self.gnd)),
+                ("din", sig_conn(&tmp)),
+                ("din_b", conn_slice(&out_name, i as i64, i as i64)),
+            ]
+            .into();
+
+            let inv = Instance {
+                name: format!("inv_{}", self.get_id()),
+                module: Some(Reference {
+                    to: Some(To::Local(inv_name.clone())),
+                }),
+                connections: conn_map(conns),
+                ..Default::default()
+            };
+            self.instances.push(inv);
         }
 
         Connection {
@@ -583,6 +591,20 @@ mod tests {
         let modules = hierarchical_decoder(decoder_params);
 
         save_modules("decoder_16", modules)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_netlist_decoder_128() -> Result<(), Box<dyn std::error::Error>> {
+        let tree = DecoderTree::new(7);
+        let decoder_params = DecoderParams {
+            tree,
+            lch: 150,
+            name: "decoder_128".to_string(),
+        };
+        let modules = hierarchical_decoder(decoder_params);
+
+        save_modules("decoder_128", modules)?;
         Ok(())
     }
 }

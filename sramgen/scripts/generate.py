@@ -8,6 +8,7 @@ CKTS = [
     "and2",
     "bitcells",
     "decoder_16",
+    "decoder_128",
     "precharge",
     "precharge_array",
     "sense_amp_array",
@@ -25,6 +26,7 @@ CKTS = [
     "replica_column",
     "sram_4x4",
     "sram_16x16",
+    "sram_32x64",
 ]
 
 SPECTRE_PRELUDE = """* SPICE NETLIST
