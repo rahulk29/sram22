@@ -248,9 +248,12 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .up()
             .set_min_width()
             .s_bend(dst, Dir::Horiz);
+        let m2_block = src.bbox().union(&dst.bbox()).into_rect();
+        power_grid.add_padded_blockage(2, m2_block);
     }
 
-    let core_bot = core.bbox().into_rect().bottom();
+    power_grid.add_padded_blockage(2, core_bbox.into_rect());
+    let core_bot = core_bbox.into_rect().bottom();
     let pc_bbox = pc.bbox().into_rect();
     let read_mux_bbox = read_mux.bbox().into_rect();
     let pc_top = pc_bbox.top();
@@ -339,8 +342,6 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .s_bend(dst, Dir::Vert)
             .vert_to(read_mux_bbox.bottom())
             .s_bend(dst2, Dir::Vert);
-
-        if i % 2 == 0 {}
     }
 
     let sa_bbox = sense_amp.bbox().into_rect();
@@ -499,6 +500,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
                 .place_cursor_centered()
                 .horiz_to_trace(&traces[idx])
                 .contact_down(traces[idx].rect());
+            power_grid.add_padded_blockage(2, trace.rect().expand(cfg.space(2)));
 
             let (target_port, target_idx) = if i < decoder1_bits {
                 // Route to decoder1
@@ -522,16 +524,16 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
                 .up()
                 .horiz_to_trace(&traces[idx])
                 .contact_down(traces[idx].rect());
+            power_grid.add_padded_blockage(2, trace.rect().expand(cfg.space(2)));
         }
     }
 
-    power_grid.add_padded_blockage(2, pc.bbox().into_rect());
-    power_grid.add_padded_blockage(2, read_mux.bbox().into_rect());
-    power_grid.add_padded_blockage(2, write_mux.bbox().into_rect());
-
-    let sense_amp_blockage = sense_amp.bbox().into_rect().expand_dir(Dir::Vert, -5_600);
-    power_grid.add_padded_blockage(2, sense_amp_blockage);
-    power_grid.add_padded_blockage(3, sense_amp_blockage);
+    let sense_amp_bbox = sense_amp.bbox().into_rect();
+    let column_blockage = Rect::from_spans(
+        sense_amp_bbox.hspan(),
+        Span::new(sense_amp_bbox.bottom(), pc_bbox.top()),
+    );
+    power_grid.add_padded_blockage(2, column_blockage);
 
     layout.insts.push(core);
     layout.insts.push(decoder1);
