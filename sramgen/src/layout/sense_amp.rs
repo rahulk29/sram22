@@ -1,5 +1,5 @@
 use layout21::raw::geom::Dir;
-use layout21::raw::{Cell, Instance};
+use layout21::raw::{Cell, Element, Instance};
 
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
@@ -40,6 +40,12 @@ pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
             .right_overhang(100)
             .build()?
             .rect();
+        cell.layout_mut().add(Element {
+            net: None,
+            layer: lib.pdk.metal(2),
+            purpose: layout21::raw::LayerPurpose::Drawing,
+            inner: layout21::raw::Shape::Rect(rect),
+        });
         cell.add_pin(net, lib.pdk.metal(2), rect);
     }
     for prefix in ["inp", "inn", "outp"] {
