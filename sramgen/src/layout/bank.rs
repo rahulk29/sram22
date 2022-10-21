@@ -136,7 +136,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let mut read_mux = Instance::new("read_mux_array", read_mux);
     let mut write_mux = Instance::new("write_mux_array", write_mux);
     let mut col_inv = Instance::new("col_inv_array", col_inv);
-    let mut sense_amp = Instance::new("sense_amp_array", sense_amp.cell);
+    let mut sense_amp = Instance::new("sense_amp_array", sense_amp);
     let mut dffs = Instance::new("dff_array", data_dffs.cell);
     let mut addr_dffs = Instance::new("addr_dffs", addr_dffs);
     let mut tmc = Instance::new("tmc", tmc);
