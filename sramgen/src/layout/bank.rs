@@ -2,7 +2,7 @@ use derive_builder::Builder;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Rect;
 use layout21::raw::translate::Translate;
-use layout21::raw::{AbstractPort, BoundBoxTrait, Cell, Dir, Instance, Int, Layout, Point, Span};
+use layout21::raw::{AbstractPort, BoundBoxTrait, Cell, Dir, Instance, Int, Point, Span};
 use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::{LayerIdx, PdkLib};
@@ -35,7 +35,7 @@ pub const M1_PWR_OVERHANG: Int = 200;
 pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "sram_bank".to_string();
 
-    let mut layout = Layout::new(&name);
+    let mut cell = Cell::empty(&name);
 
     assert_eq!(cols % 2, 0);
     assert_eq!(rows % 2, 0);
@@ -590,28 +590,28 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         }
     }
 
-    layout.insts.push(core);
-    layout.insts.push(decoder1);
-    layout.insts.push(decoder2);
-    layout.insts.push(wldrv_nand);
-    layout.insts.push(wldrv_inv);
-    layout.insts.push(nand_dec);
-    layout.insts.push(inv_dec);
-    layout.insts.push(pc);
-    layout.insts.push(read_mux);
-    layout.insts.push(write_mux);
-    layout.insts.push(col_inv);
-    layout.insts.push(sense_amp);
-    layout.insts.push(din_dffs.clone());
-    layout.insts.push(addr_dffs);
+    cell.layout_mut().insts.push(core);
+    cell.layout_mut().insts.push(decoder1);
+    cell.layout_mut().insts.push(decoder2);
+    cell.layout_mut().insts.push(wldrv_nand);
+    cell.layout_mut().insts.push(wldrv_inv);
+    cell.layout_mut().insts.push(nand_dec);
+    cell.layout_mut().insts.push(inv_dec);
+    cell.layout_mut().insts.push(pc);
+    cell.layout_mut().insts.push(read_mux);
+    cell.layout_mut().insts.push(write_mux);
+    cell.layout_mut().insts.push(col_inv);
+    cell.layout_mut().insts.push(sense_amp);
+    cell.layout_mut().insts.push(din_dffs.clone());
+    cell.layout_mut().insts.push(addr_dffs);
     // layout.insts.push(tmc);
 
-    let bbox = layout.bbox();
+    let bbox = cell.layout().bbox();
 
     power_grid.set_enclosure(bbox);
     power_grid.add_blockage(2, core_bbox.into_rect());
 
-    layout.insts.push(power_grid.generate()?);
+    cell.layout_mut().add_inst(power_grid.generate()?);
 
     let guard_ring = draw_guard_ring(
         lib,
@@ -640,20 +640,15 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .vert_to(guard_ring_bbox.bottom());
     }
 
-    layout.insts.push(guard_ring);
+    cell.layout_mut().add_inst(guard_ring);
 
     let routing = router.finish();
-    layout.insts.push(routing);
+    cell.layout_mut().add_inst(routing);
 
     // Draw dnwell
     let dnwell_rect = bbox.into_rect().expand(1_600);
-    layout.draw_rect(lib.pdk.get_layerkey("dnwell").unwrap(), dnwell_rect);
-
-    let cell = Cell {
-        name,
-        abs: None,
-        layout: Some(layout),
-    };
+    cell.layout_mut()
+        .draw_rect(lib.pdk.get_layerkey("dnwell").unwrap(), dnwell_rect);
 
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
