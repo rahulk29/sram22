@@ -2,7 +2,7 @@ use crate::layout::Result;
 use crate::tech::openram_dff_gds;
 use derive_builder::Builder;
 use layout21::raw::translate::Translate;
-use layout21::raw::{Abstract, Cell, Dir, Instance, Int, Layout, Point};
+use layout21::raw::{Abstract, AbstractPort, Cell, Dir, Instance, Int, Layout, Point};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
@@ -142,12 +142,11 @@ pub fn draw_dff_grid(lib: &mut PdkLib, params: DffGridParams) -> Result<Ptr<Cell
                 GridOrder::ColumnMajor => j + i * rows,
             };
 
-            let mut ports = inst.ports();
-            for p in ports.iter_mut() {
-                p.net = format!("{}_{}", &p.net, port_idx);
-            }
-            for port in ports {
-                cell.abs_mut().add_port(port);
+            for mut port in inst.ports() {
+                if port.net == "d" || port.net == "q" || port.net == "qn" || port.net == "clk" {
+                    port.net = format!("{}_{}", &port.net, port_idx);
+                    cell.abs_mut().add_port(port);
+                }
             }
 
             cell.layout_mut().add_inst(inst.clone());
@@ -166,6 +165,10 @@ pub fn draw_dff_grid(lib: &mut PdkLib, params: DffGridParams) -> Result<Ptr<Cell
                 .port_name(port)
                 .build()?
                 .element();
+            if port == "vdd" || port == "gnd" {
+                let mut port = AbstractPort::new(format!("{}_{}", port, j));
+                port.add_shape(m0, elt.inner.clone());
+            }
             cell.layout_mut().add(elt);
         }
     }
