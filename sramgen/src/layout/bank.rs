@@ -421,15 +421,30 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         }
 
         // data
-        let rect = Rect::from_spans(data_span, sa_bbox.vspan());
-        power_grid.add_padded_blockage(3, rect);
-        let mut trace = router.trace(rect, 3);
+        let data_rect = Rect::from_spans(data_span, sa_bbox.vspan());
+        power_grid.add_padded_blockage(3, data_rect);
+        let mut trace = router.trace(data_rect, 3);
         let dst1 = col_inv.port(format!("din_{}", i)).largest_rect(m0).unwrap();
         trace.place_cursor(Dir::Vert, true).vert_to(dst1.top());
         power_grid.add_padded_blockage(3, trace.rect());
         trace.down().down().down();
 
-        let mut trace = router.trace(rect, 3);
+        // Route din dff to data_rect
+        let src = din_dffs.port(format!("q_{}", i)).largest_rect(m2).unwrap();
+        let mut trace = router.trace(src, 2);
+        let voffset = if i % 2 == 0 { 1_200 } else { -800 };
+        trace
+            .place_cursor_centered()
+            .down()
+            .vert_to(src.center().y + voffset)
+            .up()
+            .set_width(cfg.line(3))
+            .horiz_to_rect(data_rect)
+            .up()
+            .set_min_width()
+            .vert_to_rect(data_rect);
+
+        let mut trace = router.trace(data_rect, 3);
         trace
             .place_cursor(Dir::Vert, true)
             .vert_to(data_pin.top())

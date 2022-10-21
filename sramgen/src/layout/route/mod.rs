@@ -211,10 +211,22 @@ impl Trace {
     }
 
     #[inline]
+    pub fn horiz_to_rect(&mut self, rect: Rect) -> &mut Self {
+        let target = rect.edge_farther_from(self.rect.center().x, Dir::Horiz);
+        self.horiz_to(target)
+    }
+
+    #[inline]
     pub fn vert_to_trace(&mut self, other: &Self) -> &mut Self {
         let target = other
             .rect
             .edge_farther_from(self.rect.center().y, Dir::Vert);
+        self.vert_to(target)
+    }
+
+    #[inline]
+    pub fn vert_to_rect(&mut self, rect: Rect) -> &mut Self {
+        let target = rect.edge_farther_from(self.rect.center().y, Dir::Vert);
         self.vert_to(target)
     }
 
