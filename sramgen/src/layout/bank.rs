@@ -13,18 +13,17 @@ use crate::layout::col_inv::draw_col_inv_array;
 use crate::layout::decoder::{
     bus_width, draw_hier_decode, ConnectSubdecodersArgs, GateArrayParams,
 };
-use crate::layout::dff::draw_vert_dff_array;
+use crate::layout::dff::{draw_dff_grid, draw_vert_dff_array, DffGridParams};
 use crate::layout::guard_ring::{draw_guard_ring, GuardRingParams};
 use crate::layout::power::{PowerStrapGen, PowerStrapOpts};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
 use crate::layout::tmc::{draw_tmc, TmcParams};
 use crate::precharge::{PrechargeArrayParams, PrechargeParams};
-use crate::tech::BITCELL_HEIGHT;
+use crate::tech::{BITCELL_HEIGHT, COLUMN_WIDTH};
 
 use super::array::draw_array;
 use super::decoder::{draw_inv_dec_array, draw_nand2_dec_array};
-use super::dff::draw_dff_array;
 use super::mux::{draw_read_mux_array, draw_write_mux_array};
 use super::precharge::draw_precharge_array;
 use super::route::Trace;
@@ -108,7 +107,13 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let write_mux = draw_write_mux_array(lib, cols, 2, 1)?;
     let col_inv = draw_col_inv_array(lib, "col_data_inv", cols / 2)?;
     let sense_amp = draw_sense_amp_array(lib, cols / 2)?;
-    let data_dffs = draw_dff_array(lib, "data_dff_array", cols / 2)?;
+    let din_dff_params = DffGridParams::builder()
+        .name("data_dff_array")
+        .rows(2)
+        .cols(cols / 4)
+        .row_pitch(4 * COLUMN_WIDTH)
+        .build()?;
+    let din_dffs = draw_dff_grid(lib, din_dff_params)?;
     let tmc = draw_tmc(
         lib,
         TmcParams {
@@ -137,7 +142,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let mut write_mux = Instance::new("write_mux_array", write_mux);
     let mut col_inv = Instance::new("col_inv_array", col_inv);
     let mut sense_amp = Instance::new("sense_amp_array", sense_amp);
-    let mut dffs = Instance::new("dff_array", data_dffs.cell);
+    let mut din_dffs = Instance::new("dff_array", din_dffs);
     let mut addr_dffs = Instance::new("addr_dffs", addr_dffs);
     let mut tmc = Instance::new("tmc", tmc);
 
@@ -168,8 +173,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     sense_amp.align_beneath(col_inv.bbox(), 1_000);
     sense_amp.align_centers_horizontally_gridded(core_bbox, grid);
 
-    dffs.align_beneath(sense_amp.bbox(), 1_000);
-    dffs.align_centers_horizontally_gridded(core_bbox, grid);
+    din_dffs.align_beneath(sense_amp.bbox(), 1_000);
+    din_dffs.align_centers_horizontally_gridded(core_bbox, grid);
 
     decoder1.align_beneath(core_bbox, 1_000);
     decoder1.align_to_the_left_of(sense_amp.bbox(), 1_000);
@@ -179,7 +184,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     addr_dffs.align_top(decoder2.bbox());
 
-    tmc.align_above(dffs.bbox(), 1_270);
+    tmc.align_above(din_dffs.bbox(), 1_270);
     tmc.align_to_the_right_of(core_bbox, 1_270);
 
     // Top level routing
@@ -582,13 +587,11 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     layout.insts.push(write_mux);
     layout.insts.push(col_inv);
     layout.insts.push(sense_amp);
-    layout.insts.push(dffs);
+    layout.insts.push(din_dffs.clone());
     layout.insts.push(addr_dffs);
     // layout.insts.push(tmc);
 
     let bbox = layout.bbox();
-    let routing = router.finish();
-    layout.insts.push(routing);
 
     power_grid.set_enclosure(bbox);
     power_grid.add_blockage(2, core_bbox.into_rect());
@@ -602,10 +605,30 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             prefix: "sram_guard_ring".to_string(),
         },
     )?;
+    let guard_ring = Instance::new("sram_guard_ring", guard_ring);
+    let guard_ring_bbox = guard_ring.bbox().into_rect();
 
-    layout
-        .insts
-        .push(Instance::new("sram_guard_ring", guard_ring));
+    for i in 0..(cols / 2) {
+        let src = din_dffs.port(format!("d_{i}")).largest_rect(m2).unwrap();
+        let offset = if i % 2 == 0 {
+            -3 * cfg.line(3)
+        } else {
+            3 * cfg.line(3)
+        };
+        let mut trace = router.trace(src, 2);
+        let cx = src.center().x;
+        trace
+            .place_cursor_centered()
+            .horiz_to(cx + offset)
+            .up()
+            .set_min_width()
+            .vert_to(guard_ring_bbox.bottom());
+    }
+
+    layout.insts.push(guard_ring);
+
+    let routing = router.finish();
+    layout.insts.push(routing);
 
     // Draw dnwell
     let dnwell_rect = bbox.into_rect().expand(1_600);

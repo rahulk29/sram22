@@ -138,8 +138,8 @@ pub fn draw_dff_grid(lib: &mut PdkLib, params: DffGridParams) -> Result<Ptr<Cell
             inst.reflect_vert = (ji % 2) == 1;
 
             let port_idx = match order {
-                GridOrder::RowMajor => i + j * rows,
-                GridOrder::ColumnMajor => j + i * cols,
+                GridOrder::RowMajor => i + j * cols,
+                GridOrder::ColumnMajor => j + i * rows,
             };
 
             let mut ports = inst.ports();
