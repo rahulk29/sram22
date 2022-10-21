@@ -431,16 +431,17 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .contact_down(data_pin);
     }
 
-    connect(ConnectArgs {
+    let trace = connect(ConnectArgs {
         metal_idx: 2,
         port_idx: 1,
         router: &mut router,
         insts: GateList::Array(&pc, cols + 1),
         port_name: "vdd",
         dir: Dir::Horiz,
-        overhang: None,
+        overhang: Some(100),
         transverse_offset: 0,
     });
+    power_grid.add_vdd_target(2, trace.rect());
 
     let space = lib.pdk.bus_min_spacing(
         1,
@@ -535,6 +536,40 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     );
     power_grid.add_padded_blockage(2, column_blockage);
 
+    // power strapping - metal 1
+    for instance in [
+        &decoder1,
+        &decoder2,
+        &wldrv_nand,
+        &wldrv_inv,
+        &nand_dec,
+        &inv_dec,
+    ] {
+        for name in ["vpb", "vdd"] {
+            for port in instance.ports_starting_with(name) {
+                power_grid.add_vdd_target(1, port.largest_rect(m1).unwrap());
+            }
+        }
+        for name in ["vnb", "vss"] {
+            for port in instance.ports_starting_with(name) {
+                power_grid.add_gnd_target(1, port.largest_rect(m1).unwrap());
+            }
+        }
+    }
+    // power strapping - metal 2
+    for instance in [&read_mux, &write_mux, &col_inv] {
+        for name in ["vpb", "vdd"] {
+            for port in instance.ports_starting_with(name) {
+                power_grid.add_vdd_target(2, port.largest_rect(m2).unwrap());
+            }
+        }
+        for name in ["vnb", "vss"] {
+            for port in instance.ports_starting_with(name) {
+                power_grid.add_gnd_target(2, port.largest_rect(m2).unwrap());
+            }
+        }
+    }
+
     layout.insts.push(core);
     layout.insts.push(decoder1);
     layout.insts.push(decoder2);
@@ -557,6 +592,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     power_grid.set_enclosure(bbox);
     power_grid.add_blockage(2, core_bbox.into_rect());
+
     layout.insts.push(power_grid.generate()?);
 
     let guard_ring = draw_guard_ring(

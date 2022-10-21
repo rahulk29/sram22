@@ -33,6 +33,7 @@ pub fn draw_gate_array(
     lib: &mut PdkLib,
     params: GateArrayParams,
     cell: Ptr<Cell>,
+    bubble_ports: &[&str],
     connect_ports: &[&str],
     skip_pins: &[&str],
 ) -> Result<Ptr<Cell>> {
@@ -68,7 +69,11 @@ pub fn draw_gate_array(
     let inst = Instance::new("array", array.cell);
 
     let mut cell = Cell::empty(prefix);
-    cell.abs_mut().ports.extend(inst.ports());
+    for prefix in bubble_ports {
+        for port in inst.ports_starting_with(prefix) {
+            cell.abs_mut().add_port(port);
+        }
+    }
 
     for (layer, port) in [("nwell", "vpb"), ("nsdm", "nsdm"), ("psdm", "psdm")] {
         let layer = lib.pdk.get_layerkey(layer).unwrap();
@@ -105,12 +110,19 @@ pub fn draw_gate_array(
 
 pub fn draw_inv_dec_array(lib: &mut PdkLib, params: GateArrayParams) -> Result<Ptr<Cell>> {
     let inv_dec = super::gate::draw_inv_dec(lib, format!("{}_inv", params.prefix))?;
-    draw_gate_array(lib, params, inv_dec, &["vdd", "vss"], &[])
+    draw_gate_array(
+        lib,
+        params,
+        inv_dec,
+        &["din", "din_b"],
+        &["vdd", "vss"],
+        &[],
+    )
 }
 
 pub fn draw_nand2_dec_array(lib: &mut PdkLib, params: GateArrayParams) -> Result<Ptr<Cell>> {
     let nand = super::gate::draw_nand2_dec(lib, format!("{}_nand", &params.prefix))?;
-    draw_gate_array(lib, params, nand, &["vdd", "vss"], &[])
+    draw_gate_array(lib, params, nand, &["a", "b", "y"], &["vdd", "vss"], &[])
 }
 
 pub fn draw_nand3_array(
@@ -119,7 +131,14 @@ pub fn draw_nand3_array(
     gate: GateParams,
 ) -> Result<Ptr<Cell>> {
     let nand = super::gate::draw_nand3(lib, gate)?;
-    draw_gate_array(lib, params, nand, &["vdd0", "vdd1", "vss"], &["vdd1"])
+    draw_gate_array(
+        lib,
+        params,
+        nand,
+        &["a", "b", "c", "y"],
+        &["vdd0", "vdd1", "vss"],
+        &["vdd1"],
+    )
 }
 
 pub fn draw_and2_array(
@@ -148,6 +167,7 @@ pub fn draw_and2_array(
             pitch: Some(pitch),
         },
         nand,
+        &["a", "b", "y"],
         &["vdd", "vss"],
         &[],
     )?;
@@ -160,6 +180,7 @@ pub fn draw_and2_array(
             pitch: Some(pitch),
         },
         inv,
+        &["din", "din_b"],
         &["vdd", "vss"],
         &[],
     )?;
@@ -238,6 +259,7 @@ pub fn draw_and3_array(
             pitch: Some(pitch),
         },
         nand,
+        &["a", "b", "c", "y"],
         &["vdd0", "vdd1", "vss"],
         &["vdd1"],
     )?;
@@ -250,6 +272,7 @@ pub fn draw_and3_array(
             pitch: Some(pitch),
         },
         inv,
+        &["din", "din_b"],
         &["vdd", "vss"],
         &[],
     )?;
