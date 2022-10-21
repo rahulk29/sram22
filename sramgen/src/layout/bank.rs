@@ -557,7 +557,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         }
     }
     // power strapping - metal 2
-    for instance in [&read_mux, &write_mux, &col_inv] {
+    for instance in [&read_mux, &write_mux, &col_inv, &sense_amp] {
         for name in ["vpb", "vdd"] {
             for port in instance.ports_starting_with(name) {
                 power_grid.add_vdd_target(2, port.largest_rect(m2).unwrap());
