@@ -193,6 +193,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
     let m2 = cfg.layerkey(2);
+    let m3 = cfg.layerkey(3);
 
     let mut power_grid = PowerStrapGen::new(
         PowerStrapOpts::builder()
@@ -638,6 +639,16 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .up()
             .set_min_width()
             .vert_to(guard_ring_bbox.bottom());
+
+        let rect = trace.rect();
+        cell.add_pin(
+            format!("din_{i}"),
+            m3,
+            Rect::from_spans(
+                rect.hspan(),
+                Span::new(rect.bottom(), rect.bottom() + 3 * cfg.line(3)),
+            ),
+        );
     }
 
     cell.layout_mut().add_inst(guard_ring);
