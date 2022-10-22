@@ -563,9 +563,12 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     }
 
     let sense_amp_bbox = sense_amp.bbox().into_rect();
+    let din_dff_bbox = din_dffs.bbox().into_rect();
+    let mut blockage_hspan = sense_amp_bbox.hspan();
+    blockage_hspan.expand(true, 3_000);
     let column_blockage = Rect::from_spans(
-        sense_amp_bbox.hspan(),
-        Span::new(sense_amp_bbox.bottom(), pc_bbox.top()),
+        blockage_hspan,
+        Span::new(din_dff_bbox.bottom(), pc_bbox.top()),
     );
     power_grid.add_padded_blockage(2, column_blockage);
 
