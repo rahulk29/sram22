@@ -29,7 +29,6 @@ pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
     let mut cell = Cell::empty("sense_amp_array");
 
     let inst = Instance::new("sense_amp_array_core", core.cell);
-    cell.abs_mut().ports.append(&mut inst.ports());
 
     for net in ["vdd", "vss", "clk"] {
         let rect = MergeArgs::builder()
