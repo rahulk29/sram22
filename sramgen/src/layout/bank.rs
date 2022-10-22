@@ -352,6 +352,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     let sa_bbox = sense_amp.bbox().into_rect();
     let bl_bot = sense_amp.port("inn_0").largest_rect(m2).unwrap().bottom();
+
+    let mut dout_spans = Vec::with_capacity(cols / 2);
     // Route read bitlines
     for i in 0..cols / 2 {
         // Route data and data bar to 2:1 write muxes
@@ -383,17 +385,27 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .port(format!("br_out_{}", i))
             .largest_rect(m2)
             .unwrap();
-        let center = Span::merge([bl.hspan(), br.hspan()]).center();
+        let route_span = Span::merge([bl.hspan(), br.hspan()]);
 
-        let data_span = Span::from_center_span_gridded(center, cfg.line(3), cfg.grid());
-        let bl_span = Span::new(
-            data_span.start() - 2 * cfg.space(3) - cfg.line(3),
-            data_span.start() - 2 * cfg.space(3),
-        );
-        let br_span = Span::new(
-            data_span.stop() + 2 * cfg.space(3),
-            data_span.stop() + 2 * cfg.space(3) + cfg.line(3),
-        );
+        let m3_grid = Grid::builder()
+            .line(cfg.line(3))
+            .space(cfg.space(3) + 15)
+            .center(Point::new(route_span.center() - cfg.line(3), 0))
+            .grid(cfg.grid())
+            .build()?;
+
+        // track assignments:
+        // -1 = bl
+        // 0 = data output
+        // 1 = data input
+        // 2 = br
+
+        let bl_span = m3_grid.vtrack(-1);
+        let dout_span = m3_grid.vtrack(0);
+        let data_span = m3_grid.vtrack(1);
+        let br_span = m3_grid.vtrack(2);
+
+        dout_spans.push(dout_span);
 
         let bl_vspan = Span::new(bl_bot, bl.bottom());
 
@@ -428,7 +440,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         let dst1 = col_inv.port(format!("din_{}", i)).largest_rect(m0).unwrap();
         trace.place_cursor(Dir::Vert, true).vert_to(dst1.top());
         power_grid.add_padded_blockage(3, trace.rect());
-        trace.down().down().down();
+        trace.down().down().down().horiz_to_rect(dst1);
 
         // Route din dff to data_rect
         let src = din_dffs.port(format!("q_{}", i)).largest_rect(m2).unwrap();
@@ -602,7 +614,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     cell.layout_mut().insts.push(read_mux);
     cell.layout_mut().insts.push(write_mux);
     cell.layout_mut().insts.push(col_inv);
-    cell.layout_mut().insts.push(sense_amp);
+    cell.layout_mut().insts.push(sense_amp.clone());
     cell.layout_mut().insts.push(din_dffs.clone());
     cell.layout_mut().insts.push(addr_dffs);
     // layout.insts.push(tmc);
@@ -611,8 +623,6 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     power_grid.set_enclosure(bbox);
     power_grid.add_blockage(2, core_bbox.into_rect());
-
-    cell.layout_mut().add_inst(power_grid.generate()?);
 
     let guard_ring = draw_guard_ring(
         lib,
@@ -624,12 +634,14 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let guard_ring = Instance::new("sram_guard_ring", guard_ring);
     let guard_ring_bbox = guard_ring.bbox().into_rect();
 
+    // Route input and output pins
+    #[allow(clippy::needless_range_loop)]
     for i in 0..(cols / 2) {
         let src = din_dffs.port(format!("d_{i}")).largest_rect(m2).unwrap();
         let offset = if i % 2 == 0 {
-            -3 * cfg.line(3)
-        } else {
             3 * cfg.line(3)
+        } else {
+            4 * cfg.line(3) + cfg.space(3) + 30
         };
         let mut trace = router.trace(src, 2);
         let cx = src.center().x;
@@ -641,6 +653,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .vert_to(guard_ring_bbox.bottom());
 
         let rect = trace.rect();
+        power_grid.add_padded_blockage(3, rect);
         cell.add_pin(
             format!("din_{i}"),
             m3,
@@ -649,12 +662,39 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
                 Span::new(rect.bottom(), rect.bottom() + 3 * cfg.line(3)),
             ),
         );
+
+        // Route sense amp output
+        let src = sense_amp
+            .port(format!("outp_{i}"))
+            .largest_rect(m1)
+            .unwrap();
+        let mut trace = router.trace(src, 1);
+
+        let dout_rect = Rect::from_spans(dout_spans[i], Span::new(rect.bottom(), src.top()));
+        power_grid.add_padded_blockage(3, dout_rect);
+        let dout_trace = router.trace(dout_rect, 3);
+        trace
+            .place_cursor_centered()
+            .up()
+            .horiz_to_trace(&dout_trace)
+            .contact_up(dout_rect);
+
+        cell.add_pin(
+            format!("dout_{i}"),
+            m3,
+            Rect::from_spans(
+                dout_rect.hspan(),
+                Span::new(dout_rect.bottom(), dout_rect.bottom() + 3 * cfg.line(3)),
+            ),
+        );
     }
 
     cell.layout_mut().add_inst(guard_ring);
 
     let routing = router.finish();
     cell.layout_mut().add_inst(routing);
+
+    cell.layout_mut().add_inst(power_grid.generate()?);
 
     // Draw dnwell
     let dnwell_rect = bbox.into_rect().expand(1_600);
