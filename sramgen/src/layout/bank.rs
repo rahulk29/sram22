@@ -571,6 +571,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         Span::new(din_dff_bbox.bottom(), pc_bbox.top()),
     );
     power_grid.add_padded_blockage(2, column_blockage);
+    power_grid.add_padded_blockage(2, addr_dffs.bbox().into_rect());
 
     // power strapping - metal 1
     for instance in [
