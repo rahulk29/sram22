@@ -132,7 +132,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_sky130_control_logic() -> Result<()> {
+    fn test_sky130_control_logic_simple() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_control_logic_simple")?;
         draw_control_logic(&mut lib, ControlMode::Simple)?;
 
