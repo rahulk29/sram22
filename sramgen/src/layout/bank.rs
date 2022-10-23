@@ -468,6 +468,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .place_cursor(Dir::Vert, true)
             .vert_to(data_pin.top())
             .contact_down(data_pin);
+        power_grid.add_padded_blockage(3, trace.rect());
     }
 
     let trace = connect(ConnectArgs {
