@@ -446,7 +446,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         let dst1 = col_inv.port(format!("din_{}", i)).largest_rect(m0).unwrap();
         trace.place_cursor(Dir::Vert, true).vert_to(dst1.top());
         power_grid.add_padded_blockage(3, trace.rect());
-        trace.down().down().down().horiz_to_rect(dst1);
+        trace.down().horiz_to_rect(dst1).down().down();
 
         // Route din dff to data_rect
         let src = din_dffs.port(format!("q_{}", i)).largest_rect(m2).unwrap();
