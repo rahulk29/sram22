@@ -451,7 +451,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         // Route din dff to data_rect
         let src = din_dffs.port(format!("q_{}", i)).largest_rect(m2).unwrap();
         let mut trace = router.trace(src, 2);
-        let voffset = if i % 2 == 0 { 1_200 } else { -800 };
+        let voffset = if i % 2 == 0 { 1_000 } else { -800 };
         trace
             .place_cursor_centered()
             .down()
