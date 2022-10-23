@@ -30,13 +30,13 @@ Vclk clk 0 dc 0 PULSE(0 {vdd} 10p {tr} {tf} 2n 4n 0)
 Vss vss 0 dc 0
 Vdd vdd 0 {vdd}
 
-.control
-ic
+.ic
 + v(xsram.xbitcells.xbitcell_2_0.q)=0.0
-+ v(xsram.xbitcells.xbitcell_2_0.qb)={vdd}
-+ v(xsram.xbitcells.xbitcell_2_2.q)={vdd}
++ v(xsram.xbitcells.xbitcell_2_0.qb)=1.8
++ v(xsram.xbitcells.xbitcell_2_2.q)=1.8
 + v(xsram.xbitcells.xbitcell_2_2.qb)=0.0
 
+.control
 tran 5p 18n 0n
 wrdata read.dat
 + v(vdd)
