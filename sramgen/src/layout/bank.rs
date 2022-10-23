@@ -462,6 +462,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .up()
             .set_min_width()
             .vert_to_rect(data_rect);
+        power_grid.add_padded_blockage(3, trace.rect());
 
         let mut trace = router.trace(data_rect, 3);
         trace
