@@ -260,7 +260,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .up()
             .set_min_width()
             .s_bend(dst, Dir::Horiz);
-        let m2_block = src.bbox().union(&dst.bbox()).into_rect();
+        let m2_block = src.bbox().union(&dst.bbox()).into_rect().expand(75);
         power_grid.add_padded_blockage(2, m2_block);
     }
 
