@@ -70,6 +70,9 @@ Xinv_pc clk pc_b vdd vss control_logic_inv0
 * WRITE_DRIVER_EN = PC_B && WE
 Xand2 pc_b we write_driver_en vdd vss control_logic_and0
 
+* WL_EN = !WL_EN_B
+Xinv_wl_en wl_en_b wl_en vdd vss control_logic_inv0
+
 * SENSE_EN = delay(WL_EN)
 X_delay_sae pc_b wl_en_b sense_en vdd vss control_logic_delay_chain
 .ends
