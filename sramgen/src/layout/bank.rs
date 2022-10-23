@@ -668,7 +668,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .vert_to(guard_ring_bbox.bottom());
 
         let rect = trace.rect();
-        power_grid.add_padded_blockage(3, rect);
+        power_grid.add_padded_blockage(3, rect.expand(10));
         cell.add_pin(
             format!("din_{i}"),
             m3,
