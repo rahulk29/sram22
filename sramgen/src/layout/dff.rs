@@ -1,9 +1,15 @@
+use std::sync::Arc;
+
 use crate::layout::Result;
 use crate::tech::openram_dff_gds;
 use derive_builder::Builder;
+use layout21::raw::align::AlignRect;
 use layout21::raw::translate::Translate;
-use layout21::raw::{Abstract, AbstractPort, Cell, Dir, Instance, Int, Layout, Point};
+use layout21::raw::{
+    Abstract, AbstractPort, BoundBoxTrait, Cell, Dir, Element, Instance, Int, Layout, Point, Shape,
+};
 use layout21::utils::Ptr;
+use pdkprims::contact::Contact;
 use pdkprims::PdkLib;
 
 use crate::layout::array::*;
@@ -118,6 +124,8 @@ pub fn draw_dff_grid(lib: &mut PdkLib, params: DffGridParams) -> Result<Ptr<Cell
     let dff = openram_dff_gds(lib)?;
     let mut tmp = Instance::new("", dff.clone());
     let m0 = lib.pdk.metal(0);
+    let m1 = lib.pdk.metal(1);
+    let m2 = lib.pdk.metal(2);
     let vdd = tmp.port("vdd").largest_rect(m0).unwrap();
     let vss = tmp.port("gnd").largest_rect(m0).unwrap();
 
@@ -127,6 +135,7 @@ pub fn draw_dff_grid(lib: &mut PdkLib, params: DffGridParams) -> Result<Ptr<Cell
     let y_offset = vdd.top() - vss.top();
 
     let horiz_pitch = row_pitch.unwrap_or_else(|| vdd.width());
+    let mut tap_cell: Option<(Arc<Contact>, Arc<Contact>)> = None;
 
     for j in 0..rows {
         let mut row_dffs = Vec::with_capacity(cols);
@@ -159,17 +168,48 @@ pub fn draw_dff_grid(lib: &mut PdkLib, params: DffGridParams) -> Result<Ptr<Cell
             } else {
                 m0
             };
-            let elt = MergeArgs::builder()
+            let rect = MergeArgs::builder()
                 .layer(layer)
                 .insts(GateList::Cells(&row_dffs))
                 .port_name(port)
                 .build()?
-                .element();
+                .rect();
             if port == "vdd" || port == "gnd" {
+                let ct_boundary = rect.expand(170 / 2);
+                let (c1, c2) = match tap_cell {
+                    Some((ref c1, ref c2)) => (c1.clone(), c2.clone()),
+                    None => {
+                        let c1 = lib
+                            .pdk
+                            .get_contact_within("viali", m0, ct_boundary)
+                            .unwrap();
+                        let c2 = lib.pdk.get_contact_within("via1", m1, ct_boundary).unwrap();
+                        tap_cell = Some((c1.clone(), c2.clone()));
+                        (c1, c2)
+                    }
+                };
+
+                let mut i1 = Instance::new(format!("licon_{j}"), c1.cell.clone());
+                let mut i2 = Instance::new(format!("via1_{j}"), c2.cell.clone());
+
+                i1.align_centers_gridded(rect.bbox(), lib.pdk.grid());
+                i2.align_centers_gridded(rect.bbox(), lib.pdk.grid());
+
+                let port_rect = i2.port("x").largest_rect(m2).unwrap();
+                cell.layout_mut().add_inst(i1);
+                cell.layout_mut().add_inst(i2);
+
                 let mut port = AbstractPort::new(format!("{}_{}", port, j));
-                port.add_shape(m0, elt.inner.clone());
+                port.add_shape(m2, Shape::Rect(port_rect));
+                cell.abs_mut().add_port(port);
             }
-            cell.layout_mut().add(elt);
+
+            cell.layout_mut().add(Element {
+                net: None,
+                layer,
+                purpose: layout21::raw::LayerPurpose::Drawing,
+                inner: Shape::Rect(rect),
+            });
         }
     }
 

@@ -593,14 +593,15 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             }
         }
     }
+
     // power strapping - metal 2
-    for instance in [&read_mux, &write_mux, &col_inv, &sense_amp] {
-        for name in ["vpb", "vdd"] {
+    for instance in [&read_mux, &write_mux, &col_inv, &sense_amp, &din_dffs] {
+        for name in ["vpb", "vdd", "vpwr"] {
             for port in instance.ports_starting_with(name) {
                 power_grid.add_vdd_target(2, port.largest_rect(m2).unwrap());
             }
         }
-        for name in ["vnb", "vss"] {
+        for name in ["vnb", "vss", "gnd"] {
             for port in instance.ports_starting_with(name) {
                 power_grid.add_gnd_target(2, port.largest_rect(m2).unwrap());
             }
