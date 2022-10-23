@@ -13,7 +13,7 @@ use crate::layout::col_inv::draw_col_inv_array;
 use crate::layout::decoder::{
     bus_width, draw_hier_decode, ConnectSubdecodersArgs, GateArrayParams,
 };
-use crate::layout::dff::{draw_dff_grid, draw_vert_dff_array, DffGridParams};
+use crate::layout::dff::{draw_dff_grid, DffGridParams};
 use crate::layout::guard_ring::{draw_guard_ring, GuardRingParams};
 use crate::layout::power::{PowerStrapGen, PowerStrapOpts};
 use crate::layout::route::grid::{Grid, TrackLocator};
@@ -51,7 +51,13 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let decoder1 = draw_hier_decode(lib, "predecoder_1", &decoder_tree.root.children[0])?;
     let decoder2 = draw_hier_decode(lib, "predecoder_2", &decoder_tree.root.children[1])?;
     let decoder1_bits = clog2(decoder_tree.root.children[0].num);
-    let addr_dffs = draw_vert_dff_array(lib, "addr_dffs", row_bits + col_sel_bits)?;
+    let addr_dff_params = DffGridParams::builder()
+        .name("addr_dff_array")
+        .rows(row_bits + col_sel_bits)
+        .cols(1)
+        .row_pitch(COLUMN_WIDTH)
+        .build()?;
+    let addr_dffs = draw_dff_grid(lib, addr_dff_params)?;
 
     let core = draw_array(rows, cols, lib)?;
     let nand_dec = draw_nand2_dec_array(
@@ -595,7 +601,9 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     }
 
     // power strapping - metal 2
-    for instance in [&read_mux, &write_mux, &col_inv, &sense_amp, &din_dffs] {
+    for instance in [
+        &read_mux, &write_mux, &col_inv, &sense_amp, &din_dffs, &addr_dffs,
+    ] {
         for name in ["vpb", "vdd", "vpwr"] {
             for port in instance.ports_starting_with(name) {
                 power_grid.add_vdd_target(2, port.largest_rect(m2).unwrap());
