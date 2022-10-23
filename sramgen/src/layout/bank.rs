@@ -260,7 +260,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .up()
             .set_min_width()
             .s_bend(dst, Dir::Horiz);
-        let m2_block = src.bbox().union(&dst.bbox()).into_rect();
+        let m2_block = src.bbox().union(&dst.bbox()).into_rect().expand(75);
         power_grid.add_padded_blockage(2, m2_block);
     }
 
@@ -446,12 +446,12 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         let dst1 = col_inv.port(format!("din_{}", i)).largest_rect(m0).unwrap();
         trace.place_cursor(Dir::Vert, true).vert_to(dst1.top());
         power_grid.add_padded_blockage(3, trace.rect());
-        trace.down().down().down().horiz_to_rect(dst1);
+        trace.down().horiz_to_rect(dst1).down().down();
 
         // Route din dff to data_rect
         let src = din_dffs.port(format!("q_{}", i)).largest_rect(m2).unwrap();
         let mut trace = router.trace(src, 2);
-        let voffset = if i % 2 == 0 { 1_200 } else { -800 };
+        let voffset = if i % 2 == 0 { 1_000 } else { -800 };
         trace
             .place_cursor_centered()
             .down()
@@ -462,12 +462,14 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .up()
             .set_min_width()
             .vert_to_rect(data_rect);
+        power_grid.add_padded_blockage(3, trace.rect());
 
         let mut trace = router.trace(data_rect, 3);
         trace
             .place_cursor(Dir::Vert, true)
             .vert_to(data_pin.top())
             .contact_down(data_pin);
+        power_grid.add_padded_blockage(3, trace.rect());
     }
 
     let trace = connect(ConnectArgs {
@@ -666,7 +668,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .vert_to(guard_ring_bbox.bottom());
 
         let rect = trace.rect();
-        power_grid.add_padded_blockage(3, rect);
+        power_grid.add_padded_blockage(3, rect.expand(10));
         cell.add_pin(
             format!("din_{i}"),
             m3,

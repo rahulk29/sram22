@@ -244,7 +244,7 @@ impl Trace {
         let cr = self.cursor_rect();
 
         let x_span = cr.span(!dir);
-        let src_edge = cr.edge_closer_to(x, dir);
+        let src_edge = cr.edge_farther_from(x, dir);
         let l_span = Span::new(x, src_edge);
 
         let rect = Rect::span_builder()
