@@ -290,7 +290,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     conns.insert("data", sig_conn(&din));
     conns.insert("data_b", sig_conn(&din_b));
     conns.insert("we_0_0", conn_slice("write_driver_en", 0, 0));
-    conns.insert("we_1_0", conn_slice("write_driver_en", 0, 0));
+    conns.insert("we_1_0", conn_slice("write_driver_en", 1, 1));
     m.instances.push(Instance {
         name: "column_write_mux_2_array".to_string(),
         module: local_reference("column_write_mux_2_array"),
