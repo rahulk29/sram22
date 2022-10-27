@@ -10,6 +10,7 @@ use pdkprims::{LayerIdx, PdkLib};
 use crate::clog2;
 use crate::decoder::DecoderTree;
 use crate::layout::col_inv::draw_col_inv_array;
+use crate::layout::control::{draw_control_logic, ControlMode};
 use crate::layout::decoder::{
     bus_width, draw_hier_decode, ConnectSubdecodersArgs, GateArrayParams,
 };
@@ -48,6 +49,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let decoder_tree = DecoderTree::new(row_bits);
     assert_eq!(decoder_tree.root.children.len(), 2);
 
+    let control = draw_control_logic(lib, ControlMode::Simple)?;
     let decoder1 = draw_hier_decode(lib, "predecoder_1", &decoder_tree.root.children[0])?;
     let decoder2 = draw_hier_decode(lib, "predecoder_2", &decoder_tree.root.children[1])?;
     let decoder1_bits = clog2(decoder_tree.root.children[0].num);
@@ -137,6 +139,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         reflect_vert: false,
     };
 
+    let mut control = Instance::new("control_logic", control);
+    control.angle = Some(90f64);
     let mut decoder1 = Instance::new("hierarchical_decoder", decoder1);
     let mut decoder2 = Instance::new("hierarchical_decoder", decoder2);
     let mut wldrv_nand = Instance::new("wldrv_nand_array", wldrv_nand);
@@ -188,7 +192,11 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     decoder2.align_beneath(decoder1.bbox(), 1_270);
     decoder2.align_to_the_left_of(sense_amp.bbox(), 1_000);
 
-    addr_dffs.align_top(decoder2.bbox());
+    let decoder2_bbox = decoder2.bbox();
+    control.align_beneath(decoder2_bbox, 1_270);
+    control.align_left(decoder2_bbox);
+
+    addr_dffs.align_top(decoder2_bbox);
 
     tmc.align_above(din_dffs.bbox(), 1_270);
     tmc.align_to_the_right_of(core_bbox, 1_270);
@@ -213,6 +221,15 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .name("bank_power_strap")
             .enclosure(Rect::new(Point::zero(), Point::zero()))
             .build()?,
+    );
+
+    power_grid.add_padded_blockage(
+        2,
+        control
+            .port("clk")
+            .largest_rect(m2)
+            .unwrap()
+            .expand(cfg.line(2) / 2),
     );
 
     for i in 0..rows {
@@ -589,6 +606,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         &wldrv_inv,
         &nand_dec,
         &inv_dec,
+        &control,
     ] {
         for name in ["vpb", "vdd"] {
             for port in instance.ports_starting_with(name) {
@@ -621,6 +639,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     cell.layout_mut().insts.push(core);
     cell.layout_mut().insts.push(decoder1);
     cell.layout_mut().insts.push(decoder2);
+    cell.layout_mut().insts.push(control);
     cell.layout_mut().insts.push(wldrv_nand);
     cell.layout_mut().insts.push(wldrv_inv);
     cell.layout_mut().insts.push(nand_dec);

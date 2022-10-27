@@ -1,6 +1,6 @@
 use crate::layout::bank::GateList;
 use crate::layout::common::MergeArgs;
-use crate::tech::{sc_and2_gds, sc_inv_gds, sc_tap_gds, sc_buf_gds};
+use crate::tech::{sc_and2_gds, sc_buf_gds, sc_inv_gds, sc_tap_gds};
 use crate::Result;
 
 use layout21::raw::{Cell, Instance};
@@ -104,7 +104,13 @@ pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cel
     let inv = sc_inv_gds(lib)?;
     let buf = sc_buf_gds(lib)?;
     let tap = sc_tap_gds(lib)?;
-    let delay_chain = draw_inv_chain(lib, InvChainParams { prefix: "sram22_control_logic_delay_chain", num: 25 })?;
+    let delay_chain = draw_inv_chain(
+        lib,
+        InvChainParams {
+            prefix: "sram22_control_logic_delay_chain",
+            num: 25,
+        },
+    )?;
 
     let tap0 = Instance::new("tap0", tap.clone());
     let mut tap1 = Instance::new("tap1", tap);
@@ -134,14 +140,21 @@ pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cel
     let src = inv.port("y").largest_rect(m0).unwrap();
     let dst = buf.port("x").largest_rect(m0).unwrap();
     let mut trace = router.trace(src, 0);
-    trace.place_cursor_centered().vert_to(src.center().y - 225).horiz_to_rect(dst);
+    trace
+        .place_cursor_centered()
+        .vert_to(src.center().y - 225)
+        .horiz_to_rect(dst);
     cell.add_pin("pc_b", m0, trace.rect());
 
     // buffer to and gate
     let src = buf.port("a").largest_rect(m0).unwrap();
     let dst = and.port("a").largest_rect(m0).unwrap();
     let mut trace = router.trace(src, 0);
-    trace.place_cursor_centered().up().horiz_to_rect(dst).contact_down(dst);
+    trace
+        .place_cursor_centered()
+        .up()
+        .horiz_to_rect(dst)
+        .contact_down(dst);
     cell.add_pin("wl_en", m1, trace.rect());
     cell.add_pin_from_port(and.port("x").named("write_driver_en"), m0);
 
@@ -149,15 +162,33 @@ pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cel
     let src = inv.port("a").largest_rect(m0).unwrap();
     let dst = delay_chain.port("din").largest_rect(m0).unwrap();
     let mut trace = router.trace(src, 0);
-    trace.place_cursor_centered().up().up().vert_to_rect(dst).contact_down(dst);
+    trace
+        .place_cursor_centered()
+        .up()
+        .up()
+        .vert_to_rect(dst)
+        .contact_down(dst);
     cell.add_pin("clk", m2, trace.rect());
     cell.add_pin_from_port(delay_chain.port("dout").named("sense_en"), m0);
 
+    cell.add_pin_from_port(delay_chain.port("vdd").named("vdd0"), m1);
+    cell.add_pin_from_port(delay_chain.port("vss").named("vss0"), m1);
+
     cell.layout_mut().add_inst(tap0);
+    cell.layout_mut().add_inst(tap1);
+
+    let port = MergeArgs::builder()
+        .layer(m1)
+        .insts(GateList::Cells(&cell.layout().insts))
+        .port_name("vgnd")
+        .build()?
+        .port()
+        .named("vss1");
+    cell.add_pin_from_port(port, m1);
+
     cell.layout_mut().add_inst(inv);
     cell.layout_mut().add_inst(buf);
     cell.layout_mut().add_inst(and);
-    cell.layout_mut().add_inst(tap1);
     cell.layout_mut().add_inst(delay_chain);
     cell.layout_mut().add_inst(router.finish());
 
