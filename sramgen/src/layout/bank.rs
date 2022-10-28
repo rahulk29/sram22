@@ -9,6 +9,7 @@ use pdkprims::{LayerIdx, PdkLib};
 
 use crate::clog2;
 use crate::decoder::DecoderTree;
+use crate::gate::{AndParams, Size};
 use crate::layout::col_inv::draw_col_inv_array;
 use crate::layout::control::{draw_control_logic, ControlMode};
 use crate::layout::decoder::{
@@ -20,8 +21,10 @@ use crate::layout::power::{PowerStrapGen, PowerStrapOpts};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
 use crate::layout::tmc::{draw_tmc, TmcParams};
+use crate::layout::wmask_control::draw_write_mask_control;
 use crate::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::tech::{BITCELL_HEIGHT, COLUMN_WIDTH};
+use crate::wmask_control::WriteMaskControlParams;
 
 use super::array::draw_array;
 use super::decoder::{draw_inv_dec_array, draw_nand2_dec_array};
@@ -50,6 +53,25 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     assert_eq!(decoder_tree.root.children.len(), 2);
 
     let control = draw_control_logic(lib, ControlMode::Simple)?;
+    let wmask_control = draw_write_mask_control(
+        lib,
+        WriteMaskControlParams {
+            name: "write_mask_control".to_string(),
+            width: 2,
+            and_params: AndParams {
+                name: "write_mask_control_and2".to_string(),
+                nand_size: Size {
+                    nmos_width: 1_200,
+                    pmos_width: 1_800,
+                },
+                inv_size: Size {
+                    nmos_width: 1_200,
+                    pmos_width: 1_800,
+                },
+                length: 150,
+            },
+        },
+    )?;
     let decoder1 = draw_hier_decode(lib, "predecoder_1", &decoder_tree.root.children[0])?;
     let decoder2 = draw_hier_decode(lib, "predecoder_2", &decoder_tree.root.children[1])?;
     let decoder1_bits = clog2(decoder_tree.root.children[0].num);
@@ -141,6 +163,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     let mut control = Instance::new("control_logic", control);
     control.angle = Some(90f64);
+    let mut wmask_control = Instance::new("write_mask_control", wmask_control);
     let mut decoder1 = Instance::new("hierarchical_decoder", decoder1);
     let mut decoder2 = Instance::new("hierarchical_decoder", decoder2);
     let mut wldrv_nand = Instance::new("wldrv_nand_array", wldrv_nand);
@@ -194,7 +217,10 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     let decoder2_bbox = decoder2.bbox();
     control.align_beneath(decoder2_bbox, 1_270);
-    control.align_left(decoder2_bbox);
+    control.align_to_the_left_of(decoder2_bbox, 0);
+
+    wmask_control.align_beneath(decoder2_bbox, 1_270);
+    wmask_control.align_to_the_right_of(control.bbox(), 1_270);
 
     addr_dffs.align_top(decoder2_bbox);
 
@@ -607,6 +633,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         &nand_dec,
         &inv_dec,
         &control,
+        &wmask_control,
     ] {
         for name in ["vpb", "vdd"] {
             for port in instance.ports_starting_with(name) {
@@ -640,6 +667,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     cell.layout_mut().insts.push(decoder1);
     cell.layout_mut().insts.push(decoder2);
     cell.layout_mut().insts.push(control);
+    cell.layout_mut().insts.push(wmask_control);
     cell.layout_mut().insts.push(wldrv_nand);
     cell.layout_mut().insts.push(wldrv_inv);
     cell.layout_mut().insts.push(nand_dec);
