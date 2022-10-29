@@ -48,6 +48,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     let row_bits = clog2(rows);
     let col_sel_bits = 1;
+    let total_addr_bits = row_bits + col_sel_bits;
 
     let decoder_tree = DecoderTree::new(row_bits);
     assert_eq!(decoder_tree.root.children.len(), 2);
@@ -77,7 +78,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let decoder1_bits = clog2(decoder_tree.root.children[0].num);
     let addr_dff_params = DffGridParams::builder()
         .name("addr_dff_array")
-        .rows(row_bits + col_sel_bits)
+        .rows(total_addr_bits + 1) // 1 extra bit for write enable
         .cols(1)
         .row_pitch(COLUMN_WIDTH)
         .build()?;
@@ -578,7 +579,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     for i in 0..row_bits {
         for (port, addr_prefix, idx) in [("q", "addr", 2 * i), ("qn", "addr_b", 2 * i + 1)] {
             let src = addr_dffs
-                .port(format!("{}_{}", port, i + col_sel_bits))
+                .port(format!("{}_{}", port, i))
                 .largest_rect(m2)
                 .unwrap();
             let mut trace = router.trace(src, 2);
@@ -636,7 +637,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         .metal_idx(3)
         .port_idx(2)
         .router(&mut router)
-        .insts(GateList::Array(&addr_dffs, row_bits + col_sel_bits))
+        .insts(GateList::Array(&addr_dffs, total_addr_bits))
         .port_name("clk")
         .dir(Dir::Vert)
         .width(cfg.line(3))
@@ -733,7 +734,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     cell.layout_mut().insts.push(col_inv);
     cell.layout_mut().insts.push(sense_amp.clone());
     cell.layout_mut().insts.push(din_dffs.clone());
-    cell.layout_mut().insts.push(addr_dffs);
+    cell.layout_mut().insts.push(addr_dffs.clone());
     // layout.insts.push(tmc);
 
     let bbox = cell.layout().bbox();
@@ -800,6 +801,30 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
                 Span::new(dout_rect.bottom(), dout_rect.bottom() + 3 * cfg.line(3)),
             ),
         );
+    }
+
+    // Route address and write enable pins
+    for i in 0..=total_addr_bits {
+        let src = addr_dffs.port(format!("d_{i}")).largest_rect(m2).unwrap();
+        let mut trace = router.trace(src, 2);
+        trace
+            .place_cursor_centered()
+            .horiz_to(guard_ring_bbox.left());
+
+        let rect = trace.rect();
+        let net = if i == total_addr_bits {
+            "we".to_string()
+        } else {
+            format!("addr_{}", total_addr_bits - i - 1)
+        };
+        cell.add_pin(
+            net,
+            m2,
+            Rect::from_spans(
+                Span::new(rect.left(), rect.left() + 3 * cfg.line(2)),
+                rect.vspan(),
+            ),
+        )
     }
 
     cell.layout_mut().add_inst(guard_ring);
