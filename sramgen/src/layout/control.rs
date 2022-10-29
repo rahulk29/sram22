@@ -156,6 +156,7 @@ pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cel
         .horiz_to_rect(dst)
         .contact_down(dst);
     cell.add_pin("wl_en", m1, trace.rect());
+    cell.add_pin_from_port(and.port("b").named("we"), m0);
     cell.add_pin_from_port(and.port("x").named("write_driver_en"), m0);
 
     // connect clocks
