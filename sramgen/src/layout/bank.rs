@@ -681,13 +681,34 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         .horiz_to_rect(dst);
     power_grid.add_padded_blockage(2, trace.rect());
 
-    // Route wordline enable from control logic to wordline drivers
+    // Route wordline enable (wl_en) from control logic to wordline drivers
     let hspan = Span::new(
-        wldrv_nand_bbox.left() - space - 2 * cfg.line(1),
+        wldrv_nand_bbox.left() - space - 2 * cfg.line(1) - 40,
         wldrv_nand_bbox.left() - space,
     );
-    let rect = Rect::from_spans(hspan, wldrv_nand_bbox.vspan());
-    cell.layout_mut().draw_rect(m1, rect);
+    let wl_en_rect = Rect::from_spans(hspan, wldrv_nand_bbox.vspan());
+    let dst = control.port("wl_en").largest_rect(m1).unwrap();
+    let mut trace = router.trace(wl_en_rect, 1);
+    trace
+        .set_width(2 * cfg.line(1) + 40)
+        .place_cursor(Dir::Vert, false)
+        .vert_to(wl_en_rect.bottom() - 3 * cfg.line(3))
+        .up()
+        .horiz_to_rect(dst);
+    power_grid.add_padded_blockage(2, trace.rect());
+    trace.up().set_min_width().vert_to_rect(dst);
+    power_grid.add_padded_blockage(3, trace.rect());
+    trace.contact_down(dst).decrement_layer().contact_down(dst);
+
+    // Connect wldrv_nand b inputs to wordline enable (wl_en)
+    for i in 0..rows {
+        let src = wldrv_nand.port(format!("b_{i}")).largest_rect(m0).unwrap();
+        let mut trace = router.trace(src, 0);
+        trace
+            .place_cursor(Dir::Horiz, false)
+            .horiz_to_rect(wl_en_rect)
+            .contact_up(wl_en_rect);
+    }
 
     let sense_amp_bbox = sense_amp.bbox().into_rect();
     let din_dff_bbox = din_dffs.bbox().into_rect();
