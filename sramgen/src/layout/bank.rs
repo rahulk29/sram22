@@ -186,6 +186,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     wldrv_inv.align_centers_vertically_gridded(core_bbox, grid);
     wldrv_nand.align_to_the_left_of(wldrv_inv.bbox(), 1_000);
     wldrv_nand.align_centers_vertically_gridded(core_bbox, grid);
+    let wldrv_nand_bbox = wldrv_nand.bbox().into_rect();
 
     inv_dec.align_to_the_left_of(wldrv_nand.bbox(), 1_000);
     inv_dec.align_centers_vertically_gridded(core_bbox, grid);
@@ -680,6 +681,14 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         .horiz_to_rect(dst);
     power_grid.add_padded_blockage(2, trace.rect());
 
+    // Route wordline enable from control logic to wordline drivers
+    let hspan = Span::new(
+        wldrv_nand_bbox.left() - space - 2 * cfg.line(1),
+        wldrv_nand_bbox.left() - space,
+    );
+    let rect = Rect::from_spans(hspan, wldrv_nand_bbox.vspan());
+    cell.layout_mut().draw_rect(m1, rect);
+
     let sense_amp_bbox = sense_amp.bbox().into_rect();
     let din_dff_bbox = din_dffs.bbox().into_rect();
     let mut blockage_hspan = sense_amp_bbox.hspan();
@@ -702,7 +711,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         .metal_idx(3)
         .port_idx(2)
         .router(&mut router)
-        .insts(GateList::Array(&addr_dffs, total_addr_bits))
+        .insts(GateList::Array(&addr_dffs, total_addr_bits + 1))
         .port_name("clk")
         .dir(Dir::Vert)
         .width(cfg.line(3))
