@@ -524,6 +524,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         dir: Dir::Horiz,
         overhang: Some(100),
         transverse_offset: 0,
+        width: None,
     });
     power_grid.add_vdd_target(2, trace.rect());
 
@@ -624,6 +625,60 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     power_grid.add_padded_blockage(2, column_blockage);
     power_grid.add_padded_blockage(2, addr_dffs.bbox().into_rect());
 
+    // clock distribution
+    for i in 0..2 {
+        let src = addr_dffs.port(format!("clk_{i}")).largest_rect(m2).unwrap();
+        let mut trace = router.trace(src, 2);
+        trace.place_cursor_centered().horiz_to(src.right() + 1_000);
+    }
+
+    let args = ConnectArgs::builder()
+        .metal_idx(3)
+        .port_idx(2)
+        .router(&mut router)
+        .insts(GateList::Array(&addr_dffs, row_bits + col_sel_bits))
+        .port_name("clk")
+        .dir(Dir::Vert)
+        .width(cfg.line(3))
+        .build()?;
+    let mut clk_trace = connect(args);
+    clk_trace.place_cursor(Dir::Vert, true).set_min_width();
+    clk_trace.vert_to(din_dff_bbox.bottom() - 3 * cfg.space(2) - 3 * cfg.line(3));
+    power_grid.add_padded_blockage(3, clk_trace.rect());
+    clk_trace
+        .down()
+        .set_width(3 * cfg.line(2))
+        .horiz_to(din_dff_bbox.right());
+    power_grid.add_padded_blockage(2, clk_trace.rect());
+
+    for i in (0..(cols / 2)).step_by(2) {
+        let args = ConnectArgs::builder()
+            .metal_idx(3)
+            .port_idx(2)
+            .router(&mut router)
+            .insts(GateList::ArraySlice(&din_dffs, i, 2))
+            .port_name("clk")
+            .dir(Dir::Vert)
+            .width(cfg.line(3))
+            .build()?;
+        let mut trace = connect(args);
+        trace
+            .place_cursor(Dir::Vert, true)
+            .vert_to_trace(&clk_trace);
+        power_grid.add_padded_blockage(3, trace.rect());
+        trace.contact_down(clk_trace.rect());
+    }
+
+    let src = control.port("clk").largest_rect(m2).unwrap();
+    let mut trace = router.trace(src, 2);
+    trace
+        .place_cursor_centered()
+        .up()
+        .set_min_width()
+        .vert_to_trace(&clk_trace);
+    power_grid.add_padded_blockage(3, trace.rect());
+    trace.contact_down(clk_trace.rect());
+
     // power strapping - metal 1
     for instance in [
         &decoder1,
@@ -700,11 +755,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     #[allow(clippy::needless_range_loop)]
     for i in 0..(cols / 2) {
         let src = din_dffs.port(format!("d_{i}")).largest_rect(m2).unwrap();
-        let offset = if i % 2 == 0 {
-            3 * cfg.line(3)
-        } else {
-            4 * cfg.line(3) + cfg.space(3) + 30
-        };
+        let offset = if i % 2 == 0 { -185 } else { 570 };
         let mut trace = router.trace(src, 2);
         let cx = src.center().x;
         trace
@@ -782,6 +833,8 @@ pub(crate) struct ConnectArgs<'a> {
     pub(crate) overhang: Option<isize>,
     #[builder(default)]
     pub(crate) transverse_offset: isize,
+    #[builder(setter(strip_option), default)]
+    pub(crate) width: Option<isize>,
 }
 
 impl<'a> ConnectArgs<'a> {
@@ -827,13 +880,12 @@ pub(crate) fn connect(args: ConnectArgs) -> Trace {
         .bbox(m0)
         .unwrap();
 
+    let width = args.width.unwrap_or(3 * cfg.line(args.metal_idx));
+
     let target_area = Rect::from(port_start.union(&port_stop));
     let mut span = target_area.span(args.dir);
-    let trace_xspan = Span::from_center_span_gridded(
-        target_area.span(!args.dir).center(),
-        3 * cfg.line(args.metal_idx),
-        cfg.grid(),
-    );
+    let trace_xspan =
+        Span::from_center_span_gridded(target_area.span(!args.dir).center(), width, cfg.grid());
 
     if let Some(overhang) = args.overhang {
         span.expand(true, overhang).expand(false, overhang);
