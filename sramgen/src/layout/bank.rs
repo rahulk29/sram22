@@ -651,6 +651,20 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .horiz_to_rect(dst);
     }
 
+    // Route sense amp enable to sense amp clock
+    let src = control.port("sense_en").largest_rect(m0).unwrap();
+    let dst = sense_amp.port("clk").largest_rect(m2).unwrap();
+    let mut trace = router.trace(src, 0);
+    trace
+        .place_cursor_centered()
+        .up()
+        .set_width(dst.height())
+        .vert_to_rect(dst)
+        .up()
+        .set_width(dst.height())
+        .horiz_to_rect(dst);
+    power_grid.add_padded_blockage(2, trace.rect());
+
     let sense_amp_bbox = sense_amp.bbox().into_rect();
     let din_dff_bbox = din_dffs.bbox().into_rect();
     let mut blockage_hspan = sense_amp_bbox.hspan();
