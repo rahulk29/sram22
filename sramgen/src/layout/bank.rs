@@ -615,6 +615,42 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         }
     }
 
+    // Route column address bit
+    let wmask_control_bbox = wmask_control.bbox().into_rect();
+    let space = lib.pdk.bus_min_spacing(
+        1,
+        cfg.line(1),
+        ContactPolicy {
+            above: Some(ContactPosition::CenteredNonAdjacent),
+            below: Some(ContactPosition::CenteredNonAdjacent),
+        },
+    );
+    let addr_span = Span::new(
+        wmask_control_bbox.left() - space - cfg.line(1),
+        wmask_control_bbox.left() - space,
+    );
+    let addr_b_span = Span::new(
+        addr_span.start() - space - cfg.line(1),
+        addr_span.start() - space,
+    );
+
+    for (src_port, dst_port, span) in [("qn", "sel_0", addr_b_span), ("q", "sel_1", addr_span)] {
+        let src = addr_dffs
+            .port(format!("{}_{}", src_port, total_addr_bits - 1))
+            .largest_rect(m2)
+            .unwrap();
+        let dst = wmask_control.port(dst_port).largest_rect(m0).unwrap();
+        let mut trace = router.trace(src, 2);
+        trace.place_cursor_centered().horiz_to(span.stop());
+        power_grid.add_padded_blockage(2, trace.rect());
+        trace
+            .down()
+            .vert_to(dst.top())
+            .down()
+            .set_min_width()
+            .horiz_to_rect(dst);
+    }
+
     let sense_amp_bbox = sense_amp.bbox().into_rect();
     let din_dff_bbox = din_dffs.bbox().into_rect();
     let mut blockage_hspan = sense_amp_bbox.hspan();
