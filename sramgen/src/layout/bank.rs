@@ -651,6 +651,21 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .horiz_to_rect(dst);
     }
 
+    // Route write enable (WE) to control logic
+    let src = addr_dffs
+        .port(format!("q_{}", total_addr_bits))
+        .largest_rect(m2)
+        .unwrap();
+    let dst = control.port("we").largest_rect(m0).unwrap();
+    let mut trace = router.trace(src, 2);
+    trace.place_cursor_centered().horiz_to(dst.right() - 45);
+    power_grid.add_padded_blockage(2, trace.rect());
+    trace
+        .set_min_width()
+        .down()
+        .vert_to_rect(dst)
+        .contact_down(dst);
+
     // Route sense amp enable to sense amp clock
     let src = control.port("sense_en").largest_rect(m0).unwrap();
     let dst = sense_amp.port("clk").largest_rect(m2).unwrap();
