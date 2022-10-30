@@ -1098,6 +1098,9 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         }
     }
 
+    cell.add_pin("vdd", m2, guard_ring.vdd_ring.top());
+    cell.add_pin("vss", m2, guard_ring.vss_ring.top());
+
     let routing = router.finish();
 
     cell.layout_mut().add_inst(straps.instance);
