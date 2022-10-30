@@ -30,14 +30,27 @@ CKTS = [
     "sram_32x64",
 ]
 
-SPECTRE_PRELUDE = """* SPICE NETLIST
-* * NMOS
+PROPRIETARY_PRELUDE = """*SPICE NETLIST
+* OPEN SOURCE CONVERSION PRELUDE
+
+.SUBCKT sky130_fd_pr__special_nfet_pass d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b npass l='l' w='w' mult='mult'
+.ENDS
+
+.SUBCKT sky130_fd_pr__special_nfet_latch d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b npd l='l' w='w' mult='mult'
+.ENDS
+
 .SUBCKT sky130_fd_pr__nfet_01v8 d g s b PARAMS: w=1.0 l=1.0 mult=1
 M0 d g s b nshort l='l' w='w' mult='mult'
 .ENDS
-* * PMOS
+
 .SUBCKT sky130_fd_pr__pfet_01v8 d g s b PARAMS: w=1.0 l=1.0 mult=1
 M0 d g s b pshort l='l' w='w' mult='mult'
+.ENDS
+
+.SUBCKT sky130_fd_pr__special_pfet_pass d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b ppu l='l' w='w' mult='mult'
 .ENDS
 """
 
@@ -52,7 +65,7 @@ def netlist_all():
             dest = open(f"build/spice/{CKT}.spice", "w")
             tmp = f.read()
             inp.ParseFromString(tmp)
-            # dest.write(SPECTRE_PRELUDE)
+            # dest.write(PROPRIETARY_PRELUDE)
             netlist(pkg=inp.pkg, dest=dest, fmt="spice")
             dest.close()
         print(f"generated {CKT}")
