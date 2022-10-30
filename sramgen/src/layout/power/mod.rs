@@ -39,6 +39,14 @@ pub struct PowerStrapOpts {
     enclosure: Rect,
 }
 
+pub struct PowerStraps {
+    pub instance: Instance,
+    pub left: Vec<(PowerSource, Rect)>,
+    pub right: Vec<(PowerSource, Rect)>,
+    pub bottom: Vec<(PowerSource, Rect)>,
+    pub top: Vec<(PowerSource, Rect)>,
+}
+
 impl PowerStrapGen {
     pub fn new(opts: PowerStrapOpts) -> Self {
         Self {
@@ -82,7 +90,7 @@ impl PowerStrapGen {
         self.add_blockage(layer, rect.into().expand(self.router.cfg().space(layer)));
     }
 
-    pub fn generate(mut self) -> crate::Result<Instance> {
+    pub fn generate(mut self) -> crate::Result<PowerStraps> {
         let h_grid = Grid::builder()
             .line(self.h_line)
             .space(self.h_space)
@@ -113,6 +121,14 @@ impl PowerStrapGen {
             TrackLocator::StartsBeyond,
         );
 
+        let grid_bounds = Rect::new(
+            Point::new(
+                v_grid.vtrack(v_start).start(),
+                h_grid.htrack(h_start).start(),
+            ),
+            Point::new(v_grid.vtrack(v_end).stop(), h_grid.htrack(h_end).stop()),
+        );
+
         let mut state = GenState {
             h_grid,
             v_grid,
@@ -126,8 +142,35 @@ impl PowerStrapGen {
         let mut v_traces = self.draw_traces(&mut state, Dir::Vert);
 
         self.connect_traces(&mut h_traces, &mut v_traces);
+        let h_rects = h_traces.iter().map(|(src, trace)| (*src, trace.rect()));
+        let v_rects = v_traces.iter().map(|(src, trace)| (*src, trace.rect()));
+        let left = h_rects
+            .clone()
+            .filter(|(_, rect)| rect.left() == grid_bounds.left())
+            .collect::<Vec<_>>();
+        let right = h_rects
+            .filter(|(_, rect)| rect.right() == grid_bounds.right())
+            .collect::<Vec<_>>();
+        let bottom = v_rects
+            .clone()
+            .filter(|(_, rect)| rect.bottom() == grid_bounds.bottom())
+            .collect::<Vec<_>>();
+        let top = v_rects
+            .filter(|(_, rect)| rect.top() == grid_bounds.top())
+            .collect::<Vec<_>>();
 
-        Ok(self.router.finish())
+        assert!(left.len() >= 2);
+        assert!(right.len() >= 2);
+        assert!(bottom.len() >= 2);
+        assert!(top.len() >= 2);
+
+        Ok(PowerStraps {
+            instance: self.router.finish(),
+            left,
+            right,
+            bottom,
+            top,
+        })
     }
 
     fn draw_traces(&mut self, state: &mut GenState, dir: Dir) -> Vec<(PowerSource, Trace)> {

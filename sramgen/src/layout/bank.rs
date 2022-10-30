@@ -1042,7 +1042,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let routing = router.finish();
     cell.layout_mut().add_inst(routing);
 
-    cell.layout_mut().add_inst(power_grid.generate()?);
+    let straps = power_grid.generate()?;
+    cell.layout_mut().add_inst(straps.instance);
 
     // Draw dnwell
     let dnwell_rect = bbox.expand(1_600);
