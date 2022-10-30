@@ -193,7 +193,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     nand_dec.align_to_the_left_of(inv_dec.bbox(), 1_000);
     nand_dec.align_centers_vertically_gridded(core_bbox, grid);
 
-    pc.align_beneath(core_bbox, 1_270);
+    pc.align_beneath(core_bbox, 2_900);
     pc.align_centers_horizontally_gridded(core_bbox, grid);
 
     read_mux.align_beneath(pc.bbox(), 1_000);
@@ -205,7 +205,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     col_inv.align_beneath(write_mux.bbox(), 1_000);
     col_inv.align_centers_horizontally_gridded(core_bbox, grid);
 
-    sense_amp.align_beneath(col_inv.bbox(), 1_000);
+    sense_amp.align_beneath(col_inv.bbox(), 2_900);
     sense_amp.align_centers_horizontally_gridded(core_bbox, grid);
 
     din_dffs.align_beneath(sense_amp.bbox(), 1_000);
@@ -240,8 +240,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let mut power_grid = PowerStrapGen::new(
         PowerStrapOpts::builder()
             .h_metal(2)
-            .h_line(5 * cfg.line(2))
-            .h_space(8 * cfg.line(2))
+            .h_line(640)
+            .h_space(3 * cfg.space(2))
             .v_metal(3)
             .v_line(400)
             .v_space(400)
@@ -309,7 +309,6 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         power_grid.add_padded_blockage(2, m2_block);
     }
 
-    power_grid.add_padded_blockage(2, core_bbox.into_rect());
     let core_bot = core_bbox.into_rect().bottom();
     let pc_bbox = pc.bbox().into_rect();
     let read_mux_bbox = read_mux.bbox().into_rect();
@@ -808,11 +807,30 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let din_dff_bbox = din_dffs.bbox().into_rect();
     let mut blockage_hspan = sense_amp_bbox.hspan();
     blockage_hspan.expand(true, 3_000);
-    let column_blockage = Rect::from_spans(
-        blockage_hspan,
-        Span::new(din_dff_bbox.bottom(), pc_bbox.top()),
-    );
-    power_grid.add_padded_blockage(2, column_blockage);
+
+    let mut spans = Vec::new();
+    spans.push(din_dff_bbox.vspan());
+
+    spans.push(Span::new(
+        sense_amp.port("vss").largest_rect(m2).unwrap().bottom(),
+        sense_amp.port("vdd").largest_rect(m2).unwrap().top(),
+    ));
+    spans.push(Span::new(
+        col_inv.bbox().into_rect().bottom(),
+        col_inv.port("vss").largest_rect(m2).unwrap().top(),
+    ));
+
+    power_grid.add_blockage(2, col_inv.port("vdd").largest_rect(m2).unwrap());
+    spans.push(Span::new(
+        write_mux.bbox().into_rect().bottom(),
+        pc_bbox.top() - cfg.space(2),
+    ));
+
+    for span in spans {
+        let column_blockage = Rect::from_spans(blockage_hspan, span);
+        power_grid.add_padded_blockage(2, column_blockage);
+    }
+
     power_grid.add_padded_blockage(2, addr_dffs.bbox().into_rect());
 
     // clock distribution
@@ -926,15 +944,18 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     cell.layout_mut().insts.push(addr_dffs.clone());
     // layout.insts.push(tmc);
 
-    let bbox = cell.layout().bbox();
+    let mut bbox = cell.layout().bbox().into_rect();
+    // Make space for additional power straps
+    bbox.p0.y -= 2_000;
 
     power_grid.set_enclosure(bbox);
-    power_grid.add_blockage(2, core_bbox.into_rect());
+    power_grid.add_padded_blockage(2, core_bbox.into_rect());
+    power_grid.add_padded_blockage(3, core_bbox.into_rect());
 
     let guard_ring = draw_guard_ring(
         lib,
         GuardRingParams {
-            enclosure: bbox.into_rect().expand(3_000),
+            enclosure: bbox.expand(3_000),
             prefix: "sram_guard_ring".to_string(),
         },
     )?;
@@ -1024,7 +1045,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     cell.layout_mut().add_inst(power_grid.generate()?);
 
     // Draw dnwell
-    let dnwell_rect = bbox.into_rect().expand(1_600);
+    let dnwell_rect = bbox.expand(1_600);
     cell.layout_mut()
         .draw_rect(lib.pdk.get_layerkey("dnwell").unwrap(), dnwell_rect);
 
