@@ -17,7 +17,7 @@ use crate::layout::decoder::{
 };
 use crate::layout::dff::{draw_dff_grid, DffGridParams};
 use crate::layout::guard_ring::{draw_guard_ring, GuardRingParams};
-use crate::layout::power::{PowerStrapGen, PowerStrapOpts};
+use crate::layout::power::{PowerSource, PowerStrapGen, PowerStrapOpts};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
 use crate::layout::tmc::{draw_tmc, TmcParams};
@@ -35,6 +35,32 @@ use super::sense_amp::draw_sense_amp_array;
 use super::Result;
 
 pub const M1_PWR_OVERHANG: Int = 200;
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+enum Side {
+    Left,
+    Right,
+    Bottom,
+    Top,
+}
+
+impl Side {
+    #[inline]
+    pub fn dir(&self) -> Dir {
+        match *self {
+            Side::Left | Side::Right => Dir::Horiz,
+            Side::Bottom | Side::Top => Dir::Vert,
+        }
+    }
+
+    /// Indicates if this side is a positive-going direction
+    pub fn pos(&self) -> bool {
+        match *self {
+            Side::Left | Side::Bottom => false,
+            Side::Right | Side::Top => true,
+        }
+    }
+}
 
 pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "sram_bank".to_string();
@@ -959,8 +985,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             prefix: "sram_guard_ring".to_string(),
         },
     )?;
-    let guard_ring = Instance::new("sram_guard_ring", guard_ring.cell);
-    let guard_ring_bbox = guard_ring.bbox().into_rect();
+    let guard_ring_inst = Instance::new("sram_guard_ring", guard_ring.cell);
+    let guard_ring_bbox = guard_ring_inst.bbox().into_rect();
 
     // Route input and output pins
     #[allow(clippy::needless_range_loop)]
@@ -1037,13 +1063,46 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         )
     }
 
-    cell.layout_mut().add_inst(guard_ring);
+    let straps = power_grid.generate()?;
+
+    for side in [Side::Left, Side::Right, Side::Top, Side::Bottom] {
+        let (srcs, layer) = match side {
+            Side::Left => (&straps.left, 2),
+            Side::Right => (&straps.right, 2),
+            Side::Top => (&straps.top, 3),
+            Side::Bottom => (&straps.bottom, 3),
+        };
+
+        for (net, src) in srcs {
+            let dst = match (side, *net) {
+                (Side::Left, PowerSource::Vdd) => guard_ring.vdd_ring.left(),
+                (Side::Right, PowerSource::Vdd) => guard_ring.vdd_ring.right(),
+                (Side::Bottom, PowerSource::Vdd) => guard_ring.vdd_ring.bottom(),
+                (Side::Top, PowerSource::Vdd) => guard_ring.vdd_ring.top(),
+                (Side::Left, PowerSource::Gnd) => guard_ring.vss_ring.left(),
+                (Side::Right, PowerSource::Gnd) => guard_ring.vss_ring.right(),
+                (Side::Bottom, PowerSource::Gnd) => guard_ring.vss_ring.bottom(),
+                (Side::Top, PowerSource::Gnd) => guard_ring.vss_ring.top(),
+            };
+
+            let width = src.span(!side.dir()).length();
+
+            let mut trace = router.trace(*src, layer);
+            trace.set_width(width).place_cursor(side.dir(), side.pos());
+
+            match side.dir() {
+                Dir::Horiz => trace.horiz_to_rect(dst),
+                Dir::Vert => trace.vert_to_rect(dst),
+            };
+            trace.contact_down(dst);
+        }
+    }
 
     let routing = router.finish();
-    cell.layout_mut().add_inst(routing);
 
-    let straps = power_grid.generate()?;
     cell.layout_mut().add_inst(straps.instance);
+    cell.layout_mut().add_inst(guard_ring_inst);
+    cell.layout_mut().add_inst(routing);
 
     // Draw dnwell
     let dnwell_rect = bbox.expand(1_600);
