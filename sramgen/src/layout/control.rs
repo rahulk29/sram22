@@ -129,6 +129,7 @@ pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cel
     tap1.loc.x = and.loc.x + and_outline.width();
     delay_chain.loc.y = inv_outline.height();
     delay_chain.reflect_vert_anchored();
+    buf.reflect_horiz_anchored();
 
     let mut router = Router::new("sram22_control_logic_route", lib.pdk.clone());
     let cfg = router.cfg();
@@ -138,16 +139,18 @@ pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cel
 
     // pc_b to buffer
     let src = inv.port("y").largest_rect(m0).unwrap();
-    let dst = buf.port("x").largest_rect(m0).unwrap();
+    let dst = buf.port("a").largest_rect(m0).unwrap();
     let mut trace = router.trace(src, 0);
     trace
         .place_cursor_centered()
-        .vert_to(src.center().y - 225)
-        .horiz_to_rect(dst);
-    cell.add_pin("pc_b", m0, trace.rect());
+        .vert_to(dst.center().y - 170 / 2)
+        .up()
+        .horiz_to_rect(dst)
+        .contact_down(dst);
+    cell.add_pin("pc_b", m1, trace.rect());
 
     // buffer to and gate
-    let src = buf.port("a").largest_rect(m0).unwrap();
+    let src = buf.port("x").largest_rect(m0).unwrap();
     let dst = and.port("a").largest_rect(m0).unwrap();
     let mut trace = router.trace(src, 0);
     trace
