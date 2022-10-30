@@ -959,7 +959,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             prefix: "sram_guard_ring".to_string(),
         },
     )?;
-    let guard_ring = Instance::new("sram_guard_ring", guard_ring);
+    let guard_ring = Instance::new("sram_guard_ring", guard_ring.cell);
     let guard_ring_bbox = guard_ring.bbox().into_rect();
 
     // Route input and output pins

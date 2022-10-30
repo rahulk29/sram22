@@ -1,9 +1,9 @@
 use layout21::raw::align::AlignRect;
 use layout21::raw::{BoundBoxTrait, Cell, Instance, Point, Rect};
 use layout21::utils::Ptr;
-use pdkprims::PdkLib;
+use pdkprims::{LayerIdx, PdkLib};
 
-use self::ring::RingParams;
+use self::ring::{Ring, RingParams};
 
 use super::common::{draw_two_level_contact, rect_cutout, TwoLevelContactParams};
 use super::route::Router;
@@ -15,11 +15,19 @@ pub struct GuardRingParams {
     pub prefix: String,
 }
 
+pub struct GuardRing {
+    pub cell: Ptr<Cell>,
+    pub vdd_ring: Ring,
+    pub vss_ring: Ring,
+    pub h_metal: LayerIdx,
+    pub v_metal: LayerIdx,
+}
+
 pub const WIDTH_MULTIPLIER: isize = 8;
 pub const DNW_ENCLOSURE: isize = 440;
 pub const NWELL_HOLE_ENCLOSURE: isize = 1_080;
 
-pub fn draw_guard_ring(lib: &mut PdkLib, params: GuardRingParams) -> crate::Result<Ptr<Cell>> {
+pub fn draw_guard_ring(lib: &mut PdkLib, params: GuardRingParams) -> crate::Result<GuardRing> {
     let GuardRingParams { enclosure, prefix } = params;
     let h_metal = 2;
     let v_metal = 1;
@@ -118,7 +126,13 @@ pub fn draw_guard_ring(lib: &mut PdkLib, params: GuardRingParams) -> crate::Resu
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
 
-    Ok(ptr)
+    Ok(GuardRing {
+        cell: ptr,
+        vdd_ring,
+        vss_ring,
+        h_metal,
+        v_metal,
+    })
 }
 
 #[cfg(test)]
