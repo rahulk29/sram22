@@ -171,6 +171,8 @@ pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cel
         .up()
         .up()
         .vert_to_rect(dst)
+        .contact_down(dst)
+        .decrement_layer()
         .contact_down(dst);
     cell.add_pin("clk", m2, trace.rect());
     cell.add_pin_from_port(delay_chain.port("dout").named("sense_en"), m0);
