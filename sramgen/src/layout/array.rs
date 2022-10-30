@@ -1,5 +1,5 @@
 use layout21::raw::geom::Dir;
-use layout21::raw::{Abstract, Cell, Instance, Int, Layout, Point};
+use layout21::raw::{Abstract, BoundBoxTrait, Cell, Instance, Int, Layout, Point};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
@@ -8,6 +8,7 @@ use crate::layout::grid::GridCells;
 use crate::tech::*;
 use serde::{Deserialize, Serialize};
 
+use super::route::Router;
 use super::Result;
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
@@ -336,6 +337,36 @@ pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell
     Ok(ptr)
 }
 
+pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Cell>> {
+    let mut cell = Cell::empty("sram_array_power_connector");
+    let mut router = Router::new("sram_array_power_connector_route", lib.pdk.clone());
+    let cfg = router.cfg();
+    let m1 = cfg.layerkey(1);
+
+    let bounds = array.bbox().into_rect();
+
+    for net in ["vnb", "vpb"] {
+        for (i, port) in array.ports_starting_with(net).into_iter().enumerate() {
+            let rect = port.largest_rect(m1).unwrap();
+            let mut trace = router.trace(rect, 1);
+            trace.set_width(rect.width()).place_cursor_centered();
+            if rect.center().y < bounds.center().y {
+                trace.vert_to(bounds.bottom() - 3_000);
+            } else {
+                trace.vert_to(bounds.top() + 3_000);
+            }
+            cell.add_pin(format!("{}_{}", net, i), m1, trace.rect());
+        }
+    }
+
+    cell.layout_mut().add_inst(router.finish());
+
+    let ptr = Ptr::new(cell);
+    lib.lib.cells.push(ptr.clone());
+
+    Ok(ptr)
+}
+
 #[cfg(test)]
 mod tests {
     use pdkprims::tech::sky130;
@@ -347,7 +378,10 @@ mod tests {
     #[test]
     fn test_sram_array() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_array")?;
-        draw_array(32, 32, &mut lib)?;
+        let cell = draw_array(32, 32, &mut lib)?;
+        let inst = Instance::new("sram_core", cell);
+        let nets = inst.ports().into_iter().map(|p| p.net).collect::<Vec<_>>();
+        println!("ports = {:?}", nets);
 
         lib.save_gds(test_path(&lib))?;
 
