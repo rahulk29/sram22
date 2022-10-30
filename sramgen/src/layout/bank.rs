@@ -212,10 +212,10 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     din_dffs.align_centers_horizontally_gridded(core_bbox, grid);
 
     decoder1.align_beneath(core_bbox, 1_000);
-    decoder1.align_to_the_left_of(sense_amp.bbox(), 1_000);
+    decoder1.align_to_the_left_of(sense_amp.bbox(), 3_000);
 
     decoder2.align_beneath(decoder1.bbox(), 1_270);
-    decoder2.align_to_the_left_of(sense_amp.bbox(), 1_000);
+    decoder2.align_to_the_left_of(sense_amp.bbox(), 3_000);
 
     let decoder2_bbox = decoder2.bbox();
     control.align_beneath(decoder2_bbox, 1_270);
@@ -635,6 +635,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         addr_span.start() - space,
     );
 
+    // First element is addr_0_b; second element is addr_0
+    let mut addr_0_traces = Vec::with_capacity(2);
     for (src_port, dst_port, span) in [("qn", "sel_0", addr_b_span), ("q", "sel_1", addr_span)] {
         let src = addr_dffs
             .port(format!("{}_{}", src_port, total_addr_bits - 1))
@@ -643,6 +645,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         let dst = wmask_control.port(dst_port).largest_rect(m0).unwrap();
         let mut trace = router.trace(src, 2);
         trace.place_cursor_centered().horiz_to(span.stop());
+        addr_0_traces.push(trace.rect());
         power_grid.add_padded_blockage(2, trace.rect());
         trace
             .down()
@@ -709,6 +712,97 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .horiz_to_rect(wl_en_rect)
             .contact_up(wl_en_rect);
     }
+
+    // Route control signals
+    let grid = Grid::builder()
+        .line(cfg.line(1))
+        .space(space)
+        .center(Point::zero())
+        .grid(cfg.grid())
+        .build()?;
+    let track = grid.get_track_index(Dir::Vert, sa_bbox.left(), TrackLocator::EndsBefore);
+
+    // Write driver enable (write_driver_en)
+    let src = control.port("write_driver_en").largest_rect(m0).unwrap();
+    let dst = wmask_control.port("wr_en").largest_rect(m1).unwrap();
+    let mut trace = router.trace(src, 0);
+    trace
+        .place_cursor_centered()
+        .up()
+        .vert_to(dst.bottom() - 500)
+        .up()
+        .horiz_to(dst.right());
+    power_grid.add_padded_blockage(2, trace.rect().expand(60));
+    trace.down().vert_to(dst.top());
+
+    let (pc_b, rmux_sel_1, rmux_sel_0, wmux_sel_1, wmux_sel_0) =
+        (track, track - 1, track - 2, track - 3, track - 4);
+    // precharge bar (pc_b)
+    let src = pc.port("pc_b").largest_rect(m2).unwrap();
+    let dst = control.port("pc_b").largest_rect(m0).unwrap();
+    let mut trace = router.trace(src, 2);
+    trace
+        .set_width(src.height())
+        .place_cursor(Dir::Horiz, false)
+        .horiz_to(grid.vtrack(pc_b).start())
+        .down()
+        .set_min_width()
+        .vert_to(dst.center().y)
+        .up()
+        .horiz_to_rect(dst)
+        .contact_down(dst)
+        .decrement_layer()
+        .contact_down(dst);
+    power_grid.add_padded_blockage(2, trace.rect().expand(60));
+    // write mux sel / write enable / write driver enable
+    let src = wmask_control
+        .port("write_driver_en_0")
+        .largest_rect(m0)
+        .unwrap();
+    let dst = write_mux.port("we_0_0").largest_rect(m2).unwrap();
+    let mut trace = router.trace(src, 0);
+    trace
+        .place_cursor(Dir::Horiz, true)
+        .horiz_to(grid.vtrack(wmux_sel_0).stop())
+        .up()
+        .set_min_width()
+        .vert_to(dst.top())
+        .up()
+        .horiz_to(dst.right());
+    power_grid.add_padded_blockage(2, trace.rect().expand(60));
+    let src = wmask_control
+        .port("write_driver_en_1")
+        .largest_rect(m0)
+        .unwrap();
+    let dst = write_mux.port("we_1_0").largest_rect(m2).unwrap();
+    let mut trace = router.trace(src, 0);
+    trace
+        .place_cursor(Dir::Horiz, true)
+        .horiz_to(grid.vtrack(wmux_sel_1).stop())
+        .up()
+        .set_min_width()
+        .vert_to(dst.top())
+        .up()
+        .horiz_to(dst.right());
+    power_grid.add_padded_blockage(2, trace.rect().expand(60));
+
+    // read mux select (rmux_sel_0/rmux_sel_1)
+    let dst = read_mux.port("sel_0").largest_rect(m2).unwrap();
+    let src = addr_0_traces[0];
+    let mut trace = router.trace(src, 2);
+    trace.place_cursor(Dir::Horiz, true);
+    trace.horiz_to(grid.vtrack(rmux_sel_0).stop());
+    power_grid.add_padded_blockage(2, trace.rect().expand(30));
+    trace.down().vert_to(dst.top()).up().horiz_to(dst.right());
+    power_grid.add_padded_blockage(2, trace.rect().expand(30));
+    let dst = read_mux.port("sel_1").largest_rect(m2).unwrap();
+    let src = addr_0_traces[1];
+    let mut trace = router.trace(src, 2);
+    trace.place_cursor(Dir::Horiz, true);
+    trace.horiz_to(grid.vtrack(rmux_sel_1).stop());
+    power_grid.add_padded_blockage(2, trace.rect().expand(30));
+    trace.down().vert_to(dst.top()).up().horiz_to(dst.right());
+    power_grid.add_padded_blockage(2, trace.rect().expand(30));
 
     let sense_amp_bbox = sense_amp.bbox().into_rect();
     let din_dff_bbox = din_dffs.bbox().into_rect();
