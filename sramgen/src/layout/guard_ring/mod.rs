@@ -6,6 +6,8 @@ use pdkprims::PdkLib;
 use super::common::{draw_two_level_contact, rect_cutout, TwoLevelContactParams};
 use super::route::Router;
 
+pub mod ring;
+
 pub struct GuardRingParams {
     pub enclosure: Rect,
     pub prefix: String,
