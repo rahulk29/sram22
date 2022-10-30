@@ -855,7 +855,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     power_grid.add_padded_blockage(2, addr_dffs.bbox().into_rect());
 
-    // clock distribution
+    // clock (clk) distribution
     for i in 0..2 {
         let src = addr_dffs.port(format!("clk_{i}")).largest_rect(m2).unwrap();
         let mut trace = router.trace(src, 2);
@@ -874,7 +874,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let mut clk_trace = connect(args);
     clk_trace.place_cursor(Dir::Vert, true).set_min_width();
     clk_trace.vert_to(din_dff_bbox.bottom() - 3 * cfg.space(2) - 3 * cfg.line(3));
-    power_grid.add_padded_blockage(3, clk_trace.rect());
+    let clk_m3 = clk_trace.rect();
+    power_grid.add_padded_blockage(3, clk_m3);
     clk_trace
         .down()
         .set_width(3 * cfg.line(2))
@@ -1036,6 +1037,21 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             ),
         );
     }
+
+    // Route clock (clk) pin
+    let mut trace = router.trace(clk_m3, 3);
+    trace
+        .place_cursor(Dir::Vert, false)
+        .vert_to(guard_ring_bbox.bottom());
+    let clk_pin = Rect::from_spans(
+        trace.rect().hspan(),
+        Span::new(
+            guard_ring_bbox.bottom(),
+            guard_ring_bbox.bottom() + 3 * cfg.line(3),
+        ),
+    );
+    power_grid.add_padded_blockage(3, trace.rect());
+    cell.add_pin("clk", m3, clk_pin);
 
     // Route address and write enable pins
     for i in 0..=total_addr_bits {
