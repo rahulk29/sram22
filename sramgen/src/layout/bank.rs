@@ -10,6 +10,7 @@ use pdkprims::{LayerIdx, PdkLib};
 use crate::clog2;
 use crate::decoder::DecoderTree;
 use crate::gate::{AndParams, Size};
+use crate::layout::array::draw_power_connector;
 use crate::layout::col_inv::draw_col_inv_array;
 use crate::layout::control::{draw_control_logic, ControlMode};
 use crate::layout::decoder::{
@@ -180,14 +181,9 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         },
     )?;
 
-    let core = Instance {
-        cell: core,
-        loc: Point::new(0, 0),
-        angle: None,
-        inst_name: "core".to_string(),
-        reflect_vert: false,
-    };
-
+    let core = Instance::new("core", core);
+    let core_pwr = draw_power_connector(lib, &core)?;
+    let core_pwr = Instance::new("core_power", core_pwr);
     let mut control = Instance::new("control_logic", control);
     control.angle = Some(90f64);
     let mut wmask_control = Instance::new("write_mask_control", wmask_control);
@@ -923,6 +919,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         &inv_dec,
         &control,
         &wmask_control,
+        &core_pwr,
     ] {
         for name in ["vpb", "vdd"] {
             for port in instance.ports_starting_with(name) {
@@ -953,6 +950,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     }
 
     cell.layout_mut().insts.push(core);
+    cell.layout_mut().insts.push(core_pwr);
     cell.layout_mut().insts.push(decoder1);
     cell.layout_mut().insts.push(decoder2);
     cell.layout_mut().insts.push(control);
