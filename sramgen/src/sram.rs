@@ -125,6 +125,11 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         width: (row_bits + col_mask_bits) as usize,
     });
 
+    let mut we_dff = dff_array(DffArrayParams {
+        name: "we_dff".to_string(),
+        width: 1,
+    });
+
     let sense_amp_array = sense_amp_array(SenseAmpArrayParams {
         name: "sense_amp_array".to_string(),
         width: (cols / col_mux_ratio) as i64,
@@ -158,6 +163,8 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     let dout = bus("dout", cols_masked);
     let dout_b = bus("dout_b", cols_masked);
     let we = signal("we");
+    let bank_we = signal("bank_we");
+    let bank_we_b = signal("bank_we_b");
     let pc_b = signal("pc_b");
     let bl = bus("bl", cols as i64);
     let br = bus("br", cols as i64);
@@ -217,6 +224,21 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     m.instances.push(Instance {
         name: "addr_dffs".to_string(),
         module: local_reference("addr_dff_array"),
+        parameters: HashMap::new(),
+        connections: conn_map(conns),
+    });
+
+    // we dff
+    let mut conns = HashMap::new();
+    conns.insert("vdd", sig_conn(&vdd));
+    conns.insert("vss", sig_conn(&vss));
+    conns.insert("d", sig_conn(&we));
+    conns.insert("clk", sig_conn(&clk));
+    conns.insert("q", sig_conn(&bank_we));
+    conns.insert("q_b", sig_conn(&bank_we_b));
+    m.instances.push(Instance {
+        name: "we_dff".to_string(),
+        module: local_reference("we_dff"),
         parameters: HashMap::new(),
         connections: conn_map(conns),
     });
@@ -356,7 +378,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     // Simple control logic
     let conns: HashMap<_, _> = [
         ("clk", sig_conn(&clk)),
-        ("we", sig_conn(&we)),
+        ("we", sig_conn(&bank_we)),
         ("pc_b", sig_conn(&pc_b)),
         ("wl_en", sig_conn(&wl_en)),
         ("write_driver_en", sig_conn(&wr_en)),
@@ -408,6 +430,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     modules.append(&mut write_muxes);
     modules.append(&mut data_dff_array);
     modules.append(&mut addr_dff_array);
+    modules.append(&mut we_dff);
     modules.append(&mut col_inv);
     modules.push(sense_amp_array);
     modules.append(&mut write_mask_control);
