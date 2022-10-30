@@ -146,7 +146,7 @@ impl PowerStrapGen {
             let source = self.idx_to_source(i);
             let mut trace_span = None;
             let xspan = state.grid(dir).track(dir, i);
-            for j in xstart..=xend {
+            for j in xstart..xend {
                 let span = Span::new(
                     state.grid(!dir).track(!dir, j).start(),
                     state.grid(!dir).track(!dir, j + 1).stop(),
@@ -171,7 +171,7 @@ impl PowerStrapGen {
                     trace_span = None;
                 }
 
-                if j == xend && trace_span.is_some() {
+                if j == xend - 1 && trace_span.is_some() {
                     let span = trace_span.unwrap();
                     let rect = Rect::span_builder()
                         .with(dir, span)
