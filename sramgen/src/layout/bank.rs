@@ -944,7 +944,9 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     cell.layout_mut().insts.push(addr_dffs.clone());
     // layout.insts.push(tmc);
 
-    let bbox = cell.layout().bbox().into_rect();
+    let mut bbox = cell.layout().bbox().into_rect();
+    // Make space for additional power straps
+    bbox.p0.y -= 2_000;
 
     power_grid.set_enclosure(bbox);
     power_grid.add_padded_blockage(2, core_bbox.into_rect());
