@@ -2,8 +2,6 @@ import os
 import vlsir
 import vlsirtools.netlist as netlist
 
-inp = vlsir.spice_pb2.SimInput()
-
 CKTS = [
     "and2",
     "bitcells",
@@ -57,18 +55,26 @@ M0 d g s b ppu l='l' w='w' mult='mult'
 
 def make_dirs():
     os.makedirs("build/spice/", exist_ok=True)
+    os.makedirs("build/ngspice/", exist_ok=True)
 
 
 def netlist_all():
     for CKT in CKTS:
+        print(f"Generating {CKT}...")
         with open(f"build/pb/{CKT}.pb.bin", "rb") as f:
-            dest = open(f"build/spice/{CKT}.spice", "w")
             tmp = f.read()
-            inp.ParseFromString(tmp)
-            # dest.write(PROPRIETARY_PRELUDE)
-            netlist(pkg=inp.pkg, dest=dest, fmt="spice")
-            dest.close()
-        print(f"generated {CKT}")
+            with open(f"build/ngspice/{CKT}.spice", "w") as dest:
+                print("\tngspice")
+                inp = vlsir.spice_pb2.SimInput()
+                inp.ParseFromString(tmp)
+                netlist(pkg=inp.pkg, dest=dest, fmt="spice")
+            with open(f"build/spice/{CKT}.spice", "w") as dest:
+                print("\tspice")
+                inp = vlsir.spice_pb2.SimInput()
+                inp.ParseFromString(tmp)
+                dest.write(PROPRIETARY_PRELUDE)
+                netlist(pkg=inp.pkg, dest=dest, fmt="spice")
+            print("\tDone!")
 
 
 if __name__ == "__main__":
