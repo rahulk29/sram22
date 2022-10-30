@@ -68,6 +68,23 @@ impl Ring {
     pub fn outer_enclosure(&self) -> Rect {
         Rect::new(self.bottom.p0, self.top.p1)
     }
+
+    #[inline]
+    pub fn left(&self) -> Rect {
+        self.left
+    }
+    #[inline]
+    pub fn right(&self) -> Rect {
+        self.right
+    }
+    #[inline]
+    pub fn bottom(&self) -> Rect {
+        self.bottom
+    }
+    #[inline]
+    pub fn top(&self) -> Rect {
+        self.top
+    }
 }
 
 impl BoundBoxTrait for Ring {
