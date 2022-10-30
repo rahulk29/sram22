@@ -150,10 +150,11 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     let vdd = signal("vdd");
     let vss = signal("vss");
     let clk = signal("clk");
-    let din = bus("din", cols_masked as i64);
-    let din_b = bus("din_b", cols_masked as i64);
+    let bank_din = bus("bank_din", cols_masked as i64);
+    let bank_din_b = bus("bank_din_b", cols_masked as i64);
+    // Not used
     let dff_din_b = bus("dff_din_b", cols_masked as i64);
-    let din_in = bus("din_in", cols_masked as i64);
+    let din = bus("din", cols_masked as i64);
     let dout = bus("dout", cols_masked);
     let dout_b = bus("dout_b", cols_masked);
     let we = signal("we");
@@ -163,9 +164,9 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     let bl_read = bus("bl_read", cols_masked);
     let br_read = bus("br_read", cols_masked);
     let wl_en = signal("wl_en");
-    let addr_in = bus("addr_in", row_bits + col_mask_bits);
     let addr = bus("addr", row_bits + col_mask_bits);
-    let addr_b = bus("addr_b", row_bits + col_mask_bits);
+    let bank_addr = bus("bank_addr", row_bits + col_mask_bits);
+    let bank_addr_b = bus("bank_addr_b", row_bits + col_mask_bits);
     let wl = bus("wl", rows as i64);
     let wl_data = bus("wl_data", rows as i64);
     let wr_en = signal("wr_en");
@@ -176,10 +177,10 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         port_inout(&vdd),
         port_inout(&vss),
         port_input(&clk),
-        port_input(&din_in),
+        port_input(&din),
         port_output(&dout),
         port_input(&we),
-        port_input(&addr_in),
+        port_input(&addr),
     ];
 
     let mut m = Module {
@@ -194,9 +195,9 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     let mut conns = HashMap::new();
     conns.insert("vdd", sig_conn(&vdd));
     conns.insert("vss", sig_conn(&vss));
-    conns.insert("d", sig_conn(&din_in));
+    conns.insert("d", sig_conn(&din));
     conns.insert("clk", sig_conn(&clk));
-    conns.insert("q", sig_conn(&din));
+    conns.insert("q", sig_conn(&bank_din));
     conns.insert("q_b", sig_conn(&dff_din_b));
     m.instances.push(Instance {
         name: "din_dffs".to_string(),
@@ -209,10 +210,10 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     let mut conns = HashMap::new();
     conns.insert("vdd", sig_conn(&vdd));
     conns.insert("vss", sig_conn(&vss));
-    conns.insert("d", sig_conn(&addr_in));
+    conns.insert("d", sig_conn(&addr));
     conns.insert("clk", sig_conn(&clk));
-    conns.insert("q", sig_conn(&addr));
-    conns.insert("q_b", sig_conn(&addr_b));
+    conns.insert("q", sig_conn(&bank_addr));
+    conns.insert("q_b", sig_conn(&bank_addr_b));
     m.instances.push(Instance {
         name: "addr_dffs".to_string(),
         module: local_reference("addr_dff_array"),
@@ -226,11 +227,11 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     conns.insert("gnd", sig_conn(&vss));
     conns.insert(
         "addr",
-        conn_slice("addr", row_bits + col_mask_bits - 1, col_mask_bits),
+        conn_slice("bank_addr", row_bits + col_mask_bits - 1, col_mask_bits),
     );
     conns.insert(
         "addr_b",
-        conn_slice("addr_b", row_bits + col_mask_bits - 1, col_mask_bits),
+        conn_slice("bank_addr_b", row_bits + col_mask_bits - 1, col_mask_bits),
     );
     conns.insert("decode", sig_conn(&wl_data));
 
@@ -287,8 +288,8 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     conns.insert("vss", sig_conn(&vss));
     conns.insert("bl", sig_conn(&bl));
     conns.insert("br", sig_conn(&br));
-    conns.insert("data", sig_conn(&din));
-    conns.insert("data_b", sig_conn(&din_b));
+    conns.insert("data", sig_conn(&bank_din));
+    conns.insert("data_b", sig_conn(&bank_din_b));
     conns.insert("we_0_0", conn_slice("write_driver_en", 0, 0));
     conns.insert("we_1_0", conn_slice("write_driver_en", 1, 1));
     m.instances.push(Instance {
@@ -309,7 +310,10 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         "sel",
         Connection {
             stype: Some(vlsir::circuit::connection::Stype::Concat(Concat {
-                parts: vec![conn_slice("addr", 0, 0), conn_slice("addr_b", 0, 0)],
+                parts: vec![
+                    conn_slice("bank_addr", 0, 0),
+                    conn_slice("bank_addr_b", 0, 0),
+                ],
             })),
         },
     );
@@ -324,8 +328,8 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     let mut conns = HashMap::new();
     conns.insert("vdd", sig_conn(&vdd));
     conns.insert("vss", sig_conn(&vss));
-    conns.insert("din", sig_conn(&din));
-    conns.insert("din_b", sig_conn(&din_b));
+    conns.insert("din", sig_conn(&bank_din));
+    conns.insert("din_b", sig_conn(&bank_din_b));
     m.instances.push(Instance {
         name: "col_inv_array".to_string(),
         module: local_reference("col_inv_array"),
@@ -377,7 +381,10 @@ pub fn sram(params: SramParams) -> Vec<Module> {
             "sel",
             Connection {
                 stype: Some(vlsir::circuit::connection::Stype::Concat(Concat {
-                    parts: vec![conn_slice("addr_b", 0, 0), conn_slice("addr", 0, 0)],
+                    parts: vec![
+                        conn_slice("bank_addr_b", 0, 0),
+                        conn_slice("bank_addr", 0, 0),
+                    ],
                 })),
             },
         ),
