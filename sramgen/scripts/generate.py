@@ -50,6 +50,10 @@ M0 d g s b pshort l='l' w='w' mult='mult'
 .SUBCKT sky130_fd_pr__special_pfet_pass d g s b PARAMS: w=1.0 l=1.0 mult=1
 M0 d g s b ppu l='l' w='w' mult='mult'
 .ENDS
+
+.SUBCKT sky130_fd_pr__pfet_01v8_hvt d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b phighvt l='l' w='w' mult='mult'
+.ENDS
 """
 
 
