@@ -760,7 +760,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         (track, track - 1, track - 2, track - 3, track - 4);
     // precharge bar (pc_b)
     let src = pc.port("pc_b").largest_rect(m2).unwrap();
-    let dst = control.port("pc_b").largest_rect(m0).unwrap();
+    let dst = control.port("pc_b").largest_rect(m1).unwrap();
     let mut trace = router.trace(src, 2);
     trace
         .set_width(src.height())
@@ -771,8 +771,6 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         .vert_to(dst.center().y)
         .up()
         .horiz_to_rect(dst)
-        .contact_down(dst)
-        .decrement_layer()
         .contact_down(dst);
     power_grid.add_padded_blockage(2, trace.rect().expand(60));
     // write mux sel / write enable / write driver enable
