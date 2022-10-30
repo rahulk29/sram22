@@ -26,6 +26,7 @@ CKTS = [
     "replica_column",
     "sram_4x4",
     "sram_16x16",
+    "sram_32x32",
     "sram_32x64",
 ]
 
