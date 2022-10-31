@@ -12,7 +12,7 @@ use crate::mux::{
 };
 use crate::precharge::{precharge_array, PrechargeArrayParams, PrechargeParams};
 use crate::sense_amp::{sense_amp_array, SenseAmpArrayParams};
-use crate::tech::sramgen_control_ref;
+use crate::tech::{openram_dff_ref, sramgen_control_ref};
 use crate::utils::conns::conn_slice;
 use crate::utils::{
     bus, conn_map, local_reference, port_inout, port_input, port_output, sig_conn, signal,
@@ -125,11 +125,6 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         width: (row_bits + col_mask_bits) as usize,
     });
 
-    let mut we_dff = dff_array(DffArrayParams {
-        name: "we_dff".to_string(),
-        width: 1,
-    });
-
     let sense_amp_array = sense_amp_array(SenseAmpArrayParams {
         name: "sense_amp_array".to_string(),
         width: (cols / col_mux_ratio) as i64,
@@ -229,18 +224,19 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     });
 
     // we dff
-    let mut conns = HashMap::new();
-    conns.insert("vdd", sig_conn(&vdd));
-    conns.insert("vss", sig_conn(&vss));
-    conns.insert("d", sig_conn(&we));
-    conns.insert("clk", sig_conn(&clk));
-    conns.insert("q", sig_conn(&bank_we));
-    conns.insert("q_b", sig_conn(&bank_we_b));
+    let mut connections = HashMap::new();
+    connections.insert("VDD".to_string(), sig_conn(&vdd));
+    connections.insert("GND".to_string(), sig_conn(&vss));
+    connections.insert("CLK".to_string(), sig_conn(&clk));
+    connections.insert("D".to_string(), sig_conn(&we));
+    connections.insert("Q".to_string(), sig_conn(&bank_we));
+    connections.insert("Q_N".to_string(), sig_conn(&bank_we_b));
+
     m.instances.push(Instance {
         name: "we_dff".to_string(),
-        module: local_reference("we_dff"),
+        module: Some(openram_dff_ref()),
         parameters: HashMap::new(),
-        connections: conn_map(conns),
+        connections,
     });
 
     // Decoder
@@ -430,7 +426,6 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     modules.append(&mut write_muxes);
     modules.append(&mut data_dff_array);
     modules.append(&mut addr_dff_array);
-    modules.append(&mut we_dff);
     modules.append(&mut col_inv);
     modules.push(sense_amp_array);
     modules.append(&mut write_mask_control);
