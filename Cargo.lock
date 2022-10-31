@@ -892,7 +892,7 @@ checksum = "3baf96e39c5359d2eb0dd6ccb42c62b91d9678aa68160d261b9e0ccbf9e9dea9"
 [[package]]
 name = "pdkprims"
 version = "0.0.1"
-source = "git+https://github.com/rahulk29/pdkprims.git?branch=master#610a81b0e4c134ddb00867109a916027df7e5535"
+source = "git+https://github.com/rahulk29/pdkprims.git?branch=master#8fddcdcb5371095f20476411bcffc70cc480c987"
 dependencies = [
  "arcstr",
  "derive_builder 0.11.2",
