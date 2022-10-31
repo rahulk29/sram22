@@ -697,6 +697,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let mut trace = router.trace(src, 0);
     trace
         .place_cursor_centered()
+        .horiz_to(src.right() - 2 * cfg.line(0))
         .up()
         .set_width(dst.height())
         .vert_to_rect(dst)
