@@ -32,7 +32,7 @@ pub fn sram_sp_cell() -> ExternalModule {
     simple_ext_module(
         SKY130_DOMAIN,
         SRAM_SP_CELL,
-        &["BL", "BR", "VDD", "VSS", "WL"],
+        &["BL", "BR", "VDD", "VSS", "WL", "VNB", "VPB"],
     )
 }
 

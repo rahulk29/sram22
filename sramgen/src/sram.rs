@@ -281,6 +281,8 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     conns.insert("wl", sig_conn(&wl));
     conns.insert("vdd", sig_conn(&vdd));
     conns.insert("vss", sig_conn(&vss));
+    conns.insert("vnb", sig_conn(&vss));
+    conns.insert("vpb", sig_conn(&vdd));
     m.instances.push(Instance {
         name: "bitcells".to_string(),
         module: local_reference("bitcell_array"),

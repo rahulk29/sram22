@@ -26,6 +26,8 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
     let bl = bus("bl", cols);
     let br = bus("br", cols);
     let wl = bus("wl", rows);
+    let vnb = signal("vnb");
+    let vpb = signal("vpb");
 
     let ports = vec![
         port_inout(&vdd),
@@ -33,6 +35,8 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
         port_inout(&bl),
         port_inout(&br),
         port_input(&wl),
+        port_inout(&vnb),
+        port_inout(&vpb),
     ];
 
     let mut m = Module {
@@ -48,6 +52,8 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
             let mut connections = HashMap::new();
             connections.insert("VDD".to_string(), sig_conn(&signal("vdd")));
             connections.insert("VSS".to_string(), sig_conn(&signal("vss")));
+            connections.insert("VNB".to_string(), sig_conn(&vnb));
+            connections.insert("VPB".to_string(), sig_conn(&vpb));
             connections.insert(
                 "BL".to_string(),
                 Connection {
