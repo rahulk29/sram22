@@ -377,11 +377,8 @@ mod tests {
 
     #[test]
     fn test_sram_array() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_array")?;
+        let mut lib = sky130::pdk_lib("test_sram_array_32x32")?;
         let cell = draw_array(32, 32, &mut lib)?;
-        let inst = Instance::new("sram_core", cell);
-        let nets = inst.ports().into_iter().map(|p| p.net).collect::<Vec<_>>();
-        println!("ports = {:?}", nets);
 
         lib.save_gds(test_path(&lib))?;
 
