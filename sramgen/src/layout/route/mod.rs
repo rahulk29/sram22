@@ -310,7 +310,7 @@ impl Trace {
         self
     }
 
-    fn cursor_rect(&self) -> Rect {
+    pub fn cursor_rect(&self) -> Rect {
         self.cursor.as_ref().unwrap().rect()
     }
 

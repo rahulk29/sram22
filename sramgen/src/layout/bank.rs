@@ -313,16 +313,16 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         let mut trace = router.trace(src, 0);
         trace.s_bend(dst, Dir::Horiz);
 
-        // Then connect inv decoder output to wordline.
+        // Then connect inv decoder output to wordline
         let src = wldrv_inv
             .port(format!("din_b_{}", i))
             .largest_rect(m0)
             .unwrap();
         let dst = core.port(format!("wl_{}", i)).largest_rect(m2).unwrap();
         let mut trace = router.trace(src, 0);
-        // move right
+        trace.place_cursor(Dir::Horiz, true).set_min_width();
+        let contact_block = trace.cursor_rect().expand(50);
         trace
-            .place_cursor(Dir::Horiz, true)
             .up()
             .up()
             .set_width(170)
@@ -335,6 +335,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .into_rect()
             .expand(75);
         power_grid.add_padded_blockage(2, m2_block);
+        power_grid.add_padded_blockage(2, contact_block);
     }
 
     let core_bot = core_bbox.into_rect().bottom();
