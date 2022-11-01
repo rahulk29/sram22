@@ -285,9 +285,16 @@ impl PowerStrapGen {
 
     fn contact_targets(&self, layer: LayerIdx, source: PowerSource, trace: &mut Trace) {
         // TODO need to track which targets have been hit.
+        let rect = trace.rect();
+        let shorter_dir = rect.shorter_dir();
+        let short_width = rect.span(shorter_dir).length();
         for target in self.targets(source, layer) {
-            if !trace.rect().intersection(&target.bbox()).is_empty() {
-                trace.contact_down(*target);
+            let intersection = rect.intersection(&target.bbox());
+            if !intersection.is_empty() {
+                let intersection = intersection.into_rect();
+                if intersection.span(shorter_dir).length() >= short_width / 2 {
+                    trace.contact_down(*target);
+                }
             }
         }
     }

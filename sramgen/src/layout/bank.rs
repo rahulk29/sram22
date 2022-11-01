@@ -697,6 +697,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let mut trace = router.trace(src, 0);
     trace
         .place_cursor_centered()
+        .horiz_to(src.right() - 2 * cfg.line(0))
         .up()
         .set_width(dst.height())
         .vert_to_rect(dst)
@@ -785,7 +786,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         .horiz_to(grid.vtrack(wmux_sel_0).stop())
         .up()
         .set_min_width()
-        .vert_to(dst.top())
+        .vert_to_rect(dst)
         .up()
         .horiz_to(dst.right());
     power_grid.add_padded_blockage(2, trace.rect().expand(60));
@@ -800,7 +801,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         .horiz_to(grid.vtrack(wmux_sel_1).stop())
         .up()
         .set_min_width()
-        .vert_to(dst.top())
+        .vert_to_rect(dst)
         .up()
         .horiz_to(dst.right());
     power_grid.add_padded_blockage(2, trace.rect().expand(60));

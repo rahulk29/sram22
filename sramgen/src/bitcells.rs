@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use vlsir::circuit::connection::Stype;
-use vlsir::circuit::port::Direction;
-use vlsir::circuit::{Connection, Instance, Port, Signal, Slice};
+use vlsir::circuit::{Connection, Instance, Slice};
 use vlsir::Module;
 
-use crate::tech::sram_sp_cell_ref;
-use crate::utils::{sig_conn, signal};
+use crate::tech::{sram_sp_cell_ref, sram_sp_colend_ref};
+use crate::utils::conns::conn_slice;
+use crate::utils::{bus, conn_map, port_inout, port_input, sig_conn, signal};
 
 use serde::{Deserialize, Serialize};
 
@@ -21,36 +21,22 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
     let rows = params.rows as i64;
     let cols = params.cols as i64;
 
+    let vdd = signal("vdd");
+    let vss = signal("vss");
+    let bl = bus("bl", cols);
+    let br = bus("br", cols);
+    let wl = bus("wl", rows);
+    let vnb = signal("vnb");
+    let vpb = signal("vpb");
+
     let ports = vec![
-        Port {
-            signal: Some(Signal {
-                name: "bls".into(),
-                width: cols,
-            }),
-            direction: Direction::Inout as i32,
-        },
-        Port {
-            signal: Some(Signal {
-                name: "brs".into(),
-                width: cols,
-            }),
-            direction: Direction::Inout as i32,
-        },
-        Port {
-            signal: Some(Signal {
-                name: "wls".into(),
-                width: rows,
-            }),
-            direction: Direction::Input as i32,
-        },
-        Port {
-            signal: Some(signal("vdd")),
-            direction: Direction::Inout as i32,
-        },
-        Port {
-            signal: Some(signal("vss")),
-            direction: Direction::Inout as i32,
-        },
+        port_inout(&vdd),
+        port_inout(&vss),
+        port_inout(&bl),
+        port_inout(&br),
+        port_input(&wl),
+        port_inout(&vnb),
+        port_inout(&vpb),
     ];
 
     let mut m = Module {
@@ -66,11 +52,13 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
             let mut connections = HashMap::new();
             connections.insert("VDD".to_string(), sig_conn(&signal("vdd")));
             connections.insert("VSS".to_string(), sig_conn(&signal("vss")));
+            connections.insert("VNB".to_string(), sig_conn(&vnb));
+            connections.insert("VPB".to_string(), sig_conn(&vpb));
             connections.insert(
                 "BL".to_string(),
                 Connection {
                     stype: Some(Stype::Slice(Slice {
-                        signal: "bls".to_string(),
+                        signal: "bl".to_string(),
                         top: j,
                         bot: j,
                     })),
@@ -80,7 +68,7 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
                 "BR".to_string(),
                 Connection {
                     stype: Some(Stype::Slice(Slice {
-                        signal: "brs".to_string(),
+                        signal: "br".to_string(),
                         top: j,
                         bot: j,
                     })),
@@ -90,7 +78,7 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
                 "WL".to_string(),
                 Connection {
                     stype: Some(Stype::Slice(Slice {
-                        signal: "wls".to_string(),
+                        signal: "wl".to_string(),
                         top: i,
                         bot: i,
                     })),
@@ -104,6 +92,34 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
             };
             m.instances.push(inst);
         }
+    }
+
+    for i in 0..cols {
+        // .subckt sky130_fd_bd_sram__sram_sp_colend BL1 VPWR VGND BL0
+        let conns = [
+            ("BL1", conn_slice("br", i, i)),
+            ("BL0", conn_slice("bl", i, i)),
+            ("VPWR", sig_conn(&vdd)),
+            ("VGND", sig_conn(&vss)),
+            ("VNB", sig_conn(&vnb)),
+            ("VPB", sig_conn(&vpb)),
+        ];
+
+        let inst = Instance {
+            name: format!("colend_{}_bot", i),
+            parameters: HashMap::new(),
+            module: Some(sram_sp_colend_ref()),
+            connections: conn_map(conns.clone().into()),
+        };
+        m.instances.push(inst);
+
+        let inst = Instance {
+            name: format!("colend_{}_top", i),
+            parameters: HashMap::new(),
+            module: Some(sram_sp_colend_ref()),
+            connections: conn_map(conns.into()),
+        };
+        m.instances.push(inst);
     }
 
     m
@@ -122,18 +138,38 @@ mod tests {
     fn test_netlist_bitcells() -> Result<(), Box<dyn std::error::Error>> {
         let bitcells = bitcell_array(super::BitcellArrayParams {
             rows: 32,
-            cols: 64,
-            name: "bitcells_32x64".to_string(),
+            cols: 32,
+            name: "bitcells_32x32".to_string(),
         });
         let ext_modules = all_external_modules();
         let pkg = Package {
-            domain: "sramgen_bitcells".to_string(),
+            domain: "bitcells_32x32".to_string(),
             desc: "Sramgen generated cells".to_string(),
             modules: vec![bitcells],
             ext_modules,
         };
 
-        save_bin("bitcells", pkg)?;
+        save_bin("bitcells_32x32", pkg)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_netlist_bitcells_2x2() -> Result<(), Box<dyn std::error::Error>> {
+        let bitcells = bitcell_array(super::BitcellArrayParams {
+            rows: 2,
+            cols: 2,
+            name: "bitcells_2x2".to_string(),
+        });
+        let ext_modules = all_external_modules();
+        let pkg = Package {
+            domain: "bitcells_2x2".to_string(),
+            desc: "Sramgen generated cells".to_string(),
+            modules: vec![bitcells],
+            ext_modules,
+        };
+
+        save_bin("bitcells_2x2", pkg)?;
 
         Ok(())
     }

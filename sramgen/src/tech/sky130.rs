@@ -16,6 +16,7 @@ use crate::NETLIST_FORMAT;
 
 pub const SKY130_DOMAIN: &str = "sky130";
 pub const SRAM_SP_CELL: &str = "sram_sp_cell";
+pub const SRAM_SP_COLEND: &str = "sky130_fd_bd_sram__sram_sp_colend";
 pub const SRAM_SP_REPLICA_CELL: &str = "sram_sp_replica_cell";
 pub const OPENRAM_DFF: &str = "openram_dff";
 pub const SRAM_CONTROL: &str = "sramgen_control";
@@ -31,7 +32,17 @@ pub fn sram_sp_cell() -> ExternalModule {
     simple_ext_module(
         SKY130_DOMAIN,
         SRAM_SP_CELL,
-        &["BL", "BR", "VDD", "VSS", "WL"],
+        &["BL", "BR", "VDD", "VSS", "WL", "VNB", "VPB"],
+    )
+}
+
+#[inline]
+pub fn sram_sp_colend() -> ExternalModule {
+    // .subckt sky130_fd_bd_sram__sram_sp_colend BL1 VPWR VGND BL0
+    simple_ext_module(
+        SKY130_DOMAIN,
+        SRAM_SP_COLEND,
+        &["BL1", "VPWR", "VGND", "BL0", "VNB", "VPB"],
     )
 }
 
@@ -224,6 +235,16 @@ pub fn sram_sp_cell_ref() -> Reference {
 }
 
 #[inline]
+pub fn sram_sp_colend_ref() -> Reference {
+    Reference {
+        to: Some(To::External(QualifiedName {
+            domain: SKY130_DOMAIN.to_string(),
+            name: SRAM_SP_COLEND.to_string(),
+        })),
+    }
+}
+
+#[inline]
 pub fn sram_sp_replica_cell_ref() -> Reference {
     Reference {
         to: Some(To::External(QualifiedName {
@@ -336,6 +357,7 @@ pub fn all_external_modules() -> Vec<ExternalModule> {
         ext_nmos(NETLIST_FORMAT),
         ext_pmos(NETLIST_FORMAT),
         sram_sp_cell(),
+        sram_sp_colend(),
         sram_sp_replica_cell(),
         sramgen_control_simple(),
         sramgen_sp_sense_amp(),
