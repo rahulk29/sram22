@@ -321,7 +321,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         let dst = core.port(format!("wl_{}", i)).largest_rect(m2).unwrap();
         let mut trace = router.trace(src, 0);
         trace.place_cursor(Dir::Horiz, true).set_min_width();
-        let contact_block = trace.cursor_rect().expand(50);
+        let contact_block = trace.cursor_rect().expand(70);
         trace
             .up()
             .up()
