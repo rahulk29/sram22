@@ -1,0 +1,17 @@
+* NGSPICE file created from sky130_fd_bd_sram__sram_sp_cell.ext - technology: sky130A
+
+.subckt sram_sp_cell BL BR VDD VSS WL VNB VPB
+X0 QB WL BR VNB sky130_fd_pr__special_nfet_pass ad=4.375e+10p pd=920000u as=1.68e+10p ps=520000u w=140000u l=150000u
+X1 Q QB VSS VNB sky130_fd_pr__special_nfet_latch ad=1.56e+11p pd=2.38e+06u as=8.08e+10p ps=1.28e+06u w=210000u l=150000u
+X2 BL WL Q VNB sky130_fd_pr__special_nfet_pass ad=1.68e+10p pd=520000u as=4.25e+10p ps=920000u w=140000u l=150000u
+X3 Q WL Q VPB sky130_fd_pr__special_pfet_pass ad=3.5e+10p pd=780000u as=0p ps=0u w=0.14 l=0.025
+X4 QB WL QB VPB sky130_fd_pr__special_pfet_pass ad=3.32e+10p pd=720000u as=0p ps=0u w=0.14 l=0.025
+X5 VDD Q QB VPB sky130_fd_pr__special_pfet_pass ad=6.4e+10p pd=1.14e+06u as=0p ps=0u w=140000u l=150000u
+X6 Q QB VDD VPB sky130_fd_pr__special_pfet_pass ad=0p pd=0u as=0p ps=0u w=140000u l=150000u
+X7 VSS Q QB VNB sky130_fd_pr__special_nfet_latch ad=0p pd=0u as=0p ps=0u w=210000u l=150000u
+.ends
+
+.subckt sky130_fd_bd_sram__sram_sp_colend BL1 VPWR VGND BL0 VNB VPB
+X0 BL1 VNB BL1 VNB sky130_fd_pr__special_nfet_pass ad=1.68e+10p pd=520000u as=0p ps=0u w=0.14 l=0.14
+.ends
+
