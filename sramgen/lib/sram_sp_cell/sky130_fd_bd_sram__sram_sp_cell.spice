@@ -10,3 +10,8 @@ X5 VDD Q QB VDD sky130_fd_pr__special_pfet_pass ad=6.4e+10p pd=1.14e+06u as=0p p
 X6 Q QB VDD VDD sky130_fd_pr__special_pfet_pass ad=0p pd=0u as=0p ps=0u w=140000u l=150000u
 X7 VSS Q QB VSS sky130_fd_pr__special_nfet_latch ad=0p pd=0u as=0p ps=0u w=210000u l=150000u
 .ends
+
+.subckt sky130_fd_bd_sram__sram_sp_colend BL1 VPWR VGND BL0
+X0 BL1 a_0_24# BL1 w_96_0# sky130_fd_pr__nfet_01v8 ad=1.68e+10p pd=520000u as=0p ps=0u w=70000u l=210000u
+.ends
+
