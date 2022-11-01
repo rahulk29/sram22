@@ -5,6 +5,7 @@ import vlsirtools.netlist as netlist
 CKTS = [
     "and2",
     "bitcells",
+    "bitcells_2x2",
     "decoder_16",
     "decoder_128",
     "precharge",

@@ -387,4 +387,14 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_sram_array_2x2() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sram_array_2x2")?;
+        draw_array(2, 2, &mut lib)?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
 }
