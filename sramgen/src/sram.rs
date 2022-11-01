@@ -276,9 +276,9 @@ pub fn sram(params: SramParams) -> Vec<Module> {
 
     // Bitcells
     let mut conns = HashMap::new();
-    conns.insert("bls", sig_conn(&bl));
-    conns.insert("brs", sig_conn(&br));
-    conns.insert("wls", sig_conn(&wl));
+    conns.insert("bl", sig_conn(&bl));
+    conns.insert("br", sig_conn(&br));
+    conns.insert("wl", sig_conn(&wl));
     conns.insert("vdd", sig_conn(&vdd));
     conns.insert("vss", sig_conn(&vss));
     m.instances.push(Instance {
