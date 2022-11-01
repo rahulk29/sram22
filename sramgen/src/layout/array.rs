@@ -342,6 +342,7 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
     let mut router = Router::new("sram_array_power_connector_route", lib.pdk.clone());
     let cfg = router.cfg();
     let m1 = cfg.layerkey(1);
+    let m2 = cfg.layerkey(2);
 
     let bounds = array.bbox().into_rect();
 
@@ -356,6 +357,20 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
                 trace.vert_to(bounds.top() + 3_000);
             }
             cell.add_pin(format!("{}_{}", net, i), m1, trace.rect());
+        }
+    }
+    for net in ["vpwr", "vgnd"] {
+        for (i, port) in array.ports_starting_with(net).into_iter().enumerate() {
+            if let Some(rect) = port.largest_rect(m2) {
+                let mut trace = router.trace(rect, 2);
+                trace.set_width(rect.height()).place_cursor_centered();
+                if rect.center().x < bounds.center().x {
+                    trace.horiz_to(bounds.left() - 2_300);
+                } else {
+                    trace.horiz_to(bounds.right() + 2_300);
+                }
+                cell.add_pin(format!("{}_{}", net, i), m2, trace.rect());
+            }
         }
     }
 
@@ -376,9 +391,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_sram_array() -> Result<()> {
+    fn test_sram_array_32x32() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_array_32x32")?;
-        let cell = draw_array(32, 32, &mut lib)?;
+        draw_array(32, 32, &mut lib)?;
 
         lib.save_gds(test_path(&lib))?;
 

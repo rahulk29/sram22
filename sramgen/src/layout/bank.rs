@@ -204,7 +204,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     let core_bbox = core.bbox();
 
-    wldrv_inv.align_to_the_left_of(core_bbox, 1_270);
+    wldrv_inv.align_to_the_left_of(core_bbox, 2_400);
     wldrv_inv.align_centers_vertically_gridded(core_bbox, grid);
     wldrv_nand.align_to_the_left_of(wldrv_inv.bbox(), 1_000);
     wldrv_nand.align_centers_vertically_gridded(core_bbox, grid);
@@ -325,9 +325,15 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             .place_cursor(Dir::Horiz, true)
             .up()
             .up()
-            .set_min_width()
-            .s_bend(dst, Dir::Horiz);
-        let m2_block = src.bbox().union(&dst.bbox()).into_rect().expand(75);
+            .set_width(170)
+            .vert_to_rect(dst)
+            .horiz_to_rect(dst);
+        let m2_block = trace
+            .rect()
+            .bbox()
+            .union(&dst.bbox())
+            .into_rect()
+            .expand(75);
         power_grid.add_padded_blockage(2, m2_block);
     }
 
@@ -909,7 +915,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     power_grid.add_padded_blockage(3, trace.rect());
     trace.contact_down(clk_trace.rect());
 
-    // power strapping - metal 1
+    // power strapping - targets on metal 1 and metal 2
     for instance in [
         &decoder1,
         &decoder2,
@@ -920,31 +926,33 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
         &control,
         &wmask_control,
         &core_pwr,
-    ] {
-        for name in ["vpb", "vdd"] {
-            for port in instance.ports_starting_with(name) {
-                power_grid.add_vdd_target(1, port.largest_rect(m1).unwrap());
-            }
-        }
-        for name in ["vnb", "vss"] {
-            for port in instance.ports_starting_with(name) {
-                power_grid.add_gnd_target(1, port.largest_rect(m1).unwrap());
-            }
-        }
-    }
-
-    // power strapping - metal 2
-    for instance in [
-        &read_mux, &write_mux, &col_inv, &sense_amp, &din_dffs, &addr_dffs,
+        &read_mux,
+        &write_mux,
+        &col_inv,
+        &sense_amp,
+        &din_dffs,
+        &addr_dffs,
     ] {
         for name in ["vpb", "vdd", "vpwr"] {
             for port in instance.ports_starting_with(name) {
-                power_grid.add_vdd_target(2, port.largest_rect(m2).unwrap());
+                if let Some(rect) = port.largest_rect(m1) {
+                    power_grid.add_vdd_target(1, rect);
+                }
+                if let Some(rect) = port.largest_rect(m2) {
+                    power_grid.add_vdd_target(2, rect);
+                    power_grid.add_padded_blockage(2, rect);
+                }
             }
         }
-        for name in ["vnb", "vss", "gnd"] {
+        for name in ["vnb", "vss", "vgnd"] {
             for port in instance.ports_starting_with(name) {
-                power_grid.add_gnd_target(2, port.largest_rect(m2).unwrap());
+                if let Some(rect) = port.largest_rect(m1) {
+                    power_grid.add_gnd_target(1, rect);
+                }
+                if let Some(rect) = port.largest_rect(m2) {
+                    power_grid.add_gnd_target(2, rect);
+                    power_grid.add_padded_blockage(2, rect);
+                }
             }
         }
     }
