@@ -138,18 +138,18 @@ mod tests {
     fn test_netlist_bitcells() -> Result<(), Box<dyn std::error::Error>> {
         let bitcells = bitcell_array(super::BitcellArrayParams {
             rows: 32,
-            cols: 64,
-            name: "bitcells_32x64".to_string(),
+            cols: 32,
+            name: "bitcells_32x32".to_string(),
         });
         let ext_modules = all_external_modules();
         let pkg = Package {
-            domain: "sramgen_bitcells".to_string(),
+            domain: "bitcells_32x32".to_string(),
             desc: "Sramgen generated cells".to_string(),
             modules: vec![bitcells],
             ext_modules,
         };
 
-        save_bin("bitcells", pkg)?;
+        save_bin("bitcells_32x32", pkg)?;
 
         Ok(())
     }
@@ -163,7 +163,7 @@ mod tests {
         });
         let ext_modules = all_external_modules();
         let pkg = Package {
-            domain: "sramgen_bitcells_2x2".to_string(),
+            domain: "bitcells_2x2".to_string(),
             desc: "Sramgen generated cells".to_string(),
             modules: vec![bitcells],
             ext_modules,
