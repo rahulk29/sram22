@@ -101,6 +101,8 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
             ("BL0", conn_slice("bl", i, i)),
             ("VPWR", sig_conn(&vdd)),
             ("VGND", sig_conn(&vss)),
+            ("VNB", sig_conn(&vnb)),
+            ("VPB", sig_conn(&vpb)),
         ];
 
         let inst = Instance {

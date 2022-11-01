@@ -42,7 +42,7 @@ pub fn sram_sp_colend() -> ExternalModule {
     simple_ext_module(
         SKY130_DOMAIN,
         SRAM_SP_COLEND,
-        &["BL1", "VPWR", "VGND", "BL0"],
+        &["BL1", "VPWR", "VGND", "BL0", "VNB", "VPB"],
     )
 }
 
