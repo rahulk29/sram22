@@ -155,7 +155,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             instance_params: PrechargeParams {
                 name: "precharge".to_string(),
                 length: 150,
-                pull_up_width: 1_200,
+                pull_up_width: 1_000,
                 equalizer_width: 1_000,
             },
             name: "precharge_array".to_string(),

@@ -82,7 +82,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         instance_params: PrechargeParams {
             name: "precharge".to_string(),
             length: 150,
-            pull_up_width: 2_000,
+            pull_up_width: 1_000,
             equalizer_width: 1_000,
         },
     });
