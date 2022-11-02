@@ -101,7 +101,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         width: cols as i64,
         instance_params: ColumnMuxParams {
             length: 150,
-            width: 2_000,
+            width: 1_200,
         },
     });
 
