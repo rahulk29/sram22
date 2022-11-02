@@ -12,6 +12,6 @@ X7 VSS Q QB VNB sky130_fd_pr__special_nfet_latch ad=0p pd=0u as=0p ps=0u w=21000
 .ends
 
 .subckt sky130_fd_bd_sram__sram_sp_colend BL1 VPWR VGND BL0 VNB VPB
-X0 BL1 VNB BL1 VNB sky130_fd_pr__special_nfet_pass ad=1.68e+10p pd=520000u as=0p ps=0u w=0.14 l=0.14
+X0 BL0 VNB BL0 VNB sky130_fd_pr__special_nfet_pass ad=1.68e+10p pd=520000u as=0p ps=0u w=0.14 l=0.14
 .ends
 
