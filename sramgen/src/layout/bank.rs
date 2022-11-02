@@ -819,17 +819,17 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let mut trace = router.trace(src, 2);
     trace.place_cursor(Dir::Horiz, true);
     trace.horiz_to(grid.vtrack(rmux_sel_0).stop());
-    power_grid.add_padded_blockage(2, trace.rect().expand(30));
+    power_grid.add_padded_blockage(2, trace.rect().expand(90));
     trace.down().vert_to(dst.top()).up().horiz_to(dst.right());
-    power_grid.add_padded_blockage(2, trace.rect().expand(30));
+    power_grid.add_padded_blockage(2, trace.rect().expand(90));
     let dst = read_mux.port("sel_1").largest_rect(m2).unwrap();
     let src = addr_0_traces[1];
     let mut trace = router.trace(src, 2);
     trace.place_cursor(Dir::Horiz, true);
     trace.horiz_to(grid.vtrack(rmux_sel_1).stop());
-    power_grid.add_padded_blockage(2, trace.rect().expand(30));
+    power_grid.add_padded_blockage(2, trace.rect().expand(90));
     trace.down().vert_to(dst.top()).up().horiz_to(dst.right());
-    power_grid.add_padded_blockage(2, trace.rect().expand(30));
+    power_grid.add_padded_blockage(2, trace.rect().expand(90));
 
     let sense_amp_bbox = sense_amp.bbox().into_rect();
     let din_dff_bbox = din_dffs.bbox().into_rect();
