@@ -60,12 +60,12 @@ pub fn sram(params: SramParams) -> Vec<Module> {
             name: "wordline_driver".to_string(),
             length: 150,
             inv_size: Size {
-                pmos_width: 2_800,
-                nmos_width: 2_000,
+                pmos_width: 2_400,
+                nmos_width: 1_600,
             },
             nand_size: Size {
-                pmos_width: 1_600,
-                nmos_width: 2_400,
+                pmos_width: 2_400,
+                nmos_width: 3_200,
             },
         },
     });
