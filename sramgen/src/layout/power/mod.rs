@@ -45,6 +45,9 @@ pub struct PowerStraps {
     pub right: Vec<(PowerSource, Rect)>,
     pub bottom: Vec<(PowerSource, Rect)>,
     pub top: Vec<(PowerSource, Rect)>,
+
+    pub h_traces: Vec<(PowerSource, Rect)>,
+    pub v_traces: Vec<(PowerSource, Rect)>,
 }
 
 impl PowerStrapGen {
@@ -170,6 +173,14 @@ impl PowerStrapGen {
             right,
             bottom,
             top,
+            h_traces: h_traces
+                .into_iter()
+                .map(|(src, trace)| (src, trace.rect()))
+                .collect(),
+            v_traces: v_traces
+                .into_iter()
+                .map(|(src, trace)| (src, trace.rect()))
+                .collect(),
         })
     }
 
