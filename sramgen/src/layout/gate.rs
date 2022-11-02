@@ -134,7 +134,7 @@ pub fn draw_nand2_dec(lib: &mut PdkLib, name: impl Into<String>) -> Result<Ptr<C
         GateParams {
             name: name.into(),
             size: Size {
-                nmos_width: 1_600,
+                nmos_width: 3_200,
                 pmos_width: 2_400,
             },
             length: 150,
@@ -432,8 +432,8 @@ pub fn draw_inv_dec(lib: &mut PdkLib, name: impl Into<String>) -> Result<Ptr<Cel
         GateParams {
             name: name.into(),
             size: Size {
-                nmos_width: 2_000,
-                pmos_width: 2_800,
+                nmos_width: 1_600,
+                pmos_width: 2_400,
             },
             length: 150,
         },

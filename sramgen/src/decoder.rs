@@ -77,8 +77,8 @@ fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64]) -> TreeNode {
         Gate::new(
             b,
             Size {
-                nmos_width: 2_000,
-                pmos_width: 2_800,
+                nmos_width: 1_600,
+                pmos_width: 2_400,
             },
         )
     });
@@ -87,7 +87,7 @@ fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64]) -> TreeNode {
         gate: Gate::new(
             x.gate,
             Size {
-                nmos_width: 2_400,
+                nmos_width: 3_200,
                 pmos_width: 2_400,
             },
         ),

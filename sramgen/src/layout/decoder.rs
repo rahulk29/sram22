@@ -545,16 +545,16 @@ fn draw_hier_decode_node(
     let nand_params = GateParams {
         name: format!("{}_nand_{}", ctx.prefix, id),
         size: Size {
-            nmos_width: 2_000,
-            pmos_width: 1_200,
+            nmos_width: 3_200,
+            pmos_width: 2_400,
         },
         length: 150,
     };
     let inv_params = GateParams {
         name: format!("{}_inv_{}", ctx.prefix, id),
         size: Size {
-            nmos_width: 2_000,
-            pmos_width: 1_200,
+            nmos_width: 1_600,
+            pmos_width: 2_400,
         },
         length: 150,
     };
