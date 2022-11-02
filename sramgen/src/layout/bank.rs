@@ -733,6 +733,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     trace.up().set_min_width().vert_to_rect(dst);
     power_grid.add_padded_blockage(3, trace.rect());
     trace.contact_down(dst).decrement_layer().contact_down(dst);
+    power_grid.add_padded_blockage(2, dst.expand(50));
 
     // Connect wldrv_nand b inputs to wordline enable (wl_en)
     for i in 0..rows {
