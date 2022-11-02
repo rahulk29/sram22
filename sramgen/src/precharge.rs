@@ -144,7 +144,7 @@ pub fn precharge(params: PrechargeParams) -> Module {
             width: params.equalizer_width,
             length,
             drain: sig_conn(&bl),
-            source: sig_conn(&bl),
+            source: sig_conn(&br),
             gate: sig_conn(&en),
             body: sig_conn(&vdd),
             mos_type: MosType::Pmos,
