@@ -123,8 +123,8 @@ pub fn draw_tap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .name("pc_tap_cell")
         .bot_stack("ntap")
         .top_stack("viali")
-        .bot_rows(12)
-        .top_rows(11)
+        .bot_rows(10)
+        .top_rows(10)
         .build()?;
     let contact = draw_two_level_contact(lib, params)?;
     Ok(contact)
