@@ -60,12 +60,12 @@ pub fn sram(params: SramParams) -> Vec<Module> {
             name: "wordline_driver".to_string(),
             length: 150,
             inv_size: Size {
-                pmos_width: 2_000,
-                nmos_width: 1_000,
+                pmos_width: 2_400,
+                nmos_width: 1_600,
             },
             nand_size: Size {
-                pmos_width: 2_000,
-                nmos_width: 1_000,
+                pmos_width: 2_400,
+                nmos_width: 3_200,
             },
         },
     });
@@ -82,7 +82,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         instance_params: PrechargeParams {
             name: "precharge".to_string(),
             length: 150,
-            pull_up_width: 2_000,
+            pull_up_width: 1_000,
             equalizer_width: 1_000,
         },
     });
@@ -101,7 +101,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         width: cols as i64,
         instance_params: ColumnMuxParams {
             length: 150,
-            width: 2_000,
+            width: 1_200,
         },
     });
 

@@ -155,7 +155,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
             instance_params: PrechargeParams {
                 name: "precharge".to_string(),
                 length: 150,
-                pull_up_width: 1_200,
+                pull_up_width: 1_000,
                 equalizer_width: 1_000,
             },
             name: "precharge_array".to_string(),
@@ -236,7 +236,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     decoder1.align_beneath(core_bbox, 1_000);
     decoder1.align_to_the_left_of(sense_amp.bbox(), 3_000);
 
-    decoder2.align_beneath(decoder1.bbox(), 1_270);
+    let decoder1_bbox = decoder1.bbox();
+    decoder2.align_beneath(decoder1_bbox, 1_270);
     decoder2.align_to_the_left_of(sense_amp.bbox(), 3_000);
 
     let decoder2_bbox = decoder2.bbox();
@@ -246,7 +247,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     wmask_control.align_beneath(decoder2_bbox, 1_270);
     wmask_control.align_to_the_right_of(control.bbox(), 1_270);
 
-    addr_dffs.align_top(decoder2_bbox);
+    addr_dffs.align_beneath(decoder1_bbox, 140);
 
     tmc.align_above(din_dffs.bbox(), 1_270);
     tmc.align_to_the_right_of(core_bbox, 1_270);
@@ -691,7 +692,8 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let dst = control.port("we").largest_rect(m0).unwrap();
     let mut trace = router.trace(src, 2);
     trace.place_cursor_centered().horiz_to(dst.right() - 45);
-    power_grid.add_padded_blockage(2, trace.rect());
+    let blockage = trace.rect().expand(90);
+    power_grid.add_padded_blockage(2, blockage);
     trace
         .set_min_width()
         .down()
@@ -731,6 +733,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     trace.up().set_min_width().vert_to_rect(dst);
     power_grid.add_padded_blockage(3, trace.rect());
     trace.contact_down(dst).decrement_layer().contact_down(dst);
+    power_grid.add_padded_blockage(2, dst.expand(50));
 
     // Connect wldrv_nand b inputs to wordline enable (wl_en)
     for i in 0..rows {
@@ -819,17 +822,17 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let mut trace = router.trace(src, 2);
     trace.place_cursor(Dir::Horiz, true);
     trace.horiz_to(grid.vtrack(rmux_sel_0).stop());
-    power_grid.add_padded_blockage(2, trace.rect().expand(30));
+    power_grid.add_padded_blockage(2, trace.rect().expand(90));
     trace.down().vert_to(dst.top()).up().horiz_to(dst.right());
-    power_grid.add_padded_blockage(2, trace.rect().expand(30));
+    power_grid.add_padded_blockage(2, trace.rect().expand(90));
     let dst = read_mux.port("sel_1").largest_rect(m2).unwrap();
     let src = addr_0_traces[1];
     let mut trace = router.trace(src, 2);
     trace.place_cursor(Dir::Horiz, true);
     trace.horiz_to(grid.vtrack(rmux_sel_1).stop());
-    power_grid.add_padded_blockage(2, trace.rect().expand(30));
+    power_grid.add_padded_blockage(2, trace.rect().expand(90));
     trace.down().vert_to(dst.top()).up().horiz_to(dst.right());
-    power_grid.add_padded_blockage(2, trace.rect().expand(30));
+    power_grid.add_padded_blockage(2, trace.rect().expand(90));
 
     let sense_amp_bbox = sense_amp.bbox().into_rect();
     let din_dff_bbox = din_dffs.bbox().into_rect();
