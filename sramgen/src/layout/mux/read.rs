@@ -1,20 +1,20 @@
-use anyhow::anyhow;
+
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
 use layout21::raw::{
-    Abstract, AbstractPort, BoundBoxTrait, Cell, Element, Instance, Int, Layout, Point, Rect,
+    Abstract, AbstractPort, BoundBoxTrait, Cell, Element, Instance, Layout, Point, Rect,
     Shape, Span, TransformTrait,
 };
 use layout21::utils::Ptr;
-use pdkprims::bus::{ContactPolicy, ContactPosition};
+
 use pdkprims::mos::{Intent, MosDevice, MosParams, MosType};
 use pdkprims::PdkLib;
 
 use crate::layout::array::*;
 use crate::layout::bank::{connect, ConnectArgs};
 use crate::layout::route::grid::{Grid, TrackLocator};
-use crate::layout::route::{ContactBounds, Router, VertDir};
-use crate::tech::BITCELL_WIDTH;
+use crate::layout::route::{Router};
+
 use crate::Result;
 
 use crate::layout::bank::GateList;

@@ -74,17 +74,17 @@ impl PowerStrapGen {
     }
 
     pub fn add_vdd_target(&mut self, layer: LayerIdx, rect: Rect) {
-        let targets = self.vdd_targets.entry(layer).or_insert(Vec::new());
+        let targets = self.vdd_targets.entry(layer).or_default();
         targets.push(rect);
     }
 
     pub fn add_gnd_target(&mut self, layer: LayerIdx, rect: Rect) {
-        let targets = self.gnd_targets.entry(layer).or_insert(Vec::new());
+        let targets = self.gnd_targets.entry(layer).or_default();
         targets.push(rect);
     }
 
     pub fn add_blockage(&mut self, layer: LayerIdx, rect: impl Into<Rect>) {
-        let blockages = self.blockages.entry(layer).or_insert(Vec::new());
+        let blockages = self.blockages.entry(layer).or_default();
         blockages.push(rect.into());
     }
 

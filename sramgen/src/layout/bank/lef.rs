@@ -1,6 +1,6 @@
 use layout21::lef21::{
     LefDbuPerMicron, LefDecimal, LefGeometry, LefLayerGeometriesBuilder, LefLibrary,
-    LefLibraryBuilder, LefMacroBuilder, LefOnOff, LefPin, LefPinDirection, LefPinUse, LefPoint,
+    LefLibraryBuilder, LefMacroBuilder, LefPin, LefPinDirection, LefPinUse, LefPoint,
     LefPortBuilder, LefPortClass, LefShape, LefSymmetry, LefUnits,
 };
 use layout21::raw::{BoundBoxTrait, Cell, Instance, Point, Rect};
@@ -79,13 +79,13 @@ pub fn generate<'a>(params: Params<'a>) -> LefLibrary {
     let vdd = straps
         .v_traces
         .iter()
-        .filter(|(src, rect)| *src == PowerSource::Vdd)
+        .filter(|(src, _rect)| *src == PowerSource::Vdd)
         .map(|(_, rect)| *rect)
         .collect::<Vec<_>>();
     let vss = straps
         .v_traces
         .iter()
-        .filter(|(src, rect)| *src == PowerSource::Gnd)
+        .filter(|(src, _rect)| *src == PowerSource::Gnd)
         .map(|(_, rect)| *rect)
         .collect::<Vec<_>>();
 
@@ -151,7 +151,7 @@ fn export_pin<'a>(pin_info: ExportPin<'a>) -> LefPin {
         layer_name,
         pin_name,
         rects,
-        direction,
+        direction: _,
     } = pin_info;
     let geometries = rects
         .iter()

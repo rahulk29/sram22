@@ -11,7 +11,7 @@ mod tests {
 
     use super::read::*;
     use super::write::*;
-    use super::*;
+    
 
     #[test]
     fn test_sky130_column_read_mux() -> Result<()> {

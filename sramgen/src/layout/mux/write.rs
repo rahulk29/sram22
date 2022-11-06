@@ -2,8 +2,8 @@ use anyhow::anyhow;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
 use layout21::raw::{
-    Abstract, AbstractPort, BoundBoxTrait, Cell, Element, Instance, Int, Layout, Point, Rect,
-    Shape, Span, TransformTrait,
+    Abstract, AbstractPort, BoundBoxTrait, Cell, Instance, Int, Layout, Point, Rect,
+    Shape, Span,
 };
 use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
@@ -11,24 +11,18 @@ use pdkprims::mos::{Intent, MosDevice, MosParams, MosType};
 use pdkprims::PdkLib;
 
 use crate::layout::array::*;
-use crate::layout::bank::{connect, ConnectArgs};
+
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::{ContactBounds, Router, VertDir};
 use crate::tech::BITCELL_WIDTH;
 use crate::Result;
 
-use crate::layout::bank::GateList;
-use crate::layout::common::{
-    draw_two_level_contact, MergeArgs, TwoLevelContactParams, NWELL_COL_SIDE_EXTEND,
-    NWELL_COL_VERT_EXTEND,
-};
-
 pub struct WriteMuxParams {
-    width: isize,
-    wmask: bool,
+    pub width: isize,
+    pub wmask: bool,
 }
 
-pub fn draw_write_mux(lib: &mut PdkLib, params: WriteMuxParams) -> Result<Ptr<Cell>> {
+pub fn draw_write_mux(lib: &mut PdkLib, _params: WriteMuxParams) -> Result<Ptr<Cell>> {
     let name = "write_mux";
 
     let mut layout = Layout::new(name);
