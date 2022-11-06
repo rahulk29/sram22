@@ -185,7 +185,9 @@ pub fn draw_read_mux_array(
     mut mux_ratio: usize,
 ) -> Result<Ptr<Cell>> {
     assert_eq!(mux_ratio % 2, 0);
-    // Divide mux ratio by 2, since read muxes are 2:1
+    assert!(mux_ratio >= 2);
+
+    // Divide mux ratio by 2, since read muxes are internally 2:1
     mux_ratio /= 2;
     let name = "read_mux_array";
     let mut cell = Cell::empty(name);
