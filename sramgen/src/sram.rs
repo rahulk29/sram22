@@ -506,4 +506,17 @@ mod tests {
         save_modules("sram_64x128", modules)?;
         Ok(())
     }
+
+    #[test]
+    fn test_netlist_sram_128x64() -> Result<(), Box<dyn std::error::Error>> {
+        let modules = sram(SramParams {
+            name: "sramgen_sram_128x64".to_string(),
+            row_bits: 7,
+            col_bits: 6,
+            col_mask_bits: 1,
+        });
+
+        save_modules("sram_128x64", modules)?;
+        Ok(())
+    }
 }

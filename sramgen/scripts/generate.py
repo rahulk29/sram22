@@ -28,6 +28,7 @@ CKTS = [
     "sram_32x32",
     "sram_32x64",
     "sram_64x128",
+    "sram_128x64",
 ]
 
 PROPRIETARY_PRELUDE = """*SPICE NETLIST
