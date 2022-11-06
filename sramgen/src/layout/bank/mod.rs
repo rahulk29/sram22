@@ -799,7 +799,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Phys
         .port("write_driver_en_0")
         .largest_rect(m0)
         .unwrap();
-    let dst = write_mux.port("we_0_0").largest_rect(m2).unwrap();
+    let dst = write_mux.port("we_0").largest_rect(m2).unwrap();
     let mut trace = router.trace(src, 0);
     trace
         .place_cursor(Dir::Horiz, true)
@@ -814,7 +814,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Phys
         .port("write_driver_en_1")
         .largest_rect(m0)
         .unwrap();
-    let dst = write_mux.port("we_1_0").largest_rect(m2).unwrap();
+    let dst = write_mux.port("we_1").largest_rect(m2).unwrap();
     let mut trace = router.trace(src, 0);
     trace
         .place_cursor(Dir::Horiz, true)
@@ -1189,6 +1189,7 @@ impl<'a> ConnectArgs<'a> {
 pub(crate) enum GateList<'a> {
     Cells(&'a [Instance]),
     Array(&'a Instance, usize),
+    /// Instance, start, width
     ArraySlice(&'a Instance, usize, usize),
 }
 
