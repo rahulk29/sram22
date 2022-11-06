@@ -1,9 +1,7 @@
 use anyhow::anyhow;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
-use layout21::raw::{
-    Abstract, AbstractPort, BoundBoxTrait, Cell, Instance, Int, Layout, Point, Rect, Shape, Span,
-};
+use layout21::raw::{Abstract, BoundBoxTrait, Cell, Instance, Int, Layout, Point, Rect, Span};
 use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::mos::{Intent, MosDevice, MosParams, MosType};

@@ -19,7 +19,7 @@ pub struct Params<'a> {
     pub pdk: Pdk,
 }
 
-pub fn generate<'a>(params: Params<'a>) -> LefLibrary {
+pub fn generate(params: Params<'_>) -> LefLibrary {
     let Params {
         addr_bits,
         data_bits,
@@ -113,8 +113,10 @@ pub fn generate<'a>(params: Params<'a>) -> LefLibrary {
         .build()
         .unwrap();
 
-    let mut units = LefUnits::default();
-    units.database_microns = Some(LefDbuPerMicron(DB_PER_MICRON));
+    let units = LefUnits {
+        database_microns: Some(LefDbuPerMicron(DB_PER_MICRON)),
+        ..Default::default()
+    };
 
     LefLibraryBuilder::default()
         .macros([makro])
@@ -146,12 +148,12 @@ struct ExportPin<'a> {
     direction: LefPinDirection,
 }
 
-fn export_pin<'a>(pin_info: ExportPin<'a>) -> LefPin {
+fn export_pin(pin_info: ExportPin<'_>) -> LefPin {
     let ExportPin {
         layer_name,
         pin_name,
         rects,
-        direction: _,
+        direction,
     } = pin_info;
     let geometries = rects
         .iter()
@@ -170,11 +172,11 @@ fn export_pin<'a>(pin_info: ExportPin<'a>) -> LefPin {
         .build()
         .unwrap();
 
-    let mut pin = LefPin::default();
-    pin.name = pin_name;
-    pin.ports = vec![port];
-    pin.direction = Some(LefPinDirection::Input);
-    pin.use_ = Some(LefPinUse::Signal);
-
-    pin
+    LefPin {
+        name: pin_name,
+        ports: vec![port],
+        direction: Some(direction),
+        use_: Some(LefPinUse::Signal),
+        ..Default::default()
+    }
 }
