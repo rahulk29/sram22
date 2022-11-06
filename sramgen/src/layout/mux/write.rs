@@ -2,8 +2,7 @@ use anyhow::anyhow;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
 use layout21::raw::{
-    Abstract, AbstractPort, BoundBoxTrait, Cell, Instance, Int, Layout, Point, Rect,
-    Shape, Span,
+    Abstract, AbstractPort, BoundBoxTrait, Cell, Instance, Int, Layout, Point, Rect, Shape, Span,
 };
 use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
@@ -22,11 +21,12 @@ pub struct WriteMuxParams {
     pub wmask: bool,
 }
 
-pub fn draw_write_mux(lib: &mut PdkLib, _params: WriteMuxParams) -> Result<Ptr<Cell>> {
+pub fn draw_write_mux(lib: &mut PdkLib, params: WriteMuxParams) -> Result<Ptr<Cell>> {
+    let WriteMuxParams { wmask, .. } = params;
+
     let name = "write_mux";
 
-    let mut layout = Layout::new(name);
-    let mut abs = Abstract::new(name);
+    let mut cell = Cell::empty(name);
     let mut router = Router::new("write_mux_route", lib.pdk.clone());
     let m0 = lib.pdk.metal(0);
     let m1 = lib.pdk.metal(1);
@@ -51,6 +51,20 @@ pub fn draw_write_mux(lib: &mut PdkLib, _params: WriteMuxParams) -> Result<Ptr<C
         .angle(90f64)
         .build()?;
 
+    let (bbox, wmask_inst) = if wmask {
+        let mut mos_wmask = Instance::builder()
+            .inst_name("mos_wmask")
+            .cell(ptx.cell.clone())
+            .angle(90f64)
+            .build()?;
+        let bbox = mos_we.bbox();
+        mos_wmask.align_centers_horizontally_gridded(bbox, lib.pdk.grid());
+        mos_wmask.align_above(bbox, 1_000);
+        (mos_wmask.bbox(), Some(mos_wmask))
+    } else {
+        (mos_we.bbox(), None)
+    };
+
     let mut params = MosParams::new();
     params
         .dnw(false)
@@ -71,27 +85,16 @@ pub fn draw_write_mux(lib: &mut PdkLib, _params: WriteMuxParams) -> Result<Ptr<C
         .angle(90f64)
         .build()?;
 
-    mos_bls.align_above(mos_we.bbox(), 1_000);
+    mos_bls.align_above(bbox, 1_000);
+    mos_bls.align_centers_horizontally_gridded(bbox, lib.pdk.grid());
 
-    let mut port = mos_we.port("sd_0_0");
-    port.set_net("vss");
-    abs.add_port(port);
+    cell.add_pin_from_port(mos_we.port("sd_0_0").named("vss"), m0);
+    cell.add_pin_from_port(mos_we.port("gate_0").named("we"), m0);
+    cell.add_pin_from_port(mos_bls.port("gate_0").named("data"), m0);
+    cell.add_pin_from_port(mos_bls.port("gate_1").named("data_b"), m0);
 
-    let mut port = mos_we.port("gate_0");
-    port.set_net("we");
-    abs.add_port(port);
-
-    layout.insts.push(mos_we.clone());
-
-    layout.insts.push(mos_bls.clone());
-
-    let mut port = mos_bls.port("gate_0");
-    port.set_net("data");
-    abs.add_port(port);
-
-    let mut port = mos_bls.port("gate_1");
-    port.set_net("data_b");
-    abs.add_port(port);
+    cell.layout_mut().insts.push(mos_we.clone());
+    cell.layout_mut().insts.push(mos_bls.clone());
 
     let mut trace = router.trace(mos_bls.port("sd_0_1").largest_rect(m0).unwrap(), 0);
     trace
@@ -99,31 +102,51 @@ pub fn draw_write_mux(lib: &mut PdkLib, _params: WriteMuxParams) -> Result<Ptr<C
         .increment_layer()
         .place_cursor(Dir::Vert, false);
 
-    let dst = mos_we.port("sd_0_1").largest_rect(m0).unwrap();
+    let dst = if let Some(ref mos_wmask) = wmask_inst {
+        mos_wmask.port("sd_0_1").largest_rect(m0).unwrap()
+    } else {
+        mos_we.port("sd_0_1").largest_rect(m0).unwrap()
+    };
     trace
-        .vert_to(dst.bottom())
+        .down_by(800)
+        .s_bend(dst, Dir::Vert)
         .contact_on(dst, VertDir::Below, ContactBounds::FitOne(m0, dst))
         .decrement_layer();
 
+    if let Some(ref mos_wmask) = wmask_inst {
+        let src = mos_wmask.port("sd_0_0").largest_rect(m0).unwrap();
+        let dst = mos_we.port("sd_0_1").largest_rect(m0).unwrap();
+        let mut trace = router.trace(src, 0);
+        trace
+            .contact_up(trace.rect())
+            .increment_layer()
+            .place_cursor(Dir::Vert, false)
+            .down_by(900)
+            .s_bend(dst, Dir::Vert)
+            .contact_on(dst, VertDir::Below, ContactBounds::FitOne(m0, dst));
+
+        let mut trace = router.trace(mos_wmask.port("gate_0").largest_rect(m0).unwrap(), 0);
+        trace
+            .place_cursor(Dir::Vert, false)
+            .left_by(200)
+            .down_by(400)
+            .up();
+        cell.add_pin("wmask", m1, trace.cursor_rect());
+    }
+
     let mut trace = router.trace(mos_bls.port("sd_0_0").largest_rect(m0).unwrap(), 0);
     trace.contact_up(trace.rect());
-    let mut port = AbstractPort::new("br");
-    port.add_shape(m1, Shape::Rect(trace.rect()));
-    abs.add_port(port);
+    cell.add_pin("br", m1, trace.rect());
 
     let mut trace = router.trace(mos_bls.port("sd_0_2").largest_rect(m0).unwrap(), 0);
     trace.contact_up(trace.rect());
-    let mut port = AbstractPort::new("bl");
-    port.add_shape(m1, Shape::Rect(trace.rect()));
-    abs.add_port(port);
+    cell.add_pin("bl", m1, trace.rect());
 
-    layout.insts.push(router.finish());
+    if let Some(wmask_inst) = wmask_inst {
+        cell.layout_mut().add_inst(wmask_inst);
+    }
 
-    let cell = Cell {
-        name: name.to_string(),
-        abs: Some(abs),
-        layout: Some(layout),
-    };
+    cell.layout_mut().insts.push(router.finish());
 
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());

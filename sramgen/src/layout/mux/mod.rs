@@ -11,7 +11,6 @@ mod tests {
 
     use super::read::*;
     use super::write::*;
-    
 
     #[test]
     fn test_sky130_column_read_mux() -> Result<()> {
@@ -61,6 +60,22 @@ mod tests {
             WriteMuxParams {
                 width: BITCELL_WIDTH,
                 wmask: false,
+            },
+        )?;
+
+        lib.save_gds(test_path(&lib))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sky130_column_write_mux_wmask() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sky130_column_write_mux_wmask")?;
+        draw_write_mux(
+            &mut lib,
+            WriteMuxParams {
+                width: BITCELL_WIDTH,
+                wmask: true,
             },
         )?;
 

@@ -217,6 +217,26 @@ impl Trace {
     }
 
     #[inline]
+    pub fn down_by(&mut self, amount: Int) -> &mut Self {
+        self.vert_to(self.rect().bottom() - amount)
+    }
+
+    #[inline]
+    pub fn left_by(&mut self, amount: Int) -> &mut Self {
+        self.horiz_to(self.rect().left() - amount)
+    }
+
+    #[inline]
+    pub fn right_by(&mut self, amount: Int) -> &mut Self {
+        self.horiz_to(self.rect().right() + amount)
+    }
+
+    #[inline]
+    pub fn up_by(&mut self, amount: Int) -> &mut Self {
+        self.vert_to(self.rect().top() + amount)
+    }
+
+    #[inline]
     pub fn vert_to_trace(&mut self, other: &Self) -> &mut Self {
         let target = other
             .rect
