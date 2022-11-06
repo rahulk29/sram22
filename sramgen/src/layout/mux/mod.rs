@@ -25,7 +25,7 @@ mod tests {
     #[test]
     fn test_sky130_column_read_mux_2_array() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_column_read_mux_2_array")?;
-        draw_read_mux_array(&mut lib, 32, 2)?;
+        draw_read_mux_array(&mut lib, 64, 2)?;
 
         lib.save_gds(test_path(&lib))?;
 
@@ -35,7 +35,7 @@ mod tests {
     #[test]
     fn test_sky130_column_read_mux_4_array() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_column_read_mux_4_array")?;
-        draw_read_mux_array(&mut lib, 32, 4)?;
+        draw_read_mux_array(&mut lib, 64, 4)?;
 
         lib.save_gds(test_path(&lib))?;
 
@@ -45,7 +45,7 @@ mod tests {
     #[test]
     fn test_sky130_column_read_mux_8_array() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_column_read_mux_8_array")?;
-        draw_read_mux_array(&mut lib, 32, 8)?;
+        draw_read_mux_array(&mut lib, 64, 8)?;
 
         lib.save_gds(test_path(&lib))?;
 

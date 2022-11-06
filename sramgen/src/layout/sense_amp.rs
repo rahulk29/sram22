@@ -1,5 +1,5 @@
 use layout21::raw::geom::Dir;
-use layout21::raw::{Cell, Element, Instance};
+use layout21::raw::{Cell, Element, Instance, Int};
 
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
@@ -10,7 +10,7 @@ use super::common::MergeArgs;
 use crate::tech::sramgen_sp_sense_amp_gds;
 use crate::Result;
 
-pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>> {
+pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize, spacing: Int) -> Result<Ptr<Cell>> {
     let sa = sramgen_sp_sense_amp_gds(lib)?;
 
     let core = draw_cell_array(
@@ -18,7 +18,7 @@ pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize) -> Result<Ptr<Cell>>
             name: "sense_amp_array_core".to_string(),
             num: width,
             cell: sa,
-            spacing: Some(2 * 2500),
+            spacing: Some(spacing),
             flip: FlipMode::None,
             flip_toggle: false,
             direction: Dir::Horiz,
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn test_sky130_sense_amp_array() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sky130_sense_amp_array")?;
-        draw_sense_amp_array(&mut lib, 16)?;
+        draw_sense_amp_array(&mut lib, 16, 2 * 2_500)?;
 
         lib.save_gds(test_path(&lib))?;
 

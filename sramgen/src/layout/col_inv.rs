@@ -9,22 +9,27 @@ use pdkprims::PdkLib;
 
 use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
 use super::bank::{connect, ConnectArgs, GateList};
-use super::common::{
-    draw_two_level_contact, MergeArgs, TwoLevelContactParams, NWELL_COL_SIDE_EXTEND,
-};
+use super::common::{draw_two_level_contact, MergeArgs, TwoLevelContactParams};
 use super::route::Router;
 
-pub fn draw_col_inv_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Result<Ptr<Cell>> {
+pub fn draw_col_inv_array(
+    lib: &mut PdkLib,
+    prefix: &str,
+    width: usize,
+    mux_ratio: usize,
+) -> Result<Ptr<Cell>> {
     let cell = draw_col_inv(lib, &format!("{prefix}_cell"))?;
     let ntap = draw_col_inv_ntap_cell(lib)?;
     let ptap = draw_col_inv_ptap_cell(lib)?;
+
+    let mux_ratio = mux_ratio as isize;
 
     let array = draw_cell_array(
         ArrayCellParams {
             name: format!("{}_array_inst", prefix),
             num: width,
             cell,
-            spacing: Some(COLUMN_WIDTH * 2),
+            spacing: Some(COLUMN_WIDTH * mux_ratio),
             flip: FlipMode::AlternateFlipHorizontal,
             flip_toggle: false,
             direction: Dir::Horiz,
@@ -37,7 +42,7 @@ pub fn draw_col_inv_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Resul
             name: format!("{}_ntap_array", prefix),
             num: width + 1,
             cell: ntap,
-            spacing: Some(COLUMN_WIDTH * 2),
+            spacing: Some(COLUMN_WIDTH * mux_ratio),
             flip: FlipMode::None,
             flip_toggle: false,
             direction: Dir::Horiz,
@@ -50,7 +55,7 @@ pub fn draw_col_inv_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Resul
             name: format!("{}_ptap_array", prefix),
             num: width + 1,
             cell: ptap,
-            spacing: Some(COLUMN_WIDTH * 2),
+            spacing: Some(COLUMN_WIDTH * mux_ratio),
             flip: FlipMode::None,
             flip_toggle: false,
             direction: Dir::Horiz,
@@ -81,8 +86,8 @@ pub fn draw_col_inv_array(lib: &mut PdkLib, prefix: &str, width: usize) -> Resul
         .layer(nwell)
         .insts(GateList::Array(&inst, width))
         .port_name("vpb")
-        .left_overhang(NWELL_COL_SIDE_EXTEND + 1_450)
-        .right_overhang(NWELL_COL_SIDE_EXTEND + 1_450)
+        .left_overhang(mux_ratio * COLUMN_WIDTH / 2)
+        .right_overhang(mux_ratio * COLUMN_WIDTH / 2)
         .build()?
         .element();
     cell.layout_mut().add(elt);
@@ -180,8 +185,8 @@ fn draw_col_inv_ntap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .name("col_inv_ntap_cell")
         .bot_stack("ntap")
         .top_stack("viali")
-        .bot_rows(5)
-        .top_rows(4)
+        .bot_rows(6)
+        .top_rows(6)
         .build()?;
     let contact = draw_two_level_contact(lib, params)?;
     Ok(contact)
@@ -193,7 +198,7 @@ fn draw_col_inv_ptap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .bot_stack("ptap")
         .top_stack("viali")
         .bot_rows(4)
-        .top_rows(4)
+        .top_rows(5)
         .build()?;
     let contact = draw_two_level_contact(lib, params)?;
     Ok(contact)
@@ -210,7 +215,7 @@ mod tests {
     #[test]
     fn test_col_inv_array() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_col_inv_array")?;
-        draw_col_inv_array(&mut lib, "test_col_inv_array", 32)?;
+        draw_col_inv_array(&mut lib, "test_col_inv_array", 32, 2)?;
 
         lib.save_gds(test_path(&lib))?;
 
