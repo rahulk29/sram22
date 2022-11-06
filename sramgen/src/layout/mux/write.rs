@@ -9,6 +9,7 @@ use pdkprims::PdkLib;
 
 use crate::layout::array::*;
 
+use crate::layout::bank::{connect, ConnectArgs, GateList};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::{ContactBounds, Router, VertDir};
 use crate::tech::BITCELL_WIDTH;
@@ -83,7 +84,7 @@ pub fn draw_write_mux(lib: &mut PdkLib, params: WriteMuxParams) -> Result<Ptr<Ce
         .angle(90f64)
         .build()?;
 
-    mos_bls.align_above(bbox, 1_000);
+    mos_bls.align_above(bbox, 2_100);
     mos_bls.align_centers_horizontally_gridded(bbox, lib.pdk.grid());
 
     cell.add_pin_from_port(mos_we.port("sd_0_0").named("vss"), m0);
@@ -106,7 +107,7 @@ pub fn draw_write_mux(lib: &mut PdkLib, params: WriteMuxParams) -> Result<Ptr<Ce
         mos_we.port("sd_0_1").largest_rect(m0).unwrap()
     };
     trace
-        .down_by(800)
+        .down_by(2_200)
         .s_bend(dst, Dir::Vert)
         .contact_on(dst, VertDir::Below, ContactBounds::FitOne(m0, dst))
         .decrement_layer();
@@ -152,6 +153,13 @@ pub fn draw_write_mux(lib: &mut PdkLib, params: WriteMuxParams) -> Result<Ptr<Ce
     Ok(ptr)
 }
 
+/// Draws an array of write muxes
+///
+/// The wmask parameter represents the number of write mask groups.
+///
+/// For example, if width = 64, mux_ratio = 2, and wmask = 4,
+/// then there will be 2 32-bit words, with a 4 bit write mask
+/// enabling byte write.
 pub fn draw_write_mux_array(
     lib: &mut PdkLib,
     width: usize,
@@ -237,7 +245,7 @@ pub fn draw_write_mux_array(
     span.expand(true, length).expand(false, length);
 
     let rect = Rect::span_builder()
-        .with(Dir::Horiz, Span::new(start.left(), end.right()))
+        .with(Dir::Horiz, Span::new(start.left() - 100, end.right() + 100))
         .with(Dir::Vert, span)
         .build();
 
@@ -333,51 +341,57 @@ pub fn draw_write_mux_array(
         "Width must be divisible by mux_ratio * wmask"
     );
 
-    let bits_per_wmask = width / (mux_ratio * wmask);
+    let start = core_inst.port("we_0").largest_rect(m0).unwrap();
+    let end = core_inst
+        .port(format!("we_{}", width - 1))
+        .largest_rect(m0)
+        .unwrap();
+    let mut hspan = Span::new(start.left(), end.right());
+    hspan.expand(true, 200).expand(false, 200);
 
     for i in 0..mux_ratio {
-        for j in 0..wmask {
-            let idxs = ((bits_per_wmask * mux_ratio * j + i)
-                ..(bits_per_wmask * mux_ratio * (j + 1) + i))
-                .step_by(mux_ratio)
-                .collect::<Vec<_>>();
-            assert_eq!(idxs.len(), bits_per_wmask);
+        let track = track - i as isize;
+        let rect = Rect::from_spans(hspan, grid.htrack(track));
 
-            let start = idxs[0];
-            let stop = idxs[idxs.len() - 1];
+        let we = router.trace(rect, 2);
+        cell.add_pin(format!("we_{}", i), m2, rect);
 
-            let start = core_inst
-                .port(format!("we_{}", start))
+        for j in (i..width).step_by(mux_ratio) {
+            let src = core_inst
+                .port(format!("we_{}", j))
                 .largest_rect(m0)
                 .unwrap();
-            let stop = core_inst
-                .port(format!("we_{}", stop))
-                .largest_rect(m0)
-                .unwrap();
+            let mut trace = router.trace(src, 0);
 
-            let mut hspan = Span::new(start.left(), stop.right());
-            hspan.expand(true, 100).expand(false, 100);
+            trace
+                .place_cursor(Dir::Vert, false)
+                .vert_to_trace(&we)
+                .contact_up(we.rect())
+                .increment_layer()
+                .contact_up(we.rect());
+        }
+    }
 
-            let track = track - i as isize;
-            let rect = Rect::from_spans(hspan, grid.htrack(track));
+    if wmask > 1 {
+        // Number of columns controlled by one write mask bit
+        let wmask_width = width / wmask;
 
-            cell.add_pin(format!("we_{}_{}", i, j), m2, rect);
-            let we = router.trace(rect, 2);
-
-            for idx in idxs {
-                let src = core_inst
-                    .port(format!("we_{}", idx))
-                    .largest_rect(m0)
-                    .unwrap();
-                let mut trace = router.trace(src, 0);
-
-                trace
-                    .place_cursor(Dir::Vert, false)
-                    .vert_to_trace(&we)
-                    .contact_up(we.rect())
-                    .increment_layer()
-                    .contact_up(we.rect());
-            }
+        for i in 0..wmask {
+            let args = ConnectArgs::builder()
+                .metal_idx(2)
+                .port_idx(1)
+                .router(&mut router)
+                .insts(GateList::ArraySlice(
+                    &core_inst,
+                    i * wmask_width,
+                    wmask_width,
+                ))
+                .port_name("wmask")
+                .dir(Dir::Horiz)
+                .overhang(200)
+                .build()?;
+            let trace = connect(args);
+            cell.add_pin(format!("wmask_{i}"), m2, trace.rect());
         }
     }
 
