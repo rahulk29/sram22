@@ -9,6 +9,7 @@ use vlsir::spice::SimInput;
 
 pub mod bitcells;
 pub mod col_inv;
+pub mod config;
 pub mod decoder;
 pub mod dff;
 pub mod gate;

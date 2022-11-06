@@ -1,3 +1,4 @@
+use crate::config::ControlMode;
 use crate::layout::bank::GateList;
 use crate::layout::common::MergeArgs;
 use crate::tech::{sc_and2_gds, sc_buf_gds, sc_inv_gds, sc_tap_gds};
@@ -9,13 +10,6 @@ use pdkprims::PdkLib;
 
 use super::common::sc_outline;
 use super::route::Router;
-
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
-pub enum ControlMode {
-    Simple,
-    SimpleChipSelect,
-    Replica,
-}
 
 pub struct InvChainParams<'a> {
     prefix: &'a str,

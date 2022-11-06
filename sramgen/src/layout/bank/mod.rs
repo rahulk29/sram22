@@ -1,4 +1,5 @@
 use derive_builder::Builder;
+use layout21::lef21::LefLibrary;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Rect;
 use layout21::raw::translate::Translate;
@@ -8,11 +9,12 @@ use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::{LayerIdx, PdkLib};
 
 use crate::clog2;
+use crate::config::ControlMode;
 use crate::decoder::DecoderTree;
 use crate::gate::{AndParams, Size};
 use crate::layout::array::draw_power_connector;
 use crate::layout::col_inv::draw_col_inv_array;
-use crate::layout::control::{draw_control_logic, ControlMode};
+use crate::layout::control::draw_control_logic;
 use crate::layout::decoder::{
     bus_width, draw_hier_decode, ConnectSubdecodersArgs, GateArrayParams,
 };
@@ -29,11 +31,14 @@ use crate::wmask_control::WriteMaskControlParams;
 
 use super::array::draw_array;
 use super::decoder::{draw_inv_dec_array, draw_nand2_dec_array};
-use super::mux::{draw_read_mux_array, draw_write_mux_array};
+use super::mux::read::draw_read_mux_array;
+use super::mux::write::draw_write_mux_array;
 use super::precharge::draw_precharge_array;
 use super::route::Trace;
 use super::sense_amp::draw_sense_amp_array;
 use super::Result;
+
+pub mod lef;
 
 pub const M1_PWR_OVERHANG: Int = 200;
 
@@ -63,7 +68,12 @@ impl Side {
     }
 }
 
-pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+pub struct PhysicalDesign {
+    pub cell: Ptr<Cell>,
+    pub lef: LefLibrary,
+}
+
+pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<PhysicalDesign> {
     let name = "sram_bank".to_string();
 
     let mut cell = Cell::empty(&name);
@@ -1128,7 +1138,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
 
     let routing = router.finish();
 
-    cell.layout_mut().add_inst(straps.instance);
+    cell.layout_mut().add_inst(straps.instance.clone());
     cell.layout_mut().add_inst(guard_ring_inst);
     cell.layout_mut().add_inst(routing);
 
@@ -1140,7 +1150,15 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
 
-    Ok(ptr)
+    let lef = lef::generate(lef::Params {
+        addr_bits: total_addr_bits,
+        data_bits: cols / 2,
+        cell: ptr.clone(),
+        straps: &straps,
+        pdk: lib.pdk.clone(),
+    });
+
+    Ok(PhysicalDesign { cell: ptr, lef })
 }
 
 #[derive(Builder)]
@@ -1238,14 +1256,16 @@ pub(crate) fn connect(args: ConnectArgs) -> Trace {
 mod tests {
     use pdkprims::tech::sky130;
 
-    use crate::utils::{panic_on_err, test_path};
+    use crate::utils::{panic_on_err, test_lef_path, test_path};
 
     use super::*;
 
     #[test]
     fn test_sram_bank_32x32() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_bank_32x32")?;
-        draw_sram_bank(32, 32, &mut lib).map_err(panic_on_err)?;
+        let PhysicalDesign { cell: _, lef } =
+            draw_sram_bank(32, 32, &mut lib).map_err(panic_on_err)?;
+        lef.save(test_lef_path(&lib)).expect("failed to export LEF");
 
         lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
 

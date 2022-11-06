@@ -203,10 +203,19 @@ use pdkprims::PdkLib;
 #[cfg(test)]
 use std::path::PathBuf;
 
+pub const TEST_BUILD_PATH: &str = "/Users/rahul/acads/research/sky130/sram22/_build";
+
 #[cfg(test)]
 pub(crate) fn test_path(lib: &PdkLib) -> PathBuf {
-    let mut path = PathBuf::from("/Users/rahul/acads/research/sky130/sram22/_build");
+    let mut path = PathBuf::from(TEST_BUILD_PATH);
     path.push(format!("{}.gds", &lib.lib.name));
+    path
+}
+
+#[cfg(test)]
+pub(crate) fn test_lef_path(lib: &PdkLib) -> PathBuf {
+    let mut path = PathBuf::from(TEST_BUILD_PATH);
+    path.push(format!("{}.lef", &lib.lib.name));
     path
 }
 
