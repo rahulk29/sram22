@@ -275,18 +275,18 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     din_dffs.align_centers_horizontally_gridded(core_bbox, grid);
 
     decoder1.align_beneath(core_bbox, 1_000);
-    decoder1.align_to_the_left_of(col_bbox.bbox(), 3_000);
+    decoder1.align_to_the_left_of(col_bbox.bbox(), 4_000);
 
     let decoder1_bbox = decoder1.bbox();
     decoder2.align_beneath(decoder1_bbox, 1_270);
-    decoder2.align_to_the_left_of(col_bbox.bbox(), 3_000);
+    decoder2.align_to_the_left_of(col_bbox.bbox(), 4_000);
 
     let decoder2_bbox = decoder2.bbox();
     control.align_beneath(decoder2_bbox, 1_270);
     control.align_left(decoder2_bbox);
 
     wmask_control.align_beneath(decoder2_bbox, 1_270);
-    wmask_control.align_to_the_right_of(control.bbox(), 1_270);
+    wmask_control.align_to_the_right_of(control.bbox(), 0);
 
     addr_dffs.align_beneath(decoder1_bbox, 140);
 
