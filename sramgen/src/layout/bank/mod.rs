@@ -94,6 +94,9 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     assert_eq!(cols % 2, 0);
     assert_eq!(rows % 2, 0);
+    assert!(mux_ratio >= 2);
+    assert!(wmask_groups >= 1);
+    assert_eq!(cols % (mux_ratio * wmask_groups), 0);
 
     let grid = lib.pdk.grid();
 
@@ -103,6 +106,16 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     let decoder_tree = DecoderTree::new(row_bits);
     assert_eq!(decoder_tree.root.children.len(), 2);
+
+    if mux_ratio > 2 {
+        let col_decoder_tree = DecoderTree::new(clog2(mux_ratio));
+        assert_eq!(
+            col_decoder_tree.root.children.len(),
+            0,
+            "Only 1-level column decoders are supported"
+        );
+        let _col_decoder = draw_hier_decode(lib, "col_decoder", &col_decoder_tree.root)?;
+    }
 
     let control = draw_control_logic(lib, ControlMode::Simple)?;
     let wmask_control = draw_write_mask_control(
