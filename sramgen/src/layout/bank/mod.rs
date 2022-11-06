@@ -770,7 +770,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .horiz_to_rect(dst);
     power_grid.add_padded_blockage(2, trace.rect());
     trace.up().set_min_width().vert_to_rect(dst);
-    power_grid.add_padded_blockage(3, trace.rect());
+    power_grid.add_padded_blockage(3, trace.rect().expand(20));
     trace.contact_down(dst).decrement_layer().contact_down(dst);
     power_grid.add_padded_blockage(2, dst.expand(50));
 
