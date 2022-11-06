@@ -181,7 +181,7 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
 pub fn draw_read_mux_array(
     lib: &mut PdkLib,
-    width: usize,
+    mut width: usize,
     mut mux_ratio: usize,
 ) -> Result<Ptr<Cell>> {
     assert_eq!(mux_ratio % 2, 0);
@@ -189,6 +189,8 @@ pub fn draw_read_mux_array(
 
     // Divide mux ratio by 2, since read muxes are internally 2:1
     mux_ratio /= 2;
+    width /= 2;
+
     let name = "read_mux_array";
     let mut cell = Cell::empty(name);
 

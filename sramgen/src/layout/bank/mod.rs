@@ -3,7 +3,7 @@ use layout21::lef21::LefLibrary;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Rect;
 use layout21::raw::translate::Translate;
-use layout21::raw::{AbstractPort, BoundBoxTrait, Cell, Dir, Instance, Int, Point, Span};
+use layout21::raw::{AbstractPort, BoundBox, BoundBoxTrait, Cell, Dir, Instance, Int, Point, Span};
 use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::{LayerIdx, PdkLib};
@@ -73,7 +73,21 @@ pub struct PhysicalDesign {
     pub lef: LefLibrary,
 }
 
-pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<PhysicalDesign> {
+pub struct SramBankParams {
+    rows: usize,
+    cols: usize,
+    mux_ratio: usize,
+    wmask_groups: usize,
+}
+
+pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<PhysicalDesign> {
+    let SramBankParams {
+        rows,
+        cols,
+        mux_ratio,
+        wmask_groups,
+    } = params;
+
     let name = "sram_bank".to_string();
 
     let mut cell = Cell::empty(&name);
@@ -171,15 +185,15 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Phys
             name: "precharge_array".to_string(),
         },
     )?;
-    let read_mux = draw_read_mux_array(lib, cols / 2, 2)?;
-    let write_mux = draw_write_mux_array(lib, cols, 2, 1)?;
-    let col_inv = draw_col_inv_array(lib, "col_data_inv", cols / 2)?;
-    let sense_amp = draw_sense_amp_array(lib, cols / 2)?;
+    let read_mux = draw_read_mux_array(lib, cols, mux_ratio)?;
+    let write_mux = draw_write_mux_array(lib, cols, mux_ratio, wmask_groups)?;
+    let col_inv = draw_col_inv_array(lib, "col_data_inv", cols / mux_ratio, mux_ratio)?;
+    let sense_amp = draw_sense_amp_array(lib, cols / mux_ratio, COLUMN_WIDTH * mux_ratio as isize)?;
     let din_dff_params = DffGridParams::builder()
         .name("data_dff_array")
         .rows(2)
-        .cols(cols / 4)
-        .row_pitch(4 * COLUMN_WIDTH)
+        .cols(cols / (2 * mux_ratio))
+        .row_pitch(2 * mux_ratio as isize * COLUMN_WIDTH)
         .build()?;
     let din_dffs = draw_dff_grid(lib, din_dff_params)?;
     let tmc = draw_tmc(
@@ -240,19 +254,36 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Phys
     sense_amp.align_beneath(col_inv.bbox(), 2_900);
     sense_amp.align_centers_horizontally_gridded(core_bbox, grid);
 
+    let sa_bbox = sense_amp.bbox().into_rect();
+    let pc_bbox = pc.bbox().into_rect();
+    let read_mux_bbox = read_mux.bbox().into_rect();
+    let write_mux_bbox = write_mux.bbox().into_rect();
+    let col_inv_bbox = col_inv.bbox().into_rect();
+
+    let mut col_bbox = BoundBox::empty();
+    for bbox in [
+        sa_bbox,
+        pc_bbox,
+        col_inv_bbox,
+        read_mux_bbox,
+        write_mux_bbox,
+    ] {
+        col_bbox = col_bbox.union(&bbox.bbox());
+    }
+
     din_dffs.align_beneath(sense_amp.bbox(), 1_000);
     din_dffs.align_centers_horizontally_gridded(core_bbox, grid);
 
     decoder1.align_beneath(core_bbox, 1_000);
-    decoder1.align_to_the_left_of(sense_amp.bbox(), 3_000);
+    decoder1.align_to_the_left_of(col_bbox.bbox(), 3_000);
 
     let decoder1_bbox = decoder1.bbox();
     decoder2.align_beneath(decoder1_bbox, 1_270);
-    decoder2.align_to_the_left_of(sense_amp.bbox(), 3_000);
+    decoder2.align_to_the_left_of(col_bbox.bbox(), 3_000);
 
     let decoder2_bbox = decoder2.bbox();
     control.align_beneath(decoder2_bbox, 1_270);
-    control.align_to_the_left_of(decoder2_bbox, 0);
+    control.align_left(decoder2_bbox);
 
     wmask_control.align_beneath(decoder2_bbox, 1_270);
     wmask_control.align_to_the_right_of(control.bbox(), 1_270);
@@ -350,8 +381,6 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Phys
     }
 
     let core_bot = core_bbox.into_rect().bottom();
-    let pc_bbox = pc.bbox().into_rect();
-    let read_mux_bbox = read_mux.bbox().into_rect();
     let pc_top = pc_bbox.top();
     let pc_midpt = Span::new(pc_top, core_bot).center();
 
@@ -440,12 +469,11 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Phys
             .s_bend(dst2, Dir::Vert);
     }
 
-    let sa_bbox = sense_amp.bbox().into_rect();
     let bl_bot = sense_amp.port("inn_0").largest_rect(m2).unwrap().bottom();
 
-    let mut dout_spans = Vec::with_capacity(cols / 2);
+    let mut dout_spans = Vec::with_capacity(cols / mux_ratio);
     // Route read bitlines
-    for i in 0..cols / 2 {
+    for i in 0..(cols / mux_ratio) {
         // Route data and data bar to 2:1 write muxes
         let data_b_pin = write_mux
             .port(format!("data_b_{}", i))
@@ -718,11 +746,12 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Phys
         .place_cursor_centered()
         .horiz_to(src.right() - 2 * cfg.line(0))
         .up()
-        .set_width(dst.height())
-        .vert_to_rect(dst)
         .up()
-        .set_width(dst.height())
-        .horiz_to_rect(dst);
+        .up();
+    power_grid.add_padded_blockage(2, trace.cursor_rect());
+    trace.set_width(cfg.line(3)).vert_to_rect(dst);
+    power_grid.add_padded_blockage(3, trace.rect());
+    trace.down().set_width(dst.height()).horiz_to_rect(dst);
     power_grid.add_padded_blockage(2, trace.rect());
 
     // Route wordline enable (wl_en) from control logic to wordline drivers
@@ -762,7 +791,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Phys
         .center(Point::zero())
         .grid(cfg.grid())
         .build()?;
-    let track = grid.get_track_index(Dir::Vert, sa_bbox.left(), TrackLocator::EndsBefore);
+    let track = grid.get_track_index(Dir::Vert, col_bbox.p0.x, TrackLocator::EndsBefore);
 
     // Write driver enable (write_driver_en)
     let src = control.port("write_driver_en").largest_rect(m0).unwrap();
@@ -901,7 +930,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Phys
         .horiz_to(din_dff_bbox.right());
     power_grid.add_padded_blockage(2, clk_trace.rect());
 
-    for i in (0..(cols / 2)).step_by(2) {
+    for i in (0..(cols / mux_ratio)).step_by(2) {
         let args = ConnectArgs::builder()
             .metal_idx(3)
             .port_idx(2)
@@ -958,7 +987,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Phys
                 }
             }
         }
-        for name in ["vnb", "vss", "vgnd"] {
+        for name in ["vnb", "vss", "vgnd", "gnd"] {
             for port in instance.ports_starting_with(name) {
                 if let Some(rect) = port.largest_rect(m1) {
                     power_grid.add_gnd_target(1, rect);
@@ -1010,7 +1039,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Phys
 
     // Route input and output pins
     #[allow(clippy::needless_range_loop)]
-    for i in 0..(cols / 2) {
+    for i in 0..(cols / mux_ratio) {
         let src = din_dffs.port(format!("d_{i}")).largest_rect(m2).unwrap();
         let offset = if i % 2 == 0 { -185 } else { 570 };
         let mut trace = router.trace(src, 2);
@@ -1152,7 +1181,7 @@ pub fn draw_sram_bank(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Phys
 
     let lef = lef::generate(lef::Params {
         addr_bits: total_addr_bits,
-        data_bits: cols / 2,
+        data_bits: cols / mux_ratio,
         cell: ptr.clone(),
         straps: &straps,
         pdk: lib.pdk.clone(),
@@ -1262,10 +1291,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_sram_bank_32x32() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_bank_32x32")?;
-        let PhysicalDesign { cell: _, lef } =
-            draw_sram_bank(32, 32, &mut lib).map_err(panic_on_err)?;
+    fn test_sram_bank_32x32m2() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sram_bank_32x32m2")?;
+        let PhysicalDesign { cell: _, lef } = draw_sram_bank(
+            &mut lib,
+            SramBankParams {
+                rows: 32,
+                cols: 32,
+                mux_ratio: 2,
+                wmask_groups: 1,
+            },
+        )
+        .map_err(panic_on_err)?;
         lef.save(test_lef_path(&lib)).expect("failed to export LEF");
 
         lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
@@ -1274,9 +1311,19 @@ mod tests {
     }
 
     #[test]
-    fn test_sram_bank_128x64() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_bank_128x64")?;
-        draw_sram_bank(128, 64, &mut lib).map_err(panic_on_err)?;
+    fn test_sram_bank_32x32m4() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sram_bank_32x32m4")?;
+        let PhysicalDesign { cell: _, lef } = draw_sram_bank(
+            &mut lib,
+            SramBankParams {
+                rows: 32,
+                cols: 32,
+                mux_ratio: 4,
+                wmask_groups: 1,
+            },
+        )
+        .map_err(panic_on_err)?;
+        lef.save(test_lef_path(&lib)).expect("failed to export LEF");
 
         lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
 
@@ -1284,9 +1331,18 @@ mod tests {
     }
 
     #[test]
-    fn test_sram_bank_64x128() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_bank_64x128")?;
-        draw_sram_bank(64, 128, &mut lib).map_err(panic_on_err)?;
+    fn test_sram_bank_128x64m2() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sram_bank_128x64m2")?;
+        draw_sram_bank(
+            &mut lib,
+            SramBankParams {
+                rows: 128,
+                cols: 64,
+                mux_ratio: 2,
+                wmask_groups: 1,
+            },
+        )
+        .map_err(panic_on_err)?;
 
         lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
 
@@ -1294,9 +1350,37 @@ mod tests {
     }
 
     #[test]
-    fn test_sram_bank_16x16() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_bank_16x16")?;
-        draw_sram_bank(16, 16, &mut lib).map_err(panic_on_err)?;
+    fn test_sram_bank_64x128m2() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sram_bank_64x128m2")?;
+        draw_sram_bank(
+            &mut lib,
+            SramBankParams {
+                rows: 64,
+                cols: 128,
+                mux_ratio: 2,
+                wmask_groups: 1,
+            },
+        )
+        .map_err(panic_on_err)?;
+
+        lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sram_bank_16x16m2() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sram_bank_16x16m2")?;
+        draw_sram_bank(
+            &mut lib,
+            SramBankParams {
+                rows: 16,
+                cols: 16,
+                mux_ratio: 2,
+                wmask_groups: 1,
+            },
+        )
+        .map_err(panic_on_err)?;
 
         lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
 
