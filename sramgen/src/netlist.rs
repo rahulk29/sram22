@@ -121,8 +121,7 @@ mod tests {
 
     use crate::decoder::{hierarchical_decoder, DecoderParams, DecoderTree};
     use crate::mos::{ext_nmos, ext_pmos};
-    use crate::save_bin;
-    use crate::NETLIST_FORMAT;
+    use crate::{save_bin, NETLIST_FORMAT};
 
     use super::Result;
 

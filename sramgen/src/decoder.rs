@@ -333,7 +333,7 @@ impl<'a> DecoderGen<'a> {
         let nand_name = if let Some(nand_name) = self.nands.get(&(gate_size, node.gate.size)) {
             nand_name.to_string()
         } else {
-            let nand_name = format!("decoder_nand_{}", self.get_id());
+            let nand_name = format!("{}_nand_{}", &self.params.name, self.get_id());
             let nand = match gate_size {
                 2 => nand2(GateParams {
                     name: nand_name.clone(),
@@ -356,7 +356,7 @@ impl<'a> DecoderGen<'a> {
         let inv_name = if let Some(inv_name) = self.invs.get(&node.buf.unwrap().size) {
             inv_name.to_string()
         } else {
-            let inv_name = format!("decoder_inv_{}", self.get_id());
+            let inv_name = format!("{}_inv_{}", &self.params.name, self.get_id());
             let inv = inv(GateParams {
                 name: inv_name.clone(),
                 size: node.buf.unwrap().size,

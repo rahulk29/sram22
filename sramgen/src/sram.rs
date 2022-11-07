@@ -131,7 +131,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
 
     let mut data_dff_array = dff_array(DffArrayParams {
         name: "data_dff_array".to_string(),
-        width: cols / 2,
+        width: cols / mux_ratio,
     });
 
     let mut addr_dff_array = dff_array(DffArrayParams {
@@ -187,7 +187,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     let wl_data = bus("wl_data", rows as i64);
     let wl_data_b = bus("wl_data_b", rows as i64);
     let wr_en = signal("wr_en");
-    let write_driver_en = bus("write_driver_en", 2);
+    let write_driver_en = bus("write_driver_en", mux_ratio as i64);
     let sae = signal("sense_amp_en");
 
     // Only used when mux ratio is greater than 2
@@ -495,30 +495,58 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_netlist_sram_16x16() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_netlist_sram_16x16m2() -> Result<(), Box<dyn std::error::Error>> {
         let modules = sram(SramParams {
-            name: "sramgen_sram_16x16".to_string(),
+            name: "sramgen_sram_16x16m2".to_string(),
             row_bits: 4,
             col_bits: 4,
             col_mask_bits: 1,
             wmask_groups: 1,
         });
 
-        save_modules("sram_16x16", modules)?;
+        save_modules("sram_16x16m2", modules)?;
         Ok(())
     }
 
     #[test]
-    fn test_netlist_sram_4x4() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_netlist_sram_16x16m4() -> Result<(), Box<dyn std::error::Error>> {
         let modules = sram(SramParams {
-            name: "sramgen_sram_4x4".to_string(),
+            name: "sramgen_sram_16x16m4".to_string(),
+            row_bits: 4,
+            col_bits: 4,
+            col_mask_bits: 2,
+            wmask_groups: 1,
+        });
+
+        save_modules("sram_16x16m4", modules)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_netlist_sram_4x4m2() -> Result<(), Box<dyn std::error::Error>> {
+        let modules = sram(SramParams {
+            name: "sramgen_sram_4x4m2".to_string(),
             row_bits: 2,
             col_bits: 2,
             col_mask_bits: 1,
             wmask_groups: 1,
         });
 
-        save_modules("sram_4x4", modules)?;
+        save_modules("sram_4x4m2", modules)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_netlist_sram_4x4m4() -> Result<(), Box<dyn std::error::Error>> {
+        let modules = sram(SramParams {
+            name: "sramgen_sram_4x4m4".to_string(),
+            row_bits: 2,
+            col_bits: 2,
+            col_mask_bits: 2,
+            wmask_groups: 1,
+        });
+
+        save_modules("sram_4x4m4", modules)?;
         Ok(())
     }
 

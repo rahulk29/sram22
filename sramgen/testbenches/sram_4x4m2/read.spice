@@ -6,7 +6,7 @@
 .include ../../lib/sramgen_sp_sense_amp/sramgen_sp_sense_amp.spice
 .include ../../lib/sramgen_control/sramgen_control_simple.spice
 .include ../../lib/openram_dff/openram_dff.spice
-.include ../../build/ngspice/sram_4x4.spice
+.include ../../build/ngspice/sram_4x4m2.spice
 
 .param vdd='1.8'
 .param tr='100p'
@@ -24,7 +24,7 @@ Xsram
 + vss
 * addr_in_2 addr_in_1 addr_in_0 
 + vdd vss vss
-+ sramgen_sram_4x4
++ sramgen_sram_4x4m2
 
 Vclk clk 0 dc 0 PULSE(0 {vdd} 10p {tr} {tf} 2n 4n 0)
 Vss vss 0 dc 0
