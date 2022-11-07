@@ -1225,38 +1225,36 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     let straps = power_grid.generate()?;
 
-    if false {
-        for side in [Side::Left, Side::Right, Side::Top, Side::Bottom] {
-            let (srcs, layer) = match side {
-                Side::Left => (&straps.left, 2),
-                Side::Right => (&straps.right, 2),
-                Side::Top => (&straps.top, 3),
-                Side::Bottom => (&straps.bottom, 3),
+    for side in [Side::Left, Side::Right, Side::Top, Side::Bottom] {
+        let (srcs, layer) = match side {
+            Side::Left => (&straps.left, 2),
+            Side::Right => (&straps.right, 2),
+            Side::Top => (&straps.top, 3),
+            Side::Bottom => (&straps.bottom, 3),
+        };
+
+        for (net, src) in srcs {
+            let dst = match (side, *net) {
+                (Side::Left, PowerSource::Vdd) => guard_ring.vdd_ring.left(),
+                (Side::Right, PowerSource::Vdd) => guard_ring.vdd_ring.right(),
+                (Side::Bottom, PowerSource::Vdd) => guard_ring.vdd_ring.bottom(),
+                (Side::Top, PowerSource::Vdd) => guard_ring.vdd_ring.top(),
+                (Side::Left, PowerSource::Gnd) => guard_ring.vss_ring.left(),
+                (Side::Right, PowerSource::Gnd) => guard_ring.vss_ring.right(),
+                (Side::Bottom, PowerSource::Gnd) => guard_ring.vss_ring.bottom(),
+                (Side::Top, PowerSource::Gnd) => guard_ring.vss_ring.top(),
             };
 
-            for (net, src) in srcs {
-                let dst = match (side, *net) {
-                    (Side::Left, PowerSource::Vdd) => guard_ring.vdd_ring.left(),
-                    (Side::Right, PowerSource::Vdd) => guard_ring.vdd_ring.right(),
-                    (Side::Bottom, PowerSource::Vdd) => guard_ring.vdd_ring.bottom(),
-                    (Side::Top, PowerSource::Vdd) => guard_ring.vdd_ring.top(),
-                    (Side::Left, PowerSource::Gnd) => guard_ring.vss_ring.left(),
-                    (Side::Right, PowerSource::Gnd) => guard_ring.vss_ring.right(),
-                    (Side::Bottom, PowerSource::Gnd) => guard_ring.vss_ring.bottom(),
-                    (Side::Top, PowerSource::Gnd) => guard_ring.vss_ring.top(),
-                };
+            let width = src.span(!side.dir()).length();
 
-                let width = src.span(!side.dir()).length();
+            let mut trace = router.trace(*src, layer);
+            trace.set_width(width).place_cursor(side.dir(), side.pos());
 
-                let mut trace = router.trace(*src, layer);
-                trace.set_width(width).place_cursor(side.dir(), side.pos());
-
-                match side.dir() {
-                    Dir::Horiz => trace.horiz_to_rect(dst),
-                    Dir::Vert => trace.vert_to_rect(dst),
-                };
-                trace.contact_down(dst);
-            }
+            match side.dir() {
+                Dir::Horiz => trace.horiz_to_rect(dst),
+                Dir::Vert => trace.vert_to_rect(dst),
+            };
+            trace.contact_down(dst);
         }
     }
 
