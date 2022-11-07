@@ -101,28 +101,31 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     let grid = lib.pdk.grid();
 
     let row_bits = clog2(rows);
-    let col_sel_bits = 1;
+    let col_sel_bits = clog2(mux_ratio);
     let total_addr_bits = row_bits + col_sel_bits;
 
     let decoder_tree = DecoderTree::new(row_bits);
     assert_eq!(decoder_tree.root.children.len(), 2);
 
-    if mux_ratio > 2 {
+    let col_decoder = if mux_ratio > 2 {
         let col_decoder_tree = DecoderTree::new(clog2(mux_ratio));
         assert_eq!(
             col_decoder_tree.root.children.len(),
             0,
             "Only 1-level column decoders are supported"
         );
-        let _col_decoder = draw_hier_decode(lib, "col_decoder", &col_decoder_tree.root)?;
-    }
+        let col_decoder = draw_hier_decode(lib, "col_decoder", &col_decoder_tree.root)?;
+        Some(col_decoder)
+    } else {
+        None
+    };
 
     let control = draw_control_logic(lib, ControlMode::Simple)?;
-    let wmask_control = draw_write_mask_control(
+    let we_control = draw_write_mask_control(
         lib,
         WriteMaskControlParams {
             name: "write_mask_control".to_string(),
-            width: 2,
+            width: mux_ratio as i64,
             and_params: AndParams {
                 name: "write_mask_control_and2".to_string(),
                 nand_size: Size {
@@ -140,6 +143,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     let decoder1 = draw_hier_decode(lib, "predecoder_1", &decoder_tree.root.children[0])?;
     let decoder2 = draw_hier_decode(lib, "predecoder_2", &decoder_tree.root.children[1])?;
     let decoder1_bits = clog2(decoder_tree.root.children[0].num);
+    let decoder2_bits = clog2(decoder_tree.root.children[1].num);
     let addr_dff_params = DffGridParams::builder()
         .name("addr_dff_array")
         .rows(total_addr_bits + 1) // 1 extra bit for write enable
@@ -223,7 +227,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     let core_pwr = Instance::new("core_power", core_pwr);
     let mut control = Instance::new("control_logic", control);
     control.angle = Some(90f64);
-    let mut wmask_control = Instance::new("write_mask_control", wmask_control);
+    let mut we_control = Instance::new("write_mask_control", we_control);
     let mut decoder1 = Instance::new("hierarchical_decoder", decoder1);
     let mut decoder2 = Instance::new("hierarchical_decoder", decoder2);
     let mut wldrv_nand = Instance::new("wldrv_nand_array", wldrv_nand);
@@ -237,6 +241,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     let mut sense_amp = Instance::new("sense_amp_array", sense_amp);
     let mut din_dffs = Instance::new("dff_array", din_dffs);
     let mut addr_dffs = Instance::new("addr_dffs", addr_dffs);
+    let mut col_decoder = col_decoder.map(|decoder| Instance::new("col_decoder", decoder));
     let mut tmc = Instance::new("tmc", tmc);
 
     let core_bbox = core.bbox();
@@ -295,13 +300,24 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     decoder2.align_to_the_left_of(col_bbox.bbox(), 4_000);
 
     let decoder2_bbox = decoder2.bbox();
-    control.align_beneath(decoder2_bbox, 1_270);
+
+    we_control.align_beneath(decoder2_bbox, 1_270);
+    we_control.align_to_the_left_of(col_bbox.bbox(), 4_000);
+    let we_control_bbox = we_control.bbox();
+
+    addr_dffs.align_beneath(decoder1_bbox, 2_000);
+
+    let bbox = if let Some(ref mut col_decoder) = col_decoder {
+        col_decoder.align_beneath(we_control_bbox, 1_270);
+        col_decoder.align_to_the_left_of(col_bbox.bbox(), 4_000);
+        col_decoder.reflect_horiz_anchored();
+        col_decoder.bbox()
+    } else {
+        we_control_bbox
+    };
+
+    control.align_beneath(bbox, 1_270);
     control.align_left(decoder2_bbox);
-
-    wmask_control.align_beneath(decoder2_bbox, 1_270);
-    wmask_control.align_to_the_right_of(control.bbox(), 0);
-
-    addr_dffs.align_beneath(decoder1_bbox, 140);
 
     tmc.align_above(din_dffs.bbox(), 1_270);
     tmc.align_to_the_right_of(core_bbox, 1_270);
@@ -645,19 +661,26 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     let bbox = router.cell().bbox();
     addr_dffs.align_to_the_left_of(bbox, 1_270);
+    let addr_dff_bbox = addr_dffs.bbox();
+
+    let bus_bits = if mux_ratio == 2 {
+        row_bits
+    } else {
+        total_addr_bits
+    };
 
     let track_start = track_start + bus_width as isize;
-    let traces = (track_start..(track_start + 2 * row_bits as isize))
+    let traces = (track_start..(track_start + 2 * bus_bits as isize))
         .map(|track| {
             let rect = Rect::span_builder()
-                .with(Dir::Vert, Span::new(addr_dffs.bbox().p0.y, core_bbox.p0.y))
+                .with(Dir::Vert, Span::new(addr_dff_bbox.p0.y, core_bbox.p0.y))
                 .with(Dir::Horiz, grid.vtrack(track))
                 .build();
             router.trace(rect, 1)
         })
         .collect::<Vec<_>>();
 
-    for i in 0..row_bits {
+    for i in 0..bus_bits {
         for (port, addr_prefix, idx) in [("q", "addr", 2 * i), ("qn", "addr_b", 2 * i + 1)] {
             let src = addr_dffs
                 .port(format!("{}_{}", port, i))
@@ -673,12 +696,16 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             let (target_port, target_idx) = if i < decoder1_bits {
                 // Route to decoder1
                 (decoder1.port(format!("{}_{}", addr_prefix, i)), i)
-            } else {
+            } else if i < decoder2_bits + decoder1_bits {
                 // Route to decoder2
                 (
                     decoder2.port(format!("{}_{}", addr_prefix, i - decoder1_bits)),
                     i - decoder1_bits,
                 )
+            } else {
+                let col_decoder = col_decoder.as_ref().unwrap();
+                let idx = i - decoder1_bits - decoder2_bits;
+                (col_decoder.port(format!("{}_{}", addr_prefix, idx)), idx)
             };
             let mut target = target_port.largest_rect(m1).unwrap();
             let base = target.p0.y + 160 + 600 * (2 * target_idx + idx % 2) as isize;
@@ -697,7 +724,6 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     }
 
     // Route column address bit
-    let wmask_control_bbox = wmask_control.bbox().into_rect();
     let space = lib.pdk.bus_min_spacing(
         1,
         cfg.line(1),
@@ -707,8 +733,8 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         },
     );
     let addr_span = Span::new(
-        wmask_control_bbox.left() - space - cfg.line(1),
-        wmask_control_bbox.left() - space,
+        we_control_bbox.p0.x - space - cfg.line(1),
+        we_control_bbox.p0.x - space,
     );
     let addr_b_span = Span::new(
         addr_span.start() - space - cfg.line(1),
@@ -717,22 +743,25 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     // First element is addr_0_b; second element is addr_0
     let mut addr_0_traces = Vec::with_capacity(2);
-    for (src_port, dst_port, span) in [("qn", "sel_0", addr_b_span), ("q", "sel_1", addr_span)] {
-        let src = addr_dffs
-            .port(format!("{}_{}", src_port, total_addr_bits - 1))
-            .largest_rect(m2)
-            .unwrap();
-        let dst = wmask_control.port(dst_port).largest_rect(m0).unwrap();
-        let mut trace = router.trace(src, 2);
-        trace.place_cursor_centered().horiz_to(span.stop());
-        addr_0_traces.push(trace.rect());
-        power_grid.add_padded_blockage(2, trace.rect());
-        trace
-            .down()
-            .vert_to(dst.top())
-            .down()
-            .set_min_width()
-            .horiz_to_rect(dst);
+    if mux_ratio == 2 {
+        for (src_port, dst_port, span) in [("qn", "sel_0", addr_b_span), ("q", "sel_1", addr_span)]
+        {
+            let src = addr_dffs
+                .port(format!("{}_{}", src_port, total_addr_bits - 1))
+                .largest_rect(m2)
+                .unwrap();
+            let dst = we_control.port(dst_port).largest_rect(m0).unwrap();
+            let mut trace = router.trace(src, 2);
+            trace.place_cursor_centered().horiz_to(span.stop());
+            addr_0_traces.push(trace.rect());
+            power_grid.add_padded_blockage(2, trace.rect());
+            trace
+                .down()
+                .vert_to(dst.top())
+                .down()
+                .set_min_width()
+                .horiz_to_rect(dst);
+        }
     }
 
     // Route write enable (WE) to control logic
@@ -799,7 +828,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     // Route control signals
     let grid = Grid::builder()
-        .line(cfg.line(1))
+        .line(cfg.line(0))
         .space(space)
         .center(Point::zero())
         .grid(cfg.grid())
@@ -808,19 +837,27 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     // Write driver enable (write_driver_en)
     let src = control.port("write_driver_en").largest_rect(m0).unwrap();
-    let dst = wmask_control.port("wr_en").largest_rect(m1).unwrap();
+    let dst = we_control.port("wr_en").largest_rect(m1).unwrap();
     let mut trace = router.trace(src, 0);
     trace
         .place_cursor_centered()
+        .left_by(cfg.line(3) + cfg.space(3) + 40)
         .up()
-        .vert_to(dst.bottom() - 500)
         .up()
-        .horiz_to(dst.right());
+        .up()
+        .set_min_width();
+    power_grid.add_padded_blockage(2, trace.cursor_rect());
+    trace.vert_to(dst.bottom() - 500);
+    power_grid.add_padded_blockage(3, trace.rect().expand(20));
+    trace.down().set_min_width().horiz_to(dst.right());
     power_grid.add_padded_blockage(2, trace.rect().expand(60));
     trace.down().vert_to(dst.top());
 
-    let (pc_b, rmux_sel_1, rmux_sel_0, wmux_sel_1, wmux_sel_0) =
-        (track, track - 1, track - 2, track - 3, track - 4);
+    let (pc_b, rmux_sel_base, wmux_sel_base) = (
+        track,
+        track - mux_ratio as isize,
+        track - 2 * mux_ratio as isize,
+    );
     // precharge bar (pc_b)
     let src = pc.port("pc_b").largest_rect(m2).unwrap();
     let dst = control.port("pc_b").largest_rect(m1).unwrap();
@@ -828,7 +865,9 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     trace
         .set_width(src.height())
         .place_cursor(Dir::Horiz, false)
-        .horiz_to(grid.vtrack(pc_b).start())
+        .horiz_to(grid.vtrack(pc_b).start());
+    power_grid.add_padded_blockage(2, trace.rect());
+    trace
         .down()
         .set_min_width()
         .vert_to(dst.center().y)
@@ -836,55 +875,73 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .horiz_to_rect(dst)
         .contact_down(dst);
     power_grid.add_padded_blockage(2, trace.rect().expand(60));
+
     // write mux sel / write enable / write driver enable
-    let src = wmask_control
-        .port("write_driver_en_0")
-        .largest_rect(m0)
-        .unwrap();
-    let dst = write_mux.port("we_0").largest_rect(m2).unwrap();
-    let mut trace = router.trace(src, 0);
-    trace
-        .place_cursor(Dir::Horiz, true)
-        .horiz_to(grid.vtrack(wmux_sel_0).stop())
-        .up()
-        .set_min_width()
-        .vert_to_rect(dst)
-        .up()
-        .horiz_to(dst.right());
-    power_grid.add_padded_blockage(2, trace.rect().expand(60));
-    let src = wmask_control
-        .port("write_driver_en_1")
-        .largest_rect(m0)
-        .unwrap();
-    let dst = write_mux.port("we_1").largest_rect(m2).unwrap();
-    let mut trace = router.trace(src, 0);
-    trace
-        .place_cursor(Dir::Horiz, true)
-        .horiz_to(grid.vtrack(wmux_sel_1).stop())
-        .up()
-        .set_min_width()
-        .vert_to_rect(dst)
-        .up()
-        .horiz_to(dst.right());
-    power_grid.add_padded_blockage(2, trace.rect().expand(60));
+    for i in 0..mux_ratio as isize {
+        let src = we_control
+            .port(format!("write_driver_en_{i}"))
+            .largest_rect(m0)
+            .unwrap();
+        let dst = write_mux.port(format!("we_{i}")).largest_rect(m2).unwrap();
+        let mut trace = router.trace(src, 0);
+        trace
+            .place_cursor(Dir::Horiz, true)
+            .horiz_to(grid.vtrack(wmux_sel_base + i).stop())
+            .up()
+            .set_min_width()
+            .vert_to_rect(dst)
+            .up()
+            .horiz_to(dst.right());
+        power_grid.add_padded_blockage(2, trace.rect().expand(60));
+    }
 
     // read mux select (rmux_sel_0/rmux_sel_1)
-    let dst = read_mux.port("sel_0").largest_rect(m2).unwrap();
-    let src = addr_0_traces[0];
-    let mut trace = router.trace(src, 2);
-    trace.place_cursor(Dir::Horiz, true);
-    trace.horiz_to(grid.vtrack(rmux_sel_0).stop());
-    power_grid.add_padded_blockage(2, trace.rect().expand(90));
-    trace.down().vert_to(dst.top()).up().horiz_to(dst.right());
-    power_grid.add_padded_blockage(2, trace.rect().expand(90));
-    let dst = read_mux.port("sel_1").largest_rect(m2).unwrap();
-    let src = addr_0_traces[1];
-    let mut trace = router.trace(src, 2);
-    trace.place_cursor(Dir::Horiz, true);
-    trace.horiz_to(grid.vtrack(rmux_sel_1).stop());
-    power_grid.add_padded_blockage(2, trace.rect().expand(90));
-    trace.down().vert_to(dst.top()).up().horiz_to(dst.right());
-    power_grid.add_padded_blockage(2, trace.rect().expand(90));
+    for i in 0..mux_ratio as isize {
+        let dst = read_mux.port(format!("sel_{i}")).largest_rect(m2).unwrap();
+        if mux_ratio == 2 {
+            let mut trace = router.trace(addr_0_traces[i as usize], 2);
+            trace.place_cursor(Dir::Horiz, true);
+            trace.horiz_to(grid.vtrack(rmux_sel_base + i).stop());
+            power_grid.add_padded_blockage(2, trace.rect().expand(90));
+            trace.down().vert_to(dst.top()).up().horiz_to(dst.right());
+            power_grid.add_padded_blockage(2, trace.rect().expand(90));
+        } else {
+            let col_decoder = col_decoder.as_ref().unwrap();
+            let src = col_decoder
+                .port(format!("dec_{i}"))
+                .largest_rect(m0)
+                .unwrap();
+            let mut trace = router.trace(src, 0);
+            trace
+                .place_cursor(Dir::Horiz, true)
+                .horiz_to(grid.vtrack(rmux_sel_base + i).stop())
+                .up()
+                .vert_to(dst.top())
+                .up()
+                .horiz_to(dst.right());
+            power_grid.add_padded_blockage(2, trace.rect().expand(90));
+        }
+    }
+
+    // write enable control / we_control
+    if mux_ratio > 2 {
+        for i in 0..mux_ratio as isize {
+            let src = we_control
+                .port(format!("sel_{i}"))
+                .largest_rect(m0)
+                .unwrap();
+            let mut trace = router.trace(src, 0);
+            trace
+                .place_cursor(Dir::Horiz, false)
+                .left_by(1_000)
+                .down_by(if i % 2 == 0 { -460 } else { 460 })
+                .up()
+                .up()
+                .horiz_to(grid.vtrack(rmux_sel_base + i).stop())
+                .down();
+            power_grid.add_padded_blockage(2, trace.rect().expand(80));
+        }
+    }
 
     let sense_amp_bbox = sense_amp.bbox().into_rect();
     let din_dff_bbox = din_dffs.bbox().into_rect();
@@ -914,7 +971,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         power_grid.add_padded_blockage(2, column_blockage);
     }
 
-    power_grid.add_padded_blockage(2, addr_dffs.bbox().into_rect());
+    power_grid.add_padded_blockage(2, addr_dff_bbox.into_rect());
 
     // clock (clk) distribution
     for i in 0..2 {
@@ -972,7 +1029,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     trace.contact_down(clk_trace.rect());
 
     // power strapping - targets on metal 1 and metal 2
-    for instance in [
+    let mut targets = vec![
         &decoder1,
         &decoder2,
         &wldrv_nand,
@@ -980,7 +1037,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         &nand_dec,
         &inv_dec,
         &control,
-        &wmask_control,
+        &we_control,
         &core_pwr,
         &read_mux,
         &write_mux,
@@ -988,7 +1045,11 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         &sense_amp,
         &din_dffs,
         &addr_dffs,
-    ] {
+    ];
+    if let Some(ref col_decoder) = col_decoder {
+        targets.push(col_decoder);
+    }
+    for instance in targets {
         for name in ["vpb", "vdd", "vpwr"] {
             for port in instance.ports_starting_with(name) {
                 if let Some(rect) = port.largest_rect(m1) {
@@ -1018,7 +1079,10 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     cell.layout_mut().insts.push(decoder1);
     cell.layout_mut().insts.push(decoder2);
     cell.layout_mut().insts.push(control);
-    cell.layout_mut().insts.push(wmask_control);
+    cell.layout_mut().insts.push(we_control);
+    if let Some(col_decoder) = col_decoder {
+        cell.layout_mut().insts.push(col_decoder);
+    }
     cell.layout_mut().insts.push(wldrv_nand);
     cell.layout_mut().insts.push(wldrv_inv);
     cell.layout_mut().insts.push(nand_dec);
