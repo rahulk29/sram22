@@ -30,7 +30,7 @@ saved = [
     "dout_b_0",
 ]
 
-plot = ["wl_2", "dout_0", "dout_1"]
+plot = ["dout_0"]
 
 
 def read_data(f):

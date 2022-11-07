@@ -6,7 +6,7 @@
 .include ../../lib/sramgen_sp_sense_amp/sramgen_sp_sense_amp.spice
 .include ../../lib/sramgen_control/sramgen_control_simple.spice
 .include ../../lib/openram_dff/openram_dff.spice
-.include ../../build/spice/sram_4x4.spice
+.include ../../build/ngspice/sram_4x4.spice
 
 .param vdd='1.8'
 .param tr='100p'
@@ -60,8 +60,8 @@ wrdata read.dat
 + v(xsram.br_read_1)
 + v(xsram.bl_read_0)
 + v(xsram.br_read_0)
-+ v(xsram.addr_0)
-+ v(xsram.addr_b_0)
++ v(xsram.bank_addr_0)
++ v(xsram.bank_addr_b_0)
 + v(xsram.sense_amp_en)
 + v(xsram.xsense_amp_array.data_b_0)
 .endc

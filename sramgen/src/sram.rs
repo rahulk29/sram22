@@ -351,8 +351,8 @@ pub fn sram(params: SramParams) -> Vec<Module> {
             Connection {
                 stype: Some(vlsir::circuit::connection::Stype::Concat(Concat {
                     parts: vec![
-                        conn_slice("bank_addr", 0, 0),
                         conn_slice("bank_addr_b", 0, 0),
+                        conn_slice("bank_addr", 0, 0),
                     ],
                 })),
             }
@@ -424,8 +424,8 @@ pub fn sram(params: SramParams) -> Vec<Module> {
                 Connection {
                     stype: Some(vlsir::circuit::connection::Stype::Concat(Concat {
                         parts: vec![
-                            conn_slice("bank_addr_b", 0, 0),
                             conn_slice("bank_addr", 0, 0),
+                            conn_slice("bank_addr_b", 0, 0),
                         ],
                     })),
                 },
