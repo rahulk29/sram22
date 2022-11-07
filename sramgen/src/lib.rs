@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use decoder::DecoderTree;
 use layout21::raw::{BoundBox, Cell};
 use layout21::utils::Ptr;
 use mos::NetlistFormat;
@@ -31,32 +30,6 @@ pub mod write_driver;
 pub use anyhow::Result;
 
 pub const NETLIST_FORMAT: NetlistFormat = NetlistFormat::Spectre;
-
-pub fn generate() -> Result<()> {
-    let nmos = mos::ext_nmos(NETLIST_FORMAT);
-    let pmos = mos::ext_pmos(NETLIST_FORMAT);
-
-    let pkg = Package {
-        domain: "sramgen".to_string(),
-        desc: "Sramgen generated cells".to_string(),
-        modules: vec![],
-        ext_modules: vec![nmos, pmos],
-    };
-
-    let _decoder = DecoderTree::new(5);
-
-    let input = SimInput {
-        pkg: Some(pkg),
-        top: "nand2".to_string(),
-        opts: None,
-        an: vec![],
-        ctrls: vec![],
-    };
-
-    vlsir::conv::save(&input, "hi.bin").expect("Failed to save VLSIR data");
-
-    Ok(())
-}
 
 pub fn out_bin(name: &str) -> PathBuf {
     format!("build/pb/{}.pb.bin", name).into()
