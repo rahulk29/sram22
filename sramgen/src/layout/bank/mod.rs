@@ -318,6 +318,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     control.align_beneath(bbox, 1_270);
     control.align_left(decoder2_bbox);
+    let control_bbox = control.bbox().into_rect();
 
     tmc.align_above(din_dffs.bbox(), 1_270);
     tmc.align_to_the_right_of(core_bbox, 1_270);
@@ -1005,7 +1006,11 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .build()?;
     let mut clk_trace = connect(args);
     clk_trace.place_cursor(Dir::Vert, true).set_min_width();
-    clk_trace.vert_to(din_dff_bbox.bottom() - 3 * cfg.space(2) - 3 * cfg.line(3));
+    clk_trace.vert_to(
+        std::cmp::min(din_dff_bbox.bottom(), control_bbox.bottom())
+            - 3 * cfg.space(2)
+            - 3 * cfg.line(3),
+    );
     let clk_m3 = clk_trace.rect();
     power_grid.add_padded_blockage(3, clk_m3);
     clk_trace
