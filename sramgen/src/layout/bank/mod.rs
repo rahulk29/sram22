@@ -888,7 +888,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .up()
         .horiz_to_rect(dst)
         .contact_down(dst);
-    power_grid.add_padded_blockage(2, trace.rect().expand(60));
+    power_grid.add_padded_blockage(2, trace.rect().expand(100));
 
     // write mux sel / write enable / write driver enable
     for i in 0..mux_ratio as isize {
