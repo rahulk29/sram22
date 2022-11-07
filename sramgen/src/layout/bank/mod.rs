@@ -318,6 +318,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     control.align_beneath(bbox, 1_270);
     control.align_left(decoder2_bbox);
+    let control_bbox = control.bbox().into_rect();
 
     tmc.align_above(din_dffs.bbox(), 1_270);
     tmc.align_to_the_right_of(core_bbox, 1_270);
@@ -518,11 +519,25 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             .largest_rect(m0)
             .unwrap();
         let mut trace = router.trace(src, 0);
-        trace
-            .place_cursor(Dir::Vert, true)
-            .up()
-            .vert_to(data_b_pin.top())
-            .contact_up(data_b_pin);
+
+        if mux_ratio == 2 {
+            trace
+                .place_cursor(Dir::Vert, true)
+                .up()
+                .vert_to(data_b_pin.top())
+                .contact_up(data_b_pin);
+        } else {
+            trace
+                .place_cursor(Dir::Vert, true)
+                .up()
+                .up()
+                .left_by(515)
+                .up()
+                .set_min_width()
+                .vert_to_rect(data_b_pin)
+                .contact_down(data_b_pin);
+            power_grid.add_padded_blockage(3, trace.rect().expand(20));
+        }
 
         let bl = read_mux
             .port(format!("bl_out_{}", i))
@@ -794,7 +809,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     trace.set_width(cfg.line(3)).vert_to_rect(dst);
     power_grid.add_padded_blockage(3, trace.rect());
     trace.down().set_width(dst.height()).horiz_to_rect(dst);
-    power_grid.add_padded_blockage(2, trace.rect());
+    power_grid.add_padded_blockage(2, trace.rect().expand(40));
 
     // Route wordline enable (wl_en) from control logic to wordline drivers
     let hspan = Span::new(
@@ -874,7 +889,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .up()
         .horiz_to_rect(dst)
         .contact_down(dst);
-    power_grid.add_padded_blockage(2, trace.rect().expand(60));
+    power_grid.add_padded_blockage(2, trace.rect().expand(100));
 
     // write mux sel / write enable / write driver enable
     for i in 0..mux_ratio as isize {
@@ -892,7 +907,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             .vert_to_rect(dst)
             .up()
             .horiz_to(dst.right());
-        power_grid.add_padded_blockage(2, trace.rect().expand(60));
+        power_grid.add_padded_blockage(2, trace.rect().expand(100));
     }
 
     // read mux select (rmux_sel_0/rmux_sel_1)
@@ -991,7 +1006,11 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .build()?;
     let mut clk_trace = connect(args);
     clk_trace.place_cursor(Dir::Vert, true).set_min_width();
-    clk_trace.vert_to(din_dff_bbox.bottom() - 3 * cfg.space(2) - 3 * cfg.line(3));
+    clk_trace.vert_to(
+        std::cmp::min(din_dff_bbox.bottom(), control_bbox.bottom())
+            - 3 * cfg.space(2)
+            - 3 * cfg.line(3),
+    );
     let clk_m3 = clk_trace.rect();
     power_grid.add_padded_blockage(3, clk_m3);
     clk_trace
