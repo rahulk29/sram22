@@ -518,11 +518,25 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             .largest_rect(m0)
             .unwrap();
         let mut trace = router.trace(src, 0);
-        trace
-            .place_cursor(Dir::Vert, true)
-            .up()
-            .vert_to(data_b_pin.top())
-            .contact_up(data_b_pin);
+
+        if mux_ratio == 2 {
+            trace
+                .place_cursor(Dir::Vert, true)
+                .up()
+                .vert_to(data_b_pin.top())
+                .contact_up(data_b_pin);
+        } else {
+            trace
+                .place_cursor(Dir::Vert, true)
+                .up()
+                .up()
+                .left_by(515)
+                .up()
+                .set_min_width()
+                .vert_to_rect(data_b_pin)
+                .contact_down(data_b_pin);
+            power_grid.add_padded_blockage(3, trace.rect().expand(20));
+        }
 
         let bl = read_mux
             .port(format!("bl_out_{}", i))
@@ -794,7 +808,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     trace.set_width(cfg.line(3)).vert_to_rect(dst);
     power_grid.add_padded_blockage(3, trace.rect());
     trace.down().set_width(dst.height()).horiz_to_rect(dst);
-    power_grid.add_padded_blockage(2, trace.rect());
+    power_grid.add_padded_blockage(2, trace.rect().expand(40));
 
     // Route wordline enable (wl_en) from control logic to wordline drivers
     let hspan = Span::new(
@@ -1206,36 +1220,38 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     let straps = power_grid.generate()?;
 
-    for side in [Side::Left, Side::Right, Side::Top, Side::Bottom] {
-        let (srcs, layer) = match side {
-            Side::Left => (&straps.left, 2),
-            Side::Right => (&straps.right, 2),
-            Side::Top => (&straps.top, 3),
-            Side::Bottom => (&straps.bottom, 3),
-        };
-
-        for (net, src) in srcs {
-            let dst = match (side, *net) {
-                (Side::Left, PowerSource::Vdd) => guard_ring.vdd_ring.left(),
-                (Side::Right, PowerSource::Vdd) => guard_ring.vdd_ring.right(),
-                (Side::Bottom, PowerSource::Vdd) => guard_ring.vdd_ring.bottom(),
-                (Side::Top, PowerSource::Vdd) => guard_ring.vdd_ring.top(),
-                (Side::Left, PowerSource::Gnd) => guard_ring.vss_ring.left(),
-                (Side::Right, PowerSource::Gnd) => guard_ring.vss_ring.right(),
-                (Side::Bottom, PowerSource::Gnd) => guard_ring.vss_ring.bottom(),
-                (Side::Top, PowerSource::Gnd) => guard_ring.vss_ring.top(),
+    if false {
+        for side in [Side::Left, Side::Right, Side::Top, Side::Bottom] {
+            let (srcs, layer) = match side {
+                Side::Left => (&straps.left, 2),
+                Side::Right => (&straps.right, 2),
+                Side::Top => (&straps.top, 3),
+                Side::Bottom => (&straps.bottom, 3),
             };
 
-            let width = src.span(!side.dir()).length();
+            for (net, src) in srcs {
+                let dst = match (side, *net) {
+                    (Side::Left, PowerSource::Vdd) => guard_ring.vdd_ring.left(),
+                    (Side::Right, PowerSource::Vdd) => guard_ring.vdd_ring.right(),
+                    (Side::Bottom, PowerSource::Vdd) => guard_ring.vdd_ring.bottom(),
+                    (Side::Top, PowerSource::Vdd) => guard_ring.vdd_ring.top(),
+                    (Side::Left, PowerSource::Gnd) => guard_ring.vss_ring.left(),
+                    (Side::Right, PowerSource::Gnd) => guard_ring.vss_ring.right(),
+                    (Side::Bottom, PowerSource::Gnd) => guard_ring.vss_ring.bottom(),
+                    (Side::Top, PowerSource::Gnd) => guard_ring.vss_ring.top(),
+                };
 
-            let mut trace = router.trace(*src, layer);
-            trace.set_width(width).place_cursor(side.dir(), side.pos());
+                let width = src.span(!side.dir()).length();
 
-            match side.dir() {
-                Dir::Horiz => trace.horiz_to_rect(dst),
-                Dir::Vert => trace.vert_to_rect(dst),
-            };
-            trace.contact_down(dst);
+                let mut trace = router.trace(*src, layer);
+                trace.set_width(width).place_cursor(side.dir(), side.pos());
+
+                match side.dir() {
+                    Dir::Horiz => trace.horiz_to_rect(dst),
+                    Dir::Vert => trace.vert_to_rect(dst),
+                };
+                trace.contact_down(dst);
+            }
         }
     }
 
