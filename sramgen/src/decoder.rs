@@ -209,6 +209,13 @@ pub fn hierarchical_decoder(params: DecoderParams) -> Vec<Module> {
             }),
             direction: port::Direction::Output as i32,
         },
+        Port {
+            signal: Some(Signal {
+                name: "decode_b".to_string(),
+                width: out as i64,
+            }),
+            direction: port::Direction::Output as i32,
+        },
     ];
 
     let mut m = Module {
@@ -363,7 +370,11 @@ impl<'a> DecoderGen<'a> {
         for i in 0..node.num {
             let idxs = get_idxs(i, &child_sizes);
 
-            let tmp = signal(format!("net_{}", self.get_id()));
+            let tmp = if depth != 0 {
+                signal(format!("net_{}", self.get_id()))
+            } else {
+                signal(format!("decode_b_{i}"))
+            };
 
             assert!(node.children.len() <= 4);
             let ports = ["a", "b", "c", "d"].into_iter().take(gate_size);
