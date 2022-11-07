@@ -118,10 +118,10 @@ impl NetlistWriter<std::fs::File> {
 mod tests {
 
     use vlsir::circuit::Package;
-    use vlsir::spice::SimInput;
 
     use crate::decoder::{hierarchical_decoder, DecoderParams, DecoderTree};
     use crate::mos::{ext_nmos, ext_pmos};
+    use crate::save_bin;
     use crate::NETLIST_FORMAT;
 
     use super::Result;
@@ -150,15 +150,7 @@ mod tests {
 
         pkg.modules.append(&mut mods);
 
-        let input = SimInput {
-            pkg: Some(pkg),
-            top: "nand2".to_string(),
-            opts: None,
-            an: vec![],
-            ctrls: vec![],
-        };
-
-        vlsir::conv::save(&input, "build/decoder.pb.bin")?;
+        save_bin("decoder", pkg)?;
         Ok(())
     }
 }
