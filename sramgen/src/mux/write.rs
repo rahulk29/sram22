@@ -4,8 +4,6 @@ use pdkprims::config::Int;
 use pdkprims::mos::MosType;
 
 use vlsir::circuit::Module;
-use vlsir::reference::To;
-use vlsir::Reference;
 
 use crate::mos::Mosfet;
 use crate::utils::conns::conn_slice;
