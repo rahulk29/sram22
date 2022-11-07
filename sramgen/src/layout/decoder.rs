@@ -209,6 +209,10 @@ pub fn draw_and2_array(
         for port in ["a", "b"] {
             cell.add_pin_from_port(nand.port(format!("{}_{}", port, i)), m0);
         }
+        cell.add_pin_from_port(
+            nand.port(format!("y_{}", i)).named(format!("y_b_{}", i)),
+            m0,
+        );
 
         cell.add_pin_from_port(
             inv.port(format!("din_b_{}", i)).named(format!("y_{}", i)),
@@ -301,6 +305,10 @@ pub fn draw_and3_array(
         for port in ["a", "b", "c"] {
             cell.add_pin_from_port(nand.port(format!("{}_{}", port, i)), m0);
         }
+        cell.add_pin_from_port(
+            nand.port(format!("y_{}", i)).named(format!("y_b_{}", i)),
+            m0,
+        );
 
         cell.add_pin_from_port(
             inv.port(format!("din_b_{}", i)).named(format!("y_{}", i)),
@@ -595,6 +603,12 @@ fn draw_hier_decode_node(
     for i in 0..node.num {
         cell.add_pin_from_port(
             and_array.port(format!("y_{i}")).named(format!("dec_{i}")),
+            m0,
+        );
+        cell.add_pin_from_port(
+            and_array
+                .port(format!("y_b_{i}"))
+                .named(format!("dec_b_{i}")),
             m0,
         );
     }
