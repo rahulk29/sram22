@@ -246,7 +246,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     let core_bbox = core.bbox();
 
-    wldrv_inv.align_to_the_left_of(core_bbox, 2_400);
+    wldrv_inv.align_to_the_left_of(core_bbox, 8_000);
     wldrv_inv.align_centers_vertically_gridded(core_bbox, grid);
     wldrv_nand.align_to_the_left_of(wldrv_inv.bbox(), 1_000);
     wldrv_nand.align_centers_vertically_gridded(core_bbox, grid);
@@ -308,8 +308,8 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     addr_dffs.align_beneath(decoder1_bbox, 2_000);
 
     let bbox = if let Some(ref mut col_decoder) = col_decoder {
-        col_decoder.align_beneath(we_control_bbox, 1_270);
-        col_decoder.align_to_the_left_of(col_bbox.bbox(), 4_000);
+        col_decoder.align_to_the_left_of(we_control_bbox, 1_270);
+        col_decoder.align_centers_vertically_gridded(we_control_bbox, lib.pdk.grid());
         col_decoder.reflect_horiz_anchored();
         col_decoder.bbox()
     } else {
@@ -910,7 +910,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         power_grid.add_padded_blockage(2, trace.rect().expand(100));
     }
 
-    // read mux select (rmux_sel_0/rmux_sel_1)
+    // read mux select
     for i in 0..mux_ratio as isize {
         let dst = read_mux.port(format!("sel_{i}")).largest_rect(m2).unwrap();
         if mux_ratio == 2 {
@@ -923,45 +923,48 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         } else {
             let col_decoder = col_decoder.as_ref().unwrap();
             let src = col_decoder
-                .port(format!("dec_{i}"))
+                .port(format!("dec_b_{i}"))
                 .largest_rect(m0)
                 .unwrap();
             let mut trace = router.trace(src, 0);
             trace
-                .place_cursor(Dir::Horiz, true)
-                .horiz_to(grid.vtrack(rmux_sel_base + i).stop())
+                .place_cursor_centered()
                 .up()
-                .vert_to(dst.top())
                 .up()
-                .horiz_to(dst.right());
+                .set_min_width()
+                .horiz_to(grid.vtrack(rmux_sel_base + i).stop());
+            power_grid.add_padded_blockage(2, trace.rect().expand(90));
+            trace
+                .down()
+                .set_min_width()
+                .vert_to_rect(dst)
+                .up()
+                .set_min_width()
+                .horiz_to_rect(dst);
             power_grid.add_padded_blockage(2, trace.rect().expand(90));
         }
     }
 
     // write enable control / we_control
     if mux_ratio > 2 {
+        let col_decoder = col_decoder.as_ref().unwrap();
         for i in 0..mux_ratio as isize {
-            let src = we_control
+            let src = col_decoder
+                .port(format!("dec_{i}"))
+                .largest_rect(m0)
+                .unwrap();
+            let dst = we_control
                 .port(format!("sel_{i}"))
                 .largest_rect(m0)
                 .unwrap();
             let mut trace = router.trace(src, 0);
-            trace
-                .place_cursor(Dir::Horiz, false)
-                .left_by(1_000)
-                .down_by(if i % 2 == 0 { -460 } else { 460 })
-                .up()
-                .up()
-                .horiz_to(grid.vtrack(rmux_sel_base + i).stop())
-                .down();
-            power_grid.add_padded_blockage(2, trace.rect().expand(80));
+            trace.place_cursor(Dir::Horiz, true).s_bend(dst, Dir::Horiz);
         }
     }
 
-    let sense_amp_bbox = sense_amp.bbox().into_rect();
     let din_dff_bbox = din_dffs.bbox().into_rect();
-    let mut blockage_hspan = sense_amp_bbox.hspan();
-    blockage_hspan.expand(true, 3_000);
+    let mut blockage_hspan = col_bbox.into_rect().hspan();
+    blockage_hspan.expand(true, 1_000);
 
     let mut spans = Vec::new();
     spans.push(din_dff_bbox.vspan());

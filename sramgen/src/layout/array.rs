@@ -365,9 +365,9 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
                 let mut trace = router.trace(rect, 2);
                 trace.set_width(rect.height()).place_cursor_centered();
                 if rect.center().x < bounds.center().x {
-                    trace.horiz_to(bounds.left() - 2_300);
+                    trace.horiz_to(bounds.left() - 6_400);
                 } else {
-                    trace.horiz_to(bounds.right() + 2_300);
+                    trace.horiz_to(bounds.right() + 6_400);
                 }
                 cell.add_pin(format!("{}_{}", net, i), m2, trace.rect());
             }
