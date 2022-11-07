@@ -209,6 +209,13 @@ pub fn hierarchical_decoder(params: DecoderParams) -> Vec<Module> {
             }),
             direction: port::Direction::Output as i32,
         },
+        Port {
+            signal: Some(Signal {
+                name: "decode_b".to_string(),
+                width: out as i64,
+            }),
+            direction: port::Direction::Output as i32,
+        },
     ];
 
     let mut m = Module {
@@ -326,7 +333,7 @@ impl<'a> DecoderGen<'a> {
         let nand_name = if let Some(nand_name) = self.nands.get(&(gate_size, node.gate.size)) {
             nand_name.to_string()
         } else {
-            let nand_name = format!("decoder_nand_{}", self.get_id());
+            let nand_name = format!("{}_nand_{}", &self.params.name, self.get_id());
             let nand = match gate_size {
                 2 => nand2(GateParams {
                     name: nand_name.clone(),
@@ -349,7 +356,7 @@ impl<'a> DecoderGen<'a> {
         let inv_name = if let Some(inv_name) = self.invs.get(&node.buf.unwrap().size) {
             inv_name.to_string()
         } else {
-            let inv_name = format!("decoder_inv_{}", self.get_id());
+            let inv_name = format!("{}_inv_{}", &self.params.name, self.get_id());
             let inv = inv(GateParams {
                 name: inv_name.clone(),
                 size: node.buf.unwrap().size,
@@ -363,7 +370,11 @@ impl<'a> DecoderGen<'a> {
         for i in 0..node.num {
             let idxs = get_idxs(i, &child_sizes);
 
-            let tmp = signal(format!("net_{}", self.get_id()));
+            let tmp = if depth != 0 {
+                signal(format!("net_{}", self.get_id()))
+            } else {
+                signal(format!("decode_b_{i}"))
+            };
 
             assert!(node.children.len() <= 4);
             let ports = ["a", "b", "c", "d"].into_iter().take(gate_size);

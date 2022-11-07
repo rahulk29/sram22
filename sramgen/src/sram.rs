@@ -7,9 +7,9 @@ use crate::col_inv::{col_inv_array, ColInvArrayParams, ColInvParams};
 use crate::decoder::{hierarchical_decoder, DecoderParams, DecoderTree};
 use crate::dff::dff_array;
 use crate::gate::{AndParams, Size};
-use crate::mux::{
-    column_read_mux_2_array, column_write_mux_2_array, ColumnMuxArrayParams, ColumnMuxParams,
-};
+use crate::mux;
+use crate::mux::read::read_mux_array;
+use crate::mux::write::{write_mux_array, ArrayParams, WriteMuxParams};
 use crate::precharge::{precharge_array, PrechargeArrayParams, PrechargeParams};
 use crate::sense_amp::{sense_amp_array, SenseAmpArrayParams};
 use crate::tech::{openram_dff_ref, sramgen_control_ref};
@@ -26,6 +26,7 @@ pub struct SramParams {
     pub row_bits: usize,
     pub col_bits: usize,
     pub col_mask_bits: usize,
+    pub wmask_groups: usize,
     pub name: String,
 }
 
@@ -33,17 +34,16 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     assert!(params.row_bits > 0);
     assert!(params.col_bits > 0);
     assert!(params.col_mask_bits <= params.col_bits);
-
-    // TODO: for now we only support 2:1 sense amps and column muxes
-    assert_eq!(params.col_mask_bits, 1);
+    assert!(params.wmask_groups >= 1);
 
     let row_bits = params.row_bits as i64;
     let col_mask_bits = params.col_mask_bits as i64;
     let rows = 1 << params.row_bits;
     let cols = 1 << params.col_bits;
-    let col_mux_ratio = 1 << params.col_mask_bits;
+    let mux_ratio = 1 << params.col_mask_bits;
+    let wmask_groups = params.wmask_groups;
 
-    let cols_masked = (cols / col_mux_ratio) as i64;
+    let cols_masked = (cols / mux_ratio) as i64;
 
     let tree = DecoderTree::new(params.row_bits);
     let decoder_params = DecoderParams {
@@ -52,6 +52,18 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         name: "hierarchical_decoder".to_string(),
     };
     let mut decoders = hierarchical_decoder(decoder_params);
+
+    let mut col_decoders = if mux_ratio > 2 {
+        let tree = DecoderTree::new(params.col_mask_bits);
+        let decoder_params = DecoderParams {
+            tree,
+            lch: 150,
+            name: "column_decoder".to_string(),
+        };
+        hierarchical_decoder(decoder_params)
+    } else {
+        Vec::new()
+    };
 
     let mut wl_drivers = wordline_driver_array(WordlineDriverArrayParams {
         name: "wordline_driver_array".to_string(),
@@ -87,19 +99,21 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         },
     });
 
-    let mut write_muxes = column_write_mux_2_array(ColumnMuxArrayParams {
-        name: "column_write_mux_2_array".to_string(),
-        width: cols as i64,
-        instance_params: ColumnMuxParams {
+    let mut write_muxes = write_mux_array(ArrayParams {
+        cols,
+        mux_ratio,
+        wmask_groups,
+        mux_params: WriteMuxParams {
             length: 150,
             width: 2_000,
+            wmask: wmask_groups > 1,
         },
     });
 
-    let mut read_muxes = column_read_mux_2_array(ColumnMuxArrayParams {
-        name: "column_read_mux_2_array".to_string(),
-        width: cols as i64,
-        instance_params: ColumnMuxParams {
+    let mut read_muxes = read_mux_array(mux::read::ArrayParams {
+        cols,
+        mux_ratio,
+        mux_params: mux::read::Params {
             length: 150,
             width: 1_200,
         },
@@ -117,7 +131,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
 
     let mut data_dff_array = dff_array(DffArrayParams {
         name: "data_dff_array".to_string(),
-        width: cols / 2,
+        width: cols / mux_ratio,
     });
 
     let mut addr_dff_array = dff_array(DffArrayParams {
@@ -127,14 +141,14 @@ pub fn sram(params: SramParams) -> Vec<Module> {
 
     let sense_amp_array = sense_amp_array(SenseAmpArrayParams {
         name: "sense_amp_array".to_string(),
-        width: (cols / col_mux_ratio) as i64,
+        width: cols_masked,
     });
 
-    let mut write_mask_control = write_mask_control(WriteMaskControlParams {
-        name: "write_mask_control".to_string(),
-        width: 2,
+    let mut we_control = write_mask_control(WriteMaskControlParams {
+        name: "we_control".to_string(),
+        width: mux_ratio as i64,
         and_params: AndParams {
-            name: "write_mask_control_and2".to_string(),
+            name: "we_control_and2".to_string(),
             nand_size: Size {
                 nmos_width: 1_200,
                 pmos_width: 1_800,
@@ -171,9 +185,14 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     let bank_addr_b = bus("bank_addr_b", row_bits + col_mask_bits);
     let wl = bus("wl", rows as i64);
     let wl_data = bus("wl_data", rows as i64);
+    let wl_data_b = bus("wl_data_b", rows as i64);
     let wr_en = signal("wr_en");
-    let write_driver_en = bus("write_driver_en", 2);
+    let write_driver_en = bus("write_driver_en", mux_ratio as i64);
     let sae = signal("sense_amp_en");
+
+    // Only used when mux ratio is greater than 2
+    let col_sel = bus("col_sel", mux_ratio as i64);
+    let col_sel_b = bus("col_sel_b", mux_ratio as i64);
 
     let ports = vec![
         port_inout(&vdd),
@@ -252,6 +271,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         conn_slice("bank_addr_b", row_bits + col_mask_bits - 1, col_mask_bits),
     );
     conns.insert("decode", sig_conn(&wl_data));
+    conns.insert("decode_b", sig_conn(&wl_data_b));
 
     m.instances.push(Instance {
         name: "decoder".to_string(),
@@ -310,11 +330,10 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     conns.insert("br", sig_conn(&br));
     conns.insert("data", sig_conn(&bank_din));
     conns.insert("data_b", sig_conn(&bank_din_b));
-    conns.insert("we_0_0", conn_slice("write_driver_en", 0, 0));
-    conns.insert("we_1_0", conn_slice("write_driver_en", 1, 1));
+    conns.insert("we", sig_conn(&write_driver_en));
     m.instances.push(Instance {
-        name: "column_write_mux_2_array".to_string(),
-        module: local_reference("column_write_mux_2_array"),
+        name: "write_mux_array".to_string(),
+        module: local_reference("write_mux_array"),
         connections: conn_map(conns),
         parameters: HashMap::new(),
     });
@@ -327,19 +346,23 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     conns.insert("bl_out", sig_conn(&bl_read));
     conns.insert("br_out", sig_conn(&br_read));
     conns.insert(
-        "sel",
-        Connection {
-            stype: Some(vlsir::circuit::connection::Stype::Concat(Concat {
-                parts: vec![
-                    conn_slice("bank_addr", 0, 0),
-                    conn_slice("bank_addr_b", 0, 0),
-                ],
-            })),
+        "sel_b",
+        if mux_ratio == 2 {
+            Connection {
+                stype: Some(vlsir::circuit::connection::Stype::Concat(Concat {
+                    parts: vec![
+                        conn_slice("bank_addr_b", 0, 0),
+                        conn_slice("bank_addr", 0, 0),
+                    ],
+                })),
+            }
+        } else {
+            sig_conn(&col_sel_b)
         },
     );
     m.instances.push(Instance {
-        name: "column_read_mux_2_array".to_string(),
-        module: local_reference("column_read_mux_2_array"),
+        name: "read_mux_array".to_string(),
+        module: local_reference("read_mux_array"),
         connections: conn_map(conns),
         parameters: HashMap::new(),
     });
@@ -392,35 +415,64 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         parameters: HashMap::new(),
     });
 
-    // Write mask control
-    // (There's no write mask yet; this only handles column selection.)
+    // Write enable control
+    if mux_ratio == 2 {
+        let conns = [
+            ("wr_en", sig_conn(&wr_en)),
+            (
+                "sel",
+                Connection {
+                    stype: Some(vlsir::circuit::connection::Stype::Concat(Concat {
+                        parts: vec![
+                            conn_slice("bank_addr", 0, 0),
+                            conn_slice("bank_addr_b", 0, 0),
+                        ],
+                    })),
+                },
+            ),
+            ("write_driver_en", sig_conn(&write_driver_en)),
+            ("vdd", sig_conn(&vdd)),
+            ("vss", sig_conn(&vss)),
+        ];
+        m.instances.push(Instance {
+            name: "we_control".to_string(),
+            module: local_reference("we_control"),
+            connections: conn_map(conns.into()),
+            parameters: HashMap::new(),
+        });
+    } else {
+        let mut conns = HashMap::new();
+        conns.insert("vdd", sig_conn(&vdd));
+        conns.insert("gnd", sig_conn(&vss));
+        conns.insert("addr", conn_slice("bank_addr", col_mask_bits - 1, 0));
+        conns.insert("addr_b", conn_slice("bank_addr_b", col_mask_bits - 1, 0));
+        conns.insert("decode", sig_conn(&col_sel));
+        conns.insert("decode_b", sig_conn(&col_sel_b));
 
-    let conns = [
-        ("wr_en", sig_conn(&wr_en)),
-        (
-            "sel",
-            Connection {
-                stype: Some(vlsir::circuit::connection::Stype::Concat(Concat {
-                    parts: vec![
-                        conn_slice("bank_addr_b", 0, 0),
-                        conn_slice("bank_addr", 0, 0),
-                    ],
-                })),
-            },
-        ),
-        ("write_driver_en", sig_conn(&write_driver_en)),
-        ("vdd", sig_conn(&vdd)),
-        ("vss", sig_conn(&vss)),
-    ];
-    m.instances.push(Instance {
-        name: "write_mask_control".to_string(),
-        module: local_reference("write_mask_control"),
-        connections: conn_map(conns.into()),
-        parameters: HashMap::new(),
-    });
+        m.instances.push(Instance {
+            name: "column_decoder".to_string(),
+            module: local_reference("column_decoder"),
+            connections: conn_map(conns),
+            parameters: HashMap::new(),
+        });
+        let conns = [
+            ("wr_en", sig_conn(&wr_en)),
+            ("sel", sig_conn(&col_sel)),
+            ("write_driver_en", sig_conn(&write_driver_en)),
+            ("vdd", sig_conn(&vdd)),
+            ("vss", sig_conn(&vss)),
+        ];
+        m.instances.push(Instance {
+            name: "we_control".to_string(),
+            module: local_reference("we_control"),
+            connections: conn_map(conns.into()),
+            parameters: HashMap::new(),
+        });
+    }
 
     let mut modules = Vec::new();
     modules.append(&mut decoders);
+    modules.append(&mut col_decoders);
     modules.append(&mut wl_drivers);
     modules.push(bitcells);
     modules.append(&mut precharge);
@@ -430,7 +482,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     modules.append(&mut addr_dff_array);
     modules.append(&mut col_inv);
     modules.push(sense_amp_array);
-    modules.append(&mut write_mask_control);
+    modules.append(&mut we_control);
     modules.push(m);
 
     modules
@@ -443,28 +495,58 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_netlist_sram_16x16() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_netlist_sram_16x16m2() -> Result<(), Box<dyn std::error::Error>> {
         let modules = sram(SramParams {
-            name: "sramgen_sram_16x16".to_string(),
+            name: "sramgen_sram_16x16m2".to_string(),
             row_bits: 4,
             col_bits: 4,
             col_mask_bits: 1,
+            wmask_groups: 1,
         });
 
-        save_modules("sram_16x16", modules)?;
+        save_modules("sram_16x16m2", modules)?;
         Ok(())
     }
 
     #[test]
-    fn test_netlist_sram_4x4() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_netlist_sram_16x16m4() -> Result<(), Box<dyn std::error::Error>> {
         let modules = sram(SramParams {
-            name: "sramgen_sram_4x4".to_string(),
+            name: "sramgen_sram_16x16m4".to_string(),
+            row_bits: 4,
+            col_bits: 4,
+            col_mask_bits: 2,
+            wmask_groups: 1,
+        });
+
+        save_modules("sram_16x16m4", modules)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_netlist_sram_4x4m2() -> Result<(), Box<dyn std::error::Error>> {
+        let modules = sram(SramParams {
+            name: "sramgen_sram_4x4m2".to_string(),
             row_bits: 2,
             col_bits: 2,
             col_mask_bits: 1,
+            wmask_groups: 1,
         });
 
-        save_modules("sram_4x4", modules)?;
+        save_modules("sram_4x4m2", modules)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_netlist_sram_4x4m4() -> Result<(), Box<dyn std::error::Error>> {
+        let modules = sram(SramParams {
+            name: "sramgen_sram_4x4m4".to_string(),
+            row_bits: 2,
+            col_bits: 2,
+            col_mask_bits: 2,
+            wmask_groups: 1,
+        });
+
+        save_modules("sram_4x4m4", modules)?;
         Ok(())
     }
 
@@ -475,6 +557,7 @@ mod tests {
             row_bits: 5,
             col_bits: 5,
             col_mask_bits: 1,
+            wmask_groups: 1,
         });
 
         save_modules("sram_32x32", modules)?;
@@ -488,6 +571,7 @@ mod tests {
             row_bits: 5,
             col_bits: 6,
             col_mask_bits: 1,
+            wmask_groups: 1,
         });
 
         save_modules("sram_32x64", modules)?;
@@ -501,6 +585,7 @@ mod tests {
             row_bits: 6,
             col_bits: 7,
             col_mask_bits: 1,
+            wmask_groups: 1,
         });
 
         save_modules("sram_64x128", modules)?;
@@ -514,6 +599,7 @@ mod tests {
             row_bits: 7,
             col_bits: 6,
             col_mask_bits: 1,
+            wmask_groups: 1,
         });
 
         save_modules("sram_128x64", modules)?;
