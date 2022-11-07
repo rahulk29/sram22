@@ -906,7 +906,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             .vert_to_rect(dst)
             .up()
             .horiz_to(dst.right());
-        power_grid.add_padded_blockage(2, trace.rect().expand(60));
+        power_grid.add_padded_blockage(2, trace.rect().expand(100));
     }
 
     // read mux select (rmux_sel_0/rmux_sel_1)
