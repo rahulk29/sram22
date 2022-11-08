@@ -399,6 +399,8 @@ fn connect_taps_and_pwr(ctx: TapFillContext) -> Result<()> {
     let cfg = router.cfg();
     let m1 = cfg.layerkey(1);
 
+    let span = inst.bbox().into_rect().vspan();
+
     let args = ConnectArgs::builder()
         .metal_idx(1)
         .port_idx(0)
@@ -406,7 +408,7 @@ fn connect_taps_and_pwr(ctx: TapFillContext) -> Result<()> {
         .insts(GateList::Cells(&ntaps))
         .port_name("x")
         .dir(Dir::Vert)
-        .overhang(100)
+        .span(span)
         .build()?;
     let trace = connect(args);
     cell.add_pin("vpb", m1, trace.rect());
@@ -418,7 +420,7 @@ fn connect_taps_and_pwr(ctx: TapFillContext) -> Result<()> {
         .insts(GateList::Cells(&ptaps))
         .port_name("x")
         .dir(Dir::Vert)
-        .overhang(100)
+        .span(span)
         .build()?;
     let trace = connect(args);
     cell.add_pin("vnb", m1, trace.rect());
@@ -431,7 +433,7 @@ fn connect_taps_and_pwr(ctx: TapFillContext) -> Result<()> {
             .insts(GateList::Array(inst, width))
             .port_name(port)
             .dir(Dir::Vert)
-            .overhang(100)
+            .span(span)
             .build()?;
         let trace = connect(args);
 

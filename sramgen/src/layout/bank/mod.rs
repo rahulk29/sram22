@@ -638,6 +638,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         overhang: Some(100),
         transverse_offset: 0,
         width: None,
+        span: None,
     });
     power_grid.add_vdd_target(2, trace.rect());
 
@@ -927,9 +928,11 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
                 .largest_rect(m0)
                 .unwrap();
             let mut trace = router.trace(src, 0);
+            let offset = if i % 2 == 0 { 1_140 } else { -1_140 };
             trace
                 .place_cursor_centered()
                 .up()
+                .up_by(offset)
                 .up()
                 .set_min_width()
                 .horiz_to(grid.vtrack(rmux_sel_base + i).stop());
@@ -1304,6 +1307,8 @@ pub(crate) struct ConnectArgs<'a> {
     pub(crate) transverse_offset: isize,
     #[builder(setter(strip_option), default)]
     pub(crate) width: Option<isize>,
+    #[builder(setter(strip_option), default)]
+    pub(crate) span: Option<Span>,
 }
 
 impl<'a> ConnectArgs<'a> {
@@ -1353,7 +1358,7 @@ pub(crate) fn connect(args: ConnectArgs) -> Trace {
     let width = args.width.unwrap_or(3 * cfg.line(args.metal_idx));
 
     let target_area = Rect::from(port_start.union(&port_stop));
-    let mut span = target_area.span(args.dir);
+    let mut span = args.span.unwrap_or_else(|| target_area.span(args.dir));
     let trace_xspan =
         Span::from_center_span_gridded(target_area.span(!args.dir).center(), width, cfg.grid());
 
