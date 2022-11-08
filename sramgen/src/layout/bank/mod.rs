@@ -915,7 +915,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     for i in 0..mux_ratio as isize {
         let dst = read_mux.port(format!("sel_{i}")).largest_rect(m2).unwrap();
         if mux_ratio == 2 {
-            let mut trace = router.trace(addr_0_traces[i as usize], 2);
+            let mut trace = router.trace(addr_0_traces[1 - i as usize], 2);
             trace.place_cursor(Dir::Horiz, true);
             trace.horiz_to(grid.vtrack(rmux_sel_base + i).stop());
             power_grid.add_padded_blockage(2, trace.rect().expand(90));
