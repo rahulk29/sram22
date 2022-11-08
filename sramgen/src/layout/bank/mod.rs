@@ -531,7 +531,9 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
                 .place_cursor(Dir::Vert, true)
                 .up()
                 .up()
-                .left_by(515)
+                .left_by(if i % 2 == 0 { 515 } else { 85 });
+            power_grid.add_padded_blockage(2, trace.rect().expand(90));
+            trace
                 .up()
                 .set_min_width()
                 .vert_to_rect(data_b_pin)
