@@ -292,6 +292,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     sense_amp.align_beneath(col_inv.bbox(), 2_900);
     sense_amp.align_centers_horizontally_gridded(core_bbox, grid);
+    sense_amp.reflect_vert_anchored();
 
     let sa_bbox = sense_amp.bbox().into_rect();
     let pc_bbox = pc.bbox().into_rect();
@@ -525,9 +526,10 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             .s_bend(dst2, Dir::Vert);
     }
 
-    let bl_bot = sense_amp.port("inn_0").largest_rect(m2).unwrap().bottom();
+    let bl_bot = sense_amp.port("inp_0").largest_rect(m2).unwrap().bottom();
 
     let mut dout_spans = Vec::with_capacity(cols / mux_ratio);
+    let mut dout_b_spans = Vec::with_capacity(cols / mux_ratio);
     // Route read bitlines
     for i in 0..(cols / mux_ratio) {
         // Route data and data bar to 2:1 write muxes
@@ -585,17 +587,18 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             .build()?;
 
         // track assignments:
-        // -1 = bl
+        // -1 = bl / outp
         // 0 = data output
         // 1 = data input
-        // 2 = br
+        // 2 = br / outn
 
         let bl_span = m3_grid.vtrack(-1);
         let dout_span = m3_grid.vtrack(0);
         let data_span = m3_grid.vtrack(1);
         let br_span = m3_grid.vtrack(2);
 
-        dout_spans.push(dout_span);
+        dout_spans.push(bl_span);
+        dout_b_spans.push(br_span);
 
         let bl_vspan = Span::new(bl_bot, bl.bottom());
 
@@ -603,6 +606,8 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         let mut br_m3 = router.trace(Rect::from_spans(br_span, bl_vspan), 3);
         power_grid.add_padded_blockage(3, bl_m3.rect());
         power_grid.add_padded_blockage(3, br_m3.rect());
+        power_grid.add_padded_blockage(3, Rect::from_spans(bl_span, sa_bbox.vspan()));
+        power_grid.add_padded_blockage(3, Rect::from_spans(br_span, sa_bbox.vspan()));
 
         let inp = sense_amp
             .port(format!("inp_{}", i))
@@ -1217,7 +1222,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         // Route sense amp output
         let src = sense_amp
             .port(format!("outp_{i}"))
-            .largest_rect(m1)
+            .largest_rect(m2)
             .unwrap();
         let mut trace = router.trace(src, 1);
 
