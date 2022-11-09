@@ -980,7 +980,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             let mut trace = router.trace(src, 0);
             let offset = if i % 2 == 0 { 1_140 } else { -1_140 };
             trace
-                .place_cursor_centered()
+                .place_cursor(Dir::Horiz, true)
                 .up()
                 .up_by(offset)
                 .up()
