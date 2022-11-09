@@ -916,7 +916,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     trace.vert_to(dst.bottom() - 500);
     power_grid.add_padded_blockage(3, trace.rect().expand(20));
     trace.down().set_min_width().horiz_to(dst.right());
-    power_grid.add_padded_blockage(2, trace.rect().expand(60));
+    power_grid.add_padded_blockage(2, trace.rect().expand(140));
     trace.down().vert_to(dst.top());
 
     let (pc_b, rmux_sel_base, wmux_sel_base) = (
