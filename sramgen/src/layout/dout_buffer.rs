@@ -1,5 +1,6 @@
 use crate::gate::{GateParams, Size};
 use crate::layout::Result;
+use crate::tech::COLUMN_WIDTH;
 
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
@@ -7,10 +8,72 @@ use layout21::raw::{BoundBoxTrait, Cell, Instance};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-
-use super::bank::{GateList};
+use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
+use super::bank::GateList;
 use super::common::{draw_two_level_contact, MergeArgs, TwoLevelContactParams};
 use super::route::Router;
+
+pub fn draw_dout_buffer_array(
+    lib: &mut PdkLib,
+    name: &str,
+    width: usize,
+    mux_ratio: usize,
+) -> Result<Ptr<Cell>> {
+    let mut cell = Cell::empty(name.to_string());
+
+    let unit = draw_dout_buffer(lib, &format!("{name}_cell"))?;
+    let array = draw_cell_array(
+        ArrayCellParams {
+            name: format!("{name}_array"),
+            num: width,
+            cell: unit,
+            spacing: Some(COLUMN_WIDTH * mux_ratio as isize),
+            flip: FlipMode::None,
+            flip_toggle: false,
+            direction: Dir::Vert,
+        },
+        lib,
+    )?;
+
+    let mut inst = Instance::new("dout_buffer_array", array.cell);
+    inst.angle = Some(-90f64);
+
+    let nwell = lib.pdk.get_layerkey("nwell").unwrap();
+    let rect = MergeArgs::builder()
+        .layer(nwell)
+        .insts(GateList::Array(&inst, width))
+        .port_name("vpb0")
+        .left_overhang(0)
+        .right_overhang(0)
+        .build()?
+        .rect();
+    cell.layout_mut().draw_rect(nwell, rect);
+    cell.add_pin("vpb0", nwell, rect);
+
+    let rect = MergeArgs::builder()
+        .layer(nwell)
+        .insts(GateList::Array(&inst, width))
+        .port_name("vpb1")
+        .left_overhang(0)
+        .right_overhang(0)
+        .build()?
+        .rect();
+    cell.layout_mut().draw_rect(nwell, rect);
+    cell.add_pin("vpb1", nwell, rect);
+
+    for port in inst.ports() {
+        if port.net.starts_with("vpb") {
+            continue;
+        }
+        cell.abs_mut().add_port(port);
+    }
+
+    cell.layout_mut().add_inst(inst);
+
+    let ptr = Ptr::new(cell);
+    lib.lib.cells.push(ptr.clone());
+    Ok(ptr)
+}
 
 pub fn draw_dout_buffer(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     let mut cell = Cell::empty(name.to_string());
@@ -174,7 +237,7 @@ pub fn draw_dout_buffer(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
         .build()?
         .rect();
     cell.layout_mut().draw_rect(nwell, rect);
-    cell.add_pin("vpb0", nwell, rect);
+    cell.add_pin("vpb1", nwell, rect);
 
     cell.add_pin_from_port(ptap1.port("x").named("vss0"), m1);
     cell.add_pin_from_port(ntap1.port("x").named("vdd0"), m1);
@@ -230,9 +293,8 @@ mod tests {
 
     #[test]
     fn test_dout_buffer_array() -> Result<()> {
-        todo!();
         let mut lib = sky130::pdk_lib("test_dout_buffer_array")?;
-        // draw_dout_buffer_array(&mut lib, "test_dout_buffer_array", 32, 2)?;
+        draw_dout_buffer_array(&mut lib, "test_dout_buffer_array", 32, 2)?;
 
         lib.save_gds(test_path(&lib))?;
 
