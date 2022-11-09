@@ -267,7 +267,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         + 1_270;
     let core_bbox = core.bbox();
 
-    wldrv_inv.align_to_the_left_of(core_bbox, col_bus_space);
+    wldrv_inv.align_to_the_left_of(core_bbox, std::cmp::max(col_bus_space, 7_000));
     wldrv_inv.align_centers_vertically_gridded(core_bbox, grid);
     wldrv_nand.align_to_the_left_of(wldrv_inv.bbox(), 1_000);
     wldrv_nand.align_centers_vertically_gridded(core_bbox, grid);
