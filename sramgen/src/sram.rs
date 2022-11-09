@@ -579,6 +579,20 @@ mod tests {
     }
 
     #[test]
+    fn test_netlist_sram_32x32m8() -> Result<(), Box<dyn std::error::Error>> {
+        let modules = sram(SramParams {
+            name: "sramgen_sram_32x32m8".to_string(),
+            row_bits: 5,
+            col_bits: 5,
+            col_mask_bits: 3,
+            wmask_groups: 1,
+        });
+
+        save_modules("sram_32x32m8", modules)?;
+        Ok(())
+    }
+
+    #[test]
     fn test_netlist_sram_32x64() -> Result<(), Box<dyn std::error::Error>> {
         let modules = sram(SramParams {
             name: "sramgen_sram_32x64".to_string(),
