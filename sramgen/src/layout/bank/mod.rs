@@ -593,7 +593,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         // 2 = br / outn
 
         let bl_span = m3_grid.vtrack(-1);
-        let dout_span = m3_grid.vtrack(0);
+        let _dout_span = m3_grid.vtrack(0);
         let data_span = m3_grid.vtrack(1);
         let br_span = m3_grid.vtrack(2);
 

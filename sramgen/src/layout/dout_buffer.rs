@@ -1,14 +1,14 @@
 use crate::gate::{GateParams, Size};
 use crate::layout::Result;
-use crate::tech::COLUMN_WIDTH;
+
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
 use layout21::raw::{BoundBoxTrait, Cell, Instance};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
-use super::bank::{connect, ConnectArgs, GateList};
+
+use super::bank::{GateList};
 use super::common::{draw_two_level_contact, MergeArgs, TwoLevelContactParams};
 use super::route::Router;
 
