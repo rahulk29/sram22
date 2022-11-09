@@ -63,6 +63,7 @@ pub fn draw_dout_buffer(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
 
     let mut router = Router::new(format!("{name}_route"), lib.pdk.clone());
     let m0 = lib.pdk.metal(0);
+    let m1 = lib.pdk.metal(1);
 
     let src = inv1.port("din_b").largest_rect(m0).unwrap();
     let dst = inv2.port("din").largest_rect(m0).unwrap();
@@ -100,19 +101,85 @@ pub fn draw_dout_buffer(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     ntap2.align_centers_horizontally_gridded(nwell_region2.bbox(), lib.pdk.grid());
     ntap2.align_centers_vertically_gridded(stage2_bbox, lib.pdk.grid());
 
-    for port in inv1.ports() {
-        println!("port = {}", port.net);
-    }
+    let src = ptap1.port("x").largest_rect(m0).unwrap();
+    let dst = inv1.port("vss").largest_rect(m0).unwrap();
+    let dst_d = inv1_d.port("vss").largest_rect(m0).unwrap();
+    router
+        .trace(src, 0)
+        .place_cursor_centered()
+        .vert_to_rect(dst);
+    router
+        .trace(src, 0)
+        .place_cursor_centered()
+        .vert_to_rect(dst_d);
 
-    cell.add_pin_from_port(inv1.port("vss").named("vss0"), m0);
-    cell.add_pin_from_port(inv1.port("vdd").named("vdd0"), m0);
-    cell.add_pin_from_port(inv1.port("din"), m0);
-    cell.abs_mut().add_port(inv1.port("vpb").named("vpb0"));
+    let src = ntap1.port("x").largest_rect(m0).unwrap();
+    let dst = inv1.port("vdd").largest_rect(m0).unwrap();
+    let dst_d = inv1_d.port("vdd").largest_rect(m0).unwrap();
+    router
+        .trace(src, 0)
+        .place_cursor_centered()
+        .vert_to_rect(dst);
+    router
+        .trace(src, 0)
+        .place_cursor_centered()
+        .vert_to_rect(dst_d);
 
-    cell.add_pin_from_port(inv2.port("vss").named("vss1"), m0);
-    cell.add_pin_from_port(inv2.port("vdd").named("vdd1"), m0);
-    cell.add_pin_from_port(inv2.port("din_b").named("dout"), m0);
-    cell.abs_mut().add_port(inv2.port("vpb").named("vpb1"));
+    let src = ptap2.port("x").largest_rect(m0).unwrap();
+    let dst = inv2.port("vss").largest_rect(m0).unwrap();
+    let dst_d = inv2_d.port("vss").largest_rect(m0).unwrap();
+    router
+        .trace(src, 0)
+        .place_cursor_centered()
+        .vert_to_rect(dst);
+    router
+        .trace(src, 0)
+        .place_cursor_centered()
+        .vert_to_rect(dst_d);
+
+    let src = ntap2.port("x").largest_rect(m0).unwrap();
+    let dst = inv2.port("vdd").largest_rect(m0).unwrap();
+    let dst_d = inv2_d.port("vdd").largest_rect(m0).unwrap();
+    router
+        .trace(src, 0)
+        .place_cursor_centered()
+        .vert_to_rect(dst);
+    router
+        .trace(src, 0)
+        .place_cursor_centered()
+        .vert_to_rect(dst_d);
+
+    cell.add_pin_from_port(inv1.port("din").named("din1"), m0);
+    cell.add_pin_from_port(inv2.port("din_b").named("dout1"), m0);
+
+    cell.add_pin_from_port(inv1_d.port("din").named("din2"), m0);
+    cell.add_pin_from_port(inv2_d.port("din_b").named("dout2"), m0);
+
+    let rect = MergeArgs::builder()
+        .layer(nwell)
+        .insts(GateList::Cells(&[inv1.clone(), inv1_d.clone()]))
+        .port_name("vpb")
+        .left_overhang(0)
+        .right_overhang(0)
+        .build()?
+        .rect();
+    cell.layout_mut().draw_rect(nwell, rect);
+    cell.add_pin("vpb0", nwell, rect);
+    let rect = MergeArgs::builder()
+        .layer(nwell)
+        .insts(GateList::Cells(&[inv2.clone(), inv2_d.clone()]))
+        .port_name("vpb")
+        .left_overhang(0)
+        .right_overhang(0)
+        .build()?
+        .rect();
+    cell.layout_mut().draw_rect(nwell, rect);
+    cell.add_pin("vpb0", nwell, rect);
+
+    cell.add_pin_from_port(ptap1.port("x").named("vss0"), m1);
+    cell.add_pin_from_port(ntap1.port("x").named("vdd0"), m1);
+    cell.add_pin_from_port(ptap2.port("x").named("vss1"), m1);
+    cell.add_pin_from_port(ntap2.port("x").named("vdd1"), m1);
 
     cell.layout_mut().add_inst(inv1);
     cell.layout_mut().add_inst(inv2);
