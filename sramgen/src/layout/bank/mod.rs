@@ -320,7 +320,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         col_bbox = col_bbox.union(&bbox.bbox());
     }
 
-    din_dffs.align_beneath(dout_buf_bbox.bbox(), 1_000);
+    din_dffs.align_beneath(dout_buf_bbox.bbox(), 1_270);
     din_dffs.align_centers_horizontally_gridded(core_bbox, grid);
 
     decoder1.align_beneath(core_bbox, 1_000);
