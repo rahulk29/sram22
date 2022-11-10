@@ -1132,6 +1132,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         &write_mux,
         &col_inv,
         &sense_amp,
+        &dout_buf,
         &din_dffs,
         &addr_dffs,
     ];

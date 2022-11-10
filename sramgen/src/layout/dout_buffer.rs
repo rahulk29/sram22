@@ -9,7 +9,7 @@ use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
 use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
-use super::bank::GateList;
+use super::bank::{connect, ConnectArgs, GateList};
 use super::common::{draw_two_level_contact, MergeArgs, TwoLevelContactParams};
 use super::route::Router;
 
@@ -61,14 +61,34 @@ pub fn draw_dout_buffer_array(
     cell.layout_mut().draw_rect(nwell, rect);
     cell.add_pin("vpb1", nwell, rect);
 
+    let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());
+    let cfg = router.cfg();
+    let m2 = cfg.layerkey(2);
+
+    for net in ["vss0", "vdd0", "vss1", "vdd1"] {
+        let args = ConnectArgs::builder()
+            .metal_idx(2)
+            .port_idx(1)
+            .router(&mut router)
+            .port_name(net)
+            .dir(Dir::Horiz)
+            .insts(GateList::Array(&inst, width))
+            .overhang(1_395)
+            .build()?;
+        let trace = connect(args);
+        cell.add_pin(net, m2, trace.rect());
+    }
+
     for port in inst.ports() {
-        if port.net.starts_with("vpb") {
+        if port.net.starts_with("vpb") || port.net.starts_with("vdd") || port.net.starts_with("vss")
+        {
             continue;
         }
         cell.abs_mut().add_port(port);
     }
 
     cell.layout_mut().add_inst(inst);
+    cell.layout_mut().add_inst(router.finish());
 
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
