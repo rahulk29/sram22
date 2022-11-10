@@ -13,6 +13,8 @@ CKTS = [
     "sense_amp_array",
     "col_inv",
     "col_inv_array",
+    "dout_buf",
+    "dout_buf_array",
     "bitline_driver",
     "bitline_driver_array",
     "wordline_driver_array",
