@@ -19,6 +19,7 @@ use crate::layout::decoder::{
     bus_width, draw_hier_decode, ConnectSubdecodersArgs, GateArrayParams,
 };
 use crate::layout::dff::{draw_dff_grid, DffGridParams};
+use crate::layout::dout_buffer::draw_dout_buffer_array;
 use crate::layout::guard_ring::{draw_guard_ring, GuardRingParams};
 use crate::layout::power::{PowerSource, PowerStrapGen, PowerStrapOpts};
 use crate::layout::route::grid::{Grid, TrackLocator};
@@ -218,6 +219,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .row_pitch(2 * mux_ratio as isize * COLUMN_WIDTH)
         .build()?;
     let din_dffs = draw_dff_grid(lib, din_dff_params)?;
+    let dout_buf = draw_dout_buffer_array(lib, "dout_buffer_array", cols / mux_ratio, mux_ratio)?;
     let tmc = draw_tmc(
         lib,
         TmcParams {
@@ -257,6 +259,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     let mut din_dffs = Instance::new("dff_array", din_dffs);
     let mut addr_dffs = Instance::new("addr_dffs", addr_dffs);
     let mut col_decoder = col_decoder.map(|decoder| Instance::new("col_decoder", decoder));
+    let mut dout_buf = Instance::new("dout_buffer_array", dout_buf);
     let mut tmc = Instance::new("tmc", tmc);
 
     ////////////////////////////////////////////////////////////////////
@@ -300,6 +303,11 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     let write_mux_bbox = write_mux.bbox().into_rect();
     let col_inv_bbox = col_inv.bbox().into_rect();
 
+    dout_buf.align_beneath(sa_bbox.bbox(), 1_270);
+    dout_buf.align_centers_horizontally_gridded(sa_bbox.bbox(), lib.pdk.grid());
+
+    let dout_buf_bbox = dout_buf.bbox().into_rect();
+
     let mut col_bbox = BoundBox::empty();
     for bbox in [
         sa_bbox,
@@ -307,11 +315,12 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         col_inv_bbox,
         read_mux_bbox,
         write_mux_bbox,
+        dout_buf_bbox,
     ] {
         col_bbox = col_bbox.union(&bbox.bbox());
     }
 
-    din_dffs.align_beneath(sense_amp.bbox(), 1_000);
+    din_dffs.align_beneath(dout_buf_bbox.bbox(), 1_000);
     din_dffs.align_centers_horizontally_gridded(core_bbox, grid);
 
     decoder1.align_beneath(core_bbox, 1_000);
@@ -1174,6 +1183,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     cell.layout_mut().insts.push(sense_amp.clone());
     cell.layout_mut().insts.push(din_dffs.clone());
     cell.layout_mut().insts.push(addr_dffs.clone());
+    cell.layout_mut().insts.push(dout_buf.clone());
     // layout.insts.push(tmc);
 
     let mut bbox = cell.layout().bbox().into_rect();
@@ -1219,30 +1229,63 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             ),
         );
 
-        // Route sense amp output
-        let src = sense_amp
-            .port(format!("outp_{i}"))
-            .largest_rect(m2)
-            .unwrap();
-        let mut trace = router.trace(src, 1);
+        // Route sense amp output to dout buffers
+        for (sa_port, buf_input, buf_output, span, pin) in [
+            ("outp", "din1", "dout1", dout_spans[i], true),
+            ("outn", "din2", "dout2", dout_b_spans[i], false),
+        ] {
+            let src = sense_amp
+                .port(format!("{sa_port}_{i}"))
+                .largest_rect(m2)
+                .unwrap();
+            let dst = dout_buf
+                .port(format!("{buf_input}_{i}"))
+                .largest_rect(m0)
+                .unwrap();
+            let rect = Rect::from_spans(span, Span::new(dst.bottom(), src.top()));
+            power_grid.add_padded_blockage(3, rect);
+            let mut trace = router.trace(rect, 3);
+            trace
+                .contact_down(src)
+                .place_cursor(Dir::Vert, false)
+                .down()
+                .horiz_to_rect(dst)
+                .down()
+                .down();
+            power_grid.add_padded_blockage(2, trace.rect().expand(110));
 
-        let dout_rect = Rect::from_spans(dout_spans[i], Span::new(rect.bottom(), src.top()));
-        power_grid.add_padded_blockage(3, dout_rect);
-        let dout_trace = router.trace(dout_rect, 3);
-        trace
-            .place_cursor_centered()
-            .up()
-            .horiz_to_trace(&dout_trace)
-            .contact_up(dout_rect);
+            if pin {
+                let src = dout_buf
+                    .port(format!("{buf_output}_{i}"))
+                    .largest_rect(m0)
+                    .unwrap();
 
-        cell.add_pin(
-            format!("dout_{i}"),
-            m3,
-            Rect::from_spans(
-                dout_rect.hspan(),
-                Span::new(dout_rect.bottom(), dout_rect.bottom() + 3 * cfg.line(3)),
-            ),
-        );
+                let dout_rect = Rect::from_spans(
+                    span,
+                    Span::new(guard_ring_bbox.bottom(), src.bottom() + cfg.line(3)),
+                );
+                power_grid.add_padded_blockage(3, dout_rect);
+                let mut dout_trace = router.trace(dout_rect, 3);
+                dout_trace
+                    .place_cursor(Dir::Vert, true)
+                    .down()
+                    .horiz_to_rect(src)
+                    .down()
+                    .set_min_width()
+                    .horiz_to_rect(src)
+                    .down();
+                power_grid.add_padded_blockage(2, dout_trace.rect().expand(110));
+
+                cell.add_pin(
+                    format!("dout_{i}"),
+                    m3,
+                    Rect::from_spans(
+                        dout_rect.hspan(),
+                        Span::new(dout_rect.bottom(), dout_rect.bottom() + 3 * cfg.line(3)),
+                    ),
+                );
+            }
+        }
     }
 
     // Route clock (clk) pin

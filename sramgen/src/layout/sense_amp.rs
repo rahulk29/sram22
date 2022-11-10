@@ -47,7 +47,7 @@ pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize, spacing: Int) -> Res
         });
         cell.add_pin(net, lib.pdk.metal(2), rect);
     }
-    for prefix in ["inp", "inn", "outp"] {
+    for prefix in ["inp", "inn", "outp", "outn"] {
         for port in inst.ports_starting_with(prefix) {
             cell.abs_mut().add_port(port);
         }
