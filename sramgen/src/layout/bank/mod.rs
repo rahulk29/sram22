@@ -1275,7 +1275,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
                     .set_min_width()
                     .horiz_to_rect(src)
                     .down();
-                power_grid.add_padded_blockage(2, dout_trace.rect().expand(300));
+                power_grid.add_padded_blockage(2, dout_trace.rect().expand(500));
 
                 cell.add_pin(
                     format!("dout_{i}"),
