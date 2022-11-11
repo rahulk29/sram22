@@ -11,6 +11,7 @@ pub mod col_inv;
 pub mod config;
 pub mod decoder;
 pub mod dff;
+pub mod dout_buffer;
 pub mod gate;
 pub mod layout;
 pub mod mos;

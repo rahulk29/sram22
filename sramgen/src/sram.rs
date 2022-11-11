@@ -6,6 +6,7 @@ use crate::bitcells::{bitcell_array, BitcellArrayParams};
 use crate::col_inv::{col_inv_array, ColInvArrayParams, ColInvParams};
 use crate::decoder::{hierarchical_decoder, DecoderParams, DecoderTree};
 use crate::dff::dff_array;
+use crate::dout_buffer::{dout_buf_array, DoutBufArrayParams, DoutBufParams};
 use crate::gate::{AndParams, Size};
 use crate::mux;
 use crate::mux::read::read_mux_array;
@@ -144,6 +145,18 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         width: cols_masked,
     });
 
+    let mut dout_buf_array = dout_buf_array(DoutBufArrayParams {
+        name: "dout_buf_array".to_string(),
+        width: cols_masked,
+        instance_params: DoutBufParams {
+            length: 150,
+            nw1: 1_000,
+            pw1: 1_600,
+            nw2: 2_000,
+            pw2: 3_200,
+        },
+    });
+
     let mut we_control = write_mask_control(WriteMaskControlParams {
         name: "we_control".to_string(),
         width: mux_ratio as i64,
@@ -170,6 +183,8 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     let dff_din_b = bus("dff_din_b", cols_masked as i64);
     let din = bus("din", cols_masked as i64);
     let dout = bus("dout", cols_masked);
+    let sa_outp = bus("sa_outp", cols_masked);
+    let sa_outn = bus("sa_outn", cols_masked);
     let dout_b = bus("dout_b", cols_masked);
     let we = signal("we");
     let bank_we = signal("bank_we");
@@ -387,11 +402,26 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     conns.insert("clk", sig_conn(&sae));
     conns.insert("bl", sig_conn(&bl_read));
     conns.insert("br", sig_conn(&br_read));
-    conns.insert("data", sig_conn(&dout));
-    conns.insert("data_b", sig_conn(&dout_b));
+    conns.insert("data", sig_conn(&sa_outp));
+    conns.insert("data_b", sig_conn(&sa_outn));
     m.instances.push(Instance {
         name: "sense_amp_array".to_string(),
         module: local_reference("sense_amp_array"),
+        connections: conn_map(conns),
+        parameters: HashMap::new(),
+    });
+
+    // Data output buffers
+    let mut conns = HashMap::new();
+    conns.insert("vdd", sig_conn(&vdd));
+    conns.insert("vss", sig_conn(&vss));
+    conns.insert("din1", sig_conn(&sa_outp));
+    conns.insert("din2", sig_conn(&sa_outn));
+    conns.insert("dout1", sig_conn(&dout));
+    conns.insert("dout2", sig_conn(&dout_b));
+    m.instances.push(Instance {
+        name: "dout_buf_array".to_string(),
+        module: local_reference("dout_buf_array"),
         connections: conn_map(conns),
         parameters: HashMap::new(),
     });
@@ -482,6 +512,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     modules.append(&mut addr_dff_array);
     modules.append(&mut col_inv);
     modules.push(sense_amp_array);
+    modules.append(&mut dout_buf_array);
     modules.append(&mut we_control);
     modules.push(m);
 

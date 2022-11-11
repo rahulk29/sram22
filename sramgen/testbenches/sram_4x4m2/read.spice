@@ -17,24 +17,34 @@ Xsram
 * vdd vss clk 
 + vdd vss clk
 * din_in_1 din_in_0
-+ vdd vss
++ vss vss
 * dout_1 dout_0
 + dout_1 dout_0
 * we
-+ vss
++ we
 * addr_in_2 addr_in_1 addr_in_0 
 + vdd vss vss
 + sramgen_sram_4x4m2
 
-Vclk clk 0 dc 0 PULSE(0 {vdd} 10p {tr} {tf} 2n 4n 0)
+Vclk clk 0 dc 1.8 PULSE(0 {vdd} 10p {tr} {tf} 2n 4n 0)
 Vss vss 0 dc 0
 Vdd vdd 0 {vdd}
+Vwe we 0 dc 1.8 PULSE({vdd} 0 0 {tr} {tf} 3n 100 0}
 
 .ic
-+ v(xsram.xbitcells.xbitcell_2_0.q)=0.0
-+ v(xsram.xbitcells.xbitcell_2_0.qb)=1.8
++ v(clk)=1.8
++ v(xsram.xbitcells.xbitcell_2_0.q)=1.8
++ v(xsram.xbitcells.xbitcell_2_0.qb)=0.0
 + v(xsram.xbitcells.xbitcell_2_2.q)=1.8
 + v(xsram.xbitcells.xbitcell_2_2.qb)=0.0
++ v(bl_0)=1.8
++ v(br_0)=1.8
++ v(bl_1)=1.8
++ v(br_1)=1.8
++ v(bl_2)=1.8
++ v(br_2)=1.8
++ v(bl_3)=1.8
++ v(br_3)=1.8
 
 .control
 tran 5p 18n 0n
@@ -64,6 +74,8 @@ wrdata read.dat
 + v(xsram.bank_addr_b_0)
 + v(xsram.sense_amp_en)
 + v(xsram.xsense_amp_array.data_b_0)
++ v(xsram.xbitcells.xbitcell_2_0.q)
++ v(xsram.xbitcells.xbitcell_2_0.qb)
 .endc
 
 .end

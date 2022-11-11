@@ -24,7 +24,7 @@ pub fn sense_amp_array(params: SenseAmpArrayParams) -> Module {
     let bl = bus("bl", params.width);
     let br = bus("br", params.width);
     let data = bus("data", params.width);
-    let _data_b = bus("data_b", params.width);
+    let data_b = bus("data_b", params.width);
 
     let ports = vec![
         port_inout(&vdd),
@@ -33,6 +33,7 @@ pub fn sense_amp_array(params: SenseAmpArrayParams) -> Module {
         port_input(&bl),
         port_input(&br),
         port_output(&data),
+        port_output(&data_b),
     ];
 
     let mut m = Module {
