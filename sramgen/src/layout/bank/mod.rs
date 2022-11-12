@@ -1548,7 +1548,7 @@ mod tests {
         .map_err(panic_on_err)?;
         lef.save(test_lef_path(&lib)).expect("failed to export LEF");
 
-        lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
+        lib.save_gds(test_gds_path(&lib)).map_err(panic_on_err)?;
 
         Ok(())
     }
