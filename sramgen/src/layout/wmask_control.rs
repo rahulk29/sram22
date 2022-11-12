@@ -1,5 +1,5 @@
-use crate::gate::GateParams;
-use crate::wmask_control::WriteMaskControlParams;
+use crate::schematic::gate::GateParams;
+use crate::schematic::wmask_control::WriteMaskControlParams;
 use crate::Result;
 
 use layout21::raw::{BoundBoxTrait, Cell, Dir, Instance, Rect, Span};
@@ -94,8 +94,8 @@ pub fn draw_write_mask_control(
 mod tests {
     use pdkprims::tech::sky130;
 
-    use crate::gate::{AndParams, Size};
-    use crate::utils::test_path;
+    use crate::schematic::gate::{AndParams, Size};
+    use crate::utils::test_gds_path;
 
     use super::*;
 
@@ -122,7 +122,7 @@ mod tests {
             },
         )?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }

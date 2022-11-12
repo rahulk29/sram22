@@ -8,7 +8,7 @@ use vlsir::circuit::{Connection, Module, Slice};
 use vlsir::reference::To;
 use vlsir::Reference;
 
-use crate::mos::Mosfet;
+use crate::schematic::mos::Mosfet;
 use crate::utils::{bus, port_inout, port_input, sig_conn, signal};
 
 #[derive(Debug, Clone)]

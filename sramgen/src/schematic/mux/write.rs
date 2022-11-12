@@ -5,7 +5,7 @@ use pdkprims::mos::MosType;
 
 use vlsir::circuit::Module;
 
-use crate::mos::Mosfet;
+use crate::schematic::mos::Mosfet;
 use crate::utils::conns::conn_slice;
 use crate::utils::{bus, conn_map, local_reference, port_inout, port_input, sig_conn, signal};
 

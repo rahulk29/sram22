@@ -9,7 +9,7 @@ use layout21::utils::Ptr;
 use pdkprims::bus::ContactPolicy;
 use pdkprims::PdkLib;
 
-use crate::gate::{GateParams, Size};
+use crate::schematic::gate::{GateParams, Size};
 
 use super::gate::{draw_inv, draw_nand2};
 use super::route::Router;
@@ -421,7 +421,7 @@ pub fn draw_tmc(lib: &mut PdkLib, params: TmcParams) -> Result<Ptr<Cell>> {
 mod tests {
     use pdkprims::tech::sky130;
 
-    use crate::utils::test_path;
+    use crate::utils::test_gds_path;
 
     use super::*;
 
@@ -430,7 +430,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sky130_dbdr_delay_cell")?;
         draw_dbdr_delay_cell(&mut lib, "test_sky130_dbdr_delay_cell")?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }
@@ -446,7 +446,7 @@ mod tests {
             },
         )?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }
@@ -463,7 +463,7 @@ mod tests {
             },
         )?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }

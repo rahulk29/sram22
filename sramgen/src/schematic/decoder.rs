@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use fanout::FanoutAnalyzer;
 
-use crate::gate::{inv, nand2, nand3, Gate, GateParams, GateType, Size};
 use crate::layout::decoder::get_idxs;
+use crate::schematic::gate::{inv, nand2, nand3, Gate, GateParams, GateType, Size};
 use crate::utils::conns::conn_slice;
 use crate::utils::{conn_map, log2, sig_conn, signal, BusConnection};
 use pdkprims::config::Int;

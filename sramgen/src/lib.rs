@@ -2,30 +2,17 @@ use std::path::PathBuf;
 
 use layout21::raw::{BoundBox, Cell};
 use layout21::utils::Ptr;
-use mos::NetlistFormat;
+use schematic::mos::NetlistFormat;
 use vlsir::circuit::Package;
 use vlsir::spice::SimInput;
 
-pub mod bitcells;
-pub mod col_inv;
+pub mod cli;
 pub mod config;
-pub mod decoder;
-pub mod dff;
-pub mod gate;
 pub mod layout;
-pub mod mos;
-pub mod mux;
-pub mod netlist;
 pub mod plan;
-pub mod precharge;
-pub mod rbl;
-pub mod sense_amp;
-pub mod sram;
+pub mod schematic;
 pub mod tech;
 pub mod utils;
-pub mod wl_driver;
-pub mod wmask_control;
-pub mod write_driver;
 
 pub use anyhow::Result;
 

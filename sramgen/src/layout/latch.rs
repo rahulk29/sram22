@@ -6,7 +6,7 @@ use layout21::raw::{
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use crate::gate::{GateParams, Size};
+use crate::schematic::gate::{GateParams, Size};
 
 use super::gate::draw_nor2;
 use super::route::Router;
@@ -99,7 +99,7 @@ pub fn draw_sr_latch(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
 mod tests {
     use pdkprims::tech::sky130;
 
-    use crate::utils::test_path;
+    use crate::utils::test_gds_path;
 
     use super::*;
 
@@ -108,7 +108,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sky130_sr_latch")?;
         draw_sr_latch(&mut lib, "test_sky130_sr_latch")?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }

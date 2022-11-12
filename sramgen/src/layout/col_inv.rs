@@ -1,5 +1,5 @@
-use crate::gate::{GateParams, Size};
 use crate::layout::Result;
+use crate::schematic::gate::{GateParams, Size};
 use crate::tech::COLUMN_WIDTH;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
@@ -10,6 +10,7 @@ use pdkprims::PdkLib;
 use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
 use super::bank::{connect, ConnectArgs, GateList};
 use super::common::{draw_two_level_contact, MergeArgs, TwoLevelContactParams};
+
 use super::route::Router;
 
 pub fn draw_col_inv_array(
@@ -208,7 +209,7 @@ fn draw_col_inv_ptap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 mod tests {
     use pdkprims::tech::sky130;
 
-    use crate::utils::test_path;
+    use crate::utils::test_gds_path;
 
     use super::*;
 
@@ -217,7 +218,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_col_inv_array")?;
         draw_col_inv_array(&mut lib, "test_col_inv_array", 32, 2)?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }

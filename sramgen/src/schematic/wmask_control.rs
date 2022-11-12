@@ -4,7 +4,7 @@ use vlsir::circuit::Module;
 use vlsir::reference::To;
 use vlsir::Reference;
 
-use crate::gate::{and2, AndParams};
+use crate::schematic::gate::{and2, AndParams};
 
 use crate::utils::conns::conn_slice;
 use crate::utils::{bus, port_inout, port_input, port_output, sig_conn, signal};
@@ -68,7 +68,7 @@ pub fn write_mask_control(params: WriteMaskControlParams) -> Vec<Module> {
 
 #[cfg(test)]
 mod tests {
-    use crate::gate::Size;
+    use crate::schematic::gate::Size;
     use crate::utils::save_modules;
 
     use super::*;

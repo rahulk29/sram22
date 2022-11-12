@@ -17,7 +17,7 @@ toml = "0.5.9"
 log = "0.4.17"
 env_logger = "0.9.1"
 indicatif = "0.16.2"
-clap = { version = "3.2.23", features = ["derive"] }
+clap = { version = "4.0.22", features = ["derive"] }
 itertools = "0.10.5"
 handlebars = "4.3.5"
 portpicker = "0.1.1"

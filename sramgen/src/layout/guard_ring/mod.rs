@@ -139,7 +139,7 @@ pub fn draw_guard_ring(lib: &mut PdkLib, params: GuardRingParams) -> crate::Resu
 mod tests {
     use pdkprims::tech::sky130;
 
-    use crate::utils::test_path;
+    use crate::utils::test_gds_path;
     use crate::Result;
 
     use super::*;
@@ -155,7 +155,7 @@ mod tests {
             },
         )?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }

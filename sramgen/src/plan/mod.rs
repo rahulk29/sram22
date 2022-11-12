@@ -1,4 +1,4 @@
-use crate::decoder::DecoderTree;
+use crate::schematic::decoder::DecoderTree;
 
 /// A concrete plan for an SRAM.
 ///

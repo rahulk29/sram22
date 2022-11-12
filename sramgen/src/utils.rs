@@ -206,7 +206,7 @@ use std::path::PathBuf;
 pub const TEST_BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
 
 #[cfg(test)]
-pub(crate) fn test_path(lib: &PdkLib) -> PathBuf {
+pub(crate) fn test_gds_path(lib: &PdkLib) -> PathBuf {
     let mut path = PathBuf::from(TEST_BUILD_PATH);
     path.push(format!("gds/{}.gds", &lib.lib.name));
     path
