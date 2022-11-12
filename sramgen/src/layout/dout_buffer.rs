@@ -307,7 +307,7 @@ fn draw_ptap_cell(lib: &mut PdkLib, cols: isize) -> Result<Ptr<Cell>> {
 mod tests {
     use pdkprims::tech::sky130;
 
-    use crate::utils::test_path;
+    use crate::utils::test_gds_path;
 
     use super::*;
 
@@ -316,7 +316,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_dout_buffer_array")?;
         draw_dout_buffer_array(&mut lib, "test_dout_buffer_array", 32, 2)?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }
@@ -326,7 +326,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_dout_buffer")?;
         draw_dout_buffer(&mut lib, "test_dout_buffer")?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }
