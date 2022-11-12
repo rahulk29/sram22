@@ -1,5 +1,5 @@
-use crate::gate::{GateParams, Size};
 use crate::layout::Result;
+use crate::schematic::gate::{GateParams, Size};
 use crate::tech::COLUMN_WIDTH;
 
 use layout21::raw::align::AlignRect;

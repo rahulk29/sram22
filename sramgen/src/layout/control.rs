@@ -202,7 +202,7 @@ pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cel
 mod tests {
     use pdkprims::tech::sky130;
 
-    use crate::utils::test_path;
+    use crate::utils::test_gds_path;
 
     use super::*;
 
@@ -211,7 +211,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sky130_control_logic_simple")?;
         draw_control_logic(&mut lib, ControlMode::Simple)?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }
@@ -227,7 +227,7 @@ mod tests {
             },
         )?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }

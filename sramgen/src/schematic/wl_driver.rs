@@ -6,7 +6,7 @@ use pdkprims::config::Int;
 
 use vlsir::circuit::{Instance, Module};
 
-use crate::gate::{and2, AndParams, Size};
+use crate::schematic::gate::{and2, AndParams, Size};
 use crate::utils::conns::conn_slice;
 use crate::utils::{
     bus, conn_map, local_reference, port_inout, port_input, port_output, sig_conn, signal,

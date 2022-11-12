@@ -10,7 +10,7 @@ use vlsir::circuit::ExternalModule;
 use vlsir::reference::To;
 use vlsir::{QualifiedName, Reference};
 
-use crate::mos::{ext_nmos, ext_pmos};
+use crate::schematic::mos::{ext_nmos, ext_pmos};
 use crate::utils::simple_ext_module;
 use crate::NETLIST_FORMAT;
 

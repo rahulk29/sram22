@@ -2,26 +2,28 @@ use std::collections::HashMap;
 
 use vlsir::circuit::{Concat, Connection, Instance, Module};
 
-use crate::bitcells::{bitcell_array, BitcellArrayParams};
-use crate::col_inv::{col_inv_array, ColInvArrayParams, ColInvParams};
-use crate::decoder::{hierarchical_decoder, DecoderParams, DecoderTree};
-use crate::dff::dff_array;
-use crate::dout_buffer::{dout_buf_array, DoutBufArrayParams, DoutBufParams};
-use crate::gate::{AndParams, Size};
-use crate::mux;
-use crate::mux::read::read_mux_array;
-use crate::mux::write::{write_mux_array, ArrayParams, WriteMuxParams};
-use crate::precharge::{precharge_array, PrechargeArrayParams, PrechargeParams};
-use crate::sense_amp::{sense_amp_array, SenseAmpArrayParams};
+use crate::schematic::bitcells::{bitcell_array, BitcellArrayParams};
+use crate::schematic::col_inv::{col_inv_array, ColInvArrayParams, ColInvParams};
+use crate::schematic::decoder::{hierarchical_decoder, DecoderParams, DecoderTree};
+use crate::schematic::dff::dff_array;
+use crate::schematic::dout_buffer::{dout_buf_array, DoutBufArrayParams, DoutBufParams};
+use crate::schematic::gate::{AndParams, Size};
+use crate::schematic::mux;
+use crate::schematic::mux::read::read_mux_array;
+use crate::schematic::mux::write::{write_mux_array, ArrayParams, WriteMuxParams};
+use crate::schematic::precharge::{precharge_array, PrechargeArrayParams, PrechargeParams};
+use crate::schematic::sense_amp::{sense_amp_array, SenseAmpArrayParams};
+use crate::schematic::wl_driver::{
+    wordline_driver_array, WordlineDriverArrayParams, WordlineDriverParams,
+};
+use crate::schematic::wmask_control::{write_mask_control, WriteMaskControlParams};
 use crate::tech::{openram_dff_ref, sramgen_control_ref};
 use crate::utils::conns::conn_slice;
 use crate::utils::{
     bus, conn_map, local_reference, port_inout, port_input, port_output, sig_conn, signal,
 };
-use crate::wl_driver::{wordline_driver_array, WordlineDriverArrayParams, WordlineDriverParams};
-use crate::wmask_control::{write_mask_control, WriteMaskControlParams};
 
-use crate::dff::DffArrayParams;
+use crate::schematic::dff::DffArrayParams;
 
 pub struct SramParams {
     pub row_bits: usize,

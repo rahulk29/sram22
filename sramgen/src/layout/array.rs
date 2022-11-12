@@ -386,7 +386,7 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
 mod tests {
     use pdkprims::tech::sky130;
 
-    use crate::utils::test_path;
+    use crate::utils::test_gds_path;
 
     use super::*;
 
@@ -395,7 +395,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sram_array_32x32")?;
         draw_array(32, 32, &mut lib)?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }
@@ -405,7 +405,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sram_array_2x2")?;
         draw_array(2, 2, &mut lib)?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }

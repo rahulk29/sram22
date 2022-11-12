@@ -1,5 +1,5 @@
-use crate::gate::{GateParams, Size};
 use crate::layout::Result;
+use crate::schematic::gate::{GateParams, Size};
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
 use layout21::raw::{
@@ -516,7 +516,7 @@ pub fn draw_inv(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
 mod tests {
     use pdkprims::tech::sky130;
 
-    use crate::utils::test_path;
+    use crate::utils::test_gds_path;
 
     use super::*;
 
@@ -525,7 +525,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sky130_nand2_dec")?;
         draw_nand2_dec(&mut lib, "nand2_dec")?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }
@@ -535,7 +535,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sky130_inv_dec")?;
         draw_inv_dec(&mut lib, "inv_dec")?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }
@@ -566,7 +566,7 @@ mod tests {
             },
         )?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }
@@ -586,7 +586,7 @@ mod tests {
             },
         )?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }
@@ -606,7 +606,7 @@ mod tests {
             },
         )?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }
@@ -637,7 +637,7 @@ mod tests {
             },
         )?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }

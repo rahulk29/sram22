@@ -13,7 +13,7 @@ use super::common::{draw_two_level_contact, TwoLevelContactParams};
 use crate::layout::bank::GateList;
 use crate::layout::common::{MergeArgs, NWELL_COL_SIDE_EXTEND, NWELL_COL_VERT_EXTEND};
 use crate::layout::route::{ContactBounds, Router, VertDir};
-use crate::precharge::{PrechargeArrayParams, PrechargeParams};
+use crate::schematic::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::Result;
 
 fn draw_precharge(lib: &mut PdkLib, args: PrechargeParams) -> Result<Ptr<Cell>> {
@@ -265,7 +265,7 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Res
 mod tests {
     use pdkprims::tech::sky130;
 
-    use crate::utils::test_path;
+    use crate::utils::test_gds_path;
 
     use super::*;
 
@@ -282,7 +282,7 @@ mod tests {
             },
         )?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }
@@ -304,7 +304,7 @@ mod tests {
             },
         )?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }

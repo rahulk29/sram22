@@ -224,7 +224,7 @@ mod tests {
     use pdkprims::tech::sky130;
 
     use crate::tech::COLUMN_WIDTH;
-    use crate::utils::test_path;
+    use crate::utils::test_gds_path;
 
     use super::*;
 
@@ -233,7 +233,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sky130_dff_array")?;
         draw_dff_array(&mut lib, "test_sky130_dff_array", 16)?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }
@@ -243,7 +243,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_sky130_vert_dff_array")?;
         draw_vert_dff_array(&mut lib, "test_sky130_vert_dff_array", 8)?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }
@@ -259,7 +259,7 @@ mod tests {
             .build()?;
         draw_dff_grid(&mut lib, params)?;
 
-        lib.save_gds(test_path(&lib))?;
+        lib.save_gds(test_gds_path(&lib))?;
 
         Ok(())
     }

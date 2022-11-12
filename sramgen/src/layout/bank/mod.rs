@@ -10,8 +10,6 @@ use pdkprims::{LayerIdx, PdkLib};
 
 use crate::clog2;
 use crate::config::ControlMode;
-use crate::decoder::DecoderTree;
-use crate::gate::{AndParams, Size};
 use crate::layout::array::draw_power_connector;
 use crate::layout::col_inv::draw_col_inv_array;
 use crate::layout::control::draw_control_logic;
@@ -26,9 +24,11 @@ use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
 use crate::layout::tmc::{draw_tmc, TmcParams};
 use crate::layout::wmask_control::draw_write_mask_control;
-use crate::precharge::{PrechargeArrayParams, PrechargeParams};
+use crate::schematic::decoder::DecoderTree;
+use crate::schematic::gate::{AndParams, Size};
+use crate::schematic::precharge::{PrechargeArrayParams, PrechargeParams};
+use crate::schematic::wmask_control::WriteMaskControlParams;
 use crate::tech::{BITCELL_HEIGHT, COLUMN_WIDTH};
-use crate::wmask_control::WriteMaskControlParams;
 
 use super::array::draw_array;
 use super::decoder::{draw_inv_dec_array, draw_nand2_dec_array};
@@ -1489,7 +1489,7 @@ pub(crate) fn connect(args: ConnectArgs) -> Trace {
 mod tests {
     use pdkprims::tech::sky130;
 
-    use crate::utils::{panic_on_err, test_lef_path, test_path};
+    use crate::utils::{panic_on_err, test_gds_path, test_lef_path};
 
     use super::*;
 
@@ -1508,7 +1508,7 @@ mod tests {
         .map_err(panic_on_err)?;
         lef.save(test_lef_path(&lib)).expect("failed to export LEF");
 
-        lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
+        lib.save_gds(test_gds_path(&lib)).map_err(panic_on_err)?;
 
         Ok(())
     }
@@ -1528,7 +1528,7 @@ mod tests {
         .map_err(panic_on_err)?;
         lef.save(test_lef_path(&lib)).expect("failed to export LEF");
 
-        lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
+        lib.save_gds(test_gds_path(&lib)).map_err(panic_on_err)?;
 
         Ok(())
     }
@@ -1567,7 +1567,7 @@ mod tests {
         )
         .map_err(panic_on_err)?;
 
-        lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
+        lib.save_gds(test_gds_path(&lib)).map_err(panic_on_err)?;
 
         Ok(())
     }
@@ -1586,7 +1586,7 @@ mod tests {
         )
         .map_err(panic_on_err)?;
 
-        lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
+        lib.save_gds(test_gds_path(&lib)).map_err(panic_on_err)?;
 
         Ok(())
     }
@@ -1605,7 +1605,7 @@ mod tests {
         )
         .map_err(panic_on_err)?;
 
-        lib.save_gds(test_path(&lib)).map_err(panic_on_err)?;
+        lib.save_gds(test_gds_path(&lib)).map_err(panic_on_err)?;
 
         Ok(())
     }
