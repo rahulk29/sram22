@@ -2,6 +2,7 @@ pub mod bitcells;
 pub mod col_inv;
 pub mod decoder;
 pub mod dff;
+pub mod dout_buffer;
 pub mod gate;
 pub mod mos;
 pub mod mux;

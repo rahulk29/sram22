@@ -12,6 +12,7 @@ pub mod common;
 pub mod control;
 pub mod decoder;
 pub mod dff;
+pub mod dout_buffer;
 pub mod gate;
 pub mod grid;
 pub mod guard_ring;
