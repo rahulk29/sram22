@@ -1061,12 +1061,6 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     power_grid.add_padded_blockage(2, addr_dff_bbox.into_rect());
 
     // clock (clk) distribution
-    for i in 0..2 {
-        let src = addr_dffs.port(format!("clk_{i}")).largest_rect(m2).unwrap();
-        let mut trace = router.trace(src, 2);
-        trace.place_cursor_centered().horiz_to(src.right() + 1_000);
-    }
-
     let dff_area = din_dff_bbox.bbox().union(&addr_dff_bbox).into_rect();
     let vspan = Span::new(
         dff_area.bottom() - 3 * cfg.line(2) - 3 * cfg.space(2),
@@ -1074,7 +1068,20 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     );
     let clk_rect = Rect::from_spans(dff_area.hspan(), vspan);
     let mut clk_trace = router.trace(clk_rect, 2);
+
     power_grid.add_padded_blockage(2, clk_rect);
+
+    for i in 0..(total_addr_bits + 1) {
+        let src = addr_dffs.port(format!("clk_{i}")).largest_rect(m2).unwrap();
+        let mut trace = router.trace(src, 2);
+        trace
+            .place_cursor_centered()
+            .up()
+            .set_min_width()
+            .vert_to_rect(clk_rect)
+            .contact_down(clk_rect);
+        power_grid.add_padded_blockage(3, trace.rect().expand(20));
+    }
 
     for i in (0..(cols / mux_ratio)).step_by(2) {
         let args = ConnectArgs::builder()
@@ -1280,15 +1287,16 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     clk_trace
         .place_cursor(Dir::Horiz, false)
         .up()
+        .set_width(420)
         .vert_to(guard_ring_bbox.bottom());
     let clk_pin = Rect::from_spans(
-        trace.rect().hspan(),
+        clk_trace.rect().hspan(),
         Span::new(
             guard_ring_bbox.bottom(),
             guard_ring_bbox.bottom() + 3 * cfg.line(3),
         ),
     );
-    power_grid.add_padded_blockage(3, trace.rect());
+    power_grid.add_padded_blockage(3, clk_trace.rect());
     cell.add_pin("clk", m3, clk_pin);
 
     // Route address and write enable pins
