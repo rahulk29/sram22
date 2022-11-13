@@ -1104,12 +1104,12 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     let src = control.port("clk").largest_rect(m2).unwrap();
     let mut trace = router.trace(src, 2);
     trace
-        .place_cursor_centered()
-        .up()
-        .set_min_width()
-        .vert_to_trace(&clk_trace);
+        .place_cursor(Dir::Horiz, true)
+        .set_width(cfg.line(3))
+        .horiz_to(clk_rect.left());
+    power_grid.add_padded_blockage(2, trace.rect());
+    trace.up().set_width(400).vert_to_trace(&clk_trace);
     power_grid.add_padded_blockage(3, trace.rect());
-    trace.contact_down(clk_trace.rect());
 
     // power strapping - targets on metal 1 and metal 2
     let mut targets = vec![
