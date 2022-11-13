@@ -31,16 +31,15 @@ pub fn generate(params: Params<'_>) -> LefLibrary {
 
     let mut pins = Vec::new();
 
-    let m2 = pdk.metal(2);
     let m3 = pdk.metal(3);
 
     // Address bits
     for i in 0..addr_bits {
         let pin_name = format!("addr_{i}");
-        let rect = inst.port(pin_name).largest_rect(m2).unwrap();
+        let rect = inst.port(pin_name).largest_rect(m3).unwrap();
 
         pins.push(export_pin(ExportPin {
-            layer_name: "met2",
+            layer_name: "met3",
             pin_name: format!("addr[{i}]"),
             rects: &[rect],
             direction: LefPinDirection::Input,
@@ -48,9 +47,9 @@ pub fn generate(params: Params<'_>) -> LefLibrary {
     }
 
     // Write enable
-    let rect = inst.port("we").largest_rect(m2).unwrap();
+    let rect = inst.port("we").largest_rect(m3).unwrap();
     pins.push(export_pin(ExportPin {
-        layer_name: "met2",
+        layer_name: "met3",
         pin_name: "we".to_string(),
         rects: &[rect],
         direction: LefPinDirection::Input,

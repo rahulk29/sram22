@@ -152,9 +152,8 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     let decoder2_bits = clog2(decoder_tree.root.children[1].num);
     let addr_dff_params = DffGridParams::builder()
         .name("addr_dff_array")
-        .rows(total_addr_bits + 1) // 1 extra bit for write enable
-        .cols(1)
-        .row_pitch(COLUMN_WIDTH)
+        .cols(total_addr_bits + 1) // 1 extra bit for write enable
+        .rows(1)
         .build()?;
     let addr_dffs = draw_dff_grid(lib, addr_dff_params)?;
 
@@ -343,8 +342,6 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     we_control.align_to_the_left_of(col_bbox.bbox(), col_bus_space);
     let we_control_bbox = we_control.bbox();
 
-    addr_dffs.align_beneath(decoder1_bbox, 2_000);
-
     let bbox = if let Some(ref mut col_decoder) = col_decoder {
         col_decoder.align_to_the_left_of(we_control_bbox, 1_270);
         col_decoder.align_centers_vertically_gridded(we_control_bbox, lib.pdk.grid());
@@ -357,6 +354,15 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     control.align_beneath(bbox, 1_270);
     control.align_left(decoder2_bbox);
     let control_bbox = control.bbox().into_rect();
+
+    let predecoder_bus_bits = total_addr_bits;
+
+    addr_dffs.align_beneath(
+        control_bbox.bbox(),
+        1_000 + 460 * 2 * predecoder_bus_bits as isize,
+    );
+    addr_dffs.align_to_the_left_of(col_bbox, 4_000);
+    let addr_dff_bbox = addr_dffs.bbox();
 
     tmc.align_above(din_dffs.bbox(), 1_270);
     tmc.align_to_the_right_of(core_bbox, 1_270);
@@ -704,12 +710,6 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     let vspan = Span::new(decoder2.bbox().p0.y, nand_dec.bbox().p1.y);
 
     let decoder_bus_width = bus_width(&decoder_tree.root);
-    let predecoder_bus_bits = if mux_ratio == 2 {
-        row_bits
-    } else {
-        total_addr_bits
-    };
-
     let bus_right_edge = if let Some(ref col_decoder) = col_decoder {
         col_decoder
             .bbox()
@@ -731,21 +731,21 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         subdecoders: &[&decoder1, &decoder2],
     });
 
-    let bbox = router.cell().bbox();
-    addr_dffs.align_to_the_left_of(bbox, 1_270);
-    let addr_dff_bbox = addr_dffs.bbox();
-
     let track_start = track_start + decoder_bus_width as isize;
     let traces = (track_start..(track_start + 2 * predecoder_bus_bits as isize))
         .map(|track| {
             let rect = Rect::span_builder()
-                .with(Dir::Vert, Span::new(addr_dff_bbox.p0.y, core_bbox.p0.y))
+                .with(
+                    Dir::Vert,
+                    Span::new(addr_dff_bbox.p1.y + cfg.space(1), core_bbox.p0.y),
+                )
                 .with(Dir::Horiz, grid.vtrack(track))
                 .build();
             router.trace(rect, 1)
         })
         .collect::<Vec<_>>();
 
+    let mut addr_0_traces = Vec::with_capacity(2);
     for i in 0..predecoder_bus_bits {
         for (port, addr_prefix, idx) in [("q", "addr", 2 * i), ("qn", "addr_b", 2 * i + 1)] {
             let src = addr_dffs
@@ -753,53 +753,68 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
                 .largest_rect(m2)
                 .unwrap();
             let mut trace = router.trace(src, 2);
+            trace.place_cursor_centered();
+            if idx % 2 != 0 {
+                trace.left_by(150);
+            }
             trace
-                .place_cursor_centered()
+                .up()
+                .set_min_width()
+                .vert_to(addr_dff_bbox.p1.y + 660 + idx as isize * (460));
+            power_grid.add_padded_blockage(3, trace.rect().expand(15));
+            trace
+                .down()
+                .set_min_width()
                 .horiz_to_trace(&traces[idx])
                 .contact_down(traces[idx].rect());
-            power_grid.add_padded_blockage(2, trace.rect().expand(cfg.space(2)));
+            power_grid.add_padded_blockage(2, trace.rect().expand(cfg.space(2) / 2));
+            if i == predecoder_bus_bits - 1 {
+                addr_0_traces.push(trace.rect());
+            }
 
-            let (target_port, target_idx, route_at_top) = if i < decoder1_bits {
+            if let Some((target_port, target_idx, route_at_top)) = if i < decoder1_bits {
                 // Route to decoder1
-                (decoder1.port(format!("{}_{}", addr_prefix, i)), i, false)
+                Some((decoder1.port(format!("{}_{}", addr_prefix, i)), i, false))
             } else if i < decoder2_bits + decoder1_bits {
                 // Route to decoder2
-                (
+                Some((
                     decoder2.port(format!("{}_{}", addr_prefix, i - decoder1_bits)),
                     i - decoder1_bits,
                     false,
-                )
+                ))
             } else {
-                // Route to column decoder
-                let col_decoder = col_decoder.as_ref().unwrap();
+                // Route to column decoder or we control
                 let idx = i - decoder1_bits - decoder2_bits;
-                (
-                    col_decoder.port(format!("{}_{}", addr_prefix, idx)),
-                    idx,
-                    true,
-                )
+                col_decoder.as_ref().map(|col_decoder| {
+                    (
+                        col_decoder.port(format!("{}_{}", addr_prefix, idx)),
+                        idx,
+                        true,
+                    )
+                })
+            } {
+                let mut target = target_port.largest_rect(m1).unwrap();
+                if route_at_top {
+                    let base = target.p1.y - (160 + 600 * (2 * target_idx + idx % 2) as isize);
+                    let bot = base - 320;
+                    assert!(bot >= target.p0.y);
+                    target.p1.y = base;
+                    target.p0.y = bot;
+                } else {
+                    let base = target.p0.y + 160 + 600 * (2 * target_idx + idx % 2) as isize;
+                    let top = base + 320;
+                    assert!(top <= target.p1.y);
+                    target.p0.y = base;
+                    target.p1.y = top;
+                };
+                let mut trace = router.trace(target, 1);
+                trace
+                    .place_cursor_centered()
+                    .up()
+                    .horiz_to_trace(&traces[idx])
+                    .contact_down(traces[idx].rect());
+                power_grid.add_padded_blockage(2, trace.rect().expand(cfg.space(2)));
             };
-            let mut target = target_port.largest_rect(m1).unwrap();
-            if route_at_top {
-                let base = target.p1.y - (160 + 600 * (2 * target_idx + idx % 2) as isize);
-                let bot = base - 320;
-                assert!(bot >= target.p0.y);
-                target.p1.y = base;
-                target.p0.y = bot;
-            } else {
-                let base = target.p0.y + 160 + 600 * (2 * target_idx + idx % 2) as isize;
-                let top = base + 320;
-                assert!(top <= target.p1.y);
-                target.p0.y = base;
-                target.p1.y = top;
-            }
-            let mut trace = router.trace(target, 1);
-            trace
-                .place_cursor_centered()
-                .up()
-                .horiz_to_trace(&traces[idx])
-                .contact_down(traces[idx].rect());
-            power_grid.add_padded_blockage(2, trace.rect().expand(cfg.space(2)));
         }
     }
 
@@ -812,37 +827,6 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             below: Some(ContactPosition::CenteredNonAdjacent),
         },
     );
-    let addr_span = Span::new(
-        we_control_bbox.p0.x - space - cfg.line(1),
-        we_control_bbox.p0.x - space,
-    );
-    let addr_b_span = Span::new(
-        addr_span.start() - space - cfg.line(1),
-        addr_span.start() - space,
-    );
-
-    // First element is addr_0_b; second element is addr_0
-    let mut addr_0_traces = Vec::with_capacity(2);
-    if mux_ratio == 2 {
-        for (src_port, dst_port, span) in [("qn", "sel_0", addr_b_span), ("q", "sel_1", addr_span)]
-        {
-            let src = addr_dffs
-                .port(format!("{}_{}", src_port, total_addr_bits - 1))
-                .largest_rect(m2)
-                .unwrap();
-            let dst = we_control.port(dst_port).largest_rect(m0).unwrap();
-            let mut trace = router.trace(src, 2);
-            trace.place_cursor_centered().horiz_to(span.stop());
-            addr_0_traces.push(trace.rect());
-            power_grid.add_padded_blockage(2, trace.rect());
-            trace
-                .down()
-                .vert_to(dst.top())
-                .down()
-                .set_min_width()
-                .horiz_to_rect(dst);
-        }
-    }
 
     // Route write enable (WE) to control logic
     let src = addr_dffs
@@ -851,14 +835,20 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .unwrap();
     let dst = control.port("we").largest_rect(m0).unwrap();
     let mut trace = router.trace(src, 2);
-    trace.place_cursor_centered().horiz_to(dst.right() - 45);
-    let blockage = trace.rect().expand(90);
-    power_grid.add_padded_blockage(2, blockage);
     trace
+        .place_cursor_centered()
+        .up()
         .set_min_width()
+        .vert_to_rect(dst);
+    let blockage = trace.rect().expand(30);
+    power_grid.add_padded_blockage(3, blockage);
+    trace
         .down()
-        .vert_to_rect(dst)
-        .contact_down(dst);
+        .set_min_width()
+        .horiz_to(dst.center().x - cfg.line(0) / 2)
+        .down()
+        .down();
+    power_grid.add_padded_blockage(2, trace.rect().expand(90));
 
     // Route sense amp enable to sense amp clock
     let src = control.port("sense_en").largest_rect(m0).unwrap();
@@ -1027,6 +1017,18 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             let mut trace = router.trace(src, 0);
             trace.place_cursor(Dir::Horiz, true).s_bend(dst, Dir::Horiz);
         }
+    } else {
+        for i in 0..2 {
+            let src = we_control
+                .port(format!("sel_{i}"))
+                .largest_rect(m0)
+                .unwrap();
+            let mut trace = router.trace(src, 0);
+            trace
+                .place_cursor(Dir::Horiz, false)
+                .horiz_to_rect(traces[2 * total_addr_bits - i - 1].rect())
+                .contact_up(traces[2 * total_addr_bits - i - 1].rect());
+        }
     }
 
     let din_dff_bbox = din_dffs.bbox().into_rect();
@@ -1065,29 +1067,14 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         trace.place_cursor_centered().horiz_to(src.right() + 1_000);
     }
 
-    let args = ConnectArgs::builder()
-        .metal_idx(3)
-        .port_idx(2)
-        .router(&mut router)
-        .insts(GateList::Array(&addr_dffs, total_addr_bits + 1))
-        .port_name("clk")
-        .dir(Dir::Vert)
-        .width(cfg.line(3))
-        .build()?;
-    let mut clk_trace = connect(args);
-    clk_trace.place_cursor(Dir::Vert, true).set_min_width();
-    clk_trace.vert_to(
-        std::cmp::min(din_dff_bbox.bottom(), control_bbox.bottom())
-            - 3 * cfg.space(2)
-            - 3 * cfg.line(3),
+    let dff_area = din_dff_bbox.bbox().union(&addr_dff_bbox).into_rect();
+    let vspan = Span::new(
+        dff_area.bottom() - 3 * cfg.line(2) - 3 * cfg.space(2),
+        dff_area.bottom() - 3 * cfg.space(2),
     );
-    let clk_m3 = clk_trace.rect();
-    power_grid.add_padded_blockage(3, clk_m3);
-    clk_trace
-        .down()
-        .set_width(3 * cfg.line(2))
-        .horiz_to(din_dff_bbox.right());
-    power_grid.add_padded_blockage(2, clk_trace.rect());
+    let clk_rect = Rect::from_spans(dff_area.hspan(), vspan);
+    let mut clk_trace = router.trace(clk_rect, 2);
+    power_grid.add_padded_blockage(2, clk_rect);
 
     for i in (0..(cols / mux_ratio)).step_by(2) {
         let args = ConnectArgs::builder()
@@ -1290,9 +1277,9 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     }
 
     // Route clock (clk) pin
-    let mut trace = router.trace(clk_m3, 3);
-    trace
-        .place_cursor(Dir::Vert, false)
+    clk_trace
+        .place_cursor(Dir::Horiz, false)
+        .up()
         .vert_to(guard_ring_bbox.bottom());
     let clk_pin = Rect::from_spans(
         trace.rect().hspan(),
@@ -1310,9 +1297,12 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         let mut trace = router.trace(src, 2);
         trace
             .place_cursor_centered()
-            .horiz_to(guard_ring_bbox.left());
+            .up()
+            .set_min_width()
+            .vert_to(guard_ring_bbox.bottom());
 
         let rect = trace.rect();
+        power_grid.add_padded_blockage(3, rect);
         let net = if i == total_addr_bits {
             "we".to_string()
         } else {
@@ -1320,10 +1310,10 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         };
         cell.add_pin(
             net,
-            m2,
+            m3,
             Rect::from_spans(
-                Span::new(rect.left(), rect.left() + 3 * cfg.line(2)),
-                rect.vspan(),
+                rect.hspan(),
+                Span::new(rect.bottom(), rect.bottom() + 3 * cfg.line(2)),
             ),
         )
     }
