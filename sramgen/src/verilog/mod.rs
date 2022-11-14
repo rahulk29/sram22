@@ -106,4 +106,19 @@ mod tests {
         )?;
         Ok(())
     }
+
+    #[test]
+    fn test_verilog_sram_32x64m8() -> Result<(), Box<dyn std::error::Error>> {
+        let name = String::from("sramgen_sram_32x64m8");
+        save_1rw_verilog(
+            test_verilog_path(&name),
+            Sram1RwParams {
+                module_name: name,
+                num_words: 256,
+                data_width: 8,
+                addr_width: 8,
+            },
+        )?;
+        Ok(())
+    }
 }
