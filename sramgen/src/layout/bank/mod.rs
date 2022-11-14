@@ -1552,6 +1552,26 @@ mod tests {
     }
 
     #[test]
+    fn test_sram_bank_32x64m8() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sram_bank_32x64m8")?;
+        let PhysicalDesign { cell: _, lef } = draw_sram_bank(
+            &mut lib,
+            SramBankParams {
+                rows: 32,
+                cols: 64,
+                mux_ratio: 8,
+                wmask_groups: 1,
+            },
+        )
+        .map_err(panic_on_err)?;
+        lef.save(test_lef_path(&lib)).expect("failed to export LEF");
+
+        lib.save_gds(test_gds_path(&lib)).map_err(panic_on_err)?;
+
+        Ok(())
+    }
+
+    #[test]
     fn test_sram_bank_128x64m2() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_bank_128x64m2")?;
         draw_sram_bank(

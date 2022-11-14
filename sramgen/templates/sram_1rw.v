@@ -32,13 +32,26 @@ module {{module_name}}(
 
   reg [DATA_WIDTH-1:0] mem [0:RAM_DEPTH-1];
 
+  // Fill memory with zeros.
+  // For simulation only. The real SRAM
+  // may not be initialized to all zeros.
+  integer i;
+  initial begin
+    for (i = 0 ; i < RAM_DEPTH ; i = i + 1)
+    begin
+      mem[i] = {DATA_WIDTH{1'b0}};
+    end
+  end
+
   // Update registers
   always @(posedge clk)
   begin
     we_reg <= we;
     addr_reg <= addr;
     din_reg <= din;
-    dout <= { {{data_width}} {1'b1}};
+
+    // Output is precharged to VDD for first half clock cycle
+    dout <= {DATA_WIDTH{1'b1}};
   end
 
   // Write
