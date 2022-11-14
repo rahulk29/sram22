@@ -28,7 +28,9 @@ CKTS = [
     "sram_32x32m2",
     "sram_32x32m4",
     "sram_32x32m8",
-    "sram_32x64",
+    "sram_32x64m2",
+    "sram_32x64m4",
+    "sram_32x64m8",
     "sram_64x128",
     "sram_128x64",
 ]
