@@ -12,6 +12,8 @@ pub mod layout;
 pub mod plan;
 pub mod schematic;
 pub mod tech;
+#[cfg(test)]
+mod tests;
 pub mod utils;
 
 pub use anyhow::Result;

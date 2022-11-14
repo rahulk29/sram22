@@ -16,7 +16,7 @@ use crate::layout::route::{ContactBounds, Router, VertDir};
 use crate::schematic::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::Result;
 
-fn draw_precharge(lib: &mut PdkLib, args: PrechargeParams) -> Result<Ptr<Cell>> {
+pub fn draw_precharge(lib: &mut PdkLib, args: PrechargeParams) -> Result<Ptr<Cell>> {
     let name = "precharge".to_string();
 
     let mut layout = Layout {
@@ -259,53 +259,4 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Res
     lib.lib.cells.push(ptr.clone());
 
     Ok(ptr)
-}
-
-#[cfg(test)]
-mod tests {
-    use pdkprims::tech::sky130;
-
-    use crate::utils::test_gds_path;
-
-    use super::*;
-
-    #[test]
-    fn test_sky130_precharge() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sky130_precharge")?;
-        draw_precharge(
-            &mut lib,
-            PrechargeParams {
-                name: "test_sky130_precharge".to_string(),
-                length: 150,
-                pull_up_width: 1_200,
-                equalizer_width: 1_000,
-            },
-        )?;
-
-        lib.save_gds(test_gds_path(&lib))?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_sky130_precharge_array() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sky130_precharge_array")?;
-        draw_precharge_array(
-            &mut lib,
-            PrechargeArrayParams {
-                width: 32,
-                instance_params: PrechargeParams {
-                    name: "precharge".to_string(),
-                    length: 150,
-                    pull_up_width: 1_200,
-                    equalizer_width: 1_000,
-                },
-                name: "precharge_array".to_string(),
-            },
-        )?;
-
-        lib.save_gds(test_gds_path(&lib))?;
-
-        Ok(())
-    }
 }

@@ -7,6 +7,7 @@ use vlsir::{Module, QualifiedName, Reference};
 
 use crate::save_bin;
 use crate::tech::all_external_modules;
+use crate::Result;
 
 use self::conns::{conn_width, get_conn};
 
@@ -184,7 +185,7 @@ pub fn local_reference(name: impl Into<String>) -> Option<Reference> {
     })
 }
 
-pub fn save_modules(name: &str, modules: Vec<Module>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn save_modules(name: &str, modules: Vec<Module>) -> Result<()> {
     let ext_modules = all_external_modules();
     let pkg = vlsir::circuit::Package {
         domain: format!("sramgen_{}", name),
@@ -196,27 +197,6 @@ pub fn save_modules(name: &str, modules: Vec<Module>) -> Result<(), Box<dyn std:
     save_bin(name, pkg)?;
 
     Ok(())
-}
-
-#[cfg(test)]
-use pdkprims::PdkLib;
-#[cfg(test)]
-use std::path::PathBuf;
-
-pub const TEST_BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-
-#[cfg(test)]
-pub(crate) fn test_gds_path(lib: &PdkLib) -> PathBuf {
-    let mut path = PathBuf::from(TEST_BUILD_PATH);
-    path.push(format!("gds/{}.gds", &lib.lib.name));
-    path
-}
-
-#[cfg(test)]
-pub(crate) fn test_lef_path(lib: &PdkLib) -> PathBuf {
-    let mut path = PathBuf::from(TEST_BUILD_PATH);
-    path.push(format!("lef/{}.lef", &lib.lib.name));
-    path
 }
 
 /// Calculates log2(x). Not at all efficient or optimized.
@@ -250,15 +230,6 @@ pub fn log2(mut x: usize) -> usize {
         ctr += 1;
     }
     ctr
-}
-
-#[cfg(test)]
-use std::fmt::Debug;
-
-#[cfg(test)]
-pub(crate) fn panic_on_err<E: Debug>(e: E) -> ! {
-    println!("ERROR: {e:?}");
-    panic!("ERROR: {e:?}");
 }
 
 #[cfg(test)]

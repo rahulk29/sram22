@@ -75,10 +75,10 @@ pub struct PhysicalDesign {
 }
 
 pub struct SramBankParams {
-    rows: usize,
-    cols: usize,
-    mux_ratio: usize,
-    wmask_groups: usize,
+    pub rows: usize,
+    pub cols: usize,
+    pub mux_ratio: usize,
+    pub wmask_groups: usize,
 }
 
 pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<PhysicalDesign> {
@@ -1481,130 +1481,4 @@ pub(crate) fn connect(args: ConnectArgs) -> Trace {
     }
 
     trace
-}
-
-#[cfg(test)]
-mod tests {
-    use pdkprims::tech::sky130;
-
-    use crate::utils::{panic_on_err, test_gds_path, test_lef_path};
-
-    use super::*;
-
-    #[test]
-    fn test_sram_bank_32x32m2() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_bank_32x32m2")?;
-        let PhysicalDesign { cell: _, lef } = draw_sram_bank(
-            &mut lib,
-            SramBankParams {
-                rows: 32,
-                cols: 32,
-                mux_ratio: 2,
-                wmask_groups: 1,
-            },
-        )
-        .map_err(panic_on_err)?;
-        lef.save(test_lef_path(&lib)).expect("failed to export LEF");
-
-        lib.save_gds(test_gds_path(&lib)).map_err(panic_on_err)?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_sram_bank_32x32m4() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_bank_32x32m4")?;
-        let PhysicalDesign { cell: _, lef } = draw_sram_bank(
-            &mut lib,
-            SramBankParams {
-                rows: 32,
-                cols: 32,
-                mux_ratio: 4,
-                wmask_groups: 1,
-            },
-        )
-        .map_err(panic_on_err)?;
-        lef.save(test_lef_path(&lib)).expect("failed to export LEF");
-
-        lib.save_gds(test_gds_path(&lib)).map_err(panic_on_err)?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_sram_bank_32x32m8() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_bank_32x32m8")?;
-        let PhysicalDesign { cell: _, lef } = draw_sram_bank(
-            &mut lib,
-            SramBankParams {
-                rows: 32,
-                cols: 32,
-                mux_ratio: 8,
-                wmask_groups: 1,
-            },
-        )
-        .map_err(panic_on_err)?;
-        lef.save(test_lef_path(&lib)).expect("failed to export LEF");
-
-        lib.save_gds(test_gds_path(&lib)).map_err(panic_on_err)?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_sram_bank_128x64m2() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_bank_128x64m2")?;
-        draw_sram_bank(
-            &mut lib,
-            SramBankParams {
-                rows: 128,
-                cols: 64,
-                mux_ratio: 2,
-                wmask_groups: 1,
-            },
-        )
-        .map_err(panic_on_err)?;
-
-        lib.save_gds(test_gds_path(&lib)).map_err(panic_on_err)?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_sram_bank_64x128m2() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_bank_64x128m2")?;
-        draw_sram_bank(
-            &mut lib,
-            SramBankParams {
-                rows: 64,
-                cols: 128,
-                mux_ratio: 2,
-                wmask_groups: 1,
-            },
-        )
-        .map_err(panic_on_err)?;
-
-        lib.save_gds(test_gds_path(&lib)).map_err(panic_on_err)?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_sram_bank_16x16m2() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_bank_16x16m2")?;
-        draw_sram_bank(
-            &mut lib,
-            SramBankParams {
-                rows: 16,
-                cols: 16,
-                mux_ratio: 2,
-                wmask_groups: 1,
-            },
-        )
-        .map_err(panic_on_err)?;
-
-        lib.save_gds(test_gds_path(&lib)).map_err(panic_on_err)?;
-
-        Ok(())
-    }
 }

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'master'
+      - 'drc-lvs-ci'
   pull_request:
 
 jobs:

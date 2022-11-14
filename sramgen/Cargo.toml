@@ -28,6 +28,7 @@ vlsir = { path = "../deps/Vlsir/bindings/rust" }
 pdkprims = { git = "https://github.com/rahulk29/pdkprims.git", branch = "master" }
 arcstr = "1.1.4"
 anyhow = "1"
+calibre = { path = "../../calibre", optional = true }
 
 [build-dependencies]
 prost-build = "0.10.4"
@@ -36,3 +37,5 @@ prost-build = "0.10.4"
 tempfile = "3.3.0"
 approx = "0.5.1"
 
+[features]
+calibre = ["dep:calibre"]

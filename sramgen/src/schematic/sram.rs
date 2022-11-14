@@ -524,6 +524,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
 #[cfg(test)]
 mod tests {
     use crate::utils::save_modules;
+    use crate::Result;
 
     use super::*;
 
@@ -580,48 +581,6 @@ mod tests {
         });
 
         save_modules("sram_4x4m4", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_sram_32x32m2() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_32x32m2".to_string(),
-            row_bits: 5,
-            col_bits: 5,
-            col_mask_bits: 1,
-            wmask_groups: 1,
-        });
-
-        save_modules("sram_32x32m2", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_sram_32x32m4() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_32x32m4".to_string(),
-            row_bits: 5,
-            col_bits: 5,
-            col_mask_bits: 2,
-            wmask_groups: 1,
-        });
-
-        save_modules("sram_32x32m4", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_sram_32x32m8() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_32x32m8".to_string(),
-            row_bits: 5,
-            col_bits: 5,
-            col_mask_bits: 3,
-            wmask_groups: 1,
-        });
-
-        save_modules("sram_32x32m8", modules)?;
         Ok(())
     }
 
