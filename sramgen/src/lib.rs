@@ -13,6 +13,7 @@ pub mod plan;
 pub mod schematic;
 pub mod tech;
 pub mod utils;
+pub mod verilog;
 
 pub use anyhow::Result;
 
