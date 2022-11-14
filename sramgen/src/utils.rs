@@ -219,6 +219,13 @@ pub(crate) fn test_lef_path(lib: &PdkLib) -> PathBuf {
     path
 }
 
+#[cfg(test)]
+pub(crate) fn test_verilog_path(name: &str) -> PathBuf {
+    let mut path = PathBuf::from(TEST_BUILD_PATH);
+    path.push(format!("verilog/{}.v", name));
+    path
+}
+
 /// Calculates log2(x). Not at all efficient or optimized.
 ///
 /// Behavior when x is not a power of 2 is undefined.
