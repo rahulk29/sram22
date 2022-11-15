@@ -2,7 +2,7 @@ use crate::layout::decoder::*;
 use crate::schematic::decoder::DecoderTree;
 use crate::schematic::gate::{GateParams, Size};
 use crate::tech::BITCELL_HEIGHT;
-use crate::utils::test_gds_path;
+use crate::tests::test_gds_path;
 use crate::Result;
 use layout21::raw::geom::Dir;
 use pdkprims::tech::sky130;

@@ -1,6 +1,8 @@
 use crate::layout::gate::*;
+use crate::schematic::gate::*;
 use crate::schematic::gate::{GateParams, Size};
-use crate::utils::test_gds_path;
+use crate::tests::test_gds_path;
+use crate::utils::save_modules;
 use crate::Result;
 use pdkprims::tech::sky130;
 
@@ -26,29 +28,32 @@ fn test_sky130_inv_dec() -> Result<()> {
 
 #[test]
 fn test_sky130_and2() -> Result<()> {
-    let mut lib = sky130::pdk_lib("test_sky130_and2")?;
-    draw_and2(
-        &mut lib,
-        AndParams {
-            name: "sky130_and2".to_string(),
-            nand: GateParams {
-                name: "and2_nand".to_string(),
-                length: 150,
-                size: Size {
-                    pmos_width: 2_400,
-                    nmos_width: 1_800,
-                },
-            },
-            inv: GateParams {
-                name: "and2_inv".to_string(),
-                length: 150,
-                size: Size {
-                    pmos_width: 2_400,
-                    nmos_width: 1_800,
-                },
+    let params = AndParams {
+        name: "sky130_and2".to_string(),
+        nand: GateParams {
+            name: "and2_nand".to_string(),
+            length: 150,
+            size: Size {
+                pmos_width: 2_400,
+                nmos_width: 1_800,
             },
         },
-    )?;
+        inv: GateParams {
+            name: "and2_inv".to_string(),
+            length: 150,
+            size: Size {
+                pmos_width: 2_400,
+                nmos_width: 1_800,
+            },
+        },
+    };
+
+    let and2 = and2(params.clone());
+
+    save_modules("and2", and2)?;
+
+    let mut lib = sky130::pdk_lib("test_sky130_and2")?;
+    draw_and2(&mut lib, params)?;
 
     lib.save_gds(test_gds_path(&lib))?;
 

@@ -1,5 +1,5 @@
 use crate::layout::Result;
-use crate::schematic::gate::{GateParams, Size};
+use crate::schematic::gate::{AndParams, GateParams, Size};
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
 use layout21::raw::{
@@ -11,12 +11,6 @@ use pdkprims::PdkLib;
 
 use super::draw_rect;
 use super::route::Router;
-
-pub struct AndParams {
-    pub name: String,
-    pub nand: GateParams,
-    pub inv: GateParams,
-}
 
 pub fn draw_and2(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
     let nand = draw_nand2(lib, params.nand)?;

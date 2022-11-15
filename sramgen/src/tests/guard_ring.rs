@@ -1,5 +1,5 @@
 use crate::layout::guard_ring::*;
-use crate::utils::test_gds_path;
+use crate::tests::test_gds_path;
 use crate::Result;
 use layout21::raw::{Point, Rect};
 use pdkprims::tech::sky130;

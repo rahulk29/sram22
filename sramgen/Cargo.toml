@@ -29,6 +29,8 @@ pdkprims = { git = "https://github.com/rahulk29/pdkprims.git", branch = "master"
 arcstr = "1.1.4"
 anyhow = "1"
 calibre = { path = "../../calibre", optional = true }
+tera = "1.17.1"
+lazy_static = "1.4.0"
 
 [build-dependencies]
 prost-build = "0.10.4"

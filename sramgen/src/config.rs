@@ -5,11 +5,10 @@ use std::path::Path;
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct SramConfig {
-    pub name: String,
-    pub rows: i32,
-    pub cols: i32,
+    pub num_words: i32,
+    pub data_width: i32,
     pub mux_ratio: i32,
-    pub wmask_bits: Option<i32>,
+    pub write_size: i32,
     pub control: ControlMode,
 }
 

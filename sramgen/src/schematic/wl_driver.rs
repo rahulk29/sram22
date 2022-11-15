@@ -6,7 +6,7 @@ use pdkprims::config::Int;
 
 use vlsir::circuit::{Instance, Module};
 
-use crate::schematic::gate::{and2, AndParams, Size};
+use crate::schematic::gate::{and2, AndParams, GateParams, Size};
 use crate::utils::conns::conn_slice;
 use crate::utils::{
     bus, conn_map, local_reference, port_inout, port_input, port_output, sig_conn, signal,
@@ -104,9 +104,16 @@ pub fn wordline_driver(params: WordlineDriverParams) -> Vec<Module> {
     let and2_name = format!("{}_and2", &params.name);
     let mut and2 = and2(AndParams {
         name: and2_name.clone(),
-        length: params.length,
-        inv_size: params.inv_size,
-        nand_size: params.nand_size,
+        inv: GateParams {
+            name: format!("{}_inv", &and2_name),
+            size: params.inv_size,
+            length: params.length,
+        },
+        nand: GateParams {
+            name: format!("{}_nand", &and2_name),
+            size: params.nand_size,
+            length: params.length,
+        },
     });
 
     let mut conns = HashMap::new();

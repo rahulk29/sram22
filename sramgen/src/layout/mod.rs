@@ -69,7 +69,7 @@ mod tests {
     use pdkprims::tech::sky130;
 
     use super::*;
-    use crate::utils::test_gds_path;
+    use crate::tests::test_gds_path;
     use crate::Result;
 
     #[test]

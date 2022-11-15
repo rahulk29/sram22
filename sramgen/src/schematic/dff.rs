@@ -60,33 +60,3 @@ pub fn dff_array(params: DffArrayParams) -> Vec<Module> {
 
     vec![m]
 }
-
-#[cfg(test)]
-mod tests {
-    use vlsir::circuit::Package;
-
-    use crate::save_bin;
-    use crate::tech::all_external_modules;
-
-    use super::*;
-
-    #[test]
-    fn test_sky130_dff_array() -> Result<(), Box<dyn std::error::Error>> {
-        let dffs = dff_array(DffArrayParams {
-            width: 16,
-            name: "dff_array".to_string(),
-        });
-
-        let ext_modules = all_external_modules();
-        let pkg = Package {
-            domain: "sramgen_dff_array".to_string(),
-            desc: "Sramgen generated cells".to_string(),
-            modules: dffs,
-            ext_modules,
-        };
-
-        save_bin("dff_array", pkg)?;
-
-        Ok(())
-    }
-}

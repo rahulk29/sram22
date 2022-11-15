@@ -71,9 +71,8 @@ pub struct GateParams {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AndParams {
     pub name: String,
-    pub nand_size: Size,
-    pub inv_size: Size,
-    pub length: Int,
+    pub nand: GateParams,
+    pub inv: GateParams,
 }
 
 pub fn and2(params: AndParams) -> Vec<Module> {
@@ -102,14 +101,14 @@ pub fn and2(params: AndParams) -> Vec<Module> {
     let nand_name = format!("{}_nand", &params.name);
     let nand = nand2(GateParams {
         name: nand_name.clone(),
-        size: params.nand_size,
-        length: params.length,
+        size: params.nand.size,
+        length: params.nand.length,
     });
     let inv_name = format!("{}_inv", &params.name);
     let inv = inv(GateParams {
         name: inv_name.clone(),
-        size: params.inv_size,
-        length: params.length,
+        size: params.inv.size,
+        length: params.inv.length,
     });
 
     let tmp = signal("tmp");
@@ -418,30 +417,4 @@ pub fn inv(params: GateParams) -> Module {
     );
 
     m
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::utils::save_modules;
-
-    use super::*;
-
-    #[test]
-    fn test_netlist_and2() -> Result<(), Box<dyn std::error::Error>> {
-        let and2 = and2(AndParams {
-            name: "sramgen_and2".to_string(),
-            nand_size: Size {
-                nmos_width: 2_000,
-                pmos_width: 2_000,
-            },
-            inv_size: Size {
-                nmos_width: 1_000,
-                pmos_width: 2_000,
-            },
-            length: 150,
-        });
-
-        save_modules("and2", and2)?;
-        Ok(())
-    }
 }

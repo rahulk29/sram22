@@ -1,7 +1,7 @@
 use crate::layout::mux::read::*;
 use crate::layout::mux::write::*;
 use crate::tech::BITCELL_WIDTH;
-use crate::utils::test_gds_path;
+use crate::tests::test_gds_path;
 use crate::Result;
 use pdkprims::tech::sky130;
 

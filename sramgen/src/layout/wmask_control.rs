@@ -1,4 +1,3 @@
-use crate::schematic::gate::GateParams;
 use crate::schematic::wmask_control::WriteMaskControlParams;
 use crate::Result;
 
@@ -20,16 +19,8 @@ pub fn draw_write_mask_control(
     } = params;
     let width = width as usize;
     let mut cell = Cell::empty(&name);
-    let nand = GateParams {
-        name: format!("{}_nand", &name),
-        size: and_params.nand_size,
-        length: and_params.length,
-    };
-    let inv = GateParams {
-        name: format!("{}_inv", &name),
-        size: and_params.inv_size,
-        length: and_params.length,
-    };
+    let nand = and_params.nand;
+    let inv = and_params.inv;
 
     let and2_array = draw_and2_array(lib, &format!("{}_and2_array", &name), width, nand, inv)?;
     let and2_array = Instance::new("and2_array", and2_array);

@@ -60,22 +60,3 @@ pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize, spacing: Int) -> Res
 
     Ok(ptr)
 }
-
-#[cfg(test)]
-mod tests {
-    use pdkprims::tech::sky130;
-
-    use crate::utils::test_gds_path;
-
-    use super::*;
-
-    #[test]
-    fn test_sky130_sense_amp_array() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sky130_sense_amp_array")?;
-        draw_sense_amp_array(&mut lib, 16, 2 * 2_500)?;
-
-        lib.save_gds(test_gds_path(&lib))?;
-
-        Ok(())
-    }
-}

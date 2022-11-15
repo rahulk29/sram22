@@ -1,13 +1,36 @@
 use crate::layout::dff::*;
-use crate::tech::COLUMN_WIDTH;
-use crate::utils::test_gds_path;
-use crate::Result;
+use crate::save_bin;
+use crate::schematic::dff::*;
+use crate::tech::{all_external_modules, COLUMN_WIDTH};
+use crate::tests::test_gds_path;
+use crate::{generate_netlist, Result};
 use pdkprims::tech::sky130;
+use vlsir::circuit::Package;
 
 #[test]
 fn test_sky130_dff_array() -> Result<()> {
-    let mut lib = sky130::pdk_lib("test_sky130_dff_array")?;
-    draw_dff_array(&mut lib, "test_sky130_dff_array", 16)?;
+    let name = "sramgen_dff_array";
+    let width = 16;
+
+    let dffs = dff_array(DffArrayParams {
+        width,
+        name: name.to_string(),
+    });
+
+    let ext_modules = all_external_modules();
+    let pkg = Package {
+        domain: name.to_string(),
+        desc: "Sramgen generated cells".to_string(),
+        modules: dffs,
+        ext_modules,
+    };
+
+    save_bin(name, pkg)?;
+
+    generate_netlist(name)?;
+
+    let mut lib = sky130::pdk_lib(name)?;
+    draw_dff_array(&mut lib, name, width)?;
 
     lib.save_gds(test_gds_path(&lib))?;
 
@@ -16,8 +39,28 @@ fn test_sky130_dff_array() -> Result<()> {
 
 #[test]
 fn test_sky130_vert_dff_array() -> Result<()> {
-    let mut lib = sky130::pdk_lib("test_sky130_vert_dff_array")?;
-    draw_vert_dff_array(&mut lib, "test_sky130_vert_dff_array", 8)?;
+    let name = "sramgen_vert_dff_array";
+    let width = 8;
+
+    let dffs = dff_array(DffArrayParams {
+        width,
+        name: name.to_string(),
+    });
+
+    let ext_modules = all_external_modules();
+    let pkg = Package {
+        domain: name.to_string(),
+        desc: "Sramgen generated cells".to_string(),
+        modules: dffs,
+        ext_modules,
+    };
+
+    save_bin(name, pkg)?;
+
+    generate_netlist(name)?;
+
+    let mut lib = sky130::pdk_lib(name)?;
+    draw_vert_dff_array(&mut lib, name, width)?;
 
     lib.save_gds(test_gds_path(&lib))?;
 
@@ -26,11 +69,32 @@ fn test_sky130_vert_dff_array() -> Result<()> {
 
 #[test]
 fn test_sky130_dff_grid() -> Result<()> {
-    let mut lib = sky130::pdk_lib("test_sky130_dff_grid")?;
+    let name = "sramgen_dff_grid";
+    let rows = 4;
+    let cols = 8;
+
+    let dffs = dff_array(DffArrayParams {
+        width: rows * cols,
+        name: name.to_string(),
+    });
+
+    let ext_modules = all_external_modules();
+    let pkg = Package {
+        domain: name.to_string(),
+        desc: "Sramgen generated cells".to_string(),
+        modules: dffs,
+        ext_modules,
+    };
+
+    save_bin(name, pkg)?;
+
+    generate_netlist(name)?;
+
+    let mut lib = sky130::pdk_lib(name)?;
     let params = DffGridParams::builder()
-        .name("test_sky130_dff_grid")
-        .rows(4)
-        .cols(8)
+        .name(name)
+        .rows(rows)
+        .cols(cols)
         .row_pitch(4 * COLUMN_WIDTH)
         .build()?;
     draw_dff_grid(&mut lib, params)?;

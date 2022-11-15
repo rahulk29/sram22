@@ -25,7 +25,7 @@ use crate::layout::route::Router;
 use crate::layout::tmc::{draw_tmc, TmcParams};
 use crate::layout::wmask_control::draw_write_mask_control;
 use crate::schematic::decoder::DecoderTree;
-use crate::schematic::gate::{AndParams, Size};
+use crate::schematic::gate::{AndParams, GateParams, Size};
 use crate::schematic::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::schematic::wmask_control::WriteMaskControlParams;
 use crate::tech::{BITCELL_HEIGHT, COLUMN_WIDTH};
@@ -134,15 +134,22 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             width: mux_ratio as i64,
             and_params: AndParams {
                 name: "write_mask_control_and2".to_string(),
-                nand_size: Size {
-                    nmos_width: 1_200,
-                    pmos_width: 1_800,
+                nand: GateParams {
+                    name: "write_mask_control_and2_nand".to_string(),
+                    size: Size {
+                        nmos_width: 1_200,
+                        pmos_width: 1_800,
+                    },
+                    length: 150,
                 },
-                inv_size: Size {
-                    nmos_width: 1_200,
-                    pmos_width: 1_800,
+                inv: GateParams {
+                    name: "write_mask_control_and2_inv".to_string(),
+                    size: Size {
+                        nmos_width: 1_200,
+                        pmos_width: 1_800,
+                    },
+                    length: 150,
                 },
-                length: 150,
             },
         },
     )?;

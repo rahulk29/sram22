@@ -1,5 +1,5 @@
 use crate::layout::latch::*;
-use crate::utils::test_gds_path;
+use crate::tests::test_gds_path;
 use crate::Result;
 use pdkprims::tech::sky130;
 
