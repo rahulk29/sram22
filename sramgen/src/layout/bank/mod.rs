@@ -1340,8 +1340,8 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
                 .port(format!("{buf_input}_{i}"))
                 .largest_rect(m0)
                 .unwrap();
-            let rect = Rect::from_spans(span, Span::new(dst.bottom(), src.top()));
-            power_grid.add_padded_blockage(3, rect);
+            let rect = Rect::from_spans(span, Span::new(dst.bottom() + 30, src.top()));
+            power_grid.add_padded_blockage(3, rect.expand(20));
             let mut trace = router.trace(rect, 3);
             trace
                 .contact_down(src)
