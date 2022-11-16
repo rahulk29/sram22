@@ -829,7 +829,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
                 .set_min_width()
                 .horiz_to_trace(&traces[idx])
                 .contact_down(traces[idx].rect());
-            power_grid.add_padded_blockage(2, trace.rect().expand(cfg.space(2) / 2));
+            power_grid.add_padded_blockage(2, trace.rect().expand(90));
             if i == predecoder_bus_bits - 1 {
                 addr_0_traces.push(trace.rect());
             }
