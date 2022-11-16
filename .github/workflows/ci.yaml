@@ -10,7 +10,6 @@ on:
 jobs:
   check-workspace:
     name: Build, lint, and test
-    shell: bash
     runs-on: [self-hosted]
     steps:
       - uses: actions/checkout@v2
@@ -19,7 +18,6 @@ jobs:
       - name: Set up environment
         run: |
           echo "/usr/local/bin" >> $GITHUB_PATH
-          source /tools/B/rahulkumar/sky130/priv/drc/.bashrc
       - name: Check formatting
         run: |
           cargo +nightly fmt --check
@@ -27,4 +25,7 @@ jobs:
       - name: Lint
         run: make lint
       - name: Test
-        run: make test
+        shell: bash
+        run: |
+          source /tools/B/rahulkumar/sky130/priv/drc/.bashrc
+          make test
