@@ -63,22 +63,3 @@ pub fn draw_rect(r: Rect, layer: LayerKey) -> Element {
         purpose: LayerPurpose::Drawing,
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use pdkprims::tech::sky130;
-
-    use super::*;
-    use crate::utils::test_gds_path;
-    use crate::Result;
-
-    #[test]
-    fn test_sky130_bitcell() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sky130_bitcell")?;
-        draw_bitcell(&mut lib)?;
-
-        lib.save_gds(test_gds_path(&lib))?;
-
-        Ok(())
-    }
-}

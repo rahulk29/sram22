@@ -2,12 +2,12 @@ use std::collections::HashMap;
 
 use vlsir::circuit::{Concat, Connection, Instance, Module};
 
-use crate::schematic::bitcells::{bitcell_array, BitcellArrayParams};
+use crate::schematic::bitcell_array::{bitcell_array, BitcellArrayParams};
 use crate::schematic::col_inv::{col_inv_array, ColInvArrayParams, ColInvParams};
 use crate::schematic::decoder::{hierarchical_decoder, DecoderParams, DecoderTree};
 use crate::schematic::dff::dff_array;
 use crate::schematic::dout_buffer::{dout_buf_array, DoutBufArrayParams, DoutBufParams};
-use crate::schematic::gate::{AndParams, Size};
+use crate::schematic::gate::{AndParams, GateParams, Size};
 use crate::schematic::mux;
 use crate::schematic::mux::read::read_mux_array;
 use crate::schematic::mux::write::{write_mux_array, ArrayParams, WriteMuxParams};
@@ -169,15 +169,22 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         width: mux_ratio as i64,
         and_params: AndParams {
             name: "we_control_and2".to_string(),
-            nand_size: Size {
-                nmos_width: 1_200,
-                pmos_width: 1_800,
+            nand: GateParams {
+                name: "we_control_and2_nand".to_string(),
+                size: Size {
+                    nmos_width: 1_200,
+                    pmos_width: 1_800,
+                },
+                length: 150,
             },
-            inv_size: Size {
-                nmos_width: 1_200,
-                pmos_width: 1_800,
+            inv: GateParams {
+                name: "we_control_and2_inv".to_string(),
+                size: Size {
+                    nmos_width: 1_200,
+                    pmos_width: 1_800,
+                },
+                length: 150,
             },
-            length: 150,
         },
     });
 
@@ -556,193 +563,4 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     modules.push(m);
 
     modules
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::utils::save_modules;
-
-    use super::*;
-
-    #[test]
-    fn test_netlist_sram_16x16m2() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_16x16m2".to_string(),
-            row_bits: 4,
-            col_bits: 4,
-            col_mask_bits: 1,
-            wmask_groups: 1,
-        });
-
-        save_modules("sram_16x16m2", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_sram_16x16m4() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_16x16m4".to_string(),
-            row_bits: 4,
-            col_bits: 4,
-            col_mask_bits: 2,
-            wmask_groups: 1,
-        });
-
-        save_modules("sram_16x16m4", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_sram_4x4m2() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_4x4m2".to_string(),
-            row_bits: 2,
-            col_bits: 2,
-            col_mask_bits: 1,
-            wmask_groups: 1,
-        });
-
-        save_modules("sram_4x4m2", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_sram_4x4m4() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_4x4m4".to_string(),
-            row_bits: 2,
-            col_bits: 2,
-            col_mask_bits: 2,
-            wmask_groups: 1,
-        });
-
-        save_modules("sram_4x4m4", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_sram_32x32m2() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_32x32m2".to_string(),
-            row_bits: 5,
-            col_bits: 5,
-            col_mask_bits: 1,
-            wmask_groups: 1,
-        });
-
-        save_modules("sram_32x32m2", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_sram_32x32m4() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_32x32m4".to_string(),
-            row_bits: 5,
-            col_bits: 5,
-            col_mask_bits: 2,
-            wmask_groups: 1,
-        });
-
-        save_modules("sram_32x32m4", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_sram_32x32m8() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_32x32m8".to_string(),
-            row_bits: 5,
-            col_bits: 5,
-            col_mask_bits: 3,
-            wmask_groups: 1,
-        });
-
-        save_modules("sram_32x32m8", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_sram_32x64m2() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_32x64m2".to_string(),
-            row_bits: 5,
-            col_bits: 6,
-            col_mask_bits: 1,
-            wmask_groups: 1,
-        });
-
-        save_modules("sram_32x64m2", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_sram_32x64m4() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_32x64m4".to_string(),
-            row_bits: 5,
-            col_bits: 6,
-            col_mask_bits: 2,
-            wmask_groups: 1,
-        });
-
-        save_modules("sram_32x64m4", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_sram_32x64m8() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_32x64m8".to_string(),
-            row_bits: 5,
-            col_bits: 6,
-            col_mask_bits: 3,
-            wmask_groups: 1,
-        });
-
-        save_modules("sram_32x64m8", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_sram_64x128() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_64x128".to_string(),
-            row_bits: 6,
-            col_bits: 7,
-            col_mask_bits: 1,
-            wmask_groups: 1,
-        });
-
-        save_modules("sram_64x128", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_sram_64x128m2w2() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_64x128m2w2".to_string(),
-            row_bits: 6,
-            col_bits: 7,
-            col_mask_bits: 1,
-            wmask_groups: 2,
-        });
-
-        save_modules("sram_64x128m2w2", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_sram_128x64() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = sram(SramParams {
-            name: "sramgen_sram_128x64".to_string(),
-            row_bits: 7,
-            col_bits: 6,
-            col_mask_bits: 1,
-            wmask_groups: 1,
-        });
-
-        save_modules("sram_128x64", modules)?;
-        Ok(())
-    }
 }

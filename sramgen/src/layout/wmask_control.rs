@@ -1,4 +1,3 @@
-use crate::schematic::gate::GateParams;
 use crate::schematic::wmask_control::WriteMaskControlParams;
 use crate::Result;
 
@@ -20,16 +19,8 @@ pub fn draw_write_mask_control(
     } = params;
     let width = width as usize;
     let mut cell = Cell::empty(&name);
-    let nand = GateParams {
-        name: format!("{}_nand", &name),
-        size: and_params.nand_size,
-        length: and_params.length,
-    };
-    let inv = GateParams {
-        name: format!("{}_inv", &name),
-        size: and_params.inv_size,
-        length: and_params.length,
-    };
+    let nand = and_params.nand;
+    let inv = and_params.inv;
 
     let and2_array = draw_and2_array(lib, &format!("{}_and2_array", &name), width, nand, inv)?;
     let and2_array = Instance::new("and2_array", and2_array);
@@ -88,42 +79,4 @@ pub fn draw_write_mask_control(
     lib.lib.cells.push(ptr.clone());
 
     Ok(ptr)
-}
-
-#[cfg(test)]
-mod tests {
-    use pdkprims::tech::sky130;
-
-    use crate::schematic::gate::{AndParams, Size};
-    use crate::utils::test_gds_path;
-
-    use super::*;
-
-    #[test]
-    fn test_sky130_wmask_control_2() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sky130_wmask_control_2")?;
-        draw_write_mask_control(
-            &mut lib,
-            WriteMaskControlParams {
-                name: "wmask_control_2".to_string(),
-                width: 2,
-                and_params: AndParams {
-                    name: "wmask_control_and2".to_string(),
-                    nand_size: Size {
-                        nmos_width: 2_000,
-                        pmos_width: 1_400,
-                    },
-                    inv_size: Size {
-                        nmos_width: 1_000,
-                        pmos_width: 1_400,
-                    },
-                    length: 150,
-                },
-            },
-        )?;
-
-        lib.save_gds(test_gds_path(&lib))?;
-
-        Ok(())
-    }
 }

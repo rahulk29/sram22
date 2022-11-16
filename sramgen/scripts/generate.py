@@ -1,42 +1,9 @@
 import os
 import vlsir
 import vlsirtools.netlist as netlist
+import sys
 
 BUILD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../build")
-
-CKTS = [
-    "and2",
-    "bitcells_2x2",
-    "bitcells_32x32",
-    "decoder_16",
-    "decoder_128",
-    "precharge",
-    "precharge_array",
-    "sense_amp_array",
-    "col_inv",
-    "col_inv_array",
-    "dout_buf",
-    "dout_buf_array",
-    "bitline_driver",
-    "bitline_driver_array",
-    "wordline_driver_array",
-    "dff_array",
-    "replica_bitcell_column",
-    "replica_column",
-    "sram_4x4m2",
-    "sram_4x4m4",
-    "sram_16x16m2",
-    "sram_16x16m4",
-    "sram_32x32m2",
-    "sram_32x32m4",
-    "sram_32x32m8",
-    "sram_32x64m2",
-    "sram_32x64m4",
-    "sram_32x64m8",
-    "sram_64x128",
-    "sram_64x128m2w2",
-    "sram_128x64",
-]
 
 PROPRIETARY_PRELUDE = """*SPICE NETLIST
 * OPEN SOURCE CONVERSION PRELUDE
@@ -71,26 +38,26 @@ def make_dirs():
     os.makedirs(os.path.join(BUILD_DIR, "spice/"), exist_ok=True)
     os.makedirs(os.path.join(BUILD_DIR, "ngspice/"), exist_ok=True)
 
-
-def netlist_all():
-    for CKT in CKTS:
-        print(f"Generating {CKT}...")
-        with open(os.path.join(BUILD_DIR, f"pb/{CKT}.pb.bin"), "rb") as f:
-            tmp = f.read()
-            with open(os.path.join(BUILD_DIR, f"ngspice/{CKT}.spice"), "w") as dest:
-                print("\tngspice")
-                inp = vlsir.spice_pb2.SimInput()
-                inp.ParseFromString(tmp)
-                netlist(pkg=inp.pkg, dest=dest, fmt="spice")
-            with open(os.path.join(BUILD_DIR, f"spice/{CKT}.spice"), "w") as dest:
-                print("\tspice")
-                inp = vlsir.spice_pb2.SimInput()
-                inp.ParseFromString(tmp)
-                dest.write(PROPRIETARY_PRELUDE)
-                netlist(pkg=inp.pkg, dest=dest, fmt="spice")
-            print("\tDone!")
-
+def generate(CKT):
+    print(f"Generating {CKT}...")
+    with open(os.path.join(BUILD_DIR, f"pb/{CKT}.pb.bin"), "rb") as f:
+        tmp = f.read()
+        with open(os.path.join(BUILD_DIR, f"ngspice/{CKT}.spice"), "w") as dest:
+            print("\tngspice")
+            inp = vlsir.spice_pb2.SimInput()
+            inp.ParseFromString(tmp)
+            netlist(pkg=inp.pkg, dest=dest, fmt="spice")
+        with open(os.path.join(BUILD_DIR, f"spice/{CKT}.spice"), "w") as dest:
+            print("\tspice")
+            inp = vlsir.spice_pb2.SimInput()
+            inp.ParseFromString(tmp)
+            dest.write(PROPRIETARY_PRELUDE)
+            netlist(pkg=inp.pkg, dest=dest, fmt="spice")
+        print("\tDone!")
 
 if __name__ == "__main__":
     make_dirs()
-    netlist_all()
+    if len(sys.argv) < 2:
+        print("Usage: python3 generate.py [CKT]")
+    else:
+        generate(sys.argv[1])

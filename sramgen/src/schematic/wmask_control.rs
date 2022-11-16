@@ -9,6 +9,7 @@ use crate::schematic::gate::{and2, AndParams};
 use crate::utils::conns::conn_slice;
 use crate::utils::{bus, port_inout, port_input, port_output, sig_conn, signal};
 
+#[derive(Debug, Clone)]
 pub struct WriteMaskControlParams {
     pub name: String,
     pub width: i64,
@@ -64,34 +65,4 @@ pub fn write_mask_control(params: WriteMaskControlParams) -> Vec<Module> {
     modules.append(&mut and);
     modules.push(m);
     modules
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::schematic::gate::Size;
-    use crate::utils::save_modules;
-
-    use super::*;
-
-    #[test]
-    fn test_netlist_write_mask_control() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = write_mask_control(WriteMaskControlParams {
-            name: "write_mask_control".to_string(),
-            width: 2,
-            and_params: AndParams {
-                name: "write_mask_control_and2".to_string(),
-                nand_size: Size {
-                    nmos_width: 1_200,
-                    pmos_width: 1_800,
-                },
-                inv_size: Size {
-                    nmos_width: 1_200,
-                    pmos_width: 1_800,
-                },
-                length: 150,
-            },
-        });
-        save_modules("write_mask_control", modules)?;
-        Ok(())
-    }
 }

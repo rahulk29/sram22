@@ -204,22 +204,3 @@ fn draw_col_inv_ptap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let contact = draw_two_level_contact(lib, params)?;
     Ok(contact)
 }
-
-#[cfg(test)]
-mod tests {
-    use pdkprims::tech::sky130;
-
-    use crate::utils::test_gds_path;
-
-    use super::*;
-
-    #[test]
-    fn test_col_inv_array() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_col_inv_array")?;
-        draw_col_inv_array(&mut lib, "test_col_inv_array", 32, 2)?;
-
-        lib.save_gds(test_gds_path(&lib))?;
-
-        Ok(())
-    }
-}

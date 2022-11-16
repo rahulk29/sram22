@@ -1,4 +1,4 @@
-pub mod bitcells;
+pub mod bitcell_array;
 pub mod col_inv;
 pub mod decoder;
 pub mod dff;
@@ -12,4 +12,3 @@ pub mod sense_amp;
 pub mod sram;
 pub mod wl_driver;
 pub mod wmask_control;
-pub mod write_driver;

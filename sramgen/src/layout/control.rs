@@ -12,8 +12,8 @@ use super::common::sc_outline;
 use super::route::Router;
 
 pub struct InvChainParams<'a> {
-    prefix: &'a str,
-    num: usize,
+    pub prefix: &'a str,
+    pub num: usize,
 }
 
 pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Cell>> {
@@ -196,39 +196,4 @@ pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cel
     lib.lib.cells.push(ptr.clone());
 
     Ok(ptr)
-}
-
-#[cfg(test)]
-mod tests {
-    use pdkprims::tech::sky130;
-
-    use crate::utils::test_gds_path;
-
-    use super::*;
-
-    #[test]
-    fn test_sky130_control_logic_simple() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sky130_control_logic_simple")?;
-        draw_control_logic(&mut lib, ControlMode::Simple)?;
-
-        lib.save_gds(test_gds_path(&lib))?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_sky130_inv_chain_12() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sky130_inv_chain_12")?;
-        draw_inv_chain(
-            &mut lib,
-            InvChainParams {
-                prefix: "test_sky130_inv_chain_12",
-                num: 12,
-            },
-        )?;
-
-        lib.save_gds(test_gds_path(&lib))?;
-
-        Ok(())
-    }
 }

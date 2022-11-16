@@ -64,32 +64,3 @@ pub fn sense_amp_array(params: SenseAmpArrayParams) -> Module {
 
     m
 }
-
-#[cfg(test)]
-mod tests {
-    use vlsir::circuit::Package;
-
-    use crate::save_bin;
-    use crate::tech::all_external_modules;
-
-    use super::*;
-
-    #[test]
-    fn test_netlist_sense_amp_array() -> Result<(), Box<dyn std::error::Error>> {
-        let sense_amps = sense_amp_array(SenseAmpArrayParams {
-            name: "sense_amp_array".to_string(),
-            width: 64 / 4,
-        });
-        let ext_modules = all_external_modules();
-        let pkg = Package {
-            domain: "sramgen_sense_amp_array".to_string(),
-            desc: "Sramgen generated cells".to_string(),
-            modules: vec![sense_amps],
-            ext_modules,
-        };
-
-        save_bin("sense_amp_array", pkg)?;
-
-        Ok(())
-    }
-}

@@ -94,22 +94,3 @@ pub fn draw_sr_latch(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
 
     Ok(ptr)
 }
-
-#[cfg(test)]
-mod tests {
-    use pdkprims::tech::sky130;
-
-    use crate::utils::test_gds_path;
-
-    use super::*;
-
-    #[test]
-    fn test_sky130_sr_latch() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sky130_sr_latch")?;
-        draw_sr_latch(&mut lib, "test_sky130_sr_latch")?;
-
-        lib.save_gds(test_gds_path(&lib))?;
-
-        Ok(())
-    }
-}
