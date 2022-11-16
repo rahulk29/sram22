@@ -28,7 +28,7 @@ vlsir = { path = "../deps/Vlsir/bindings/rust" }
 pdkprims = { git = "https://github.com/rahulk29/pdkprims.git", branch = "master" }
 arcstr = "1.1.4"
 anyhow = "1"
-calibre = { path = "../../calibre", optional = true }
+calibre = { path = "/tools/B/rahulkumar/sky130/calibre", optional = true }
 tera = "1.17.1"
 lazy_static = "1.4.0"
 
