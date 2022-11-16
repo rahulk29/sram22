@@ -103,6 +103,7 @@ fn test_sram_8x32m2w8_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 16,
             cols: 16,
             mux_ratio: 2,
@@ -149,6 +150,7 @@ fn test_sram_16x64m2w16_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 32,
             cols: 32,
             mux_ratio: 2,
@@ -193,6 +195,7 @@ fn test_sram_8x128m4w8_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 32,
             cols: 32,
             mux_ratio: 4,
@@ -237,6 +240,7 @@ fn test_sram_8x128m4w2_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 32,
             cols: 32,
             mux_ratio: 4,
@@ -281,6 +285,7 @@ fn test_sram_4x256m8w4_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 32,
             cols: 32,
             mux_ratio: 8,
@@ -326,6 +331,7 @@ fn test_sram_32x256m2w32_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 128,
             cols: 64,
             mux_ratio: 2,
@@ -371,6 +377,7 @@ fn test_sram_64x128m2w64_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 64,
             cols: 128,
             mux_ratio: 2,
@@ -416,6 +423,7 @@ fn test_sram_64x128m2w32_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 64,
             cols: 128,
             mux_ratio: 2,
@@ -461,6 +469,7 @@ fn test_sram_64x128m2w2_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 64,
             cols: 128,
             mux_ratio: 2,
