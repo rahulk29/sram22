@@ -18,6 +18,7 @@ jobs:
       - name: Set up environment
         run: |
           echo "/usr/local/bin" >> $GITHUB_PATH
+          source /tools/B/rahulkumar/sky130/priv/drc/.bashrc
       - name: Check formatting
         run: |
           cargo +nightly fmt --check
