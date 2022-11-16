@@ -37,36 +37,6 @@ fn test_sky130_dff_array() -> Result<()> {
 }
 
 #[test]
-fn test_sky130_vert_dff_array() -> Result<()> {
-    let name = "sramgen_vert_dff_array";
-    let width = 8;
-
-    let dffs = dff_array(DffArrayParams {
-        width,
-        name: name.to_string(),
-    });
-
-    let ext_modules = all_external_modules();
-    let pkg = Package {
-        domain: name.to_string(),
-        desc: "Sramgen generated cells".to_string(),
-        modules: dffs,
-        ext_modules,
-    };
-
-    save_bin(name, pkg)?;
-
-    generate_netlist(name)?;
-
-    let mut lib = sky130::pdk_lib(name)?;
-    draw_vert_dff_array(&mut lib, name, width)?;
-
-    lib.save_gds(test_gds_path(name))?;
-
-    Ok(())
-}
-
-#[test]
 fn test_sky130_dff_grid() -> Result<()> {
     let name = "sramgen_dff_grid";
     let rows = 4;
