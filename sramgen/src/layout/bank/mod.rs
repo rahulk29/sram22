@@ -1729,7 +1729,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sram_bank_64x128m2wtest() -> Result<()> {
+    fn test_sram_bank_64x128m2w2() -> Result<()> {
         let mut lib = sky130::pdk_lib("test_sram_bank_64x128m2w2")?;
         draw_sram_bank(
             &mut lib,
@@ -1737,7 +1737,7 @@ mod tests {
                 rows: 64,
                 cols: 128,
                 mux_ratio: 2,
-                wmask_groups: 32,
+                wmask_groups: 2,
             },
         )
         .map_err(panic_on_err)?;
