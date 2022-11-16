@@ -124,6 +124,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec8a7b6a70fde80372154c65702f00a0f56f3e1c36abbc6c440484be248856db"
 
 [[package]]
+name = "calibre"
+version = "0.1.0"
+source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git?branch=master#414a9c1d19b1a087022e1339a5e66d701bea808b"
+dependencies = [
+ "anyhow",
+ "lazy_static",
+ "regex",
+ "serde",
+ "tera",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1428,6 +1440,7 @@ dependencies = [
  "approx",
  "arcstr",
  "bytes",
+ "calibre",
  "clap",
  "derive_builder 0.11.2",
  "env_logger",
