@@ -131,8 +131,8 @@ fn test_sram_8x32m2w8_simple() -> Result<()> {
 }
 
 #[test]
-fn test_sram_16x64m2w8_simple() -> Result<()> {
-    let name = "sramgen_sram_16x64m2w8_simple";
+fn test_sram_16x64m2w16_simple() -> Result<()> {
+    let name = "sramgen_sram_16x64m2w16_simple";
     let modules = sram(SramParams {
         name: name.to_string(),
         row_bits: 5,

@@ -373,7 +373,8 @@ impl<'a> DecoderGen<'a> {
             let tmp = if depth != 0 {
                 signal(format!("net_{}", self.get_id()))
             } else {
-                signal(format!("decode_b_{i}"))
+                // FIXME this should reference a connection slice, not a new signal
+                signal(format!("decode_b[{i}]"))
             };
 
             assert!(node.children.len() <= 4);
