@@ -30,7 +30,7 @@ mod calibre {
         let layout_path = test_gds_path(name);
 
         let data = run_drc(&DrcParams {
-            cell_name: "sram_bank".to_string(),
+            cell_name: name.to_string(),
             work_dir,
             layout_path: layout_path.clone(),
             drc_rules_path: PathBuf::from(SKY130_DRC_RULES_PATH),
@@ -63,7 +63,7 @@ mod calibre {
                 run_lvs(&LvsParams {
                     work_dir,
                     layout_path,
-                    layout_cell_name: "sram_bank".to_string(),
+                    layout_cell_name: name.to_string(),
                     source_paths: vec![
                         source_path_main,
                         source_path_dff,
