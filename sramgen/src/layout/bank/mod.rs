@@ -1280,7 +1280,11 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     cell.layout_mut().add_inst(dout_buf.clone());
     // layout.add_inst(tmc);
 
-    let mut bbox = cell.layout().bbox().into_rect();
+    let mut bbox = cell
+        .layout()
+        .bbox()
+        .union(&router.cell().bbox())
+        .into_rect();
     // Make space for additional power straps
     bbox.p0.y -= 2_000;
 
