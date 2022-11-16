@@ -137,6 +137,11 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         width: cols / mux_ratio,
     });
 
+    let mut wmask_dff_array = dff_array(DffArrayParams {
+        name: "wmask_dff_array".to_string(),
+        width: wmask_groups,
+    });
+
     let mut addr_dff_array = dff_array(DffArrayParams {
         name: "addr_dff_array".to_string(),
         width: (row_bits + col_mask_bits) as usize,
@@ -211,7 +216,12 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     let col_sel = bus("col_sel", mux_ratio as i64);
     let col_sel_b = bus("col_sel_b", mux_ratio as i64);
 
-    let ports = vec![
+    // Only used when wmask groups is greater than 1
+    let wmask = bus("wmask", wmask_groups as i64);
+    let bank_wmask = bus("bank_wmask", wmask_groups as i64);
+    let bank_wmask_b = bus("bank_wmask", wmask_groups as i64);
+
+    let mut ports = vec![
         port_inout(&vdd),
         port_inout(&vss),
         port_input(&clk),
@@ -220,6 +230,10 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         port_input(&we),
         port_input(&addr),
     ];
+
+    if wmask_groups > 1 {
+        ports.push(port_input(&wmask));
+    }
 
     let mut m = Module {
         name: params.name,
@@ -258,6 +272,23 @@ pub fn sram(params: SramParams) -> Vec<Module> {
         parameters: HashMap::new(),
         connections: conn_map(conns),
     });
+
+    // Write mask dffs
+    if wmask_groups > 1 {
+        let mut conns = HashMap::new();
+        conns.insert("vdd", sig_conn(&vdd));
+        conns.insert("vss", sig_conn(&vss));
+        conns.insert("d", sig_conn(&wmask));
+        conns.insert("clk", sig_conn(&clk));
+        conns.insert("q", sig_conn(&bank_wmask));
+        conns.insert("q_b", sig_conn(&bank_wmask_b));
+        m.instances.push(Instance {
+            name: "wmask_dffs".to_string(),
+            module: local_reference("wmask_dff_array"),
+            parameters: HashMap::new(),
+            connections: conn_map(conns),
+        });
+    }
 
     // we dff
     let mut connections = HashMap::new();
@@ -348,6 +379,9 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     conns.insert("data", sig_conn(&bank_din));
     conns.insert("data_b", sig_conn(&bank_din_b));
     conns.insert("we", sig_conn(&write_driver_en));
+    if wmask_groups > 1 {
+        conns.insert("wmask", sig_conn(&bank_wmask));
+    }
     m.instances.push(Instance {
         name: "write_mux_array".to_string(),
         module: local_reference("write_mux_array"),
@@ -512,6 +546,9 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     modules.append(&mut write_muxes);
     modules.append(&mut data_dff_array);
     modules.append(&mut addr_dff_array);
+    if wmask_groups > 1 {
+        modules.append(&mut wmask_dff_array);
+    }
     modules.append(&mut col_inv);
     modules.push(sense_amp_array);
     modules.append(&mut dout_buf_array);
@@ -678,6 +715,20 @@ mod tests {
         });
 
         save_modules("sram_64x128", modules)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_netlist_sram_64x128m2w2() -> Result<(), Box<dyn std::error::Error>> {
+        let modules = sram(SramParams {
+            name: "sramgen_sram_64x128m2w2".to_string(),
+            row_bits: 6,
+            col_bits: 7,
+            col_mask_bits: 1,
+            wmask_groups: 2,
+        });
+
+        save_modules("sram_64x128m2w2", modules)?;
         Ok(())
     }
 
