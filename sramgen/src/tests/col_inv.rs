@@ -25,7 +25,7 @@ fn test_col_inv_array() -> Result<()> {
     let mut lib = sky130::pdk_lib(name)?;
     draw_col_inv_array(&mut lib, name, width as usize, 2)?;
 
-    lib.save_gds(test_gds_path(&lib))?;
+    lib.save_gds(test_gds_path(name))?;
 
     Ok(())
 }

@@ -167,37 +167,3 @@ pub fn replica_column(params: ReplicaColumnParams) -> Vec<Module> {
     modules.push(m);
     modules
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::utils::save_modules;
-
-    use super::*;
-
-    #[test]
-    fn test_generate_replica_bitcell_column() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = replica_bitcell_column(ReplicaBitcellColumnParams {
-            name: "replica_bitcell_column".to_string(),
-            num_active_cells: 8,
-            height: 16,
-        });
-
-        save_modules("replica_bitcell_column", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_generate_replica_column() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = replica_column(ReplicaColumnParams {
-            name: "replica_column".to_string(),
-            bitcell_params: ReplicaBitcellColumnParams {
-                name: "replica_bitcell_column".to_string(),
-                num_active_cells: 8,
-                height: 16,
-            },
-        });
-
-        save_modules("replica_column", modules)?;
-        Ok(())
-    }
-}

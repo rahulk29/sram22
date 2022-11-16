@@ -5,10 +5,11 @@ use pdkprims::tech::sky130;
 
 #[test]
 fn test_sky130_sr_latch() -> Result<()> {
-    let mut lib = sky130::pdk_lib("test_sky130_sr_latch")?;
-    draw_sr_latch(&mut lib, "test_sky130_sr_latch")?;
+    let name = "sramgen_sr_latch";
+    let mut lib = sky130::pdk_lib(name)?;
+    draw_sr_latch(&mut lib, name)?;
 
-    lib.save_gds(test_gds_path(&lib))?;
+    lib.save_gds(test_gds_path(name))?;
 
     Ok(())
 }

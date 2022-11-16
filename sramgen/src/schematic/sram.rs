@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use vlsir::circuit::{Concat, Connection, Instance, Module};
 
-use crate::schematic::bitcells::{bitcell_array, BitcellArrayParams};
+use crate::schematic::bitcell_array::{bitcell_array, BitcellArrayParams};
 use crate::schematic::col_inv::{col_inv_array, ColInvArrayParams, ColInvParams};
 use crate::schematic::decoder::{hierarchical_decoder, DecoderParams, DecoderTree};
 use crate::schematic::dff::dff_array;

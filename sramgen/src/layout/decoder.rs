@@ -839,17 +839,3 @@ fn to_bus_idxs(idxs: &mut [usize], bases: &[usize]) {
         sum += bases[i];
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_get_idxs() {
-        let bases = [4, 8, 5];
-        let idxs = get_idxs(14, &bases);
-        assert_eq!(idxs, [0, 2, 4]);
-        let idxs = get_idxs(40, &bases);
-        assert_eq!(idxs, [1, 0, 0]);
-    }
-}

@@ -30,7 +30,7 @@ use crate::schematic::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::schematic::wmask_control::WriteMaskControlParams;
 use crate::tech::{BITCELL_HEIGHT, COLUMN_WIDTH};
 
-use super::array::draw_array;
+use super::array::draw_bitcell_array;
 use super::decoder::{draw_inv_dec_array, draw_nand2_dec_array};
 use super::mux::read::draw_read_mux_array;
 use super::mux::write::draw_write_mux_array;
@@ -164,7 +164,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .build()?;
     let addr_dffs = draw_dff_grid(lib, addr_dff_params)?;
 
-    let core = draw_array(rows, cols, lib)?;
+    let core = draw_bitcell_array(rows, cols, lib)?;
     let nand_dec = draw_nand2_dec_array(
         lib,
         GateArrayParams {

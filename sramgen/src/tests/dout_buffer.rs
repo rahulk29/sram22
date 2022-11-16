@@ -1,15 +1,15 @@
 use crate::layout::dout_buffer::*;
-use crate::save_bin;
 use crate::schematic::dout_buffer::*;
 use crate::tech::all_external_modules;
 use crate::tests::test_gds_path;
 use crate::utils::save_modules;
-use crate::Result;
+use crate::{generate_netlist, save_bin, Result};
 use pdkprims::tech::sky130;
 use vlsir::circuit::Package;
 
 #[test]
 fn test_dout_buffer() -> Result<()> {
+    let name = "sramgen_dout_buffer";
     let buf = dout_buf(DoutBufParams {
         length: 150,
         nw1: 1_000,
@@ -19,28 +19,31 @@ fn test_dout_buffer() -> Result<()> {
     });
     let ext_modules = all_external_modules();
     let pkg = Package {
-        domain: "dout_buffer".to_string(),
+        domain: name.to_string(),
         desc: "Sramgen generated cells".to_string(),
         modules: vec![buf],
         ext_modules,
     };
 
-    save_bin("dout_buffer", pkg)?;
+    save_bin(name, pkg)?;
 
-    let mut lib = sky130::pdk_lib("test_dout_buffer")?;
-    draw_dout_buffer(&mut lib, "test_dout_buffer")?;
+    generate_netlist(name)?;
 
-    lib.save_gds(test_gds_path(&lib))?;
+    let mut lib = sky130::pdk_lib(name)?;
+    draw_dout_buffer(&mut lib, name)?;
+
+    lib.save_gds(test_gds_path(name))?;
 
     Ok(())
 }
 
 #[test]
 fn test_dout_buffer_array() -> Result<()> {
+    let name = "sramgen_dout_buffer_array";
     let width = 32;
 
     let modules = dout_buf_array(DoutBufArrayParams {
-        name: "dout_buf_array".to_string(),
+        name: name.to_string(),
         width,
         instance_params: DoutBufParams {
             length: 150,
@@ -51,12 +54,14 @@ fn test_dout_buffer_array() -> Result<()> {
         },
     });
 
-    save_modules("dout_buf_array", modules)?;
+    save_modules(name, modules)?;
 
-    let mut lib = sky130::pdk_lib("test_dout_buffer_array")?;
-    draw_dout_buffer_array(&mut lib, "test_dout_buffer_array", width as usize, 2)?;
+    generate_netlist(name)?;
 
-    lib.save_gds(test_gds_path(&lib))?;
+    let mut lib = sky130::pdk_lib(name)?;
+    draw_dout_buffer_array(&mut lib, name, width as usize, 2)?;
+
+    lib.save_gds(test_gds_path(name))?;
 
     Ok(())
 }

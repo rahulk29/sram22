@@ -3,33 +3,36 @@ use crate::schematic::gate::*;
 use crate::schematic::gate::{GateParams, Size};
 use crate::tests::test_gds_path;
 use crate::utils::save_modules;
-use crate::Result;
+use crate::{generate_netlist, Result};
 use pdkprims::tech::sky130;
 
 #[test]
 fn test_sky130_nand2_dec() -> Result<()> {
-    let mut lib = sky130::pdk_lib("test_sky130_nand2_dec")?;
-    draw_nand2_dec(&mut lib, "nand2_dec")?;
+    let name = "sramgen_nand2_dec";
+    let mut lib = sky130::pdk_lib(name)?;
+    draw_nand2_dec(&mut lib, name)?;
 
-    lib.save_gds(test_gds_path(&lib))?;
+    lib.save_gds(test_gds_path(name))?;
 
     Ok(())
 }
 
 #[test]
 fn test_sky130_inv_dec() -> Result<()> {
-    let mut lib = sky130::pdk_lib("test_sky130_inv_dec")?;
-    draw_inv_dec(&mut lib, "inv_dec")?;
+    let name = "sramgen_inv_dec";
+    let mut lib = sky130::pdk_lib(name)?;
+    draw_inv_dec(&mut lib, name)?;
 
-    lib.save_gds(test_gds_path(&lib))?;
+    lib.save_gds(test_gds_path(name))?;
 
     Ok(())
 }
 
 #[test]
 fn test_sky130_and2() -> Result<()> {
+    let name = "sramgen_and2";
     let params = AndParams {
-        name: "sky130_and2".to_string(),
+        name: name.to_string(),
         nand: GateParams {
             name: "and2_nand".to_string(),
             length: 150,
@@ -50,19 +53,22 @@ fn test_sky130_and2() -> Result<()> {
 
     let and2 = and2(params.clone());
 
-    save_modules("and2", and2)?;
+    save_modules(name, and2)?;
 
-    let mut lib = sky130::pdk_lib("test_sky130_and2")?;
+    generate_netlist(name)?;
+
+    let mut lib = sky130::pdk_lib(name)?;
     draw_and2(&mut lib, params)?;
 
-    lib.save_gds(test_gds_path(&lib))?;
+    lib.save_gds(test_gds_path(name))?;
 
     Ok(())
 }
 
 #[test]
 fn test_sky130_nor2() -> Result<()> {
-    let mut lib = sky130::pdk_lib("test_sky130_nor2")?;
+    let name = "sramgen_nor2";
+    let mut lib = sky130::pdk_lib(name)?;
     draw_nor2(
         &mut lib,
         GateParams {
@@ -75,14 +81,15 @@ fn test_sky130_nor2() -> Result<()> {
         },
     )?;
 
-    lib.save_gds(test_gds_path(&lib))?;
+    lib.save_gds(test_gds_path(name))?;
 
     Ok(())
 }
 
 #[test]
 fn test_sky130_nand3() -> Result<()> {
-    let mut lib = sky130::pdk_lib("test_sky130_nand3")?;
+    let name = "sramgen_nand3";
+    let mut lib = sky130::pdk_lib(name)?;
     draw_nand3(
         &mut lib,
         GateParams {
@@ -95,18 +102,19 @@ fn test_sky130_nand3() -> Result<()> {
         },
     )?;
 
-    lib.save_gds(test_gds_path(&lib))?;
+    lib.save_gds(test_gds_path(name))?;
 
     Ok(())
 }
 
 #[test]
 fn test_sky130_and3() -> Result<()> {
-    let mut lib = sky130::pdk_lib("test_sky130_and3")?;
+    let name = "sramgen_and3";
+    let mut lib = sky130::pdk_lib(name)?;
     draw_and3(
         &mut lib,
         AndParams {
-            name: "sky130_and3".to_string(),
+            name: name.to_string(),
             nand: GateParams {
                 name: "and3_nand".to_string(),
                 length: 150,
@@ -126,7 +134,7 @@ fn test_sky130_and3() -> Result<()> {
         },
     )?;
 
-    lib.save_gds(test_gds_path(&lib))?;
+    lib.save_gds(test_gds_path(name))?;
 
     Ok(())
 }

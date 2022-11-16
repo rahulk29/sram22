@@ -585,41 +585,6 @@ pub fn decoder_24(params: Decoder24Params) -> Vec<Module> {
     vec![nand, inv, m]
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::utils::save_modules;
-
-    use super::*;
-
-    #[test]
-    fn test_netlist_decoder_16() -> Result<(), Box<dyn std::error::Error>> {
-        let tree = DecoderTree::new(4);
-        let decoder_params = DecoderParams {
-            tree,
-            lch: 150,
-            name: "decoder_16".to_string(),
-        };
-        let modules = hierarchical_decoder(decoder_params);
-
-        save_modules("decoder_16", modules)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_netlist_decoder_128() -> Result<(), Box<dyn std::error::Error>> {
-        let tree = DecoderTree::new(7);
-        let decoder_params = DecoderParams {
-            tree,
-            lch: 150,
-            name: "decoder_128".to_string(),
-        };
-        let modules = hierarchical_decoder(decoder_params);
-
-        save_modules("decoder_128", modules)?;
-        Ok(())
-    }
-}
-
 /*
 impl<'a> DecoderGen<'a> {
     fn generate(&mut self, node: &TreeNode) {

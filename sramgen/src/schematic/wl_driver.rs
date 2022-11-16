@@ -135,32 +135,3 @@ pub fn wordline_driver(params: WordlineDriverParams) -> Vec<Module> {
     modules.push(m);
     modules
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::utils::save_modules;
-
-    #[test]
-    fn test_netlist_and2() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = wordline_driver_array(WordlineDriverArrayParams {
-            name: "sramgen_wordline_driver_array".to_string(),
-            width: 32,
-            instance_params: WordlineDriverParams {
-                name: "sramgen_wordline_driver".to_string(),
-                nand_size: Size {
-                    nmos_width: 2_000,
-                    pmos_width: 2_000,
-                },
-                inv_size: Size {
-                    nmos_width: 1_000,
-                    pmos_width: 2_000,
-                },
-                length: 150,
-            },
-        });
-
-        save_modules("wordline_driver_array", modules)?;
-        Ok(())
-    }
-}

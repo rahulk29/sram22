@@ -32,7 +32,7 @@ fn test_sky130_dff_array() -> Result<()> {
     let mut lib = sky130::pdk_lib(name)?;
     draw_dff_array(&mut lib, name, width)?;
 
-    lib.save_gds(test_gds_path(&lib))?;
+    lib.save_gds(test_gds_path(name))?;
 
     Ok(())
 }
@@ -62,7 +62,7 @@ fn test_sky130_vert_dff_array() -> Result<()> {
     let mut lib = sky130::pdk_lib(name)?;
     draw_vert_dff_array(&mut lib, name, width)?;
 
-    lib.save_gds(test_gds_path(&lib))?;
+    lib.save_gds(test_gds_path(name))?;
 
     Ok(())
 }
@@ -99,7 +99,7 @@ fn test_sky130_dff_grid() -> Result<()> {
         .build()?;
     draw_dff_grid(&mut lib, params)?;
 
-    lib.save_gds(test_gds_path(&lib))?;
+    lib.save_gds(test_gds_path(name))?;
 
     Ok(())
 }

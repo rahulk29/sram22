@@ -3,7 +3,7 @@ use crate::schematic::gate::{AndParams, GateParams, Size};
 use crate::schematic::wmask_control::*;
 use crate::tests::test_gds_path;
 use crate::utils::save_modules;
-use crate::Result;
+use crate::{generate_netlist, Result};
 use pdkprims::tech::sky130;
 
 #[test]
@@ -28,20 +28,23 @@ fn test_sky130_wmask_control_2() -> Result<()> {
         },
     };
 
+    let name = "sramgen_write_mask_control_2";
     let params = WriteMaskControlParams {
-        name: "wmask_control_2".to_string(),
+        name: name.to_string(),
         width: 2,
         and_params,
     };
 
     let modules = write_mask_control(params.clone());
 
-    save_modules("write_mask_control", modules)?;
+    save_modules(name, modules)?;
 
-    let mut lib = sky130::pdk_lib("test_sky130_wmask_control_2")?;
+    generate_netlist(name)?;
+
+    let mut lib = sky130::pdk_lib(name)?;
     draw_write_mask_control(&mut lib, params)?;
 
-    lib.save_gds(test_gds_path(&lib))?;
+    lib.save_gds(test_gds_path(name))?;
 
     Ok(())
 }

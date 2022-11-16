@@ -110,7 +110,7 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Arra
     Ok(ArrayedCell { cell: ptr })
 }
 
-pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "sram_core".to_string();
 
     let mut layout = Layout {
