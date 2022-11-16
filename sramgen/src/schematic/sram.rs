@@ -226,7 +226,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     // Only used when wmask groups is greater than 1
     let wmask = bus("wmask", wmask_groups as i64);
     let bank_wmask = bus("bank_wmask", wmask_groups as i64);
-    let bank_wmask_b = bus("bank_wmask", wmask_groups as i64);
+    let bank_wmask_b = bus("bank_wmask_b", wmask_groups as i64);
 
     let mut ports = vec![
         port_inout(&vdd),
