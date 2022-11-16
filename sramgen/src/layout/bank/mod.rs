@@ -75,6 +75,7 @@ pub struct PhysicalDesign {
 }
 
 pub struct SramBankParams {
+    pub name: String,
     pub rows: usize,
     pub cols: usize,
     pub mux_ratio: usize,
@@ -83,14 +84,14 @@ pub struct SramBankParams {
 
 pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<PhysicalDesign> {
     let SramBankParams {
+        name,
         rows,
         cols,
         mux_ratio,
         wmask_groups,
     } = params;
 
-    let name = "sram_bank".to_string();
-    let mut cell = Cell::empty(&name);
+    let mut cell = Cell::empty(name);
 
     ////////////////////////////////////////////////////////////////////
     // Validate parameters

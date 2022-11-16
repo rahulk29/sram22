@@ -30,7 +30,7 @@ mod calibre {
         let layout_path = test_gds_path(name);
 
         let data = run_drc(&DrcParams {
-            cell_name: "sram_bank".to_string(),
+            cell_name: name.to_string(),
             work_dir,
             layout_path: layout_path.clone(),
             drc_rules_path: PathBuf::from(SKY130_DRC_RULES_PATH),
@@ -63,7 +63,7 @@ mod calibre {
                 run_lvs(&LvsParams {
                     work_dir,
                     layout_path,
-                    layout_cell_name: "sram_bank".to_string(),
+                    layout_cell_name: name.to_string(),
                     source_paths: vec![
                         source_path_main,
                         source_path_dff,
@@ -103,6 +103,7 @@ fn test_sram_8x32m2w8_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 16,
             cols: 16,
             mux_ratio: 2,
@@ -149,6 +150,7 @@ fn test_sram_16x64m2w16_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 32,
             cols: 32,
             mux_ratio: 2,
@@ -193,6 +195,7 @@ fn test_sram_8x128m4w8_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 32,
             cols: 32,
             mux_ratio: 4,
@@ -237,6 +240,7 @@ fn test_sram_8x128m4w2_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 32,
             cols: 32,
             mux_ratio: 4,
@@ -281,6 +285,7 @@ fn test_sram_4x256m8w4_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 32,
             cols: 32,
             mux_ratio: 8,
@@ -326,6 +331,7 @@ fn test_sram_32x256m2w32_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 128,
             cols: 64,
             mux_ratio: 2,
@@ -371,6 +377,7 @@ fn test_sram_64x128m2w64_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 64,
             cols: 128,
             mux_ratio: 2,
@@ -416,6 +423,7 @@ fn test_sram_64x128m2w32_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 64,
             cols: 128,
             mux_ratio: 2,
@@ -461,6 +469,7 @@ fn test_sram_64x128m2w2_simple() -> Result<()> {
     draw_sram_bank(
         &mut lib,
         SramBankParams {
+            name: name.to_string(),
             rows: 64,
             cols: 128,
             mux_ratio: 2,
