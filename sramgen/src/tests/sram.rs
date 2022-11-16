@@ -352,3 +352,48 @@ fn test_sram_64x128m2w8_simple() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_sram_64x128m2w32_simple() -> Result<()> {
+    let name = "sramgen_sram_64x128m2w32_simple";
+    let modules = sram(SramParams {
+        name: name.to_string(),
+        row_bits: 6,
+        col_bits: 7,
+        col_mask_bits: 1,
+        wmask_groups: 2,
+    });
+
+    save_modules(name, modules)?;
+
+    generate_netlist(name)?;
+
+    let mut lib = sky130::pdk_lib(name)?;
+    draw_sram_bank(
+        &mut lib,
+        SramBankParams {
+            rows: 64,
+            cols: 128,
+            mux_ratio: 2,
+            wmask_groups: 2,
+        },
+    )
+    .map_err(panic_on_err)?;
+
+    lib.save_gds(test_gds_path(name)).map_err(panic_on_err)?;
+
+    save_1rw_verilog(
+        test_verilog_path(name),
+        Sram1RwParams {
+            module_name: name.to_string(),
+            num_words: 128,
+            data_width: 64,
+            addr_width: 7,
+        },
+    )?;
+
+    #[cfg(feature = "calibre")]
+    self::calibre::run_sram_drc_lvs(name)?;
+
+    Ok(())
+}
