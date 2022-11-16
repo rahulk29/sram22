@@ -1,9 +1,8 @@
 use crate::layout::sense_amp::*;
-use crate::save_bin;
 use crate::schematic::sense_amp::*;
 use crate::tech::all_external_modules;
 use crate::tests::test_gds_path;
-use crate::{generate_netlist, Result};
+use crate::{generate_netlist, save_bin, Result};
 use pdkprims::tech::sky130;
 use vlsir::circuit::Package;
 

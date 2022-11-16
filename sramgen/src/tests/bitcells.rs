@@ -1,4 +1,5 @@
-use crate::layout::{array::*, draw_bitcell};
+use crate::layout::array::*;
+use crate::layout::draw_bitcell;
 use crate::schematic::bitcell_array::*;
 use crate::tech::all_external_modules;
 use crate::tests::test_gds_path;

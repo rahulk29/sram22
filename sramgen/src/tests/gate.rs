@@ -1,6 +1,5 @@
 use crate::layout::gate::*;
-use crate::schematic::gate::*;
-use crate::schematic::gate::{GateParams, Size};
+use crate::schematic::gate::{GateParams, Size, *};
 use crate::tests::test_gds_path;
 use crate::utils::save_modules;
 use crate::{generate_netlist, Result};

@@ -1,11 +1,10 @@
 use vlsir::circuit::Package;
 
 use crate::layout::precharge::*;
-use crate::save_bin;
 use crate::schematic::precharge::*;
 use crate::tech::all_external_modules;
 use crate::tests::test_gds_path;
-use crate::{generate_netlist, Result};
+use crate::{generate_netlist, save_bin, Result};
 use pdkprims::tech::sky130;
 
 #[test]

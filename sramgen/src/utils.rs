@@ -5,9 +5,8 @@ use vlsir::circuit::{port, Connection, ExternalModule, Port, Signal, Slice};
 use vlsir::reference::To;
 use vlsir::{Module, QualifiedName, Reference};
 
-use crate::save_bin;
 use crate::tech::all_external_modules;
-use crate::Result;
+use crate::{save_bin, Result};
 
 use self::conns::{conn_width, get_conn};
 

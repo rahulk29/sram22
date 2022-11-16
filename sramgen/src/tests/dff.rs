@@ -1,9 +1,8 @@
 use crate::layout::dff::*;
-use crate::save_bin;
 use crate::schematic::dff::*;
 use crate::tech::{all_external_modules, COLUMN_WIDTH};
 use crate::tests::test_gds_path;
-use crate::{generate_netlist, Result};
+use crate::{generate_netlist, save_bin, Result};
 use pdkprims::tech::sky130;
 use vlsir::circuit::Package;
 
