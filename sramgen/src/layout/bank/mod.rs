@@ -829,7 +829,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
                 .set_min_width()
                 .horiz_to_trace(&traces[idx])
                 .contact_down(traces[idx].rect());
-            power_grid.add_padded_blockage(2, trace.rect().expand(cfg.space(2) / 2));
+            power_grid.add_padded_blockage(2, trace.rect().expand(90));
             if i == predecoder_bus_bits - 1 {
                 addr_0_traces.push(trace.rect());
             }
@@ -1280,7 +1280,11 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     cell.layout_mut().add_inst(dout_buf.clone());
     // layout.add_inst(tmc);
 
-    let mut bbox = cell.layout().bbox().into_rect();
+    let mut bbox = cell
+        .layout()
+        .bbox()
+        .union(&router.cell().bbox())
+        .into_rect();
     // Make space for additional power straps
     bbox.p0.y -= 2_000;
 
@@ -1315,7 +1319,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         let rect = trace.rect();
         power_grid.add_padded_blockage(3, rect.expand(10));
         cell.add_pin(
-            format!("din_{i}"),
+            format!("din[{i}]"),
             m3,
             Rect::from_spans(
                 rect.hspan(),
@@ -1336,8 +1340,8 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
                 .port(format!("{buf_input}_{i}"))
                 .largest_rect(m0)
                 .unwrap();
-            let rect = Rect::from_spans(span, Span::new(dst.bottom(), src.top()));
-            power_grid.add_padded_blockage(3, rect);
+            let rect = Rect::from_spans(span, Span::new(dst.bottom() + 30, src.top()));
+            power_grid.add_padded_blockage(3, rect.expand(20));
             let mut trace = router.trace(rect, 3);
             trace
                 .contact_down(src)
@@ -1371,7 +1375,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
                 power_grid.add_padded_blockage(2, dout_trace.rect().expand(500));
 
                 cell.add_pin(
-                    format!("dout_{i}"),
+                    format!("dout[{i}]"),
                     m3,
                     Rect::from_spans(
                         dout_rect.hspan(),
@@ -1399,7 +1403,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             let rect = trace.rect();
             power_grid.add_padded_blockage(3, rect.expand(10));
             cell.add_pin(
-                format!("wmask_{i}"),
+                format!("wmask[{i}]"),
                 m3,
                 Rect::from_spans(
                     rect.hspan(),
@@ -1440,7 +1444,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         let net = if i == total_addr_bits {
             "we".to_string()
         } else {
-            format!("addr_{}", total_addr_bits - i - 1)
+            format!("addr[{}]", total_addr_bits - i - 1)
         };
         cell.add_pin(
             net,
