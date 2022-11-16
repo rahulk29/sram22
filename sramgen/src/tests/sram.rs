@@ -27,7 +27,7 @@ mod calibre {
         let mut work_dir = PathBuf::from(BUILD_PATH);
         work_dir.push(format!("drc/{}", name));
 
-        let mut layout_path = test_gds_path(name);
+        let layout_path = test_gds_path(name);
 
         let data = run_drc(&DrcParams {
             cell_name: "sram_bank".to_string(),

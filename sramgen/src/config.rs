@@ -19,6 +19,7 @@ pub enum ControlMode {
     Replica,
 }
 
+#[allow(dead_code)]
 fn parse_config(path: impl AsRef<Path>) -> Result<SramConfig> {
     let contents = fs::read_to_string(path)?;
     let data = toml::from_str(&contents)?;
