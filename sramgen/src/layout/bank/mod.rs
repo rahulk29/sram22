@@ -100,6 +100,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     assert!(mux_ratio >= 2);
     assert!(wmask_groups >= 1);
     assert_eq!(cols % (mux_ratio * wmask_groups), 0);
+    assert!(wmask_groups < (cols / mux_ratio));
 
     let grid = lib.pdk.grid();
 
@@ -156,6 +157,14 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .rows(1)
         .build()?;
     let addr_dffs = draw_dff_grid(lib, addr_dff_params)?;
+
+    let wmask_dff_params = DffGridParams::builder()
+        .name("wmask_dff_array")
+        .cols(wmask_groups)
+        .rows(1)
+        .row_pitch((cols / wmask_groups) as isize * COLUMN_WIDTH)
+        .build()?;
+    let wmask_dffs = draw_dff_grid(lib, wmask_dff_params)?;
 
     let core = draw_array(rows, cols, lib)?;
     let nand_dec = draw_nand2_dec_array(
@@ -259,6 +268,11 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     let mut addr_dffs = Instance::new("addr_dffs", addr_dffs);
     let mut col_decoder = col_decoder.map(|decoder| Instance::new("col_decoder", decoder));
     let mut dout_buf = Instance::new("dout_buffer_array", dout_buf);
+    let mut wmask_dffs = if wmask_groups > 1 {
+        Some(Instance::new("wmask_dff_array", wmask_dffs))
+    } else {
+        None
+    };
     let mut tmc = Instance::new("tmc", tmc);
 
     ////////////////////////////////////////////////////////////////////
@@ -307,20 +321,35 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     let dout_buf_bbox = dout_buf.bbox().into_rect();
 
+    din_dffs.align_beneath(dout_buf_bbox.bbox(), 1_270);
+    din_dffs.align_centers_horizontally_gridded(core_bbox, grid);
+    let din_dff_bbox = din_dffs.bbox();
+
+    let wmask_dff_bbox = if let Some(ref mut wmask_dffs) = wmask_dffs {
+        wmask_dffs.align_beneath(din_dff_bbox, 1_270);
+        wmask_dffs.align_left(din_dff_bbox);
+        wmask_dffs.bbox()
+    } else {
+        BoundBox::empty()
+    };
+
     let mut col_bbox = BoundBox::empty();
-    for bbox in [
+    let mut bboxes = vec![
         sa_bbox,
         pc_bbox,
         col_inv_bbox,
         read_mux_bbox,
         write_mux_bbox,
         dout_buf_bbox,
-    ] {
-        col_bbox = col_bbox.union(&bbox.bbox());
+    ];
+
+    if wmask_groups > 1 {
+        bboxes.push(wmask_dff_bbox.into_rect());
     }
 
-    din_dffs.align_beneath(dout_buf_bbox.bbox(), 1_270);
-    din_dffs.align_centers_horizontally_gridded(core_bbox, grid);
+    for bbox in bboxes {
+        col_bbox = col_bbox.union(&bbox.bbox());
+    }
 
     decoder1.align_beneath(core_bbox, 1_000);
     decoder1.align_to_the_left_of(col_bbox.bbox(), col_bus_space);
@@ -330,7 +359,6 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     decoder2.align_to_the_left_of(col_bbox.bbox(), col_bus_space);
 
     let decoder2_bbox = decoder2.bbox();
-
     let col_dec_bounds = BoundBox {
         p0: Point::new(
             decoder2_bbox.p0.x,
@@ -545,6 +573,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     let mut dout_spans = Vec::with_capacity(cols / mux_ratio);
     let mut dout_b_spans = Vec::with_capacity(cols / mux_ratio);
+    let mut wmask_spans = Vec::with_capacity(cols / mux_ratio);
     // Route read bitlines
     for i in 0..(cols / mux_ratio) {
         // Route data and data bar to 2:1 write muxes
@@ -603,15 +632,16 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
         // track assignments:
         // -1 = bl / outp
-        // 0 = data output
+        // 0 = write mask
         // 1 = data input
         // 2 = br / outn
 
         let bl_span = m3_grid.vtrack(-1);
-        let _dout_span = m3_grid.vtrack(0);
+        let wmask_span = m3_grid.vtrack(0);
         let data_span = m3_grid.vtrack(1);
         let br_span = m3_grid.vtrack(2);
 
+        wmask_spans.push(wmask_span);
         dout_spans.push(bl_span);
         dout_b_spans.push(br_span);
 
@@ -676,6 +706,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         power_grid.add_padded_blockage(3, trace.rect());
     }
 
+    // Connect precharge VDDs
     let trace = connect(ConnectArgs {
         metal_idx: 2,
         port_idx: 1,
@@ -689,6 +720,30 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         span: None,
     });
     power_grid.add_vdd_target(2, trace.rect());
+
+    // Write mask (wmask) routing
+    if wmask_groups > 1 {
+        let wmask_dffs = wmask_dffs.as_ref().unwrap();
+        let bits_per_wmask = cols / (wmask_groups * mux_ratio);
+        for i in 0..wmask_groups {
+            let src = write_mux
+                .port(format!("wmask_{i}"))
+                .largest_rect(m2)
+                .unwrap();
+            let dst = wmask_dffs.port(format!("q_{i}")).largest_rect(m2).unwrap();
+            let target = wmask_spans[i * bits_per_wmask + 1];
+
+            let rect = Rect::from_spans(target, Span::new(dst.bottom(), src.top()));
+            power_grid.add_padded_blockage(3, rect.expand(20));
+            let mut trace = router.trace(rect, 3);
+            trace
+                .contact_down(src)
+                .place_cursor(Dir::Vert, false)
+                .down()
+                .set_width(260)
+                .horiz_to_rect(dst);
+        }
+    }
 
     ////////////////////////////////////////////////////////////////////
     // Decoder routing
@@ -827,6 +882,10 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             below: Some(ContactPosition::CenteredNonAdjacent),
         },
     );
+
+    ////////////////////////////////////////////////////////////////////
+    // Control signal routing
+    ////////////////////////////////////////////////////////////////////
 
     // Route write enable (WE) to control logic
     let src = addr_dffs
@@ -1037,6 +1096,9 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     let mut spans = Vec::new();
     spans.push(din_dff_bbox.vspan());
+    if let Some(ref wmask_dffs) = wmask_dffs {
+        spans.push(wmask_dffs.bbox().into_rect().vspan());
+    }
 
     spans.push(Span::new(
         sense_amp.port("vss").largest_rect(m2).unwrap().bottom(),
@@ -1061,7 +1123,11 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     power_grid.add_padded_blockage(2, addr_dff_bbox.into_rect());
 
     // clock (clk) distribution
-    let dff_area = din_dff_bbox.bbox().union(&addr_dff_bbox).into_rect();
+    let dff_area = din_dff_bbox
+        .bbox()
+        .union(&addr_dff_bbox)
+        .union(&wmask_dff_bbox)
+        .into_rect();
     let vspan = Span::new(
         dff_area.bottom() - 3 * cfg.line(2) - 3 * cfg.space(2),
         dff_area.bottom() - 3 * cfg.space(2),
@@ -1101,6 +1167,26 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         trace.contact_down(clk_trace.rect());
     }
 
+    if let Some(ref wmask_dffs) = wmask_dffs {
+        for i in 0..wmask_groups {
+            let args = ConnectArgs::builder()
+                .metal_idx(3)
+                .port_idx(2)
+                .router(&mut router)
+                .insts(GateList::ArraySlice(wmask_dffs, i, 1))
+                .port_name("clk")
+                .dir(Dir::Vert)
+                .width(cfg.line(3))
+                .build()?;
+            let mut trace = connect(args);
+            trace
+                .place_cursor(Dir::Vert, true)
+                .vert_to_trace(&clk_trace);
+            power_grid.add_padded_blockage(3, trace.rect());
+            trace.contact_down(clk_trace.rect());
+        }
+    }
+
     let src = control.port("clk").largest_rect(m2).unwrap();
     let mut trace = router.trace(src, 2);
     trace
@@ -1133,6 +1219,9 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     if let Some(ref col_decoder) = col_decoder {
         targets.push(col_decoder);
     }
+    if let Some(ref wmask_dffs) = wmask_dffs {
+        targets.push(wmask_dffs);
+    }
     for instance in targets {
         for name in ["vpb", "vdd", "vpwr"] {
             for port in instance.ports_starting_with(name) {
@@ -1158,28 +1247,31 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         }
     }
 
-    cell.layout_mut().insts.push(core);
-    cell.layout_mut().insts.push(core_pwr);
-    cell.layout_mut().insts.push(decoder1);
-    cell.layout_mut().insts.push(decoder2);
-    cell.layout_mut().insts.push(control);
-    cell.layout_mut().insts.push(we_control);
+    cell.layout_mut().add_inst(core);
+    cell.layout_mut().add_inst(core_pwr);
+    cell.layout_mut().add_inst(decoder1);
+    cell.layout_mut().add_inst(decoder2);
+    cell.layout_mut().add_inst(control);
+    cell.layout_mut().add_inst(we_control);
     if let Some(col_decoder) = col_decoder {
-        cell.layout_mut().insts.push(col_decoder);
+        cell.layout_mut().add_inst(col_decoder);
     }
-    cell.layout_mut().insts.push(wldrv_nand);
-    cell.layout_mut().insts.push(wldrv_inv);
-    cell.layout_mut().insts.push(nand_dec);
-    cell.layout_mut().insts.push(inv_dec);
-    cell.layout_mut().insts.push(pc);
-    cell.layout_mut().insts.push(read_mux);
-    cell.layout_mut().insts.push(write_mux);
-    cell.layout_mut().insts.push(col_inv);
-    cell.layout_mut().insts.push(sense_amp.clone());
-    cell.layout_mut().insts.push(din_dffs.clone());
-    cell.layout_mut().insts.push(addr_dffs.clone());
-    cell.layout_mut().insts.push(dout_buf.clone());
-    // layout.insts.push(tmc);
+    cell.layout_mut().add_inst(wldrv_nand);
+    cell.layout_mut().add_inst(wldrv_inv);
+    cell.layout_mut().add_inst(nand_dec);
+    cell.layout_mut().add_inst(inv_dec);
+    cell.layout_mut().add_inst(pc);
+    cell.layout_mut().add_inst(read_mux);
+    cell.layout_mut().add_inst(write_mux);
+    cell.layout_mut().add_inst(col_inv);
+    cell.layout_mut().add_inst(sense_amp.clone());
+    cell.layout_mut().add_inst(din_dffs.clone());
+    if let Some(ref wmask_dffs) = wmask_dffs {
+        cell.layout_mut().add_inst(wmask_dffs.clone());
+    }
+    cell.layout_mut().add_inst(addr_dffs.clone());
+    cell.layout_mut().add_inst(dout_buf.clone());
+    // layout.add_inst(tmc);
 
     let mut bbox = cell.layout().bbox().into_rect();
     // Make space for additional power straps
@@ -1280,6 +1372,33 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
                     ),
                 );
             }
+        }
+    }
+
+    // Route write mask pins
+    if wmask_groups > 1 {
+        let wmask_dffs = wmask_dffs.as_ref().unwrap();
+        for i in 0..wmask_groups {
+            let src = wmask_dffs.port(format!("d_{i}")).largest_rect(m2).unwrap();
+            let offset = 1_900;
+            let mut trace = router.trace(src, 2);
+            trace
+                .place_cursor_centered()
+                .right_by(offset)
+                .up()
+                .set_min_width()
+                .vert_to(guard_ring_bbox.bottom());
+
+            let rect = trace.rect();
+            power_grid.add_padded_blockage(3, rect.expand(10));
+            cell.add_pin(
+                format!("wmask_{i}"),
+                m3,
+                Rect::from_spans(
+                    rect.hspan(),
+                    Span::new(rect.bottom(), rect.bottom() + 3 * cfg.line(3)),
+                ),
+            );
         }
     }
 
@@ -1600,6 +1719,25 @@ mod tests {
                 cols: 128,
                 mux_ratio: 2,
                 wmask_groups: 1,
+            },
+        )
+        .map_err(panic_on_err)?;
+
+        lib.save_gds(test_gds_path(&lib)).map_err(panic_on_err)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sram_bank_64x128m2w2() -> Result<()> {
+        let mut lib = sky130::pdk_lib("test_sram_bank_64x128m2w2")?;
+        draw_sram_bank(
+            &mut lib,
+            SramBankParams {
+                rows: 64,
+                cols: 128,
+                mux_ratio: 2,
+                wmask_groups: 2,
             },
         )
         .map_err(panic_on_err)?;
