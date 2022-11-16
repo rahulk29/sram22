@@ -302,32 +302,3 @@ fn draw_ptap_cell(lib: &mut PdkLib, cols: isize) -> Result<Ptr<Cell>> {
     let contact = draw_two_level_contact(lib, params)?;
     Ok(contact)
 }
-
-#[cfg(test)]
-mod tests {
-    use pdkprims::tech::sky130;
-
-    use crate::utils::test_gds_path;
-
-    use super::*;
-
-    #[test]
-    fn test_dout_buffer_array() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_dout_buffer_array")?;
-        draw_dout_buffer_array(&mut lib, "test_dout_buffer_array", 32, 2)?;
-
-        lib.save_gds(test_gds_path(&lib))?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_dout_buffer() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_dout_buffer")?;
-        draw_dout_buffer(&mut lib, "test_dout_buffer")?;
-
-        lib.save_gds(test_gds_path(&lib))?;
-
-        Ok(())
-    }
-}

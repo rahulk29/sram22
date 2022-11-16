@@ -25,12 +25,12 @@ use crate::layout::route::Router;
 use crate::layout::tmc::{draw_tmc, TmcParams};
 use crate::layout::wmask_control::draw_write_mask_control;
 use crate::schematic::decoder::DecoderTree;
-use crate::schematic::gate::{AndParams, Size};
+use crate::schematic::gate::{AndParams, GateParams, Size};
 use crate::schematic::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::schematic::wmask_control::WriteMaskControlParams;
 use crate::tech::{BITCELL_HEIGHT, COLUMN_WIDTH};
 
-use super::array::draw_array;
+use super::array::draw_bitcell_array;
 use super::decoder::{draw_inv_dec_array, draw_nand2_dec_array};
 use super::mux::read::draw_read_mux_array;
 use super::mux::write::draw_write_mux_array;
@@ -75,10 +75,10 @@ pub struct PhysicalDesign {
 }
 
 pub struct SramBankParams {
-    rows: usize,
-    cols: usize,
-    mux_ratio: usize,
-    wmask_groups: usize,
+    pub rows: usize,
+    pub cols: usize,
+    pub mux_ratio: usize,
+    pub wmask_groups: usize,
 }
 
 pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<PhysicalDesign> {
@@ -135,15 +135,22 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             width: mux_ratio as i64,
             and_params: AndParams {
                 name: "write_mask_control_and2".to_string(),
-                nand_size: Size {
-                    nmos_width: 1_200,
-                    pmos_width: 1_800,
+                nand: GateParams {
+                    name: "write_mask_control_and2_nand".to_string(),
+                    size: Size {
+                        nmos_width: 1_200,
+                        pmos_width: 1_800,
+                    },
+                    length: 150,
                 },
-                inv_size: Size {
-                    nmos_width: 1_200,
-                    pmos_width: 1_800,
+                inv: GateParams {
+                    name: "write_mask_control_and2_inv".to_string(),
+                    size: Size {
+                        nmos_width: 1_200,
+                        pmos_width: 1_800,
+                    },
+                    length: 150,
                 },
-                length: 150,
             },
         },
     )?;
@@ -166,7 +173,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .build()?;
     let wmask_dffs = draw_dff_grid(lib, wmask_dff_params)?;
 
-    let core = draw_array(rows, cols, lib)?;
+    let core = draw_bitcell_array(rows, cols, lib)?;
     let nand_dec = draw_nand2_dec_array(
         lib,
         GateArrayParams {
@@ -1601,6 +1608,8 @@ pub(crate) fn connect(args: ConnectArgs) -> Trace {
 
     trace
 }
+<<<<<<< HEAD
+=======
 
 #[cfg(test)]
 mod tests {
@@ -1766,3 +1775,4 @@ mod tests {
         Ok(())
     }
 }
+>>>>>>> master

@@ -19,9 +19,12 @@ jobs:
           echo "/usr/local/bin" >> $GITHUB_PATH
       - name: Check formatting
         run: |
-          cargo fmt --check
+          cargo +nightly fmt --check
           black scripts/ --check
       - name: Lint
         run: make lint
       - name: Test
-        run: make test
+        shell: bash
+        run: |
+          source /tools/B/rahulkumar/sky130/priv/drc/.bashrc
+          make test

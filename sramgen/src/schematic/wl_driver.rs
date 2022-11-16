@@ -6,7 +6,7 @@ use pdkprims::config::Int;
 
 use vlsir::circuit::{Instance, Module};
 
-use crate::schematic::gate::{and2, AndParams, Size};
+use crate::schematic::gate::{and2, AndParams, GateParams, Size};
 use crate::utils::conns::conn_slice;
 use crate::utils::{
     bus, conn_map, local_reference, port_inout, port_input, port_output, sig_conn, signal,
@@ -104,9 +104,16 @@ pub fn wordline_driver(params: WordlineDriverParams) -> Vec<Module> {
     let and2_name = format!("{}_and2", &params.name);
     let mut and2 = and2(AndParams {
         name: and2_name.clone(),
-        length: params.length,
-        inv_size: params.inv_size,
-        nand_size: params.nand_size,
+        inv: GateParams {
+            name: format!("{}_inv", &and2_name),
+            size: params.inv_size,
+            length: params.length,
+        },
+        nand: GateParams {
+            name: format!("{}_nand", &and2_name),
+            size: params.nand_size,
+            length: params.length,
+        },
     });
 
     let mut conns = HashMap::new();
@@ -127,33 +134,4 @@ pub fn wordline_driver(params: WordlineDriverParams) -> Vec<Module> {
     modules.append(&mut and2);
     modules.push(m);
     modules
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::utils::save_modules;
-
-    #[test]
-    fn test_netlist_and2() -> Result<(), Box<dyn std::error::Error>> {
-        let modules = wordline_driver_array(WordlineDriverArrayParams {
-            name: "sramgen_wordline_driver_array".to_string(),
-            width: 32,
-            instance_params: WordlineDriverParams {
-                name: "sramgen_wordline_driver".to_string(),
-                nand_size: Size {
-                    nmos_width: 2_000,
-                    pmos_width: 2_000,
-                },
-                inv_size: Size {
-                    nmos_width: 1_000,
-                    pmos_width: 2_000,
-                },
-                length: 150,
-            },
-        });
-
-        save_modules("wordline_driver_array", modules)?;
-        Ok(())
-    }
 }

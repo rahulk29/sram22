@@ -110,7 +110,7 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Arra
     Ok(ArrayedCell { cell: ptr })
 }
 
-pub fn draw_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let name = "sram_core".to_string();
 
     let mut layout = Layout {
@@ -380,33 +380,4 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
     lib.lib.cells.push(ptr.clone());
 
     Ok(ptr)
-}
-
-#[cfg(test)]
-mod tests {
-    use pdkprims::tech::sky130;
-
-    use crate::utils::test_gds_path;
-
-    use super::*;
-
-    #[test]
-    fn test_sram_array_32x32() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_array_32x32")?;
-        draw_array(32, 32, &mut lib)?;
-
-        lib.save_gds(test_gds_path(&lib))?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_sram_array_2x2() -> Result<()> {
-        let mut lib = sky130::pdk_lib("test_sram_array_2x2")?;
-        draw_array(2, 2, &mut lib)?;
-
-        lib.save_gds(test_gds_path(&lib))?;
-
-        Ok(())
-    }
 }
