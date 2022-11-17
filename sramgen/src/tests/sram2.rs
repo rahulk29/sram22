@@ -468,7 +468,7 @@ fn test_sram_4x256m8w4_simple() -> Result<()> {
 
 #[test]
 fn test_sram_4x256m8w2_simple() -> Result<()> {
-    let name = "sramgen_sram_4x256m8w2_simple";
+    let name = "sramgen_sram_4x256m8w4_simple";
     let modules = sram(SramParams {
         name: name.to_string(),
         row_bits: 5,
