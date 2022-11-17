@@ -12,6 +12,7 @@ mod calibre {
     use crate::{Result, BUILD_PATH, LIB_PATH};
     use calibre::drc::{run_drc, DrcParams};
     use calibre::lvs::{run_lvs, LvsParams, LvsStatus};
+    use calibre::pex::{run_pex, PexParams};
     use calibre::RuleCheck;
     use std::path::PathBuf;
 
@@ -67,8 +68,8 @@ mod calibre {
         assert!(
             matches!(
                 run_lvs(&LvsParams {
-                    work_dir,
-                    layout_path,
+                    work_dir: work_dir.clone(),
+                    layout_path: layout_path.clone(),
                     layout_cell_name: "sram_bank".to_string(),
                     source_paths: source_paths.clone(),
                     source_cell_name: name.to_string(),
