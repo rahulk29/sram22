@@ -24,7 +24,6 @@ pub use anyhow::{anyhow, Result};
 
 pub const NETLIST_FORMAT: NetlistFormat = NetlistFormat::Spectre;
 pub const BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-#[cfg(feature = "calibre")]
 pub const LIB_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/lib");
 
 pub fn out_bin(name: &str) -> PathBuf {

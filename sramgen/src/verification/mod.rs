@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use waveform::Waveform;
 
 use crate::verification::utils::push_bus;
-use crate::Result;
+use crate::{Result, BUILD_PATH, LIB_PATH};
 
 use self::netlist::{generate_netlist, write_netlist, TbNetlistParams};
 
@@ -304,4 +304,23 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
         we,
         wmask,
     }
+}
+
+pub fn source_files(sram_name: &str) -> Vec<PathBuf> {
+        let source_path_main = PathBuf::from(BUILD_PATH).join(format!("spice/{}.spice", sram_name));
+        let source_path_dff = PathBuf::from(LIB_PATH).join("openram_dff/openram_dff.spice");
+        let source_path_sp_cell =
+            PathBuf::from(LIB_PATH).join("sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.lvs.spice");
+        let source_path_sp_sense_amp =
+            PathBuf::from(LIB_PATH).join("sramgen_sp_sense_amp/sramgen_sp_sense_amp.spice");
+        let source_path_control_simple =
+            PathBuf::from(LIB_PATH).join("sramgen_control/sramgen_control_simple.spice");
+
+        vec![
+            source_path_main,
+            source_path_dff,
+            source_path_sp_cell,
+            source_path_sp_sense_amp,
+            source_path_control_simple,
+        ]
 }

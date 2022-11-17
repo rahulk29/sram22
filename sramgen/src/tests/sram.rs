@@ -5,7 +5,7 @@ use crate::schematic::sram::*;
 use crate::tests::{panic_on_err, test_gds_path, test_verilog_path};
 use crate::utils::save_modules;
 use crate::verification::bit_signal::BitSignal;
-use crate::verification::{self, PortClass, PortOrder, TbParams, TestCase};
+use crate::verification::{self, PortClass, PortOrder, TbParams, TestCase, source_files};
 use crate::verilog::*;
 use crate::{generate_netlist, Result, BUILD_PATH};
 use pdkprims::tech::sky130;
@@ -13,6 +13,7 @@ use pdkprims::tech::sky130;
 #[cfg(feature = "calibre")]
 mod calibre {
     use crate::tests::test_gds_path;
+    use crate::verification::source_files;
     use crate::{Result, BUILD_PATH, LIB_PATH};
     use calibre::drc::{run_drc, DrcParams};
     use calibre::lvs::{run_lvs, LvsParams, LvsStatus};
@@ -48,14 +49,6 @@ mod calibre {
             "Found DRC errors"
         );
 
-        let source_path_main = PathBuf::from(BUILD_PATH).join(format!("spice/{}.spice", name));
-        let source_path_dff = PathBuf::from(LIB_PATH).join("openram_dff/openram_dff.spice");
-        let source_path_sp_cell =
-            PathBuf::from(LIB_PATH).join("sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.lvs.spice");
-        let source_path_sp_sense_amp =
-            PathBuf::from(LIB_PATH).join("sramgen_sp_sense_amp/sramgen_sp_sense_amp.spice");
-        let source_path_control_simple =
-            PathBuf::from(LIB_PATH).join("sramgen_control/sramgen_control_simple.spice");
         let work_dir = PathBuf::from(BUILD_PATH).join(format!("lvs/{}", name));
 
         assert!(
@@ -64,13 +57,7 @@ mod calibre {
                     work_dir,
                     layout_path,
                     layout_cell_name: name.to_string(),
-                    source_paths: vec![
-                        source_path_main,
-                        source_path_dff,
-                        source_path_sp_cell,
-                        source_path_sp_sense_amp,
-                        source_path_control_simple,
-                    ],
+                    source_paths: source_files(name),
                     source_cell_name: name.to_string(),
                     lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
                 })?
@@ -165,6 +152,7 @@ fn test_sram_8x32m2w8_simple() -> Result<()> {
         .pwr_port("vdd")
         .gnd_port("vss")
         .work_dir(PathBuf::from(BUILD_PATH).join(format!("sim/{}", name)))
+        .source_paths(source_files(name))
         .build()?;
 
     verification::run_testbench(&tb)?;
