@@ -8,7 +8,7 @@ use super::generate_test;
 pub(crate) mod calibre {
     use crate::tests::test_gds_path;
     use crate::verification::source_files;
-    use crate::{Result, BUILD_PATH, LIB_PATH};
+    use crate::{Result, BUILD_PATH};
     use calibre::drc::{run_drc, DrcParams};
     use calibre::lvs::{run_lvs, LvsParams, LvsStatus};
     use calibre::RuleCheck;
