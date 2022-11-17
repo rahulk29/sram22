@@ -40,7 +40,7 @@ pub(crate) fn test_verilog_path(name: &str) -> PathBuf {
     PathBuf::from(BUILD_PATH).join(format!("verilog/{}.v", name))
 }
 
-pub fn generate_test(config: SramConfig) -> Result<()> {
+pub(crate) fn generate_test(config: SramConfig) -> Result<()> {
     let SramConfig {
         num_words,
         data_width,
