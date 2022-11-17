@@ -105,7 +105,7 @@ pub fn generate_test(config: SramConfig) -> Result<()> {
     .unwrap();
 
     #[cfg(feature = "calibre")]
-    self::calibre::run_sram_drc_lvs(name)?;
+    self::sram::calibre::run_sram_drc_lvs(&name)?;
 
     Ok(())
 }

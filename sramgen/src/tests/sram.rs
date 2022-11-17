@@ -7,7 +7,7 @@ use crate::{generate_netlist, Result};
 use pdkprims::tech::sky130;
 
 #[cfg(feature = "calibre")]
-mod calibre {
+pub(crate) mod calibre {
     use crate::tests::test_gds_path;
     use crate::{Result, BUILD_PATH, LIB_PATH};
     use calibre::drc::{run_drc, DrcParams};
