@@ -42,7 +42,7 @@ fn test_bitcell_array_32x32() -> Result<()> {
     generate_netlist(name)?;
 
     let mut lib = sky130::pdk_lib(name)?;
-    draw_bitcell_array(rows, cols, &mut lib)?;
+    draw_bitcell_array(rows, cols, 1, 1, &mut lib)?;
 
     lib.save_gds(test_gds_path(name))?;
 
@@ -73,7 +73,7 @@ fn test_bitcell_array_2x2() -> Result<()> {
     generate_netlist(name)?;
 
     let mut lib = sky130::pdk_lib(name)?;
-    draw_bitcell_array(rows, cols, &mut lib)?;
+    draw_bitcell_array(rows, cols, 1, 1, &mut lib)?;
 
     lib.save_gds(test_gds_path(name))?;
 

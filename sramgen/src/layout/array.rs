@@ -110,7 +110,13 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Arra
     Ok(ArrayedCell { cell: ptr })
 }
 
-pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+pub fn draw_bitcell_array(
+    rows: usize,
+    cols: usize,
+    dummy_rows: usize,
+    dummy_cols: usize,
+    lib: &mut PdkLib,
+) -> Result<Ptr<Cell>> {
     let name = "sram_core".to_string();
 
     let mut layout = Layout {
@@ -152,7 +158,10 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
         },
     ];
 
-    for i in 1..cols {
+    let total_rows = rows + 2 * dummy_rows;
+    let total_cols = cols + 2 * dummy_cols;
+
+    for i in 1..total_cols {
         let colend_cent_i = if i % 2 == 0 {
             colend_cent.clone()
         } else {
@@ -185,7 +194,7 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
 
     grid.add_row(row);
 
-    for r in 0..rows {
+    for r in 0..total_rows {
         let mut row = Vec::new();
 
         row.push(Instance {
@@ -204,7 +213,7 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
             angle: Some(180f64),
         });
 
-        for c in 1..cols {
+        for c in 1..total_cols {
             let strap = if c % 2 == 0 {
                 wlstrap.clone()
             } else {
@@ -263,7 +272,7 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
         },
     ];
 
-    for i in 1..cols {
+    for i in 1..total_cols {
         let colend_cent_i = if i % 2 == 0 {
             colend_cent.clone()
         } else {
@@ -299,25 +308,40 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
 
     grid.place();
 
-    for (i, inst) in grid.grid().iter_col(0).rev().enumerate() {
-        if i == 0 {
-            continue;
-        }
+    for i in 1..total_rows + 1 {
+        let inst = grid.grid().get(total_rows + 2 - i, 0).unwrap();
         if inst.has_abstract() {
             for mut port in inst.ports() {
-                port.set_net(format!("{}_{}", &port.net, i - 1));
+                if i < dummy_rows + 1 || i > rows + dummy_rows {
+                    let dummy_i = if i < dummy_rows + 1 { i } else { i - rows };
+                    println!("dummy {} {} {}", &port.net, i, dummy_i);
+                    port.set_net(format!("dummy_{}_{}", &port.net, dummy_i));
+                } else {
+                    println!("{} {} {}", &port.net, i, i - dummy_rows - 1);
+                    port.set_net(format!("{}_{}", &port.net, i - dummy_rows - 1));
+                }
                 abs.add_port(port);
             }
         }
     }
 
-    for (i, inst) in grid.grid().iter_row(rows + 1).enumerate() {
-        if i == 0 {
-            continue;
-        }
+    for instance_i in 1..2 * total_cols + 1 {
+        let inst = grid.grid().get(total_rows + 1, instance_i).unwrap();
         if inst.has_abstract() {
             for mut port in inst.ports() {
-                port.set_net(format!("{}_{}", &port.net, (i - 1) / 2));
+                let i = (instance_i + 1) / 2;
+                if i < dummy_cols + 1 || i > cols + dummy_cols {
+                    let dummy_i = if i < dummy_cols + 1 {
+                        i - 1
+                    } else {
+                        i - rows - 1
+                    };
+                    println!("dummy {} {} {}", &port.net, i, dummy_i);
+                    port.set_net(format!("dummy_{}_{}", &port.net, dummy_i));
+                } else {
+                    println!("{} {} {}", &port.net, i, i - dummy_cols - 1);
+                    port.set_net(format!("{}_{}", &port.net, i - dummy_cols - 1));
+                }
                 abs.add_port(port);
             }
         }

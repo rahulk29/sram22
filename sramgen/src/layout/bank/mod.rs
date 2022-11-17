@@ -173,7 +173,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .build()?;
     let wmask_dffs = draw_dff_grid(lib, wmask_dff_params)?;
 
-    let core = draw_bitcell_array(rows, cols, lib)?;
+    let core = draw_bitcell_array(rows, cols, 1, 1, lib)?;
     let nand_dec = draw_nand2_dec_array(
         lib,
         GateArrayParams {
