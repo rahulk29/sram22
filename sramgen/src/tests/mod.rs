@@ -117,25 +117,29 @@ pub(crate) fn generate_test(config: SramConfig) -> Result<()> {
         ])
         .build()?;
 
-    let tb = TbParams::builder()
-        .test_case(test_case)
+    let mut ports = vec![
+        (PortClass::Power, PortOrder::MsbFirst),
+        (PortClass::Ground, PortOrder::MsbFirst),
+        (PortClass::Clock, PortOrder::MsbFirst),
+        (PortClass::DataIn, PortOrder::MsbFirst),
+        (PortClass::DataOut, PortOrder::MsbFirst),
+        (PortClass::WriteEnable, PortOrder::MsbFirst),
+        (PortClass::Addr, PortOrder::MsbFirst),
+    ];
+    if wmask_groups > 1 {
+        ports.push((PortClass::WriteMask, PortOrder::MsbFirst));
+    }
+    let mut tb = TbParams::builder();
+    tb.test_case(test_case)
         .sram_name(&name)
         .tr(50e-12)
         .tf(50e-12)
         .vdd(1.8)
         .c_load(5e-15)
-        .data_width(8)
-        .addr_width(5)
-        .wmask_groups(1)
-        .ports([
-            (PortClass::Power, PortOrder::MsbFirst),
-            (PortClass::Ground, PortOrder::MsbFirst),
-            (PortClass::Clock, PortOrder::MsbFirst),
-            (PortClass::DataIn, PortOrder::MsbFirst),
-            (PortClass::DataOut, PortOrder::MsbFirst),
-            (PortClass::WriteEnable, PortOrder::MsbFirst),
-            (PortClass::Addr, PortOrder::MsbFirst),
-        ])
+        .data_width(data_width)
+        .addr_width(addr_width)
+        .wmask_groups(wmask_groups)
+        .ports(ports)
         .clk_port("clk")
         .write_enable_port("we")
         .addr_port("addr")
@@ -143,9 +147,14 @@ pub(crate) fn generate_test(config: SramConfig) -> Result<()> {
         .data_out_port("dout")
         .pwr_port("vdd")
         .gnd_port("vss")
+        .wmask_port("wmask")
         .work_dir(PathBuf::from(BUILD_PATH).join(format!("sim/{}", name)))
-        .source_paths(source_files(&name))
-        .build()?;
+        .source_paths(source_files(&name));
+
+    #[cfg(feature = "spectre")]
+    tb.includes(crate::verification::spectre::sky130_includes());
+
+    let tb = tb.build()?;
 
     verification::run_testbench(&tb)?;
 

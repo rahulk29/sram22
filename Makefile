@@ -14,7 +14,7 @@ format:
 
 test:
 	rm -rf /tmp/sram22/
-	cargo test --features calibre
+	cargo test --features calibre spectre
 
 check:
 	cargo check --all-features --all-targets

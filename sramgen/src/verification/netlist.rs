@@ -108,17 +108,23 @@ fn write_dut(out: &mut String, tb: &TbParams) -> Result<()> {
         if port_class.is_bus() {
             let width = tb.port_width(port_class);
             assert!(width > 1);
-            let idxs = match order {
-                PortOrder::MsbFirst => (width - 1)..=0,
-                PortOrder::LsbFirst => 0..=(width - 1),
-            };
-            for i in idxs {
-                writeln!(out, "+ {port_name}[{i}]")?;
+            match order {
+                PortOrder::LsbFirst => {
+                    for i in 0..width {
+                        writeln!(out, "+ {port_name}[{i}]")?;
+                    }
+                }
+                PortOrder::MsbFirst => {
+                    for i in (0..width).rev() {
+                        writeln!(out, "+ {port_name}[{i}]")?;
+                    }
+                }
             }
         } else {
             writeln!(out, "+ {port_name} ")?;
         }
     }
+    writeln!(out, "+ {}", tb.sram_name)?;
     Ok(())
 }
 
