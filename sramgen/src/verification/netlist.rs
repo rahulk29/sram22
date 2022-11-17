@@ -3,7 +3,7 @@ use super::{TbParams, TbWaveforms};
 use crate::verification::PortOrder;
 use crate::Result;
 use std::fmt::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct TbNetlistParams<'a> {
@@ -155,7 +155,8 @@ fn write_spacer(out: &mut String) -> Result<()> {
     Ok(())
 }
 
-pub fn write_netlist(path: PathBuf, netlist: &str) -> Result<()> {
+pub fn write_netlist(path: impl AsRef<Path>, netlist: &str) -> Result<()> {
+    let path = path.as_ref();
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }

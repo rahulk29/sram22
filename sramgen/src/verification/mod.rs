@@ -9,6 +9,7 @@ use crate::verification::utils::push_bus;
 use crate::{Result, BUILD_PATH, LIB_PATH};
 
 use self::netlist::{generate_netlist, write_netlist, TbNetlistParams};
+use self::spectre::{run_spectre, SpectreParams};
 
 pub mod bit_signal;
 pub mod netlist;
@@ -205,13 +206,15 @@ pub fn run_testbench(params: &TbParams) -> Result<()> {
         waveforms: &waveforms,
     })?;
 
-    write_netlist(
-        params
-            .work_dir
-            .join(format!("test_{}_sim.sp", params.sram_name)),
-        &netlist,
-    )?;
-    // write_netlist
+    let netlist_path = params
+        .work_dir
+        .join(format!("test_{}_sim.sp", params.sram_name));
+    write_netlist(&netlist_path, &netlist)?;
+
+    run_spectre(&SpectreParams {
+        work_dir: params.work_dir.clone(),
+        spice_path: netlist_path,
+    })?;
     // run_simulation
     // parse_results
     // verify_results
