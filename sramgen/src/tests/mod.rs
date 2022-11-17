@@ -6,7 +6,7 @@ use crate::schematic::sram::{sram, SramParams};
 use crate::utils::save_modules;
 use crate::verilog::{save_1rw_verilog, Sram1RwParams};
 use crate::{clog2, generate_netlist, Result, BUILD_PATH};
-use std::fmt::Debug;
+
 use std::path::PathBuf;
 
 mod bitcells;
@@ -26,11 +26,6 @@ mod sram;
 mod tmc;
 mod wl_driver;
 mod wmask_control;
-
-pub(crate) fn panic_on_err<E: Debug>(e: E) -> ! {
-    println!("ERROR: {e:?}");
-    panic!("ERROR: {e:?}");
-}
 
 pub(crate) fn test_gds_path(name: &str) -> PathBuf {
     PathBuf::from(BUILD_PATH).join(format!("gds/{}.gds", name))

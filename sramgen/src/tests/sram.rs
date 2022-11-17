@@ -1,11 +1,6 @@
 use crate::config::{ControlMode, SramConfig};
-use crate::layout::bank::*;
-use crate::schematic::sram::*;
-use crate::tests::{panic_on_err, test_gds_path, test_verilog_path};
-use crate::utils::save_modules;
-use crate::verilog::*;
-use crate::{generate_netlist, Result};
-use pdkprims::tech::sky130;
+
+use crate::Result;
 
 use super::generate_test;
 
