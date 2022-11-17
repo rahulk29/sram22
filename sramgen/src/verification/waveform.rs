@@ -47,6 +47,10 @@ impl Waveform {
         }
         self.push(until, 0f64);
     }
+
+    pub fn values(&self) -> impl Iterator<Item = (f64, f64)> + '_ {
+        self.values.iter().copied()
+    }
 }
 
 impl Default for Waveform {

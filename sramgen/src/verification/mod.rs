@@ -4,6 +4,7 @@ use waveform::Waveform;
 use crate::verification::utils::push_bus;
 
 pub mod bit_signal;
+pub mod netlist;
 pub mod utils;
 pub mod waveform;
 
@@ -45,14 +46,15 @@ pub struct TbParams {
     pub addr_width: usize,
     pub wmask_groups: usize,
 
-    pub chip_select_port: Option<String>,
+    pub clk_port: String,
     pub write_enable_port: String,
     pub addr_port: String,
     pub data_in_port: String,
     pub data_out_port: String,
+    pub wmask_port: Option<String>,
 }
 
-struct TbWaveforms {
+pub struct TbWaveforms {
     /// One [`Waveform`] per address bit.
     addr: Vec<Waveform>,
 
@@ -141,6 +143,17 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
 
         t += period;
     }
+
+    let t_end = t+period;
+    let t_final = t + 2.0*period;
+
+    // One more clock cycle
+    clk.push_high(t + period / 2.0, vdd, tr);
+    clk.push_low(t_end, vdd, tf);
+
+    // Turn off write enable
+    we.push_low(t_final, vdd, tf);
+    clk.push_high(t_final, vdd, tr);
 
     TbWaveforms {
         addr,
