@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct BitSignal {
     bits: Vec<bool>,
 }

@@ -1,6 +1,7 @@
 use super::utils::{is_logical_high, is_logical_low};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Waveform {
     /// List of `(t, x)` pairs.
     values: Vec<(f64, f64)>,
