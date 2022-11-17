@@ -17,6 +17,7 @@ pub mod tech;
 #[cfg(test)]
 mod tests;
 pub mod utils;
+pub mod verification;
 pub mod verilog;
 
 pub use anyhow::{anyhow, Result};
