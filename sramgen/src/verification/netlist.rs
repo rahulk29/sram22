@@ -3,7 +3,7 @@ use super::{TbParams, TbWaveforms};
 use crate::verification::PortOrder;
 use crate::Result;
 use std::fmt::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub struct TbNetlistParams<'a> {

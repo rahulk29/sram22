@@ -1,5 +1,5 @@
 use anyhow::bail;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 use crate::Result;
