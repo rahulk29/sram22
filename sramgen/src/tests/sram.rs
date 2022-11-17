@@ -1,9 +1,13 @@
+use std::path::PathBuf;
+
 use crate::layout::bank::*;
 use crate::schematic::sram::*;
 use crate::tests::{panic_on_err, test_gds_path, test_verilog_path};
 use crate::utils::save_modules;
+use crate::verification::bit_signal::BitSignal;
+use crate::verification::{self, PortClass, PortOrder, TbParams, TestCase};
 use crate::verilog::*;
-use crate::{generate_netlist, Result};
+use crate::{generate_netlist, Result, BUILD_PATH};
 use pdkprims::tech::sky130;
 
 #[cfg(feature = "calibre")]
@@ -124,6 +128,50 @@ fn test_sram_8x32m2w8_simple() -> Result<()> {
         },
     )
     .unwrap();
+
+    let test_case = TestCase::builder()
+        .clk_period(10e-9)
+        .ops(vec![
+            verification::Op::Write {
+                addr: BitSignal::from_u32(14, 5),
+                data: BitSignal::from_u32(123, 8),
+            },
+            verification::Op::Read {
+                addr: BitSignal::from_u32(14, 5),
+            },
+        ])
+        .build()?;
+
+    let tb = TbParams::builder()
+        .test_case(test_case)
+        .sram_name(name)
+        .tr(50e-12)
+        .tf(50e-12)
+        .vdd(1.8)
+        .c_load(5e-15)
+        .data_width(8)
+        .addr_width(5)
+        .wmask_groups(1)
+        .ports([
+            (PortClass::Power, PortOrder::MsbFirst),
+            (PortClass::Ground, PortOrder::MsbFirst),
+            (PortClass::Clock, PortOrder::MsbFirst),
+            (PortClass::DataIn, PortOrder::MsbFirst),
+            (PortClass::DataOut, PortOrder::MsbFirst),
+            (PortClass::WriteEnable, PortOrder::MsbFirst),
+            (PortClass::Addr, PortOrder::MsbFirst),
+        ])
+        .clk_port("clk")
+        .write_enable_port("we")
+        .addr_port("addr")
+        .data_in_port("din")
+        .data_out_port("dout")
+        .pwr_port("vdd")
+        .gnd_port("vss")
+        .work_dir(PathBuf::from(BUILD_PATH).join(format!("sim/{}", name)))
+        .build()?;
+
+    verification::run_testbench(&tb)?;
 
     #[cfg(feature = "calibre")]
     self::calibre::run_sram_drc_lvs(name)?;

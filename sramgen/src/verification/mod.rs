@@ -44,6 +44,7 @@ pub enum PortClass {
     DataIn,
     DataOut,
     Power,
+    Clock,
     Ground,
     WriteMask,
     WriteEnable,
@@ -89,6 +90,7 @@ pub struct TbParams {
     /// SPICE subcircuit definition.
     ///
     /// For single bit ports, the [`PortOrder`] is ignored.
+    #[builder(setter(into))]
     pub ports: Vec<(PortClass, PortOrder)>,
     /// Name of the clock port
     #[builder(setter(into))]
@@ -112,20 +114,20 @@ pub struct TbParams {
     #[builder(setter(into))]
     pub gnd_port: String,
     /// Name of the write mask bus.
-    #[builder(setter(strip_option, into))]
+    #[builder(default, setter(strip_option, into))]
     pub wmask_port: Option<String>,
 
     /// Working directory for the simulator and generated files.
     #[builder(setter(into))]
     pub work_dir: PathBuf,
     /// Source netlists.
-    #[builder(setter(into))]
+    #[builder(default, setter(into))]
     pub source_paths: Vec<PathBuf>,
     /// Additional SPICE files to include.
     ///
     /// Should NOT include the source paths
     /// specified in [`TbParams::source_paths`].
-    #[builder(setter(into))]
+    #[builder(default, setter(into))]
     pub includes: Vec<String>,
 }
 
@@ -137,6 +139,7 @@ impl TbParams {
             PortClass::DataOut => &self.data_out_port,
             PortClass::Ground => &self.gnd_port,
             PortClass::Power => &self.pwr_port,
+            PortClass::Clock => &self.clk_port,
             PortClass::WriteMask => self.wmask_port.as_ref().unwrap(),
             PortClass::WriteEnable => &self.write_enable_port,
         }
@@ -148,6 +151,7 @@ impl TbParams {
             PortClass::DataOut => self.data_width,
             PortClass::Ground => 1,
             PortClass::Power => 1,
+            PortClass::Clock => 1,
             PortClass::WriteMask => self.wmask_groups,
             PortClass::WriteEnable => 1,
         }
@@ -166,6 +170,7 @@ impl PortClass {
             PortClass::DataOut => true,
             PortClass::Ground => false,
             PortClass::Power => false,
+            PortClass::Clock => false,
             PortClass::WriteMask => true,
             PortClass::WriteEnable => false,
         }
@@ -231,12 +236,13 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
     let tf = params.tf;
 
     let mut t = 0f64;
+    let mut t_end;
 
     for op in params.test_case.ops.iter() {
-        let t_end = t + period;
+        t_end = t + period;
         // Toggle the clock
-        clk.push_high(t + period / 2.0, vdd, tr);
-        clk.push_low(t_end, vdd, tf);
+        clk.push_high(t + (period / 2.0), vdd, tr);
+        clk.push_low(t + period, vdd, tf);
 
         match op {
             Op::Read { addr: addrv } => {
@@ -280,7 +286,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
         t += period;
     }
 
-    let t_end = t + period;
+    t_end = t + period;
     let t_final = t + 2.0 * period;
 
     // One more clock cycle

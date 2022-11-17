@@ -20,6 +20,9 @@ impl Waveform {
     }
 
     pub fn push(&mut self, t: f64, x: f64) {
+        if let Some(tp) = self.last_t() {
+            assert!(t > tp);
+        }
         self.values.push((t, x));
     }
 
@@ -36,15 +39,21 @@ impl Waveform {
     }
 
     pub fn push_high(&mut self, until: f64, vdd: f64, tr: f64) {
+        if let Some(t) = self.last_t() {
+            assert!(until > t);
+        }
         if is_logical_low(self.last_x().unwrap_or(vdd), vdd) {
-            self.push(tr, vdd);
+            self.push(self.last_t().unwrap() + tr, vdd);
         }
         self.push(until, vdd);
     }
 
     pub fn push_low(&mut self, until: f64, vdd: f64, tf: f64) {
+        if let Some(t) = self.last_t() {
+            assert!(until > t);
+        }
         if is_logical_high(self.last_x().unwrap_or(0f64), vdd) {
-            self.push(tf, 0f64);
+            self.push(self.last_t().unwrap() + tf, 0f64);
         }
         self.push(until, 0f64);
     }
