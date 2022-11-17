@@ -82,8 +82,7 @@ fn cell_gds(pdk_lib: &mut PdkLib, gds_file: &str, cell_name: &str) -> CellGdsRes
         return Ok(cell);
     }
 
-    let mut path = external_gds_path();
-    path.push(gds_file);
+    let path = external_gds_path().join(gds_file);
     let lib = GdsLibrary::load(&path)?;
     let lib = Library::from_gds(&lib, Some(pdk_lib.pdk.layers.clone()))?;
 
@@ -296,10 +295,7 @@ pub fn sramgen_control_ref() -> Reference {
 
 #[inline]
 pub fn external_gds_path() -> PathBuf {
-    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("..");
-    p.push("tech/sky130/gds");
-    p
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tech/sky130/gds")
 }
 
 /// Reference to a single port sense amplifier.

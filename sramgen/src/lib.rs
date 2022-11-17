@@ -28,9 +28,7 @@ pub const BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
 pub const LIB_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/lib");
 
 pub fn out_bin(name: &str) -> PathBuf {
-    let mut path = PathBuf::from(BUILD_PATH);
-    path.push(format!("pb/{}.pb.bin", name));
-    path
+    PathBuf::from(BUILD_PATH).join(format!("pb/{}.pb.bin", name))
 }
 
 pub fn save_bin(name: &str, pkg: Package) -> Result<()> {
@@ -50,8 +48,7 @@ pub fn save_bin(name: &str, pkg: Package) -> Result<()> {
 }
 
 pub fn generate_netlist(name: &str) -> Result<()> {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push("scripts/generate.py");
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("scripts/generate.py");
 
     let status = Command::new("python3")
         .args([path, name.into()])
