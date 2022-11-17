@@ -1,13 +1,11 @@
-use crate::layout::bank::*;
-use crate::schematic::sram::*;
-use crate::tests::{panic_on_err, test_gds_path, test_verilog_path};
-use crate::utils::save_modules;
-use crate::verilog::*;
-use crate::{generate_netlist, Result};
-use pdkprims::tech::sky130;
+use crate::config::{ControlMode, SramConfig};
+
+use crate::Result;
+
+use super::generate_test;
 
 #[cfg(feature = "calibre")]
-mod calibre {
+pub(crate) mod calibre {
     use crate::tests::test_gds_path;
     use crate::{Result, BUILD_PATH, LIB_PATH};
     use calibre::drc::{run_drc, DrcParams};
@@ -82,412 +80,99 @@ mod calibre {
 
 #[test]
 fn test_sram_8x32m2w8_simple() -> Result<()> {
-    let name = "sramgen_sram_8x32m2w8_simple";
-    let modules = sram(SramParams {
-        name: name.to_string(),
-        row_bits: 4,
-        col_bits: 4,
-        col_mask_bits: 1,
-        wmask_groups: 1,
-    });
-
-    save_modules(name, modules)?;
-
-    generate_netlist(name)?;
-
-    let mut lib = sky130::pdk_lib(name)?;
-    draw_sram_bank(
-        &mut lib,
-        SramBankParams {
-            name: name.to_string(),
-            rows: 16,
-            cols: 16,
-            mux_ratio: 2,
-            wmask_groups: 1,
-        },
-    )
-    .map_err(panic_on_err)?;
-
-    lib.save_gds(test_gds_path(name)).map_err(panic_on_err)?;
-
-    save_1rw_verilog(
-        test_verilog_path(name),
-        Sram1RwParams {
-            module_name: name.to_string(),
-            num_words: 32,
-            data_width: 8,
-            addr_width: 5,
-        },
-    )
-    .unwrap();
-
-    #[cfg(feature = "calibre")]
-    self::calibre::run_sram_drc_lvs(name)?;
-
-    Ok(())
+    generate_test(SramConfig {
+        num_words: 32,
+        data_width: 8,
+        mux_ratio: 2,
+        write_size: 8,
+        control: ControlMode::Simple,
+    })
 }
 
 #[test]
 fn test_sram_16x64m2w16_simple() -> Result<()> {
-    let name = "sramgen_sram_16x64m2w16_simple";
-    let modules = sram(SramParams {
-        name: name.to_string(),
-        row_bits: 5,
-        col_bits: 5,
-        col_mask_bits: 1,
-        wmask_groups: 1,
-    });
-
-    save_modules(name, modules)?;
-
-    generate_netlist(name)?;
-
-    let mut lib = sky130::pdk_lib(name)?;
-    draw_sram_bank(
-        &mut lib,
-        SramBankParams {
-            name: name.to_string(),
-            rows: 32,
-            cols: 32,
-            mux_ratio: 2,
-            wmask_groups: 1,
-        },
-    )
-    .map_err(panic_on_err)?;
-    lib.save_gds(test_gds_path(name)).map_err(panic_on_err)?;
-
-    save_1rw_verilog(
-        test_verilog_path(name),
-        Sram1RwParams {
-            module_name: name.to_string(),
-            num_words: 64,
-            data_width: 16,
-            addr_width: 6,
-        },
-    )?;
-
-    #[cfg(feature = "calibre")]
-    self::calibre::run_sram_drc_lvs(name)?;
-
-    Ok(())
+    generate_test(SramConfig {
+        num_words: 64,
+        data_width: 16,
+        mux_ratio: 2,
+        write_size: 16,
+        control: ControlMode::Simple,
+    })
 }
 
 #[test]
 fn test_sram_8x128m4w8_simple() -> Result<()> {
-    let name = "sramgen_sram_8x128m4w8_simple";
-    let modules = sram(SramParams {
-        name: name.to_string(),
-        row_bits: 5,
-        col_bits: 5,
-        col_mask_bits: 2,
-        wmask_groups: 1,
-    });
-
-    save_modules(name, modules)?;
-
-    generate_netlist(name)?;
-
-    let mut lib = sky130::pdk_lib(name)?;
-    draw_sram_bank(
-        &mut lib,
-        SramBankParams {
-            name: name.to_string(),
-            rows: 32,
-            cols: 32,
-            mux_ratio: 4,
-            wmask_groups: 1,
-        },
-    )
-    .map_err(panic_on_err)?;
-    lib.save_gds(test_gds_path(name)).map_err(panic_on_err)?;
-
-    save_1rw_verilog(
-        test_verilog_path(name),
-        Sram1RwParams {
-            module_name: name.to_string(),
-            num_words: 128,
-            data_width: 8,
-            addr_width: 7,
-        },
-    )?;
-
-    #[cfg(feature = "calibre")]
-    self::calibre::run_sram_drc_lvs(name)?;
-
-    Ok(())
+    generate_test(SramConfig {
+        num_words: 128,
+        data_width: 8,
+        mux_ratio: 4,
+        write_size: 8,
+        control: ControlMode::Simple,
+    })
 }
 
 #[test]
 fn test_sram_8x128m4w2_simple() -> Result<()> {
-    let name = "sramgen_sram_8x128m4w2_simple";
-    let modules = sram(SramParams {
-        name: name.to_string(),
-        row_bits: 5,
-        col_bits: 5,
-        col_mask_bits: 2,
-        wmask_groups: 4,
-    });
-
-    save_modules(name, modules)?;
-
-    generate_netlist(name)?;
-
-    let mut lib = sky130::pdk_lib(name)?;
-    draw_sram_bank(
-        &mut lib,
-        SramBankParams {
-            name: name.to_string(),
-            rows: 32,
-            cols: 32,
-            mux_ratio: 4,
-            wmask_groups: 4,
-        },
-    )
-    .map_err(panic_on_err)?;
-    lib.save_gds(test_gds_path(name)).map_err(panic_on_err)?;
-
-    save_1rw_verilog(
-        test_verilog_path(name),
-        Sram1RwParams {
-            module_name: name.to_string(),
-            num_words: 128,
-            data_width: 8,
-            addr_width: 7,
-        },
-    )?;
-
-    #[cfg(feature = "calibre")]
-    self::calibre::run_sram_drc_lvs(name)?;
-
-    Ok(())
+    generate_test(SramConfig {
+        num_words: 128,
+        data_width: 8,
+        mux_ratio: 4,
+        write_size: 2,
+        control: ControlMode::Simple,
+    })
 }
 
 #[test]
 fn test_sram_4x256m8w4_simple() -> Result<()> {
-    let name = "sramgen_sram_4x256m8w4_simple";
-    let modules = sram(SramParams {
-        name: name.to_string(),
-        row_bits: 5,
-        col_bits: 5,
-        col_mask_bits: 3,
-        wmask_groups: 1,
-    });
-
-    save_modules(name, modules)?;
-
-    generate_netlist(name)?;
-
-    let mut lib = sky130::pdk_lib(name)?;
-    draw_sram_bank(
-        &mut lib,
-        SramBankParams {
-            name: name.to_string(),
-            rows: 32,
-            cols: 32,
-            mux_ratio: 8,
-            wmask_groups: 1,
-        },
-    )
-    .map_err(panic_on_err)?;
-
-    lib.save_gds(test_gds_path(name)).map_err(panic_on_err)?;
-
-    save_1rw_verilog(
-        test_verilog_path(name),
-        Sram1RwParams {
-            module_name: name.to_string(),
-            num_words: 256,
-            data_width: 4,
-            addr_width: 8,
-        },
-    )?;
-
-    #[cfg(feature = "calibre")]
-    self::calibre::run_sram_drc_lvs(name)?;
-
-    Ok(())
+    generate_test(SramConfig {
+        num_words: 256,
+        data_width: 4,
+        mux_ratio: 8,
+        write_size: 4,
+        control: ControlMode::Simple,
+    })
 }
 
 #[test]
 fn test_sram_32x256m2w32_simple() -> Result<()> {
-    let name = "sramgen_sram_32x256m2w32_simple";
-    let modules = sram(SramParams {
-        name: name.to_string(),
-        row_bits: 7,
-        col_bits: 6,
-        col_mask_bits: 1,
-        wmask_groups: 1,
-    });
-
-    save_modules(name, modules)?;
-
-    generate_netlist(name)?;
-
-    let mut lib = sky130::pdk_lib(name)?;
-    draw_sram_bank(
-        &mut lib,
-        SramBankParams {
-            name: name.to_string(),
-            rows: 128,
-            cols: 64,
-            mux_ratio: 2,
-            wmask_groups: 1,
-        },
-    )
-    .map_err(panic_on_err)?;
-
-    lib.save_gds(test_gds_path(name)).map_err(panic_on_err)?;
-
-    save_1rw_verilog(
-        test_verilog_path(name),
-        Sram1RwParams {
-            module_name: name.to_string(),
-            num_words: 256,
-            data_width: 32,
-            addr_width: 8,
-        },
-    )?;
-
-    #[cfg(feature = "calibre")]
-    self::calibre::run_sram_drc_lvs(name)?;
-
-    Ok(())
+    generate_test(SramConfig {
+        num_words: 256,
+        data_width: 32,
+        mux_ratio: 2,
+        write_size: 32,
+        control: ControlMode::Simple,
+    })
 }
 
 #[test]
 fn test_sram_64x128m2w64_simple() -> Result<()> {
-    let name = "sramgen_sram_64x128m2w64_simple";
-    let modules = sram(SramParams {
-        name: name.to_string(),
-        row_bits: 6,
-        col_bits: 7,
-        col_mask_bits: 1,
-        wmask_groups: 1,
-    });
-
-    save_modules(name, modules)?;
-
-    generate_netlist(name)?;
-
-    let mut lib = sky130::pdk_lib(name)?;
-    draw_sram_bank(
-        &mut lib,
-        SramBankParams {
-            name: name.to_string(),
-            rows: 64,
-            cols: 128,
-            mux_ratio: 2,
-            wmask_groups: 1,
-        },
-    )
-    .map_err(panic_on_err)?;
-
-    lib.save_gds(test_gds_path(name)).map_err(panic_on_err)?;
-
-    save_1rw_verilog(
-        test_verilog_path(name),
-        Sram1RwParams {
-            module_name: name.to_string(),
-            num_words: 128,
-            data_width: 64,
-            addr_width: 7,
-        },
-    )?;
-
-    #[cfg(feature = "calibre")]
-    self::calibre::run_sram_drc_lvs(name)?;
-
-    Ok(())
+    generate_test(SramConfig {
+        num_words: 128,
+        data_width: 64,
+        mux_ratio: 2,
+        write_size: 64,
+        control: ControlMode::Simple,
+    })
 }
 
 #[test]
 fn test_sram_64x128m2w32_simple() -> Result<()> {
-    let name = "sramgen_sram_64x128m2w32_simple";
-    let modules = sram(SramParams {
-        name: name.to_string(),
-        row_bits: 6,
-        col_bits: 7,
-        col_mask_bits: 1,
-        wmask_groups: 2,
-    });
-
-    save_modules(name, modules)?;
-
-    generate_netlist(name)?;
-
-    let mut lib = sky130::pdk_lib(name)?;
-    draw_sram_bank(
-        &mut lib,
-        SramBankParams {
-            name: name.to_string(),
-            rows: 64,
-            cols: 128,
-            mux_ratio: 2,
-            wmask_groups: 2,
-        },
-    )
-    .map_err(panic_on_err)?;
-
-    lib.save_gds(test_gds_path(name)).map_err(panic_on_err)?;
-
-    save_1rw_verilog(
-        test_verilog_path(name),
-        Sram1RwParams {
-            module_name: name.to_string(),
-            num_words: 128,
-            data_width: 64,
-            addr_width: 7,
-        },
-    )?;
-
-    #[cfg(feature = "calibre")]
-    self::calibre::run_sram_drc_lvs(name)?;
-
-    Ok(())
+    generate_test(SramConfig {
+        num_words: 128,
+        data_width: 64,
+        mux_ratio: 2,
+        write_size: 32,
+        control: ControlMode::Simple,
+    })
 }
 
 #[test]
 fn test_sram_64x128m2w2_simple() -> Result<()> {
-    let name = "sramgen_sram_64x128m2w2_simple";
-    let modules = sram(SramParams {
-        name: name.to_string(),
-        row_bits: 6,
-        col_bits: 7,
-        col_mask_bits: 1,
-        wmask_groups: 32,
-    });
-
-    save_modules(name, modules)?;
-
-    generate_netlist(name)?;
-
-    let mut lib = sky130::pdk_lib(name)?;
-    draw_sram_bank(
-        &mut lib,
-        SramBankParams {
-            name: name.to_string(),
-            rows: 64,
-            cols: 128,
-            mux_ratio: 2,
-            wmask_groups: 32,
-        },
-    )
-    .map_err(panic_on_err)?;
-
-    lib.save_gds(test_gds_path(name)).map_err(panic_on_err)?;
-
-    save_1rw_verilog(
-        test_verilog_path(name),
-        Sram1RwParams {
-            module_name: name.to_string(),
-            num_words: 128,
-            data_width: 64,
-            addr_width: 7,
-        },
-    )?;
-
-    #[cfg(feature = "calibre")]
-    self::calibre::run_sram_drc_lvs(name)?;
-
-    Ok(())
+    generate_test(SramConfig {
+        num_words: 128,
+        data_width: 64,
+        mux_ratio: 2,
+        write_size: 2,
+        control: ControlMode::Simple,
+    })
 }
