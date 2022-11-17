@@ -26,13 +26,9 @@ pub(crate) fn panic_on_err<E: Debug>(e: E) -> ! {
 }
 
 pub(crate) fn test_gds_path(name: &str) -> PathBuf {
-    let mut path = PathBuf::from(BUILD_PATH);
-    path.push(format!("gds/{}.gds", name));
-    path
+    PathBuf::from(BUILD_PATH).join(format!("gds/{}.gds", name))
 }
 
 pub(crate) fn test_verilog_path(name: &str) -> PathBuf {
-    let mut path = PathBuf::from(BUILD_PATH);
-    path.push(format!("verilog/{}.v", name));
-    path
+    PathBuf::from(BUILD_PATH).join(format!("verilog/{}.v", name))
 }

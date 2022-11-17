@@ -24,8 +24,7 @@ mod calibre {
     }
 
     pub fn run_sram_drc_lvs(name: &str) -> Result<()> {
-        let mut work_dir = PathBuf::from(BUILD_PATH);
-        work_dir.push(format!("drc/{}", name));
+        let work_dir = PathBuf::from(BUILD_PATH).join(format!("drc/{}", name));
 
         let layout_path = test_gds_path(name);
 
@@ -45,18 +44,15 @@ mod calibre {
             "Found DRC errors"
         );
 
-        let mut source_path_main = PathBuf::from(BUILD_PATH);
-        source_path_main.push(format!("spice/{}.spice", name));
-        let mut source_path_dff = PathBuf::from(LIB_PATH);
-        source_path_dff.push("openram_dff/openram_dff.spice");
-        let mut source_path_sp_cell = PathBuf::from(LIB_PATH);
-        source_path_sp_cell.push("sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.lvs.spice");
-        let mut source_path_sp_sense_amp = PathBuf::from(LIB_PATH);
-        source_path_sp_sense_amp.push("sramgen_sp_sense_amp/sramgen_sp_sense_amp.spice");
-        let mut source_path_control_simple = PathBuf::from(LIB_PATH);
-        source_path_control_simple.push("sramgen_control/sramgen_control_simple.spice");
-        let mut work_dir = PathBuf::from(BUILD_PATH);
-        work_dir.push(format!("lvs/{}", name));
+        let source_path_main = PathBuf::from(BUILD_PATH).join(format!("spice/{}.spice", name));
+        let source_path_dff = PathBuf::from(LIB_PATH).join("openram_dff/openram_dff.spice");
+        let source_path_sp_cell =
+            PathBuf::from(LIB_PATH).join("sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.lvs.spice");
+        let source_path_sp_sense_amp =
+            PathBuf::from(LIB_PATH).join("sramgen_sp_sense_amp/sramgen_sp_sense_amp.spice");
+        let source_path_control_simple =
+            PathBuf::from(LIB_PATH).join("sramgen_control/sramgen_control_simple.spice");
+        let work_dir = PathBuf::from(BUILD_PATH).join(format!("lvs/{}", name));
 
         assert!(
             matches!(
