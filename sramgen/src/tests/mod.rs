@@ -4,6 +4,8 @@ use crate::config::{ControlMode, SramConfig};
 use crate::layout::bank::{draw_sram_bank, SramBankParams};
 use crate::schematic::sram::{sram, SramParams};
 use crate::utils::save_modules;
+use crate::verification::bit_signal::BitSignal;
+use crate::verification::{self, source_files, PortClass, PortOrder, TbParams, TestCase};
 use crate::verilog::{save_1rw_verilog, Sram1RwParams};
 use crate::{clog2, generate_netlist, Result, BUILD_PATH};
 
@@ -101,6 +103,51 @@ pub(crate) fn generate_test(config: SramConfig) -> Result<()> {
 
     #[cfg(feature = "calibre")]
     self::sram::calibre::run_sram_drc_lvs(&name)?;
+
+    let test_case = TestCase::builder()
+        .clk_period(20e-9)
+        .ops([
+            verification::Op::Write {
+                addr: BitSignal::from_u64(14, addr_width),
+                data: BitSignal::from_u64(2321, data_width),
+            },
+            verification::Op::Read {
+                addr: BitSignal::from_u64(14, addr_width),
+            },
+        ])
+        .build()?;
+
+    let tb = TbParams::builder()
+        .test_case(test_case)
+        .sram_name(&name)
+        .tr(50e-12)
+        .tf(50e-12)
+        .vdd(1.8)
+        .c_load(5e-15)
+        .data_width(8)
+        .addr_width(5)
+        .wmask_groups(1)
+        .ports([
+            (PortClass::Power, PortOrder::MsbFirst),
+            (PortClass::Ground, PortOrder::MsbFirst),
+            (PortClass::Clock, PortOrder::MsbFirst),
+            (PortClass::DataIn, PortOrder::MsbFirst),
+            (PortClass::DataOut, PortOrder::MsbFirst),
+            (PortClass::WriteEnable, PortOrder::MsbFirst),
+            (PortClass::Addr, PortOrder::MsbFirst),
+        ])
+        .clk_port("clk")
+        .write_enable_port("we")
+        .addr_port("addr")
+        .data_in_port("din")
+        .data_out_port("dout")
+        .pwr_port("vdd")
+        .gnd_port("vss")
+        .work_dir(PathBuf::from(BUILD_PATH).join(format!("sim/{}", name)))
+        .source_paths(source_files(&name))
+        .build()?;
+
+    verification::run_testbench(&tb)?;
 
     Ok(())
 }
