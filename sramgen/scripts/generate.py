@@ -71,6 +71,7 @@ M0 d g s b phighvt l='l' w='w' mult='mult'
 def make_dirs():
     os.makedirs(os.path.join(BUILD_DIR, "spice/"), exist_ok=True)
     os.makedirs(os.path.join(BUILD_DIR, "ngspice/"), exist_ok=True)
+    os.makedirs(os.path.join(BUILD_DIR, "spectre/"), exist_ok=True)
 
 def generate(CKT):
     print(f"Generating {CKT}...")
