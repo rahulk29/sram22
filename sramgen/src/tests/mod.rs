@@ -5,7 +5,9 @@ use crate::layout::bank::{draw_sram_bank, SramBankParams};
 use crate::schematic::sram::{sram, SramParams};
 use crate::utils::save_modules;
 use crate::verification::bit_signal::BitSignal;
-use crate::verification::{self, source_files, PortClass, PortOrder, TbParams, TestCase};
+use crate::verification::{
+    self, source_files, PortClass, PortOrder, TbParams, TestCase, VerificationTask,
+};
 use crate::verilog::{save_1rw_verilog, Sram1RwParams};
 use crate::{clog2, generate_netlist, Result, BUILD_PATH};
 
@@ -149,7 +151,7 @@ pub(crate) fn generate_test(config: SramConfig) -> Result<()> {
         .gnd_port("vss")
         .wmask_port("wmask")
         .work_dir(PathBuf::from(BUILD_PATH).join(format!("sim/{}", name)))
-        .source_paths(source_files(&name));
+        .source_paths(source_files(&name, VerificationTask::SpectreSim));
 
     #[cfg(feature = "spectre")]
     tb.includes(crate::verification::spectre::sky130_includes());

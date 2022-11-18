@@ -310,11 +310,36 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
     }
 }
 
-pub fn source_files(sram_name: &str) -> Vec<PathBuf> {
-    let source_path_main = PathBuf::from(BUILD_PATH).join(format!("spice/{}.spice", sram_name));
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub enum VerificationTask {
+    SpiceSim,
+    NgspiceSim,
+    SpectreSim,
+    Lvs,
+    Pex,
+}
+
+pub fn source_files(sram_name: &str, task: VerificationTask) -> Vec<PathBuf> {
+    let source_path_main = match task {
+        VerificationTask::SpectreSim => {
+            PathBuf::from(BUILD_PATH).join(format!("spectre/{}.spice", sram_name))
+        }
+        VerificationTask::NgspiceSim => {
+            PathBuf::from(BUILD_PATH).join(format!("ngspice/{}.spice", sram_name))
+        }
+        _ => PathBuf::from(BUILD_PATH).join(format!("spice/{}.spice", sram_name)),
+    };
     let source_path_dff = PathBuf::from(LIB_PATH).join("openram_dff/openram_dff.spice");
-    let source_path_sp_cell =
-        PathBuf::from(LIB_PATH).join("sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.lvs.spice");
+    let source_path_sp_cell = match task {
+        VerificationTask::SpiceSim
+        | VerificationTask::NgspiceSim
+        | VerificationTask::SpectreSim => {
+            PathBuf::from(LIB_PATH).join("sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.spice")
+        }
+        VerificationTask::Lvs | VerificationTask::Pex => {
+            PathBuf::from(LIB_PATH).join("sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.lvs.spice")
+        }
+    };
     let source_path_sp_sense_amp =
         PathBuf::from(LIB_PATH).join("sramgen_sp_sense_amp/sramgen_sp_sense_amp.spice");
     let source_path_control_simple =

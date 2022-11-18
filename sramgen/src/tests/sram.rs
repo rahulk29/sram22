@@ -7,7 +7,7 @@ use super::generate_test;
 #[cfg(feature = "calibre")]
 pub(crate) mod calibre {
     use crate::tests::test_gds_path;
-    use crate::verification::source_files;
+    use crate::verification::{source_files, VerificationTask};
     use crate::{Result, BUILD_PATH};
     use calibre::drc::{run_drc, DrcParams};
     use calibre::lvs::{run_lvs, LvsParams, LvsStatus};
@@ -51,7 +51,7 @@ pub(crate) mod calibre {
                     work_dir,
                     layout_path,
                     layout_cell_name: name.to_string(),
-                    source_paths: source_files(name),
+                    source_paths: source_files(name, VerificationTask::Lvs),
                     source_cell_name: name.to_string(),
                     lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
                 })?
