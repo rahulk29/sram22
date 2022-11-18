@@ -8,27 +8,33 @@ BUILD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../build")
 PROPRIETARY_PRELUDE = """*SPICE NETLIST
 * OPEN SOURCE CONVERSION PRELUDE
 
-.SUBCKT sky130_fd_pr__special_nfet_pass d g s b PARAMS: w=1.0 l=1.0 mult=1
+.SUBCKT sky130_fd_pr__special_nfet_pass d g s b
+.PARAM w=1.0 l=1.0 mult=1
 M0 d g s b npass l='l' w='w' mult='mult'
 .ENDS
 
-.SUBCKT sky130_fd_pr__special_nfet_latch d g s b PARAMS: w=1.0 l=1.0 mult=1
+.SUBCKT sky130_fd_pr__special_nfet_latch d g s b
+.PARAM w=1.0 l=1.0 mult=1
 M0 d g s b npd l='l' w='w' mult='mult'
 .ENDS
 
-.SUBCKT sky130_fd_pr__nfet_01v8 d g s b PARAMS: w=1.0 l=1.0 mult=1
+.SUBCKT sky130_fd_pr__nfet_01v8 d g s b
+.PARAM w=1.0 l=1.0 mult=1
 M0 d g s b nshort l='l' w='w' mult='mult'
 .ENDS
 
-.SUBCKT sky130_fd_pr__pfet_01v8 d g s b PARAMS: w=1.0 l=1.0 mult=1
+.SUBCKT sky130_fd_pr__pfet_01v8 d g s b
+.PARAM w=1.0 l=1.0 mult=1
 M0 d g s b pshort l='l' w='w' mult='mult'
 .ENDS
 
-.SUBCKT sky130_fd_pr__special_pfet_pass d g s b PARAMS: w=1.0 l=1.0 mult=1
+.SUBCKT sky130_fd_pr__special_pfet_pass d g s b
+.PARAM w=1.0 l=1.0 mult=1
 M0 d g s b ppu l='l' w='w' mult='mult'
 .ENDS
 
-.SUBCKT sky130_fd_pr__pfet_01v8_hvt d g s b PARAMS: w=1.0 l=1.0 mult=1
+.SUBCKT sky130_fd_pr__pfet_01v8_hvt d g s b
+.PARAM w=1.0 l=1.0 mult=1
 M0 d g s b phighvt l='l' w='w' mult='mult'
 .ENDS
 """
