@@ -13,8 +13,8 @@ format:
 	black scripts/
 
 test:
-	rm -rf /tmp/sram22/
-	cargo test --features calibre spectre
+	rm -rf sramgen/build/
+	cargo test --release --features calibre --features spectre
 
 check:
 	cargo check --all-features --all-targets
