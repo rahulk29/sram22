@@ -106,15 +106,16 @@ pub(crate) fn generate_test(config: SramConfig) -> Result<()> {
     #[cfg(feature = "calibre")]
     self::sram::calibre::run_sram_drc_lvs(&name)?;
 
+    let alternating_bits = 0b0101010101010101010101010101010101010101010101010101010101010101u64;
     let test_case = TestCase::builder()
         .clk_period(20e-9)
         .ops([
             verification::Op::Write {
-                addr: BitSignal::from_u64(14, addr_width),
-                data: BitSignal::from_u64(2321, data_width),
+                addr: BitSignal::from_u64(alternating_bits, addr_width),
+                data: BitSignal::from_u64(alternating_bits, data_width),
             },
             verification::Op::Read {
-                addr: BitSignal::from_u64(14, addr_width),
+                addr: BitSignal::from_u64(alternating_bits, addr_width),
             },
         ])
         .build()?;
