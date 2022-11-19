@@ -1,3 +1,5 @@
+use anyhow::anyhow;
+
 use super::waveform::Waveform;
 use super::{TbParams, TbWaveforms};
 use crate::verification::PortOrder;
@@ -58,7 +60,16 @@ pub fn generate_netlist(params: TbNetlistParams) -> crate::Result<String> {
     write_pwl_bus(&mut out, &tb.addr_port, gnd_net, addr)?;
     write_pwl_bus(&mut out, &tb.data_in_port, gnd_net, din)?;
     if !wmask.is_empty() {
-        write_pwl_bus(&mut out, tb.wmask_port.as_ref().unwrap(), gnd_net, addr)?;
+        write_pwl_bus(
+            &mut out,
+            tb.wmask_port.as_ref().ok_or_else(|| {
+                anyhow!(
+                    "Attempting to use write mask waveforms but no write mask port was specified."
+                )
+            })?,
+            gnd_net,
+            wmask,
+        )?;
     }
 
     write_spacer(&mut out)?;
@@ -72,8 +83,16 @@ pub fn generate_netlist(params: TbNetlistParams) -> crate::Result<String> {
     write_spacer(&mut out)?;
     write_probe(&mut out, &tb.clk_port)?;
     write_probe(&mut out, &tb.write_enable_port)?;
-    if let Some(ref wmask_port) = tb.wmask_port {
-        write_probes(&mut out, wmask_port, tb.wmask_groups)?;
+    if !wmask.is_empty() {
+        write_probes(
+            &mut out,
+            tb.wmask_port.as_ref().ok_or_else(|| {
+                anyhow!(
+                    "Attempting to use write mask waveforms but no write mask port was specified."
+                )
+            })?,
+            tb.wmask_groups,
+        )?;
     }
     write_probes(&mut out, &tb.data_out_port, tb.data_width)?;
     write_probes(&mut out, &tb.data_in_port, tb.data_width)?;
