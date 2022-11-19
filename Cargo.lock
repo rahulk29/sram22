@@ -1229,7 +1229,7 @@ dependencies = [
 [[package]]
 name = "psf_ascii"
 version = "0.1.0"
-source = "git+https://github.com/rahulk29/psf_ascii.git?branch=master#e79e86ba6ab224ca84973a51959b8b22c3d7802d"
+source = "git+https://github.com/rahulk29/psf_ascii.git?branch=master#33951c7041024e7cc230208d4af3062ad6bcc749"
 dependencies = [
  "anyhow",
  "pest",
