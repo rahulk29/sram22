@@ -50,4 +50,22 @@ impl BitSignal {
             bits: bits.to_vec(),
         }
     }
+
+    /// Assigns the i-th bit to the given value.
+    #[inline]
+    pub fn assign_bit(&mut self, i: usize, value: bool) {
+        self.bits[i] = value;
+    }
+
+    /// Clears the i-th bit (ie. sets it to 0).
+    #[inline]
+    pub fn clear_bit(&mut self, i: usize) {
+        self.bits[i] = false;
+    }
+
+    /// Sets the i-th bit (ie. sets it to 1).
+    #[inline]
+    pub fn set_bit(&mut self, i: usize) {
+        self.bits[i] = true;
+    }
 }

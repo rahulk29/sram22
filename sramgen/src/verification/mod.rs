@@ -1,7 +1,10 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
+use anyhow::{anyhow, bail};
 use bit_signal::BitSignal;
 use derive_builder::Builder;
+use psf_ascii::parser::transient::TransientData;
 use serde::{Deserialize, Serialize};
 use waveform::Waveform;
 
@@ -10,6 +13,7 @@ use crate::{Result, BUILD_PATH, LIB_PATH};
 
 use self::netlist::{generate_netlist, write_netlist, TbNetlistParams};
 use self::spectre::{run_spectre, SpectreParams};
+use self::utils::to_bit;
 
 pub mod bit_signal;
 pub mod netlist;
@@ -211,13 +215,12 @@ pub fn run_testbench(params: &TbParams) -> Result<()> {
         .join(format!("test_{}_sim.sp", params.sram_name));
     write_netlist(&netlist_path, &netlist)?;
 
-    run_spectre(&SpectreParams {
+    let data = run_spectre(&SpectreParams {
         work_dir: params.work_dir.clone(),
         spice_path: netlist_path,
     })?;
-    // run_simulation
-    // parse_results
-    // verify_results
+
+    verify_simulation(&data, params)?;
 
     Ok(())
 }
@@ -352,4 +355,55 @@ pub fn source_files(sram_name: &str, task: VerificationTask) -> Vec<PathBuf> {
         source_path_sp_sense_amp,
         source_path_control_simple,
     ]
+}
+
+fn verify_simulation(data: &TransientData, tb: &TbParams) -> Result<()> {
+    let mut state = HashMap::new();
+    let data_bits_per_wmask = tb.data_width / tb.wmask_groups;
+
+    // Clock cycle counter
+    // Initialized to 1 instead of 0,
+    // since nothing happens on the first cycle of our testbench.
+    let mut cycle = 1;
+
+    for op in tb.test_case.ops.iter() {
+        cycle += 1;
+        match op {
+            Op::Read { addr } => {
+                let expected: &BitSignal = state
+                    .get(addr)
+                    .ok_or_else(|| anyhow!("Attempted to read an uninitialized address."))?;
+
+                let t = cycle as f64 * tb.test_case.clk_period;
+                let idx = data.idx_before_time(t).unwrap();
+                for i in 0..tb.addr_width {
+                    let name = format!("v({}[{}])", &tb.data_out_port, i);
+                    let rx_bit = data.signal(&name).unwrap()[idx];
+                    let rx_bit = to_bit(rx_bit, tb.vdd)?;
+                    let ex_bit = expected.bit(i);
+                    if rx_bit != ex_bit {
+                        bail!(
+                            "Expected bit {} to be {}; got {} at clock cycle {} (time {}, index {})",
+                            i, ex_bit, rx_bit, cycle-1, t, idx
+                        );
+                    }
+                }
+            }
+            Op::Write { addr, data } => {
+                state.insert(addr.to_owned(), data.to_owned());
+            }
+            Op::WriteMasked { addr, data, mask } => {
+                // If performing a masked write, that address should already have been initialized.
+                let entry = state.get_mut(addr).unwrap();
+                for (i, bit) in mask.bits().enumerate() {
+                    if bit {
+                        for j in i * data_bits_per_wmask..(i + 1) * data_bits_per_wmask {
+                            entry.assign_bit(j, data.bit(j));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }

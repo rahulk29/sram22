@@ -1,5 +1,9 @@
+use anyhow::bail;
+
 use super::bit_signal::BitSignal;
 use super::waveform::Waveform;
+
+use crate::Result;
 
 pub const DIGITAL_REL_TOL: f64 = 1e-5;
 
@@ -13,6 +17,16 @@ pub fn is_logical_high(x: f64, vdd: f64) -> bool {
 
 pub fn logical_eq(x: f64, y: f64, vdd: f64) -> bool {
     ((x - y) / vdd).abs() < DIGITAL_REL_TOL
+}
+
+pub fn to_bit(x: f64, vdd: f64) -> Result<bool> {
+    if is_logical_low(x, vdd) {
+        Ok(false)
+    } else if is_logical_high(x, vdd) {
+        Ok(true)
+    } else {
+        bail!("Value was not close enough to either VDD or ground: {}", x);
+    }
 }
 
 pub fn push_bus(

@@ -70,7 +70,14 @@ pub fn generate_netlist(params: TbNetlistParams) -> crate::Result<String> {
         tb.c_load,
     )?;
     write_spacer(&mut out)?;
+    write_probe(&mut out, &tb.clk_port)?;
+    write_probe(&mut out, &tb.write_enable_port)?;
+    if let Some(ref wmask_port) = tb.wmask_port {
+        write_probes(&mut out, wmask_port, tb.wmask_groups)?;
+    }
     write_probes(&mut out, &tb.data_out_port, tb.data_width)?;
+    write_probes(&mut out, &tb.data_in_port, tb.data_width)?;
+    write_probes(&mut out, &tb.addr_port, tb.addr_width)?;
 
     write_spacer(&mut out)?;
     writeln!(&mut out, ".temp 25")?;
@@ -143,10 +150,16 @@ fn write_cap_loads(
 }
 
 fn write_probes(out: &mut String, port: &str, width: usize) -> Result<()> {
-    writeln!(out, "* PROBES")?;
+    writeln!(out, "* PROBES FOR {port}")?;
     for i in 0..width {
         writeln!(out, ".probe v({port}[{i}])")?;
     }
+    Ok(())
+}
+
+fn write_probe(out: &mut String, net: &str) -> Result<()> {
+    writeln!(out, "* PROBE FOR {net}")?;
+    writeln!(out, ".probe v({net})")?;
     Ok(())
 }
 

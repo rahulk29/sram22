@@ -1,4 +1,5 @@
 use anyhow::bail;
+use psf_ascii::parser::transient::TransientData;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -27,7 +28,7 @@ pub fn sky130_includes() -> Vec<String> {
     ]
 }
 
-pub fn run_spectre(params: &SpectreParams) -> Result<()> {
+pub fn run_spectre(params: &SpectreParams) -> Result<TransientData> {
     let paths = generate_paths(params);
 
     let out_file = std::fs::File::create(paths.stdout_path)?;
@@ -53,12 +54,18 @@ pub fn run_spectre(params: &SpectreParams) -> Result<()> {
         bail!("Spectre exited unsuccessfully");
     }
 
-    Ok(())
+    // Spectre chooses this file name by default
+    let psf_path = paths.raw_output_dir.join("timeSweep.tran.tran");
+    let psf = std::fs::read_to_string(psf_path)?;
+    let ast = psf_ascii::parser::frontend::parse(&psf)?;
+    let data = TransientData::from_ast(&ast);
+
+    Ok(data)
 }
 
 fn generate_paths(params: &SpectreParams) -> SpectreGeneratedPaths {
     SpectreGeneratedPaths {
-        raw_output_dir: params.work_dir.join("out/"),
+        raw_output_dir: params.work_dir.join("psf/"),
         log_path: params.work_dir.join("spectre.log"),
         stdout_path: params.work_dir.join("spectre.out"),
         stderr_path: params.work_dir.join("spectre.err"),
