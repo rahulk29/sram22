@@ -381,11 +381,19 @@ fn verify_simulation(data: &TransientData, tb: &TbParams) -> Result<()> {
                     .ok_or_else(|| anyhow!("Attempted to read an uninitialized address."))?;
 
                 let t = cycle as f64 * tb.test_case.clk_period;
-                let idx = data.idx_before_time(t).unwrap();
-                for i in 0..tb.addr_width {
+                let idx = data
+                    .idx_before_time(t)
+                    .ok_or_else(|| anyhow!("Time {} was out of simulation range", t))?;
+                for i in 0..tb.data_width {
                     let name = format!("v({}[{}])", &tb.data_out_port, i);
-                    let rx_bit = data.signal(&name).unwrap()[idx];
-                    let rx_bit = to_bit(rx_bit, tb.vdd)?;
+                    let rx_bit = data
+                        .signal(&name)
+                        .ok_or_else(|| anyhow!("Unable to find signal {}", &name))?
+                        .get(idx)
+                        .ok_or_else(|| {
+                            anyhow!("Index {} was out of range for signal {}", idx, &name)
+                        })?;
+                    let rx_bit = to_bit(*rx_bit, tb.vdd)?;
                     let ex_bit = expected.bit(i);
                     if rx_bit != ex_bit {
                         bail!(
@@ -400,7 +408,9 @@ fn verify_simulation(data: &TransientData, tb: &TbParams) -> Result<()> {
             }
             Op::WriteMasked { addr, data, mask } => {
                 // If performing a masked write, that address should already have been initialized.
-                let entry = state.get_mut(addr).unwrap();
+                let entry = state.get_mut(addr).ok_or_else(|| {
+                    anyhow!("Attempted to perform a masked write at an uninitialized address")
+                })?;
                 for (i, bit) in mask.bits().enumerate() {
                     if bit {
                         for j in i * data_bits_per_wmask..(i + 1) * data_bits_per_wmask {

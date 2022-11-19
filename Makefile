@@ -9,8 +9,9 @@ lint-fix:
 
 
 format:
-	cargo fmt
+	cargo +nightly fmt
 	black scripts/
+	black sramgen/scripts/
 
 test:
 	rm -rf sramgen/build/

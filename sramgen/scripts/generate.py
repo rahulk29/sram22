@@ -73,6 +73,7 @@ def make_dirs():
     os.makedirs(os.path.join(BUILD_DIR, "ngspice/"), exist_ok=True)
     os.makedirs(os.path.join(BUILD_DIR, "spectre/"), exist_ok=True)
 
+
 def generate(CKT):
     print(f"Generating {CKT}...")
     with open(os.path.join(BUILD_DIR, f"pb/{CKT}.pb.bin"), "rb") as f:
@@ -95,6 +96,7 @@ def generate(CKT):
             dest.write(PROPRIETARY_PRELUDE_SPECTRE)
             netlist(pkg=inp.pkg, dest=dest, fmt="spice")
         print("\tDone!")
+
 
 if __name__ == "__main__":
     make_dirs()
