@@ -245,6 +245,8 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
     let mut t = 0f64;
     let mut t_end;
 
+    let wmask_all = BitSignal::ones(params.wmask_groups);
+
     for op in params.test_case.ops.iter() {
         t_end = t + period;
         // Toggle the clock
@@ -268,6 +270,10 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
 
                 assert_eq!(data.width(), params.data_width);
                 push_bus(&mut din, data, t_end, vdd, tr, tf);
+
+                if params.wmask_groups > 1 {
+                    push_bus(&mut wmask, &wmask_all, t_end, vdd, tr, tf);
+                }
             }
 
             Op::WriteMasked {

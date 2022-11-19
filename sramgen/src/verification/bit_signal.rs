@@ -40,6 +40,20 @@ impl BitSignal {
     }
 
     #[inline]
+    pub fn ones(width: usize) -> Self {
+        Self {
+            bits: vec![true; width],
+        }
+    }
+
+    #[inline]
+    pub fn zeros(width: usize) -> Self {
+        Self {
+            bits: vec![false; width],
+        }
+    }
+
+    #[inline]
     pub fn from_vec(bits: Vec<bool>) -> Self {
         Self { bits }
     }
