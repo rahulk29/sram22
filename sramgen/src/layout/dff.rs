@@ -4,10 +4,8 @@ use crate::layout::Result;
 use crate::tech::openram_dff_gds;
 use derive_builder::Builder;
 use layout21::raw::align::AlignRect;
-use layout21::raw::translate::Translate;
-use layout21::raw::{
-    Abstract, AbstractPort, BoundBoxTrait, Cell, Dir, Element, Instance, Int, Layout, Point, Shape,
-};
+
+use layout21::raw::{AbstractPort, BoundBoxTrait, Cell, Dir, Element, Instance, Int, Shape};
 use layout21::utils::Ptr;
 use pdkprims::contact::Contact;
 use pdkprims::PdkLib;
@@ -36,59 +34,6 @@ pub fn draw_dff_array(
         },
         lib,
     )
-}
-
-pub fn draw_vert_dff_array(
-    lib: &mut PdkLib,
-    name: impl Into<String>,
-    width: usize,
-) -> Result<Ptr<Cell>> {
-    let name = name.into();
-
-    let mut layout = Layout::new(name.clone());
-    let mut abs = Abstract::new(name.clone());
-
-    let mut prev: Option<Instance> = None;
-
-    let dff = openram_dff_gds(lib)?;
-
-    let m0 = lib.pdk.metal(0);
-
-    for i in 0..width {
-        let mut inst = Instance::new(format!("dff_{}", i), dff.clone());
-        if i % 2 == 0 {
-            inst.reflect_vert = true;
-        }
-
-        let port = if i % 2 == 0 { "vdd" } else { "gnd" };
-
-        if let Some(prev) = prev {
-            let new_bot = inst.port(port).largest_rect(m0).unwrap().p0.y;
-            let prev_bot = prev.port(port).largest_rect(m0).unwrap().p0.y;
-            inst.translate(Point::new(0, prev_bot - new_bot));
-        }
-
-        let mut ports = inst.ports();
-        for p in ports.iter_mut() {
-            p.net = format!("{}_{}", &p.net, i);
-        }
-        for port in ports {
-            abs.add_port(port);
-        }
-
-        layout.add_inst(inst.clone());
-        prev = Some(inst);
-    }
-
-    let ptr = Ptr::new(Cell {
-        name,
-        layout: Some(layout),
-        abs: Some(abs),
-    });
-
-    lib.lib.cells.push(ptr.clone());
-
-    Ok(ptr)
 }
 
 #[derive(Clone, Eq, PartialEq, Builder)]
@@ -154,7 +99,7 @@ pub fn draw_dff_grid(lib: &mut PdkLib, params: DffGridParams) -> Result<Ptr<Cell
             for mut port in inst.ports() {
                 if port.net == "d" || port.net == "q" || port.net == "qn" || port.net == "clk" {
                     port.net = format!("{}_{}", &port.net, port_idx);
-                    cell.abs_mut().add_port(port);
+                    cell.add_pin_from_port(port, m2);
                 }
             }
 
@@ -201,7 +146,7 @@ pub fn draw_dff_grid(lib: &mut PdkLib, params: DffGridParams) -> Result<Ptr<Cell
 
                 let mut port = AbstractPort::new(format!("{}_{}", port, j));
                 port.add_shape(m2, Shape::Rect(port_rect));
-                cell.abs_mut().add_port(port);
+                cell.add_pin_from_port(port, m2);
             }
 
             cell.layout_mut().add(Element {

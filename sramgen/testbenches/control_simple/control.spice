@@ -1,0 +1,38 @@
+* Testbench for control logic
+
+.lib /Users/rahul/acads/research/sky130/pdk/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice tt
+
+.include ../../lib/sramgen_control/sramgen_control_simple.spice
+
+.param cload='15f'
+.param vdd='1.8'
+.param tr='40p'
+.param tf='40p'
+
+Xctrl clk we pc_b wl_en write_driver_en sense_en vdd 0 sramgen_control
+
+Cpc_b pc_b 0 {cload}
+Cwl_en wl_en 0 {cload}
+Cwrite_driver_en write_driver_en 0 {cload}
+Csense_en sense_en 0 {cload}
+
+Vclk clk 0 dc 0 PULSE(0 {vdd} 0 {tr} {tf} 4n 8n 0)
+Vwe we 0 dc 0
+Vvdd vdd 0 {vdd}
+
+.control
+tran 10p 17n 0n
+wrdata control.dat
++ v(clk)
++ v(we)
++ v(pc_b)
++ v(wl_en)
++ v(write_driver_en)
++ v(sense_en)
++ v(vdd)
+unset askquit
+quit 0
+.endc
+
+.end
+

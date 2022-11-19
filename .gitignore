@@ -117,3 +117,8 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/vim,macos,windows,linux,rust
+
+*.rdb
+*.db
+calibre_run_dir
+calibre_rundir

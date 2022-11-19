@@ -47,6 +47,14 @@ pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize, spacing: Int) -> Res
         });
         cell.add_pin(net, lib.pdk.metal(2), rect);
     }
+    cell.layout_mut().add(
+        MergeArgs::builder()
+            .layer(lib.pdk.get_layerkey("nwell").unwrap())
+            .insts(GateList::Array(&inst, width))
+            .port_name("vpb")
+            .build()?
+            .element(),
+    );
     for prefix in ["inp", "inn", "outp", "outn"] {
         for port in inst.ports_starting_with(prefix) {
             cell.abs_mut().add_port(port);

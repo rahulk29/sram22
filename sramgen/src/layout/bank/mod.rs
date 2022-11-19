@@ -75,6 +75,7 @@ pub struct PhysicalDesign {
 }
 
 pub struct SramBankParams {
+    pub name: String,
     pub rows: usize,
     pub cols: usize,
     pub mux_ratio: usize,
@@ -83,14 +84,14 @@ pub struct SramBankParams {
 
 pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<PhysicalDesign> {
     let SramBankParams {
+        name,
         rows,
         cols,
         mux_ratio,
         wmask_groups,
     } = params;
 
-    let name = "sram_bank".to_string();
-    let mut cell = Cell::empty(&name);
+    let mut cell = Cell::empty(name);
 
     ////////////////////////////////////////////////////////////////////
     // Validate parameters
@@ -652,7 +653,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         dout_spans.push(bl_span);
         dout_b_spans.push(br_span);
 
-        let bl_vspan = Span::new(bl_bot, bl.bottom());
+        let bl_vspan = Span::new(bl_bot, bl.top());
 
         let mut bl_m3 = router.trace(Rect::from_spans(bl_span, bl_vspan), 3);
         let mut br_m3 = router.trace(Rect::from_spans(br_span, bl_vspan), 3);
@@ -673,8 +674,8 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         for (src, m3, dst) in [(bl, &mut bl_m3, inp), (br, &mut br_m3, inn)] {
             router
                 .trace(src, 2)
-                .place_cursor(Dir::Vert, false)
-                .set_width(cfg.line(2))
+                .place_cursor_centered()
+                .set_width(cfg.line(3))
                 .horiz_to_trace(m3)
                 .contact_up(m3.rect());
             m3.contact_down(dst);
@@ -738,7 +739,13 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
                 .largest_rect(m2)
                 .unwrap();
             let dst = wmask_dffs.port(format!("q_{i}")).largest_rect(m2).unwrap();
-            let target = wmask_spans[i * bits_per_wmask + 1];
+            let target = if mux_ratio == 2 {
+                wmask_spans[i * bits_per_wmask + 1]
+            } else {
+                let offset = 2_400;
+                let span = wmask_spans[i * bits_per_wmask + 1];
+                Span::new(span.start() + offset, span.stop() + offset)
+            };
 
             let rect = Rect::from_spans(target, Span::new(dst.bottom(), src.top()));
             power_grid.add_padded_blockage(3, rect.expand(20));
@@ -829,7 +836,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
                 .set_min_width()
                 .horiz_to_trace(&traces[idx])
                 .contact_down(traces[idx].rect());
-            power_grid.add_padded_blockage(2, trace.rect().expand(90));
+            power_grid.add_padded_blockage(2, trace.rect().expand(120));
             if i == predecoder_bus_bits - 1 {
                 addr_0_traces.push(trace.rect());
             }
