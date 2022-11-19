@@ -99,6 +99,7 @@ pub(crate) fn generate_test(config: SramConfig) -> Result<()> {
             num_words,
             data_width,
             addr_width,
+            wmask_width: wmask_groups,
         },
     )
     .unwrap();
