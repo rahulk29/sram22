@@ -5,7 +5,7 @@ use super::waveform::Waveform;
 
 use crate::Result;
 
-pub const DIGITAL_REL_TOL: f64 = 1e-5;
+pub const DIGITAL_REL_TOL: f64 = 0.025;
 
 pub fn is_logical_low(x: f64, vdd: f64) -> bool {
     (x / vdd).abs() < DIGITAL_REL_TOL
