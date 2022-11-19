@@ -64,23 +64,26 @@ pub(crate) mod calibre {
             "LVS failed"
         );
 
-        let work_dir = PathBuf::from(BUILD_PATH).join(format!("pex/{}", name));
+        #[cfg(feature = "pex")]
+        {
+            let work_dir = PathBuf::from(BUILD_PATH).join(format!("pex/{}", name));
 
-        assert!(
-            matches!(
-                run_pex(&PexParams {
-                    work_dir,
-                    layout_path,
-                    layout_cell_name: name.to_string(),
-                    source_paths: source_files(name, VerificationTask::Pex),
-                    source_cell_name: name.to_string(),
-                    pex_rules_path: PathBuf::from(SKY130_PEX_RULES_PATH),
-                })?
-                .status,
-                LvsStatus::Correct,
-            ),
-            "PEX LVS failed"
-        );
+            assert!(
+                matches!(
+                    run_pex(&PexParams {
+                        work_dir,
+                        layout_path,
+                        layout_cell_name: name.to_string(),
+                        source_paths: source_files(name, VerificationTask::Pex),
+                        source_cell_name: name.to_string(),
+                        pex_rules_path: PathBuf::from(SKY130_PEX_RULES_PATH),
+                    })?
+                    .status,
+                    LvsStatus::Correct,
+                ),
+                "PEX LVS failed"
+            );
+        }
 
         Ok(())
     }

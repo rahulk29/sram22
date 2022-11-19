@@ -43,3 +43,4 @@ approx = "0.5.1"
 [features]
 calibre = ["dep:calibre"]
 spectre = []
+pex = ["dep:calibre"]
