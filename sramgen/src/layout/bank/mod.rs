@@ -173,7 +173,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .build()?;
     let wmask_dffs = draw_dff_grid(lib, wmask_dff_params)?;
 
-    let core = draw_bitcell_array(rows, cols, 1, 1, lib)?;
+    let core = draw_bitcell_array(rows, cols, 2, 2, lib)?;
     let nand_dec = draw_nand2_dec_array(
         lib,
         GateArrayParams {
@@ -287,7 +287,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     ////////////////////////////////////////////////////////////////////
     let col_bus_space = (2 * mux_ratio as isize + 3)
         * (std::cmp::max(cfg.line(1), cfg.line(0)) + cfg.space(1))
-        + 1_270;
+        + 2_000;
     let core_bbox = core.bbox();
 
     wldrv_inv.align_to_the_left_of(core_bbox, std::cmp::max(col_bus_space, 7_000));
