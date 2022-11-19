@@ -46,6 +46,7 @@ pub fn run_spectre(params: &SpectreParams) -> Result<TransientData> {
         .arg(&paths.log_path)
         .stdout(out_file)
         .stderr(err_file)
+        .current_dir(&params.work_dir)
         .status()?;
 
     if !status.success() {
