@@ -7,7 +7,8 @@ use super::generate_test;
 #[cfg(feature = "calibre")]
 pub(crate) mod calibre {
     use crate::tests::test_gds_path;
-    use crate::{Result, BUILD_PATH, LIB_PATH};
+    use crate::verification::{source_files, VerificationTask};
+    use crate::{Result, BUILD_PATH};
     use calibre::drc::{run_drc, DrcParams};
     use calibre::lvs::{run_lvs, LvsParams, LvsStatus};
     use calibre::pex::{run_pex, PexParams};
@@ -45,23 +46,7 @@ pub(crate) mod calibre {
             "Found DRC errors"
         );
 
-        let source_path_main = PathBuf::from(BUILD_PATH).join(format!("spice/{}.spice", name));
-        let source_path_dff = PathBuf::from(LIB_PATH).join("openram_dff/openram_dff.spice");
-        let source_path_sp_cell =
-            PathBuf::from(LIB_PATH).join("sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.lvs.spice");
-        let source_path_sp_sense_amp =
-            PathBuf::from(LIB_PATH).join("sramgen_sp_sense_amp/sramgen_sp_sense_amp.spice");
-        let source_path_control_simple =
-            PathBuf::from(LIB_PATH).join("sramgen_control/sramgen_control_simple.spice");
         let work_dir = PathBuf::from(BUILD_PATH).join(format!("lvs/{}", name));
-
-        let source_paths = vec![
-            source_path_main,
-            source_path_dff,
-            source_path_sp_cell,
-            source_path_sp_sense_amp,
-            source_path_control_simple,
-        ];
 
         assert!(
             matches!(
@@ -69,7 +54,7 @@ pub(crate) mod calibre {
                     work_dir,
                     layout_path: layout_path.clone(),
                     layout_cell_name: name.to_string(),
-                    source_paths: source_paths.clone(),
+                    source_paths: source_files(name, VerificationTask::Lvs),
                     source_cell_name: name.to_string(),
                     lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
                 })?
@@ -79,23 +64,26 @@ pub(crate) mod calibre {
             "LVS failed"
         );
 
-        let work_dir = PathBuf::from(BUILD_PATH).join(format!("pex/{}", name));
+        #[cfg(feature = "pex")]
+        {
+            let work_dir = PathBuf::from(BUILD_PATH).join(format!("pex/{}", name));
 
-        assert!(
-            matches!(
-                run_pex(&PexParams {
-                    work_dir,
-                    layout_path,
-                    layout_cell_name: name.to_string(),
-                    source_paths,
-                    source_cell_name: name.to_string(),
-                    pex_rules_path: PathBuf::from(SKY130_PEX_RULES_PATH),
-                })?
-                .status,
-                LvsStatus::Correct,
-            ),
-            "PEX LVS failed"
-        );
+            assert!(
+                matches!(
+                    run_pex(&PexParams {
+                        work_dir,
+                        layout_path,
+                        layout_cell_name: name.to_string(),
+                        source_paths: source_files(name, VerificationTask::Pex),
+                        source_cell_name: name.to_string(),
+                        pex_rules_path: PathBuf::from(SKY130_PEX_RULES_PATH),
+                    })?
+                    .status,
+                    LvsStatus::Correct,
+                ),
+                "PEX LVS failed"
+            );
+        }
 
         Ok(())
     }

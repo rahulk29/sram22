@@ -26,6 +26,7 @@ bytes = "1.2.1"
 layout21 = { git = "https://github.com/rahulk29/Layout21.git", branch = "main" }
 vlsir = { path = "../deps/Vlsir/bindings/rust" }
 pdkprims = { git = "https://github.com/rahulk29/pdkprims.git", branch = "master" }
+psf_ascii = { git = "https://github.com/rahulk29/psf_ascii.git", branch = "master" }
 arcstr = "1.1.4"
 anyhow = "1"
 calibre = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git", branch = "master", optional = true }
@@ -41,3 +42,5 @@ approx = "0.5.1"
 
 [features]
 calibre = ["dep:calibre"]
+spectre = []
+pex = ["dep:calibre"]

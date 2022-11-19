@@ -9,12 +9,13 @@ lint-fix:
 
 
 format:
-	cargo fmt
+	cargo +nightly fmt
 	black scripts/
+	black sramgen/scripts/
 
 test:
 	rm -rf sramgen/build/
-	cargo test --release --features calibre
+	cargo test --release --features calibre --features spectre
 
 check:
 	cargo check --all-features --all-targets
