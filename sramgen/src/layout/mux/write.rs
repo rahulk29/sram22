@@ -13,7 +13,7 @@ use crate::layout::bank::{connect, ConnectArgs, GateList};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::{ContactBounds, Router, VertDir};
 use crate::tech::BITCELL_WIDTH;
-use crate::Result;
+use crate::{bus_bit, Result};
 
 pub struct WriteMuxParams {
     pub width: isize,
@@ -221,9 +221,9 @@ pub fn draw_write_mux_array(
     let mut span = Span::new(0, 0);
 
     for i in 0..width {
-        let src = core_inst.port(format!("vss_{i}")).largest_rect(m0).unwrap();
+        let src = core_inst.port(bus_bit("vss", i)).largest_rect(m0).unwrap();
         let dst = tap_inst
-            .port(format!("vss_{}", (i + 1) / 2))
+            .port(bus_bit("vss", (i + 1) / 2))
             .largest_rect(m0)
             .unwrap();
         let dst = router.trace(dst, 0);
@@ -231,13 +231,13 @@ pub fn draw_write_mux_array(
         trace.place_cursor_centered().horiz_to_trace(&dst);
         span = trace.rect().vspan();
 
-        cell.add_pin_from_port(core_inst.port(format!("bl_{i}")), m1);
-        cell.add_pin_from_port(core_inst.port(format!("br_{i}")), m1);
+        cell.add_pin_from_port(core_inst.port(bus_bit("bl", i)), m1);
+        cell.add_pin_from_port(core_inst.port(bus_bit("br", i)), m1);
     }
 
-    let start = tap_inst.port("vss_0").largest_rect(m1).unwrap();
+    let start = tap_inst.port(bus_bit("vss", 0)).largest_rect(m1).unwrap();
     let end = tap_inst
-        .port(format!("vss_{}", width / 2))
+        .port(bus_bit("vss", width / 2))
         .largest_rect(m1)
         .unwrap();
 
@@ -252,7 +252,7 @@ pub fn draw_write_mux_array(
     let mut trace = router.trace(rect, 2);
 
     for i in 0..(width / 2 + 1) {
-        let target = tap_inst.port(format!("vss_{i}")).largest_rect(m0).unwrap();
+        let target = tap_inst.port(bus_bit("vss", i)).largest_rect(m0).unwrap();
         trace.contact_on(
             target.intersection(&trace.rect().into()).into_rect(),
             VertDir::Below,
@@ -284,7 +284,7 @@ pub fn draw_write_mux_array(
         .grid(tc.grid)
         .build()?;
 
-    let data = core_inst.port("data_0").largest_rect(m0).unwrap();
+    let data = core_inst.port(bus_bit("data", 0)).largest_rect(m0).unwrap();
     let data_track = grid.get_track_index(Dir::Horiz, data.bottom(), TrackLocator::EndsBefore);
     let data_b_track = data_track - 1;
 
@@ -295,25 +295,22 @@ pub fn draw_write_mux_array(
                 "data_b" => data_b_track,
                 _ => unreachable!(),
             };
-            let start = core_inst
-                .port(format!("{}_{}", port, i))
-                .largest_rect(m0)
-                .unwrap();
+            let start = core_inst.port(bus_bit(port, i)).largest_rect(m0).unwrap();
             let stop = core_inst
-                .port(format!("{}_{}", port, i + mux_ratio - 1))
+                .port(bus_bit(port, i + mux_ratio - 1))
                 .largest_rect(m0)
                 .unwrap();
             let mut hspan = Span::new(start.left(), stop.right());
             hspan.expand(true, 400).expand(false, 400);
             let rect = Rect::from_spans(hspan, grid.track(Dir::Horiz, track));
 
-            cell.add_pin(format!("{}_{}", port, idx), m2, rect);
+            cell.add_pin(bus_bit(port, idx), m2, rect);
 
             let data = router.trace(rect, 2);
 
             for delta in 0..mux_ratio {
                 let src = core_inst
-                    .port(format!("{}_{}", port, i + delta))
+                    .port(bus_bit(port, i + delta))
                     .largest_rect(m0)
                     .unwrap();
                 let mut trace = router.trace(src, 0);
@@ -341,9 +338,9 @@ pub fn draw_write_mux_array(
         "Width must be divisible by mux_ratio * wmask"
     );
 
-    let start = core_inst.port("we_0").largest_rect(m0).unwrap();
+    let start = core_inst.port(bus_bit("we", 0)).largest_rect(m0).unwrap();
     let end = core_inst
-        .port(format!("we_{}", width - 1))
+        .port(bus_bit("we", width - 1))
         .largest_rect(m0)
         .unwrap();
     let mut hspan = Span::new(start.left(), end.right());
@@ -354,13 +351,10 @@ pub fn draw_write_mux_array(
         let rect = Rect::from_spans(hspan, grid.htrack(track));
 
         let we = router.trace(rect, 2);
-        cell.add_pin(format!("we_{}", i), m2, rect);
+        cell.add_pin(bus_bit("we", i), m2, rect);
 
         for j in (i..width).step_by(mux_ratio) {
-            let src = core_inst
-                .port(format!("we_{}", j))
-                .largest_rect(m0)
-                .unwrap();
+            let src = core_inst.port(bus_bit("we", j)).largest_rect(m0).unwrap();
             let mut trace = router.trace(src, 0);
 
             trace
@@ -391,7 +385,7 @@ pub fn draw_write_mux_array(
                 .overhang(200)
                 .build()?;
             let trace = connect(args);
-            cell.add_pin(format!("wmask_{i}"), m2, trace.rect());
+            cell.add_pin(bus_bit("wmask", i), m2, trace.rect());
         }
     }
 

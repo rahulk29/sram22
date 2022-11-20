@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::bus_bit;
 use crate::layout::Result;
 use crate::tech::openram_dff_gds;
 use derive_builder::Builder;
@@ -98,7 +99,7 @@ pub fn draw_dff_grid(lib: &mut PdkLib, params: DffGridParams) -> Result<Ptr<Cell
 
             for mut port in inst.ports() {
                 if port.net == "d" || port.net == "q" || port.net == "qn" || port.net == "clk" {
-                    port.net = format!("{}_{}", &port.net, port_idx);
+                    port.net = bus_bit(&port.net, port_idx);
                     cell.add_pin_from_port(port, m2);
                 }
             }
@@ -144,7 +145,7 @@ pub fn draw_dff_grid(lib: &mut PdkLib, params: DffGridParams) -> Result<Ptr<Cell
                 cell.layout_mut().add_inst(i1);
                 cell.layout_mut().add_inst(i2);
 
-                let mut port = AbstractPort::new(format!("{}_{}", port, j));
+                let mut port = AbstractPort::new(bus_bit(port, j));
                 port.add_shape(m2, Shape::Rect(port_rect));
                 cell.add_pin_from_port(port, m2);
             }

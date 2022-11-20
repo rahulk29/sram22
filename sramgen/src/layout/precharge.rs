@@ -14,7 +14,7 @@ use crate::layout::bank::GateList;
 use crate::layout::common::{MergeArgs, NWELL_COL_SIDE_EXTEND, NWELL_COL_VERT_EXTEND};
 use crate::layout::route::{ContactBounds, Router, VertDir};
 use crate::schematic::precharge::{PrechargeArrayParams, PrechargeParams};
-use crate::Result;
+use crate::{bus_bit, Result};
 
 pub fn draw_precharge(lib: &mut PdkLib, args: PrechargeParams) -> Result<Ptr<Cell>> {
     let name = "precharge".to_string();
@@ -187,7 +187,7 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Res
     cell.abs_mut().ports.append(&mut core.ports());
 
     let iter = taps.ports().into_iter().enumerate().map(|(i, mut p)| {
-        p.set_net(format!("vdd_{}", i));
+        p.set_net(bus_bit("vdd", i));
         p
     });
     cell.abs_mut().ports.extend(iter);
@@ -199,11 +199,11 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Res
     let mut router = Router::new("precharge_array_route", lib.pdk.clone());
     router.cfg().line(2);
 
-    let pc_b_0 = core.port("pc_b_0").largest_rect(m0).unwrap();
+    let pc_b_0 = core.port(bus_bit("pc_b", 0)).largest_rect(m0).unwrap();
 
     let span = Span::new(
         pc_b_0.left(),
-        core.port(format!("pc_b_{}", width - 1))
+        core.port(bus_bit("pc_b", width - 1))
             .largest_rect(m0)
             .unwrap()
             .right(),
@@ -221,7 +221,7 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Res
     cell.abs_mut().add_port(port);
 
     for i in 0..width {
-        let src = core.port(format!("pc_b_{i}")).largest_rect(m0).unwrap();
+        let src = core.port(bus_bit("pc_b", i)).largest_rect(m0).unwrap();
         let mut trace = router.trace(src, 0);
         trace.place_cursor(Dir::Vert, false).vert_to(rect.bottom());
 

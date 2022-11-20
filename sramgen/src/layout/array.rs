@@ -3,9 +3,9 @@ use layout21::raw::{Abstract, BoundBoxTrait, Cell, Instance, Int, Layout, Point}
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use crate::bbox;
 use crate::layout::grid::GridCells;
 use crate::tech::*;
+use crate::{bbox, bus_bit};
 use serde::{Deserialize, Serialize};
 
 use super::route::Router;
@@ -66,7 +66,7 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Arra
         };
 
         let mut inst = Instance {
-            inst_name: format!("cell_{}", i),
+            inst_name: bus_bit("cell", i),
             cell: params.cell.clone(),
             loc,
             reflect_vert: false,
@@ -88,7 +88,7 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Arra
         if let Some(ref mut abs) = abs.as_mut() {
             let mut ports = inst.ports();
             for p in ports.iter_mut() {
-                p.net = format!("{}_{}", &p.net, i);
+                p.net = bus_bit(&p.net, i);
             }
             for port in ports {
                 abs.add_port(port);
@@ -305,7 +305,7 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
         }
         if inst.has_abstract() {
             for mut port in inst.ports() {
-                port.set_net(format!("{}_{}", &port.net, i - 1));
+                port.set_net(bus_bit(&port.net, i - 1));
                 abs.add_port(port);
             }
         }
@@ -317,7 +317,7 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
         }
         if inst.has_abstract() {
             for mut port in inst.ports() {
-                port.set_net(format!("{}_{}", &port.net, (i - 1) / 2));
+                port.set_net(bus_bit(&port.net, (i - 1) / 2));
                 abs.add_port(port);
             }
         }

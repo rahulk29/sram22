@@ -568,7 +568,11 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             .s_bend(dst2, Dir::Vert);
     }
 
-    let bl_bot = sense_amp.port("inp_0").largest_rect(m2).unwrap().bottom();
+    let bl_bot = sense_amp
+        .port(bus_bit("inp", 0))
+        .largest_rect(m2)
+        .unwrap()
+        .bottom();
 
     let mut dout_spans = Vec::with_capacity(cols / mux_ratio);
     let mut dout_b_spans = Vec::with_capacity(cols / mux_ratio);
@@ -1426,7 +1430,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         let net = if i == total_addr_bits {
             "we".to_string()
         } else {
-            bus_bit("addr[{}]", total_addr_bits - i - 1)
+            bus_bit("addr", total_addr_bits - i - 1)
         };
         cell.add_pin(
             net,
