@@ -18,14 +18,20 @@ pub struct Sram1RwParams {
     pub num_words: usize,
     pub data_width: usize,
     pub addr_width: usize,
+    pub wmask_width: usize,
 }
 
 pub fn generate_1rw_verilog(params: Sram1RwParams) -> Result<String> {
     assert_eq!(params.num_words, 1 << params.addr_width);
+    let template = if params.wmask_width > 1 {
+        "sram_1rw_wmask.v"
+    } else {
+        "sram_1rw.v"
+    };
     Ok(TEMPLATES
         .as_ref()
-        .map_err(|e| anyhow!("Failed to render templates: {e}"))?
-        .render("sram_1rw.v", &Context::from_serialize(params)?)?)
+        .map_err(|e| anyhow!("Failed to load Verilog templates: {e}"))?
+        .render(template, &Context::from_serialize(params)?)?)
 }
 
 pub fn save_1rw_verilog(path: impl AsRef<Path>, params: Sram1RwParams) -> Result<()> {
