@@ -415,17 +415,17 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
                 if port.net.starts_with("bl") {
                     vert_ports_to_coalesce
                         .entry(format!("vpb_dummy_bl{}", top_str))
-                        .or_insert(Vec::new())
+                        .or_default()
                         .push(trace.rect());
                 } else if port.net.starts_with("vgnd") {
                     vert_ports_to_coalesce
                         .entry(format!("vgnd{}", top_str))
-                        .or_insert(Vec::new())
+                        .or_default()
                         .push(trace.rect());
                 } else if port.net.starts_with("vpwr") {
                     vert_ports_to_coalesce
                         .entry(format!("vpwr{}", top_str))
-                        .or_insert(Vec::new())
+                        .or_default()
                         .push(trace.rect());
                 } else {
                     cell.add_pin(port.net, m1, trace.rect());
@@ -488,7 +488,7 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
                 if port.net.starts_with("wl_dummy") || port.net.starts_with("vgnd_dummy") {
                     horiz_ports_to_coalesce
                         .entry("vgnd_dummy".to_string())
-                        .or_insert(Vec::new())
+                        .or_default()
                         .push(trace.rect());
                 } else if net.starts_with("vpb") {
                     cell.add_pin(format!("vpwr{}", &port.net[3..]), m2, trace.rect());
