@@ -312,11 +312,13 @@ pub fn draw_bitcell_array(
 
     grid.place();
 
-    for i in 0..total_rows + 2 {
+    for i in 1..total_rows + 1 {
         let inst = grid.grid().get(total_rows + 1 - i, 0).unwrap();
         if inst.has_abstract() {
             for mut port in inst.ports() {
-                if i < dummy_rows + 1 || i > rows + dummy_rows {
+                if i == 0 || i == total_rows + 1 {
+                    port.set_net(format!("{}_corner_{}_{}", &port.net, total_rows + 1 - i, 0));
+                } else if i < dummy_rows + 1 || i > rows + dummy_rows {
                     let dummy_i = if i < dummy_rows + 1 { i } else { i - rows };
                     port.set_net(format!("{}_dummy_{}", &port.net, dummy_i));
                 } else {
@@ -327,18 +329,53 @@ pub fn draw_bitcell_array(
         }
     }
 
-    for instance_i in 0..2 * total_cols + 1 {
-        let inst = grid.grid().get(total_rows + 1, instance_i).unwrap();
-        if inst.has_abstract() {
-            for mut port in inst.ports() {
-                let i = (instance_i + 1) / 2;
-                if i < dummy_cols + 1 || i > cols + dummy_cols {
-                    let dummy_i = if i < dummy_cols + 1 { i } else { i - cols };
-                    port.set_net(format!("{}_dummy_{}", &port.net, dummy_i));
-                } else {
-                    port.set_net(format!("{}_{}", &port.net, i - dummy_cols - 1));
+    for j in vec![0, total_rows + 1].into_iter() {
+        let mut vpwr_counter = 0;
+        let mut vgnd_counter = 0;
+        let top_str = if j == 0 { "top_" } else { "" };
+        for instance_i in 0..2 * total_cols + 1 {
+            let inst = grid.grid().get(j, instance_i).unwrap();
+            if inst.has_abstract() {
+                for mut port in inst.ports() {
+                    let i = (instance_i + 1) / 2;
+                    if instance_i == 0 || instance_i == 2 * total_cols {
+                        port.set_net(format!("{}_corner_{}_{}", &port.net, total_rows + 1, i));
+                        if port.net.starts_with("vpwr0") {
+                            port.set_net(format!(
+                                "vpwr{}_{}{}",
+                                vpwr_counter % 2,
+                                top_str,
+                                vpwr_counter / 2,
+                            ));
+                            vpwr_counter += 1;
+                        }
+                    } else if port.net.starts_with("vgnd") {
+                        port.set_net(format!(
+                            "vgnd{}_{}{}",
+                            vgnd_counter % 2,
+                            top_str,
+                            vgnd_counter / 2
+                        ));
+                        vgnd_counter += 1;
+                    } else if port.net.starts_with("vpwr") {
+                        port.set_net(format!(
+                            "vpwr{}_{}{}",
+                            vpwr_counter % 2,
+                            top_str,
+                            vpwr_counter / 2
+                        ));
+                        vpwr_counter += 1;
+                    } else if i < dummy_cols + 1 || i > cols + dummy_cols {
+                        let dummy_i = if i < dummy_cols + 1 { i } else { i - cols };
+                        port.set_net(format!("{}_dummy_{}_{}", &port.net, j, dummy_i));
+                    } else if j == 1 {
+                        port.set_net(format!("{}_top_{}", &port.net, i - dummy_cols - 1));
+                    } else {
+                        port.set_net(format!("{}_{}", &port.net, i - dummy_cols - 1));
+                    }
+                    println!("port net {}", &port.net);
+                    abs.add_port(port);
                 }
-                abs.add_port(port);
             }
         }
     }
@@ -367,28 +404,39 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
     let bounds = array.bbox().into_rect();
 
     let mut vert_ports_to_coalesce: HashMap<String, Vec<Rect>> = HashMap::new();
-    for net in ["vnb", "vpb", "bl0_dummy", "bl1_dummy"] {
-        for (i, port) in array.ports_starting_with(net).into_iter().enumerate() {
-            let rect = port.largest_rect(m1).unwrap();
-            let mut trace = router.trace(rect, 1);
-            trace.set_width(rect.width()).place_cursor_centered();
-            if rect.center().y < bounds.center().y {
-                trace.vert_to(bounds.bottom() - 3_000);
-            } else {
-                trace.vert_to(bounds.top() + 3_000);
-            }
-            if port.net.starts_with("bl") {
-                let net = format!("vpb_dummy_bl_{}", &port.net[9..]);
-                match vert_ports_to_coalesce.get_mut(&net) {
-                    Some(rects) => {
-                        rects.push(trace.rect());
-                    }
-                    None => {
-                        vert_ports_to_coalesce.insert(net, vec![trace.rect()]);
-                    }
+    for net in ["vpwr", "vgnd", "vnb", "vpb", "bl0_dummy", "bl1_dummy"] {
+        for (_, port) in array.ports_starting_with(net).into_iter().enumerate() {
+            if let Some(rect) = port.largest_rect(m1) {
+                let mut trace = router.trace(rect, 1);
+                trace.set_width(rect.width()).place_cursor_centered();
+                if rect.center().y < bounds.center().y {
+                    trace.vert_to(bounds.bottom() - 3_000);
+                } else {
+                    trace.vert_to(bounds.top() + 3_000);
                 }
-            } else {
-                cell.add_pin(format!("{}_{}", net, i), m1, trace.rect());
+                if port.net.starts_with("bl") {
+                    let new_net = format!("vpb_dummy_bl_{}", &port.net[9..]);
+                    vert_ports_to_coalesce
+                        .entry(new_net)
+                        .or_insert(Vec::new())
+                        .push(trace.rect());
+                } else if port.net.starts_with("vgnd") {
+                    let new_net = format!("vgnd{}", &port.net[5..]);
+                    println!("new net {}", new_net);
+                    vert_ports_to_coalesce
+                        .entry(new_net)
+                        .or_insert(Vec::new())
+                        .push(trace.rect());
+                } else if port.net.starts_with("vpwr") {
+                    let new_net = format!("vpwr{}", &port.net[5..]);
+                    println!("new net {}", new_net);
+                    vert_ports_to_coalesce
+                        .entry(new_net)
+                        .or_insert(Vec::new())
+                        .push(trace.rect());
+                } else {
+                    cell.add_pin(port.net, m1, trace.rect());
+                }
             }
         }
     }
@@ -417,8 +465,8 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
     }
 
     let mut horiz_ports_to_coalesce: HashMap<String, Vec<Rect>> = HashMap::new();
-    for net in ["vpwr", "vgnd", "wl_dummy"] {
-        for (i, port) in array.ports_starting_with(net).into_iter().enumerate() {
+    for net in ["vpwr", "vgnd", "vpb", "vnb", "wl_dummy"] {
+        for (_, port) in array.ports_starting_with(net).into_iter().enumerate() {
             if let Some(rect) = port.largest_rect(m2) {
                 let mut trace = router.trace(rect, 2);
                 trace.set_width(rect.height()).place_cursor_centered();
@@ -428,21 +476,25 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
                     trace.horiz_to(bounds.right() + 6_400);
                 }
                 if port.net.starts_with("wl_dummy") || port.net.starts_with("vgnd_dummy") {
-                    let net = if port.net.starts_with("wl") {
+                    let new_net = if port.net.starts_with("wl") {
                         format!("vgnd{}", &port.net[2..])
                     } else {
                         port.net
                     };
-                    match horiz_ports_to_coalesce.get_mut(&net) {
+                    match horiz_ports_to_coalesce.get_mut(&new_net) {
                         Some(rects) => {
                             rects.push(trace.rect());
                         }
                         None => {
-                            horiz_ports_to_coalesce.insert(net, vec![trace.rect()]);
+                            horiz_ports_to_coalesce.insert(new_net, vec![trace.rect()]);
                         }
                     }
+                } else if net.starts_with("vpb") {
+                    cell.add_pin(format!("vpwr{}", &port.net[3..]), m2, trace.rect());
+                } else if net.starts_with("vnb") {
+                    cell.add_pin(format!("vgnd{}", &port.net[3..]), m2, trace.rect());
                 } else {
-                    cell.add_pin(format!("{}_{}", net, i), m2, trace.rect());
+                    cell.add_pin(port.net, m2, trace.rect());
                 }
             }
         }

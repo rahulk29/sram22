@@ -489,8 +489,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     // Column routing
     ////////////////////////////////////////////////////////////////////
     let core_bot = core_bbox.into_rect().bottom();
-    let pc_top = pc_bbox.top();
-    let pc_midpt = Span::new(pc_top, core_bot).center();
+    let pc_top = pc_bbox.top() - 500;
 
     for i in 0..cols {
         let mut bl_rect = Rect::new(Point::zero(), Point::zero());
@@ -511,7 +510,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
             trace
                 .place_cursor(Dir::Vert, false)
-                .vert_to(pc_midpt)
+                .vert_to(pc_top)
                 .horiz_to(target)
                 .vert_to(bl0.bottom());
 
