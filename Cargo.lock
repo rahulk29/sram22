@@ -580,7 +580,7 @@ dependencies = [
 [[package]]
 name = "gds21"
 version = "0.2.1"
-source = "git+https://github.com/rahulk29/Layout21.git?branch=main#58215b59af22aa201c25a572b698b38283128db0"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#a0c1a0ed5bcdf038e7e08b2603bf89a51f95a469"
 dependencies = [
  "byteorder",
  "chrono",
@@ -805,7 +805,7 @@ dependencies = [
 [[package]]
 name = "layout21"
 version = "0.2.1"
-source = "git+https://github.com/rahulk29/Layout21.git?branch=main#58215b59af22aa201c25a572b698b38283128db0"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#a0c1a0ed5bcdf038e7e08b2603bf89a51f95a469"
 dependencies = [
  "gds21",
  "layout21protos",
@@ -818,7 +818,7 @@ dependencies = [
 [[package]]
 name = "layout21protos"
 version = "0.2.1"
-source = "git+https://github.com/rahulk29/Layout21.git?branch=main#58215b59af22aa201c25a572b698b38283128db0"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#a0c1a0ed5bcdf038e7e08b2603bf89a51f95a469"
 dependencies = [
  "vlsir 0.2.0 (git+https://github.com/rahulk29/Vlsir.git?branch=main)",
 ]
@@ -826,7 +826,7 @@ dependencies = [
 [[package]]
 name = "layout21raw"
 version = "0.2.1"
-source = "git+https://github.com/rahulk29/Layout21.git?branch=main#58215b59af22aa201c25a572b698b38283128db0"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#a0c1a0ed5bcdf038e7e08b2603bf89a51f95a469"
 dependencies = [
  "anyhow",
  "derive_builder 0.11.2",
@@ -845,7 +845,7 @@ dependencies = [
 [[package]]
 name = "layout21tetris"
 version = "0.2.1"
-source = "git+https://github.com/rahulk29/Layout21.git?branch=main#58215b59af22aa201c25a572b698b38283128db0"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#a0c1a0ed5bcdf038e7e08b2603bf89a51f95a469"
 dependencies = [
  "derive_builder 0.9.0",
  "derive_more",
@@ -862,7 +862,7 @@ dependencies = [
 [[package]]
 name = "layout21utils"
 version = "0.2.1"
-source = "git+https://github.com/rahulk29/Layout21.git?branch=main#58215b59af22aa201c25a572b698b38283128db0"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#a0c1a0ed5bcdf038e7e08b2603bf89a51f95a469"
 dependencies = [
  "by_address",
  "serde",
@@ -882,7 +882,7 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 [[package]]
 name = "lef21"
 version = "0.2.1"
-source = "git+https://github.com/rahulk29/Layout21.git?branch=main#58215b59af22aa201c25a572b698b38283128db0"
+source = "git+https://github.com/rahulk29/Layout21.git?branch=main#a0c1a0ed5bcdf038e7e08b2603bf89a51f95a469"
 dependencies = [
  "derive_builder 0.9.0",
  "derive_more",
@@ -1005,7 +1005,7 @@ dependencies = [
 [[package]]
 name = "pdkprims"
 version = "0.0.1"
-source = "git+https://github.com/rahulk29/pdkprims.git?branch=master#8fddcdcb5371095f20476411bcffc70cc480c987"
+source = "git+https://github.com/rahulk29/pdkprims.git?branch=master#69474dd1dce25b80fcd2f313ce356d599df72667"
 dependencies = [
  "arcstr",
  "derive_builder 0.11.2",
