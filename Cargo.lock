@@ -251,6 +251,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "terminal_size",
+ "unicode-width",
  "winapi",
 ]
 
@@ -642,9 +643,9 @@ dependencies = [
 
 [[package]]
 name = "grid"
-version = "0.6.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bed7999ee197fb0a5736c294af0289caf9681fafabd57ea7fa6af61bf3a19eec"
+checksum = "0634107a3a005070dd73e27e74ecb691a94e9e5ba7829f434db7fbf73a6b5c47"
 dependencies = [
  "no-std-compat",
 ]
@@ -759,14 +760,14 @@ dependencies = [
 
 [[package]]
 name = "indicatif"
-version = "0.16.2"
+version = "0.17.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d207dc617c7a380ab07ff572a6e52fa202a2a8f355860ac9c38e23f8196be1b"
+checksum = "4295cbb7573c16d310e99e713cf9e75101eb190ab31fccd35f2d2691b4352b19"
 dependencies = [
  "console",
- "lazy_static",
  "number_prefix",
- "regex",
+ "portable-atomic",
+ "unicode-width",
 ]
 
 [[package]]
@@ -1118,6 +1119,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "portable-atomic"
+version = "0.3.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15eb2c6e362923af47e13c23ca5afb859e83d54452c55b0b9ac763b8f7c1ac16"
+
+[[package]]
 name = "portpicker"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1131,6 +1138,16 @@ name = "ppv-lite86"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
+
+[[package]]
+name = "prettyplease"
+version = "0.1.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c142c0e46b57171fe0c528bee8c5b7569e80f0c17e377cd0e30ea57dbc11bb51"
+dependencies = [
+ "proc-macro2",
+ "syn",
+]
 
 [[package]]
 name = "proc-macro-error"
@@ -1178,7 +1195,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71adf41db68aa0daaefc69bb30bcd68ded9b9abaad5d1fbb6304c4fb390e083e"
 dependencies = [
  "bytes",
- "prost-derive",
+ "prost-derive 0.10.1",
+]
+
+[[package]]
+name = "prost"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0841812012b2d4a6145fae9a6af1534873c32aa67fff26bd09f8fa42c83f95a"
+dependencies = [
+ "bytes",
+ "prost-derive 0.11.2",
 ]
 
 [[package]]
@@ -1196,9 +1223,31 @@ dependencies = [
  "log",
  "multimap",
  "petgraph",
- "prost",
- "prost-types",
+ "prost 0.10.4",
+ "prost-types 0.10.1",
  "regex",
+ "tempfile",
+ "which",
+]
+
+[[package]]
+name = "prost-build"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d8b442418ea0822409d9e7d047cbf1e7e9e1760b172bf9982cf29d517c93511"
+dependencies = [
+ "bytes",
+ "heck",
+ "itertools",
+ "lazy_static",
+ "log",
+ "multimap",
+ "petgraph",
+ "prettyplease",
+ "prost 0.11.2",
+ "prost-types 0.11.2",
+ "regex",
+ "syn",
  "tempfile",
  "which",
 ]
@@ -1217,13 +1266,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "prost-derive"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "164ae68b6587001ca506d3bf7f1000bfa248d0e1217b618108fba4ec1d0cc306"
+dependencies = [
+ "anyhow",
+ "itertools",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "prost-types"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d0a014229361011dc8e69c8a1ec6c2e8d0f2af7c91e3ea3f5b2170298461e68"
 dependencies = [
  "bytes",
- "prost",
+ "prost 0.10.4",
+]
+
+[[package]]
+name = "prost-types"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "747761bc3dc48f9a34553bf65605cf6cb6288ba219f3450b4275dbd81539551a"
+dependencies = [
+ "bytes",
+ "prost 0.11.2",
 ]
 
 [[package]]
@@ -1464,8 +1536,8 @@ dependencies = [
  "log",
  "pdkprims",
  "portpicker",
- "prost",
- "prost-build",
+ "prost 0.11.2",
+ "prost-build 0.11.2",
  "psf_ascii",
  "serde",
  "serde_json",
@@ -1717,9 +1789,9 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 name = "vlsir"
 version = "0.2.0"
 dependencies = [
- "prost",
- "prost-build",
- "prost-types",
+ "prost 0.10.4",
+ "prost-build 0.10.4",
+ "prost-types 0.10.1",
  "serde",
  "serde_derive",
 ]
@@ -1729,9 +1801,9 @@ name = "vlsir"
 version = "0.2.0"
 source = "git+https://github.com/rahulk29/Vlsir.git?branch=main#d823c33ddf81018202ccd91f81f7c8597915cd92"
 dependencies = [
- "prost",
- "prost-build",
- "prost-types",
+ "prost 0.10.4",
+ "prost-build 0.10.4",
+ "prost-types 0.10.1",
  "serde",
  "serde_derive",
 ]
