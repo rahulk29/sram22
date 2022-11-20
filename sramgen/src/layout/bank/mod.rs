@@ -1424,7 +1424,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             .vert_to(guard_ring_bbox.bottom());
 
         let rect = trace.rect();
-        power_grid.add_padded_blockage(3, rect);
+        power_grid.add_padded_blockage(3, rect.expand(20));
         let net = if i == total_addr_bits {
             "we".to_string()
         } else {
