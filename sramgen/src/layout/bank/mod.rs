@@ -8,7 +8,6 @@ use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::{LayerIdx, PdkLib};
 
-use crate::clog2;
 use crate::config::ControlMode;
 use crate::layout::array::draw_power_connector;
 use crate::layout::col_inv::draw_col_inv_array;
@@ -29,6 +28,7 @@ use crate::schematic::gate::{AndParams, GateParams, Size};
 use crate::schematic::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::schematic::wmask_control::WriteMaskControlParams;
 use crate::tech::{BITCELL_HEIGHT, COLUMN_WIDTH};
+use crate::{bus_bit, clog2};
 
 use super::array::draw_bitcell_array;
 use super::decoder::{draw_inv_dec_array, draw_nand2_dec_array};
@@ -431,41 +431,29 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     ////////////////////////////////////////////////////////////////////
     for i in 0..rows {
         // Connect decoder nand to decoder inverter
-        let src = nand_dec.port(format!("y_{}", i)).largest_rect(m0).unwrap();
-        let dst = inv_dec.port(format!("din_{}", i)).largest_rect(m0).unwrap();
+        let src = nand_dec.port(bus_bit("y", i)).largest_rect(m0).unwrap();
+        let dst = inv_dec.port(bus_bit("din", i)).largest_rect(m0).unwrap();
         let mut trace = router.trace(src, 0);
         trace.s_bend(dst, Dir::Horiz);
 
         // Connect inverter to WL driver
-        let src = inv_dec
-            .port(format!("din_b_{}", i))
-            .largest_rect(m0)
-            .unwrap();
-        let dst = wldrv_nand
-            .port(format!("a_{}", i))
-            .largest_rect(m0)
-            .unwrap();
+        let src = inv_dec.port(bus_bit("din_b", i)).largest_rect(m0).unwrap();
+        let dst = wldrv_nand.port(bus_bit("a", i)).largest_rect(m0).unwrap();
         let mut trace = router.trace(src, 0);
         trace.s_bend(dst, Dir::Horiz);
 
         // Connect nand wldriver output to inv wldriver input.
-        let src = wldrv_nand
-            .port(format!("y_{}", i))
-            .largest_rect(m0)
-            .unwrap();
-        let dst = wldrv_inv
-            .port(format!("din_{}", i))
-            .largest_rect(m0)
-            .unwrap();
+        let src = wldrv_nand.port(bus_bit("y", i)).largest_rect(m0).unwrap();
+        let dst = wldrv_inv.port(bus_bit("din", i)).largest_rect(m0).unwrap();
         let mut trace = router.trace(src, 0);
         trace.s_bend(dst, Dir::Horiz);
 
         // Then connect inv decoder output to wordline
         let src = wldrv_inv
-            .port(format!("din_b_{}", i))
+            .port(bus_bit("din_b", i))
             .largest_rect(m0)
             .unwrap();
-        let dst = core.port(format!("wl_{}", i)).largest_rect(m2).unwrap();
+        let dst = core.port(bus_bit("wl", i)).largest_rect(m2).unwrap();
         let mut trace = router.trace(src, 0);
         trace.place_cursor(Dir::Horiz, true).set_min_width();
         let contact_block = trace.cursor_rect().expand(70);
@@ -498,9 +486,18 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
         for j in 0..2 {
             let bl = if j == 0 { "bl" } else { "br" };
-            let src = core.port(format!("bl{j}_{}", i)).largest_rect(m1).unwrap();
-            let bl1 = pc.port(format!("{bl}1_{}", i)).largest_rect(m0).unwrap();
-            let bl0 = pc.port(format!("{bl}0_{}", i)).largest_rect(m0).unwrap();
+            let src = core
+                .port(bus_bit(&format!("bl{j}"), i))
+                .largest_rect(m1)
+                .unwrap();
+            let bl1 = pc
+                .port(bus_bit(&format!("{bl}1"), i))
+                .largest_rect(m0)
+                .unwrap();
+            let bl0 = pc
+                .port(bus_bit(&format!("{bl}0"), i))
+                .largest_rect(m0)
+                .unwrap();
 
             let mut trace = router.trace(src, 1);
             let target = if (i % 2 == 0) ^ (j == 0) {
@@ -527,14 +524,14 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             t1.place_cursor_centered().horiz_to_trace(&trace).up();
         }
 
-        let vdd_tap_left = pc.port(format!("vdd_{}", i)).largest_rect(m0).unwrap();
-        let vdd_tap_right = pc.port(format!("vdd_{}", i + 1)).largest_rect(m0).unwrap();
+        let vdd_tap_left = pc.port(bus_bit("vdd", i)).largest_rect(m0).unwrap();
+        let vdd_tap_right = pc.port(bus_bit("vdd", i + 1)).largest_rect(m0).unwrap();
         let vdd0 = pc
-            .port(format!("vdd{}_{}", i % 2, i))
+            .port(bus_bit(&format!("vdd{}", i % 2), i))
             .largest_rect(m0)
             .unwrap();
         let vdd1 = pc
-            .port(format!("vdd{}_{}", 1 - (i % 2), i))
+            .port(bus_bit(&format!("vdd{}", 1 - (i % 2)), i))
             .largest_rect(m0)
             .unwrap();
 
@@ -546,13 +543,10 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
         let mut trace = router.trace(bl_rect, 1);
         let dst = read_mux
-            .port(format!("bl_{}_{}", i % 2, i / 2))
+            .port(bus_bit(&format!("bl_{}", i % 2), i / 2))
             .largest_rect(m1)
             .unwrap();
-        let dst2 = write_mux
-            .port(format!("bl_{}", i))
-            .largest_rect(m1)
-            .unwrap();
+        let dst2 = write_mux.port(bus_bit("bl", i)).largest_rect(m1).unwrap();
         trace
             .place_cursor(Dir::Vert, false)
             .vert_to(pc_bbox.bottom())
@@ -562,13 +556,10 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
         let mut trace = router.trace(br_rect, 1);
         let dst = read_mux
-            .port(format!("br_{}_{}", i % 2, i / 2))
+            .port(bus_bit(&format!("br_{}", i % 2), i / 2))
             .largest_rect(m1)
             .unwrap();
-        let dst2 = write_mux
-            .port(format!("br_{}", i))
-            .largest_rect(m1)
-            .unwrap();
+        let dst2 = write_mux.port(bus_bit("br", i)).largest_rect(m1).unwrap();
         trace
             .place_cursor(Dir::Vert, false)
             .vert_to(pc_bbox.bottom())
@@ -586,18 +577,12 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     for i in 0..(cols / mux_ratio) {
         // Route data and data bar to 2:1 write muxes
         let data_b_pin = write_mux
-            .port(format!("data_b_{}", i))
+            .port(bus_bit("data_b", i))
             .largest_rect(m2)
             .unwrap();
-        let data_pin = write_mux
-            .port(format!("data_{}", i))
-            .largest_rect(m2)
-            .unwrap();
+        let data_pin = write_mux.port(bus_bit("data", i)).largest_rect(m2).unwrap();
 
-        let src = col_inv
-            .port(format!("din_b_{}", i))
-            .largest_rect(m0)
-            .unwrap();
+        let src = col_inv.port(bus_bit("din_b", i)).largest_rect(m0).unwrap();
         let mut trace = router.trace(src, 0);
 
         if mux_ratio == 2 {
@@ -622,11 +607,11 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         }
 
         let bl = read_mux
-            .port(format!("bl_out_{}", i))
+            .port(bus_bit("bl_out", i))
             .largest_rect(m2)
             .unwrap();
         let br = read_mux
-            .port(format!("br_out_{}", i))
+            .port(bus_bit("br_out", i))
             .largest_rect(m2)
             .unwrap();
         let route_span = Span::merge([bl.hspan(), br.hspan()]);
@@ -662,14 +647,8 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         power_grid.add_padded_blockage(3, Rect::from_spans(bl_span, sa_bbox.vspan()));
         power_grid.add_padded_blockage(3, Rect::from_spans(br_span, sa_bbox.vspan()));
 
-        let inp = sense_amp
-            .port(format!("inp_{}", i))
-            .largest_rect(m2)
-            .unwrap();
-        let inn = sense_amp
-            .port(format!("inn_{}", i))
-            .largest_rect(m2)
-            .unwrap();
+        let inp = sense_amp.port(bus_bit("inp", i)).largest_rect(m2).unwrap();
+        let inn = sense_amp.port(bus_bit("inn", i)).largest_rect(m2).unwrap();
 
         for (src, m3, dst) in [(bl, &mut bl_m3, inp), (br, &mut br_m3, inn)] {
             router
@@ -685,13 +664,13 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         let data_rect = Rect::from_spans(data_span, sa_bbox.vspan());
         power_grid.add_padded_blockage(3, data_rect);
         let mut trace = router.trace(data_rect, 3);
-        let dst1 = col_inv.port(format!("din_{}", i)).largest_rect(m0).unwrap();
+        let dst1 = col_inv.port(bus_bit("din", i)).largest_rect(m0).unwrap();
         trace.place_cursor(Dir::Vert, true).vert_to(dst1.top());
         power_grid.add_padded_blockage(3, trace.rect());
         trace.down().horiz_to_rect(dst1).down().down();
 
         // Route din dff to data_rect
-        let src = din_dffs.port(format!("q_{}", i)).largest_rect(m2).unwrap();
+        let src = din_dffs.port(bus_bit("q", i)).largest_rect(m2).unwrap();
         let mut trace = router.trace(src, 2);
         let voffset = if i % 2 == 0 { 1_000 } else { -800 };
         trace
@@ -735,10 +714,10 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         let bits_per_wmask = cols / (wmask_groups * mux_ratio);
         for i in 0..wmask_groups {
             let src = write_mux
-                .port(format!("wmask_{i}"))
+                .port(bus_bit("wmask", i))
                 .largest_rect(m2)
                 .unwrap();
-            let dst = wmask_dffs.port(format!("q_{i}")).largest_rect(m2).unwrap();
+            let dst = wmask_dffs.port(bus_bit("q", i)).largest_rect(m2).unwrap();
             let target = if mux_ratio == 2 {
                 wmask_spans[i * bits_per_wmask + 1]
             } else {
@@ -817,10 +796,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     let mut addr_0_traces = Vec::with_capacity(2);
     for i in 0..predecoder_bus_bits {
         for (port, addr_prefix, idx) in [("q", "addr", 2 * i), ("qn", "addr_b", 2 * i + 1)] {
-            let src = addr_dffs
-                .port(format!("{}_{}", port, i))
-                .largest_rect(m2)
-                .unwrap();
+            let src = addr_dffs.port(bus_bit(port, i)).largest_rect(m2).unwrap();
             let mut trace = router.trace(src, 2);
             trace.place_cursor_centered();
             if idx % 2 != 0 {
@@ -843,24 +819,20 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
             if let Some((target_port, target_idx, route_at_top)) = if i < decoder1_bits {
                 // Route to decoder1
-                Some((decoder1.port(format!("{}_{}", addr_prefix, i)), i, false))
+                Some((decoder1.port(bus_bit(addr_prefix, i)), i, false))
             } else if i < decoder2_bits + decoder1_bits {
                 // Route to decoder2
                 Some((
-                    decoder2.port(format!("{}_{}", addr_prefix, i - decoder1_bits)),
+                    decoder2.port(bus_bit(addr_prefix, i - decoder1_bits)),
                     i - decoder1_bits,
                     false,
                 ))
             } else {
                 // Route to column decoder or we control
                 let idx = i - decoder1_bits - decoder2_bits;
-                col_decoder.as_ref().map(|col_decoder| {
-                    (
-                        col_decoder.port(format!("{}_{}", addr_prefix, idx)),
-                        idx,
-                        true,
-                    )
-                })
+                col_decoder
+                    .as_ref()
+                    .map(|col_decoder| (col_decoder.port(bus_bit(addr_prefix, idx)), idx, true))
             } {
                 let mut target = target_port.largest_rect(m1).unwrap();
                 if route_at_top {
@@ -903,7 +875,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     // Route write enable (WE) to control logic
     let src = addr_dffs
-        .port(format!("q_{}", total_addr_bits))
+        .port(bus_bit("q", total_addr_bits))
         .largest_rect(m2)
         .unwrap();
     let dst = control.port("we").largest_rect(m0).unwrap();
@@ -961,7 +933,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     // Connect wldrv_nand b inputs to wordline enable (wl_en)
     for i in 0..rows {
-        let src = wldrv_nand.port(format!("b_{i}")).largest_rect(m0).unwrap();
+        let src = wldrv_nand.port(bus_bit("b", i)).largest_rect(m0).unwrap();
         let mut trace = router.trace(src, 0);
         trace
             .place_cursor(Dir::Horiz, false)
@@ -1022,10 +994,13 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     // write mux sel / write enable / write driver enable
     for i in 0..mux_ratio as isize {
         let src = we_control
-            .port(format!("write_driver_en_{i}"))
+            .port(bus_bit("write_driver_en", i as usize))
             .largest_rect(m0)
             .unwrap();
-        let dst = write_mux.port(format!("we_{i}")).largest_rect(m2).unwrap();
+        let dst = write_mux
+            .port(bus_bit("we", i as usize))
+            .largest_rect(m2)
+            .unwrap();
         let mut trace = router.trace(src, 0);
         trace
             .place_cursor(Dir::Horiz, true)
@@ -1040,7 +1015,10 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     // read mux select
     for i in 0..mux_ratio as isize {
-        let dst = read_mux.port(format!("sel_{i}")).largest_rect(m2).unwrap();
+        let dst = read_mux
+            .port(bus_bit("sel", i as usize))
+            .largest_rect(m2)
+            .unwrap();
         if mux_ratio == 2 {
             let mut trace = router.trace(addr_0_traces[i as usize], 2);
             trace.place_cursor(Dir::Horiz, true);
@@ -1051,7 +1029,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         } else {
             let col_decoder = col_decoder.as_ref().unwrap();
             let src = col_decoder
-                .port(format!("dec_b_{i}"))
+                .port(bus_bit("dec_b", i as usize))
                 .largest_rect(m0)
                 .unwrap();
             let mut trace = router.trace(src, 0);
@@ -1080,11 +1058,11 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         let col_decoder = col_decoder.as_ref().unwrap();
         for i in 0..mux_ratio as isize {
             let src = col_decoder
-                .port(format!("dec_{i}"))
+                .port(bus_bit("dec", i as usize))
                 .largest_rect(m0)
                 .unwrap();
             let dst = we_control
-                .port(format!("sel_{i}"))
+                .port(bus_bit("sel", i as usize))
                 .largest_rect(m0)
                 .unwrap();
             let mut trace = router.trace(src, 0);
@@ -1092,10 +1070,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         }
     } else {
         for i in 0..2 {
-            let src = we_control
-                .port(format!("sel_{i}"))
-                .largest_rect(m0)
-                .unwrap();
+            let src = we_control.port(bus_bit("sel", i)).largest_rect(m0).unwrap();
             let mut trace = router.trace(src, 0);
             trace
                 .place_cursor(Dir::Horiz, false)
@@ -1152,7 +1127,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     power_grid.add_padded_blockage(2, clk_rect);
 
     for i in 0..(total_addr_bits + 1) {
-        let src = addr_dffs.port(format!("clk_{i}")).largest_rect(m2).unwrap();
+        let src = addr_dffs.port(bus_bit("clk", i)).largest_rect(m2).unwrap();
         let mut trace = router.trace(src, 2);
         trace
             .place_cursor_centered()
@@ -1312,7 +1287,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     // Route input and output pins
     #[allow(clippy::needless_range_loop)]
     for i in 0..(cols / mux_ratio) {
-        let src = din_dffs.port(format!("d_{i}")).largest_rect(m2).unwrap();
+        let src = din_dffs.port(bus_bit("d", i)).largest_rect(m2).unwrap();
         let offset = if i % 2 == 0 { -185 } else { 570 };
         let mut trace = router.trace(src, 2);
         let cx = src.center().x;
@@ -1326,7 +1301,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         let rect = trace.rect();
         power_grid.add_padded_blockage(3, rect.expand(10));
         cell.add_pin(
-            format!("din[{i}]"),
+            bus_bit("din", i),
             m3,
             Rect::from_spans(
                 rect.hspan(),
@@ -1340,11 +1315,11 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             ("outn", "din2", "dout2", dout_b_spans[i], false),
         ] {
             let src = sense_amp
-                .port(format!("{sa_port}_{i}"))
+                .port(bus_bit(sa_port, i))
                 .largest_rect(m2)
                 .unwrap();
             let dst = dout_buf
-                .port(format!("{buf_input}_{i}"))
+                .port(bus_bit(buf_input, i))
                 .largest_rect(m0)
                 .unwrap();
             let rect = Rect::from_spans(span, Span::new(dst.bottom() + 30, src.top()));
@@ -1361,7 +1336,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
             if pin {
                 let src = dout_buf
-                    .port(format!("{buf_output}_{i}"))
+                    .port(bus_bit(buf_output, i))
                     .largest_rect(m0)
                     .unwrap();
 
@@ -1382,7 +1357,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
                 power_grid.add_padded_blockage(2, dout_trace.rect().expand(500));
 
                 cell.add_pin(
-                    format!("dout[{i}]"),
+                    bus_bit("dout", i),
                     m3,
                     Rect::from_spans(
                         dout_rect.hspan(),
@@ -1397,7 +1372,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     if wmask_groups > 1 {
         let wmask_dffs = wmask_dffs.as_ref().unwrap();
         for i in 0..wmask_groups {
-            let src = wmask_dffs.port(format!("d_{i}")).largest_rect(m2).unwrap();
+            let src = wmask_dffs.port(bus_bit("d", i)).largest_rect(m2).unwrap();
             let offset = 1_900;
             let mut trace = router.trace(src, 2);
             trace
@@ -1410,7 +1385,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             let rect = trace.rect();
             power_grid.add_padded_blockage(3, rect.expand(10));
             cell.add_pin(
-                format!("wmask[{i}]"),
+                bus_bit("wmask", i),
                 m3,
                 Rect::from_spans(
                     rect.hspan(),
@@ -1438,7 +1413,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     // Route address and write enable pins
     for i in 0..=total_addr_bits {
-        let src = addr_dffs.port(format!("d_{i}")).largest_rect(m2).unwrap();
+        let src = addr_dffs.port(bus_bit("d", i)).largest_rect(m2).unwrap();
         let mut trace = router.trace(src, 2);
         trace
             .place_cursor_centered()
@@ -1451,7 +1426,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         let net = if i == total_addr_bits {
             "we".to_string()
         } else {
-            format!("addr[{}]", total_addr_bits - i - 1)
+            bus_bit("addr[{}]", total_addr_bits - i - 1)
         };
         cell.add_pin(
             net,
@@ -1573,8 +1548,8 @@ impl<'a> GateList<'a> {
     pub(crate) fn port(&self, name: &str, num: usize) -> AbstractPort {
         match self {
             Self::Cells(v) => v[num].port(name),
-            Self::Array(v, _) => v.port(format!("{}_{}", name, num)),
-            Self::ArraySlice(v, start, _) => v.port(format!("{}_{}", name, start + num)),
+            Self::Array(v, _) => v.port(bus_bit(name, num)),
+            Self::ArraySlice(v, start, _) => v.port(bus_bit(name, start + num)),
         }
     }
 }

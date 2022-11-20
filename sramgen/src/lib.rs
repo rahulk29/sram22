@@ -64,6 +64,10 @@ pub fn generate_netlist(name: &str) -> Result<()> {
     }
 }
 
+pub fn bus_bit(name: &str, index: usize) -> String {
+    format!("{name}[{index}]")
+}
+
 pub fn bbox(cell: &Ptr<Cell>) -> BoundBox {
     let cell = cell.read().unwrap();
     cell.layout.as_ref().unwrap().bbox()
