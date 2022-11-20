@@ -14,7 +14,7 @@ use crate::layout::bank::{connect, ConnectArgs};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
 
-use crate::Result;
+use crate::{bus_bit, Result};
 
 use crate::layout::bank::GateList;
 use crate::layout::common::{
@@ -235,23 +235,21 @@ pub fn draw_read_mux_array(
     let inst = Instance::new("read_mux_array_core", array.cell);
     for i in 0..width {
         cell.add_pin_from_port(
-            inst.port(format!("bl_0_{i}"))
-                .named(format!("bl_{}", 2 * i)),
+            inst.port(bus_bit("bl_0", i)).named(bus_bit("bl", 2 * i)),
             m1,
         );
         cell.add_pin_from_port(
-            inst.port(format!("bl_1_{i}"))
-                .named(format!("bl_{}", 2 * i + 1)),
+            inst.port(bus_bit("bl_1", i))
+                .named(bus_bit("bl", 2 * i + 1)),
             m1,
         );
         cell.add_pin_from_port(
-            inst.port(format!("br_0_{i}"))
-                .named(format!("br_{}", 2 * i)),
+            inst.port(bus_bit("br_0", i)).named(bus_bit("br", 2 * i)),
             m1,
         );
         cell.add_pin_from_port(
-            inst.port(format!("br_1_{i}"))
-                .named(format!("br_{}", 2 * i + 1)),
+            inst.port(bus_bit("br_1", i))
+                .named(bus_bit("br", 2 * i + 1)),
             m1,
         );
     }
@@ -260,10 +258,10 @@ pub fn draw_read_mux_array(
 
     for i in 0..width {
         for port in [
-            format!("bl_0_{i}"),
-            format!("bl_1_{i}"),
-            format!("br_0_{i}"),
-            format!("br_1_{i}"),
+            bus_bit("bl_0", i),
+            bus_bit("bl_1", i),
+            bus_bit("br_0", i),
+            bus_bit("br_1", i),
         ] {
             cell.abs_mut().add_port(inst.port(port));
         }
@@ -289,7 +287,7 @@ pub fn draw_read_mux_array(
 
     for i in 0..width {
         let sel = &sel_tracks[2 * i % (2 * mux_ratio)];
-        let src = inst.port(format!("sel_{i}")).largest_rect(m0).unwrap();
+        let src = inst.port(bus_bit("sel", i)).largest_rect(m0).unwrap();
         let mut trace = router.trace(src, 0);
         trace
             .place_cursor(Dir::Vert, false)
@@ -299,7 +297,7 @@ pub fn draw_read_mux_array(
             .contact_up(sel.rect());
 
         let sel = &sel_tracks[(2 * i + 1) % (2 * mux_ratio)];
-        let src = inst.port(format!("sel_b_{i}")).largest_rect(m0).unwrap();
+        let src = inst.port(bus_bit("sel_b", i)).largest_rect(m0).unwrap();
         let mut trace = router.trace(src, 0);
         trace
             .place_cursor(Dir::Vert, false)
@@ -310,7 +308,7 @@ pub fn draw_read_mux_array(
     }
 
     for (i, trace) in sel_tracks.into_iter().enumerate() {
-        cell.add_pin(format!("sel_{}", i), m2, trace.rect());
+        cell.add_pin(bus_bit("sel", i), m2, trace.rect());
     }
 
     let nwell = lib.pdk.get_layerkey("nwell").unwrap();
@@ -351,7 +349,7 @@ pub fn draw_read_mux_array(
             .transverse_offset(800)
             .build()?;
         let trace = connect(args);
-        cell.add_pin(format!("bl_out_{}", i / mux_ratio), m2, trace.rect());
+        cell.add_pin(bus_bit("bl_out", i / mux_ratio), m2, trace.rect());
 
         let args = ConnectArgs::builder()
             .metal_idx(2)
@@ -364,7 +362,7 @@ pub fn draw_read_mux_array(
             .transverse_offset(-800)
             .build()?;
         let trace = connect(args);
-        cell.add_pin(format!("br_out_{}", i / mux_ratio), m2, trace.rect());
+        cell.add_pin(bus_bit("br_out", i / mux_ratio), m2, trace.rect());
     }
 
     cell.layout_mut().add(vpb);
