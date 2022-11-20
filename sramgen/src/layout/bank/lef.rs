@@ -7,6 +7,7 @@ use layout21::raw::{BoundBoxTrait, Cell, Instance, Point, Rect};
 use layout21::utils::Ptr;
 use pdkprims::Pdk;
 
+use crate::bus_bit;
 use crate::layout::power::{PowerSource, PowerStraps};
 
 pub const DB_PER_MICRON: u32 = 1000;
@@ -35,12 +36,12 @@ pub fn generate(params: Params<'_>) -> LefLibrary {
 
     // Address bits
     for i in 0..addr_bits {
-        let pin_name = format!("addr[{i}]");
+        let pin_name = bus_bit("addr", i);
         let rect = inst.port(pin_name).largest_rect(m3).unwrap();
 
         pins.push(export_pin(ExportPin {
             layer_name: "met3",
-            pin_name: format!("addr[{i}]"),
+            pin_name: bus_bit("addr", i),
             rects: &[rect],
             direction: LefPinDirection::Input,
         }));
@@ -57,18 +58,18 @@ pub fn generate(params: Params<'_>) -> LefLibrary {
 
     // Data bits
     for i in 0..data_bits {
-        let rect = inst.port(format!("dout[{i}]")).largest_rect(m3).unwrap();
+        let rect = inst.port(bus_bit("dout", i)).largest_rect(m3).unwrap();
         pins.push(export_pin(ExportPin {
             layer_name: "met3",
-            pin_name: format!("dout[{i}]"),
+            pin_name: bus_bit("dout", i),
             rects: &[rect],
             direction: LefPinDirection::Output { tristate: false },
         }));
 
-        let rect = inst.port(format!("din[{i}]")).largest_rect(m3).unwrap();
+        let rect = inst.port(bus_bit("din", i)).largest_rect(m3).unwrap();
         pins.push(export_pin(ExportPin {
             layer_name: "met3",
-            pin_name: format!("din[{i}]"),
+            pin_name: bus_bit("din", i),
             rects: &[rect],
             direction: LefPinDirection::Input,
         }));

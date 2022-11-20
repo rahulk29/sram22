@@ -1,7 +1,7 @@
-use crate::clog2;
 use crate::layout::bank::ConnectArgs;
 use crate::schematic::decoder::TreeNode;
 use crate::schematic::gate::{GateParams, Size};
+use crate::{bus_bit, clog2};
 
 use crate::layout::common::bubble_ports;
 use crate::layout::Result;
@@ -200,24 +200,18 @@ pub fn draw_and2_array(
     let m1 = cfg.layerkey(1);
 
     for i in 0..width {
-        let src = nand.port(format!("y_{}", i)).largest_rect(m0).unwrap();
-        let dst = inv.port(format!("din_{}", i)).largest_rect(m0).unwrap();
+        let src = nand.port(bus_bit("y", i)).largest_rect(m0).unwrap();
+        let dst = inv.port(bus_bit("din", i)).largest_rect(m0).unwrap();
 
         let mut trace = router.trace(src, 0);
         trace.place_cursor(Dir::Horiz, true).s_bend(dst, Dir::Horiz);
 
         for port in ["a", "b"] {
-            cell.add_pin_from_port(nand.port(format!("{}_{}", port, i)), m0);
+            cell.add_pin_from_port(nand.port(bus_bit(port, i)), m0);
         }
-        cell.add_pin_from_port(
-            nand.port(format!("y_{}", i)).named(format!("y_b_{}", i)),
-            m0,
-        );
+        cell.add_pin_from_port(nand.port(bus_bit("y", i)).named(bus_bit("y_b", i)), m0);
 
-        cell.add_pin_from_port(
-            inv.port(format!("din_b_{}", i)).named(format!("y_{}", i)),
-            m0,
-        );
+        cell.add_pin_from_port(inv.port(bus_bit("din_b", i)).named(bus_bit("y", i)), m0);
     }
 
     cell.add_pin_from_port(nand.port("vdd").named("vdd0"), m1);
@@ -296,24 +290,18 @@ pub fn draw_and3_array(
     let m1 = cfg.layerkey(1);
 
     for i in 0..width {
-        let src = nand.port(format!("y_{}", i)).largest_rect(m0).unwrap();
-        let dst = inv.port(format!("din_{}", i)).largest_rect(m0).unwrap();
+        let src = nand.port(bus_bit("y", i)).largest_rect(m0).unwrap();
+        let dst = inv.port(bus_bit("din", i)).largest_rect(m0).unwrap();
 
         let mut trace = router.trace(src, 0);
         trace.place_cursor(Dir::Horiz, true).s_bend(dst, Dir::Horiz);
 
         for port in ["a", "b", "c"] {
-            cell.add_pin_from_port(nand.port(format!("{}_{}", port, i)), m0);
+            cell.add_pin_from_port(nand.port(bus_bit(port, i)), m0);
         }
-        cell.add_pin_from_port(
-            nand.port(format!("y_{}", i)).named(format!("y_b_{}", i)),
-            m0,
-        );
+        cell.add_pin_from_port(nand.port(bus_bit("y", i)).named(bus_bit("y_b", i)), m0);
 
-        cell.add_pin_from_port(
-            inv.port(format!("din_b_{}", i)).named(format!("y_{}", i)),
-            m0,
-        );
+        cell.add_pin_from_port(inv.port(bus_bit("din_b", i)).named(bus_bit("y", i)), m0);
     }
 
     cell.add_pin_from_port(nand.port("vdd0"), m1);
@@ -366,19 +354,19 @@ fn connect_taps_and_pwr(ctx: TapFillContext) -> Result<()> {
 
     for i in 0..(width / 2) {
         let pwr1 = inst
-            .port(format!("psdm_{}", 2 * i))
+            .port(bus_bit("psdm", 2 * i))
             .largest_rect(psdm)
             .unwrap();
         let pwr2 = inst
-            .port(format!("psdm_{}", 2 * i + 1))
+            .port(bus_bit("psdm", 2 * i + 1))
             .largest_rect(psdm)
             .unwrap();
         let gnd1 = inst
-            .port(format!("nsdm_{}", 2 * i))
+            .port(bus_bit("nsdm", 2 * i))
             .largest_rect(nsdm)
             .unwrap();
         let gnd2 = inst
-            .port(format!("nsdm_{}", 2 * i + 1))
+            .port(bus_bit("nsdm", 2 * i + 1))
             .largest_rect(nsdm)
             .unwrap();
 
@@ -603,14 +591,9 @@ fn draw_hier_decode_node(
     let m1 = cfg.layerkey(1);
 
     for i in 0..node.num {
+        cell.add_pin_from_port(and_array.port(bus_bit("y", i)).named(bus_bit("dec", i)), m0);
         cell.add_pin_from_port(
-            and_array.port(format!("y_{i}")).named(format!("dec_{i}")),
-            m0,
-        );
-        cell.add_pin_from_port(
-            and_array
-                .port(format!("y_b_{i}"))
-                .named(format!("dec_b_{i}")),
+            and_array.port(bus_bit("y_b", i)).named(bus_bit("dec_b", i)),
             m0,
         );
     }
@@ -620,7 +603,7 @@ fn draw_hier_decode_node(
     let mut decoder_insts = Vec::with_capacity(decoders.len());
 
     for (i, decoder) in decoders.into_iter().enumerate() {
-        let mut inst = Instance::new(format!("decoder_{}", i), decoder);
+        let mut inst = Instance::new(bus_bit("decoder", i), decoder);
         inst.align_beneath(bbox, 1_270);
         cell.layout_mut().add_inst(inst.clone());
         decoder_insts.push(inst);
@@ -672,10 +655,7 @@ fn draw_hier_decode_node(
                 _ => unreachable!("bus width must be 4 or 6"),
             };
             for (port, idx) in conns {
-                let src = and_array
-                    .port(format!("{}_{}", port, i))
-                    .largest_rect(m0)
-                    .unwrap();
+                let src = and_array.port(bus_bit(port, i)).largest_rect(m0).unwrap();
                 let mut trace = router.trace(src, 0);
                 let target = &traces[idx];
                 trace
@@ -689,7 +669,11 @@ fn draw_hier_decode_node(
         for (i, trace) in traces.iter().enumerate().take(bus_width) {
             let addr_bit = i / 2;
             let addr_bar = if i % 2 == 0 { "" } else { "_b" };
-            cell.add_pin(format!("addr{}_{}", addr_bar, addr_bit), m1, trace.rect())
+            cell.add_pin(
+                bus_bit(&format!("addr{}", addr_bar), addr_bit),
+                m1,
+                trace.rect(),
+            )
         }
 
         cell.layout_mut().add_inst(router.finish());
@@ -719,11 +703,11 @@ fn draw_hier_decode_node(
     for decoder in decoder_insts.iter() {
         for mut port in decoder.ports().into_iter() {
             if port.net.starts_with("addr_b") {
-                port.set_net(format!("addr_b_{}", addr_b_idx));
+                port.set_net(bus_bit("addr_b", addr_b_idx));
                 addr_b_idx += 1;
                 cell.add_pin_from_port(port, m1);
             } else if port.net.starts_with("addr") {
-                port.set_net(format!("addr_{}", addr_idx));
+                port.set_net(bus_bit("addr", addr_idx));
                 addr_idx += 1;
                 cell.add_pin_from_port(port, m1);
             }
@@ -731,7 +715,7 @@ fn draw_hier_decode_node(
     }
 
     assert_eq!(addr_idx, addr_b_idx);
-    assert_eq!(2usize.pow(addr_idx), node.num);
+    assert_eq!(2u64.pow(addr_idx as u32), node.num as u64);
 
     cell.layout_mut().add_inst(router.finish());
     bubble_ports(&mut cell, &["vpb", "vnb", "vdd", "vss"], m1);
@@ -800,7 +784,7 @@ pub(crate) fn connect_subdecoders(args: ConnectSubdecodersArgs) {
 
     for (decoder, node) in args.subdecoders.iter().zip(args.node.children.iter()) {
         for i in 0..node.num {
-            let src = decoder.port(format!("dec_{}", i)).largest_rect(m0).unwrap();
+            let src = decoder.port(bus_bit("dec", i)).largest_rect(m0).unwrap();
             let mut trace = args.router.trace(src, 0);
             let target = &traces[base_idx + i];
             trace

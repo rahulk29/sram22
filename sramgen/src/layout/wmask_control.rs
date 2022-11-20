@@ -1,5 +1,5 @@
 use crate::schematic::wmask_control::WriteMaskControlParams;
-use crate::Result;
+use crate::{bus_bit, Result};
 
 use layout21::raw::{BoundBoxTrait, Cell, Dir, Instance, Rect, Span};
 use layout21::utils::Ptr;
@@ -51,7 +51,7 @@ pub fn draw_write_mask_control(
     cell.layout_mut().draw_rect(m1, wr_en_rect);
 
     for i in 0..width {
-        let src = and2_array.port(format!("b_{i}")).largest_rect(m0).unwrap();
+        let src = and2_array.port(bus_bit("b", i)).largest_rect(m0).unwrap();
         let mut trace = router.trace(src, 0);
         trace
             .place_cursor(Dir::Horiz, false)
@@ -59,13 +59,13 @@ pub fn draw_write_mask_control(
             .contact_up(wr_en_rect);
 
         cell.add_pin_from_port(
-            and2_array.port(format!("a_{i}")).named(format!("sel_{i}")),
+            and2_array.port(bus_bit("a", i)).named(bus_bit("sel", i)),
             m0,
         );
         cell.add_pin_from_port(
             and2_array
-                .port(format!("y_{i}"))
-                .named(format!("write_driver_en_{i}")),
+                .port(bus_bit("y", i))
+                .named(bus_bit("write_driver_en", i)),
             m0,
         );
     }

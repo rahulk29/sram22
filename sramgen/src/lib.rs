@@ -17,13 +17,13 @@ pub mod tech;
 #[cfg(test)]
 mod tests;
 pub mod utils;
+pub mod verification;
 pub mod verilog;
 
 pub use anyhow::{anyhow, Result};
 
 pub const NETLIST_FORMAT: NetlistFormat = NetlistFormat::Spectre;
 pub const BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
-#[cfg(feature = "calibre")]
 pub const LIB_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/lib");
 
 pub fn out_bin(name: &str) -> PathBuf {
@@ -62,6 +62,10 @@ pub fn generate_netlist(name: &str) -> Result<()> {
             status.code()
         ))
     }
+}
+
+pub fn bus_bit(name: &str, index: usize) -> String {
+    format!("{name}[{index}]")
 }
 
 pub fn bbox(cell: &Ptr<Cell>) -> BoundBox {

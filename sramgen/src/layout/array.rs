@@ -7,9 +7,9 @@ use layout21::raw::{
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use crate::bbox;
 use crate::layout::grid::GridCells;
 use crate::tech::*;
+use crate::{bbox, bus_bit};
 use serde::{Deserialize, Serialize};
 
 use super::route::Router;
@@ -70,7 +70,7 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Arra
         };
 
         let mut inst = Instance {
-            inst_name: format!("cell_{}", i),
+            inst_name: bus_bit("cell", i),
             cell: params.cell.clone(),
             loc,
             reflect_vert: false,
@@ -92,7 +92,7 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Arra
         if let Some(ref mut abs) = abs.as_mut() {
             let mut ports = inst.ports();
             for p in ports.iter_mut() {
-                p.net = format!("{}_{}", &p.net, i);
+                p.net = bus_bit(&p.net, i);
             }
             for port in ports {
                 abs.add_port(port);
@@ -312,68 +312,64 @@ pub fn draw_bitcell_array(
 
     grid.place();
 
+    // Expose ports in abstract
+
+    // Corners
+    for i in 0..4 {
+        let position_str = match i {
+            0 => "top_left",
+            1 => "top_right",
+            2 => "bottom_left",
+            _ => "bottom_right",
+        };
+        let m = if i / 2 == 0 { 0 } else { total_rows + 1 };
+        let n = if i % 2 == 0 { 0 } else { 2 * total_cols };
+        let inst = grid.grid().get(m, n).unwrap();
+        if inst.has_abstract() {
+            for mut port in inst.ports() {
+                port.set_net(format!("{}_corner_{}", &port.net, position_str));
+                abs.add_port(port);
+            }
+        }
+    }
+
+    // Leftmost column
     for i in 1..total_rows + 1 {
         let inst = grid.grid().get(total_rows + 1 - i, 0).unwrap();
         if inst.has_abstract() {
             for mut port in inst.ports() {
-                if i == 0 || i == total_rows + 1 {
-                    port.set_net(format!("{}_corner_{}_{}", &port.net, total_rows + 1 - i, 0));
-                } else if i < dummy_rows + 1 || i > rows + dummy_rows {
+                if i < dummy_rows + 1 || i > rows + dummy_rows {
                     let dummy_i = if i < dummy_rows + 1 { i } else { i - rows };
-                    port.set_net(format!("{}_dummy_{}", &port.net, dummy_i));
+                    port.set_net(bus_bit(&format!("{}_dummy", &port.net), dummy_i));
                 } else {
-                    port.set_net(format!("{}_{}", &port.net, i - dummy_rows - 1));
+                    port.set_net(bus_bit(&port.net, i - dummy_rows - 1));
                 }
                 abs.add_port(port);
             }
         }
     }
 
+    // Top and bottom rows
     for j in vec![0, total_rows + 1].into_iter() {
-        let mut vpwr_counter = 0;
-        let mut vgnd_counter = 0;
-        let top_str = if j == 0 { "top_" } else { "" };
-        for instance_i in 0..2 * total_cols + 1 {
+        let top_str = if j == 0 { "_top" } else { "" };
+        for instance_i in 1..2 * total_cols {
             let inst = grid.grid().get(j, instance_i).unwrap();
             if inst.has_abstract() {
                 for mut port in inst.ports() {
                     let i = (instance_i + 1) / 2;
-                    if instance_i == 0 || instance_i == 2 * total_cols {
-                        port.set_net(format!("{}_corner_{}_{}", &port.net, total_rows + 1, i));
-                        if port.net.starts_with("vpwr0") {
-                            port.set_net(format!(
-                                "vpwr{}_{}{}",
-                                vpwr_counter % 2,
-                                top_str,
-                                vpwr_counter / 2,
-                            ));
-                            vpwr_counter += 1;
-                        }
-                    } else if port.net.starts_with("vgnd") {
-                        port.set_net(format!(
-                            "vgnd{}_{}{}",
-                            vgnd_counter % 2,
-                            top_str,
-                            vgnd_counter / 2
-                        ));
-                        vgnd_counter += 1;
-                    } else if port.net.starts_with("vpwr") {
-                        port.set_net(format!(
-                            "vpwr{}_{}{}",
-                            vpwr_counter % 2,
-                            top_str,
-                            vpwr_counter / 2
-                        ));
-                        vpwr_counter += 1;
-                    } else if i < dummy_cols + 1 || i > cols + dummy_cols {
-                        let dummy_i = if i < dummy_cols + 1 { i } else { i - cols };
-                        port.set_net(format!("{}_dummy_{}_{}", &port.net, j, dummy_i));
-                    } else if j == 1 {
-                        port.set_net(format!("{}_top_{}", &port.net, i - dummy_cols - 1));
+                    let new_net = if i < dummy_cols + 1 || i > cols + dummy_cols {
+                        format!("{}_dummy", &port.net)
                     } else {
-                        port.set_net(format!("{}_{}", &port.net, i - dummy_cols - 1));
-                    }
-                    println!("port net {}", &port.net);
+                        port.net.clone()
+                    };
+                    let i_final = if i > dummy_cols && i < cols + dummy_cols + 1 {
+                        i - dummy_cols - 1
+                    } else if i < dummy_cols + 1 {
+                        i
+                    } else {
+                        i - cols
+                    };
+                    port.set_net(bus_bit(&format!("{}{}", &new_net, top_str), i_final));
                     abs.add_port(port);
                 }
             }
@@ -409,29 +405,26 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
             if let Some(rect) = port.largest_rect(m1) {
                 let mut trace = router.trace(rect, 1);
                 trace.set_width(rect.width()).place_cursor_centered();
-                if rect.center().y < bounds.center().y {
+                let top_str = if rect.center().y < bounds.center().y {
                     trace.vert_to(bounds.bottom() - 3_000);
+                    ""
                 } else {
-                    trace.vert_to(bounds.top() + 3_000);
-                }
+                    trace.vert_to(bounds.top() + 2_700);
+                    "_top"
+                };
                 if port.net.starts_with("bl") {
-                    let new_net = format!("vpb_dummy_bl_{}", &port.net[9..]);
                     vert_ports_to_coalesce
-                        .entry(new_net)
+                        .entry(format!("vpb_dummy_bl{}", top_str))
                         .or_insert(Vec::new())
                         .push(trace.rect());
                 } else if port.net.starts_with("vgnd") {
-                    let new_net = format!("vgnd{}", &port.net[5..]);
-                    println!("new net {}", new_net);
                     vert_ports_to_coalesce
-                        .entry(new_net)
+                        .entry(format!("vgnd{}", top_str))
                         .or_insert(Vec::new())
                         .push(trace.rect());
                 } else if port.net.starts_with("vpwr") {
-                    let new_net = format!("vpwr{}", &port.net[5..]);
-                    println!("new net {}", new_net);
                     vert_ports_to_coalesce
-                        .entry(new_net)
+                        .entry(format!("vpwr{}", top_str))
                         .or_insert(Vec::new())
                         .push(trace.rect());
                 } else {
@@ -442,26 +435,43 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
     }
 
     // Merge ports that are tied to the same power straps but are too close together to have side
-    // by side vias (in this case, the bitlines).
-    for (net, rects) in vert_ports_to_coalesce {
-        let mut final_bbox = BoundBox::empty();
-        if rects.len() < 2 {
-            continue;
-        }
+    // by side vias.
+    for (net, mut rects) in vert_ports_to_coalesce {
+        rects.sort_by_key(|rect| rect.center().x);
+        let mut current_bbox = BoundBox::empty();
+        let mut bboxes = Vec::new();
+
         for rect in rects {
-            final_bbox = rect.union(&final_bbox);
-        }
-        let bbox_rect = final_bbox.into_rect();
-        let trace_rect = Rect::from_spans(
-            bbox_rect.hspan(),
-            if bbox_rect.center().y < bounds.center().y {
-                Span::new(bbox_rect.bottom(), bbox_rect.bottom() + 2_000)
+            if current_bbox.is_empty()
+                || std::cmp::min(rect.center().x - 130, rect.left())
+                    < std::cmp::max(
+                        current_bbox.center().x + 130,
+                        current_bbox.into_rect().right(),
+                    ) + 140
+            {
+                current_bbox = rect.union(&current_bbox);
             } else {
-                Span::new(bbox_rect.top(), bbox_rect.top() - 2_000)
-            },
-        );
-        let trace = router.trace(trace_rect, 1);
-        cell.add_pin(net, m1, trace.rect());
+                bboxes.push(current_bbox.clone());
+                current_bbox = rect.bbox();
+            }
+        }
+        if !current_bbox.is_empty() {
+            bboxes.push(current_bbox);
+        }
+
+        for (i, bbox) in bboxes.into_iter().enumerate() {
+            let bbox_rect = bbox.into_rect();
+            let trace_rect = Rect::from_spans(
+                bbox_rect.hspan(),
+                if bbox_rect.center().y < bounds.center().y {
+                    Span::new(bbox_rect.bottom(), bbox_rect.bottom() + 2_000)
+                } else {
+                    Span::new(bbox_rect.top(), bbox_rect.top() - 2_000)
+                },
+            );
+            let trace = router.trace(trace_rect, 1);
+            cell.add_pin(bus_bit(&net, i), m1, trace.rect());
+        }
     }
 
     let mut horiz_ports_to_coalesce: HashMap<String, Vec<Rect>> = HashMap::new();
@@ -476,19 +486,10 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
                     trace.horiz_to(bounds.right() + 6_400);
                 }
                 if port.net.starts_with("wl_dummy") || port.net.starts_with("vgnd_dummy") {
-                    let new_net = if port.net.starts_with("wl") {
-                        format!("vgnd{}", &port.net[2..])
-                    } else {
-                        port.net
-                    };
-                    match horiz_ports_to_coalesce.get_mut(&new_net) {
-                        Some(rects) => {
-                            rects.push(trace.rect());
-                        }
-                        None => {
-                            horiz_ports_to_coalesce.insert(new_net, vec![trace.rect()]);
-                        }
-                    }
+                    horiz_ports_to_coalesce
+                        .entry("vgnd_dummy".to_string())
+                        .or_insert(Vec::new())
+                        .push(trace.rect());
                 } else if net.starts_with("vpb") {
                     cell.add_pin(format!("vpwr{}", &port.net[3..]), m2, trace.rect());
                 } else if net.starts_with("vnb") {
@@ -501,22 +502,43 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
     }
 
     // Merge ports that are tied to the same power straps but are too close together to have side
-    // by side vias (in this case, the wordlines).
-    for (net, rects) in horiz_ports_to_coalesce {
-        let mut final_bbox = BoundBox::empty();
-        if rects.len() < 2 {
-            continue;
-        }
+    // by side vias.
+    for (net, mut rects) in horiz_ports_to_coalesce {
+        rects.sort_by_key(|rect| rect.center().y);
+        let mut current_bbox = BoundBox::empty();
+        let mut bboxes = Vec::new();
+
         for rect in rects {
-            final_bbox = rect.union(&final_bbox);
+            if current_bbox.is_empty()
+                || std::cmp::min(rect.center().y - 130, rect.bottom())
+                    < std::cmp::max(
+                        current_bbox.center().y + 130,
+                        current_bbox.into_rect().top(),
+                    ) + 140
+            {
+                current_bbox = rect.union(&current_bbox);
+            } else {
+                bboxes.push(current_bbox.clone());
+                current_bbox = rect.bbox();
+            }
         }
-        let bbox_rect = final_bbox.into_rect();
-        let trace_rect = Rect::from_spans(
-            Span::new(bbox_rect.left(), bbox_rect.left() + 5_600),
-            bbox_rect.vspan(),
-        );
-        let trace = router.trace(trace_rect, 2);
-        cell.add_pin(net, m2, trace.rect());
+        if !current_bbox.is_empty() {
+            bboxes.push(current_bbox);
+        }
+
+        for (i, bbox) in bboxes.into_iter().enumerate() {
+            let bbox_rect = bbox.into_rect();
+            let trace_rect = Rect::from_spans(
+                if bbox_rect.center().x < bounds.center().x {
+                    Span::new(bbox_rect.left(), bbox_rect.left() + 5_600)
+                } else {
+                    Span::new(bbox_rect.right(), bbox_rect.right() - 5_600)
+                },
+                bbox_rect.vspan(),
+            );
+            let trace = router.trace(trace_rect, 2);
+            cell.add_pin(bus_bit(&net, i), m2, trace.rect());
+        }
     }
 
     cell.layout_mut().add_inst(router.finish());

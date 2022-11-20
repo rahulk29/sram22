@@ -1,3 +1,4 @@
+use crate::bus_bit;
 use crate::layout::Result;
 use crate::schematic::gate::{GateParams, Size};
 use crate::tech::COLUMN_WIDTH;
@@ -73,7 +74,7 @@ pub fn draw_col_inv_array(
 
     let nwell = lib.pdk.get_layerkey("nwell").unwrap();
 
-    let nwell_region = inst.port("vpb_0").largest_rect(nwell).unwrap();
+    let nwell_region = inst.port(bus_bit("vpb", 0)).largest_rect(nwell).unwrap();
     let mut pwell_region = inst_bbox;
     pwell_region.p1.y = nwell_region.p0.y;
 
@@ -99,8 +100,8 @@ pub fn draw_col_inv_array(
     let m2 = cfg.layerkey(2);
 
     for i in 0..width {
-        cell.add_pin_from_port(inst.port(format!("din_{i}")), m0);
-        cell.add_pin_from_port(inst.port(format!("din_b_{i}")), m0);
+        cell.add_pin_from_port(inst.port(bus_bit("din", i)), m0);
+        cell.add_pin_from_port(inst.port(bus_bit("din_b", i)), m0);
     }
 
     let args = ConnectArgs::builder()
@@ -132,11 +133,8 @@ pub fn draw_col_inv_array(
         for port in ["vdd", "vss"] {
             let src = if port == "vdd" { &ntaps } else { &ptaps };
             let tap_idx = if i % 2 == 0 { i } else { i + 1 };
-            let src = src.port(format!("x_{}", tap_idx)).largest_rect(m0).unwrap();
-            let dst = inst
-                .port(format!("{}_{}", port, i))
-                .largest_rect(m0)
-                .unwrap();
+            let src = src.port(bus_bit("x", tap_idx)).largest_rect(m0).unwrap();
+            let dst = inst.port(bus_bit(port, i)).largest_rect(m0).unwrap();
 
             let mut trace = router.trace(src, 0);
             trace.place_cursor_centered().horiz_to(dst.center().x);
