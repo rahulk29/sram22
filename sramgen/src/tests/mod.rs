@@ -9,9 +9,9 @@ use crate::verilog::{save_1rw_verilog, Sram1RwParams};
 use crate::{clog2, generate_netlist, Result, BUILD_PATH};
 use std::path::PathBuf;
 
-#[cfg(spectre)]
+#[cfg(feature = "spectre")]
 use crate::verification::bit_signal::BitSignal;
-#[cfg(spectre)]
+#[cfg(feature = "spectre")]
 use crate::verification::{
     self, source_files, PortClass, PortOrder, TbParams, TestCase, VerificationTask,
 };
