@@ -395,7 +395,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     addr_dffs.align_beneath(
         control_bbox.bbox(),
-        1_000 + 460 * 2 * predecoder_bus_bits as isize,
+        3_000 + 460 * 2 * predecoder_bus_bits as isize,
     );
     addr_dffs.align_to_the_left_of(col_bbox, 4_000);
     let addr_dff_bbox = addr_dffs.bbox();
