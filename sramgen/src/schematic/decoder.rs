@@ -119,7 +119,6 @@ fn plan_decoder(bits: usize, top: bool) -> PlanTreeNode {
         }
     } else {
         let split = partition_bits(bits, top);
-        println!("Splitting bits: {:?}", split);
         let gate = match split.len() {
             2 => GateType::Nand2,
             3 => GateType::Nand3,
@@ -316,7 +315,6 @@ impl<'a> DecoderGen<'a> {
             .map(|i| node.children.get(i).map(|n| n.num).unwrap_or(2))
             .collect::<Vec<_>>();
 
-        println!("sigs = {:?}, num = {}", sigs, node.num);
         assert_eq!(sigs.iter().map(|s| s.width()).product::<usize>(), node.num);
 
         let out_name = if depth == 0 {
