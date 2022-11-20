@@ -1,3 +1,4 @@
+use anyhow::Context;
 use pdkprims::tech::sky130;
 
 use crate::config::{ControlMode, SramConfig};
@@ -74,9 +75,9 @@ pub(crate) fn generate_test(config: SramConfig) -> Result<()> {
         wmask_groups,
     });
 
-    save_modules(&name, modules)?;
+    save_modules(&name, modules).with_context(|| "Error saving netlist binaries")?;
 
-    generate_netlist(&name)?;
+    generate_netlist(&name).with_context(|| "Error converting netlists to SPICE format")?;
 
     let mut lib = sky130::pdk_lib(&name)?;
     draw_sram_bank(
@@ -88,9 +89,11 @@ pub(crate) fn generate_test(config: SramConfig) -> Result<()> {
             mux_ratio,
             wmask_groups,
         },
-    )?;
+    )
+    .with_context(|| "Error generating SRAM layout")?;
 
-    lib.save_gds(test_gds_path(&name))?;
+    lib.save_gds(test_gds_path(&name))
+        .with_context(|| "Error saving SRAM GDS")?;
 
     save_1rw_verilog(
         test_verilog_path(&name),
@@ -102,65 +105,68 @@ pub(crate) fn generate_test(config: SramConfig) -> Result<()> {
             wmask_width: wmask_groups,
         },
     )
-    .unwrap();
+    .with_context(|| "Error generating or saving Verilog model")?;
 
     #[cfg(feature = "calibre")]
     self::sram::calibre::run_sram_drc_lvs(&name)?;
 
-    let alternating_bits = 0b0101010101010101010101010101010101010101010101010101010101010101u64;
-    let test_case = TestCase::builder()
-        .clk_period(20e-9)
-        .ops([
-            verification::Op::Write {
-                addr: BitSignal::from_u64(alternating_bits, addr_width),
-                data: BitSignal::from_u64(alternating_bits, data_width),
-            },
-            verification::Op::Read {
-                addr: BitSignal::from_u64(alternating_bits, addr_width),
-            },
-        ])
-        .build()?;
-
-    let mut ports = vec![
-        (PortClass::Power, PortOrder::MsbFirst),
-        (PortClass::Ground, PortOrder::MsbFirst),
-        (PortClass::Clock, PortOrder::MsbFirst),
-        (PortClass::DataIn, PortOrder::MsbFirst),
-        (PortClass::DataOut, PortOrder::MsbFirst),
-        (PortClass::WriteEnable, PortOrder::MsbFirst),
-        (PortClass::Addr, PortOrder::MsbFirst),
-    ];
-    if wmask_groups > 1 {
-        ports.push((PortClass::WriteMask, PortOrder::MsbFirst));
-    }
-    let mut tb = TbParams::builder();
-    tb.test_case(test_case)
-        .sram_name(&name)
-        .tr(50e-12)
-        .tf(50e-12)
-        .vdd(1.8)
-        .c_load(5e-15)
-        .data_width(data_width)
-        .addr_width(addr_width)
-        .wmask_groups(wmask_groups)
-        .ports(ports)
-        .clk_port("clk")
-        .write_enable_port("we")
-        .addr_port("addr")
-        .data_in_port("din")
-        .data_out_port("dout")
-        .pwr_port("vdd")
-        .gnd_port("vss")
-        .wmask_port("wmask")
-        .work_dir(PathBuf::from(BUILD_PATH).join(format!("sim/{}", name)))
-        .source_paths(source_files(&name, VerificationTask::SpectreSim));
-
     #[cfg(feature = "spectre")]
-    tb.includes(crate::verification::spectre::sky130_includes());
+    {
+        let alternating_bits =
+            0b0101010101010101010101010101010101010101010101010101010101010101u64;
+        let test_case = TestCase::builder()
+            .clk_period(20e-9)
+            .ops([
+                verification::Op::Write {
+                    addr: BitSignal::from_u64(alternating_bits, addr_width),
+                    data: BitSignal::from_u64(alternating_bits, data_width),
+                },
+                verification::Op::Read {
+                    addr: BitSignal::from_u64(alternating_bits, addr_width),
+                },
+            ])
+            .build()?;
 
-    let tb = tb.build()?;
+        let mut ports = vec![
+            (PortClass::Power, PortOrder::MsbFirst),
+            (PortClass::Ground, PortOrder::MsbFirst),
+            (PortClass::Clock, PortOrder::MsbFirst),
+            (PortClass::DataIn, PortOrder::MsbFirst),
+            (PortClass::DataOut, PortOrder::MsbFirst),
+            (PortClass::WriteEnable, PortOrder::MsbFirst),
+            (PortClass::Addr, PortOrder::MsbFirst),
+        ];
+        if wmask_groups > 1 {
+            ports.push((PortClass::WriteMask, PortOrder::MsbFirst));
+        }
+        let mut tb = TbParams::builder();
+        tb.test_case(test_case)
+            .sram_name(&name)
+            .tr(50e-12)
+            .tf(50e-12)
+            .vdd(1.8)
+            .c_load(5e-15)
+            .data_width(data_width)
+            .addr_width(addr_width)
+            .wmask_groups(wmask_groups)
+            .ports(ports)
+            .clk_port("clk")
+            .write_enable_port("we")
+            .addr_port("addr")
+            .data_in_port("din")
+            .data_out_port("dout")
+            .pwr_port("vdd")
+            .gnd_port("vss")
+            .wmask_port("wmask")
+            .work_dir(PathBuf::from(BUILD_PATH).join(format!("sim/{}", name)))
+            .source_paths(source_files(&name, VerificationTask::SpectreSim));
 
-    verification::run_testbench(&tb)?;
+        tb.includes(crate::verification::spectre::sky130_includes());
+
+        let tb = tb.build()?;
+
+        verification::run_testbench(&tb).with_context(|| "Error simulating testbench")?;
+    }
 
     Ok(())
 }
