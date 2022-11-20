@@ -417,12 +417,12 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
                         .entry(format!("vpb_dummy_bl{}", top_str))
                         .or_default()
                         .push(trace.rect());
-                } else if port.net.starts_with("vgnd") {
+                } else if port.net.starts_with("vgnd") || port.net.starts_with("vnb") {
                     vert_ports_to_coalesce
                         .entry(format!("vgnd{}", top_str))
                         .or_default()
                         .push(trace.rect());
-                } else if port.net.starts_with("vpwr") {
+                } else if port.net.starts_with("vpwr") || port.net.starts_with("vpb") {
                     vert_ports_to_coalesce
                         .entry(format!("vpwr{}", top_str))
                         .or_default()
