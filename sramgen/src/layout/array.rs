@@ -451,7 +451,7 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
             {
                 current_bbox = rect.union(&current_bbox);
             } else {
-                bboxes.push(current_bbox.clone());
+                bboxes.push(current_bbox);
                 current_bbox = rect.bbox();
             }
         }
@@ -518,7 +518,7 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
             {
                 current_bbox = rect.union(&current_bbox);
             } else {
-                bboxes.push(current_bbox.clone());
+                bboxes.push(current_bbox);
                 current_bbox = rect.bbox();
             }
         }
