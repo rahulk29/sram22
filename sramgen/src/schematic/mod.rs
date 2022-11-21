@@ -4,6 +4,7 @@ pub mod decoder;
 pub mod dff;
 pub mod dout_buffer;
 pub mod gate;
+pub mod inv_chain;
 pub mod mos;
 pub mod mux;
 pub mod precharge;

@@ -21,6 +21,7 @@ pub const SRAM_SP_REPLICA_CELL: &str = "sram_sp_replica_cell";
 pub const OPENRAM_DFF: &str = "openram_dff";
 pub const SRAM_CONTROL: &str = "sramgen_control";
 pub const SRAM_SP_SENSE_AMP: &str = "sramgen_sp_sense_amp";
+pub const CONTROL_LOGIC_INV: &str = "control_logic_inv";
 
 pub const BITCELL_HEIGHT: isize = 1580;
 pub const BITCELL_WIDTH: isize = 1200;
@@ -313,6 +314,22 @@ pub fn sramgen_sp_sense_amp() -> ExternalModule {
     )
 }
 
+/// Reference to the high-VT inverter used for the
+/// control logic delay chain that clocks the sense amps.
+///
+/// The SPICE subcircuit definition looks like this:
+/// ```spice
+/// .SUBCKT control_logic_inv din din_b vdd vss
+/// ```
+#[inline]
+pub fn control_logic_inv() -> ExternalModule {
+    simple_ext_module(
+        SKY130_DOMAIN,
+        CONTROL_LOGIC_INV,
+        &["din", "din_b", "vdd", "vss"],
+    )
+}
+
 /// Reference to the simplest control logic available.
 ///
 /// The SPICE subcircuit definition looks like this:
@@ -348,6 +365,16 @@ pub fn sramgen_sp_sense_amp_ref() -> Reference {
 }
 
 #[inline]
+pub fn control_logic_inv_ref() -> Reference {
+    Reference {
+        to: Some(To::External(QualifiedName {
+            domain: SKY130_DOMAIN.to_string(),
+            name: CONTROL_LOGIC_INV.to_string(),
+        })),
+    }
+}
+
+#[inline]
 pub fn all_external_modules() -> Vec<ExternalModule> {
     vec![
         ext_nmos(NETLIST_FORMAT),
@@ -357,6 +384,7 @@ pub fn all_external_modules() -> Vec<ExternalModule> {
         sram_sp_replica_cell(),
         sramgen_control_simple(),
         sramgen_sp_sense_amp(),
+        control_logic_inv(),
         openram_dff(),
     ]
 }
