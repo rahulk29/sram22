@@ -425,6 +425,14 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             .unwrap()
             .expand(cfg.line(2) / 2),
     );
+    power_grid.add_padded_blockage(
+        2,
+        control
+            .port("m2_block")
+            .largest_rect(m2)
+            .unwrap()
+            .expand(80),
+    );
 
     ////////////////////////////////////////////////////////////////////
     // Row routing
@@ -968,7 +976,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     power_grid.add_padded_blockage(2, trace.cursor_rect().expand(130));
     trace.vert_to(dst.bottom() - 500);
     power_grid.add_padded_blockage(3, trace.rect().expand(20));
-    trace.down().set_min_width().horiz_to(dst.right());
+    trace.down().set_min_width().horiz_to_rect(dst);
     power_grid.add_padded_blockage(2, trace.rect().expand(140));
     trace.down().vert_to(dst.top());
 
