@@ -905,7 +905,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .horiz_to(dst.center().x - cfg.line(0) / 2)
         .down()
         .down();
-    power_grid.add_padded_blockage(2, trace.rect().expand(90));
+    power_grid.add_padded_blockage(2, trace.rect().expand(120));
 
     // Route sense amp enable to sense amp clock
     let src = control.port("sense_en").largest_rect(m0).unwrap();
