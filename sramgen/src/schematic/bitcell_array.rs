@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use vlsir::circuit::connection::Stype;
-use vlsir::circuit::{Connection, Instance, Slice};
+use vlsir::circuit::Instance;
 use vlsir::Module;
 
 use crate::tech::{sram_sp_cell_ref, sram_sp_colend_ref};
@@ -69,9 +68,18 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
                 connections.insert("BR".to_string(), sig_conn(&vss));
                 connections.insert("WL".to_string(), sig_conn(&vss));
             } else {
-                connections.insert("BL".to_string(), conn_slice("bl", j, j));
-                connections.insert("BR".to_string(), conn_slice("br", j, j));
-                connections.insert("WL".to_string(), conn_slice("wl", i, i));
+                connections.insert(
+                    "BL".to_string(),
+                    conn_slice("bl", j - dummy_cols, j - dummy_cols),
+                );
+                connections.insert(
+                    "BR".to_string(),
+                    conn_slice("br", j - dummy_cols, j - dummy_cols),
+                );
+                connections.insert(
+                    "WL".to_string(),
+                    conn_slice("wl", i - dummy_rows, i - dummy_rows),
+                );
             }
             let inst = Instance {
                 name: format!("bitcell_{}_{}", i, j),
@@ -85,7 +93,7 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
 
     for i in 0..total_cols {
         // .subckt sky130_fd_bd_sram__sram_sp_colend BL1 VPWR VGND BL0
-        let dummy = i < dummy_rows || i > rows + dummy_rows - 1;
+        let dummy = i < dummy_cols || i > rows + dummy_cols - 1;
 
         let conns = [
             (
@@ -93,7 +101,7 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
                 if dummy {
                     sig_conn(&vss)
                 } else {
-                    conn_slice("br", i, i)
+                    conn_slice("br", i - dummy_cols, i - dummy_cols)
                 },
             ),
             (
@@ -101,7 +109,7 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
                 if dummy {
                     sig_conn(&vss)
                 } else {
-                    conn_slice("bl", i, i)
+                    conn_slice("bl", i - dummy_cols, i - dummy_cols)
                 },
             ),
             ("VPWR", sig_conn(&vdd)),
