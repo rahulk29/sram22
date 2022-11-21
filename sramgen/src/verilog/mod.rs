@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use crate::config::sram::SramParams;
 use crate::Result;
 
 use anyhow::anyhow;

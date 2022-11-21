@@ -1,4 +1,6 @@
-use layout21::raw::{Cell, Element, Instance, LayerKey, LayerPurpose, Layout, Point, Rect, Shape};
+use layout21::raw::{
+    BoundBox, Cell, Element, Instance, LayerKey, LayerPurpose, Layout, Point, Rect, Shape,
+};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
@@ -63,4 +65,9 @@ pub fn draw_rect(r: Rect, layer: LayerKey) -> Element {
         inner: Shape::Rect(r),
         purpose: LayerPurpose::Drawing,
     }
+}
+
+pub fn bbox(cell: &Ptr<Cell>) -> BoundBox {
+    let cell = cell.read().unwrap();
+    cell.layout.as_ref().unwrap().bbox()
 }

@@ -1,9 +1,13 @@
 use crate::config::{sram::SramParams, SramConfig};
-use crate::layout::sram::{draw_sram, SramBankParams};
+use crate::layout::sram::draw_sram;
+use crate::out_bin;
 use crate::plan::extract::ExtractionResult;
-use crate::schematic::sram::{sram, SramParams};
-use crate::utils::save_modules;
-use crate::{clog2, generate_netlist, Result};
+use crate::schematic::sram::sram;
+use crate::schematic::{generate_netlist, save_modules};
+use crate::tech::sky130;
+use crate::{clog2, Result};
+use anyhow::Context;
+use std::path::Path;
 
 pub mod extract;
 
@@ -54,10 +58,13 @@ pub fn generate_plan(
     })
 }
 
-pub fn execute_plan(plan: &SramPlan) -> Result<()> {
+pub fn execute_plan(work_dir: impl AsRef<Path>, plan: &SramPlan) -> Result<()> {
     let modules = sram(plan.sram_params);
 
-    save_modules(&name, modules).with_context(|| "Error saving netlist binaries")?;
+    let name = &plan.sram_params.name;
+
+    save_modules(out_bin(work_dir, name), name, modules)
+        .with_context(|| "Error saving netlist binaries")?;
 
     generate_netlist(&name).with_context(|| "Error converting netlists to SPICE format")?;
 

@@ -1,3 +1,16 @@
+use vlsir::circuit::{port, ExternalModule, Package, Port};
+use vlsir::reference::To;
+use vlsir::spice::SimInput;
+use vlsir::{Module, QualifiedName, Reference};
+
+use crate::schematic::conns::signal;
+use crate::tech::all_external_modules;
+use crate::Result;
+use std::path::{Path, PathBuf};
+
+use anyhow::anyhow;
+use std::process::{Command, Stdio};
+
 pub mod bitcell_array;
 pub mod col_inv;
 pub mod decoder;
@@ -12,3 +25,93 @@ pub mod sense_amp;
 pub mod sram;
 pub mod wl_driver;
 pub mod wmask_control;
+
+pub mod conns;
+
+pub const GENERATE_SCRIPT_PATH: PathBuf =
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("scripts/generate.py");
+pub const NETLIST_FORMAT: NetlistFormat = NetlistFormat::Spectre;
+
+pub enum NetlistFormat {
+    NgSpice,
+    Spectre,
+}
+
+pub fn simple_ext_module(
+    domain: impl Into<String>,
+    name: impl Into<String>,
+    ports: &[&str],
+) -> ExternalModule {
+    let ports = ports
+        .iter()
+        .map(|&n| Port {
+            signal: Some(signal(n)),
+            direction: port::Direction::Inout as i32,
+        })
+        .collect::<Vec<_>>();
+
+    ExternalModule {
+        name: Some(QualifiedName {
+            domain: domain.into(),
+            name: name.into(),
+        }),
+        desc: "An external module".to_string(),
+        ports,
+        parameters: vec![],
+    }
+}
+
+pub fn local_reference(name: impl Into<String>) -> Option<Reference> {
+    Some(Reference {
+        to: Some(To::Local(name.into())),
+    })
+}
+
+pub fn save_modules(path: impl AsRef<Path>, name: &str, modules: Vec<Module>) -> Result<()> {
+    let ext_modules = all_external_modules();
+    let pkg = vlsir::circuit::Package {
+        domain: format!("sramgen_{}", name),
+        desc: "Sramgen generated cells".to_string(),
+        modules,
+        ext_modules,
+    };
+
+    save_bin(path, name, pkg)?;
+
+    Ok(())
+}
+
+pub fn save_bin(path: impl AsRef<Path>, name: &str, pkg: Package) -> Result<()> {
+    let input = SimInput {
+        pkg: Some(pkg),
+        top: name.to_string(),
+        opts: None,
+        an: vec![],
+        ctrls: vec![],
+    };
+
+    std::fs::create_dir_all(path.as_ref().parent().unwrap())?;
+    vlsir::conv::save(&input, path).expect("Failed to save VLSIR data");
+
+    Ok(())
+}
+
+pub fn generate_netlist(name: &str) -> Result<()> {
+    let status = Command::new("python3")
+        .args([GENERATE_SCRIPT_PATH, name.into()])
+        .stdout(Stdio::null())
+        .status()?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "Netlist generation script failed with status {:?}",
+            status.code()
+        ))
+    }
+}
+
+pub fn bus_bit(name: &str, index: usize) -> String {
+    format!("{name}[{index}]")
+}
