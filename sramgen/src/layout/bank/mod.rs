@@ -388,7 +388,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     };
 
     control.align_beneath(bbox, 1_270);
-    control.align_left(decoder2_bbox);
+    control.align_to_the_left_of(col_bbox, 4_000);
     let control_bbox = control.bbox().into_rect();
 
     let predecoder_bus_bits = total_addr_bits;
