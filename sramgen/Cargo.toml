@@ -30,7 +30,7 @@ psf_ascii = { git = "https://github.com/rahulk29/psf_ascii.git", branch = "maste
 arcstr = "1.1.5"
 anyhow = "1"
 calibre = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git", branch = "master", optional = true }
-abstract_lef = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/abstract_lef.git", branch = "master" }
+abstract_lef = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/abstract_lef.git", branch = "master", optional = true }
 tera = "1.17.1"
 lazy_static = "1.4.0"
 
@@ -45,4 +45,4 @@ approx = "0.5.1"
 calibre = ["dep:calibre"]
 spectre = []
 pex = ["dep:calibre"]
-abstract_lef = []
+abstract_lef = ["dep:abstract_lef"]
