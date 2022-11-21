@@ -14,4 +14,3 @@ fn test_sky130_control_logic_simple() -> Result<()> {
 
     Ok(())
 }
-
