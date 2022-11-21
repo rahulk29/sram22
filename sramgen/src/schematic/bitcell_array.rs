@@ -64,8 +64,8 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
                 || j < dummy_cols
                 || j > cols + dummy_cols - 1
             {
-                connections.insert("BL".to_string(), sig_conn(&vss));
-                connections.insert("BR".to_string(), sig_conn(&vss));
+                connections.insert("BL".to_string(), sig_conn(&vdd));
+                connections.insert("BR".to_string(), sig_conn(&vdd));
                 connections.insert("WL".to_string(), sig_conn(&vss));
             } else {
                 connections.insert(
@@ -99,7 +99,7 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
             (
                 "BL1",
                 if dummy {
-                    sig_conn(&vss)
+                    sig_conn(&vdd)
                 } else {
                     conn_slice("br", i - dummy_cols, i - dummy_cols)
                 },
@@ -107,7 +107,7 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
             (
                 "BL0",
                 if dummy {
-                    sig_conn(&vss)
+                    sig_conn(&vdd)
                 } else {
                     conn_slice("bl", i - dummy_cols, i - dummy_cols)
                 },
