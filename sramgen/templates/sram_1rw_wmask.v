@@ -9,7 +9,7 @@ module {{module_name}}(
     vdd,
     vss,
 `endif
-    clk,we,addr,din,dout
+    clk,we,wmask,addr,din,dout
   );
 
   parameter DATA_WIDTH = {{data_width}} ;
@@ -32,7 +32,6 @@ module {{module_name}}(
   reg [WMASK_WIDTH-1:0] wmask_reg;
   reg [ADDR_WIDTH-1:0]  addr_reg;
   reg [DATA_WIDTH-1:0]  din_reg;
-  reg [DATA_WIDTH-1:0]  dout;
 
   reg [DATA_WIDTH-1:0] mem [0:RAM_DEPTH-1];
 
@@ -70,7 +69,9 @@ module {{module_name}}(
           mem[addr_reg][{{upper}}:{{lower}}] <= din_reg[{{upper}}:{{lower}}];
         end
       {% endfor %}
-      mem[addr_reg] <= din_reg;
+
+      // Output is arbitrary when writing to SRAM
+      dout <= {DATA_WIDTH{1'bx}};
     end
   end
 
