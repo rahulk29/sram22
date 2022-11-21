@@ -1,6 +1,7 @@
 use crate::config::ControlMode;
 use crate::layout::bank::GateList;
 use crate::layout::common::MergeArgs;
+use crate::layout::inv_chain::{draw_inv_chain, InvChainParams};
 use crate::tech::{sc_and2_gds, sc_buf_gds, sc_inv_gds, sc_tap_gds};
 use crate::Result;
 
@@ -10,85 +11,6 @@ use pdkprims::PdkLib;
 
 use super::common::sc_outline;
 use super::route::Router;
-
-pub struct InvChainParams<'a> {
-    pub prefix: &'a str,
-    pub num: usize,
-}
-
-pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Cell>> {
-    let mut cell = Cell::empty(params.prefix);
-
-    let inv = sc_inv_gds(lib)?;
-    let tap = sc_tap_gds(lib)?;
-
-    let tap0 = Instance::new("tap0", tap.clone());
-    let tmp = Instance::new("", inv.clone());
-    let inv_outline = sc_outline(&lib.pdk, &tmp);
-    let tap_outline = sc_outline(&lib.pdk, &tap0);
-
-    let mut router = Router::new(format!("{}_route", params.prefix), lib.pdk.clone());
-    let cfg = router.cfg();
-    let m0 = cfg.layerkey(0);
-    let m1 = cfg.layerkey(1);
-
-    let mut x = tap_outline.p1.x;
-    let mut prev: Option<Instance> = None;
-    for i in 0..params.num {
-        let mut inv = Instance::new(format!("inv_{}", i), inv.clone());
-        inv.loc.x = x;
-        x += inv_outline.width();
-        if let Some(prev) = prev {
-            let dst = prev.port("y").largest_rect(m0).unwrap();
-            let src = inv.port("a").largest_rect(m0).unwrap();
-
-            let mut trace = router.trace(src, 0);
-            trace
-                .place_cursor(layout21::raw::Dir::Horiz, false)
-                .horiz_to(dst.left());
-        }
-        cell.layout_mut().add_inst(inv.clone());
-
-        if i == 0 {
-            let rect = inv.port("a").largest_rect(m0).unwrap();
-            cell.add_pin("din", m0, rect);
-        } else if i == params.num - 1 {
-            let rect = inv.port("y").largest_rect(m0).unwrap();
-            cell.add_pin("dout", m0, rect);
-        }
-
-        prev = Some(inv);
-    }
-
-    let mut tap1 = Instance::new("tap1", tap);
-    tap1.loc.x = x;
-
-    cell.layout_mut().add_inst(tap0);
-    cell.layout_mut().add_inst(tap1);
-
-    let rect = MergeArgs::builder()
-        .layer(m1)
-        .insts(GateList::Cells(&cell.layout().insts))
-        .port_name("vgnd")
-        .build()?
-        .rect();
-    cell.add_pin("vss", m1, rect);
-
-    let rect = MergeArgs::builder()
-        .layer(m1)
-        .insts(GateList::Cells(&cell.layout().insts))
-        .port_name("vpwr")
-        .build()?
-        .rect();
-    cell.add_pin("vdd", m1, rect);
-
-    cell.layout_mut().add_inst(router.finish());
-
-    let ptr = Ptr::new(cell);
-    lib.lib.cells.push(ptr.clone());
-
-    Ok(ptr)
-}
 
 pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cell>> {
     assert_eq!(mode, ControlMode::Simple);
