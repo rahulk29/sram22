@@ -6,7 +6,6 @@ use crate::tech::sram_sp_cell_gds;
 use crate::Result;
 
 pub mod array;
-pub mod bank;
 pub mod col_inv;
 pub mod common;
 pub mod control;
@@ -23,6 +22,7 @@ pub mod power;
 pub mod precharge;
 pub mod route;
 pub mod sense_amp;
+pub mod sram;
 pub mod tmc;
 pub mod wmask_control;
 

@@ -21,7 +21,7 @@ pub struct Sram1RwParams {
     pub wmask_width: usize,
 }
 
-pub fn generate_1rw_verilog(params: Sram1RwParams) -> Result<String> {
+pub fn generate_1rw_verilog(params: SramParams) -> Result<String> {
     assert_eq!(params.num_words, 1 << params.addr_width);
     let template = if params.wmask_width > 1 {
         "sram_1rw_wmask.v"
@@ -34,7 +34,7 @@ pub fn generate_1rw_verilog(params: Sram1RwParams) -> Result<String> {
         .render(template, &Context::from_serialize(params)?)?)
 }
 
-pub fn save_1rw_verilog(path: impl AsRef<Path>, params: Sram1RwParams) -> Result<()> {
+pub fn save_1rw_verilog(path: impl AsRef<Path>, params: SramParams) -> Result<()> {
     let verilog = generate_1rw_verilog(params)?;
 
     let path = path.as_ref();

@@ -74,16 +74,8 @@ pub struct PhysicalDesign {
     pub lef: LefLibrary,
 }
 
-pub struct SramBankParams {
-    pub name: String,
-    pub rows: usize,
-    pub cols: usize,
-    pub mux_ratio: usize,
-    pub wmask_groups: usize,
-}
-
-pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<PhysicalDesign> {
-    let SramBankParams {
+pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign> {
+    let SramParams {
         name,
         rows,
         cols,
@@ -245,7 +237,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         },
     )?;
 
-    let mut router = Router::new("bank_route", lib.pdk.clone());
+    let mut router = Router::new("sram_route", lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
@@ -412,7 +404,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             .v_line(400)
             .v_space(400)
             .pdk(lib.pdk.clone())
-            .name("bank_power_strap")
+            .name("sram_power_strap")
             .enclosure(Rect::new(Point::zero(), Point::zero()))
             .build()?,
     );

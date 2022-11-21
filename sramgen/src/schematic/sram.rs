@@ -25,14 +25,6 @@ use crate::utils::{
 
 use crate::schematic::dff::DffArrayParams;
 
-pub struct SramParams {
-    pub row_bits: usize,
-    pub col_bits: usize,
-    pub col_mask_bits: usize,
-    pub wmask_groups: usize,
-    pub name: String,
-}
-
 pub fn sram(params: SramParams) -> Vec<Module> {
     assert!(params.row_bits > 0);
     assert!(params.col_bits > 0);
