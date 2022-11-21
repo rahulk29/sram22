@@ -89,6 +89,7 @@ pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Ce
     Ok(ptr)
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct InvChainGridParams<'a> {
     pub prefix: &'a str,
     pub rows: usize,
