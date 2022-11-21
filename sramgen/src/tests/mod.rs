@@ -25,6 +25,7 @@ mod dff;
 mod dout_buffer;
 mod gate;
 mod guard_ring;
+mod inv_chain;
 mod latch;
 mod mux;
 mod precharge;

@@ -14,20 +14,3 @@ fn test_sky130_control_logic_simple() -> Result<()> {
 
     Ok(())
 }
-
-#[test]
-fn test_sky130_inv_chain_12() -> Result<()> {
-    let name = "sramgen_inv_chain_12";
-    let mut lib = sky130::pdk_lib(name)?;
-    draw_inv_chain(
-        &mut lib,
-        InvChainParams {
-            prefix: name,
-            num: 12,
-        },
-    )?;
-
-    lib.save_gds(test_gds_path(name))?;
-
-    Ok(())
-}

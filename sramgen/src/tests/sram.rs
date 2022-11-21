@@ -11,6 +11,7 @@ pub(crate) mod calibre {
     use crate::{Result, BUILD_PATH};
     use calibre::drc::{run_drc, DrcParams};
     use calibre::lvs::{run_lvs, LvsParams, LvsStatus};
+    #[cfg(feature = "pex")]
     use calibre::pex::{run_pex, PexParams};
     use calibre::RuleCheck;
     use std::path::PathBuf;
@@ -18,6 +19,8 @@ pub(crate) mod calibre {
     const SKY130_DRC_RULES_PATH: &str = "/tools/B/rahulkumar/sky130/priv/drc/sram_drc_rules";
     const SKY130_LVS_RULES_PATH: &str =
         "/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/LVS/Calibre/lvs_s8_opts";
+
+    #[cfg(feature = "pex")]
     const SKY130_PEX_RULES_PATH: &str =
         "/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/PEX/xRC/xrcControlFile_s8";
 
