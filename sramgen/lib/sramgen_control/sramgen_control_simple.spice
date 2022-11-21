@@ -31,34 +31,6 @@ X6 vdd A a_46_47# vdd sky130_fd_pr__pfet_01v8_hvt w=420000u l=150000u
 X7 a_46_47# B vdd vdd sky130_fd_pr__pfet_01v8_hvt w=420000u l=150000u
 .ends
 
-.subckt control_logic_delay_chain din dout vdd vss
-Xinv0 din din_b vdd vss control_logic_inv
-Xinv1 din_b tmp1 vdd vss control_logic_inv
-Xinv2 tmp1 tmp2 vdd vss control_logic_inv
-Xinv3 tmp2 tmp3 vdd vss control_logic_inv
-Xinv4 tmp3 tmp4 vdd vss control_logic_inv
-Xinv5 tmp4 tmp5 vdd vss control_logic_inv
-Xinv6 tmp5 tmp6 vdd vss control_logic_inv
-Xinv7 tmp6 tmp7 vdd vss control_logic_inv
-Xinv8 tmp7 tmp8 vdd vss control_logic_inv
-Xinv9 tmp8 tmp9 vdd vss control_logic_inv
-Xinv10 tmp9 tmp10 vdd vss control_logic_inv
-Xinv11 tmp10 tmp11 vdd vss control_logic_inv
-Xinv12 tmp11 tmp12 vdd vss control_logic_inv
-Xinv13 tmp12 tmp13 vdd vss control_logic_inv
-Xinv14 tmp13 tmp14 vdd vss control_logic_inv
-Xinv15 tmp14 tmp15 vdd vss control_logic_inv
-Xinv16 tmp15 tmp16 vdd vss control_logic_inv
-Xinv17 tmp16 tmp17 vdd vss control_logic_inv
-Xinv18 tmp17 tmp18 vdd vss control_logic_inv
-Xinv19 tmp18 tmp19 vdd vss control_logic_inv
-Xinv20 tmp19 tmp20 vdd vss control_logic_inv
-Xinv21 tmp20 tmp21 vdd vss control_logic_inv
-Xinv22 tmp21 tmp22 vdd vss control_logic_inv
-Xinv23 tmp22 tmp23 vdd vss control_logic_inv
-Xinv24 tmp23 dout vdd vss control_logic_inv
-.ends
-
 .subckt sramgen_control clk we pc_b wl_en write_driver_en sense_en vdd vss
 * INPUT: clk we
 * OUTPUT: pc_b wl_en write_driver_en sense_en
