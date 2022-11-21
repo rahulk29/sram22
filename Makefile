@@ -15,7 +15,7 @@ format:
 
 test:
 	rm -rf sramgen/build/
-	cargo test --release --features calibre --features spectre
+	cargo test --release --features calibre,spectre,abstract_lef
 
 devtest:
 	rm -rf sramgen/build/

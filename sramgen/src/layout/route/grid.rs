@@ -48,7 +48,6 @@ impl Grid {
     pub fn get_track_index(&self, dir: Dir, pos: Int, loc: TrackLocator) -> Int {
         let m = self.line + self.space;
         let mut idx = round(pos - self.center.coord(!dir), m) / m;
-        println!("pos = {pos}, idx = {idx}");
 
         // FIXME: should not need a loop here...
         let idx = loop {

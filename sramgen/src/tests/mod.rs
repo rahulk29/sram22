@@ -24,6 +24,7 @@ mod dff;
 mod dout_buffer;
 mod gate;
 mod guard_ring;
+mod inv_chain;
 mod latch;
 mod mux;
 mod precharge;
@@ -36,6 +37,11 @@ mod wmask_control;
 
 pub(crate) fn test_gds_path(name: &str) -> PathBuf {
     PathBuf::from(BUILD_PATH).join(format!("gds/{}.gds", name))
+}
+
+#[cfg(feature = "abstract_lef")]
+pub(crate) fn test_lef_path(name: &str) -> PathBuf {
+    PathBuf::from(BUILD_PATH).join(format!("lef/{}.lef", name))
 }
 
 pub(crate) fn test_verilog_path(name: &str) -> PathBuf {
@@ -94,11 +100,14 @@ pub(crate) fn generate_test(config: SramConfig) -> Result<()> {
     )
     .with_context(|| "Error generating SRAM layout")?;
 
-    lib.save_gds(test_gds_path(&name))
+    let gds_path = test_gds_path(&name);
+    let verilog_path = test_verilog_path(&name);
+
+    lib.save_gds(&gds_path)
         .with_context(|| "Error saving SRAM GDS")?;
 
     save_1rw_verilog(
-        test_verilog_path(&name),
+        &verilog_path,
         Sram1RwParams {
             module_name: name.clone(),
             num_words,
@@ -111,6 +120,12 @@ pub(crate) fn generate_test(config: SramConfig) -> Result<()> {
 
     #[cfg(feature = "calibre")]
     self::sram::calibre::run_sram_drc_lvs(&name)?;
+
+    #[cfg(feature = "abstract_lef")]
+    {
+        let lef_path = test_lef_path(&name);
+        self::sram::abs::run_sram_abstract(&name, &lef_path, &gds_path, &verilog_path)?;
+    }
 
     #[cfg(feature = "spectre")]
     {

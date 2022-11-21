@@ -16,6 +16,7 @@ pub mod dout_buffer;
 pub mod gate;
 pub mod grid;
 pub mod guard_ring;
+pub mod inv_chain;
 pub mod latch;
 pub mod mux;
 pub mod power;

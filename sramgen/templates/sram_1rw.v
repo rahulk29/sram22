@@ -28,7 +28,6 @@ module {{module_name}}(
   reg  we_reg;
   reg [ADDR_WIDTH-1:0]  addr_reg;
   reg [DATA_WIDTH-1:0]  din_reg;
-  reg [DATA_WIDTH-1:0]  dout;
 
   reg [DATA_WIDTH-1:0] mem [0:RAM_DEPTH-1];
 
@@ -59,6 +58,9 @@ module {{module_name}}(
   begin : MEM_WRITE
     if (we_reg) begin
         mem[addr_reg] <= din_reg;
+
+        // Output is arbitrary when writing to SRAM
+        dout <= {DATA_WIDTH{1'bx}};
     end
   end
 
