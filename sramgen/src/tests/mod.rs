@@ -130,18 +130,26 @@ pub(crate) fn generate_test(config: SramConfig) -> Result<()> {
 
     #[cfg(feature = "spectre")]
     {
-        let alternating_bits =
-            0b0101010101010101010101010101010101010101010101010101010101010101u64;
+        let bit_pattern1 = 0xAAAAAAAAAAAAAAAAu64;
+        let bit_pattern2 = 0x5555555555555555u64;
+        let addr1 = BitSignal::zeros(addr_width);
+        let addr2 = BitSignal::ones(addr_width);
         let test_case = TestCase::builder()
             .clk_period(20e-9)
             .ops([
                 verification::Op::Write {
-                    addr: BitSignal::from_u64(alternating_bits, addr_width),
-                    data: BitSignal::from_u64(alternating_bits, data_width),
+                    addr: addr1.clone(),
+                    data: BitSignal::from_u64(bit_pattern1, data_width),
+                },
+                verification::Op::Write {
+                    addr: addr2.clone(),
+                    data: BitSignal::from_u64(bit_pattern2, data_width),
                 },
                 verification::Op::Read {
-                    addr: BitSignal::from_u64(alternating_bits, addr_width),
+                    addr: addr1.clone(),
                 },
+                verification::Op::Read { addr: addr2 },
+                verification::Op::Read { addr: addr1 },
             ])
             .build()?;
 

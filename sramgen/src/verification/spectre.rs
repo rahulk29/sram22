@@ -37,6 +37,7 @@ pub fn run_spectre(params: &SpectreParams) -> Result<TransientData> {
     let status = Command::new("spectre")
         .arg("-64")
         .arg("+spice")
+        .arg("+aps")
         .arg("-format")
         .arg("psfascii")
         .arg(&params.spice_path)
