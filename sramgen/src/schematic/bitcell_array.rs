@@ -59,14 +59,17 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
             connections.insert("VSS".to_string(), sig_conn(&vss));
             connections.insert("VNB".to_string(), sig_conn(&vnb));
             connections.insert("VPB".to_string(), sig_conn(&vpb));
-            if i < dummy_rows
-                || i > rows + dummy_rows - 1
-                || j < dummy_cols
-                || j > cols + dummy_cols - 1
-            {
+            if i < dummy_rows || i > rows + dummy_rows - 1 {
+                connections.insert("WL".to_string(), sig_conn(&vss));
+            } else {
+                connections.insert(
+                    "WL".to_string(),
+                    conn_slice("wl", i - dummy_rows, i - dummy_rows),
+                );
+            }
+            if j < dummy_cols || j > cols + dummy_cols - 1 {
                 connections.insert("BL".to_string(), sig_conn(&vdd));
                 connections.insert("BR".to_string(), sig_conn(&vdd));
-                connections.insert("WL".to_string(), sig_conn(&vss));
             } else {
                 connections.insert(
                     "BL".to_string(),
@@ -75,10 +78,6 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
                 connections.insert(
                     "BR".to_string(),
                     conn_slice("br", j - dummy_cols, j - dummy_cols),
-                );
-                connections.insert(
-                    "WL".to_string(),
-                    conn_slice("wl", i - dummy_rows, i - dummy_rows),
                 );
             }
             let inst = Instance {
