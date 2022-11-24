@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail};
 use bit_signal::BitSignal;
@@ -330,7 +330,11 @@ pub enum VerificationTask {
     Pex,
 }
 
-pub fn source_files(sram_name: &str, task: VerificationTask) -> Vec<PathBuf> {
+pub fn source_files(
+    work_dir: impl AsRef<Path>,
+    sram_name: &str,
+    task: VerificationTask,
+) -> Vec<PathBuf> {
     let source_path_main = match task {
         VerificationTask::SpectreSim => {
             PathBuf::from(BUILD_PATH).join(format!("spectre/{}.spice", sram_name))
