@@ -932,7 +932,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     trace
         .set_width(2 * cfg.line(1) + 40)
         .place_cursor(Dir::Vert, false)
-        .vert_to(wl_en_rect.bottom() - 3 * cfg.line(3))
+        .vert_to(core_bbox.p0.y - 3 * cfg.line(3))
         .up()
         .horiz_to_rect(dst);
     power_grid.add_padded_blockage(2, trace.rect());
