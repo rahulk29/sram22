@@ -130,8 +130,8 @@ pub(crate) fn generate_test(config: SramConfig) -> Result<()> {
 
     #[cfg(feature = "spectre")]
     {
-        let bit_pattern1 = 0xAAAAAAAAAAAAAAAAu64;
-        let bit_pattern2 = 0x5555555555555555u64;
+        let bit_pattern1 = 0x5555555555555555u64;
+        let bit_pattern2 = 0xAAAAAAAAAAAAAAAAu64;
         let addr1 = BitSignal::zeros(addr_width);
         let addr2 = BitSignal::ones(addr_width);
         let test_case = TestCase::builder()
