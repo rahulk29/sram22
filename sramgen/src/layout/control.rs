@@ -1,7 +1,7 @@
 use crate::config::ControlMode;
-use crate::layout::bank::GateList;
 use crate::layout::common::MergeArgs;
 use crate::layout::inv_chain::{draw_inv_chain, InvChainParams};
+use crate::layout::sram::GateList;
 use crate::tech::{sc_and2_gds, sc_buf_gds, sc_inv_gds, sc_tap_gds};
 use crate::Result;
 

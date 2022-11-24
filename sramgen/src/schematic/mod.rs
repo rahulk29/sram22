@@ -28,8 +28,7 @@ pub mod wmask_control;
 
 pub mod conns;
 
-pub const GENERATE_SCRIPT_PATH: PathBuf =
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("scripts/generate.py");
+pub const GENERATE_SCRIPT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "scripts/generate.py");
 pub const NETLIST_FORMAT: NetlistFormat = NetlistFormat::Spectre;
 
 pub enum NetlistFormat {
@@ -96,9 +95,12 @@ pub fn save_bin(path: impl AsRef<Path>, name: &str, pkg: Package) -> Result<()> 
     Ok(())
 }
 
-pub fn generate_netlist(name: &str) -> Result<()> {
+pub fn generate_netlist(bin_path: impl AsRef<Path>, output_dir: impl AsRef<Path>) -> Result<()> {
     let status = Command::new("python3")
-        .args([GENERATE_SCRIPT_PATH, name.into()])
+        .arg(GENERATE_SCRIPT_PATH)
+        .arg(bin_path.as_ref())
+        .arg("-o")
+        .arg(output_dir.as_ref())
         .stdout(Stdio::null())
         .status()?;
 
@@ -110,8 +112,4 @@ pub fn generate_netlist(name: &str) -> Result<()> {
             status.code()
         ))
     }
-}
-
-pub fn bus_bit(name: &str, index: usize) -> String {
-    format!("{name}[{index}]")
 }

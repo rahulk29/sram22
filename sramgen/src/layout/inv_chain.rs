@@ -1,5 +1,5 @@
-use crate::layout::bank::GateList;
 use crate::layout::common::MergeArgs;
+use crate::layout::sram::GateList;
 use crate::tech::{sc_inv_gds, sc_tap_gds};
 use crate::{bus_bit, Result};
 

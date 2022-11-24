@@ -5,10 +5,9 @@ use pdkprims::mos::MosType;
 use serde::{Deserialize, Serialize};
 use vlsir::circuit::{port, Instance, Module, Port};
 
+use crate::schematic::conns::{conn_map, port_inout, port_input, port_output, sig_conn, signal};
+use crate::schematic::local_reference;
 use crate::schematic::mos::Mosfet;
-use crate::utils::{
-    conn_map, local_reference, port_inout, port_input, port_output, sig_conn, signal,
-};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
 pub struct Gate {

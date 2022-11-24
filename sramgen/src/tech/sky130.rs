@@ -11,8 +11,7 @@ use vlsir::reference::To;
 use vlsir::{QualifiedName, Reference};
 
 use crate::schematic::mos::{ext_nmos, ext_pmos};
-use crate::utils::simple_ext_module;
-use crate::NETLIST_FORMAT;
+use crate::schematic::{simple_ext_module, NETLIST_FORMAT};
 
 pub const SKY130_DOMAIN: &str = "sky130";
 pub const SRAM_SP_CELL: &str = "sram_sp_cell";

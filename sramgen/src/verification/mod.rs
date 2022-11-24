@@ -16,6 +16,8 @@ use self::spectre::{run_spectre, SpectreParams};
 use self::utils::to_bit;
 
 pub mod bit_signal;
+#[cfg(feature = "calibre")]
+pub mod calibre;
 pub mod netlist;
 pub mod spectre;
 pub mod utils;

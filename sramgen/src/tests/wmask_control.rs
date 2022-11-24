@@ -1,9 +1,9 @@
 use crate::layout::wmask_control::*;
 use crate::schematic::gate::{AndParams, GateParams, Size};
 use crate::schematic::wmask_control::*;
+use crate::schematic::{generate_netlist, save_modules};
 use crate::tests::test_gds_path;
-use crate::utils::save_modules;
-use crate::{generate_netlist, Result};
+use crate::Result;
 use pdkprims::tech::sky130;
 
 #[test]

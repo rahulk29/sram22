@@ -6,8 +6,9 @@ use vlsir::Reference;
 
 use crate::schematic::gate::{and2, AndParams};
 
-use crate::utils::conns::conn_slice;
-use crate::utils::{bus, port_inout, port_input, port_output, sig_conn, signal};
+use crate::schematic::conns::{
+    bus, conn_map, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
+};
 
 #[derive(Debug, Clone)]
 pub struct WriteMaskControlParams {
@@ -57,7 +58,7 @@ pub fn write_mask_control(params: WriteMaskControlParams) -> Vec<Module> {
                 to: Some(To::Local(params.and_params.name.clone())),
             }),
             parameters: HashMap::new(),
-            connections: crate::utils::conn_map(conns.into()),
+            connections: conn_map(conns.into()),
         });
     }
 

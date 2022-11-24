@@ -1,10 +1,11 @@
-use std::path::{Path, PathBuf};
-
 pub use anyhow::{anyhow, Result};
 
+#[cfg(feature = "abstract_lef")]
+pub mod abs;
 pub mod cli;
 pub mod config;
 pub mod layout;
+pub mod paths;
 pub mod plan;
 pub mod schematic;
 pub mod tech;
@@ -13,11 +14,11 @@ mod tests;
 pub mod verification;
 pub mod verilog;
 
-pub const BUILD_PATH: PathBuf = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("build");
-pub const LIB_PATH: PathBuf = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("lib");
+pub const BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "build");
+pub const LIB_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/lib");
 
-pub fn out_bin(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
-    PathBuf::from(work_dir.as_ref()).join("pb").join(name)
+pub fn bus_bit(name: &str, index: usize) -> String {
+    format!("{name}[{index}]")
 }
 
 #[inline]

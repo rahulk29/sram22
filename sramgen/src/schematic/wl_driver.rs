@@ -6,11 +6,11 @@ use pdkprims::config::Int;
 
 use vlsir::circuit::{Instance, Module};
 
-use crate::schematic::gate::{and2, AndParams, GateParams, Size};
-use crate::utils::conns::conn_slice;
-use crate::utils::{
-    bus, conn_map, local_reference, port_inout, port_input, port_output, sig_conn, signal,
+use crate::schematic::conns::{
+    bus, conn_map, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
 };
+use crate::schematic::gate::{and2, AndParams, GateParams, Size};
+use crate::schematic::local_reference;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct WordlineDriverParams {

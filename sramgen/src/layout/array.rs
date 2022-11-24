@@ -5,7 +5,7 @@ use pdkprims::PdkLib;
 
 use crate::layout::grid::GridCells;
 use crate::tech::*;
-use crate::{bbox, bus_bit};
+use crate::{bus_bit, layout::bbox};
 use serde::{Deserialize, Serialize};
 
 use super::route::Router;

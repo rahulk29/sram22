@@ -2,8 +2,14 @@ import os
 import vlsir
 import vlsirtools.netlist as netlist
 import sys
+import argparse
 
-BUILD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../build")
+parser = argparse.ArgumentParser(
+        prog = 'generate',
+        description = 'generate netlists from VLSIR binary files')
+
+parser.add_argument('binary_path', help='Path to VLSIR binary file')
+parser.add_argument('-o', '--output_dir', help='directory where output files should be written')
 
 PROPRIETARY_PRELUDE_SPECTRE = """*SPICE NETLIST
 * OPEN SOURCE CONVERSION PRELUDE (SPECTRE)
@@ -67,29 +73,27 @@ M0 d g s b phighvt l='l' w='w' mult='mult'
 .ENDS
 """
 
-
-def make_dirs():
-    os.makedirs(os.path.join(BUILD_DIR, "spice/"), exist_ok=True)
-    os.makedirs(os.path.join(BUILD_DIR, "ngspice/"), exist_ok=True)
-    os.makedirs(os.path.join(BUILD_DIR, "spectre/"), exist_ok=True)
-
-
-def generate(CKT):
-    print(f"Generating {CKT}...")
-    with open(os.path.join(BUILD_DIR, f"pb/{CKT}.pb.bin"), "rb") as f:
+def generate(bin_path, output_dir):
+    if output_dir is not None:
+        os.makedirs(output_dir, exist_ok=True)
+    else:
+        output_dir = os.path.dirname(os.path.abspath(bin_path))
+    print(f"Generating netlist for binary at {bin_path}...")
+    with open(bin_path, "rb") as f:
         tmp = f.read()
-        with open(os.path.join(BUILD_DIR, f"ngspice/{CKT}.spice"), "w") as dest:
+        CKT = os.path.basename(bin_path).split('.')[0]
+        with open(os.path.join(output_dir, f"{CKT}.ngspice.spice"), "w") as dest:
             print("\tngspice")
             inp = vlsir.spice_pb2.SimInput()
             inp.ParseFromString(tmp)
             netlist(pkg=inp.pkg, dest=dest, fmt="spice")
-        with open(os.path.join(BUILD_DIR, f"spice/{CKT}.spice"), "w") as dest:
+        with open(os.path.join(output_dir, f"{CKT}.spice"), "w") as dest:
             print("\tspice")
             inp = vlsir.spice_pb2.SimInput()
             inp.ParseFromString(tmp)
             dest.write(PROPRIETARY_PRELUDE_SPICE)
             netlist(pkg=inp.pkg, dest=dest, fmt="spice")
-        with open(os.path.join(BUILD_DIR, f"spectre/{CKT}.spice"), "w") as dest:
+        with open(os.path.join(output_dir, f"{CKT}.spectre.spice"), "w") as dest:
             print("\tspectre-compatible spice")
             inp = vlsir.spice_pb2.SimInput()
             inp.ParseFromString(tmp)
@@ -99,8 +103,5 @@ def generate(CKT):
 
 
 if __name__ == "__main__":
-    make_dirs()
-    if len(sys.argv) < 2:
-        print("Usage: python3 generate.py [CKT]")
-    else:
-        generate(sys.argv[1])
+    args = parser.parse_args()
+    generate(args.binary_path, args.output_dir)
