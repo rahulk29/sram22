@@ -4,8 +4,8 @@ use vlsir::circuit::{Instance, Module};
 
 use crate::bus_bit;
 use crate::layout::inv_chain::InvChainGridParams;
+use crate::schematic::conns::{conn_map, port_inout, port_input, port_output, sig_conn, signal};
 use crate::tech::control_logic_inv_ref;
-use crate::utils::{conn_map, port_inout, port_input, port_output, sig_conn, signal};
 
 pub fn inv_chain_grid(params: InvChainGridParams) -> Module {
     let InvChainGridParams { prefix, rows, cols } = params;

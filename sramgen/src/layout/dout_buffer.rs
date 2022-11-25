@@ -9,9 +9,9 @@ use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
 use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
-use super::bank::{connect, ConnectArgs, GateList};
 use super::common::{draw_two_level_contact, MergeArgs, TwoLevelContactParams};
 use super::route::Router;
+use super::sram::{connect, ConnectArgs, GateList};
 
 pub fn draw_dout_buffer_array(
     lib: &mut PdkLib,

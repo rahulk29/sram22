@@ -2,15 +2,18 @@ use std::collections::HashMap;
 
 use vlsir::circuit::{Concat, Connection, Instance, Module};
 
+use crate::config::sram::SramParams;
 use crate::layout::inv_chain::InvChainGridParams;
 use crate::schematic::bitcell_array::{bitcell_array, BitcellArrayParams};
 use crate::schematic::col_inv::{col_inv_array, ColInvArrayParams, ColInvParams};
+use crate::schematic::conns::{
+    bus, conn_map, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
+};
 use crate::schematic::decoder::{hierarchical_decoder, DecoderParams, DecoderTree};
 use crate::schematic::dff::dff_array;
 use crate::schematic::dout_buffer::{dout_buf_array, DoutBufArrayParams, DoutBufParams};
 use crate::schematic::gate::{AndParams, GateParams, Size};
 use crate::schematic::inv_chain::inv_chain_grid;
-use crate::schematic::mux;
 use crate::schematic::mux::read::read_mux_array;
 use crate::schematic::mux::write::{write_mux_array, ArrayParams, WriteMuxParams};
 use crate::schematic::precharge::{precharge_array, PrechargeArrayParams, PrechargeParams};
@@ -19,34 +22,23 @@ use crate::schematic::wl_driver::{
     wordline_driver_array, WordlineDriverArrayParams, WordlineDriverParams,
 };
 use crate::schematic::wmask_control::{write_mask_control, WriteMaskControlParams};
+use crate::schematic::{local_reference, mux};
 use crate::tech::{openram_dff_ref, sramgen_control_ref};
-use crate::utils::conns::conn_slice;
-use crate::utils::{
-    bus, conn_map, local_reference, port_inout, port_input, port_output, sig_conn, signal,
-};
 
 use crate::schematic::dff::DffArrayParams;
 
-pub struct SramParams {
-    pub row_bits: usize,
-    pub col_bits: usize,
-    pub col_mask_bits: usize,
-    pub wmask_groups: usize,
-    pub name: String,
-}
-
-pub fn sram(params: SramParams) -> Vec<Module> {
+pub fn sram(params: &SramParams) -> Vec<Module> {
     assert!(params.row_bits > 0);
     assert!(params.col_bits > 0);
-    assert!(params.col_mask_bits <= params.col_bits);
-    assert!(params.wmask_groups >= 1);
+    assert!(params.col_select_bits <= params.col_bits);
+    assert!(params.wmask_width >= 1);
 
     let row_bits = params.row_bits as i64;
-    let col_mask_bits = params.col_mask_bits as i64;
+    let col_mask_bits = params.col_select_bits as i64;
     let rows = 1 << params.row_bits;
     let cols = 1 << params.col_bits;
-    let mux_ratio = 1 << params.col_mask_bits;
-    let wmask_groups = params.wmask_groups;
+    let mux_ratio = 1 << params.col_select_bits;
+    let wmask_groups = params.wmask_width;
 
     let cols_masked = (cols / mux_ratio) as i64;
 
@@ -59,7 +51,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     let mut decoders = hierarchical_decoder(decoder_params);
 
     let mut col_decoders = if mux_ratio > 2 {
-        let tree = DecoderTree::new(params.col_mask_bits);
+        let tree = DecoderTree::new(params.col_select_bits);
         let decoder_params = DecoderParams {
             tree,
             lch: 150,
@@ -90,6 +82,8 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     let bitcells = bitcell_array(BitcellArrayParams {
         rows: rows as usize,
         cols,
+        dummy_rows: 2,
+        dummy_cols: 2,
         name: "bitcell_array".to_string(),
     });
 
@@ -251,7 +245,7 @@ pub fn sram(params: SramParams) -> Vec<Module> {
     }
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],

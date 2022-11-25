@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use fanout::FanoutAnalyzer;
 
+use crate::clog2;
 use crate::layout::decoder::get_idxs;
+use crate::schematic::conns::{conn_map, conn_slice, sig_conn, signal, BusConnection};
 use crate::schematic::gate::{inv, nand2, nand3, Gate, GateParams, GateType, Size};
-use crate::utils::conns::conn_slice;
-use crate::utils::{conn_map, log2, sig_conn, signal, BusConnection};
 use pdkprims::config::Int;
 use serde::{Deserialize, Serialize};
 use vlsir::circuit::connection::Stype;
@@ -170,7 +170,7 @@ pub struct DecoderParams {
 
 pub fn hierarchical_decoder(params: DecoderParams) -> Vec<Module> {
     let out = params.tree.root.num;
-    let in_bits = log2(out) as i64;
+    let in_bits = clog2(out) as i64;
 
     let ports = vec![
         Port {

@@ -5,8 +5,8 @@ use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
 use super::array::*;
-use super::bank::GateList;
 use super::common::MergeArgs;
+use super::sram::GateList;
 use crate::tech::sramgen_sp_sense_amp_gds;
 use crate::Result;
 

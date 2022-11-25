@@ -7,9 +7,10 @@ use vlsir::circuit::Module;
 use vlsir::reference::To;
 use vlsir::Reference;
 
+use crate::schematic::conns::{
+    bus, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
+};
 use crate::schematic::mos::Mosfet;
-use crate::utils::conns::conn_slice;
-use crate::utils::{bus, port_inout, port_input, port_output, sig_conn, signal};
 
 pub struct ColInvParams {
     pub length: Int,

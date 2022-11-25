@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use vlsir::circuit::Instance;
 use vlsir::Module;
 
+use crate::schematic::conns::{
+    bus, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
+};
 use crate::tech::sramgen_sp_sense_amp_ref;
-use crate::utils::conns::conn_slice;
-use crate::utils::{bus, port_inout, port_input, port_output, sig_conn, signal};
 
 use serde::{Deserialize, Serialize};
 
