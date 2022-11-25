@@ -359,7 +359,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         col_bbox = col_bbox.union(&bbox.bbox());
     }
 
-    decoder1.align_beneath(core_bbox, 1_000);
+    decoder1.align_beneath(core_bbox, 3_000);
     decoder1.align_to_the_left_of(col_bbox.bbox(), col_bus_space);
 
     let decoder1_bbox = decoder1.bbox();
@@ -932,7 +932,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     trace
         .set_width(2 * cfg.line(1) + 40)
         .place_cursor(Dir::Vert, false)
-        .vert_to(core_bbox.p0.y - 3 * cfg.line(3))
+        .vert_to(core_bbox.p0.y - 8 * cfg.line(3))
         .up()
         .horiz_to_rect(dst);
     power_grid.add_padded_blockage(2, trace.rect());
