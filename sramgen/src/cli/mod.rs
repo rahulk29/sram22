@@ -13,12 +13,10 @@ pub fn run() -> Result<()> {
     let args = Args::parse();
     let config_path = if let Some(config) = args.config {
         config
+    } else if std::fs::metadata("./sramgen.toml").is_ok() {
+        PathBuf::from("./sramgen.toml")
     } else {
-        if std::fs::metadata("./sramgen.toml").is_ok() {
-            PathBuf::from("./sramgen.toml")
-        } else {
-            bail!("Could not find `sramgen.toml` in the current working directory.");
-        }
+        bail!("Could not find `sramgen.toml` in the current working directory.");
     };
     let config = parse_config(config_path)?;
     let plan = generate_plan(ExtractionResult {}, &config)?;

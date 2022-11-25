@@ -37,10 +37,10 @@ pub(crate) fn generate_test(config: &SramConfig) -> Result<()> {
 
     #[cfg(feature = "calibre")]
     {
-        self::sram::calibre::run_sram_drc(&work_dir, name)?;
-        self::sram::calibre::run_sram_lvs(&work_dir, name)?;
+        crate::verification::calibre::run_sram_drc(&work_dir, name)?;
+        crate::verification::calibre::run_sram_lvs(&work_dir, name)?;
         #[cfg(feature = "pex")]
-        self::sram::calibre::run_sram_pex(&work_dir, name)?;
+        crate::verification::calibre::run_sram_pex(&work_dir, name)?;
     }
 
     #[cfg(feature = "spectre")]
