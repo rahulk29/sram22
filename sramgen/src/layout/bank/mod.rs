@@ -917,7 +917,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .set_width(dst.height())
         .horiz_to(dst.left() - 5 * cfg.line(3));
     power_grid.add_padded_blockage(2, trace.rect().expand(80));
-    if (trace.cursor_rect().center().x - dst.center().x).abs()
+    if (trace.cursor_rect().center().y - dst.center().y).abs()
         <= 2 * cfg.line(3) + cfg.space(2) + 220
     {
         // If there isn't enough space to via up to metal 3, jog on metal 2
