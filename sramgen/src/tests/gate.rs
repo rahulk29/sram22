@@ -79,7 +79,7 @@ fn test_nor2() -> Result<()> {
     draw_nor2(
         &mut lib,
         GateParams {
-            name: "test_sky130_nor2".to_string(),
+            name: "sramgen_nor2".to_string(),
             size: Size {
                 nmos_width: 1_200,
                 pmos_width: 3_000,
