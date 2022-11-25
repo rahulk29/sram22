@@ -1,76 +1,24 @@
-use std::path::PathBuf;
+pub use anyhow::{anyhow, Result};
 
-use layout21::raw::{BoundBox, Cell};
-use layout21::utils::Ptr;
-use schematic::mos::NetlistFormat;
-use vlsir::circuit::Package;
-use vlsir::spice::SimInput;
-
-use std::process::{Command, Stdio};
-
+#[cfg(feature = "abstract_lef")]
+pub mod abs;
 pub mod cli;
 pub mod config;
 pub mod layout;
+pub mod paths;
 pub mod plan;
 pub mod schematic;
 pub mod tech;
 #[cfg(test)]
 mod tests;
-pub mod utils;
 pub mod verification;
 pub mod verilog;
 
-pub use anyhow::{anyhow, Result};
-
-pub const NETLIST_FORMAT: NetlistFormat = NetlistFormat::Spectre;
 pub const BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
 pub const LIB_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/lib");
 
-pub fn out_bin(name: &str) -> PathBuf {
-    PathBuf::from(BUILD_PATH).join(format!("pb/{}.pb.bin", name))
-}
-
-pub fn save_bin(name: &str, pkg: Package) -> Result<()> {
-    let input = SimInput {
-        pkg: Some(pkg),
-        top: name.to_string(),
-        opts: None,
-        an: vec![],
-        ctrls: vec![],
-    };
-
-    let path = out_bin(name);
-    std::fs::create_dir_all(path.parent().unwrap())?;
-    vlsir::conv::save(&input, path).expect("Failed to save VLSIR data");
-
-    Ok(())
-}
-
-pub fn generate_netlist(name: &str) -> Result<()> {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("scripts/generate.py");
-
-    let status = Command::new("python3")
-        .args([path, name.into()])
-        .stdout(Stdio::null())
-        .status()?;
-
-    if status.success() {
-        Ok(())
-    } else {
-        Err(anyhow!(
-            "Netlist generation script failed with status {:?}",
-            status.code()
-        ))
-    }
-}
-
 pub fn bus_bit(name: &str, index: usize) -> String {
     format!("{name}[{index}]")
-}
-
-pub fn bbox(cell: &Ptr<Cell>) -> BoundBox {
-    let cell = cell.read().unwrap();
-    cell.layout.as_ref().unwrap().bbox()
 }
 
 #[inline]

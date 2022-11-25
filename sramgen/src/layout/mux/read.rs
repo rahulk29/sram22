@@ -10,13 +10,12 @@ use pdkprims::mos::{Intent, MosDevice, MosParams, MosType};
 use pdkprims::PdkLib;
 
 use crate::layout::array::*;
-use crate::layout::bank::{connect, ConnectArgs};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
+use crate::layout::sram::{connect, ConnectArgs, GateList};
 
 use crate::{bus_bit, Result};
 
-use crate::layout::bank::GateList;
 use crate::layout::common::{
     draw_two_level_contact, MergeArgs, TwoLevelContactParams, NWELL_COL_SIDE_EXTEND,
     NWELL_COL_VERT_EXTEND,

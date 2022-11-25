@@ -4,9 +4,10 @@ use vlsir::circuit::connection::Stype;
 use vlsir::circuit::{Connection, Instance, Slice};
 use vlsir::Module;
 
+use crate::schematic::conns::{
+    bus, conn_map, conn_slice, port_inout, port_input, sig_conn, signal,
+};
 use crate::tech::{sram_sp_cell_ref, sram_sp_colend_ref};
-use crate::utils::conns::conn_slice;
-use crate::utils::{bus, conn_map, port_inout, port_input, sig_conn, signal};
 
 use serde::{Deserialize, Serialize};
 

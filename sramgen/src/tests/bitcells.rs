@@ -1,9 +1,11 @@
 use crate::layout::array::*;
 use crate::layout::draw_bitcell;
+use crate::paths::{out_bin, out_gds};
 use crate::schematic::bitcell_array::*;
+use crate::schematic::{generate_netlist, save_bin};
 use crate::tech::all_external_modules;
-use crate::tests::test_gds_path;
-use crate::{generate_netlist, save_bin, Result};
+use crate::tests::test_work_dir;
+use crate::Result;
 use pdkprims::tech::sky130;
 use vlsir::circuit::Package;
 
@@ -13,7 +15,9 @@ fn test_bitcell() -> Result<()> {
     let mut lib = sky130::pdk_lib(name)?;
     draw_bitcell(&mut lib)?;
 
-    lib.save_gds(test_gds_path(name))?;
+    let work_dir = test_work_dir(name);
+
+    lib.save_gds(out_gds(work_dir, name))?;
 
     Ok(())
 }
@@ -37,14 +41,17 @@ fn test_bitcell_array_32x32() -> Result<()> {
         ext_modules,
     };
 
-    save_bin(name, pkg)?;
+    let work_dir = test_work_dir(name);
 
-    generate_netlist(name)?;
+    let bin_path = out_bin(&work_dir, name);
+    save_bin(&bin_path, name, pkg)?;
+
+    generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
     draw_bitcell_array(rows, cols, &mut lib)?;
 
-    lib.save_gds(test_gds_path(name))?;
+    lib.save_gds(out_gds(&work_dir, name))?;
 
     Ok(())
 }
@@ -68,14 +75,17 @@ fn test_bitcell_array_2x2() -> Result<()> {
         ext_modules,
     };
 
-    save_bin(name, pkg)?;
+    let work_dir = test_work_dir(name);
 
-    generate_netlist(name)?;
+    let bin_path = out_bin(&work_dir, name);
+    save_bin(&bin_path, name, pkg)?;
+
+    generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
     draw_bitcell_array(rows, cols, &mut lib)?;
 
-    lib.save_gds(test_gds_path(name))?;
+    lib.save_gds(out_gds(&work_dir, name))?;
 
     Ok(())
 }

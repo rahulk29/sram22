@@ -1,6 +1,7 @@
-use crate::generate_netlist;
+use crate::paths::out_bin;
 use crate::schematic::rbl::*;
-use crate::utils::save_modules;
+use crate::schematic::{generate_netlist, save_modules};
+use crate::tests::test_work_dir;
 
 #[test]
 fn test_netlist_replica_bitcell_column() -> Result<(), Box<dyn std::error::Error>> {
@@ -11,9 +12,12 @@ fn test_netlist_replica_bitcell_column() -> Result<(), Box<dyn std::error::Error
         height: 16,
     });
 
-    save_modules(name, modules)?;
+    let work_dir = test_work_dir(name);
 
-    generate_netlist(name)?;
+    let bin_path = out_bin(&work_dir, name);
+    save_modules(&bin_path, name, modules)?;
+
+    generate_netlist(&bin_path, &work_dir)?;
 
     Ok(())
 }
@@ -30,9 +34,12 @@ fn test_netlist_replica_column() -> Result<(), Box<dyn std::error::Error>> {
         },
     });
 
-    save_modules(name, modules)?;
+    let work_dir = test_work_dir(name);
 
-    generate_netlist(name)?;
+    let bin_path = out_bin(&work_dir, name);
+    save_modules(&bin_path, name, modules)?;
+
+    generate_netlist(&bin_path, &work_dir)?;
 
     Ok(())
 }

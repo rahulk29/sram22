@@ -8,7 +8,8 @@ use vlsir::circuit::{port, Connection, ExternalModule, Instance, Parameter, Para
 use vlsir::reference::To;
 use vlsir::{QualifiedName, Reference};
 
-use crate::utils::signal;
+use crate::schematic::conns::signal;
+use crate::schematic::NetlistFormat;
 
 /// A schematic-level representation of a MOSFET.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,11 +22,6 @@ pub struct Mosfet {
     pub gate: Connection,
     pub body: Connection,
     pub mos_type: pdkprims::mos::MosType,
-}
-
-pub enum NetlistFormat {
-    NgSpice,
-    Spectre,
 }
 
 pub fn ext_nmos(format: NetlistFormat) -> ExternalModule {

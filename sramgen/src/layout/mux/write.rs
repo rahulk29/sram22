@@ -9,9 +9,9 @@ use pdkprims::PdkLib;
 
 use crate::layout::array::*;
 
-use crate::layout::bank::{connect, ConnectArgs, GateList};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::{ContactBounds, Router, VertDir};
+use crate::layout::sram::{connect, ConnectArgs, GateList};
 use crate::tech::BITCELL_WIDTH;
 use crate::{bus_bit, Result};
 

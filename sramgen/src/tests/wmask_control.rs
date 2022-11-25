@@ -1,13 +1,14 @@
 use crate::layout::wmask_control::*;
+use crate::paths::{out_bin, out_gds};
 use crate::schematic::gate::{AndParams, GateParams, Size};
 use crate::schematic::wmask_control::*;
-use crate::tests::test_gds_path;
-use crate::utils::save_modules;
-use crate::{generate_netlist, Result};
+use crate::schematic::{generate_netlist, save_modules};
+use crate::tests::test_work_dir;
+use crate::Result;
 use pdkprims::tech::sky130;
 
 #[test]
-fn test_sky130_wmask_control_2() -> Result<()> {
+fn test_wmask_control_2() -> Result<()> {
     let and_params = AndParams {
         name: "write_mask_control_and2".to_string(),
         nand: GateParams {
@@ -37,14 +38,17 @@ fn test_sky130_wmask_control_2() -> Result<()> {
 
     let modules = write_mask_control(params.clone());
 
-    save_modules(name, modules)?;
+    let work_dir = test_work_dir(name);
 
-    generate_netlist(name)?;
+    let bin_path = out_bin(&work_dir, name);
+    save_modules(&bin_path, name, modules)?;
+
+    generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
     draw_write_mask_control(&mut lib, params)?;
 
-    lib.save_gds(test_gds_path(name))?;
+    lib.save_gds(out_gds(&work_dir, name))?;
 
     Ok(())
 }

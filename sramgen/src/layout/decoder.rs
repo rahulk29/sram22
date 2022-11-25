@@ -1,4 +1,4 @@
-use crate::layout::bank::ConnectArgs;
+use crate::layout::sram::{connect, ConnectArgs, GateList};
 use crate::schematic::decoder::TreeNode;
 use crate::schematic::gate::{GateParams, Size};
 use crate::{bus_bit, clog2};
@@ -15,7 +15,6 @@ use pdkprims::PdkLib;
 use serde::{Deserialize, Serialize};
 
 use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
-use super::bank::{connect, GateList};
 use super::common::MergeArgs;
 
 use super::route::grid::{Grid, TrackLocator};

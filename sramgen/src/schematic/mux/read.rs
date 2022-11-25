@@ -5,9 +5,11 @@ use pdkprims::mos::MosType;
 
 use vlsir::circuit::Module;
 
+use crate::schematic::conns::{
+    bus, conn_map, conn_slice, port_inout, port_input, sig_conn, signal,
+};
+use crate::schematic::local_reference;
 use crate::schematic::mos::Mosfet;
-use crate::utils::conns::conn_slice;
-use crate::utils::{bus, conn_map, local_reference, port_inout, port_input, sig_conn, signal};
 
 pub struct Params {
     pub length: Int,

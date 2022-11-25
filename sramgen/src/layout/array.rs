@@ -3,9 +3,10 @@ use layout21::raw::{Abstract, BoundBoxTrait, Cell, Instance, Int, Layout, Point}
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
+use crate::bus_bit;
+use crate::layout::bbox;
 use crate::layout::grid::GridCells;
 use crate::tech::*;
-use crate::{bbox, bus_bit};
 use serde::{Deserialize, Serialize};
 
 use super::route::Router;

@@ -8,8 +8,8 @@ use vlsir::circuit::{Connection, Module, Slice};
 use vlsir::reference::To;
 use vlsir::Reference;
 
+use crate::schematic::conns::{bus, port_inout, port_input, sig_conn, signal};
 use crate::schematic::mos::Mosfet;
-use crate::utils::{bus, port_inout, port_input, sig_conn, signal};
 
 #[derive(Debug, Clone)]
 pub struct PrechargeParams {
