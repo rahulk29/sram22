@@ -1,23 +1,7 @@
-use anyhow::Context;
-use pdkprims::tech::sky130;
-
-use crate::config::{ControlMode, SramConfig};
-use crate::layout::bank::{draw_sram_bank, SramBankParams};
-use crate::schematic::sram::{sram, SramParams};
-use crate::utils::save_modules;
-use crate::verilog::{save_1rw_verilog, Sram1RwParams};
-use crate::{clog2, generate_netlist, Result, BUILD_PATH};
-use std::path::PathBuf;
-
 use crate::config::SramConfig;
+
 use crate::plan::extract::ExtractionResult;
 use crate::plan::{execute_plan, generate_plan};
-#[cfg(feature = "spectre")]
-use crate::verification::bit_signal::BitSignal;
-#[cfg(feature = "spectre")]
-use crate::verification::{
-    self, source_files, PortClass, PortOrder, TbParams, TestCase, VerificationTask,
-};
 use crate::{Result, BUILD_PATH};
 
 use std::path::PathBuf;
