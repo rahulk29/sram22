@@ -84,17 +84,32 @@ pub fn run_sram_spectre(params: &SramParams, work_dir: impl AsRef<Path>, name: &
         addr_width,
         ..
     } = params;
-    let alternating_bits = 0b0101010101010101010101010101010101010101010101010101010101010101u64;
+
+    // An alternating 64-bit sequence 0b010101...01
+    let bit_pattern1 = 0x5555555555555555u64;
+
+    // An alternating 64-bit sequence 0b101010...10
+    let bit_pattern2 = 0xAAAAAAAAAAAAAAAAu64;
+
+    let addr1 = BitSignal::zeros(addr_width);
+    let addr2 = BitSignal::ones(addr_width);
+
     let test_case = TestCase::builder()
         .clk_period(20e-9)
         .ops([
             verification::Op::Write {
-                addr: BitSignal::from_u64(alternating_bits, addr_width),
-                data: BitSignal::from_u64(alternating_bits, data_width),
+                addr: addr1.clone(),
+                data: BitSignal::from_u64(bit_pattern1, data_width),
+            },
+            verification::Op::Write {
+                addr: addr2.clone(),
+                data: BitSignal::from_u64(bit_pattern2, data_width),
             },
             verification::Op::Read {
-                addr: BitSignal::from_u64(alternating_bits, addr_width),
+                addr: addr1.clone(),
             },
+            verification::Op::Read { addr: addr2 },
+            verification::Op::Read { addr: addr1 },
         ])
         .build()?;
 
