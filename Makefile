@@ -1,4 +1,4 @@
-.PHONY: lint lint-fix format test devtest check
+.PHONY: lint lint-fix format test alltest devtest check
 
 lint:
 	cargo clippy --all-features --all-targets -- -D warnings
@@ -15,7 +15,11 @@ format:
 
 test:
 	rm -rf sramgen/build/
-	cargo test --release --features calibre,spectre,abstract_lef
+	cargo test --release --features calibre,abstract_lef
+
+alltest:
+	rm -rf sramgen/build/
+	cargo test --release --all-features
 
 devtest:
 	rm -rf sramgen/build/

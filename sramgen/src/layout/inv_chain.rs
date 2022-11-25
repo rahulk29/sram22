@@ -3,7 +3,7 @@ use crate::layout::sram::GateList;
 use crate::tech::{sc_inv_gds, sc_tap_gds};
 use crate::{bus_bit, Result};
 
-use layout21::raw::{Cell, Instance, Point};
+use layout21::raw::{AbstractPort, BoundBox, BoundBoxTrait, Cell, Instance, Point, Shape};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
@@ -89,6 +89,7 @@ pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Ce
     Ok(ptr)
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct InvChainGridParams<'a> {
     pub prefix: &'a str,
     pub rows: usize,
@@ -113,6 +114,9 @@ pub fn draw_inv_chain_grid(lib: &mut PdkLib, params: InvChainGridParams) -> Resu
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
+    let m2 = cfg.layerkey(2);
+
+    let mut m2_rects = Vec::with_capacity(rows);
 
     let start_x = 0;
     let mut x;
@@ -165,7 +169,9 @@ pub fn draw_inv_chain_grid(lib: &mut PdkLib, params: InvChainGridParams) -> Resu
                         .up()
                         .left_by(600)
                         .up()
-                        .vert_to(src.top() + 500)
+                        .vert_to(src.top() + 500);
+                    m2_rects.push(trace.rect());
+                    trace
                         .down()
                         .horiz_to_rect(src)
                         .vert_to_rect(src)
@@ -222,6 +228,16 @@ pub fn draw_inv_chain_grid(lib: &mut PdkLib, params: InvChainGridParams) -> Resu
 
         y -= tap_outline.height();
     }
+
+    // Export m2 blockage
+    let mut bbox = BoundBox::empty();
+    for r in m2_rects {
+        bbox = bbox.union(&r.bbox());
+    }
+
+    let mut p = AbstractPort::new("m2_block");
+    p.add_shape(m2, Shape::Rect(bbox.into_rect()));
+    cell.abs_mut().add_port(p);
 
     cell.layout_mut().add_inst(router.finish());
 

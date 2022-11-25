@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use vlsir::circuit::{Concat, Connection, Instance, Module};
 
 use crate::config::sram::SramParams;
+use crate::layout::inv_chain::InvChainGridParams;
 use crate::schematic::bitcell_array::{bitcell_array, BitcellArrayParams};
 use crate::schematic::col_inv::{col_inv_array, ColInvArrayParams, ColInvParams};
 use crate::schematic::conns::{
@@ -12,6 +13,7 @@ use crate::schematic::decoder::{hierarchical_decoder, DecoderParams, DecoderTree
 use crate::schematic::dff::dff_array;
 use crate::schematic::dout_buffer::{dout_buf_array, DoutBufArrayParams, DoutBufParams};
 use crate::schematic::gate::{AndParams, GateParams, Size};
+use crate::schematic::inv_chain::inv_chain_grid;
 use crate::schematic::local_reference;
 use crate::schematic::mux;
 use crate::schematic::mux::read::read_mux_array;
@@ -179,6 +181,12 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
                 length: 150,
             },
         },
+    });
+
+    let inv_chain = inv_chain_grid(InvChainGridParams {
+        prefix: "control_logic_delay_chain",
+        rows: 5,
+        cols: 9,
     });
 
     let vdd = signal("vdd");
@@ -553,6 +561,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     modules.push(sense_amp_array);
     modules.append(&mut dout_buf_array);
     modules.append(&mut we_control);
+    modules.push(inv_chain);
     modules.push(m);
 
     modules

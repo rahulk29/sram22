@@ -1,6 +1,6 @@
 use crate::config::ControlMode;
 use crate::layout::common::MergeArgs;
-use crate::layout::inv_chain::{draw_inv_chain, InvChainParams};
+use crate::layout::inv_chain::{draw_inv_chain_grid, InvChainGridParams};
 use crate::layout::sram::GateList;
 use crate::tech::{sc_and2_gds, sc_buf_gds, sc_inv_gds, sc_tap_gds};
 use crate::Result;
@@ -20,11 +20,12 @@ pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cel
     let inv = sc_inv_gds(lib)?;
     let buf = sc_buf_gds(lib)?;
     let tap = sc_tap_gds(lib)?;
-    let delay_chain = draw_inv_chain(
+    let delay_chain = draw_inv_chain_grid(
         lib,
-        InvChainParams {
+        InvChainGridParams {
             prefix: "sram22_control_logic_delay_chain",
-            num: 25,
+            rows: 5,
+            cols: 9,
         },
     )?;
 
@@ -43,7 +44,7 @@ pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cel
     buf.loc.x = inv.loc.x + inv_outline.width();
     and.loc.x = buf.loc.x + buf_outline.width();
     tap1.loc.x = and.loc.x + and_outline.width();
-    delay_chain.loc.y = inv_outline.height();
+    delay_chain.loc.y = 5 * inv_outline.height();
     delay_chain.reflect_vert_anchored();
     buf.reflect_horiz_anchored();
 
@@ -93,8 +94,14 @@ pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cel
     cell.add_pin("clk", m2, trace.rect());
     cell.add_pin_from_port(delay_chain.port("dout").named("sense_en"), m0);
 
-    cell.add_pin_from_port(delay_chain.port("vdd").named("vdd0"), m1);
-    cell.add_pin_from_port(delay_chain.port("vss").named("vss0"), m1);
+    for port in delay_chain.ports_starting_with("vdd") {
+        let name = format!("{}_chain", &port.net);
+        cell.add_pin_from_port(port.named(name), m1);
+    }
+    for port in delay_chain.ports_starting_with("vss") {
+        let name = format!("{}_chain", &port.net);
+        cell.add_pin_from_port(port.named(name), m1);
+    }
 
     cell.layout_mut().add_inst(tap0);
     cell.layout_mut().add_inst(tap1);
@@ -107,6 +114,8 @@ pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cel
         .port()
         .named("vss1");
     cell.add_pin_from_port(port, m1);
+
+    cell.abs_mut().add_port(delay_chain.port("m2_block"));
 
     cell.layout_mut().add_inst(inv);
     cell.layout_mut().add_inst(buf);

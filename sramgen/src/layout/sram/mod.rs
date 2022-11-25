@@ -380,7 +380,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     };
 
     control.align_beneath(bbox, 1_270);
-    control.align_left(decoder2_bbox);
+    control.align_to_the_left_of(col_bbox, 4_000);
     let control_bbox = control.bbox().into_rect();
 
     let predecoder_bus_bits = total_addr_bits;
@@ -416,6 +416,14 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
             .largest_rect(m2)
             .unwrap()
             .expand(cfg.line(2) / 2),
+    );
+    power_grid.add_padded_blockage(
+        2,
+        control
+            .port("m2_block")
+            .largest_rect(m2)
+            .unwrap()
+            .expand(80),
     );
 
     ////////////////////////////////////////////////////////////////////
@@ -889,7 +897,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         .horiz_to(dst.center().x - cfg.line(0) / 2)
         .down()
         .down();
-    power_grid.add_padded_blockage(2, trace.rect().expand(90));
+    power_grid.add_padded_blockage(2, trace.rect().expand(120));
 
     // Route sense amp enable to sense amp clock
     let src = control.port("sense_en").largest_rect(m0).unwrap();
@@ -960,7 +968,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     power_grid.add_padded_blockage(2, trace.cursor_rect().expand(130));
     trace.vert_to(dst.bottom() - 500);
     power_grid.add_padded_blockage(3, trace.rect().expand(20));
-    trace.down().set_min_width().horiz_to(dst.right());
+    trace.down().set_min_width().horiz_to_rect(dst);
     power_grid.add_padded_blockage(2, trace.rect().expand(140));
     trace.down().vert_to(dst.top());
 
