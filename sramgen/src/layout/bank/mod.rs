@@ -302,7 +302,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     nand_dec.align_to_the_left_of(inv_dec.bbox(), 1_000);
     nand_dec.align_centers_vertically_gridded(core_bbox, grid);
 
-    pc.align_beneath(core_bbox, 2_900);
+    pc.align_beneath(core_bbox, 4_800);
     pc.align_centers_horizontally_gridded(core_bbox, grid);
 
     read_mux.align_beneath(pc.bbox(), 1_000);
@@ -945,7 +945,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .vert_to(core_bbox.p0.y - 8 * cfg.line(3))
         .up()
         .horiz_to_rect(dst);
-    power_grid.add_padded_blockage(2, trace.rect());
+    power_grid.add_padded_blockage(2, trace.rect().expand(30));
     trace.up().set_min_width().vert_to_rect(dst);
     power_grid.add_padded_blockage(3, trace.rect().expand(20));
     trace.contact_down(dst).decrement_layer().contact_down(dst);

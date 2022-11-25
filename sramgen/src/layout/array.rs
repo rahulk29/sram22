@@ -406,10 +406,10 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
                 let mut trace = router.trace(rect, 1);
                 trace.set_width(rect.width()).place_cursor_centered();
                 let top_str = if rect.center().y < bounds.center().y {
-                    trace.vert_to(bounds.bottom() - 3_000);
+                    trace.vert_to(bounds.bottom() - 3_600);
                     ""
                 } else {
-                    trace.vert_to(bounds.top() + 2_700);
+                    trace.vert_to(bounds.top() + 3_600);
                     "_top"
                 };
                 if port.net.starts_with("bl") {
@@ -464,9 +464,9 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
             let trace_rect = Rect::from_spans(
                 bbox_rect.hspan(),
                 if bbox_rect.center().y < bounds.center().y {
-                    Span::new(bbox_rect.bottom(), bbox_rect.bottom() + 2_000)
+                    Span::new(bbox_rect.bottom(), bbox_rect.bottom() + 3_600)
                 } else {
-                    Span::new(bbox_rect.top(), bbox_rect.top() - 2_000)
+                    Span::new(bbox_rect.top(), bbox_rect.top() - 3_600)
                 },
             );
             let trace = router.trace(trace_rect, 1);
