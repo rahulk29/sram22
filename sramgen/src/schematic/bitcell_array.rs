@@ -24,7 +24,7 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
     let dummy_rows = params.dummy_rows as i64;
     let dummy_cols = params.dummy_cols as i64;
     let total_rows = rows + 2 * dummy_rows;
-    let total_cols = cols + 2 * dummy_rows;
+    let total_cols = cols + 2 * dummy_cols;
 
     let vdd = signal("vdd");
     let vss = signal("vss");
@@ -92,7 +92,7 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
 
     for i in 0..total_cols {
         // .subckt sky130_fd_bd_sram__sram_sp_colend BL1 VPWR VGND BL0
-        let dummy = i < dummy_cols || i > rows + dummy_cols - 1;
+        let dummy = i < dummy_cols || i > cols + dummy_cols - 1;
 
         let conns = [
             (
