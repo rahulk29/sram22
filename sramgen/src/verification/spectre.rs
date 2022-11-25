@@ -1,8 +1,13 @@
-use anyhow::bail;
+use anyhow::{bail, Context};
 use psf_ascii::parser::transient::TransientData;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use crate::config::sram::SramParams;
+use crate::verification::{
+    self, bit_signal::BitSignal, source_files, PortClass, PortOrder, TbParams, TestCase,
+    VerificationTask,
+};
 use crate::Result;
 
 pub struct SpectreParams {
@@ -69,4 +74,68 @@ fn generate_paths(params: &SpectreParams) -> SpectreGeneratedPaths {
         stdout_path: params.work_dir.join("spectre.out"),
         stderr_path: params.work_dir.join("spectre.err"),
     }
+}
+
+pub fn run_sram_spectre(params: &SramParams, work_dir: impl AsRef<Path>, name: &str) -> Result<()> {
+    let &SramParams {
+        wmask_width,
+        data_width,
+        addr_width,
+        ..
+    } = params;
+    let alternating_bits = 0b0101010101010101010101010101010101010101010101010101010101010101u64;
+    let test_case = TestCase::builder()
+        .clk_period(20e-9)
+        .ops([
+            verification::Op::Write {
+                addr: BitSignal::from_u64(alternating_bits, addr_width),
+                data: BitSignal::from_u64(alternating_bits, data_width),
+            },
+            verification::Op::Read {
+                addr: BitSignal::from_u64(alternating_bits, addr_width),
+            },
+        ])
+        .build()?;
+
+    let mut ports = vec![
+        (PortClass::Power, PortOrder::MsbFirst),
+        (PortClass::Ground, PortOrder::MsbFirst),
+        (PortClass::Clock, PortOrder::MsbFirst),
+        (PortClass::DataIn, PortOrder::MsbFirst),
+        (PortClass::DataOut, PortOrder::MsbFirst),
+        (PortClass::WriteEnable, PortOrder::MsbFirst),
+        (PortClass::Addr, PortOrder::MsbFirst),
+    ];
+    if wmask_width > 1 {
+        ports.push((PortClass::WriteMask, PortOrder::MsbFirst));
+    }
+    let mut tb = TbParams::builder();
+    tb.test_case(test_case)
+        .sram_name(name)
+        .tr(50e-12)
+        .tf(50e-12)
+        .vdd(1.8)
+        .c_load(5e-15)
+        .data_width(data_width)
+        .addr_width(addr_width)
+        .wmask_width(wmask_width)
+        .ports(ports)
+        .clk_port("clk")
+        .write_enable_port("we")
+        .addr_port("addr")
+        .data_in_port("din")
+        .data_out_port("dout")
+        .pwr_port("vdd")
+        .gnd_port("vss")
+        .wmask_port("wmask")
+        .work_dir(std::path::PathBuf::from(work_dir.as_ref()).join("sim"))
+        .source_paths(source_files(&work_dir, &name, VerificationTask::SpectreSim));
+
+    tb.includes(crate::verification::spectre::sky130_includes());
+
+    let tb = tb.build()?;
+
+    verification::run_testbench(&tb).with_context(|| "Error simulating testbench")?;
+
+    Ok(())
 }

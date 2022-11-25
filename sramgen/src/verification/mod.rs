@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use waveform::Waveform;
 
 use crate::verification::utils::push_bus;
-use crate::{Result, BUILD_PATH, LIB_PATH};
+use crate::{Result, LIB_PATH};
 
 use self::netlist::{generate_netlist, write_netlist, TbNetlistParams};
 use self::spectre::{run_spectre, SpectreParams};
@@ -92,7 +92,7 @@ pub struct TbParams {
     /// Number of address bits.
     pub addr_width: usize,
     /// Number of write mask bits.
-    pub wmask_groups: usize,
+    pub wmask_width: usize,
 
     /// Ports in the order in which they appear in the SRAM
     /// SPICE subcircuit definition.
@@ -160,7 +160,7 @@ impl TbParams {
             PortClass::Ground => 1,
             PortClass::Power => 1,
             PortClass::Clock => 1,
-            PortClass::WriteMask => self.wmask_groups,
+            PortClass::WriteMask => self.wmask_width,
             PortClass::WriteEnable => 1,
         }
     }
@@ -230,8 +230,8 @@ pub fn run_testbench(params: &TbParams) -> Result<()> {
 fn generate_waveforms(params: &TbParams) -> TbWaveforms {
     let mut addr = vec![Waveform::with_initial_value(0f64); params.addr_width];
     let mut din = vec![Waveform::with_initial_value(0f64); params.data_width];
-    let wmask_bits = if params.wmask_groups > 1 {
-        params.wmask_groups
+    let wmask_bits = if params.wmask_width > 1 {
+        params.wmask_width
     } else {
         0
     };
@@ -247,7 +247,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
     let mut t = 0f64;
     let mut t_end;
 
-    let wmask_all = BitSignal::ones(params.wmask_groups);
+    let wmask_all = BitSignal::ones(params.wmask_width);
 
     for op in params.test_case.ops.iter() {
         t_end = t + period;
@@ -273,7 +273,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 assert_eq!(data.width(), params.data_width);
                 push_bus(&mut din, data, t_end, vdd, tr, tf);
 
-                if params.wmask_groups > 1 {
+                if params.wmask_width > 1 {
                     push_bus(&mut wmask, &wmask_all, t_end, vdd, tr, tf);
                 }
             }
@@ -292,8 +292,8 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 assert_eq!(data.width(), params.data_width);
                 push_bus(&mut din, data, t_end, vdd, tr, tf);
 
-                assert!(params.wmask_groups > 1);
-                assert_eq!(mask.width(), params.wmask_groups);
+                assert!(params.wmask_width > 1);
+                assert_eq!(mask.width(), params.wmask_width);
                 push_bus(&mut wmask, mask, t_end, vdd, tr, tf);
             }
         }
@@ -337,12 +337,12 @@ pub fn source_files(
 ) -> Vec<PathBuf> {
     let source_path_main = match task {
         VerificationTask::SpectreSim => {
-            PathBuf::from(BUILD_PATH).join(format!("spectre/{}.spice", sram_name))
+            PathBuf::from(work_dir.as_ref()).join(format!("{}.spectre.spice", sram_name))
         }
         VerificationTask::NgspiceSim => {
-            PathBuf::from(BUILD_PATH).join(format!("ngspice/{}.spice", sram_name))
+            PathBuf::from(work_dir.as_ref()).join(format!("{}.ngspice.spice", sram_name))
         }
-        _ => PathBuf::from(BUILD_PATH).join(format!("spice/{}.spice", sram_name)),
+        _ => PathBuf::from(work_dir.as_ref()).join(format!("{}.spice", sram_name)),
     };
     let source_path_dff = PathBuf::from(LIB_PATH).join("openram_dff/openram_dff.spice");
     let source_path_sp_cell = match task {
@@ -371,7 +371,7 @@ pub fn source_files(
 
 fn verify_simulation(data: &TransientData, tb: &TbParams) -> Result<()> {
     let mut state = HashMap::new();
-    let data_bits_per_wmask = tb.data_width / tb.wmask_groups;
+    let data_bits_per_wmask = tb.data_width / tb.wmask_width;
 
     // Clock cycle counter
     // Initialized to 1 instead of 0,

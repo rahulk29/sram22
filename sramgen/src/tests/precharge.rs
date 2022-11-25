@@ -1,14 +1,16 @@
 use vlsir::circuit::Package;
 
 use crate::layout::precharge::*;
+use crate::paths::{out_bin, out_gds};
 use crate::schematic::precharge::*;
+use crate::schematic::{generate_netlist, save_bin};
 use crate::tech::all_external_modules;
-use crate::tests::test_gds_path;
-use crate::{generate_netlist, save_bin, Result};
+use crate::tests::test_work_dir;
+use crate::Result;
 use pdkprims::tech::sky130;
 
 #[test]
-fn test_sky130_precharge() -> Result<()> {
+fn test_precharge() -> Result<()> {
     let name = "sramgen_precharge";
     let params = PrechargeParams {
         name: name.to_string(),
@@ -25,20 +27,23 @@ fn test_sky130_precharge() -> Result<()> {
         ext_modules,
     };
 
-    save_bin(name, pkg)?;
+    let work_dir = test_work_dir(name);
 
-    generate_netlist(name)?;
+    let bin_path = out_bin(&work_dir, name);
+    save_bin(&bin_path, name, pkg)?;
+
+    generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
     draw_precharge(&mut lib, params)?;
 
-    lib.save_gds(test_gds_path(name))?;
+    lib.save_gds(out_gds(&work_dir, name))?;
 
     Ok(())
 }
 
 #[test]
-fn test_sky130_precharge_array() -> Result<()> {
+fn test_precharge_array() -> Result<()> {
     let name = "sramgen_precharge_array";
     let params = PrechargeArrayParams {
         width: 32,
@@ -59,14 +64,17 @@ fn test_sky130_precharge_array() -> Result<()> {
         ext_modules,
     };
 
-    save_bin(name, pkg)?;
+    let work_dir = test_work_dir(name);
 
-    generate_netlist(name)?;
+    let bin_path = out_bin(&work_dir, name);
+    save_bin(&bin_path, name, pkg)?;
+
+    generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
     draw_precharge_array(&mut lib, params)?;
 
-    lib.save_gds(test_gds_path(name))?;
+    lib.save_gds(out_gds(&work_dir, name))?;
 
     Ok(())
 }

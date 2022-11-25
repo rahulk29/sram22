@@ -1,5 +1,6 @@
 use crate::config::ControlMode;
 
+#[derive(Debug)]
 pub struct SramParams {
     pub name: String,
     pub wmask_width: usize,

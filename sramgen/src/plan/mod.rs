@@ -1,12 +1,12 @@
-use crate::config::{sram::SramParams, SramConfig};
+use crate::config::{sram::SramParams, ControlMode, SramConfig};
 use crate::layout::sram::draw_sram;
-use crate::paths::{out_bin, out_gds, out_verilog};
+use crate::paths::{out_bin, out_gds, out_sram, out_verilog};
 use crate::plan::extract::ExtractionResult;
 use crate::schematic::sram::sram;
 use crate::schematic::{generate_netlist, save_modules};
 use crate::verilog::save_1rw_verilog;
 use crate::{clog2, Result};
-use anyhow::Context;
+use anyhow::{bail, Context};
 use pdkprims::tech::sky130;
 use std::path::Path;
 
@@ -31,7 +31,14 @@ pub fn generate_plan(
         control,
     } = config;
 
-    let name = format!("sramgen_sram_{data_width}x{num_words}m{mux_ratio}w{write_size}_simple");
+    if control != ControlMode::Simple {
+        bail!("Only `ControlMode::Simple` is supported at the moment");
+    }
+    if data_width % write_size != 0 {
+        bail!("Data width must be a multiple of write size");
+    }
+
+    let name = out_sram(config);
     let rows = (num_words / mux_ratio) as usize;
     let cols = (data_width * mux_ratio) as usize;
     let row_bits = clog2(rows);
@@ -62,6 +69,8 @@ pub fn generate_plan(
 }
 
 pub fn execute_plan(work_dir: impl AsRef<Path>, plan: &SramPlan) -> Result<()> {
+    std::fs::create_dir_all(work_dir.as_ref())?;
+
     let modules = sram(&plan.sram_params);
 
     let name = &plan.sram_params.name;
@@ -84,71 +93,10 @@ pub fn execute_plan(work_dir: impl AsRef<Path>, plan: &SramPlan) -> Result<()> {
     save_1rw_verilog(&verilog_path, &plan.sram_params)
         .with_context(|| "Error generating or saving Verilog model")?;
 
-    #[cfg(feature = "calibre")]
-    crate::verification::calibre::run_sram_drc_lvs(&name)?;
-
     #[cfg(feature = "abstract_lef")]
     {
-        let lef_path = out_lef(&work_dir, name);
-        crate::abs::run_sram_abstract(&name, &lef_path, &gds_path, &verilog_path)?;
-    }
-
-    #[cfg(feature = "spectre")]
-    {
-        let alternating_bits =
-            0b0101010101010101010101010101010101010101010101010101010101010101u64;
-        let test_case = TestCase::builder()
-            .clk_period(20e-9)
-            .ops([
-                verification::Op::Write {
-                    addr: BitSignal::from_u64(alternating_bits, addr_width),
-                    data: BitSignal::from_u64(alternating_bits, data_width),
-                },
-                verification::Op::Read {
-                    addr: BitSignal::from_u64(alternating_bits, addr_width),
-                },
-            ])
-            .build()?;
-
-        let mut ports = vec![
-            (PortClass::Power, PortOrder::MsbFirst),
-            (PortClass::Ground, PortOrder::MsbFirst),
-            (PortClass::Clock, PortOrder::MsbFirst),
-            (PortClass::DataIn, PortOrder::MsbFirst),
-            (PortClass::DataOut, PortOrder::MsbFirst),
-            (PortClass::WriteEnable, PortOrder::MsbFirst),
-            (PortClass::Addr, PortOrder::MsbFirst),
-        ];
-        if wmask_groups > 1 {
-            ports.push((PortClass::WriteMask, PortOrder::MsbFirst));
-        }
-        let mut tb = TbParams::builder();
-        tb.test_case(test_case)
-            .sram_name(&name)
-            .tr(50e-12)
-            .tf(50e-12)
-            .vdd(1.8)
-            .c_load(5e-15)
-            .data_width(data_width)
-            .addr_width(addr_width)
-            .wmask_groups(wmask_groups)
-            .ports(ports)
-            .clk_port("clk")
-            .write_enable_port("we")
-            .addr_port("addr")
-            .data_in_port("din")
-            .data_out_port("dout")
-            .pwr_port("vdd")
-            .gnd_port("vss")
-            .wmask_port("wmask")
-            .work_dir(PathBuf::from(BUILD_PATH).join(format!("sim/{}", name)))
-            .source_paths(source_files(&name, VerificationTask::SpectreSim));
-
-        tb.includes(crate::verification::spectre::sky130_includes());
-
-        let tb = tb.build()?;
-
-        verification::run_testbench(&tb).with_context(|| "Error simulating testbench")?;
+        let lef_path = crate::paths::out_lef(&work_dir, name);
+        crate::abs::run_sram_abstract(&work_dir, &name, &lef_path, &gds_path, &verilog_path)?;
     }
 
     Ok(())

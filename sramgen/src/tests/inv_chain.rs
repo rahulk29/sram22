@@ -1,5 +1,6 @@
 use crate::layout::inv_chain::*;
-use crate::tests::test_gds_path;
+use crate::paths::out_gds;
+use crate::tests::test_work_dir;
 use crate::Result;
 use pdkprims::tech::sky130;
 
@@ -17,7 +18,8 @@ fn test_inv_chain_grid() -> Result<()> {
         },
     )?;
 
-    lib.save_gds(test_gds_path(name))?;
+    let work_dir = test_work_dir(name);
+    lib.save_gds(out_gds(work_dir, name))?;
 
     Ok(())
 }
@@ -34,7 +36,8 @@ fn test_sky130_inv_chain_12() -> Result<()> {
         },
     )?;
 
-    lib.save_gds(test_gds_path(name))?;
+    let work_dir = test_work_dir(name);
+    lib.save_gds(out_gds(work_dir, name))?;
 
     Ok(())
 }

@@ -1,13 +1,15 @@
 use crate::layout::sense_amp::*;
+use crate::paths::{out_bin, out_gds};
 use crate::schematic::sense_amp::*;
+use crate::schematic::{generate_netlist, save_bin};
 use crate::tech::all_external_modules;
-use crate::tests::test_gds_path;
-use crate::{generate_netlist, save_bin, Result};
+use crate::tests::test_work_dir;
+use crate::Result;
 use pdkprims::tech::sky130;
 use vlsir::circuit::Package;
 
 #[test]
-fn test_sky130_sense_amp_array() -> Result<()> {
+fn test_sense_amp_array() -> Result<()> {
     let name = "sramgen_sense_amp_array";
     let width = 16;
 
@@ -23,14 +25,17 @@ fn test_sky130_sense_amp_array() -> Result<()> {
         ext_modules,
     };
 
-    save_bin(name, pkg)?;
+    let work_dir = test_work_dir(name);
 
-    generate_netlist(name)?;
+    let bin_path = out_bin(&work_dir, name);
+    save_bin(&bin_path, name, pkg)?;
+
+    generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
     draw_sense_amp_array(&mut lib, width as usize, 2 * 2_500)?;
 
-    lib.save_gds(test_gds_path(name))?;
+    lib.save_gds(out_gds(&work_dir, name))?;
 
     Ok(())
 }

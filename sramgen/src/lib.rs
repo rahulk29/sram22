@@ -14,7 +14,7 @@ mod tests;
 pub mod verification;
 pub mod verilog;
 
-pub const BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "build");
+pub const BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
 pub const LIB_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/lib");
 
 pub fn bus_bit(name: &str, index: usize) -> String {
