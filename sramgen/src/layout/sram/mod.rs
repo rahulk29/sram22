@@ -8,6 +8,7 @@ use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::{LayerIdx, PdkLib};
 
+use crate::config::sram::SramParams;
 use crate::config::ControlMode;
 use crate::layout::array::draw_power_connector;
 use crate::layout::col_inv::draw_col_inv_array;
@@ -28,7 +29,7 @@ use crate::schematic::gate::{AndParams, GateParams, Size};
 use crate::schematic::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::schematic::wmask_control::WriteMaskControlParams;
 use crate::tech::{BITCELL_HEIGHT, COLUMN_WIDTH};
-use crate::{bus_bit, clog2};
+use crate::{bus_bit, clog2, Result};
 
 use super::array::draw_bitcell_array;
 use super::decoder::{draw_inv_dec_array, draw_nand2_dec_array};
@@ -37,7 +38,6 @@ use super::mux::write::draw_write_mux_array;
 use super::precharge::draw_precharge_array;
 use super::route::Trace;
 use super::sense_amp::draw_sense_amp_array;
-use super::Result;
 
 pub mod lef;
 
@@ -74,21 +74,14 @@ pub struct PhysicalDesign {
     pub lef: LefLibrary,
 }
 
-pub struct SramBankParams {
-    pub name: String,
-    pub rows: usize,
-    pub cols: usize,
-    pub mux_ratio: usize,
-    pub wmask_groups: usize,
-}
-
-pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<PhysicalDesign> {
-    let SramBankParams {
-        name,
+pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign> {
+    let name = &params.name;
+    let &SramParams {
         rows,
         cols,
         mux_ratio,
-        wmask_groups,
+        wmask_width,
+        ..
     } = params;
 
     let mut cell = Cell::empty(name);
@@ -99,9 +92,9 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     assert_eq!(cols % 2, 0);
     assert_eq!(rows % 2, 0);
     assert!(mux_ratio >= 2);
-    assert!(wmask_groups >= 1);
-    assert_eq!(cols % (mux_ratio * wmask_groups), 0);
-    assert!(wmask_groups < (cols / mux_ratio));
+    assert!(wmask_width >= 1);
+    assert_eq!(cols % (mux_ratio * wmask_width), 0);
+    assert!(wmask_width < (cols / mux_ratio));
 
     let grid = lib.pdk.grid();
 
@@ -168,9 +161,9 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
 
     let wmask_dff_params = DffGridParams::builder()
         .name("wmask_dff_array")
-        .cols(wmask_groups)
+        .cols(wmask_width)
         .rows(1)
-        .row_pitch((cols / wmask_groups) as isize * COLUMN_WIDTH)
+        .row_pitch((cols / wmask_width) as isize * COLUMN_WIDTH)
         .build()?;
     let wmask_dffs = draw_dff_grid(lib, wmask_dff_params)?;
 
@@ -225,7 +218,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         },
     )?;
     let read_mux = draw_read_mux_array(lib, cols, mux_ratio)?;
-    let write_mux = draw_write_mux_array(lib, cols, mux_ratio, wmask_groups)?;
+    let write_mux = draw_write_mux_array(lib, cols, mux_ratio, wmask_width)?;
     let col_inv = draw_col_inv_array(lib, "col_data_inv", cols / mux_ratio, mux_ratio)?;
     let sense_amp = draw_sense_amp_array(lib, cols / mux_ratio, COLUMN_WIDTH * mux_ratio as isize)?;
     let din_dff_params = DffGridParams::builder()
@@ -245,7 +238,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         },
     )?;
 
-    let mut router = Router::new("bank_route", lib.pdk.clone());
+    let mut router = Router::new("sram_route", lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
@@ -276,7 +269,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     let mut addr_dffs = Instance::new("addr_dffs", addr_dffs);
     let mut col_decoder = col_decoder.map(|decoder| Instance::new("col_decoder", decoder));
     let mut dout_buf = Instance::new("dout_buffer_array", dout_buf);
-    let mut wmask_dffs = if wmask_groups > 1 {
+    let mut wmask_dffs = if wmask_width > 1 {
         Some(Instance::new("wmask_dff_array", wmask_dffs))
     } else {
         None
@@ -351,7 +344,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         dout_buf_bbox,
     ];
 
-    if wmask_groups > 1 {
+    if wmask_width > 1 {
         bboxes.push(wmask_dff_bbox.into_rect());
     }
 
@@ -412,7 +405,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
             .v_line(400)
             .v_space(400)
             .pdk(lib.pdk.clone())
-            .name("bank_power_strap")
+            .name("sram_power_strap")
             .enclosure(Rect::new(Point::zero(), Point::zero()))
             .build()?,
     );
@@ -719,10 +712,10 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     power_grid.add_vdd_target(2, trace.rect());
 
     // Write mask (wmask) routing
-    if wmask_groups > 1 {
+    if wmask_width > 1 {
         let wmask_dffs = wmask_dffs.as_ref().unwrap();
-        let bits_per_wmask = cols / (wmask_groups * mux_ratio);
-        for i in 0..wmask_groups {
+        let bits_per_wmask = cols / (wmask_width * mux_ratio);
+        for i in 0..wmask_width {
             let src = write_mux
                 .port(bus_bit("wmask", i))
                 .largest_rect(m2)
@@ -1177,7 +1170,7 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     }
 
     if let Some(ref wmask_dffs) = wmask_dffs {
-        for i in 0..wmask_groups {
+        for i in 0..wmask_width {
             let args = ConnectArgs::builder()
                 .metal_idx(3)
                 .port_idx(2)
@@ -1389,9 +1382,9 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
     }
 
     // Route write mask pins
-    if wmask_groups > 1 {
+    if wmask_width > 1 {
         let wmask_dffs = wmask_dffs.as_ref().unwrap();
-        for i in 0..wmask_groups {
+        for i in 0..wmask_width {
             let src = wmask_dffs.port(bus_bit("d", i)).largest_rect(m2).unwrap();
             let offset = 1_900;
             let mut trace = router.trace(src, 2);

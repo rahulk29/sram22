@@ -13,8 +13,8 @@ use pdkprims::PdkLib;
 
 use crate::layout::array::*;
 
-use super::bank::GateList;
 use super::common::{GridOrder, MergeArgs};
+use super::sram::GateList;
 
 pub fn draw_dff_array(
     lib: &mut PdkLib,

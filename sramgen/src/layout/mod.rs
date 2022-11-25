@@ -1,4 +1,6 @@
-use layout21::raw::{Cell, Element, Instance, LayerKey, LayerPurpose, Layout, Point, Rect, Shape};
+use layout21::raw::{
+    BoundBox, Cell, Element, Instance, LayerKey, LayerPurpose, Layout, Point, Rect, Shape,
+};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
@@ -6,7 +8,6 @@ use crate::tech::sram_sp_cell_gds;
 use crate::Result;
 
 pub mod array;
-pub mod bank;
 pub mod col_inv;
 pub mod common;
 pub mod control;
@@ -23,6 +24,7 @@ pub mod power;
 pub mod precharge;
 pub mod route;
 pub mod sense_amp;
+pub mod sram;
 pub mod tmc;
 pub mod wmask_control;
 
@@ -63,4 +65,9 @@ pub fn draw_rect(r: Rect, layer: LayerKey) -> Element {
         inner: Shape::Rect(r),
         purpose: LayerPurpose::Drawing,
     }
+}
+
+pub fn bbox(cell: &Ptr<Cell>) -> BoundBox {
+    let cell = cell.read().unwrap();
+    cell.layout.as_ref().unwrap().bbox()
 }

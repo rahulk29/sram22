@@ -91,7 +91,7 @@ pub fn generate_netlist(params: TbNetlistParams) -> crate::Result<String> {
                     "Attempting to use write mask waveforms but no write mask port was specified."
                 )
             })?,
-            tb.wmask_groups,
+            tb.wmask_width,
         )?;
     }
     write_probes(&mut out, &tb.data_out_port, tb.data_width)?;

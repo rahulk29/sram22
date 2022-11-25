@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Result;
 
-use super::bank::GateList;
+use super::sram::GateList;
 
 pub const NWELL_COL_SIDE_EXTEND: Int = 1_000;
 pub const NWELL_COL_VERT_EXTEND: Int = 360;

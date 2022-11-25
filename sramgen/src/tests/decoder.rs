@@ -1,15 +1,16 @@
 use crate::layout::decoder::*;
+use crate::paths::{out_bin, out_gds};
 use crate::schematic::decoder::*;
 use crate::schematic::gate::{GateParams, Size};
+use crate::schematic::{generate_netlist, save_modules};
 use crate::tech::BITCELL_HEIGHT;
-use crate::tests::test_gds_path;
-use crate::utils::save_modules;
-use crate::{generate_netlist, Result};
+use crate::tests::test_work_dir;
+use crate::Result;
 use layout21::raw::geom::Dir;
 use pdkprims::tech::sky130;
 
 #[test]
-fn test_sky130_inv_dec_array() -> Result<()> {
+fn test_inv_dec_array() -> Result<()> {
     let name = "sramgen_inv_dec_array";
     let mut lib = sky130::pdk_lib(name)?;
     draw_inv_dec_array(
@@ -22,13 +23,14 @@ fn test_sky130_inv_dec_array() -> Result<()> {
         },
     )?;
 
-    lib.save_gds(test_gds_path(name))?;
+    let work_dir = test_work_dir(name);
+    lib.save_gds(out_gds(work_dir, name))?;
 
     Ok(())
 }
 
 #[test]
-fn test_sky130_nand2_dec_array() -> Result<()> {
+fn test_nand2_dec_array() -> Result<()> {
     let name = "sramgen_nand2_dec_array";
     let mut lib = sky130::pdk_lib(name)?;
     draw_inv_dec_array(
@@ -41,13 +43,14 @@ fn test_sky130_nand2_dec_array() -> Result<()> {
         },
     )?;
 
-    lib.save_gds(test_gds_path(name))?;
+    let work_dir = test_work_dir(name);
+    lib.save_gds(out_gds(work_dir, name))?;
 
     Ok(())
 }
 
 #[test]
-fn test_sky130_nand3_array() -> Result<()> {
+fn test_nand3_array() -> Result<()> {
     let name = "sramgen_nand3_array";
     let mut lib = sky130::pdk_lib(name)?;
     draw_nand3_array(
@@ -68,13 +71,14 @@ fn test_sky130_nand3_array() -> Result<()> {
         },
     )?;
 
-    lib.save_gds(test_gds_path(name))?;
+    let work_dir = test_work_dir(name);
+    lib.save_gds(out_gds(work_dir, name))?;
 
     Ok(())
 }
 
 #[test]
-fn test_sky130_and3_array() -> Result<()> {
+fn test_and3_array() -> Result<()> {
     let name = "sramgen_and3_array";
     let mut lib = sky130::pdk_lib(name)?;
     draw_and3_array(
@@ -99,13 +103,14 @@ fn test_sky130_and3_array() -> Result<()> {
         },
     )?;
 
-    lib.save_gds(test_gds_path(name))?;
+    let work_dir = test_work_dir(name);
+    lib.save_gds(out_gds(work_dir, name))?;
 
     Ok(())
 }
 
 #[test]
-fn test_sky130_and2_array() -> Result<()> {
+fn test_and2_array() -> Result<()> {
     let name = "sramgen_and2_array";
     let mut lib = sky130::pdk_lib(name)?;
     draw_and2_array(
@@ -130,13 +135,14 @@ fn test_sky130_and2_array() -> Result<()> {
         },
     )?;
 
-    lib.save_gds(test_gds_path(name))?;
+    let work_dir = test_work_dir(name);
+    lib.save_gds(out_gds(work_dir, name))?;
 
     Ok(())
 }
 
 #[test]
-fn test_sky130_hier_decode_4bit() -> Result<()> {
+fn test_hier_decode_4bit() -> Result<()> {
     let name = "sramgen_hier_decoder_4bit";
     let tree = DecoderTree::new(4);
 
@@ -147,20 +153,23 @@ fn test_sky130_hier_decode_4bit() -> Result<()> {
     };
     let modules = hierarchical_decoder(decoder_params);
 
-    save_modules(name, modules)?;
+    let work_dir = test_work_dir(name);
 
-    generate_netlist(name)?;
+    let bin_path = out_bin(&work_dir, name);
+    save_modules(&bin_path, name, modules)?;
+
+    generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
     draw_hier_decode(&mut lib, name, &tree.root)?;
 
-    lib.save_gds(test_gds_path(name))?;
+    lib.save_gds(out_gds(&work_dir, name))?;
 
     Ok(())
 }
 
 #[test]
-fn test_sky130_hier_decode_5bit() -> Result<()> {
+fn test_hier_decode_5bit() -> Result<()> {
     let name = "sramgen_hier_decoder_5bit";
     let tree = DecoderTree::new(5);
 
@@ -171,20 +180,23 @@ fn test_sky130_hier_decode_5bit() -> Result<()> {
     };
     let modules = hierarchical_decoder(decoder_params);
 
-    save_modules(name, modules)?;
+    let work_dir = test_work_dir(name);
 
-    generate_netlist(name)?;
+    let bin_path = out_bin(&work_dir, name);
+    save_modules(&bin_path, name, modules)?;
+
+    generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
     draw_hier_decode(&mut lib, name, &tree.root)?;
 
-    lib.save_gds(test_gds_path(name))?;
+    lib.save_gds(out_gds(&work_dir, name))?;
 
     Ok(())
 }
 
 #[test]
-fn test_sky130_hier_decode_7bit() -> Result<()> {
+fn test_hier_decode_7bit() -> Result<()> {
     let name = "sramgen_hier_decoder_7bit";
     let tree = DecoderTree::new(7);
 
@@ -195,14 +207,17 @@ fn test_sky130_hier_decode_7bit() -> Result<()> {
     };
     let modules = hierarchical_decoder(decoder_params);
 
-    save_modules(name, modules)?;
+    let work_dir = test_work_dir(name);
 
-    generate_netlist(name)?;
+    let bin_path = out_bin(&work_dir, name);
+    save_modules(&bin_path, name, modules)?;
+
+    generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
     draw_hier_decode(&mut lib, name, &tree.root)?;
 
-    lib.save_gds(test_gds_path(name))?;
+    lib.save_gds(out_gds(&work_dir, name))?;
 
     Ok(())
 }
