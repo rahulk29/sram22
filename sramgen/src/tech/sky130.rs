@@ -391,7 +391,8 @@ pub fn all_external_modules() -> Vec<ExternalModule> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{layout::bbox, Result};
+    use crate::layout::bbox;
+    use crate::Result;
     use pdkprims::tech::sky130;
 
     #[test]

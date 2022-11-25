@@ -5,8 +5,7 @@ use crate::config::parse_config;
 use crate::plan::extract::ExtractionResult;
 use crate::plan::{execute_plan, generate_plan};
 use crate::BUILD_PATH;
-use anyhow::bail;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 use std::path::PathBuf;
 

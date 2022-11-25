@@ -14,8 +14,6 @@ use crate::schematic::dff::dff_array;
 use crate::schematic::dout_buffer::{dout_buf_array, DoutBufArrayParams, DoutBufParams};
 use crate::schematic::gate::{AndParams, GateParams, Size};
 use crate::schematic::inv_chain::inv_chain_grid;
-use crate::schematic::local_reference;
-use crate::schematic::mux;
 use crate::schematic::mux::read::read_mux_array;
 use crate::schematic::mux::write::{write_mux_array, ArrayParams, WriteMuxParams};
 use crate::schematic::precharge::{precharge_array, PrechargeArrayParams, PrechargeParams};
@@ -24,6 +22,7 @@ use crate::schematic::wl_driver::{
     wordline_driver_array, WordlineDriverArrayParams, WordlineDriverParams,
 };
 use crate::schematic::wmask_control::{write_mask_control, WriteMaskControlParams};
+use crate::schematic::{local_reference, mux};
 use crate::tech::{openram_dff_ref, sramgen_control_ref};
 
 use crate::schematic::dff::DffArrayParams;

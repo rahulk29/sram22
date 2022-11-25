@@ -8,7 +8,8 @@ use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::{LayerIdx, PdkLib};
 
-use crate::config::{sram::SramParams, ControlMode};
+use crate::config::sram::SramParams;
+use crate::config::ControlMode;
 use crate::layout::array::draw_power_connector;
 use crate::layout::col_inv::draw_col_inv_array;
 use crate::layout::control::draw_control_logic;

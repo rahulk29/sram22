@@ -8,7 +8,8 @@ use vlsir::circuit::{port, Connection, ExternalModule, Instance, Parameter, Para
 use vlsir::reference::To;
 use vlsir::{QualifiedName, Reference};
 
-use crate::schematic::{conns::signal, NetlistFormat};
+use crate::schematic::conns::signal;
+use crate::schematic::NetlistFormat;
 
 /// A schematic-level representation of a MOSFET.
 #[derive(Debug, Clone, Serialize, Deserialize)]

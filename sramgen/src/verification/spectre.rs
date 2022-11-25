@@ -4,9 +4,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::config::sram::SramParams;
+use crate::verification::bit_signal::BitSignal;
 use crate::verification::{
-    self, bit_signal::BitSignal, source_files, PortClass, PortOrder, TbParams, TestCase,
-    VerificationTask,
+    self, source_files, PortClass, PortOrder, TbParams, TestCase, VerificationTask,
 };
 use crate::Result;
 

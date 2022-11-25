@@ -5,11 +5,13 @@ import sys
 import argparse
 
 parser = argparse.ArgumentParser(
-        prog = 'generate',
-        description = 'generate netlists from VLSIR binary files')
+    prog="generate", description="generate netlists from VLSIR binary files"
+)
 
-parser.add_argument('binary_path', help='Path to VLSIR binary file')
-parser.add_argument('-o', '--output_dir', help='directory where output files should be written')
+parser.add_argument("binary_path", help="Path to VLSIR binary file")
+parser.add_argument(
+    "-o", "--output_dir", help="directory where output files should be written"
+)
 
 PROPRIETARY_PRELUDE_SPECTRE = """*SPICE NETLIST
 * OPEN SOURCE CONVERSION PRELUDE (SPECTRE)
@@ -73,6 +75,7 @@ M0 d g s b phighvt l='l' w='w' mult='mult'
 .ENDS
 """
 
+
 def generate(bin_path, output_dir):
     if output_dir is not None:
         os.makedirs(output_dir, exist_ok=True)
@@ -81,7 +84,7 @@ def generate(bin_path, output_dir):
     print(f"Generating netlist for binary at {bin_path}...")
     with open(bin_path, "rb") as f:
         tmp = f.read()
-        CKT = os.path.basename(bin_path).split('.')[0]
+        CKT = os.path.basename(bin_path).split(".")[0]
         with open(os.path.join(output_dir, f"{CKT}.ngspice.spice"), "w") as dest:
             print("\tngspice")
             inp = vlsir.spice_pb2.SimInput()
