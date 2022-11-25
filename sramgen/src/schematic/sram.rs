@@ -82,6 +82,8 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     let bitcells = bitcell_array(BitcellArrayParams {
         rows: rows as usize,
         cols,
+        dummy_rows: 2,
+        dummy_cols: 2,
         name: "bitcell_array".to_string(),
     });
 
