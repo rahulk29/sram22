@@ -917,9 +917,16 @@ pub fn draw_sram_bank(lib: &mut PdkLib, params: SramBankParams) -> Result<Physic
         .set_width(dst.height())
         .horiz_to(dst.left() - 5 * cfg.line(3));
     power_grid.add_padded_blockage(2, trace.rect().expand(80));
-    trace.up().set_width(cfg.line(3)).vert_to_rect(dst);
-    power_grid.add_padded_blockage(3, trace.rect().expand(20));
-    trace.down().set_width(dst.height()).horiz_to_rect(dst);
+    if (trace.cursor_rect().center().x - dst.center().x).abs() <= 3 * cfg.line(2) {
+        // If there isn't enough space to via up to metal 3, jog on metal 2
+        trace.set_width(dst.height()).vert_to_rect(dst);
+        power_grid.add_padded_blockage(2, trace.rect());
+        trace.horiz_to_rect(dst);
+    } else {
+        trace.up().set_width(cfg.line(3)).vert_to_rect(dst);
+        power_grid.add_padded_blockage(3, trace.rect().expand(20));
+        trace.down().set_width(dst.height()).horiz_to_rect(dst);
+    }
     power_grid.add_padded_blockage(2, trace.rect().expand(40));
 
     // Route wordline enable (wl_en) from control logic to wordline drivers
