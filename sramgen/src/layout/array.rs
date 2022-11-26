@@ -289,19 +289,9 @@ pub fn draw_bitcell_array(
     }
 
     let (corner_bot, colend_bot, colend_cent_bot, colend_p_cent_bot) = if (rows - 1) % 2 == 1 {
-        (
-            cornera.clone(),
-            colenda.clone(),
-            colenda_cent.clone(),
-            colenda_p_cent.clone(),
-        )
+        (cornera, colenda, colenda_cent, colenda_p_cent)
     } else {
-        (
-            corner.clone(),
-            colend.clone(),
-            colend_cent.clone(),
-            colend_p_cent.clone(),
-        )
+        (corner, colend, colend_cent, colend_p_cent)
     };
 
     let mut row = vec![
@@ -347,7 +337,7 @@ pub fn draw_bitcell_array(
 
     row.push(Instance {
         inst_name: "corner_br".to_string(),
-        cell: corner_bot.clone(),
+        cell: corner_bot,
         loc: Point::new(0, 0),
         reflect_vert: true,
         angle: None,
