@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use vlsir::circuit::connection::Stype;
-use vlsir::circuit::{Connection, Instance, Slice};
+use vlsir::circuit::Instance;
 use vlsir::Module;
 
 use crate::schematic::conns::{
@@ -15,12 +14,18 @@ use serde::{Deserialize, Serialize};
 pub struct BitcellArrayParams {
     pub rows: usize,
     pub cols: usize,
+    pub dummy_rows: usize,
+    pub dummy_cols: usize,
     pub name: String,
 }
 
 pub fn bitcell_array(params: BitcellArrayParams) -> Module {
     let rows = params.rows as i64;
     let cols = params.cols as i64;
+    let dummy_rows = params.dummy_rows as i64;
+    let dummy_cols = params.dummy_cols as i64;
+    let total_rows = rows + 2 * dummy_rows;
+    let total_cols = cols + 2 * dummy_cols;
 
     let vdd = signal("vdd");
     let vss = signal("vss");
@@ -48,43 +53,34 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
         parameters: vec![],
     };
 
-    for i in 0..rows {
-        for j in 0..cols {
+    for i in 0..total_rows {
+        for j in 0..total_cols {
             let mut connections = HashMap::new();
-            connections.insert("VDD".to_string(), sig_conn(&signal("vdd")));
-            connections.insert("VSS".to_string(), sig_conn(&signal("vss")));
+            connections.insert("VDD".to_string(), sig_conn(&vdd));
+            connections.insert("VSS".to_string(), sig_conn(&vss));
             connections.insert("VNB".to_string(), sig_conn(&vnb));
             connections.insert("VPB".to_string(), sig_conn(&vpb));
-            connections.insert(
-                "BL".to_string(),
-                Connection {
-                    stype: Some(Stype::Slice(Slice {
-                        signal: "bl".to_string(),
-                        top: j,
-                        bot: j,
-                    })),
-                },
-            );
-            connections.insert(
-                "BR".to_string(),
-                Connection {
-                    stype: Some(Stype::Slice(Slice {
-                        signal: "br".to_string(),
-                        top: j,
-                        bot: j,
-                    })),
-                },
-            );
-            connections.insert(
-                "WL".to_string(),
-                Connection {
-                    stype: Some(Stype::Slice(Slice {
-                        signal: "wl".to_string(),
-                        top: i,
-                        bot: i,
-                    })),
-                },
-            );
+            if i < dummy_rows || i > rows + dummy_rows - 1 {
+                connections.insert("WL".to_string(), sig_conn(&vss));
+            } else {
+                connections.insert(
+                    "WL".to_string(),
+                    conn_slice("wl", i - dummy_rows, i - dummy_rows),
+                );
+            }
+            if j < dummy_cols || j > cols + dummy_cols - 1 {
+                connections.insert("BL".to_string(), sig_conn(&vdd));
+                connections.insert("BR".to_string(), sig_conn(&vdd));
+            } else {
+                connections.insert(
+                    "BL".to_string(),
+                    conn_slice("bl", j - dummy_cols, j - dummy_cols),
+                );
+                connections.insert(
+                    "BR".to_string(),
+                    conn_slice("br", j - dummy_cols, j - dummy_cols),
+                );
+            }
             let inst = Instance {
                 name: format!("bitcell_{}_{}", i, j),
                 parameters: HashMap::new(),
@@ -95,11 +91,27 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
         }
     }
 
-    for i in 0..cols {
+    for i in 0..total_cols {
         // .subckt sky130_fd_bd_sram__sram_sp_colend BL1 VPWR VGND BL0
+        let dummy = i < dummy_cols || i > cols + dummy_cols - 1;
+
         let conns = [
-            ("BL1", conn_slice("br", i, i)),
-            ("BL0", conn_slice("bl", i, i)),
+            (
+                "BL1",
+                if dummy {
+                    sig_conn(&vdd)
+                } else {
+                    conn_slice("br", i - dummy_cols, i - dummy_cols)
+                },
+            ),
+            (
+                "BL0",
+                if dummy {
+                    sig_conn(&vdd)
+                } else {
+                    conn_slice("bl", i - dummy_cols, i - dummy_cols)
+                },
+            ),
             ("VPWR", sig_conn(&vdd)),
             ("VGND", sig_conn(&vss)),
             ("VNB", sig_conn(&vnb)),

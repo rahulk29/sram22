@@ -31,6 +31,8 @@ fn test_bitcell_array_32x32() -> Result<()> {
     let bitcells = bitcell_array(BitcellArrayParams {
         rows,
         cols,
+        dummy_rows: 2,
+        dummy_cols: 2,
         name: name.to_string(),
     });
     let ext_modules = all_external_modules();
@@ -49,7 +51,7 @@ fn test_bitcell_array_32x32() -> Result<()> {
     generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
-    draw_bitcell_array(rows, cols, &mut lib)?;
+    draw_bitcell_array(rows, cols, 2, 2, &mut lib)?;
 
     lib.save_gds(out_gds(&work_dir, name))?;
 
@@ -65,6 +67,8 @@ fn test_bitcell_array_2x2() -> Result<()> {
     let bitcells = bitcell_array(BitcellArrayParams {
         rows,
         cols,
+        dummy_rows: 2,
+        dummy_cols: 2,
         name: name.to_string(),
     });
     let ext_modules = all_external_modules();
@@ -83,7 +87,7 @@ fn test_bitcell_array_2x2() -> Result<()> {
     generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
-    draw_bitcell_array(rows, cols, &mut lib)?;
+    draw_bitcell_array(rows, cols, 2, 2, &mut lib)?;
 
     lib.save_gds(out_gds(&work_dir, name))?;
 

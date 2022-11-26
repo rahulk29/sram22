@@ -167,7 +167,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         .build()?;
     let wmask_dffs = draw_dff_grid(lib, wmask_dff_params)?;
 
-    let core = draw_bitcell_array(rows, cols, lib)?;
+    let core = draw_bitcell_array(rows, cols, 2, 2, lib)?;
     let nand_dec = draw_nand2_dec_array(
         lib,
         GateArrayParams {
@@ -281,7 +281,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     ////////////////////////////////////////////////////////////////////
     let col_bus_space = (2 * mux_ratio as isize + 3)
         * (std::cmp::max(cfg.line(1), cfg.line(0)) + cfg.space(1))
-        + 1_270;
+        + 2_000;
     let core_bbox = core.bbox();
 
     wldrv_inv.align_to_the_left_of(core_bbox, std::cmp::max(col_bus_space, 7_000));
@@ -295,7 +295,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     nand_dec.align_to_the_left_of(inv_dec.bbox(), 1_000);
     nand_dec.align_centers_vertically_gridded(core_bbox, grid);
 
-    pc.align_beneath(core_bbox, 2_900);
+    pc.align_beneath(core_bbox, 4_800);
     pc.align_centers_horizontally_gridded(core_bbox, grid);
 
     read_mux.align_beneath(pc.bbox(), 1_000);
@@ -352,7 +352,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         col_bbox = col_bbox.union(&bbox.bbox());
     }
 
-    decoder1.align_beneath(core_bbox, 1_000);
+    decoder1.align_beneath(core_bbox, 3_000);
     decoder1.align_to_the_left_of(col_bbox.bbox(), col_bus_space);
 
     let decoder1_bbox = decoder1.bbox();
@@ -388,7 +388,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
 
     addr_dffs.align_beneath(
         control_bbox.bbox(),
-        1_000 + 460 * 2 * predecoder_bus_bits as isize,
+        3_000 + 460 * 2 * predecoder_bus_bits as isize,
     );
     addr_dffs.align_to_the_left_of(col_bbox, 4_000);
     let addr_dff_bbox = addr_dffs.bbox();
@@ -477,9 +477,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     ////////////////////////////////////////////////////////////////////
     // Column routing
     ////////////////////////////////////////////////////////////////////
-    let core_bot = core_bbox.into_rect().bottom();
-    let pc_top = pc_bbox.top();
-    let pc_midpt = Span::new(pc_top, core_bot).center();
+    let pc_top = pc_bbox.top() - 500;
 
     for i in 0..cols {
         let mut bl_rect = Rect::new(Point::zero(), Point::zero());
@@ -509,7 +507,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
 
             trace
                 .place_cursor(Dir::Vert, false)
-                .vert_to(pc_midpt)
+                .vert_to(pc_top)
                 .horiz_to(target)
                 .vert_to(bl0.bottom());
 
@@ -909,11 +907,21 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         .horiz_to(src.right() - 2 * cfg.line(0))
         .up()
         .up()
-        .up();
-    power_grid.add_padded_blockage(2, trace.cursor_rect().expand(110));
-    trace.set_width(cfg.line(3)).vert_to_rect(dst);
-    power_grid.add_padded_blockage(3, trace.rect());
-    trace.down().set_width(dst.height()).horiz_to_rect(dst);
+        .set_width(dst.height())
+        .horiz_to(dst.left() - 5 * cfg.line(3));
+    power_grid.add_padded_blockage(2, trace.rect().expand(80));
+    if (trace.cursor_rect().center().y - dst.center().y).abs()
+        <= 2 * cfg.line(3) + cfg.space(2) + 220
+    {
+        // If there isn't enough space to via up to metal 3, jog on metal 2
+        trace.set_width(dst.height()).vert_to_rect(dst);
+        power_grid.add_padded_blockage(2, trace.rect());
+        trace.horiz_to_rect(dst);
+    } else {
+        trace.up().set_width(cfg.line(3)).vert_to_rect(dst);
+        power_grid.add_padded_blockage(3, trace.rect().expand(20));
+        trace.down().set_width(dst.height()).horiz_to_rect(dst);
+    }
     power_grid.add_padded_blockage(2, trace.rect().expand(40));
 
     // Route wordline enable (wl_en) from control logic to wordline drivers
@@ -927,10 +935,10 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     trace
         .set_width(2 * cfg.line(1) + 40)
         .place_cursor(Dir::Vert, false)
-        .vert_to(wl_en_rect.bottom() - 3 * cfg.line(3))
+        .vert_to(core_bbox.p0.y - 8 * cfg.line(3))
         .up()
         .horiz_to_rect(dst);
-    power_grid.add_padded_blockage(2, trace.rect());
+    power_grid.add_padded_blockage(2, trace.rect().expand(30));
     trace.up().set_min_width().vert_to_rect(dst);
     power_grid.add_padded_blockage(3, trace.rect().expand(20));
     trace.contact_down(dst).decrement_layer().contact_down(dst);
@@ -1427,7 +1435,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
             .vert_to(guard_ring_bbox.bottom());
 
         let rect = trace.rect();
-        power_grid.add_padded_blockage(3, rect);
+        power_grid.add_padded_blockage(3, rect.expand(20));
         let net = if i == total_addr_bits {
             "we".to_string()
         } else {
