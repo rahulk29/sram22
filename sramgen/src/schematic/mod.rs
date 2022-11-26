@@ -16,6 +16,7 @@ pub mod col_inv;
 pub mod decoder;
 pub mod dff;
 pub mod dout_buffer;
+pub mod edge_detector;
 pub mod gate;
 pub mod inv_chain;
 pub mod mos;

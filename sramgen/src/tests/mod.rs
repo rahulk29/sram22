@@ -12,6 +12,7 @@ mod control;
 mod decoder;
 mod dff;
 mod dout_buffer;
+mod edge_detector;
 mod gate;
 mod guard_ring;
 mod inv_chain;
