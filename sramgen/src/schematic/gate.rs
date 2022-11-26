@@ -233,6 +233,89 @@ pub fn nand2(params: GateParams) -> Module {
     m
 }
 
+pub fn nor2(params: GateParams) -> Module {
+    let length = params.length;
+    let size = params.size;
+
+    let gnd = signal("gnd");
+    let vdd = signal("vdd");
+    let a = signal("a");
+    let b = signal("b");
+    let y = signal("y");
+    let x = signal("x");
+
+    let ports = vec![
+        port_input(&a),
+        port_input(&b),
+        port_output(&y),
+        port_inout(&vdd),
+        port_inout(&gnd),
+    ];
+
+    let mut m = Module {
+        name: params.name,
+        ports,
+        signals: vec![],
+        instances: vec![],
+        parameters: vec![],
+    };
+
+    m.instances.push(
+        Mosfet {
+            name: "n1".to_string(),
+            width: size.nmos_width,
+            length,
+            drain: sig_conn(&y),
+            source: sig_conn(&gnd),
+            gate: sig_conn(&a),
+            body: sig_conn(&gnd),
+            mos_type: MosType::Nmos,
+        }
+        .into(),
+    );
+    m.instances.push(
+        Mosfet {
+            name: "n2".to_string(),
+            width: size.nmos_width,
+            length,
+            drain: sig_conn(&y),
+            source: sig_conn(&gnd),
+            gate: sig_conn(&b),
+            body: sig_conn(&gnd),
+            mos_type: MosType::Nmos,
+        }
+        .into(),
+    );
+    m.instances.push(
+        Mosfet {
+            name: "p1".to_string(),
+            width: size.pmos_width,
+            length,
+            drain: sig_conn(&y),
+            source: sig_conn(&x),
+            gate: sig_conn(&a),
+            body: sig_conn(&vdd),
+            mos_type: MosType::Pmos,
+        }
+        .into(),
+    );
+    m.instances.push(
+        Mosfet {
+            name: "p2".to_string(),
+            width: size.pmos_width,
+            length,
+            drain: sig_conn(&x),
+            source: sig_conn(&vdd),
+            gate: sig_conn(&b),
+            body: sig_conn(&vdd),
+            mos_type: MosType::Pmos,
+        }
+        .into(),
+    );
+
+    m
+}
+
 pub fn nand3(params: GateParams) -> Module {
     let length = params.length;
     let size = params.size;
