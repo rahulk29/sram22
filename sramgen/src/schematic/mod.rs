@@ -19,6 +19,7 @@ pub mod dout_buffer;
 pub mod edge_detector;
 pub mod gate;
 pub mod inv_chain;
+pub mod latch;
 pub mod mos;
 pub mod mux;
 pub mod precharge;
