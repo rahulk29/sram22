@@ -135,6 +135,18 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
     let wlstrap_p = wlstrap_p_gds(lib)?;
     assert_eq!(colend_bbox.width(), 1200);
 
+    let cornera = cornera_gds(lib)?;
+    let colenda_cent = colenda_cent_gds(lib)?;
+    let colenda_p_cent = colenda_p_cent_gds(lib)?;
+    let colenda = colenda_gds(lib)?;
+    let colenda_bbox = bbox(&colend);
+
+    let bitcell_opt1a = sram_sp_cell_opt1a_gds(lib)?;
+    let rowenda = rowenda_gds(lib)?;
+    let wlstrapa = wlstrapa_gds(lib)?;
+    let wlstrapa_p = wlstrapa_p_gds(lib)?;
+    assert_eq!(colenda_bbox.width(), 1200);
+
     let mut grid = GridCells::new();
     let mut row = vec![
         Instance {
@@ -189,9 +201,25 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
     for r in 0..rows {
         let mut row = Vec::new();
 
+        let (rowend_r, bitcell_r, wlstrap_r, wlstrap_p_r) = if r % 2 == 1 {
+            (
+                rowenda.clone(),
+                bitcell_opt1a.clone(),
+                wlstrapa.clone(),
+                wlstrapa_p.clone(),
+            )
+        } else {
+            (
+                rowend.clone(),
+                bitcell.clone(),
+                wlstrap.clone(),
+                wlstrap_p.clone(),
+            )
+        };
+
         row.push(Instance {
             inst_name: format!("rowend_l_{}", r),
-            cell: rowend.clone(),
+            cell: rowend_r.clone(),
             loc: Point::new(0, 0),
             reflect_vert: r % 2 != 0,
             angle: Some(180f64),
@@ -199,7 +227,7 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
 
         row.push(Instance {
             inst_name: format!("cell_{}_0", r),
-            cell: bitcell.clone(),
+            cell: bitcell_r.clone(),
             loc: Point::new(0, 0),
             reflect_vert: r % 2 != 0,
             angle: Some(180f64),
@@ -207,9 +235,9 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
 
         for c in 1..cols {
             let strap = if c % 2 == 0 {
-                wlstrap.clone()
+                wlstrap_r.clone()
             } else {
-                wlstrap_p.clone()
+                wlstrap_p_r.clone()
             };
             row.push(Instance {
                 inst_name: format!("wlstrap_{}_{}", r, c),
@@ -229,7 +257,7 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
 
             row.push(Instance {
                 inst_name: format!("cell_{}_{}", r, c),
-                cell: bitcell.clone(),
+                cell: bitcell_r.clone(),
                 loc: Point::new(0, 0),
                 reflect_vert,
                 angle,
@@ -238,7 +266,7 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
 
         row.push(Instance {
             inst_name: format!("rowend_r_{}", r),
-            cell: rowend.clone(),
+            cell: rowend_r.clone(),
             loc: Point::new(0, 0),
             reflect_vert: r % 2 == 0,
             angle: None,
@@ -247,17 +275,33 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
         grid.add_row(row);
     }
 
+    let (corner_bot, colend_bot, colend_cent_bot, colend_p_cent_bot) = if (rows - 1) % 2 == 1 {
+        (
+            cornera.clone(),
+            colenda.clone(),
+            colenda_cent.clone(),
+            colenda_p_cent.clone(),
+        )
+    } else {
+        (
+            corner.clone(),
+            colend.clone(),
+            colend_cent.clone(),
+            colend_p_cent.clone(),
+        )
+    };
+
     let mut row = vec![
         Instance {
             inst_name: "corner_bl".to_string(),
-            cell: corner.clone(),
+            cell: corner_bot.clone(),
             loc: Point::new(0, 0),
             reflect_vert: false,
             angle: Some(180f64),
         },
         Instance {
             inst_name: "colend_bot_0".to_string(),
-            cell: colend.clone(),
+            cell: colend_bot.clone(),
             loc: Point::new(0, 0),
             reflect_vert: true,
             angle: None,
@@ -266,9 +310,9 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
 
     for i in 1..cols {
         let colend_cent_i = if i % 2 == 0 {
-            colend_cent.clone()
+            colend_cent_bot.clone()
         } else {
-            colend_p_cent.clone()
+            colend_p_cent_bot.clone()
         };
 
         row.push(Instance {
@@ -281,7 +325,7 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
 
         row.push(Instance {
             inst_name: format!("colend_bot_{}", i),
-            cell: colend.clone(),
+            cell: colend_bot.clone(),
             loc: Point::new(0, 0),
             reflect_vert: i % 2 == 0,
             angle: if i % 2 != 0 { Some(180f64) } else { None },
@@ -290,7 +334,7 @@ pub fn draw_bitcell_array(rows: usize, cols: usize, lib: &mut PdkLib) -> Result<
 
     row.push(Instance {
         inst_name: "corner_br".to_string(),
-        cell: corner,
+        cell: corner_bot.clone(),
         loc: Point::new(0, 0),
         reflect_vert: true,
         angle: None,
