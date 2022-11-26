@@ -224,6 +224,78 @@ pub fn wlstrap_p_gds(lib: &mut PdkLib) -> CellGdsResult {
 }
 
 #[inline]
+pub fn sram_sp_cell_opt1a_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_cell_opt1a.gds",
+        "sky130_fd_bd_sram__sram_sp_cell_opt1a",
+    )
+}
+
+#[inline]
+pub fn colenda_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_colenda.gds",
+        "sky130_fd_bd_sram__sram_sp_colenda",
+    )
+}
+
+#[inline]
+pub fn colenda_cent_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_colenda_cent.gds",
+        "sky130_fd_bd_sram__sram_sp_colenda_cent",
+    )
+}
+
+#[inline]
+pub fn colenda_p_cent_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_colenda_p_cent.gds",
+        "sky130_fd_bd_sram__sram_sp_colenda_p_cent",
+    )
+}
+
+#[inline]
+pub fn cornera_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_cornera.gds",
+        "sky130_fd_bd_sram__sram_sp_cornera",
+    )
+}
+
+#[inline]
+pub fn rowenda_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_rowenda.gds",
+        "sky130_fd_bd_sram__sram_sp_rowenda",
+    )
+}
+
+#[inline]
+pub fn wlstrapa_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_wlstrapa.gds",
+        "sky130_fd_bd_sram__sram_sp_wlstrapa",
+    )
+}
+
+#[inline]
+pub fn wlstrapa_p_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_wlstrapa_p.gds",
+        "sky130_fd_bd_sram__sram_sp_wlstrapa_p",
+    )
+}
+
+#[inline]
 pub fn sram_sp_cell_ref() -> Reference {
     Reference {
         to: Some(To::External(QualifiedName {
