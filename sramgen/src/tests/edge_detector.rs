@@ -33,7 +33,7 @@ fn test_edge_detector() -> Result<()> {
 
     let params = EdgeDetectorParams {
         prefix: name,
-        num_inverters: 5,
+        num_inverters: 7,
         and_params: &and_params,
     };
     let modules = edge_detector(params);
