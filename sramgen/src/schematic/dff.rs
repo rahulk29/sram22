@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use vlsir::circuit::{Instance, Module};
 
+use crate::config::dff::DffArrayParams;
 use crate::schematic::conns::{
     bus, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
 };

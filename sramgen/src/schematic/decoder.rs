@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 
 use fanout::FanoutAnalyzer;
-
-use crate::clog2;
-use crate::layout::decoder::get_idxs;
-use crate::schematic::conns::{conn_map, conn_slice, sig_conn, signal, BusConnection};
-use crate::schematic::gate::{inv, nand2, nand3, Gate, GateParams, GateType, Size};
-use pdkprims::config::Int;
-use serde::{Deserialize, Serialize};
 use vlsir::circuit::connection::Stype;
 use vlsir::circuit::{port, Concat, Connection, Instance, Module, Port, Signal, Slice};
 use vlsir::reference::To;
 use vlsir::Reference;
+
+use crate::clog2;
+use crate::config::decoder::{Decoder24Params, DecoderParams};
+use crate::config::gate::{GateParams, Size};
+use crate::layout::decoder::get_idxs;
+use crate::schematic::conns::{conn_map, conn_slice, sig_conn, signal, BusConnection};
+use crate::schematic::gate::{inv, nand2, nand3, Gate, GateType};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DecoderTree {
@@ -159,13 +159,6 @@ fn partition_bits(bits: usize, top: bool) -> Vec<usize> {
         let left = bits / 2;
         vec![left, bits - left]
     }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct DecoderParams {
-    pub tree: DecoderTree,
-    pub lch: Int,
-    pub name: String,
 }
 
 pub fn hierarchical_decoder(params: DecoderParams) -> Vec<Module> {
@@ -426,13 +419,6 @@ impl<'a> DecoderGen<'a> {
         }
         .into()
     }
-}
-
-pub struct Decoder24Params {
-    pub gate_size: Size,
-    pub inv_size: Size,
-    pub lch: Int,
-    pub name: String,
 }
 
 pub fn decoder_24(params: Decoder24Params) -> Vec<Module> {

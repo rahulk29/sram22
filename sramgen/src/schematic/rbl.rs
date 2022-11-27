@@ -2,24 +2,12 @@ use std::collections::HashMap;
 
 use vlsir::circuit::{Instance, Module};
 
+use crate::config::rbl::{ReplicaBitcellColumnParams, ReplicaColumnParams};
 use crate::schematic::conns::{conn_map, port_inout, port_input, port_output, sig_conn, signal};
 use crate::schematic::gate::{inv, GateParams, Size};
 use crate::schematic::local_reference;
 use crate::schematic::precharge::{precharge, PrechargeParams};
 use crate::tech::sram_sp_replica_cell_ref;
-
-#[derive(Debug, Clone)]
-pub struct ReplicaBitcellColumnParams {
-    pub name: String,
-    pub num_active_cells: i64,
-    pub height: i64,
-}
-
-#[derive(Debug, Clone)]
-pub struct ReplicaColumnParams {
-    pub name: String,
-    pub bitcell_params: ReplicaBitcellColumnParams,
-}
 
 pub fn replica_bitcell_column(params: ReplicaBitcellColumnParams) -> Vec<Module> {
     assert_eq!(params.num_active_cells % 2, 0);

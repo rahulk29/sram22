@@ -11,7 +11,7 @@ use crate::tech::{sc_inv_gds, sc_tap_gds};
 use crate::{bus_bit, Result};
 
 pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Cell>> {
-    let mut cell = Cell::empty(params.prefix);
+    let mut cell = Cell::empty(params.name);
 
     let inv = sc_inv_gds(lib)?;
     let tap = sc_tap_gds(lib)?;
@@ -21,7 +21,7 @@ pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Ce
     let inv_outline = sc_outline(&lib.pdk, &tmp);
     let tap_outline = sc_outline(&lib.pdk, &tap0);
 
-    let mut router = Router::new(format!("{}_route", params.prefix), lib.pdk.clone());
+    let mut router = Router::new(format!("{}_route", params.name), lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
@@ -84,9 +84,10 @@ pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Ce
     Ok(ptr)
 }
 
-pub fn draw_inv_chain_grid(lib: &mut PdkLib, params: InvChainGridParams) -> Result<Ptr<Cell>> {
-    let InvChainGridParams { prefix, rows, cols } = params;
-    let mut cell = Cell::empty(prefix);
+pub fn draw_inv_chain_grid(lib: &mut PdkLib, params: &InvChainGridParams) -> Result<Ptr<Cell>> {
+    let &InvChainGridParams { rows, cols, .. } = params;
+    let name = &params.name;
+    let mut cell = Cell::empty(name);
 
     let inv = sc_inv_gds(lib)?;
     let tap = sc_tap_gds(lib)?;
@@ -98,7 +99,7 @@ pub fn draw_inv_chain_grid(lib: &mut PdkLib, params: InvChainGridParams) -> Resu
 
     assert_eq!(tap_outline.height(), inv_outline.height());
 
-    let mut router = Router::new(format!("{}_route", prefix), lib.pdk.clone());
+    let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);

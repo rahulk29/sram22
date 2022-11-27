@@ -15,31 +15,31 @@ pub fn write_mux_array(params: WriteMuxArrayParams) -> Vec<Module> {
         name,
         cols,
         mux_ratio,
-        wmask_groups,
+        wmask_width,
         mux_params,
     } = params;
     let mux_ratio = mux_ratio as i64;
-    let wmask_groups = wmask_groups as i64;
+    let wmask_width = wmask_width as i64;
     let cols = cols as i64;
 
     let mux = column_write_mux(mux_params);
 
     assert!(cols > 0);
     assert_eq!(cols % 2, 0);
-    assert_eq!(cols % (mux_ratio * wmask_groups), 0);
+    assert_eq!(cols % (mux_ratio * wmask_width), 0);
 
     // bits per word
     let bpw = cols / mux_ratio;
 
     // bits per mask signal
-    let bpmask = cols / wmask_groups;
+    let bpmask = cols / wmask_width;
 
-    let enable_wmask = wmask_groups > 1;
+    let enable_wmask = wmask_width > 1;
 
     let vss = signal("vss");
     let bl = bus("bl", cols);
     let br = bus("br", cols);
-    let wmask = bus("wmask", wmask_groups);
+    let wmask = bus("wmask", wmask_width);
     let data = bus("data", bpw);
     let data_b = bus("data_b", bpw);
     let we = bus("we", mux_ratio);

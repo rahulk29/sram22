@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use pdkprims::config::Int;
 use pdkprims::mos::MosType;
 
 use vlsir::circuit::Module;
@@ -12,11 +11,12 @@ use crate::schematic::conns::{
 use crate::schematic::local_reference;
 use crate::schematic::mos::Mosfet;
 
-pub fn read_mux_array(params: ReadMuxArrayParams) -> Vec<Module> {
-    let ReadMuxArrayParams {
+pub fn read_mux_array(params: &ReadMuxArrayParams) -> Vec<Module> {
+    let &ReadMuxArrayParams {
         mux_params,
         cols,
         mux_ratio,
+        ..
     } = params;
     let mux_ratio = mux_ratio as i64;
     let cols = cols as i64;
@@ -42,7 +42,7 @@ pub fn read_mux_array(params: ReadMuxArrayParams) -> Vec<Module> {
         port_inout(&vdd),
     ];
 
-    let name = String::from("read_mux_array");
+    let name = params.name.clone();
 
     let mut m = Module {
         name,

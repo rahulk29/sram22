@@ -1,33 +1,21 @@
 use std::collections::HashMap;
 
-use pdkprims::config::Int;
 use pdkprims::mos::MosType;
 
 use vlsir::circuit::Module;
 use vlsir::reference::To;
 use vlsir::Reference;
 
+use crate::config::col_inv::{ColInvArrayParams, ColInvParams};
 use crate::schematic::conns::{
     bus, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
 };
 use crate::schematic::mos::Mosfet;
 
-pub struct ColInvParams {
-    pub length: Int,
-    pub nwidth: Int,
-    pub pwidth: Int,
-}
-
-pub struct ColInvArrayParams {
-    pub name: String,
-    pub width: i64,
-    pub instance_params: ColInvParams,
-}
-
-pub fn col_inv_array(params: ColInvArrayParams) -> Vec<Module> {
+pub fn col_inv_array(params: &ColInvArrayParams) -> Vec<Module> {
     assert!(params.width > 0);
 
-    let inv = col_inv(params.instance_params);
+    let inv = col_inv(&params.instance_params);
 
     let vdd = signal("vdd");
     let vss = signal("vss");
@@ -68,7 +56,7 @@ pub fn col_inv_array(params: ColInvArrayParams) -> Vec<Module> {
     vec![inv, m]
 }
 
-pub fn col_inv(params: ColInvParams) -> Module {
+pub fn col_inv(params: &ColInvParams) -> Module {
     let length = params.length;
 
     let vdd = signal("vdd");

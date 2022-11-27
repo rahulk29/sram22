@@ -3,29 +3,37 @@ use std::collections::HashMap;
 use vlsir::circuit::{Concat, Connection, Instance, Module};
 
 use crate::config::sram::SramParams;
-use crate::layout::inv_chain::InvChainGridParams;
-use crate::schematic::bitcell_array::{bitcell_array, BitcellArrayParams};
-use crate::schematic::col_inv::{col_inv_array, ColInvArrayParams, ColInvParams};
+use crate::config::inv_chain::InvChainGridParams;
+use crate::config::bitcell_array::BitcellArrayParams
+use crate::config::col_inv::{ColInvArrayParams, ColInvParams};
+use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
+use crate::config::mux::{WriteMuxParams, WriteMuxArrayParams};
+use crate::config::decoder::DecoderParams;
+use crate::config::dout_buffer::{DoutBufArrayParams, DoutBufParams};
+use crate::config::sense_amp::SenseAmpArrayParams;
+use crate::config::wl_driver::{WordlineDriverArrayParams, WordlineDriverParams};
+use crate::schematic::bitcell_array::{bitcell_array};
+use crate::schematic::col_inv::{col_inv_array};
 use crate::schematic::conns::{
     bus, conn_map, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
 };
-use crate::schematic::decoder::{hierarchical_decoder, DecoderParams, DecoderTree};
+use crate::schematic::decoder::{hierarchical_decoder, DecoderTree};
 use crate::schematic::dff::dff_array;
-use crate::schematic::dout_buffer::{dout_buf_array, DoutBufArrayParams, DoutBufParams};
-use crate::schematic::gate::{AndParams, GateParams, Size};
+use crate::schematic::dout_buffer::{dout_buf_array };
+use crate::config::gate::{AndParams, GateParams, Size};
 use crate::schematic::inv_chain::inv_chain_grid;
 use crate::schematic::mux::read::read_mux_array;
-use crate::schematic::mux::write::{write_mux_array, ArrayParams, WriteMuxParams};
-use crate::schematic::precharge::{precharge_array, PrechargeArrayParams, PrechargeParams};
-use crate::schematic::sense_amp::{sense_amp_array, SenseAmpArrayParams};
+use crate::schematic::mux::write::{write_mux_array, };
+use crate::schematic::precharge::{precharge_array, };
+use crate::schematic::sense_amp::{sense_amp_array};
 use crate::schematic::wl_driver::{
-    wordline_driver_array, WordlineDriverArrayParams, WordlineDriverParams,
+    wordline_driver_array, 
 };
-use crate::schematic::wmask_control::{write_mask_control, WriteMaskControlParams};
+use crate::config::wmask_control::{WriteMaskControlParams};
+use crate::schematic::wmask_control::{write_mask_control, };
 use crate::schematic::{local_reference, mux};
 use crate::tech::{openram_dff_ref, sramgen_control_ref};
-
-use crate::schematic::dff::DffArrayParams;
+use crate::config::dff::DffArrayParams;
 
 pub fn sram(params: &SramParams) -> Vec<Module> {
     assert!(params.row_bits > 0);

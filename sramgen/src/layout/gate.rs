@@ -1,5 +1,5 @@
+use crate::config::gate::{AndParams, GateParams, Size};
 use crate::layout::Result;
-use crate::schematic::gate::{AndParams, GateParams, Size};
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
 use layout21::raw::{

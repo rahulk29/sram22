@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 
-use pdkprims::config::Int;
 use pdkprims::mos::MosType;
 use serde::{Deserialize, Serialize};
 use vlsir::circuit::{port, Instance, Module, Port};
 
-use crate::config::gate::{AndParams, GateParams};
+use crate::config::gate::{AndParams, GateParams, Size};
 use crate::schematic::conns::{conn_map, port_inout, port_input, port_output, sig_conn, signal};
 use crate::schematic::local_reference;
 use crate::schematic::mos::Mosfet;

@@ -1,3 +1,7 @@
+use std::path::Path;
+use std::process::{Command, Stdio};
+
+use anyhow::anyhow;
 use vlsir::circuit::{port, ExternalModule, Package, Port};
 use vlsir::reference::To;
 use vlsir::spice::SimInput;
@@ -6,10 +10,6 @@ use vlsir::{Module, QualifiedName, Reference};
 use crate::schematic::conns::signal;
 use crate::tech::all_external_modules;
 use crate::Result;
-use std::path::Path;
-
-use anyhow::anyhow;
-use std::process::{Command, Stdio};
 
 pub mod bitcell_array;
 pub mod col_inv;

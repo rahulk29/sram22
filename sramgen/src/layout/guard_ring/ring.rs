@@ -1,7 +1,13 @@
-use crate::config::guard_ring::RingParams;
 use derive_builder::Builder;
 use layout21::raw::{BoundBox, BoundBoxTrait, Int, Point, Rect, Span};
 use serde::{Deserialize, Serialize};
+
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Builder)]
+pub struct RingParams {
+    enclosure: Rect,
+    h_width: Int,
+    v_width: Int,
+}
 
 #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Builder)]
 pub struct Ring {
@@ -9,6 +15,18 @@ pub struct Ring {
     bottom: Rect,
     left: Rect,
     right: Rect,
+}
+
+impl RingParams {
+    #[inline]
+    pub fn builder() -> RingParamsBuilder {
+        RingParamsBuilder::default()
+    }
+
+    #[inline]
+    pub fn draw(self) -> Ring {
+        draw_ring(self)
+    }
 }
 
 impl Ring {

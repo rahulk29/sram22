@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use pdkprims::config::Int;
 use pdkprims::mos::MosType;
 
 use vlsir::circuit::connection::Stype;
@@ -8,23 +7,9 @@ use vlsir::circuit::{Connection, Module, Slice};
 use vlsir::reference::To;
 use vlsir::Reference;
 
+use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::schematic::conns::{bus, port_inout, port_input, sig_conn, signal};
 use crate::schematic::mos::Mosfet;
-
-#[derive(Debug, Clone)]
-pub struct PrechargeParams {
-    pub name: String,
-    pub length: Int,
-    pub pull_up_width: Int,
-    pub equalizer_width: Int,
-}
-
-#[derive(Debug, Clone)]
-pub struct PrechargeArrayParams {
-    pub width: usize,
-    pub instance_params: PrechargeParams,
-    pub name: String,
-}
 
 pub fn precharge_array(params: PrechargeArrayParams) -> Vec<Module> {
     assert!(params.width > 0);

@@ -8,38 +8,35 @@ use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::{LayerIdx, PdkLib};
 
-use crate::config::sram::SramParams;
-use crate::config::ControlMode;
+use crate::config::mux::{WriteMuxArrayParams, WriteMuxParams};
+use crate::config::sram::{ControlMode, SramParams};
+use crate::layout::array::draw_bitcell_array;
 use crate::layout::array::draw_power_connector;
 use crate::layout::col_inv::draw_col_inv_array;
 use crate::layout::control::draw_control_logic;
 use crate::layout::decoder::{
     bus_width, draw_hier_decode, ConnectSubdecodersArgs, GateArrayParams,
 };
+use crate::layout::decoder::{draw_inv_dec_array, draw_nand2_dec_array};
 use crate::layout::dff::{draw_dff_grid, DffGridParams};
 use crate::layout::dout_buffer::draw_dout_buffer_array;
 use crate::layout::guard_ring::{draw_guard_ring, GuardRingParams};
+use crate::layout::mux::read::draw_read_mux_array;
+use crate::layout::mux::write::draw_write_mux_array;
 use crate::layout::power::{PowerSource, PowerStrapGen, PowerStrapOpts};
+use crate::layout::precharge::draw_precharge_array;
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
+use crate::layout::route::Trace;
+use crate::layout::sense_amp::draw_sense_amp_array;
 use crate::layout::tmc::{draw_tmc, TmcParams};
 use crate::layout::wmask_control::draw_write_mask_control;
 use crate::schematic::decoder::DecoderTree;
 use crate::schematic::gate::{AndParams, GateParams, Size};
 use crate::schematic::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::schematic::wmask_control::WriteMaskControlParams;
-use crate::tech::{BITCELL_HEIGHT, COLUMN_WIDTH};
+use crate::tech::{BITCELL_HEIGHT, BITCELL_WIDTH, COLUMN_WIDTH};
 use crate::{bus_bit, clog2, Result};
-
-use super::array::draw_bitcell_array;
-use super::decoder::{draw_inv_dec_array, draw_nand2_dec_array};
-use super::mux::read::draw_read_mux_array;
-use super::mux::write::draw_write_mux_array;
-use super::precharge::draw_precharge_array;
-use super::route::Trace;
-use super::sense_amp::draw_sense_amp_array;
-
-pub mod lef;
 
 pub const M1_PWR_OVERHANG: Int = 200;
 
@@ -218,7 +215,21 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         },
     )?;
     let read_mux = draw_read_mux_array(lib, cols, mux_ratio)?;
-    let write_mux = draw_write_mux_array(lib, cols, mux_ratio, wmask_width)?;
+    let write_mux = draw_write_mux_array(
+        lib,
+        &WriteMuxArrayParams {
+            name: "write_mux_array".to_string(),
+            cols,
+            mux_ratio,
+            wmask_width,
+            mux_params: WriteMuxParams {
+                name: "write_mux".to_string(),
+                width: BITCELL_WIDTH,
+                length: 150,
+                wmask: wmask_width > 1,
+            },
+        },
+    )?;
     let col_inv = draw_col_inv_array(lib, "col_data_inv", cols / mux_ratio, mux_ratio)?;
     let sense_amp = draw_sense_amp_array(lib, cols / mux_ratio, COLUMN_WIDTH * mux_ratio as isize)?;
     let din_dff_params = DffGridParams::builder()

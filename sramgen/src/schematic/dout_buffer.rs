@@ -1,30 +1,15 @@
 use std::collections::HashMap;
 
-use pdkprims::config::Int;
 use pdkprims::mos::MosType;
-
 use vlsir::circuit::Module;
 use vlsir::reference::To;
 use vlsir::Reference;
 
+use crate::config::dout_buffer::{DoutBufArrayParams, DoutBufParams};
 use crate::schematic::conns::{
     bus, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
 };
 use crate::schematic::mos::Mosfet;
-
-pub struct DoutBufParams {
-    pub length: Int,
-    pub nw1: Int,
-    pub pw1: Int,
-    pub nw2: Int,
-    pub pw2: Int,
-}
-
-pub struct DoutBufArrayParams {
-    pub name: String,
-    pub width: i64,
-    pub instance_params: DoutBufParams,
-}
 
 pub fn dout_buf_array(params: DoutBufArrayParams) -> Vec<Module> {
     assert!(params.width > 0);

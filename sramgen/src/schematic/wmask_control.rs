@@ -4,15 +4,13 @@ use vlsir::circuit::Module;
 use vlsir::reference::To;
 use vlsir::Reference;
 
-use crate::config::gate::AndParams;
 use crate::config::wmask_control::WriteMaskControlParams;
-use crate::schematic::gate::and2;
-
 use crate::schematic::conns::{
     bus, conn_map, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
 };
+use crate::schematic::gate::and2;
 
-pub fn write_mask_control(params: WriteMaskControlParams) -> Vec<Module> {
+pub fn write_mask_control(params: &WriteMaskControlParams) -> Vec<Module> {
     assert!(params.width > 0);
 
     let mut and = and2(params.and_params.clone());

@@ -3,18 +3,11 @@ use std::collections::HashMap;
 use vlsir::circuit::Instance;
 use vlsir::Module;
 
+use crate::config::sense_amp::SenseAmpArrayParams;
 use crate::schematic::conns::{
     bus, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
 };
 use crate::tech::sramgen_sp_sense_amp_ref;
-
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct SenseAmpArrayParams {
-    pub name: String,
-    pub width: i64,
-}
 
 pub fn sense_amp_array(params: SenseAmpArrayParams) -> Module {
     assert!(params.width > 0);

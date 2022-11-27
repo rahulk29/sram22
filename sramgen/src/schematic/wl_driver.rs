@@ -1,31 +1,14 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
-
-use pdkprims::config::Int;
-
 use vlsir::circuit::{Instance, Module};
 
+use crate::config::gate::{AndParams, GateParams};
+use crate::config::wl_driver::{WordlineDriverArrayParams, WordlineDriverParams};
 use crate::schematic::conns::{
     bus, conn_map, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
 };
-use crate::schematic::gate::{and2, AndParams, GateParams, Size};
+use crate::schematic::gate::and2;
 use crate::schematic::local_reference;
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct WordlineDriverParams {
-    pub name: String,
-    pub length: Int,
-    pub nand_size: Size,
-    pub inv_size: Size,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct WordlineDriverArrayParams {
-    pub name: String,
-    pub width: i64,
-    pub instance_params: WordlineDriverParams,
-}
 
 pub fn wordline_driver_array(params: WordlineDriverArrayParams) -> Vec<Module> {
     assert!(params.width > 0);
