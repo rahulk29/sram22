@@ -11,6 +11,7 @@ use layout21::utils::Ptr;
 use pdkprims::contact::Contact;
 use pdkprims::PdkLib;
 
+use crate::config::dff::DffGridParams;
 use crate::layout::array::*;
 
 use super::common::{GridOrder, MergeArgs};
@@ -35,25 +36,6 @@ pub fn draw_dff_array(
         },
         lib,
     )
-}
-
-#[derive(Clone, Eq, PartialEq, Builder)]
-pub struct DffGridParams {
-    #[builder(setter(into))]
-    pub name: String,
-    pub rows: usize,
-    pub cols: usize,
-    #[builder(setter(strip_option), default)]
-    pub row_pitch: Option<Int>,
-    #[builder(default = "GridOrder::ColumnMajor")]
-    pub order: GridOrder,
-}
-
-impl DffGridParams {
-    #[inline]
-    pub fn builder() -> DffGridParamsBuilder {
-        DffGridParamsBuilder::default()
-    }
 }
 
 pub fn draw_dff_grid(lib: &mut PdkLib, params: DffGridParams) -> Result<Ptr<Cell>> {

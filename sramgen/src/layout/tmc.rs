@@ -9,26 +9,11 @@ use layout21::utils::Ptr;
 use pdkprims::bus::ContactPolicy;
 use pdkprims::PdkLib;
 
-use crate::schematic::gate::{GateParams, Size};
+use crate::config::gate::{GateParams, Size};
+use crate::config::tmc::{TmcParams, TmcUnitParams};
 
 use super::gate::{draw_inv, draw_nand2};
 use super::route::Router;
-
-pub struct TmcUnitParams {
-    /// The name of the timing multiplier circuit cell.
-    pub name: String,
-    /// The timing multiplier (must be at least 2).
-    pub multiplier: usize,
-}
-
-pub struct TmcParams {
-    /// The name of the timing multiplier circuit cell.
-    pub name: String,
-    /// The timing multiplier (must be at least 2).
-    pub multiplier: usize,
-    /// The number of delay units.
-    pub units: usize,
-}
 
 pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     let mut layout = Layout::new(name);

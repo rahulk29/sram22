@@ -1,31 +1,18 @@
 use std::collections::HashMap;
 
-use pdkprims::config::Int;
 use pdkprims::mos::MosType;
-
 use vlsir::circuit::Module;
 
+use crate::config::mux::WriteMuxArrayParams;
 use crate::schematic::conns::{
     bus, conn_map, conn_slice, port_inout, port_input, sig_conn, signal,
 };
 use crate::schematic::local_reference;
 use crate::schematic::mos::Mosfet;
 
-pub struct WriteMuxParams {
-    pub length: Int,
-    pub width: Int,
-    pub wmask: bool,
-}
-
-pub struct ArrayParams {
-    pub cols: usize,
-    pub mux_ratio: usize,
-    pub wmask_groups: usize,
-    pub mux_params: WriteMuxParams,
-}
-
-pub fn write_mux_array(params: ArrayParams) -> Vec<Module> {
-    let ArrayParams {
+pub fn write_mux_array(params: WriteMuxArrayParams) -> Vec<Module> {
+    let WriteMuxArrayParams {
+        name,
         cols,
         mux_ratio,
         wmask_groups,
@@ -36,8 +23,6 @@ pub fn write_mux_array(params: ArrayParams) -> Vec<Module> {
     let cols = cols as i64;
 
     let mux = column_write_mux(mux_params);
-
-    let name = String::from("write_mux_array");
 
     assert!(cols > 0);
     assert_eq!(cols % 2, 0);

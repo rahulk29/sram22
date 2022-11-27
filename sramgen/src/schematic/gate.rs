@@ -5,6 +5,7 @@ use pdkprims::mos::MosType;
 use serde::{Deserialize, Serialize};
 use vlsir::circuit::{port, Instance, Module, Port};
 
+use crate::config::gate::{AndParams, GateParams};
 use crate::schematic::conns::{conn_map, port_inout, port_input, port_output, sig_conn, signal};
 use crate::schematic::local_reference;
 use crate::schematic::mos::Mosfet;
@@ -20,12 +21,6 @@ pub enum GateType {
     Inv,
     Nand2,
     Nand3,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
-pub struct Size {
-    pub nmos_width: Int,
-    pub pmos_width: Int,
 }
 
 impl GateType {
@@ -58,20 +53,6 @@ impl From<GateType> for fanout::GateType {
             GateType::Nand3 => fanout::GateType::NAND3,
         }
     }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct GateParams {
-    pub name: String,
-    pub size: Size,
-    pub length: Int,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct AndParams {
-    pub name: String,
-    pub nand: GateParams,
-    pub inv: GateParams,
 }
 
 pub fn and2(params: AndParams) -> Vec<Module> {

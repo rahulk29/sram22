@@ -9,16 +9,12 @@ use pdkprims::PdkLib;
 
 use crate::layout::array::*;
 
+use crate::config::mux::WriteMuxParams;
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::{ContactBounds, Router, VertDir};
 use crate::layout::sram::{connect, ConnectArgs, GateList};
 use crate::tech::BITCELL_WIDTH;
 use crate::{bus_bit, Result};
-
-pub struct WriteMuxParams {
-    pub width: isize,
-    pub wmask: bool,
-}
 
 pub fn draw_write_mux(lib: &mut PdkLib, params: WriteMuxParams) -> Result<Ptr<Cell>> {
     let WriteMuxParams { wmask, .. } = params;

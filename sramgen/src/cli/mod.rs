@@ -1,7 +1,7 @@
 pub mod args;
 
 use crate::cli::args::Args;
-use crate::config::parse_config;
+use crate::config::sram::parse_sram_config;
 use crate::plan::extract::ExtractionResult;
 use crate::plan::{execute_plan, generate_plan};
 use crate::BUILD_PATH;
@@ -18,7 +18,7 @@ pub fn run() -> Result<()> {
     } else {
         bail!("Could not find `sramgen.toml` in the current working directory.");
     };
-    let config = parse_config(config_path)?;
+    let config = parse_sram_config(config_path)?;
     let plan = generate_plan(ExtractionResult {}, &config)?;
     let name = &plan.sram_params.name;
     let work_dir = if let Some(output_dir) = args.output_dir {

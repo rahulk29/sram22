@@ -1,19 +1,14 @@
-use crate::layout::common::MergeArgs;
-use crate::layout::sram::GateList;
-use crate::tech::{sc_inv_gds, sc_tap_gds};
-use crate::{bus_bit, Result};
-
 use layout21::raw::{AbstractPort, BoundBox, BoundBoxTrait, Cell, Instance, Point, Shape};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use super::common::sc_outline;
-use super::route::Router;
-
-pub struct InvChainParams<'a> {
-    pub prefix: &'a str,
-    pub num: usize,
-}
+use crate::config::inv_chain::{InvChainGridParams, InvChainParams};
+use crate::layout::common::sc_outline;
+use crate::layout::common::MergeArgs;
+use crate::layout::route::Router;
+use crate::layout::sram::GateList;
+use crate::tech::{sc_inv_gds, sc_tap_gds};
+use crate::{bus_bit, Result};
 
 pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Cell>> {
     let mut cell = Cell::empty(params.prefix);
@@ -87,13 +82,6 @@ pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Ce
     lib.lib.cells.push(ptr.clone());
 
     Ok(ptr)
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct InvChainGridParams<'a> {
-    pub prefix: &'a str,
-    pub rows: usize,
-    pub cols: usize,
 }
 
 pub fn draw_inv_chain_grid(lib: &mut PdkLib, params: InvChainGridParams) -> Result<Ptr<Cell>> {

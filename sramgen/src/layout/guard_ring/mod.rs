@@ -3,17 +3,13 @@ use layout21::raw::{BoundBoxTrait, Cell, Instance, Point, Rect};
 use layout21::utils::Ptr;
 use pdkprims::{LayerIdx, PdkLib};
 
-use self::ring::{Ring, RingParams};
+use self::ring::Ring;
+use crate::config::{GuardRingParams, RingParams};
 
 use super::common::{draw_two_level_contact, rect_cutout, TwoLevelContactParams};
 use super::route::Router;
 
 pub mod ring;
-
-pub struct GuardRingParams {
-    pub enclosure: Rect,
-    pub prefix: String,
-}
 
 pub struct GuardRing {
     pub cell: Ptr<Cell>,
@@ -28,13 +24,13 @@ pub const DNW_ENCLOSURE: isize = 440;
 pub const NWELL_HOLE_ENCLOSURE: isize = 1_080;
 
 pub fn draw_guard_ring(lib: &mut PdkLib, params: GuardRingParams) -> crate::Result<GuardRing> {
-    let GuardRingParams { enclosure, prefix } = params;
+    let GuardRingParams { name, enclosure } = params;
     let h_metal = 2;
     let v_metal = 1;
 
     let nwell_width = DNW_ENCLOSURE + NWELL_HOLE_ENCLOSURE;
 
-    let mut router = Router::new(format!("{}_route", &prefix), lib.pdk.clone());
+    let mut router = Router::new(format!("{}_route", &name), lib.pdk.clone());
     let cfg = router.cfg();
 
     let vss_ring = RingParams::builder()
@@ -50,7 +46,7 @@ pub fn draw_guard_ring(lib: &mut PdkLib, params: GuardRingParams) -> crate::Resu
         .build()?
         .draw();
 
-    let mut cell = Cell::empty(&prefix);
+    let mut cell = Cell::empty(&name);
 
     for (net, ring) in [("vss", vss_ring), ("vdd", vdd_ring)] {
         let left_trace = router.trace(ring.left(), v_metal);
@@ -66,7 +62,7 @@ pub fn draw_guard_ring(lib: &mut PdkLib, params: GuardRingParams) -> crate::Resu
             .contact_down(right_trace.rect());
 
         let ctp = TwoLevelContactParams::builder()
-            .name(format!("{}_{}_contact", &prefix, &net))
+            .name(format!("{}_{}_contact", &name, &net))
             .bot_stack(if net == "vss" { "ptap" } else { "ntap" })
             .top_stack("viali")
             .build()?;

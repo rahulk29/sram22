@@ -5,25 +5,15 @@ use pdkprims::mos::MosType;
 
 use vlsir::circuit::Module;
 
+use crate::config::mux::{ReadMuxArrayParams, ReadMuxParams};
 use crate::schematic::conns::{
     bus, conn_map, conn_slice, port_inout, port_input, sig_conn, signal,
 };
 use crate::schematic::local_reference;
 use crate::schematic::mos::Mosfet;
 
-pub struct Params {
-    pub length: Int,
-    pub width: Int,
-}
-
-pub struct ArrayParams {
-    pub mux_params: Params,
-    pub cols: usize,
-    pub mux_ratio: usize,
-}
-
-pub fn read_mux_array(params: ArrayParams) -> Vec<Module> {
-    let ArrayParams {
+pub fn read_mux_array(params: ReadMuxArrayParams) -> Vec<Module> {
+    let ReadMuxArrayParams {
         mux_params,
         cols,
         mux_ratio,
@@ -84,7 +74,7 @@ pub fn read_mux_array(params: ArrayParams) -> Vec<Module> {
 }
 
 /// A read mux using PMOS devices
-pub fn read_mux(params: Params) -> Module {
+pub fn read_mux(params: ReadMuxParams) -> Module {
     let length = params.length;
 
     let sel_b = signal("sel_b");

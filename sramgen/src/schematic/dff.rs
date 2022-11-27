@@ -7,11 +7,6 @@ use crate::schematic::conns::{
 };
 use crate::tech::openram_dff_ref;
 
-pub struct DffArrayParams {
-    pub name: String,
-    pub width: usize,
-}
-
 pub fn dff_array(params: DffArrayParams) -> Vec<Module> {
     let width = params.width as i64;
 
