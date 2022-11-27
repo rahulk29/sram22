@@ -19,6 +19,24 @@ X4 vdd A a_90_21# vdd sky130_fd_pr__pfet_01v8_hvt w=640000u l=150000u
 X5 vss A a_90_21# vss sky130_fd_pr__nfet_01v8 w=420000u l=150000u
 .ends
 
+.subckt control_logic_buf_pc A X vdd vss
+X0 vss a_90_21# X vss sky130_fd_pr__nfet_01v8 w=840000u l=150000u
+X1 vdd a_90_21# X vdd sky130_fd_pr__pfet_01v8 w=3 l=150000u
+X2 X a_90_21# vss vss sky130_fd_pr__nfet_01v8 w=840000u l=150000u
+X3 X a_90_21# vdd vdd sky130_fd_pr__pfet_01v8 w=3 l=150000u
+X4 vdd A a_90_21# vdd sky130_fd_pr__pfet_01v8 w=640000u l=150000u
+X5 vss A a_90_21# vss sky130_fd_pr__nfet_01v8 w=420000u l=150000u
+.ends
+
+.subckt control_logic_buf_sae A X vdd vss
+X0 vss a_90_21# X vss sky130_fd_pr__nfet_01v8 w=1.8 l=150000u
+X1 vdd a_90_21# X vdd sky130_fd_pr__pfet_01v8 w=6 l=150000u
+X2 X a_90_21# vss vss sky130_fd_pr__nfet_01v8 w=1.8 l=150000u
+X3 X a_90_21# vdd vdd sky130_fd_pr__pfet_01v8 w=6 l=150000u
+X4 vdd A a_90_21# vdd sky130_fd_pr__pfet_01v8 w=1.6 l=150000u
+X5 vss A a_90_21# vss sky130_fd_pr__nfet_01v8 w=1 l=150000u
+.ends
+
 * .subckt sky130_fd_sc_lp__and2_2 A B VGND VNB VPB VPWR X
 .subckt control_logic_and2 A B X vdd vss
 X0 a_129_47# B vss vss sky130_fd_pr__nfet_01v8 w=420000u l=150000u
@@ -53,13 +71,15 @@ Xinv_rbl rbl rbl_b vdd vss control_logic_inv
 Xwl_ctl clkp rbl_b wl_en0 wl_en0_b vdd vss sramgen_sr_latch
 Xwl_en_buf wl_en0 wl_en vdd vss control_logic_buf
 
-* SAE = delay(rbl_b)
-Xsae_delay_chain rbl_b sense_en vdd vss control_logic_delay_chain4
+* SAE_set = delay(rbl_b)
+Xsae_delay_chain rbl_b sense_en_set vdd vss control_logic_delay_chain4
+Xsae_ctl sense_en_set clkp sense_en0 sense_en_b vdd vss sramgen_sr_latch
+Xsae_buf sense_en0 sense_en vdd vss control_logic_buf_sae
 
 * Latch SAE to generate precharge bar
-Xpc_delay_chain sense_en pc_set vdd vss control_logic_delay_chain4
+Xpc_delay_chain sense_en_set pc_set vdd vss control_logic_delay_chain4
 Xpc_ctl pc_set clkp pc pc_b0 vdd vss sramgen_sr_latch
-Xpc_b_buf pc_b0 pc_b vdd vss control_logic_buf
+Xpc_b_buf pc_b0 pc_b vdd vss control_logic_buf_pc
 
 * clkp and we forms wr driver enable set signal
 Xand_wr_en_set clkp we wr_drv_set0 vdd vss control_logic_and2
