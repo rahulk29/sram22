@@ -145,7 +145,12 @@ pub fn run_sram_spectre(params: &SramParams, work_dir: impl AsRef<Path>, name: &
         .gnd_port("vss")
         .wmask_port("wmask")
         .work_dir(std::path::PathBuf::from(work_dir.as_ref()).join("sim"))
-        .source_paths(source_files(&work_dir, name, VerificationTask::SpectreSim));
+        .source_paths(source_files(
+            &work_dir,
+            name,
+            VerificationTask::SpectreSim,
+            params.control,
+        ));
 
     tb.includes(crate::verification::spectre::sky130_includes());
 

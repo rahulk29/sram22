@@ -34,11 +34,11 @@ pub fn run() -> Result<()> {
             crate::verification::calibre::run_sram_drc(&work_dir, name)?;
         }
         if args.lvs || args.all_tests {
-            crate::verification::calibre::run_sram_lvs(&work_dir, name)?;
+            crate::verification::calibre::run_sram_lvs(&work_dir, name, config.control)?;
         }
         #[cfg(feature = "pex")]
         if args.pex || args.all_tests {
-            crate::verification::calibre::run_sram_pex(&work_dir, name)?;
+            crate::verification::calibre::run_sram_pex(&work_dir, name, config.control)?;
         }
     }
 

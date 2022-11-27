@@ -18,7 +18,6 @@ pub struct SramConfig {
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Serialize, Deserialize)]
 pub enum ControlMode {
     Simple,
-    SimpleChipSelect,
     ReplicaV1,
 }
 
@@ -26,7 +25,6 @@ impl Display for ControlMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
             Self::Simple => write!(f, "simple"),
-            Self::SimpleChipSelect => write!(f, "simple_cs"),
             Self::ReplicaV1 => write!(f, "replica_v1"),
         }
     }

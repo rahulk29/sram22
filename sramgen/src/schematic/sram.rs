@@ -521,7 +521,6 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     let reference = match params.control {
         ControlMode::Simple => sramgen_control_simple_ref(),
         ControlMode::ReplicaV1 => sramgen_control_replica_v1_ref(),
-        _ => unimplemented!("Unsupported control mode"),
     };
 
     m.instances.push(Instance {
