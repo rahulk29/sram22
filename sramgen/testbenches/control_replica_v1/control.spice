@@ -1,0 +1,54 @@
+* Testbench for control logic
+
+.lib /Users/rahul/acads/research/sky130/pdk/skywater-pdk/libraries/sky130_fd_pr/latest/models/sky130.lib.spice tt
+
+.include ../../lib/sramgen_control/sramgen_control_replica_v1.spice
+.include ../../build/sramgen_sr_latch/sramgen_sr_latch.ngspice.spice
+.include ../../build/sramgen_edge_detector/sramgen_edge_detector.ngspice.spice
+.include ../../lib/openram_dff/openram_dff.spice
+
+.param cload='5f'
+.param vdd='1.8'
+.param tr='20p'
+.param tf='20p'
+
+Xwe_reg vdd 0 clk we bank_we bank_we_b openram_dff
+Xctrl clk bank_we rbl pc_b wl_en write_driver_en sense_en vdd 0 sramgen_control
+
+Xrbl_charge rbl pc_b vdd vdd sky130_fd_pr__pfet_01v8 w=1.6 l=0.15
+Xrbl_discharge rbl wl_en vss vss sky130_fd_pr__nfet_01v8 w=1 l=0.15
+Crbl rbl 0 100f
+
+Cpc_b pc_b 0 50f
+Cwl_en wl_en 0 200f
+Cwrite_driver_en write_driver_en 0 {cload}
+Csense_en sense_en 0 {cload}
+
+Vclk clk 0 dc 0 PULSE(0 {vdd} 1n {tr} {tf} 5n 10n 0)
+Vwe we 0 dc 0 PULSE(0 {vdd} 19n {tr} {tf} 4n 100 0)
+Vvdd vdd 0 {vdd}
+Vvss vss 0 0
+
+.ic v(bank_we)=0 v(bank_we_b)=1.8
+
+.control
+tran 1p 32n 0n
+wrdata control.dat
++ v(clk)
++ v(we)
++ v(pc_b)
++ v(wl_en)
++ v(write_driver_en)
++ v(sense_en)
++ v(rbl)
++ v(xctrl.clkp)
++ v(xctrl.pc_set)
++ v(xctrl.pc)
++ v(bank_we)
++ v(vdd)
+unset askquit
+quit 0
+.endc
+
+.end
+
