@@ -91,9 +91,15 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         name: "bitcell_array".to_string(),
     });
 
+    let pc_cols = if params.control == ControlMode::ReplicaV1 {
+        cols + 1
+    } else {
+        cols
+    };
+
     let mut precharge = precharge_array(PrechargeArrayParams {
         name: "precharge_array".to_string(),
-        width: cols,
+        width: pc_cols,
         instance_params: PrechargeParams {
             name: "precharge".to_string(),
             length: 150,
@@ -446,8 +452,23 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     let mut conns = HashMap::new();
     conns.insert("vdd", sig_conn(&vdd));
     conns.insert("en_b", sig_conn(&pc_b));
-    conns.insert("bl", sig_conn(&bl));
-    conns.insert("br", sig_conn(&br));
+    let (blc, brc) = match params.control {
+        ControlMode::Simple => (sig_conn(&bl), sig_conn(&br)),
+        ControlMode::ReplicaV1 => (
+            Connection {
+                stype: Some(vlsir::circuit::connection::Stype::Concat(Concat {
+                    parts: vec![sig_conn(&rbl), sig_conn(&bl)],
+                })),
+            },
+            Connection {
+                stype: Some(vlsir::circuit::connection::Stype::Concat(Concat {
+                    parts: vec![sig_conn(&rbr), sig_conn(&br)],
+                })),
+            },
+        ),
+    };
+    conns.insert("bl", blc);
+    conns.insert("br", brc);
     m.instances.push(Instance {
         name: "precharge_array".to_string(),
         module: local_reference("precharge_array"),
