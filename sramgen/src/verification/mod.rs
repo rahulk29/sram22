@@ -359,6 +359,8 @@ pub fn source_files(
         PathBuf::from(LIB_PATH).join("sramgen_sp_sense_amp/sramgen_sp_sense_amp.spice");
     let source_path_control_simple =
         PathBuf::from(LIB_PATH).join("sramgen_control/sramgen_control_simple.spice");
+    let source_path_control_replica_v1 =
+        PathBuf::from(LIB_PATH).join("sramgen_control/sramgen_control_replica_v1.spice");
 
     vec![
         source_path_main,
@@ -366,6 +368,7 @@ pub fn source_files(
         source_path_sp_cell,
         source_path_sp_sense_amp,
         source_path_control_simple,
+        source_path_control_replica_v1,
     ]
 }
 
