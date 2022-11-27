@@ -355,6 +355,16 @@ pub fn source_files(
             PathBuf::from(LIB_PATH).join("sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.lvs.spice")
         }
     };
+    let source_path_sp_replica_cell = match task {
+        VerificationTask::SpiceSim
+        | VerificationTask::NgspiceSim
+        | VerificationTask::SpectreSim => {
+            PathBuf::from(LIB_PATH).join("sram_sp_replica_cell/sram_sp_replica_cell.spice")
+        }
+        VerificationTask::Lvs | VerificationTask::Pex => {
+            PathBuf::from(LIB_PATH).join("sram_sp_replica_cell/sram_sp_replica_cell.lvs.spice")
+        }
+    };
     let source_path_sp_sense_amp =
         PathBuf::from(LIB_PATH).join("sramgen_sp_sense_amp/sramgen_sp_sense_amp.spice");
     let source_path_control_simple =
@@ -366,6 +376,7 @@ pub fn source_files(
         source_path_main,
         source_path_dff,
         source_path_sp_cell,
+        source_path_sp_replica_cell,
         source_path_sp_sense_amp,
         source_path_control_simple,
         source_path_control_replica_v1,
