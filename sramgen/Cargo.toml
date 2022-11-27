@@ -40,6 +40,7 @@ prost-build = "0.11.2"
 [dev-dependencies]
 tempfile = "3.3.0"
 approx = "0.5.1"
+paste = "1.0"
 
 [features]
 calibre = ["dep:calibre"]
