@@ -18,7 +18,8 @@ pub const SRAM_SP_CELL: &str = "sram_sp_cell";
 pub const SRAM_SP_COLEND: &str = "sky130_fd_bd_sram__sram_sp_colend";
 pub const SRAM_SP_REPLICA_CELL: &str = "sram_sp_replica_cell";
 pub const OPENRAM_DFF: &str = "openram_dff";
-pub const SRAM_CONTROL: &str = "sramgen_control";
+pub const SRAM_CONTROL_SIMPLE: &str = "sramgen_control_simple";
+pub const SRAM_CONTROL_REPLICA_V1: &str = "sramgen_control_replica_v1";
 pub const SRAM_SP_SENSE_AMP: &str = "sramgen_sp_sense_amp";
 pub const CONTROL_LOGIC_INV: &str = "control_logic_inv";
 
@@ -335,16 +336,21 @@ pub fn openram_dff_ref() -> Reference {
     }
 }
 
+/// Very simple replica timing control logic.
+///
+/// The SPICE subcircuit definition looks like this:
+/// ```spice
+/// .subckt sramgen_control clk we pc_b wl_en write_driver_en sense_en vdd vss
+/// ```
 #[inline]
-pub fn sramgen_control() -> ExternalModule {
+pub fn sramgen_control_replica_v1() -> ExternalModule {
     simple_ext_module(
         SKY130_DOMAIN,
-        SRAM_CONTROL,
+        SRAM_CONTROL_REPLICA_V1,
         &[
             "clk",
-            "cs",
             "we",
-            "pc",
+            "rbl",
             "pc_b",
             "wl_en",
             "write_driver_en",
@@ -356,11 +362,21 @@ pub fn sramgen_control() -> ExternalModule {
 }
 
 #[inline]
-pub fn sramgen_control_ref() -> Reference {
+pub fn sramgen_control_simple_ref() -> Reference {
     Reference {
         to: Some(To::External(QualifiedName {
             domain: SKY130_DOMAIN.to_string(),
-            name: SRAM_CONTROL.to_string(),
+            name: SRAM_CONTROL_SIMPLE.to_string(),
+        })),
+    }
+}
+
+#[inline]
+pub fn sramgen_control_replica_v1_ref() -> Reference {
+    Reference {
+        to: Some(To::External(QualifiedName {
+            domain: SKY130_DOMAIN.to_string(),
+            name: SRAM_CONTROL_REPLICA_V1.to_string(),
         })),
     }
 }
@@ -411,7 +427,7 @@ pub fn control_logic_inv() -> ExternalModule {
 pub fn sramgen_control_simple() -> ExternalModule {
     simple_ext_module(
         SKY130_DOMAIN,
-        SRAM_CONTROL,
+        SRAM_CONTROL_SIMPLE,
         &[
             "clk",
             "we",
@@ -454,6 +470,7 @@ pub fn all_external_modules() -> Vec<ExternalModule> {
         sram_sp_colend(),
         sram_sp_replica_cell(),
         sramgen_control_simple(),
+        sramgen_control_replica_v1(),
         sramgen_sp_sense_amp(),
         control_logic_inv(),
         openram_dff(),

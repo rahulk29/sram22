@@ -38,7 +38,7 @@ Xinv2 tmp1 tmp2 vdd vss control_logic_inv
 Xinv3 tmp2 dout vdd vss control_logic_inv
 .ends
 
-.subckt sramgen_control clk we rbl pc_b wl_en write_driver_en sense_en vdd vss
+.subckt sramgen_control_replica_v1 clk we rbl pc_b wl_en write_driver_en sense_en vdd vss
 * INPUT: clk we
 * INOUT: rbl
 * OUTPUT: pc_b wl_en write_driver_en sense_en

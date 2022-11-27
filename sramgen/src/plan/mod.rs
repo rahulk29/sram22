@@ -32,8 +32,10 @@ pub fn generate_plan(
         control,
     } = config;
 
-    if control != ControlMode::Simple {
-        bail!("Only `ControlMode::Simple` is supported at the moment");
+    if control != ControlMode::Simple && control != ControlMode::ReplicaV1 {
+        bail!(
+            "Only `ControlMode::Simple` and `ControlMode::ReplicaV1` are supported at the moment"
+        );
     }
     if data_width % write_size != 0 {
         bail!("Data width must be a multiple of write size");

@@ -5,6 +5,17 @@ use crate::Result;
 use super::generate_test;
 
 #[test]
+fn test_sram_8x32m2w8_replica_v1() -> Result<()> {
+    generate_test(&SramConfig {
+        num_words: 32,
+        data_width: 8,
+        mux_ratio: 2,
+        write_size: 8,
+        control: ControlMode::ReplicaV1,
+    })
+}
+
+#[test]
 fn test_sram_8x32m2w8_simple() -> Result<()> {
     generate_test(&SramConfig {
         num_words: 32,

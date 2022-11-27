@@ -7,9 +7,9 @@ use crate::schematic::conns::{
 };
 use crate::tech::sram_sp_replica_cell_ref;
 
-#[derive(Debug, Clone)]
-pub struct ReplicaBitcellColumnParams {
-    pub name: String,
+#[derive(Debug, Copy, Clone)]
+pub struct ReplicaBitcellColumnParams<'a> {
+    pub name: &'a str,
     pub rows: usize,
     pub dummy_rows: usize,
 }
@@ -39,7 +39,7 @@ pub fn replica_bitcell_column(params: ReplicaBitcellColumnParams) -> Vec<Module>
     ];
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.to_string(),
         ports,
         signals: vec![],
         instances: vec![],

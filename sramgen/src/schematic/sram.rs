@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use vlsir::circuit::{Concat, Connection, Instance, Module};
 
 use crate::config::sram::SramParams;
+use crate::config::ControlMode;
 use crate::layout::inv_chain::InvChainGridParams;
 use crate::schematic::bitcell_array::{bitcell_array, BitcellArrayParams};
 use crate::schematic::col_inv::{col_inv_array, ColInvArrayParams, ColInvParams};
@@ -17,13 +18,14 @@ use crate::schematic::inv_chain::inv_chain_grid;
 use crate::schematic::mux::read::read_mux_array;
 use crate::schematic::mux::write::{write_mux_array, ArrayParams, WriteMuxParams};
 use crate::schematic::precharge::{precharge_array, PrechargeArrayParams, PrechargeParams};
+use crate::schematic::rbl::{replica_bitcell_column, ReplicaBitcellColumnParams};
 use crate::schematic::sense_amp::{sense_amp_array, SenseAmpArrayParams};
 use crate::schematic::wl_driver::{
     wordline_driver_array, WordlineDriverArrayParams, WordlineDriverParams,
 };
 use crate::schematic::wmask_control::{write_mask_control, WriteMaskControlParams};
 use crate::schematic::{local_reference, mux};
-use crate::tech::{openram_dff_ref, sramgen_control_ref};
+use crate::tech::{openram_dff_ref, sramgen_control_replica_v1_ref, sramgen_control_simple_ref};
 
 use crate::schematic::dff::DffArrayParams;
 
@@ -190,6 +192,12 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         cols: 9,
     });
 
+    let mut replica_col = replica_bitcell_column(ReplicaBitcellColumnParams {
+        name: "replica_column",
+        rows: rows as usize,
+        dummy_rows: 2,
+    });
+
     let vdd = signal("vdd");
     let vss = signal("vss");
     let clk = signal("clk");
@@ -220,6 +228,10 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     let wr_en = signal("wr_en");
     let write_driver_en = bus("write_driver_en", mux_ratio as i64);
     let sae = signal("sense_amp_en");
+
+    // Only used for replica timing
+    let rbl = signal("rbl");
+    let rbr = signal("rbr");
 
     // Only used when mux ratio is greater than 2
     let col_sel = bus("col_sel", mux_ratio as i64);
@@ -351,6 +363,24 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         parameters: HashMap::new(),
     });
 
+    // Replica column
+    let mut conns = HashMap::new();
+    conns.insert("rbl", sig_conn(&rbl));
+    conns.insert("rbr", sig_conn(&rbr));
+    conns.insert("wl", sig_conn(&wl));
+    conns.insert("vdd", sig_conn(&vdd));
+    conns.insert("vss", sig_conn(&vss));
+    conns.insert("vnb", sig_conn(&vss));
+    conns.insert("vpb", sig_conn(&vdd));
+    if params.control == ControlMode::ReplicaV1 {
+        m.instances.push(Instance {
+            name: "replica_column".to_string(),
+            module: local_reference("replica_column"),
+            connections: conn_map(conns),
+            parameters: HashMap::new(),
+        });
+    }
+
     // Bitcells
     let mut conns = HashMap::new();
     conns.insert("bl", sig_conn(&bl));
@@ -471,8 +501,8 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         parameters: HashMap::new(),
     });
 
-    // Simple control logic
-    let conns: HashMap<_, _> = [
+    // Control logic
+    let mut conns: HashMap<_, _> = [
         ("clk", sig_conn(&clk)),
         ("we", sig_conn(&bank_we)),
         ("pc_b", sig_conn(&pc_b)),
@@ -483,9 +513,20 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         ("vss", sig_conn(&vss)),
     ]
     .into();
+
+    if params.control == ControlMode::ReplicaV1 {
+        conns.insert("rbl", sig_conn(&rbl));
+    }
+
+    let reference = match params.control {
+        ControlMode::Simple => sramgen_control_simple_ref(),
+        ControlMode::ReplicaV1 => sramgen_control_replica_v1_ref(),
+        _ => unimplemented!("Unsupported control mode"),
+    };
+
     m.instances.push(Instance {
-        name: "sramgen_control_logic".to_string(),
-        module: Some(sramgen_control_ref()),
+        name: "control_logic".to_string(),
+        module: Some(reference),
         connections: conn_map(conns),
         parameters: HashMap::new(),
     });
@@ -562,6 +603,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     modules.push(sense_amp_array);
     modules.append(&mut dout_buf_array);
     modules.append(&mut we_control);
+    modules.append(&mut replica_col);
     modules.push(inv_chain);
     modules.push(m);
 
