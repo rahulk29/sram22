@@ -184,7 +184,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     tap1.loc = Point::new(x, y);
     tap1.reflect_vert_anchored();
     x += tap_outline.width();
-    let mut inv_rbl = Instance::new("inv_rbl", inv.clone());
+    let mut inv_rbl = Instance::new("inv_rbl", inv);
     let inv_outline = sc_outline(&lib.pdk, &inv_rbl);
     inv_rbl.loc = Point::new(x, y);
     inv_rbl.reflect_vert_anchored();
@@ -259,7 +259,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     tap6.loc = Point::new(x, y);
     tap6.reflect_vert_anchored();
     x += tap_outline.width();
-    let mut and_wr_en_set = Instance::new("and_wr_en_set", and.clone());
+    let mut and_wr_en_set = Instance::new("and_wr_en_set", and);
     and_wr_en_set.loc = Point::new(x, y);
     and_wr_en_set.reflect_vert_anchored();
     x += nor2_outline.width();
@@ -272,15 +272,15 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     wr_drv_ctl_nor1.reflect_vert_anchored();
     wr_drv_ctl_nor1.reflect_horiz_anchored();
     x += nor2_outline.width();
-    let mut wr_drv_ctl_nor2 = Instance::new("wr_drv_ctl_nor2", nor2.clone());
+    let mut wr_drv_ctl_nor2 = Instance::new("wr_drv_ctl_nor2", nor2);
     wr_drv_ctl_nor2.loc = Point::new(x, y);
     x += nor2_outline.width();
     wr_drv_ctl_nor2.reflect_vert_anchored();
-    let mut wr_drv_buf = Instance::new("wr_drv_buf", buf.clone());
+    let mut wr_drv_buf = Instance::new("wr_drv_buf", buf);
     wr_drv_buf.loc = Point::new(x, y);
     wr_drv_buf.reflect_vert_anchored();
     x += buf_outline.width();
-    let mut tap7 = Instance::new("tap7", tap.clone());
+    let mut tap7 = Instance::new("tap7", tap);
     tap7.loc = Point::new(x, y);
     tap7.reflect_vert_anchored();
 
