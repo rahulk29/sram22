@@ -9,7 +9,7 @@ pub fn out_sram(config: &SramConfig) -> String {
         write_size,
         ..
     } = config;
-    format!("sramgen_sram_{data_width}x{num_words}m{mux_ratio}w{write_size}_simple")
+    format!("sramgen_sram_{num_words}x{data_width}m{mux_ratio}w{write_size}_simple")
 }
 
 pub fn out_bin(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {

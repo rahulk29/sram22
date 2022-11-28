@@ -52,7 +52,7 @@ pub fn draw_gate_array(
 
     let array = draw_cell_array(
         ArrayCellParams {
-            name: name.to_string(),
+            name: format!("{}_array", name),
             num: width,
             cell,
             spacing: Some(spacing),

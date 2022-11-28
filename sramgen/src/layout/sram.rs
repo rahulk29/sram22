@@ -1310,9 +1310,9 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
 
     let guard_ring = draw_guard_ring(
         lib,
-        GuardRingParams {
+        &GuardRingParams {
+            name: "sram_guard_ring".to_string(),
             enclosure: bbox.expand(3_000),
-            prefix: "sram_guard_ring".to_string(),
         },
     )?;
     let guard_ring_inst = Instance::new("sram_guard_ring", guard_ring.cell);
