@@ -183,7 +183,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
                 dir: Dir::Vert,
                 pitch: Some(BITCELL_HEIGHT),
             },
-            gate: nand2_dec_params("nand2_dec"),
+            gate: nand2_dec_params("nand2_dec_nand"),
             gate_size: 2,
         },
     )?;
@@ -205,7 +205,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
                 dir: Dir::Vert,
                 pitch: Some(BITCELL_HEIGHT),
             },
-            gate: nand2_dec_params("wldrv_nand"),
+            gate: nand2_dec_params("wldrv_nand_nand"),
             gate_size: 2,
         },
     )?;
