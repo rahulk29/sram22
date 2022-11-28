@@ -77,6 +77,91 @@ Xinv5 tmp4 tmp5 vdd vss control_logic_inv
 Xinv6 tmp5 dout vdd vss control_logic_inv
 .ends
 
+.subckt control_logic_delay_chain8 din dout vdd vss
+Xinv0 din tmp0 vdd vss control_logic_inv
+Xinv1 tmp0 tmp1 vdd vss control_logic_inv
+Xinv2 tmp1 tmp2 vdd vss control_logic_inv
+Xinv3 tmp2 tmp3 vdd vss control_logic_inv
+Xinv4 tmp3 tmp4 vdd vss control_logic_inv
+Xinv5 tmp4 tmp5 vdd vss control_logic_inv
+Xinv6 tmp5 tmp6 vdd vss control_logic_inv
+Xinv7 tmp6 dout vdd vss control_logic_inv
+.ends
+
+.subckt control_logic_delay_chain16 din dout vdd vss
+Xinv0 din tmp0 vdd vss control_logic_inv
+Xinv1 tmp0 tmp1 vdd vss control_logic_inv
+Xinv2 tmp1 tmp2 vdd vss control_logic_inv
+Xinv3 tmp2 tmp3 vdd vss control_logic_inv
+Xinv4 tmp3 tmp4 vdd vss control_logic_inv
+Xinv5 tmp4 tmp5 vdd vss control_logic_inv
+Xinv6 tmp5 tmp6 vdd vss control_logic_inv
+Xinv7 tmp6 tmp7 vdd vss control_logic_inv
+Xinv8 tmp7 tmp8 vdd vss control_logic_inv
+Xinv9 tmp8 tmp9 vdd vss control_logic_inv
+Xinv10 tmp9 tmp10 vdd vss control_logic_inv
+Xinv11 tmp10 tmp11 vdd vss control_logic_inv
+Xinv12 tmp11 tmp12 vdd vss control_logic_inv
+Xinv13 tmp12 tmp13 vdd vss control_logic_inv
+Xinv14 tmp13 tmp14 vdd vss control_logic_inv
+Xinv15 tmp14 dout vdd vss control_logic_inv
+.ends
+
+.subckt control_logic_bufbuf_16 A X VPWR VGND
+X0 a_27_368# A VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X1 VPWR a_588_74# X VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X2 VPWR a_588_74# X VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X3 VGND a_588_74# X VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X4 VPWR a_588_74# X VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X5 a_203_74# a_27_368# VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X6 VPWR a_588_74# X VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X7 VGND a_203_74# a_588_74# VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X8 VGND a_203_74# a_588_74# VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X9 VGND a_203_74# a_588_74# VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X10 VPWR a_588_74# X VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X11 X a_588_74# VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X12 a_588_74# a_203_74# VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X13 X a_588_74# VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X14 a_588_74# a_203_74# VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X15 X a_588_74# VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X16 VGND a_588_74# X VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X17 a_588_74# a_203_74# VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X18 a_588_74# a_203_74# VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X19 a_588_74# a_203_74# VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X20 VPWR a_203_74# a_588_74# VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X21 X a_588_74# VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X22 a_27_368# A VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X23 X a_588_74# VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X24 a_588_74# a_203_74# VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X25 VGND a_588_74# X VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X26 VPWR a_27_368# a_203_74# VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X27 X a_588_74# VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X28 X a_588_74# VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X29 X a_588_74# VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X30 X a_588_74# VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X31 VGND a_588_74# X VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X32 VPWR a_588_74# X VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X33 VPWR a_27_368# a_203_74# VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X34 X a_588_74# VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X35 VPWR a_203_74# a_588_74# VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X36 a_203_74# a_27_368# VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X37 VGND a_588_74# X VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X38 VGND a_588_74# X VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X39 VGND a_588_74# X VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X40 VPWR a_588_74# X VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X41 VPWR a_588_74# X VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X42 VPWR a_203_74# a_588_74# VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X43 X a_588_74# VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X44 X a_588_74# VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X45 VGND a_27_368# a_203_74# VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X46 X a_588_74# VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X47 VGND a_27_368# a_203_74# VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X48 X a_588_74# VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X49 VGND a_588_74# X VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X50 X a_588_74# VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X51 X a_588_74# VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+.ends
+
 .subckt control_logic_edge_detector din dout vdd vss 
 xdelay_chain 
 + din delayed vdd vss 
@@ -100,23 +185,23 @@ Xclk_pulse clk clkp vdd vss control_logic_edge_detector
 * to flip an inverter.
 Xinv_rbl rbl rbl_b vdd vss control_logic_inv
 Xwl_ctl clkp rbl_b wl_en0 wl_en0_b vdd vss control_logic_sr_latch
-Xwl_en_buf wl_en0 wl_en vdd vss control_logic_buf4
+Xwl_en_buf wl_en0 wl_en vdd vss control_logic_bufbuf_16
 
 * SAE_set = delay(rbl_b)
 Xsae_delay_chain rbl_b sense_en_set vdd vss control_logic_delay_chain4
 Xsae_ctl sense_en_set clkp sense_en0 sense_en_b vdd vss control_logic_sr_latch
-Xsae_buf sense_en0 sense_en vdd vss control_logic_buf4
+Xsae_buf sense_en0 sense_en vdd vss control_logic_bufbuf_16
 
 * Latch SAE to generate precharge bar
-Xpc_delay_chain sense_en_set pc_set vdd vss control_logic_delay_chain4
+Xpc_delay_chain sense_en_set pc_set vdd vss control_logic_delay_chain16
 Xpc_ctl pc_set clkp pc pc_b0 vdd vss control_logic_sr_latch
-Xpc_b_buf pc_b0 pc_b vdd vss control_logic_buf4
+Xpc_b_buf pc_b0 pc_b vdd vss control_logic_bufbuf_16
 
 * clkp and we forms wr driver enable set signal
 Xand_wr_en_set clkp we wr_drv_set0 vdd vss control_logic_and2
 * Delay set signal a bit to ensure we don't turn on write drivers while precharging
 Xwr_drv_set_delay_chain wr_drv_set0 wr_drv_set vdd vss control_logic_delay_chain4
-Xwr_drv_ctl wr_drv_set sense_en write_driver_en0 write_driver_en_b vdd vss control_logic_sr_latch
-Xwr_drv_buf write_driver_en0 write_driver_en vdd vss control_logic_buf4
+Xwr_drv_ctl wr_drv_set sense_en0 write_driver_en0 write_driver_en_b vdd vss control_logic_sr_latch
+Xwr_drv_buf write_driver_en0 write_driver_en vdd vss control_logic_bufbuf_16
 .ends
 
