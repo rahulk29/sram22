@@ -33,16 +33,16 @@ pub fn draw_read_mux(lib: &mut PdkLib, params: &ReadMuxParams) -> Result<Ptr<Cel
         .direction(Dir::Horiz)
         .add_device(MosDevice {
             mos_type: MosType::Pmos,
-            width: 1_200,
-            length: 150,
+            width,
+            length,
             fingers: 1,
             intent: Intent::Svt,
             skip_sd_metal: vec![],
         })
         .add_device(MosDevice {
             mos_type: MosType::Pmos,
-            width: 1_200,
-            length: 150,
+            width,
+            length,
             fingers: 1,
             intent: Intent::Svt,
             skip_sd_metal: vec![],

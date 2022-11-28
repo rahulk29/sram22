@@ -14,14 +14,13 @@ use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::config::sram::{ControlMode, SramParams};
 use crate::config::tmc::TmcParams;
 use crate::config::wmask_control::WriteMaskControlParams;
-use crate::layout::array::draw_bitcell_array;
-use crate::layout::array::draw_power_connector;
+use crate::layout::array::{draw_bitcell_array, draw_power_connector};
 use crate::layout::col_inv::draw_col_inv_array;
 use crate::layout::control::draw_control_logic;
 use crate::layout::decoder::{
-    bus_width, draw_hier_decode, ConnectSubdecodersArgs, GateArrayParams,
+    bus_width, draw_hier_decode, draw_inv_dec_array, draw_nand2_dec_array, ConnectSubdecodersArgs,
+    GateArrayParams,
 };
-use crate::layout::decoder::{draw_inv_dec_array, draw_nand2_dec_array};
 use crate::layout::dff::draw_dff_grid;
 use crate::layout::dout_buffer::draw_dout_buffer_array;
 use crate::layout::guard_ring::{draw_guard_ring, GuardRingParams};
@@ -30,8 +29,7 @@ use crate::layout::mux::write::draw_write_mux_array;
 use crate::layout::power::{PowerSource, PowerStrapGen, PowerStrapOpts};
 use crate::layout::precharge::draw_precharge_array;
 use crate::layout::route::grid::{Grid, TrackLocator};
-use crate::layout::route::Router;
-use crate::layout::route::Trace;
+use crate::layout::route::{Router, Trace};
 use crate::layout::sense_amp::draw_sense_amp_array;
 use crate::layout::tmc::draw_tmc;
 use crate::layout::wmask_control::draw_write_mask_control;
@@ -1514,7 +1512,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
 
     let routing = router.finish();
 
-    cell.layout_mut().add_inst(straps.instance.clone());
+    cell.layout_mut().add_inst(straps.instance);
     cell.layout_mut().add_inst(guard_ring_inst);
     cell.layout_mut().add_inst(routing);
 

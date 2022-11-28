@@ -172,7 +172,7 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, params: &WriteMuxArrayParams) -> R
     let mux = draw_write_mux(lib, mux_params)?;
     let muxes = draw_cell_array(
         ArrayCellParams {
-            name: "write_mux_core_array".to_string(),
+            name: name.to_string(),
             num: cols,
             cell: mux,
             spacing: Some(2_500),
@@ -369,11 +369,7 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, params: &WriteMuxArrayParams) -> R
                 .metal_idx(2)
                 .port_idx(1)
                 .router(&mut router)
-                .insts(GateList::ArraySlice(
-                    &core_inst,
-                    i * wmask_width,
-                    wmask_width,
-                ))
+                .insts(GateList::ArraySlice(&core_inst, i * wmask_size, wmask_size))
                 .port_name("wmask")
                 .dir(Dir::Horiz)
                 .overhang(200)

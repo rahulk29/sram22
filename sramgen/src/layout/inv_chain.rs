@@ -3,8 +3,7 @@ use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
 use crate::config::inv_chain::{InvChainGridParams, InvChainParams};
-use crate::layout::common::sc_outline;
-use crate::layout::common::MergeArgs;
+use crate::layout::common::{sc_outline, MergeArgs};
 use crate::layout::route::Router;
 use crate::layout::sram::GateList;
 use crate::tech::{sc_inv_gds, sc_tap_gds};
