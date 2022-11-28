@@ -8,7 +8,7 @@ use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::{LayerIdx, PdkLib};
 
-use crate::config::mux::{WriteMuxArrayParams, WriteMuxParams};
+use crate::config::mux::{ReadMuxArrayParams, ReadMuxParams, WriteMuxArrayParams, WriteMuxParams};
 use crate::config::sram::{ControlMode, SramParams};
 use crate::layout::array::draw_bitcell_array;
 use crate::layout::array::draw_power_connector;
@@ -204,6 +204,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     let pc = draw_precharge_array(
         lib,
         PrechargeArrayParams {
+            name: "precharge_array".to_string(),
             width: cols,
             instance_params: PrechargeParams {
                 name: "precharge".to_string(),
@@ -211,10 +212,21 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
                 pull_up_width: 1_000,
                 equalizer_width: 1_000,
             },
-            name: "precharge_array".to_string(),
         },
     )?;
-    let read_mux = draw_read_mux_array(lib, cols, mux_ratio)?;
+    let read_mux = draw_read_mux_array(
+        lib,
+        &ReadMuxArrayParams {
+            name: "read_mux_array".to_string(),
+            mux_params: ReadMuxParams {
+                name: "read_mux".to_string(),
+                length: 150,
+                width: 1_200,
+            },
+            cols,
+            mux_ratio,
+        },
+    )?;
     let write_mux = draw_write_mux_array(
         lib,
         &WriteMuxArrayParams {

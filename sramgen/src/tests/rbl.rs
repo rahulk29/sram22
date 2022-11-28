@@ -1,3 +1,4 @@
+use crate::config::rbl::*;
 use crate::paths::out_bin;
 use crate::schematic::rbl::*;
 use crate::schematic::{generate_netlist, save_modules};

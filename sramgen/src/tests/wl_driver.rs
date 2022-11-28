@@ -1,5 +1,5 @@
 use crate::config::gate::Size;
-use crate::config::wl_driver::{WordlineDriverArrayParams, WordlineDriverParams};
+use crate::config::wl_driver::*;
 use crate::paths::out_bin;
 use crate::schematic::wl_driver::*;
 use crate::schematic::{generate_netlist, save_modules};

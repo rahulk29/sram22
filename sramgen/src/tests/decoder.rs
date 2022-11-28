@@ -1,7 +1,7 @@
+use crate::config::gate::{GateParams, Size};
 use crate::layout::decoder::*;
 use crate::paths::{out_bin, out_gds};
 use crate::schematic::decoder::*;
-use crate::schematic::gate::{GateParams, Size};
 use crate::schematic::{generate_netlist, save_modules};
 use crate::tech::BITCELL_HEIGHT;
 use crate::tests::test_work_dir;

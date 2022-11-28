@@ -7,7 +7,7 @@ use crate::config::inv_chain::InvChainGridParams;
 use crate::config::bitcell_array::BitcellArrayParams
 use crate::config::col_inv::{ColInvArrayParams, ColInvParams};
 use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
-use crate::config::mux::{WriteMuxParams, WriteMuxArrayParams};
+use crate::config::mux::{ReadMuxParams, ReadMuxArrayParams, WriteMuxParams, WriteMuxArrayParams};
 use crate::config::decoder::DecoderParams;
 use crate::config::dout_buffer::{DoutBufArrayParams, DoutBufParams};
 use crate::config::sense_amp::SenseAmpArrayParams;
@@ -46,7 +46,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     let rows = 1 << params.row_bits;
     let cols = 1 << params.col_bits;
     let mux_ratio = 1 << params.col_select_bits;
-    let wmask_groups = params.wmask_width;
+    let wmask_width = params.wmask_width;
 
     let cols_masked = (cols / mux_ratio) as i64;
 
@@ -106,27 +106,31 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         },
     });
 
-    let mut write_muxes = write_mux_array(ArrayParams {
+    let mut write_muxes = write_mux_array(WriteMuxArrayParams {
+        name: "write_mux_array".to_string(),
         cols,
         mux_ratio,
-        wmask_groups,
+        wmask_width,
         mux_params: WriteMuxParams {
+            name: "write_mux".to_string(),
             length: 150,
             width: 2_000,
-            wmask: wmask_groups > 1,
+            wmask: wmask_width > 1,
         },
     });
 
-    let mut read_muxes = read_mux_array(mux::read::ArrayParams {
+    let mut read_muxes = read_mux_array(&ReadMuxArrayParams {
+        name: "read_mux_array".to_string(),
         cols,
         mux_ratio,
-        mux_params: mux::read::Params {
+        mux_params: ReadMuxParams {
+            name: "read_mux".to_string(),
             length: 150,
             width: 1_200,
         },
     });
 
-    let mut col_inv = col_inv_array(ColInvArrayParams {
+    let mut col_inv = col_inv_array(&ColInvArrayParams {
         name: "col_inv_array".to_string(),
         width: cols_masked,
         instance_params: ColInvParams {
@@ -143,7 +147,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
 
     let mut wmask_dff_array = dff_array(DffArrayParams {
         name: "wmask_dff_array".to_string(),
-        width: wmask_groups,
+        width: wmask_width,
     });
 
     let mut addr_dff_array = dff_array(DffArrayParams {
@@ -168,7 +172,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         },
     });
 
-    let mut we_control = write_mask_control(WriteMaskControlParams {
+    let mut we_control = write_mask_control(&WriteMaskControlParams {
         name: "we_control".to_string(),
         width: mux_ratio as i64,
         and_params: AndParams {
@@ -193,7 +197,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     });
 
     let inv_chain = inv_chain_grid(InvChainGridParams {
-        prefix: "control_logic_delay_chain",
+        name: "control_logic_delay_chain".to_string(),
         rows: 5,
         cols: 9,
     });
@@ -234,9 +238,9 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     let col_sel_b = bus("col_sel_b", mux_ratio as i64);
 
     // Only used when wmask groups is greater than 1
-    let wmask = bus("wmask", wmask_groups as i64);
-    let bank_wmask = bus("bank_wmask", wmask_groups as i64);
-    let bank_wmask_b = bus("bank_wmask_b", wmask_groups as i64);
+    let wmask = bus("wmask", wmask_width as i64);
+    let bank_wmask = bus("bank_wmask", wmask_width as i64);
+    let bank_wmask_b = bus("bank_wmask_b", wmask_width as i64);
 
     let mut ports = vec![
         port_inout(&vdd),
@@ -248,7 +252,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         port_input(&addr),
     ];
 
-    if wmask_groups > 1 {
+    if wmask_width > 1 {
         ports.push(port_input(&wmask));
     }
 
@@ -291,7 +295,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     });
 
     // Write mask dffs
-    if wmask_groups > 1 {
+    if wmask_width > 1 {
         let mut conns = HashMap::new();
         conns.insert("vdd", sig_conn(&vdd));
         conns.insert("vss", sig_conn(&vss));
@@ -396,7 +400,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     conns.insert("data", sig_conn(&bank_din));
     conns.insert("data_b", sig_conn(&bank_din_b));
     conns.insert("we", sig_conn(&write_driver_en));
-    if wmask_groups > 1 {
+    if wmask_width > 1 {
         conns.insert("wmask", sig_conn(&bank_wmask));
     }
     m.instances.push(Instance {
@@ -563,7 +567,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     modules.append(&mut write_muxes);
     modules.append(&mut data_dff_array);
     modules.append(&mut addr_dff_array);
-    if wmask_groups > 1 {
+    if wmask_width > 1 {
         modules.append(&mut wmask_dff_array);
     }
     modules.append(&mut col_inv);

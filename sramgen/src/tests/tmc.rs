@@ -1,3 +1,4 @@
+use crate::config::tmc::*;
 use crate::layout::tmc::*;
 use crate::paths::out_gds;
 use crate::tests::test_work_dir;

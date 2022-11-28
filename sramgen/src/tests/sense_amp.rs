@@ -1,3 +1,4 @@
+use crate::config::sense_amp::SenseAmpArrayParams;
 use crate::layout::sense_amp::*;
 use crate::paths::{out_bin, out_gds};
 use crate::schematic::sense_amp::*;

@@ -22,8 +22,8 @@ pub struct WriteMuxParams {
 
 pub struct WriteMuxArrayParams {
     pub name: String,
+    pub mux_params: WriteMuxParams,
     pub cols: usize,
     pub mux_ratio: usize,
     pub wmask_width: usize,
-    pub mux_params: WriteMuxParams,
 }
