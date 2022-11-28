@@ -365,7 +365,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     // TODO sense_en_set -> pc_delay_chain
     // pc_set -> pc_ctl_nor1
 
-    let (_, pc_b0) = route_latch(&pc_ctl_nor1, &pc_ctl_nor2, &mut router);
+    let (pc_b0, _) = route_latch(&pc_ctl_nor1, &pc_ctl_nor2, &mut router);
     let buf_a = pc_b_buf.port("a").largest_rect(m0).unwrap();
     router
         .trace(pc_b0, 1)
@@ -406,6 +406,48 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .contact_down(buf_a);
 
     cell.add_pin_from_port(wr_drv_buf.port("x").named("write_driver_en"), m1);
+
+    let clkp_out = ed_and.port("x").largest_rect(m0).unwrap();
+    let wl_ctl_clkp = wl_ctl_nor2.port("a").largest_rect(m0).unwrap();
+    let sae_ctl_clkp = sae_ctl_nor2.port("a").largest_rect(m0).unwrap();
+    let pc_ctl_clkp = pc_ctl_nor1.port("a").largest_rect(m0).unwrap();
+    let wr_set_clkp = and_wr_en_set.port("a").largest_rect(m0).unwrap();
+
+    let mut clkp_trace = router.trace(clkp_out, 0);
+    clkp_trace
+        .place_cursor_centered()
+        .up()
+        .horiz_to_rect(wl_ctl_clkp)
+        .up()
+        .vert_to_rect(wl_ctl_clkp);
+
+    router
+        .trace(wl_ctl_clkp, 0)
+        .contact_up(clkp_trace.rect())
+        .increment_layer()
+        .contact_up(clkp_trace.rect());
+
+    clkp_trace
+        .down()
+        .horiz_to_rect(sae_ctl_clkp)
+        .up()
+        .vert_to_rect(sae_ctl_clkp)
+        .down()
+        .down()
+        .increment_layer()
+        .increment_layer()
+        .up_by(2_000)
+        .down()
+        .horiz_to_rect(pc_ctl_clkp)
+        .up()
+        .vert_to_rect(pc_ctl_clkp)
+        .down()
+        .down()
+        .increment_layer()
+        .increment_layer()
+        .vert_to(wr_set_clkp.top() - 200)
+        .down()
+        .down();
 
     cell.layout_mut().add_inst(eddc);
     cell.layout_mut().add_inst(ed_and);
