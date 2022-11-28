@@ -151,6 +151,12 @@ pub fn sc_inv_gds(lib: &mut PdkLib) -> CellGdsResult {
 pub fn sc_tap_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(lib, "sc_tap_2.gds", "sky130_fd_sc_lp__tap_2")
 }
+pub fn sc_bufbuf_16_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(lib, "sc_bufbuf_16.gds", "sky130_fd_sc_hs__bufbuf_16")
+}
+pub fn sc_nor2_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(lib, "sc_nor2_2.gds", "sky130_fd_sc_hs__nor2_2")
+}
 
 #[inline]
 pub fn sram_sp_cell_gds(lib: &mut PdkLib) -> CellGdsResult {
