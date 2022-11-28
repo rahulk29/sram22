@@ -164,6 +164,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         },
     )?;
 
+    // Place standard cells
     let mut x = 0;
     let mut y = 0;
     let eddc = Instance::new("delay_chain", eddc);
@@ -279,11 +280,32 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     tap7.loc = Point::new(x, y);
     tap7.reflect_vert_anchored();
 
+    // Routing
     let mut router = Router::new("sram22_control_logic_route", lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
     let m2 = cfg.layerkey(2);
+
+    // Edge detector
+    let clk_in = eddc.port("din").largest_rect(m0).unwrap();
+    let clk_out = eddc.port("dout").largest_rect(m0).unwrap();
+    let and_a = ed_and.port("a").largest_rect(m0).unwrap();
+    let and_b = ed_and.port("b").largest_rect(m0).unwrap();
+
+    let mut trace = router.trace(and_a, 0);
+    trace
+        .place_cursor_centered()
+        .up()
+        .horiz_to_rect(clk_in)
+        .contact_down(clk_in);
+    let mut trace = router.trace(and_b, 0);
+    trace
+        .place_cursor_centered()
+        .up()
+        .down_by(3 * cfg.line(0))
+        .horiz_to_rect(clk_out)
+        .contact_down(clk_out);
 
     cell.layout_mut().add_inst(eddc);
     cell.layout_mut().add_inst(ed_and);
@@ -312,6 +334,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     cell.layout_mut().add_inst(wr_drv_ctl_nor2);
     cell.layout_mut().add_inst(wr_drv_buf);
     cell.layout_mut().add_inst(tap7);
+    cell.layout_mut().add_inst(router.finish());
 
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
