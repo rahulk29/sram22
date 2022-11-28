@@ -289,7 +289,6 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
-    let m2 = cfg.layerkey(2);
 
     // Edge detector
     let clk_in = eddc.port("din").largest_rect(m0).unwrap();
@@ -303,6 +302,8 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .up()
         .horiz_to_rect(clk_in)
         .contact_down(clk_in);
+
+    cell.add_pin("clk", m1, trace.rect());
     let mut trace = router.trace(and_b, 0);
     trace
         .place_cursor_centered()
@@ -312,7 +313,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .contact_down(clk_out);
 
     // Wordline control latch (wl_ctl)
-    let (_, wl_en0) = route_latch(&wl_ctl_nor1, &wl_ctl_nor2, &mut router);
+    let (_, wl_en0) = route_latch(&wl_ctl_nor1, &wl_ctl_nor2, &mut router, false);
 
     let buf_a = wl_en_buf.port("a").largest_rect(m0).unwrap();
     router
@@ -324,6 +325,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .vert_to_rect(buf_a)
         .contact_down(buf_a);
 
+    cell.add_pin_from_port(inv_rbl.port("a").named("rbl"), m0);
     let rst = wl_ctl_nor1.port("a").largest_rect(m0).unwrap();
     let rbl_b = inv_rbl.port("y").largest_rect(m0).unwrap();
     router
@@ -348,7 +350,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .horiz_to_rect(ssdc_din)
         .contact_down(ssdc_din);
 
-    let (sense_en0, _) = route_latch(&sae_ctl_nor1, &sae_ctl_nor2, &mut router);
+    let (sense_en0, _) = route_latch(&sae_ctl_nor1, &sae_ctl_nor2, &mut router, false);
     let sense_en_set = sae_ctl_nor1.port("a").largest_rect(m0).unwrap();
     let ssdc_set = ssdc_inst.port("dout").largest_rect(m0).unwrap();
     let mut trace = router.trace(sense_en_set, 0);
@@ -396,7 +398,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .down();
     // pc_set -> pc_ctl_nor1
 
-    let (pc_b0, _) = route_latch(&pc_ctl_nor1, &pc_ctl_nor2, &mut router);
+    let (pc_b0, _) = route_latch(&pc_ctl_nor1, &pc_ctl_nor2, &mut router, true);
     let buf_a = pc_b_buf.port("a").largest_rect(m0).unwrap();
     router
         .trace(pc_b0, 1)
@@ -410,9 +412,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     cell.add_pin_from_port(pc_b_buf.port("x").named("pc_b"), m1);
 
     // Write driver control
-    // TODO clkp -> and_wr_en_set
-    // TODO we port
-
+    cell.add_pin_from_port(and_wr_en_set.port("b").named("we"), m0);
     let wr_drv_dc_in = wr_drv_dc.port("din").largest_rect(m0).unwrap();
     let wr_drv_set0 = and_wr_en_set.port("x").largest_rect(m0).unwrap();
     router
@@ -424,6 +424,16 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .contact_down(wr_drv_dc_in);
 
     // TODO sense_en0 -> wr_drv_ctl_nor2
+    let wr_drv_reset = wr_drv_ctl_nor2.port("a").largest_rect(m0).unwrap();
+    router
+        .trace(sense_en0, 1)
+        .set_width(cfg.line(0))
+        .place_cursor(Dir::Horiz, true)
+        .horiz_to_rect(wr_drv_reset)
+        .up()
+        .vert_to_rect(wr_drv_reset)
+        .down()
+        .down();
 
     let wr_drv_dc_dout = wr_drv_dc.port("dout").largest_rect(m0).unwrap();
     let wr_en_set = wr_drv_ctl_nor1.port("a").largest_rect(m0).unwrap();
@@ -434,7 +444,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .horiz_to_rect(wr_drv_dc_dout)
         .contact_down(wr_drv_dc_dout);
 
-    let (write_driver_en0, _) = route_latch(&wr_drv_ctl_nor1, &wr_drv_ctl_nor2, &mut router);
+    let (write_driver_en0, _) = route_latch(&wr_drv_ctl_nor1, &wr_drv_ctl_nor2, &mut router, false);
     let buf_a = wr_drv_buf.port("a").largest_rect(m0).unwrap();
     router
         .trace(write_driver_en0, 1)
@@ -524,7 +534,12 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-fn route_latch(nor1: &Instance, nor2: &Instance, router: &mut Router) -> (Rect, Rect) {
+fn route_latch(
+    nor1: &Instance,
+    nor2: &Instance,
+    router: &mut Router,
+    invert_routing: bool,
+) -> (Rect, Rect) {
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
 
@@ -534,20 +549,22 @@ fn route_latch(nor1: &Instance, nor2: &Instance, router: &mut Router) -> (Rect, 
     let qb = nor2.port("y").largest_rect(m0).unwrap();
 
     let mut trace = router.trace(b1, 0);
-    trace
-        .place_cursor_centered()
-        .up()
-        .up_by(2 * cfg.line(0))
-        .horiz_to_rect(qb)
-        .contact_down(qb);
+    trace.place_cursor_centered().up();
+    if invert_routing {
+        trace.up_by(2 * cfg.line(0));
+    } else {
+        trace.down_by(2 * cfg.line(0));
+    }
+    trace.horiz_to_rect(qb).contact_down(qb);
     let qout = trace.rect();
     let mut trace = router.trace(b2, 0);
-    trace
-        .place_cursor_centered()
-        .up()
-        .down_by(2 * cfg.line(0))
-        .horiz_to_rect(q)
-        .contact_down(q);
+    trace.place_cursor_centered().up();
+    if invert_routing {
+        trace.down_by(2 * cfg.line(0));
+    } else {
+        trace.up_by(2 * cfg.line(0));
+    }
+    trace.horiz_to_rect(q).contact_down(q);
     let qbout = trace.rect();
 
     (qout, qbout)
