@@ -155,6 +155,14 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
             num: 4,
         },
     )?;
+    // precharge delay chain
+    let pcdc = draw_inv_chain(
+        lib,
+        InvChainParams {
+            prefix: "sram22_control_logic_pc_delay_chain",
+            num: 16,
+        },
+    )?;
 
     let mut x = 0;
     let mut y = 0;
@@ -200,11 +208,10 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     y += tap_outline.height();
     x = 0;
-    let mut ssdc = Instance::new("sae_delay_chain", ssdc);
-    let ssdc_outline = sc_outline(&lib.pdk, &ssdc);
-    ssdc.loc = Point::new(x, y);
+    let mut ssdc_inst = Instance::new("sae_delay_chain", ssdc.clone());
+    let ssdc_outline = sc_outline(&lib.pdk, &ssdc_inst);
+    ssdc_inst.loc = Point::new(x, y);
     x += ssdc_outline.width();
-
     let mut sae_ctl_nor1 = Instance::new("sae_ctl_nor1", nor2.clone());
     sae_ctl_nor1.loc = Point::new(x, y);
     x += nor2_outline.width();
@@ -216,6 +223,61 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     x += buf_outline.width();
     let mut tap3 = Instance::new("tap3", tap.clone());
     tap3.loc = Point::new(x, y);
+
+    y += tap_outline.height();
+    x = 0;
+
+    let mut pcdc = Instance::new("pc_delay_chain", pcdc);
+    pcdc.loc = Point::new(x, y);
+    pcdc.reflect_vert_anchored();
+
+    y += tap_outline.height();
+
+    let mut tap4 = Instance::new("tap4", tap.clone());
+    tap4.loc = Point::new(x, y);
+    x += tap_outline.width();
+    let mut pc_ctl_nor1 = Instance::new("pc_ctl_nor1", nor2.clone());
+    pc_ctl_nor1.loc = Point::new(x, y);
+    x += nor2_outline.width();
+    let mut pc_ctl_nor2 = Instance::new("pc_ctl_nor2", nor2.clone());
+    pc_ctl_nor2.loc = Point::new(x, y);
+    x += nor2_outline.width();
+    let mut pc_b_buf = Instance::new("pc_b_buf", buf.clone());
+    pc_b_buf.loc = Point::new(x, y);
+    x += buf_outline.width();
+    let mut tap5 = Instance::new("tap5", tap.clone());
+    tap5.loc = Point::new(x, y);
+
+    x = 0;
+    y += tap_outline.height();
+
+    let mut tap6 = Instance::new("tap6", tap.clone());
+    tap6.loc = Point::new(x, y);
+    tap6.reflect_vert_anchored();
+    x += tap_outline.width();
+    let mut and_wr_en_set = Instance::new("and_wr_en_set", and.clone());
+    and_wr_en_set.loc = Point::new(x, y);
+    and_wr_en_set.reflect_vert_anchored();
+    x += nor2_outline.width();
+    let mut wr_drv_dc = Instance::new("wr_drv_set_delay_chain", ssdc);
+    wr_drv_dc.loc = Point::new(x, y);
+    x += ssdc_outline.width();
+    wr_drv_dc.reflect_vert_anchored();
+    let mut wr_drv_ctl_nor1 = Instance::new("wr_drv_ctl_nor1", nor2.clone());
+    wr_drv_ctl_nor1.loc = Point::new(x, y);
+    wr_drv_ctl_nor1.reflect_vert_anchored();
+    x += nor2_outline.width();
+    let mut wr_drv_ctl_nor2 = Instance::new("wr_drv_ctl_nor2", nor2.clone());
+    wr_drv_ctl_nor2.loc = Point::new(x, y);
+    x += nor2_outline.width();
+    wr_drv_ctl_nor2.reflect_vert_anchored();
+    let mut wr_drv_buf = Instance::new("wr_drv_buf", buf.clone());
+    wr_drv_buf.loc = Point::new(x, y);
+    wr_drv_buf.reflect_vert_anchored();
+    x += buf_outline.width();
+    let mut tap7 = Instance::new("tap7", tap.clone());
+    tap7.loc = Point::new(x, y);
+    tap7.reflect_vert_anchored();
 
     let mut router = Router::new("sram22_control_logic_route", lib.pdk.clone());
     let cfg = router.cfg();
@@ -232,11 +294,24 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     cell.layout_mut().add_inst(wl_ctl_nor2);
     cell.layout_mut().add_inst(wl_en_buf);
     cell.layout_mut().add_inst(tap2);
-    cell.layout_mut().add_inst(ssdc);
+    cell.layout_mut().add_inst(ssdc_inst);
     cell.layout_mut().add_inst(sae_ctl_nor1);
     cell.layout_mut().add_inst(sae_ctl_nor2);
     cell.layout_mut().add_inst(sae_buf);
     cell.layout_mut().add_inst(tap3);
+    cell.layout_mut().add_inst(pcdc);
+    cell.layout_mut().add_inst(tap4);
+    cell.layout_mut().add_inst(pc_ctl_nor1);
+    cell.layout_mut().add_inst(pc_ctl_nor2);
+    cell.layout_mut().add_inst(pc_b_buf);
+    cell.layout_mut().add_inst(tap5);
+    cell.layout_mut().add_inst(tap6);
+    cell.layout_mut().add_inst(and_wr_en_set);
+    cell.layout_mut().add_inst(wr_drv_dc);
+    cell.layout_mut().add_inst(wr_drv_ctl_nor1);
+    cell.layout_mut().add_inst(wr_drv_ctl_nor2);
+    cell.layout_mut().add_inst(wr_drv_buf);
+    cell.layout_mut().add_inst(tap7);
 
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
