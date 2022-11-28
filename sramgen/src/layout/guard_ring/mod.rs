@@ -71,7 +71,7 @@ pub fn draw_guard_ring(lib: &mut PdkLib, params: &GuardRingParams) -> crate::Res
             .top_stack("viali")
             .build()?;
 
-        let contact = draw_two_level_contact(lib, ctp)?;
+        let contact = draw_two_level_contact(lib, &ctp)?;
         let (width, height) = {
             let ct = contact.read().unwrap();
             let bbox = ct.layout().bbox();

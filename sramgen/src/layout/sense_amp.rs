@@ -6,7 +6,7 @@ use pdkprims::PdkLib;
 
 use super::array::*;
 use super::common::MergeArgs;
-use super::sram::GateList;
+use crate::layout::sram::GateList;
 use crate::tech::sramgen_sp_sense_amp_gds;
 use crate::Result;
 
@@ -14,7 +14,8 @@ pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize, spacing: Int) -> Res
     let sa = sramgen_sp_sense_amp_gds(lib)?;
 
     let core = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: "sense_amp_array_core".to_string(),
             num: width,
             cell: sa,
@@ -23,7 +24,6 @@ pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize, spacing: Int) -> Res
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
     let mut cell = Cell::empty("sense_amp_array");

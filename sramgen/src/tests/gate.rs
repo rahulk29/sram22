@@ -1,3 +1,4 @@
+use crate::config::decoder::nand2_dec_params;
 use crate::config::gate::*;
 use crate::layout::gate::*;
 use crate::paths::{out_bin, out_gds};
@@ -11,7 +12,7 @@ use pdkprims::tech::sky130;
 fn test_nand2_dec() -> Result<()> {
     let name = "sramgen_nand2_dec";
     let mut lib = sky130::pdk_lib(name)?;
-    draw_nand2_dec(&mut lib, name)?;
+    draw_nand2(&mut lib, &nand2_dec_params(name))?;
 
     let work_dir = test_work_dir(name);
 

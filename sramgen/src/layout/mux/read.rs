@@ -204,7 +204,8 @@ pub fn draw_read_mux_array(lib: &mut PdkLib, params: &ReadMuxArrayParams) -> Res
     let tap = draw_read_mux_tap_cell(lib)?;
 
     let array = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: "read_mux_array_core".to_string(),
             num: cols,
             cell: mux,
@@ -213,11 +214,11 @@ pub fn draw_read_mux_array(lib: &mut PdkLib, params: &ReadMuxArrayParams) -> Res
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
     let taps = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: "read_mux_array_taps".to_string(),
             num: cols + 1,
             cell: tap,
@@ -226,7 +227,6 @@ pub fn draw_read_mux_array(lib: &mut PdkLib, params: &ReadMuxArrayParams) -> Res
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
     let mut router = Router::new("read_mux_array_route", lib.pdk.clone());
@@ -385,6 +385,6 @@ pub fn draw_read_mux_tap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .bot_rows(7)
         .top_rows(6)
         .build()?;
-    let contact = draw_two_level_contact(lib, params)?;
+    let contact = draw_two_level_contact(lib, &params)?;
     Ok(contact)
 }

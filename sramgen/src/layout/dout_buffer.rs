@@ -23,7 +23,8 @@ pub fn draw_dout_buffer_array(
 
     let unit = draw_dout_buffer(lib, &format!("{name}_cell"))?;
     let array = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: format!("{name}_array"),
             num: width,
             cell: unit,
@@ -32,7 +33,6 @@ pub fn draw_dout_buffer_array(
             flip_toggle: false,
             direction: Dir::Vert,
         },
-        lib,
     )?;
 
     let mut inst = Instance::new("dout_buffer_array", array.cell);
@@ -287,7 +287,7 @@ fn draw_ntap_cell(lib: &mut PdkLib, cols: isize) -> Result<Ptr<Cell>> {
         .bot_cols(cols)
         .top_cols(cols)
         .build()?;
-    let contact = draw_two_level_contact(lib, params)?;
+    let contact = draw_two_level_contact(lib, &params)?;
     Ok(contact)
 }
 
@@ -299,6 +299,6 @@ fn draw_ptap_cell(lib: &mut PdkLib, cols: isize) -> Result<Ptr<Cell>> {
         .bot_cols(cols)
         .top_cols(cols)
         .build()?;
-    let contact = draw_two_level_contact(lib, params)?;
+    let contact = draw_two_level_contact(lib, &params)?;
     Ok(contact)
 }

@@ -171,7 +171,8 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, params: &WriteMuxArrayParams) -> R
 
     let mux = draw_write_mux(lib, mux_params)?;
     let muxes = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: name.to_string(),
             num: cols,
             cell: mux,
@@ -180,14 +181,14 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, params: &WriteMuxArrayParams) -> R
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
     let bbox = muxes.cell.read().unwrap().layout.as_ref().unwrap().bbox();
     let tap = draw_write_mux_tap_cell(lib, bbox.height())?;
 
     let taps = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: "write_mux_tap_array".to_string(),
             num: cols / 2 + 1,
             cell: tap,
@@ -196,7 +197,6 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, params: &WriteMuxArrayParams) -> R
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
     let name = "write_mux_array";

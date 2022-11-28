@@ -122,20 +122,6 @@ pub fn draw_and3(lib: &mut PdkLib, params: &AndParams) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_nand2_dec(lib: &mut PdkLib, name: impl Into<String>) -> Result<Ptr<Cell>> {
-    draw_nand2(
-        lib,
-        &GateParams {
-            name: name.into(),
-            size: Size {
-                nmos_width: 3_200,
-                pmos_width: 2_400,
-            },
-            length: 150,
-        },
-    )
-}
-
 pub fn draw_nand2(lib: &mut PdkLib, args: &GateParams) -> Result<Ptr<Cell>> {
     let mut layout = Layout::new(&args.name);
     let mut abs = Abstract::new(&args.name);

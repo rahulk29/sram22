@@ -9,7 +9,7 @@ use crate::schematic::conns::{
 };
 use crate::tech::{sram_sp_cell_ref, sram_sp_colend_ref};
 
-pub fn bitcell_array(params: BitcellArrayParams) -> Module {
+pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
     let rows = params.rows as i64;
     let cols = params.cols as i64;
     let dummy_rows = params.dummy_rows as i64;
@@ -36,7 +36,7 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
     ];
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],

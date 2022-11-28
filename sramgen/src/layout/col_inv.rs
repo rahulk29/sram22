@@ -1,34 +1,39 @@
-use crate::bus_bit;
-use crate::config::gate::{GateParams, Size};
-use crate::layout::Result;
-use crate::tech::COLUMN_WIDTH;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
 use layout21::raw::{BoundBoxTrait, Cell, Instance};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
-use super::common::{draw_two_level_contact, MergeArgs, TwoLevelContactParams};
-use super::sram::{connect, ConnectArgs, GateList};
+use crate::bus_bit;
+use crate::config::col_inv::{ColInvArrayParams, ColInvParams};
+use crate::config::gate::{GateParams, Size};
+use crate::layout::array::{draw_cell_array, ArrayCellParams, FlipMode};
+use crate::layout::common::{draw_two_level_contact, MergeArgs, TwoLevelContactParams};
+use crate::layout::route::Router;
+use crate::layout::sram::{connect, ConnectArgs, GateList};
+use crate::layout::Result;
+use crate::tech::COLUMN_WIDTH;
 
-use super::route::Router;
+pub fn draw_col_inv_array(lib: &mut PdkLib, params: &ColInvArrayParams) -> Result<Ptr<Cell>> {
+    let &ColInvArrayParams {
+        width, mux_ratio, ..
+    } = params;
+    let ColInvArrayParams {
+        name,
+        instance_params,
+        ..
+    } = params;
 
-pub fn draw_col_inv_array(
-    lib: &mut PdkLib,
-    prefix: &str,
-    width: usize,
-    mux_ratio: usize,
-) -> Result<Ptr<Cell>> {
-    let cell = draw_col_inv(lib, &format!("{prefix}_cell"))?;
+    let cell = draw_col_inv(lib, instance_params)?;
     let ntap = draw_col_inv_ntap_cell(lib)?;
     let ptap = draw_col_inv_ptap_cell(lib)?;
 
     let mux_ratio = mux_ratio as isize;
 
     let array = draw_cell_array(
-        ArrayCellParams {
-            name: format!("{}_array_inst", prefix),
+        lib,
+        &ArrayCellParams {
+            name: format!("{}_array_inst", name),
             num: width,
             cell,
             spacing: Some(COLUMN_WIDTH * mux_ratio),
@@ -36,12 +41,12 @@ pub fn draw_col_inv_array(
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
     let ntaps = draw_cell_array(
-        ArrayCellParams {
-            name: format!("{}_ntap_array", prefix),
+        lib,
+        &ArrayCellParams {
+            name: format!("{}_ntap_array", name),
             num: width + 1,
             cell: ntap,
             spacing: Some(COLUMN_WIDTH * mux_ratio),
@@ -49,12 +54,12 @@ pub fn draw_col_inv_array(
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
     let ptaps = draw_cell_array(
-        ArrayCellParams {
-            name: format!("{}_ptap_array", prefix),
+        lib,
+        &ArrayCellParams {
+            name: format!("{}_ptap_array", name),
             num: width + 1,
             cell: ptap,
             spacing: Some(COLUMN_WIDTH * mux_ratio),
@@ -62,7 +67,6 @@ pub fn draw_col_inv_array(
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
     let inst = Instance::new("array", array.cell);
@@ -81,7 +85,7 @@ pub fn draw_col_inv_array(
     ntaps.align_centers_vertically_gridded(nwell_region.bbox(), lib.pdk.grid());
     ptaps.align_centers_vertically_gridded(pwell_region.bbox(), lib.pdk.grid());
 
-    let mut cell = Cell::empty(prefix);
+    let mut cell = Cell::empty(name);
 
     let nwell = lib.pdk.get_layerkey("nwell").unwrap();
     let elt = MergeArgs::builder()
@@ -94,7 +98,7 @@ pub fn draw_col_inv_array(
         .element();
     cell.layout_mut().add(elt);
 
-    let mut router = Router::new(format!("{}_route", &prefix), lib.pdk.clone());
+    let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m2 = cfg.layerkey(2);
@@ -152,17 +156,25 @@ pub fn draw_col_inv_array(
     Ok(ptr)
 }
 
-pub fn draw_col_inv(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
+pub fn draw_col_inv(lib: &mut PdkLib, params: &ColInvParams) -> Result<Ptr<Cell>> {
+    let &ColInvParams {
+        length,
+        nwidth,
+        pwidth,
+        ..
+    } = params;
+    let name = &params.name;
+
     let mut cell = Cell::empty(name.to_string());
     let inv = super::gate::draw_inv(
         lib,
         &GateParams {
             name: format!("{name}_inv"),
             size: Size {
-                nmos_width: 1_400,
-                pmos_width: 2_600,
+                nmos_width: nwidth,
+                pmos_width: pwidth,
             },
-            length: 150,
+            length,
         },
     )?;
 
@@ -187,7 +199,7 @@ fn draw_col_inv_ntap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .bot_rows(6)
         .top_rows(6)
         .build()?;
-    let contact = draw_two_level_contact(lib, params)?;
+    let contact = draw_two_level_contact(lib, &params)?;
     Ok(contact)
 }
 
@@ -199,6 +211,6 @@ fn draw_col_inv_ptap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .bot_rows(4)
         .top_rows(5)
         .build()?;
-    let contact = draw_two_level_contact(lib, params)?;
+    let contact = draw_two_level_contact(lib, &params)?;
     Ok(contact)
 }

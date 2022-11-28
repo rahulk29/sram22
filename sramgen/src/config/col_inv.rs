@@ -1,6 +1,7 @@
 use pdkprims::config::Int;
 
 pub struct ColInvParams {
+    pub name: String,
     pub length: Int,
     pub nwidth: Int,
     pub pwidth: Int,
@@ -8,6 +9,7 @@ pub struct ColInvParams {
 
 pub struct ColInvArrayParams {
     pub name: String,
-    pub width: i64,
+    pub width: usize,
+    pub mux_ratio: usize,
     pub instance_params: ColInvParams,
 }

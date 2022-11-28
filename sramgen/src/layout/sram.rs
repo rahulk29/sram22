@@ -7,6 +7,9 @@ use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::{LayerIdx, PdkLib};
 
+use crate::config::bitcell_array::BitcellArrayParams;
+use crate::config::col_inv::{ColInvArrayParams, ColInvParams};
+use crate::config::decoder::{nand2_dec_params, GateDecArrayParams, NandDecArrayParams};
 use crate::config::dff::DffGridParams;
 use crate::config::gate::{AndParams, GateParams, Size};
 use crate::config::mux::{ReadMuxArrayParams, ReadMuxParams, WriteMuxArrayParams, WriteMuxParams};
@@ -18,8 +21,7 @@ use crate::layout::array::{draw_bitcell_array, draw_power_connector};
 use crate::layout::col_inv::draw_col_inv_array;
 use crate::layout::control::draw_control_logic;
 use crate::layout::decoder::{
-    bus_width, draw_hier_decode, draw_inv_dec_array, draw_nand2_dec_array, ConnectSubdecodersArgs,
-    GateArrayParams,
+    bus_width, draw_hier_decode, draw_inv_dec_array, draw_nand_dec_array, ConnectSubdecodersArgs,
 };
 use crate::layout::dff::draw_dff_grid;
 use crate::layout::dout_buffer::draw_dout_buffer_array;
@@ -162,37 +164,54 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         .build()?;
     let wmask_dffs = draw_dff_grid(lib, &wmask_dff_params)?;
 
-    let core = draw_bitcell_array(rows, cols, 2, 2, lib)?;
-    let nand_dec = draw_nand2_dec_array(
+    let core = draw_bitcell_array(
         lib,
-        &GateArrayParams {
-            name: "nand2_dec".to_string(),
-            width: rows,
-            dir: Dir::Vert,
-            pitch: Some(BITCELL_HEIGHT),
+        &BitcellArrayParams {
+            name: "bitcell_array".to_string(),
+            rows,
+            cols,
+            dummy_rows: 2,
+            dummy_cols: 2,
+        },
+    )?;
+    let nand_dec = draw_nand_dec_array(
+        lib,
+        &NandDecArrayParams {
+            array_params: GateDecArrayParams {
+                name: "nand2_dec".to_string(),
+                width: rows,
+                dir: Dir::Vert,
+                pitch: Some(BITCELL_HEIGHT),
+            },
+            gate: nand2_dec_params("nand2_dec"),
+            gate_size: 2,
         },
     )?;
     let inv_dec = draw_inv_dec_array(
         lib,
-        &GateArrayParams {
+        &GateDecArrayParams {
             name: "inv_dec".to_string(),
             width: rows,
             dir: Dir::Vert,
             pitch: Some(BITCELL_HEIGHT),
         },
     )?;
-    let wldrv_nand = draw_nand2_dec_array(
+    let wldrv_nand = draw_nand_dec_array(
         lib,
-        &GateArrayParams {
-            name: "wldrv_nand".to_string(),
-            width: rows,
-            dir: Dir::Vert,
-            pitch: Some(BITCELL_HEIGHT),
+        &NandDecArrayParams {
+            array_params: GateDecArrayParams {
+                name: "wldrv_nand".to_string(),
+                width: rows,
+                dir: Dir::Vert,
+                pitch: Some(BITCELL_HEIGHT),
+            },
+            gate: nand2_dec_params("wldrv_nand"),
+            gate_size: 2,
         },
     )?;
     let wldrv_inv = draw_inv_dec_array(
         lib,
-        &GateArrayParams {
+        &GateDecArrayParams {
             name: "wldrv_inv".to_string(),
             width: rows,
             dir: Dir::Vert,
@@ -240,7 +259,20 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
             },
         },
     )?;
-    let col_inv = draw_col_inv_array(lib, "col_data_inv", cols / mux_ratio, mux_ratio)?;
+    let col_inv = draw_col_inv_array(
+        lib,
+        &ColInvArrayParams {
+            name: "col_inv_array".to_string(),
+            width: cols / mux_ratio as usize,
+            mux_ratio,
+            instance_params: ColInvParams {
+                name: "col_inv".to_string(),
+                length: 150,
+                nwidth: 1_400,
+                pwidth: 2_600,
+            },
+        },
+    )?;
     let sense_amp = draw_sense_amp_array(lib, cols / mux_ratio, COLUMN_WIDTH * mux_ratio as isize)?;
     let din_dff_params = DffGridParams::builder()
         .name("data_dff_array")
@@ -418,7 +450,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     tmc.align_to_the_right_of(core_bbox, 1_270);
 
     let mut power_grid = PowerStrapGen::new(
-        PowerStrapOpts::builder()
+        &PowerStrapOpts::builder()
             .h_metal(2)
             .h_line(640)
             .h_space(3 * cfg.space(2))

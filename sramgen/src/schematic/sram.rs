@@ -85,12 +85,12 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         },
     });
 
-    let bitcells = bitcell_array(BitcellArrayParams {
+    let bitcells = bitcell_array(&BitcellArrayParams {
+        name: "bitcell_array".to_string(),
         rows: rows as usize,
         cols,
         dummy_rows: 2,
         dummy_cols: 2,
-        name: "bitcell_array".to_string(),
     });
 
     let mut precharge = precharge_array(PrechargeArrayParams {
@@ -130,8 +130,10 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
 
     let mut col_inv = col_inv_array(&ColInvArrayParams {
         name: "col_inv_array".to_string(),
-        width: cols_masked,
+        width: cols_masked as usize,
+        mux_ratio,
         instance_params: ColInvParams {
+            name: "col_inv".to_string(),
             length: 150,
             nwidth: 1_400,
             pwidth: 2_600,

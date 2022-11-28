@@ -128,7 +128,7 @@ pub fn draw_tap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .bot_rows(10)
         .top_rows(10)
         .build()?;
-    let contact = draw_two_level_contact(lib, params)?;
+    let contact = draw_two_level_contact(lib, &params)?;
     Ok(contact)
 }
 
@@ -142,7 +142,8 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Res
     let pc = draw_precharge(lib, instance_params)?;
 
     let core = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: "precharge_pc_array".to_string(),
             num: width,
             cell: pc,
@@ -151,13 +152,13 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Res
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
     let tap = draw_tap_cell(lib)?;
 
     let taps = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: "precharge_tap_array".to_string(),
             num: width + 1,
             cell: tap,
@@ -166,7 +167,6 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Res
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
     let mut cell = Cell::empty(name);

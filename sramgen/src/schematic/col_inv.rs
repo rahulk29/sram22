@@ -19,8 +19,8 @@ pub fn col_inv_array(params: &ColInvArrayParams) -> Vec<Module> {
 
     let vdd = signal("vdd");
     let vss = signal("vss");
-    let din = bus("din", params.width);
-    let din_b = bus("din_b", params.width);
+    let din = bus("din", params.width as i64);
+    let din_b = bus("din_b", params.width as i64);
 
     let ports = vec![
         port_input(&din),
@@ -38,6 +38,7 @@ pub fn col_inv_array(params: &ColInvArrayParams) -> Vec<Module> {
     };
 
     for i in 0..params.width {
+        let i = i as i64;
         let mut connections = HashMap::new();
         connections.insert("vdd".to_string(), sig_conn(&vdd));
         connections.insert("vss".to_string(), sig_conn(&vss));
