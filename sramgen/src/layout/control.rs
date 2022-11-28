@@ -5,7 +5,7 @@ use crate::layout::sram::GateList;
 use crate::tech::{sc_and2_gds, sc_buf_gds, sc_bufbuf_16_gds, sc_inv_gds, sc_nor2_gds, sc_tap_gds};
 use crate::Result;
 
-use layout21::raw::{Cell, Instance, Point};
+use layout21::raw::{Cell, Dir, Instance, Point, Rect};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
@@ -193,6 +193,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let nor2_outline = sc_outline(&lib.pdk, &wl_ctl_nor1);
     wl_ctl_nor1.loc = Point::new(x, y);
     wl_ctl_nor1.reflect_vert_anchored();
+    wl_ctl_nor1.reflect_horiz_anchored();
     x += nor2_outline.width();
     let mut wl_ctl_nor2 = Instance::new("wl_ctl_nor2", nor2.clone());
     wl_ctl_nor2.loc = Point::new(x, y);
@@ -216,6 +217,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let mut sae_ctl_nor1 = Instance::new("sae_ctl_nor1", nor2.clone());
     sae_ctl_nor1.loc = Point::new(x, y);
     x += nor2_outline.width();
+    sae_ctl_nor1.reflect_horiz_anchored();
     let mut sae_ctl_nor2 = Instance::new("sae_ctl_nor2", nor2.clone());
     sae_ctl_nor2.loc = Point::new(x, y);
     x += nor2_outline.width();
@@ -239,6 +241,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     x += tap_outline.width();
     let mut pc_ctl_nor1 = Instance::new("pc_ctl_nor1", nor2.clone());
     pc_ctl_nor1.loc = Point::new(x, y);
+    pc_ctl_nor1.reflect_horiz_anchored();
     x += nor2_outline.width();
     let mut pc_ctl_nor2 = Instance::new("pc_ctl_nor2", nor2.clone());
     pc_ctl_nor2.loc = Point::new(x, y);
@@ -267,6 +270,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let mut wr_drv_ctl_nor1 = Instance::new("wr_drv_ctl_nor1", nor2.clone());
     wr_drv_ctl_nor1.loc = Point::new(x, y);
     wr_drv_ctl_nor1.reflect_vert_anchored();
+    wr_drv_ctl_nor1.reflect_horiz_anchored();
     x += nor2_outline.width();
     let mut wr_drv_ctl_nor2 = Instance::new("wr_drv_ctl_nor2", nor2.clone());
     wr_drv_ctl_nor2.loc = Point::new(x, y);
@@ -307,6 +311,102 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .horiz_to_rect(clk_out)
         .contact_down(clk_out);
 
+    // Wordline control latch (wl_ctl)
+    let (_, wl_en0) = route_latch(&wl_ctl_nor1, &wl_ctl_nor2, &mut router);
+
+    let buf_a = wl_en_buf.port("a").largest_rect(m0).unwrap();
+    router
+        .trace(wl_en0, 1)
+        .set_width(cfg.line(0))
+        .place_cursor(Dir::Horiz, true)
+        .horiz_to(buf_a.right() - 140)
+        .set_width(230)
+        .vert_to_rect(buf_a)
+        .contact_down(buf_a);
+
+    let rst = wl_ctl_nor1.port("a").largest_rect(m0).unwrap();
+    let rbl_b = inv_rbl.port("y").largest_rect(m0).unwrap();
+    router
+        .trace(rst, 0)
+        .place_cursor_centered()
+        .up()
+        .horiz_to_rect(rbl_b)
+        .contact_down(rbl_b);
+
+    cell.add_pin_from_port(wl_en_buf.port("x").named("wl_en"), m1);
+
+    // TODO clkp -> wl latch set
+
+    // TODO rbl_b -> sae_delay_chain
+    let (sense_en0, _) = route_latch(&sae_ctl_nor1, &sae_ctl_nor2, &mut router);
+    let sense_en_set = sae_ctl_nor1.port("a").largest_rect(m0).unwrap();
+    let ssdc_set = ssdc_inst.port("dout").largest_rect(m0).unwrap();
+    let mut trace = router.trace(sense_en_set, 0);
+    trace
+        .place_cursor_centered()
+        .up()
+        .horiz_to_rect(ssdc_set)
+        .contact_down(ssdc_set);
+    let sense_en_set = trace.rect();
+
+    let buf_a = sae_buf.port("a").largest_rect(m0).unwrap();
+    router
+        .trace(sense_en0, 1)
+        .set_width(cfg.line(0))
+        .place_cursor(Dir::Horiz, true)
+        .horiz_to(buf_a.right() - 140)
+        .set_width(230)
+        .vert_to_rect(buf_a)
+        .contact_down(buf_a);
+
+    cell.add_pin_from_port(sae_buf.port("x").named("sense_en"), m1);
+
+    // Generate precharge bar
+    // TODO sense_en_set -> pc_delay_chain
+    // pc_set -> pc_ctl_nor1
+
+    let (_, pc_b0) = route_latch(&pc_ctl_nor1, &pc_ctl_nor2, &mut router);
+    let buf_a = pc_b_buf.port("a").largest_rect(m0).unwrap();
+    router
+        .trace(pc_b0, 1)
+        .set_width(cfg.line(0))
+        .place_cursor(Dir::Horiz, true)
+        .horiz_to(buf_a.right() - 140)
+        .set_width(230)
+        .vert_to_rect(buf_a)
+        .contact_down(buf_a);
+
+    cell.add_pin_from_port(pc_b_buf.port("x").named("pc_b"), m1);
+
+    // Write driver control
+    // TODO clkp -> and_wr_en_set
+    // TODO we port
+
+    let wr_drv_dc_in = wr_drv_dc.port("din").largest_rect(m0).unwrap();
+    let wr_drv_set0 = and_wr_en_set.port("x").largest_rect(m0).unwrap();
+    router
+        .trace(wr_drv_set0, 0)
+        .place_cursor_centered()
+        .up()
+        .horiz_to(wr_drv_dc_in.right() - 140)
+        .vert_to_rect(wr_drv_dc_in)
+        .contact_down(wr_drv_dc_in);
+
+    // TODO sense_en0 -> wr_drv_ctl_nor2
+
+    let (write_driver_en0, _) = route_latch(&wr_drv_ctl_nor1, &wr_drv_ctl_nor2, &mut router);
+    let buf_a = wr_drv_buf.port("a").largest_rect(m0).unwrap();
+    router
+        .trace(write_driver_en0, 1)
+        .set_width(cfg.line(0))
+        .place_cursor(Dir::Horiz, true)
+        .horiz_to(buf_a.right() - 140)
+        .set_width(230)
+        .vert_to_rect(buf_a)
+        .contact_down(buf_a);
+
+    cell.add_pin_from_port(wr_drv_buf.port("x").named("write_driver_en"), m1);
+
     cell.layout_mut().add_inst(eddc);
     cell.layout_mut().add_inst(ed_and);
     cell.layout_mut().add_inst(tap0);
@@ -340,4 +440,33 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     lib.lib.cells.push(ptr.clone());
 
     Ok(ptr)
+}
+
+fn route_latch(nor1: &Instance, nor2: &Instance, router: &mut Router) -> (Rect, Rect) {
+    let cfg = router.cfg();
+    let m0 = cfg.layerkey(0);
+
+    let b1 = nor1.port("b").largest_rect(m0).unwrap();
+    let b2 = nor2.port("b").largest_rect(m0).unwrap();
+    let q = nor1.port("y").largest_rect(m0).unwrap();
+    let qb = nor2.port("y").largest_rect(m0).unwrap();
+
+    let mut trace = router.trace(b1, 0);
+    trace
+        .place_cursor_centered()
+        .up()
+        .up_by(2 * cfg.line(0))
+        .horiz_to_rect(qb)
+        .contact_down(qb);
+    let qout = trace.rect();
+    let mut trace = router.trace(b2, 0);
+    trace
+        .place_cursor_centered()
+        .up()
+        .down_by(2 * cfg.line(0))
+        .horiz_to_rect(q)
+        .contact_down(q);
+    let qbout = trace.rect();
+
+    (qout, qbout)
 }
