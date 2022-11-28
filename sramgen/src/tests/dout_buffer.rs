@@ -1,3 +1,4 @@
+use crate::config::dout_buffer::*;
 use crate::layout::dout_buffer::*;
 use crate::paths::{out_bin, out_gds};
 use crate::schematic::dout_buffer::*;

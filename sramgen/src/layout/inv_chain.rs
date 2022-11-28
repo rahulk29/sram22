@@ -10,8 +10,8 @@ use crate::layout::sram::GateList;
 use crate::tech::{sc_inv_gds, sc_tap_gds};
 use crate::{bus_bit, Result};
 
-pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Cell>> {
-    let mut cell = Cell::empty(params.name);
+pub fn draw_inv_chain(lib: &mut PdkLib, params: &InvChainParams) -> Result<Ptr<Cell>> {
+    let mut cell = Cell::empty(&params.name);
 
     let inv = sc_inv_gds(lib)?;
     let tap = sc_tap_gds(lib)?;

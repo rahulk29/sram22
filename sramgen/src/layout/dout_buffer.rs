@@ -1,5 +1,5 @@
+use crate::config::gate::{GateParams, Size};
 use crate::layout::Result;
-use crate::schematic::gate::{GateParams, Size};
 use crate::tech::COLUMN_WIDTH;
 
 use layout21::raw::align::AlignRect;
@@ -99,7 +99,7 @@ pub fn draw_dout_buffer(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     let mut cell = Cell::empty(name.to_string());
     let inv1_cell = super::gate::draw_inv(
         lib,
-        GateParams {
+        &GateParams {
             name: format!("{name}_inv1"),
             size: Size {
                 nmos_width: 1_000,
@@ -110,7 +110,7 @@ pub fn draw_dout_buffer(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     )?;
     let inv2_cell = super::gate::draw_inv(
         lib,
-        GateParams {
+        &GateParams {
             name: format!("{name}_inv2"),
             size: Size {
                 nmos_width: 2_000,

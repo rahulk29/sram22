@@ -1,3 +1,9 @@
+use pdkprims::config::Int;
+use serde::{Deserialize, Serialize};
+
+use crate::config::gate::Size;
+use crate::schematic::decoder::DecoderTree;
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DecoderParams {
     pub name: String,

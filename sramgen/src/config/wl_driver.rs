@@ -1,6 +1,8 @@
 use pdkprims::config::Int;
 use serde::{Deserialize, Serialize};
 
+use crate::config::gate::Size;
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct WordlineDriverParams {
     pub name: String,

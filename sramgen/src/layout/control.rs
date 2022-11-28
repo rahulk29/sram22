@@ -1,6 +1,7 @@
-use crate::config::ControlMode;
+use crate::config::inv_chain::InvChainGridParams;
+use crate::config::sram::ControlMode;
 use crate::layout::common::MergeArgs;
-use crate::layout::inv_chain::{draw_inv_chain_grid, InvChainGridParams};
+use crate::layout::inv_chain::draw_inv_chain_grid;
 use crate::layout::sram::GateList;
 use crate::tech::{sc_and2_gds, sc_buf_gds, sc_inv_gds, sc_tap_gds};
 use crate::Result;
@@ -22,8 +23,8 @@ pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cel
     let tap = sc_tap_gds(lib)?;
     let delay_chain = draw_inv_chain_grid(
         lib,
-        InvChainGridParams {
-            prefix: "sram22_control_logic_delay_chain",
+        &InvChainGridParams {
+            name: "sram22_control_logic_delay_chain".to_string(),
             rows: 5,
             cols: 9,
         },

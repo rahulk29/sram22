@@ -2,38 +2,36 @@ use std::collections::HashMap;
 
 use vlsir::circuit::{Concat, Connection, Instance, Module};
 
-use crate::config::sram::SramParams;
-use crate::config::inv_chain::InvChainGridParams;
-use crate::config::bitcell_array::BitcellArrayParams
+use crate::config::bitcell_array::BitcellArrayParams;
 use crate::config::col_inv::{ColInvArrayParams, ColInvParams};
-use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
-use crate::config::mux::{ReadMuxParams, ReadMuxArrayParams, WriteMuxParams, WriteMuxArrayParams};
 use crate::config::decoder::DecoderParams;
+use crate::config::dff::DffGridParams;
 use crate::config::dout_buffer::{DoutBufArrayParams, DoutBufParams};
+use crate::config::gate::{AndParams, GateParams, Size};
+use crate::config::inv_chain::InvChainGridParams;
+use crate::config::mux::{ReadMuxArrayParams, ReadMuxParams, WriteMuxArrayParams, WriteMuxParams};
+use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::config::sense_amp::SenseAmpArrayParams;
+use crate::config::sram::SramParams;
 use crate::config::wl_driver::{WordlineDriverArrayParams, WordlineDriverParams};
-use crate::schematic::bitcell_array::{bitcell_array};
-use crate::schematic::col_inv::{col_inv_array};
+use crate::config::wmask_control::WriteMaskControlParams;
+use crate::schematic::bitcell_array::bitcell_array;
+use crate::schematic::col_inv::col_inv_array;
 use crate::schematic::conns::{
     bus, conn_map, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
 };
 use crate::schematic::decoder::{hierarchical_decoder, DecoderTree};
-use crate::schematic::dff::dff_array;
-use crate::schematic::dout_buffer::{dout_buf_array };
-use crate::config::gate::{AndParams, GateParams, Size};
+use crate::schematic::dff::dff_grid;
+use crate::schematic::dout_buffer::dout_buf_array;
 use crate::schematic::inv_chain::inv_chain_grid;
+use crate::schematic::local_reference;
 use crate::schematic::mux::read::read_mux_array;
-use crate::schematic::mux::write::{write_mux_array, };
-use crate::schematic::precharge::{precharge_array, };
-use crate::schematic::sense_amp::{sense_amp_array};
-use crate::schematic::wl_driver::{
-    wordline_driver_array, 
-};
-use crate::config::wmask_control::{WriteMaskControlParams};
-use crate::schematic::wmask_control::{write_mask_control, };
-use crate::schematic::{local_reference, mux};
+use crate::schematic::mux::write::write_mux_array;
+use crate::schematic::precharge::precharge_array;
+use crate::schematic::sense_amp::sense_amp_array;
+use crate::schematic::wl_driver::wordline_driver_array;
+use crate::schematic::wmask_control::write_mask_control;
 use crate::tech::{openram_dff_ref, sramgen_control_ref};
-use crate::config::dff::DffArrayParams;
 
 pub fn sram(params: &SramParams) -> Vec<Module> {
     assert!(params.row_bits > 0);
@@ -140,20 +138,29 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         },
     });
 
-    let mut data_dff_array = dff_array(DffArrayParams {
-        name: "data_dff_array".to_string(),
-        width: cols / mux_ratio,
-    });
+    let din_dff_params = DffGridParams::builder()
+        .name("data_dff_array")
+        .rows(2)
+        .cols(cols / (2 * mux_ratio))
+        .build()
+        .unwrap();
+    let mut data_dff_array = dff_grid(&din_dff_params);
 
-    let mut wmask_dff_array = dff_array(DffArrayParams {
-        name: "wmask_dff_array".to_string(),
-        width: wmask_width,
-    });
+    let wmask_dff_params = DffGridParams::builder()
+        .name("wmask_dff_array")
+        .cols(wmask_width)
+        .rows(1)
+        .build()
+        .unwrap();
+    let mut wmask_dff_array = dff_grid(&wmask_dff_params);
 
-    let mut addr_dff_array = dff_array(DffArrayParams {
-        name: "addr_dff_array".to_string(),
-        width: (row_bits + col_mask_bits) as usize,
-    });
+    let addr_dff_params = DffGridParams::builder()
+        .name("addr_dff_array")
+        .cols((row_bits + col_mask_bits + 1) as usize) // 1 extra bit for write enable
+        .rows(1)
+        .build()
+        .unwrap();
+    let mut addr_dff_array = dff_grid(&addr_dff_params);
 
     let sense_amp_array = sense_amp_array(SenseAmpArrayParams {
         name: "sense_amp_array".to_string(),
@@ -196,7 +203,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         },
     });
 
-    let inv_chain = inv_chain_grid(InvChainGridParams {
+    let inv_chain = inv_chain_grid(&InvChainGridParams {
         name: "control_logic_delay_chain".to_string(),
         rows: 5,
         cols: 9,

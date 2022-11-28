@@ -1,6 +1,6 @@
 use crate::bus_bit;
+use crate::config::gate::{GateParams, Size};
 use crate::layout::Result;
-use crate::schematic::gate::{GateParams, Size};
 use crate::tech::COLUMN_WIDTH;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
@@ -156,7 +156,7 @@ pub fn draw_col_inv(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     let mut cell = Cell::empty(name.to_string());
     let inv = super::gate::draw_inv(
         lib,
-        GateParams {
+        &GateParams {
             name: format!("{name}_inv"),
             size: Size {
                 nmos_width: 1_400,

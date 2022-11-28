@@ -13,11 +13,12 @@ use crate::schematic::mos::Mosfet;
 
 pub fn read_mux_array(params: &ReadMuxArrayParams) -> Vec<Module> {
     let &ReadMuxArrayParams {
-        mux_params,
-        cols,
-        mux_ratio,
-        ..
+        cols, mux_ratio, ..
     } = params;
+    let ReadMuxArrayParams {
+        name, mux_params, ..
+    } = params;
+
     let mux_ratio = mux_ratio as i64;
     let cols = cols as i64;
 
@@ -42,10 +43,8 @@ pub fn read_mux_array(params: &ReadMuxArrayParams) -> Vec<Module> {
         port_inout(&vdd),
     ];
 
-    let name = params.name.clone();
-
     let mut m = Module {
-        name,
+        name: name.to_string(),
         ports,
         signals: vec![],
         instances: vec![],
@@ -74,7 +73,7 @@ pub fn read_mux_array(params: &ReadMuxArrayParams) -> Vec<Module> {
 }
 
 /// A read mux using PMOS devices
-pub fn read_mux(params: ReadMuxParams) -> Module {
+pub fn read_mux(params: &ReadMuxParams) -> Module {
     let length = params.length;
 
     let sel_b = signal("sel_b");

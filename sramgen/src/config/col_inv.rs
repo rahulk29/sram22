@@ -1,3 +1,5 @@
+use pdkprims::config::Int;
+
 pub struct ColInvParams {
     pub length: Int,
     pub nwidth: Int,

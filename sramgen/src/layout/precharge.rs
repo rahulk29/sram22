@@ -8,12 +8,12 @@ use layout21::utils::Ptr;
 use pdkprims::mos::{Intent, MosDevice, MosParams, MosType};
 use pdkprims::PdkLib;
 
-use super::array::*;
-use super::common::{draw_two_level_contact, TwoLevelContactParams};
+use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
+use crate::layout::array::*;
+use crate::layout::common::{draw_two_level_contact, TwoLevelContactParams};
 use crate::layout::common::{MergeArgs, NWELL_COL_SIDE_EXTEND, NWELL_COL_VERT_EXTEND};
 use crate::layout::route::{ContactBounds, Router, VertDir};
 use crate::layout::sram::GateList;
-use crate::schematic::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::{bus_bit, Result};
 
 pub fn draw_precharge(lib: &mut PdkLib, args: PrechargeParams) -> Result<Ptr<Cell>> {

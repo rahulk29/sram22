@@ -6,7 +6,7 @@ use layout21::raw::{
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use crate::schematic::gate::{GateParams, Size};
+use crate::config::gate::{GateParams, Size};
 
 use super::gate::draw_nor2;
 use super::route::Router;
@@ -17,7 +17,7 @@ pub fn draw_sr_latch(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
 
     let nor = draw_nor2(
         lib,
-        GateParams {
+        &GateParams {
             name: format!("{}_nor2", name),
             size: Size {
                 nmos_width: 1_500,

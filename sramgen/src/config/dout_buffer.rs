@@ -1,3 +1,5 @@
+use pdkprims::config::Int;
+
 pub struct DoutBufParams {
     pub length: Int,
     pub nw1: Int,

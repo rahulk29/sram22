@@ -1,3 +1,4 @@
+use crate::config::bitcell_array::*;
 use crate::layout::array::*;
 use crate::layout::draw_bitcell;
 use crate::paths::{out_bin, out_gds};

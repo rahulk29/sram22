@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use pdkprims::mos::MosType;
 use vlsir::circuit::Module;
 
-use crate::config::mux::WriteMuxArrayParams;
+use crate::config::mux::{WriteMuxArrayParams, WriteMuxParams};
 use crate::schematic::conns::{
     bus, conn_map, conn_slice, port_inout, port_input, sig_conn, signal,
 };

@@ -180,7 +180,9 @@ pub fn draw_read_mux(lib: &mut PdkLib, params: &ReadMuxParams) -> Result<Ptr<Cel
 
 pub fn draw_read_mux_array(lib: &mut PdkLib, params: &ReadMuxArrayParams) -> Result<Ptr<Cell>> {
     let &ReadMuxArrayParams {
-        cols, mux_ratio, ..
+        mut cols,
+        mut mux_ratio,
+        ..
     } = params;
     let ReadMuxArrayParams {
         name, mux_params, ..

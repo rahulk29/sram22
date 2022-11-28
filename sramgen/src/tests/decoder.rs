@@ -1,3 +1,4 @@
+use crate::config::decoder::*;
 use crate::config::gate::{GateParams, Size};
 use crate::layout::decoder::*;
 use crate::paths::{out_bin, out_gds};
@@ -15,8 +16,8 @@ fn test_inv_dec_array() -> Result<()> {
     let mut lib = sky130::pdk_lib(name)?;
     draw_inv_dec_array(
         &mut lib,
-        GateArrayParams {
-            prefix: "inv_dec_array",
+        &GateArrayParams {
+            name: "inv_dec_array".to_string(),
             width: 32,
             dir: Dir::Vert,
             pitch: Some(BITCELL_HEIGHT),
@@ -35,8 +36,8 @@ fn test_nand2_dec_array() -> Result<()> {
     let mut lib = sky130::pdk_lib(name)?;
     draw_inv_dec_array(
         &mut lib,
-        GateArrayParams {
-            prefix: "nand2_dec_array",
+        &GateArrayParams {
+            name: "nand2_dec_array".to_string(),
             width: 32,
             dir: Dir::Vert,
             pitch: Some(BITCELL_HEIGHT),
@@ -55,13 +56,13 @@ fn test_nand3_array() -> Result<()> {
     let mut lib = sky130::pdk_lib(name)?;
     draw_nand3_array(
         &mut lib,
-        GateArrayParams {
-            prefix: "nand3_dec_array",
+        &GateArrayParams {
+            name: "nand3_dec_array".to_string(),
             width: 16,
             dir: Dir::Vert,
             pitch: Some(BITCELL_HEIGHT),
         },
-        GateParams {
+        &GateParams {
             name: "nand3_dec_gate".to_string(),
             size: Size {
                 nmos_width: 2_400,
@@ -85,7 +86,7 @@ fn test_and3_array() -> Result<()> {
         &mut lib,
         name,
         16,
-        GateParams {
+        &GateParams {
             name: "and3_nand".to_string(),
             size: Size {
                 nmos_width: 2_400,
@@ -93,7 +94,7 @@ fn test_and3_array() -> Result<()> {
             },
             length: 150,
         },
-        GateParams {
+        &GateParams {
             name: "and3_inv".to_string(),
             size: Size {
                 nmos_width: 2_000,
@@ -117,7 +118,7 @@ fn test_and2_array() -> Result<()> {
         &mut lib,
         name,
         16,
-        GateParams {
+        &GateParams {
             name: "and2_nand".to_string(),
             size: Size {
                 nmos_width: 2_400,
@@ -125,7 +126,7 @@ fn test_and2_array() -> Result<()> {
             },
             length: 150,
         },
-        GateParams {
+        &GateParams {
             name: "and2_inv".to_string(),
             size: Size {
                 nmos_width: 2_000,

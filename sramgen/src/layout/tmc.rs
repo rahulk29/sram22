@@ -21,7 +21,7 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
 
     let nand = draw_nand2(
         lib,
-        GateParams {
+        &GateParams {
             name: format!("{}_nand", name),
             size: Size {
                 nmos_width: 1_200,
@@ -33,7 +33,7 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
 
     let inv = draw_inv(
         lib,
-        GateParams {
+        &GateParams {
             name: format!("{}_inv", name),
             size: Size {
                 nmos_width: 1200,

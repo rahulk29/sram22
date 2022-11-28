@@ -2,14 +2,14 @@ use std::collections::HashMap;
 
 use vlsir::circuit::{Instance, Module};
 
-use crate::config::dff::DffArrayParams;
+use crate::config::dff::DffGridParams;
 use crate::schematic::conns::{
     bus, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
 };
 use crate::tech::openram_dff_ref;
 
-pub fn dff_array(params: DffArrayParams) -> Vec<Module> {
-    let width = params.width as i64;
+pub fn dff_grid(params: &DffGridParams) -> Vec<Module> {
+    let width = (params.rows * params.cols) as i64;
 
     assert!(width > 0);
 
@@ -31,7 +31,7 @@ pub fn dff_array(params: DffArrayParams) -> Vec<Module> {
     ];
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],

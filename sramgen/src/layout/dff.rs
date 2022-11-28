@@ -5,46 +5,25 @@ use crate::layout::Result;
 use crate::tech::openram_dff_gds;
 use layout21::raw::align::AlignRect;
 
-use layout21::raw::{AbstractPort, BoundBoxTrait, Cell, Dir, Element, Instance, Shape};
+use layout21::raw::{AbstractPort, BoundBoxTrait, Cell, Element, Instance, Shape};
 use layout21::utils::Ptr;
 use pdkprims::contact::Contact;
 use pdkprims::PdkLib;
 
 use crate::config::dff::DffGridParams;
-use crate::layout::array::*;
 
 use super::common::{GridOrder, MergeArgs};
 use super::sram::GateList;
 
-pub fn draw_dff_array(
-    lib: &mut PdkLib,
-    name: impl Into<String>,
-    width: usize,
-) -> Result<ArrayedCell> {
-    let dff = openram_dff_gds(lib)?;
-
-    draw_cell_array(
-        ArrayCellParams {
-            name: name.into(),
-            num: width,
-            cell: dff,
-            spacing: None,
-            flip: FlipMode::None,
-            flip_toggle: false,
-            direction: Dir::Horiz,
-        },
-        lib,
-    )
-}
-
-pub fn draw_dff_grid(lib: &mut PdkLib, params: DffGridParams) -> Result<Ptr<Cell>> {
-    let DffGridParams {
-        name,
+pub fn draw_dff_grid(lib: &mut PdkLib, params: &DffGridParams) -> Result<Ptr<Cell>> {
+    let &DffGridParams {
         rows,
         cols,
         row_pitch,
         order,
+        ..
     } = params;
+    let name = &params.name;
 
     let mut cell = Cell::empty(name);
 

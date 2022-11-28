@@ -1,3 +1,8 @@
+use derive_builder::Builder;
+use pdkprims::config::Int;
+
+use crate::layout::common::GridOrder;
+
 #[derive(Clone, Eq, PartialEq, Builder)]
 pub struct DffGridParams {
     #[builder(setter(into))]

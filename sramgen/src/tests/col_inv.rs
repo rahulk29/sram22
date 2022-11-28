@@ -1,3 +1,4 @@
+use crate::config::col_inv::*;
 use crate::layout::col_inv::*;
 use crate::paths::{out_bin, out_gds};
 use crate::schematic::col_inv::*;
@@ -10,7 +11,7 @@ use pdkprims::tech::sky130;
 fn test_col_inv_array() -> Result<()> {
     let name = "sramgen_col_inv_array";
     let width = 32;
-    let modules = col_inv_array(ColInvArrayParams {
+    let modules = col_inv_array(&ColInvArrayParams {
         name: name.to_string(),
         width,
         instance_params: ColInvParams {

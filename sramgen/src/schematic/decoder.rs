@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use fanout::FanoutAnalyzer;
+use serde::{Deserialize, Serialize};
 use vlsir::circuit::connection::Stype;
 use vlsir::circuit::{port, Concat, Connection, Instance, Module, Port, Signal, Slice};
 use vlsir::reference::To;

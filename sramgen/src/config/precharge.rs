@@ -1,3 +1,5 @@
+use pdkprims::config::Int;
+
 #[derive(Debug, Clone)]
 pub struct PrechargeParams {
     pub name: String,

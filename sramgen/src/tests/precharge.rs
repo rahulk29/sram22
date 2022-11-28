@@ -1,5 +1,6 @@
 use vlsir::circuit::Package;
 
+use crate::config::precharge::*;
 use crate::layout::precharge::*;
 use crate::paths::{out_bin, out_gds};
 use crate::schematic::precharge::*;

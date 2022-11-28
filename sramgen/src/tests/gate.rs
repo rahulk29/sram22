@@ -1,4 +1,4 @@
-use crate::config::gate::{GateParams, Size};
+use crate::config::gate::*;
 use crate::layout::gate::*;
 use crate::paths::{out_bin, out_gds};
 use crate::schematic::gate::*;
@@ -66,7 +66,7 @@ fn test_and2() -> Result<()> {
     generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
-    draw_and2(&mut lib, params)?;
+    draw_and2(&mut lib, &params)?;
 
     lib.save_gds(out_gds(&work_dir, name))?;
 
@@ -79,7 +79,7 @@ fn test_nor2() -> Result<()> {
     let mut lib = sky130::pdk_lib(name)?;
     draw_nor2(
         &mut lib,
-        GateParams {
+        &GateParams {
             name: "sramgen_nor2".to_string(),
             size: Size {
                 nmos_width: 1_200,
@@ -102,7 +102,7 @@ fn test_nand3() -> Result<()> {
     let mut lib = sky130::pdk_lib(name)?;
     draw_nand3(
         &mut lib,
-        GateParams {
+        &GateParams {
             name: "nand3".to_string(),
             size: Size {
                 nmos_width: 1_600,
@@ -125,7 +125,7 @@ fn test_and3() -> Result<()> {
     let mut lib = sky130::pdk_lib(name)?;
     draw_and3(
         &mut lib,
-        AndParams {
+        &AndParams {
             name: name.to_string(),
             nand: GateParams {
                 name: "and3_nand".to_string(),

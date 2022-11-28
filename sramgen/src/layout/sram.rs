@@ -1,5 +1,4 @@
 use derive_builder::Builder;
-use layout21::lef21::LefLibrary;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Rect;
 use layout21::raw::translate::Translate;
@@ -8,8 +7,13 @@ use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::{LayerIdx, PdkLib};
 
+use crate::config::dff::DffGridParams;
+use crate::config::gate::{AndParams, GateParams, Size};
 use crate::config::mux::{ReadMuxArrayParams, ReadMuxParams, WriteMuxArrayParams, WriteMuxParams};
+use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::config::sram::{ControlMode, SramParams};
+use crate::config::tmc::TmcParams;
+use crate::config::wmask_control::WriteMaskControlParams;
 use crate::layout::array::draw_bitcell_array;
 use crate::layout::array::draw_power_connector;
 use crate::layout::col_inv::draw_col_inv_array;
@@ -18,7 +22,7 @@ use crate::layout::decoder::{
     bus_width, draw_hier_decode, ConnectSubdecodersArgs, GateArrayParams,
 };
 use crate::layout::decoder::{draw_inv_dec_array, draw_nand2_dec_array};
-use crate::layout::dff::{draw_dff_grid, DffGridParams};
+use crate::layout::dff::draw_dff_grid;
 use crate::layout::dout_buffer::draw_dout_buffer_array;
 use crate::layout::guard_ring::{draw_guard_ring, GuardRingParams};
 use crate::layout::mux::read::draw_read_mux_array;
@@ -29,12 +33,9 @@ use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::Router;
 use crate::layout::route::Trace;
 use crate::layout::sense_amp::draw_sense_amp_array;
-use crate::layout::tmc::{draw_tmc, TmcParams};
+use crate::layout::tmc::draw_tmc;
 use crate::layout::wmask_control::draw_write_mask_control;
 use crate::schematic::decoder::DecoderTree;
-use crate::schematic::gate::{AndParams, GateParams, Size};
-use crate::schematic::precharge::{PrechargeArrayParams, PrechargeParams};
-use crate::schematic::wmask_control::WriteMaskControlParams;
 use crate::tech::{BITCELL_HEIGHT, BITCELL_WIDTH, COLUMN_WIDTH};
 use crate::{bus_bit, clog2, Result};
 
@@ -68,7 +69,6 @@ impl Side {
 
 pub struct PhysicalDesign {
     pub cell: Ptr<Cell>,
-    pub lef: LefLibrary,
 }
 
 pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign> {
@@ -121,7 +121,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     let control = draw_control_logic(lib, ControlMode::Simple)?;
     let we_control = draw_write_mask_control(
         lib,
-        WriteMaskControlParams {
+        &WriteMaskControlParams {
             name: "write_mask_control".to_string(),
             width: mux_ratio as i64,
             and_params: AndParams {
@@ -154,7 +154,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         .cols(total_addr_bits + 1) // 1 extra bit for write enable
         .rows(1)
         .build()?;
-    let addr_dffs = draw_dff_grid(lib, addr_dff_params)?;
+    let addr_dffs = draw_dff_grid(lib, &addr_dff_params)?;
 
     let wmask_dff_params = DffGridParams::builder()
         .name("wmask_dff_array")
@@ -162,13 +162,13 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         .rows(1)
         .row_pitch((cols / wmask_width) as isize * COLUMN_WIDTH)
         .build()?;
-    let wmask_dffs = draw_dff_grid(lib, wmask_dff_params)?;
+    let wmask_dffs = draw_dff_grid(lib, &wmask_dff_params)?;
 
     let core = draw_bitcell_array(rows, cols, 2, 2, lib)?;
     let nand_dec = draw_nand2_dec_array(
         lib,
-        GateArrayParams {
-            prefix: "nand2_dec",
+        &GateArrayParams {
+            name: "nand2_dec".to_string(),
             width: rows,
             dir: Dir::Vert,
             pitch: Some(BITCELL_HEIGHT),
@@ -176,8 +176,8 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     )?;
     let inv_dec = draw_inv_dec_array(
         lib,
-        GateArrayParams {
-            prefix: "inv_dec",
+        &GateArrayParams {
+            name: "inv_dec".to_string(),
             width: rows,
             dir: Dir::Vert,
             pitch: Some(BITCELL_HEIGHT),
@@ -185,8 +185,8 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     )?;
     let wldrv_nand = draw_nand2_dec_array(
         lib,
-        GateArrayParams {
-            prefix: "wldrv_nand",
+        &GateArrayParams {
+            name: "wldrv_nand".to_string(),
             width: rows,
             dir: Dir::Vert,
             pitch: Some(BITCELL_HEIGHT),
@@ -194,8 +194,8 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     )?;
     let wldrv_inv = draw_inv_dec_array(
         lib,
-        GateArrayParams {
-            prefix: "wldrv_inv",
+        &GateArrayParams {
+            name: "wldrv_inv".to_string(),
             width: rows,
             dir: Dir::Vert,
             pitch: Some(BITCELL_HEIGHT),
@@ -250,7 +250,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         .cols(cols / (2 * mux_ratio))
         .row_pitch(2 * mux_ratio as isize * COLUMN_WIDTH)
         .build()?;
-    let din_dffs = draw_dff_grid(lib, din_dff_params)?;
+    let din_dffs = draw_dff_grid(lib, &din_dff_params)?;
     let dout_buf = draw_dout_buffer_array(lib, "dout_buffer_array", cols / mux_ratio, mux_ratio)?;
     let tmc = draw_tmc(
         lib,
@@ -1526,15 +1526,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
 
-    let lef = lef::generate(lef::Params {
-        addr_bits: total_addr_bits,
-        data_bits: cols / mux_ratio,
-        cell: ptr.clone(),
-        straps: &straps,
-        pdk: lib.pdk.clone(),
-    });
-
-    Ok(PhysicalDesign { cell: ptr, lef })
+    Ok(PhysicalDesign { cell: ptr })
 }
 
 #[derive(Builder)]
