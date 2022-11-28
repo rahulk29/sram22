@@ -337,7 +337,17 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     // TODO clkp -> wl latch set
 
-    // TODO rbl_b -> sae_delay_chain
+    let ssdc_din = ssdc_inst.port("din").largest_rect(m0).unwrap();
+    router
+        .trace(rbl_b, 0)
+        .place_cursor_centered()
+        .up()
+        .up()
+        .vert_to(ssdc_din.top() - 200)
+        .down()
+        .horiz_to_rect(ssdc_din)
+        .contact_down(ssdc_din);
+
     let (sense_en0, _) = route_latch(&sae_ctl_nor1, &sae_ctl_nor2, &mut router);
     let sense_en_set = sae_ctl_nor1.port("a").largest_rect(m0).unwrap();
     let ssdc_set = ssdc_inst.port("dout").largest_rect(m0).unwrap();
@@ -362,7 +372,28 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     cell.add_pin_from_port(sae_buf.port("x").named("sense_en"), m1);
 
     // Generate precharge bar
-    // TODO sense_en_set -> pc_delay_chain
+    let pcdc_din = pcdc.port("din").largest_rect(m0).unwrap();
+    router
+        .trace(sense_en_set, 1)
+        .place_cursor_centered()
+        .up()
+        .vert_to(pcdc_din.top() - 200)
+        .down()
+        .horiz_to_rect(pcdc_din)
+        .contact_down(pcdc_din);
+    let pcdc_dout = pcdc.port("dout").largest_rect(m0).unwrap();
+    let pc_set = pc_ctl_nor2.port("a").largest_rect(m0).unwrap();
+    router
+        .trace(pcdc_dout, 0)
+        .place_cursor_centered()
+        .up()
+        .left_by(3 * cfg.space(0))
+        .up_by(4 * cfg.space(0))
+        .horiz_to_rect(pc_set)
+        .up()
+        .vert_to_rect(pc_set)
+        .down()
+        .down();
     // pc_set -> pc_ctl_nor1
 
     let (pc_b0, _) = route_latch(&pc_ctl_nor1, &pc_ctl_nor2, &mut router);
@@ -393,6 +424,15 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .contact_down(wr_drv_dc_in);
 
     // TODO sense_en0 -> wr_drv_ctl_nor2
+
+    let wr_drv_dc_dout = wr_drv_dc.port("dout").largest_rect(m0).unwrap();
+    let wr_en_set = wr_drv_ctl_nor1.port("a").largest_rect(m0).unwrap();
+    router
+        .trace(wr_en_set, 0)
+        .place_cursor_centered()
+        .up()
+        .horiz_to_rect(wr_drv_dc_dout)
+        .contact_down(wr_drv_dc_dout);
 
     let (write_driver_en0, _) = route_latch(&wr_drv_ctl_nor1, &wr_drv_ctl_nor2, &mut router);
     let buf_a = wr_drv_buf.port("a").largest_rect(m0).unwrap();
