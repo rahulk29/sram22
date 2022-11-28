@@ -3,7 +3,7 @@ use crate::layout::sram::GateList;
 use crate::tech::{sc_inv_gds, sc_tap_gds};
 use crate::{bus_bit, Result};
 
-use layout21::raw::{AbstractPort, BoundBox, BoundBoxTrait, Cell, Instance, Point, Shape};
+use layout21::raw::{AbstractPort, BoundBox, BoundBoxTrait, Cell, Instance, Point, Rect, Shape};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
@@ -58,6 +58,16 @@ pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Ce
 
         prev = Some(inv);
     }
+
+    let outline = Rect::new(
+        Point::new(0, 0),
+        Point::new(
+            2 * tap_outline.width() + params.num as isize * inv_outline.width(),
+            tap_outline.height(),
+        ),
+    );
+    let outline_layer = lib.pdk.get_layerkey("outline").unwrap();
+    cell.layout_mut().draw_rect(outline_layer, outline);
 
     let mut tap1 = Instance::new("tap1", tap);
     tap1.loc.x = x;

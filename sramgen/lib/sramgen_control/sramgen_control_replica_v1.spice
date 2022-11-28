@@ -9,20 +9,6 @@ X2 vdd din din_b vdd sky130_fd_pr__pfet_01v8_hvt w=1.26 l=150000u
 X3 din_b din vss vss sky130_fd_pr__nfet_01v8 w=840000u l=150000u
 .ends
 
-.subckt control_logic_buf4 A X vdd vss
-X0 X a_86_260# vdd vdd sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
-X1 vss a_86_260# X vss sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
-X2 a_86_260# A vdd vdd sky130_fd_pr__pfet_01v8 w=840000u l=150000u
-X3 X a_86_260# vdd vdd sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
-X4 vss A a_86_260# vss sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
-X5 X a_86_260# vss vss sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
-X6 vdd a_86_260# X vdd sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
-X7 vss a_86_260# X vss sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
-X8 vdd a_86_260# X vdd sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
-X9 vdd A a_86_260# vdd sky130_fd_pr__pfet_01v8 w=840000u l=150000u
-X10 X a_86_260# vss vss sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
-.ends
-
 * .subckt sky130_fd_sc_lp__and2_2 A B VGND VNB VPB VPWR X
 .subckt control_logic_and2 A B X vdd vss
 X0 a_129_47# B vss vss sky130_fd_pr__nfet_01v8 w=420000u l=150000u

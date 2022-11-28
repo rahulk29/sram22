@@ -1151,7 +1151,7 @@ dependencies = [
 [[package]]
 name = "pdkprims"
 version = "0.0.1"
-source = "git+https://github.com/rahulk29/pdkprims.git?branch=master#69474dd1dce25b80fcd2f313ce356d599df72667"
+source = "git+https://github.com/rahulk29/pdkprims.git?branch=master#2913cfb17975f6c3fbbf820b018b4952c4b59372"
 dependencies = [
  "arcstr",
  "derive_builder 0.11.2",
