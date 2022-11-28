@@ -13,10 +13,8 @@ use crate::schematic::conns::{
 use crate::schematic::decoder::{hierarchical_decoder, DecoderParams, DecoderTree};
 use crate::schematic::dff::dff_array;
 use crate::schematic::dout_buffer::{dout_buf_array, DoutBufArrayParams, DoutBufParams};
-use crate::schematic::edge_detector::{edge_detector, EdgeDetectorParams};
 use crate::schematic::gate::{AndParams, GateParams, Size};
 use crate::schematic::inv_chain::inv_chain_grid;
-use crate::schematic::latch::{sr_latch, SrLatchParams};
 use crate::schematic::mux::read::read_mux_array;
 use crate::schematic::mux::write::{write_mux_array, ArrayParams, WriteMuxParams};
 use crate::schematic::precharge::{precharge_array, PrechargeArrayParams, PrechargeParams};
@@ -205,49 +203,6 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         rows: rows as usize,
         dummy_rows: 2,
     });
-
-    let edge_det_and = AndParams {
-        name: "edge_detector_and2".to_string(),
-        nand: GateParams {
-            name: "edge_detector_and2_nand".to_string(),
-            length: 150,
-            size: Size {
-                pmos_width: 2_400,
-                nmos_width: 1_800,
-            },
-        },
-        inv: GateParams {
-            name: "edge_detector_and2_inv".to_string(),
-            length: 150,
-            size: Size {
-                pmos_width: 2_400,
-                nmos_width: 1_800,
-            },
-        },
-    };
-
-    let edge_det_params = EdgeDetectorParams {
-        prefix: "sramgen_edge_detector",
-        num_inverters: 7,
-        and_params: &edge_det_and,
-    };
-    let mut edge_detector = edge_detector(edge_det_params);
-
-    let nor = GateParams {
-        name: "sramgen_sr_latch_nor".to_string(),
-        size: Size {
-            nmos_width: 1_000,
-            pmos_width: 1_600,
-        },
-        length: 150,
-    };
-
-    let sr_latch_params = SrLatchParams {
-        name: "sramgen_sr_latch",
-        nor: &nor,
-    };
-
-    let mut sr_latch = sr_latch(sr_latch_params);
 
     let vdd = signal("vdd");
     let vss = signal("vss");
@@ -669,8 +624,6 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     modules.append(&mut dout_buf_array);
     modules.append(&mut we_control);
     modules.append(&mut replica_col);
-    modules.append(&mut edge_detector);
-    modules.append(&mut sr_latch);
     modules.push(inv_chain);
     modules.push(m);
 

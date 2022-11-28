@@ -35,11 +35,56 @@ X6 vdd A a_46_47# vdd sky130_fd_pr__pfet_01v8_hvt w=420000u l=150000u
 X7 a_46_47# B vdd vdd sky130_fd_pr__pfet_01v8_hvt w=420000u l=150000u
 .ends
 
+* .subckt sky130_fd_sc_hs__nor2_2 A B VGND VNB VPB VPWR Y
+.subckt control_logic_nor2 A B Y VGND VNB VPB VPWR
+X0 a_35_368# B Y VPB sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X1 a_35_368# A VPWR VPB sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X2 VGND B Y VNB sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X3 Y B a_35_368# VPB sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X4 VPWR A a_35_368# VPB sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X5 Y A VGND VNB sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+.ends
+
+.SUBCKT control_logic_sr_latch 
++ s r q qb vdd vss 
+
+xnor_set 
++ s q qb vss vss vdd vdd
++ control_logic_nor2 
+* No parameters
+
+xnor_reset 
++ r qb q vss vss vdd vdd
++ control_logic_nor2 
+* No parameters
+
+.ENDS
+
 .subckt control_logic_delay_chain4 din dout vdd vss
 Xinv0 din tmp0 vdd vss control_logic_inv
 Xinv1 tmp0 tmp1 vdd vss control_logic_inv
 Xinv2 tmp1 tmp2 vdd vss control_logic_inv
 Xinv3 tmp2 dout vdd vss control_logic_inv
+.ends
+
+.subckt control_logic_delay_chain7 din dout vdd vss
+Xinv0 din tmp0 vdd vss control_logic_inv
+Xinv1 tmp0 tmp1 vdd vss control_logic_inv
+Xinv2 tmp1 tmp2 vdd vss control_logic_inv
+Xinv3 tmp2 tmp3 vdd vss control_logic_inv
+Xinv4 tmp3 tmp4 vdd vss control_logic_inv
+Xinv5 tmp4 tmp5 vdd vss control_logic_inv
+Xinv6 tmp5 dout vdd vss control_logic_inv
+.ends
+
+.subckt control_logic_edge_detector din dout vdd vss 
+xdelay_chain 
++ din delayed vdd vss 
++ control_logic_delay_chain7 
+
+xand 
++ din delayed dout vdd vss 
++ control_logic_and2
 .ends
 
 .subckt sramgen_control_replica_v1 clk we rbl pc_b wl_en write_driver_en sense_en vdd vss
@@ -48,30 +93,30 @@ Xinv3 tmp2 dout vdd vss control_logic_inv
 * OUTPUT: pc_b wl_en write_driver_en sense_en
 * INOUT: vdd vss
 
-Xclk_pulse clk clkp vdd vss sramgen_edge_detector
+Xclk_pulse clk clkp vdd vss control_logic_edge_detector
 
 * Turn on wordlines at start of cycle
 * Turn them off when replica bitline drops low enough
 * to flip an inverter.
 Xinv_rbl rbl rbl_b vdd vss control_logic_inv
-Xwl_ctl clkp rbl_b wl_en0 wl_en0_b vdd vss sramgen_sr_latch
+Xwl_ctl clkp rbl_b wl_en0 wl_en0_b vdd vss control_logic_sr_latch
 Xwl_en_buf wl_en0 wl_en vdd vss control_logic_buf4
 
 * SAE_set = delay(rbl_b)
 Xsae_delay_chain rbl_b sense_en_set vdd vss control_logic_delay_chain4
-Xsae_ctl sense_en_set clkp sense_en0 sense_en_b vdd vss sramgen_sr_latch
+Xsae_ctl sense_en_set clkp sense_en0 sense_en_b vdd vss control_logic_sr_latch
 Xsae_buf sense_en0 sense_en vdd vss control_logic_buf4
 
 * Latch SAE to generate precharge bar
 Xpc_delay_chain sense_en_set pc_set vdd vss control_logic_delay_chain4
-Xpc_ctl pc_set clkp pc pc_b0 vdd vss sramgen_sr_latch
+Xpc_ctl pc_set clkp pc pc_b0 vdd vss control_logic_sr_latch
 Xpc_b_buf pc_b0 pc_b vdd vss control_logic_buf4
 
 * clkp and we forms wr driver enable set signal
 Xand_wr_en_set clkp we wr_drv_set0 vdd vss control_logic_and2
 * Delay set signal a bit to ensure we don't turn on write drivers while precharging
 Xwr_drv_set_delay_chain wr_drv_set0 wr_drv_set vdd vss control_logic_delay_chain4
-Xwr_drv_ctl wr_drv_set sense_en write_driver_en0 write_driver_en_b vdd vss sramgen_sr_latch
+Xwr_drv_ctl wr_drv_set sense_en write_driver_en0 write_driver_en_b vdd vss control_logic_sr_latch
 Xwr_drv_buf write_driver_en0 write_driver_en vdd vss control_logic_buf4
 .ends
 
