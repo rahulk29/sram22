@@ -111,7 +111,7 @@ pub fn run_sram_spectre(params: &SramParams, work_dir: impl AsRef<Path>, name: &
     ];
 
     for i in 0..16 {
-        let bits = (i % 2) * bit_pattern2 + (1 - (i % 2)) * bit_pattern1;
+        let bits = (i % 2) * bit_pattern2 + (1 - (i % 2)) * bit_pattern1 + i + 1;
         ops.push(verification::Op::Write {
             addr: BitSignal::from_u64(i, addr_width),
             data: BitSignal::from_u64(bits, data_width),
@@ -125,7 +125,7 @@ pub fn run_sram_spectre(params: &SramParams, work_dir: impl AsRef<Path>, name: &
 
     if wmask_width > 1 {
         for i in 0..16 {
-            let bits = (1 - (i % 2)) * bit_pattern2 + (i % 2) * bit_pattern1;
+            let bits = (1 - (i % 2)) * bit_pattern2 + (i % 2) * bit_pattern1 + i + 1;
             ops.push(verification::Op::WriteMasked {
                 addr: BitSignal::from_u64(i, addr_width),
                 data: BitSignal::from_u64(bits, data_width),
