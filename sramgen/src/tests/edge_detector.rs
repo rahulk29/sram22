@@ -32,11 +32,11 @@ fn test_edge_detector() -> Result<()> {
     };
 
     let params = EdgeDetectorParams {
-        prefix: name,
+        name: name.to_string(),
         num_inverters: 7,
-        and_params: &and_params,
+        and_params,
     };
-    let modules = edge_detector(params);
+    let modules = edge_detector(&params);
     let ext_modules = all_external_modules();
     let pkg = Package {
         domain: name.to_string(),

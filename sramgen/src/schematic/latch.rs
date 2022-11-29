@@ -7,13 +7,16 @@ use crate::schematic::conns::{conn_map, port_inout, port_input, port_output, sig
 use crate::schematic::gate::nor2;
 use crate::schematic::local_reference;
 
-pub struct SrLatchParams<'a> {
-    pub name: &'a str,
-    pub nor: &'a GateParams,
+pub struct SrLatchParams {
+    pub name: String,
+    pub nor: GateParams,
 }
 
-pub fn sr_latch(params: SrLatchParams) -> Vec<Module> {
-    let SrLatchParams { name, nor } = params;
+pub fn sr_latch(params: &SrLatchParams) -> Vec<Module> {
+    let SrLatchParams {
+        name,
+        nor: nor_params,
+    } = params;
     let vdd = signal("vdd");
     let vss = signal("vss");
     let s = signal("s");
@@ -30,7 +33,7 @@ pub fn sr_latch(params: SrLatchParams) -> Vec<Module> {
         port_inout(&vss),
     ];
 
-    let nor = nor2(nor.to_owned());
+    let nor = nor2(nor_params);
 
     let mut m = Module {
         name: name.to_string(),

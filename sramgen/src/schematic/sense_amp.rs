@@ -9,16 +9,18 @@ use crate::schematic::conns::{
 };
 use crate::tech::sramgen_sp_sense_amp_ref;
 
-pub fn sense_amp_array(params: SenseAmpArrayParams) -> Module {
-    assert!(params.width > 0);
+pub fn sense_amp_array(params: &SenseAmpArrayParams) -> Module {
+    let width = params.width as i64;
+
+    assert!(width > 0);
 
     let vdd = signal("vdd");
     let vss = signal("vss");
     let clk = signal("clk");
-    let bl = bus("bl", params.width);
-    let br = bus("br", params.width);
-    let data = bus("data", params.width);
-    let data_b = bus("data_b", params.width);
+    let bl = bus("bl", width);
+    let br = bus("br", width);
+    let data = bus("data", width);
+    let data_b = bus("data_b", width);
 
     let ports = vec![
         port_inout(&vdd),
@@ -31,14 +33,14 @@ pub fn sense_amp_array(params: SenseAmpArrayParams) -> Module {
     ];
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],
         parameters: vec![],
     };
 
-    for i in 0..params.width {
+    for i in 0..width {
         let mut connections = HashMap::new();
         connections.insert("clk".to_string(), sig_conn(&clk));
         connections.insert("inn".to_string(), conn_slice("br", i, i));

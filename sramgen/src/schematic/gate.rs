@@ -54,7 +54,7 @@ impl From<GateType> for fanout::GateType {
     }
 }
 
-pub fn and2(params: AndParams) -> Vec<Module> {
+pub fn and2(params: &AndParams) -> Vec<Module> {
     let vdd = signal("vdd");
     let a = signal("a");
     let b = signal("b");
@@ -78,13 +78,13 @@ pub fn and2(params: AndParams) -> Vec<Module> {
     };
 
     let nand_name = format!("{}_nand", &params.name);
-    let nand = nand2(GateParams {
+    let nand = nand2(&GateParams {
         name: nand_name.clone(),
         size: params.nand.size,
         length: params.nand.length,
     });
     let inv_name = format!("{}_inv", &params.name);
-    let inv = inv(GateParams {
+    let inv = inv(&GateParams {
         name: inv_name.clone(),
         size: params.inv.size,
         length: params.inv.length,
@@ -122,12 +122,12 @@ pub fn and2(params: AndParams) -> Vec<Module> {
     vec![nand, inv, m]
 }
 
-pub fn nand2(params: GateParams) -> Module {
+pub fn nand2(params: &GateParams) -> Module {
     let length = params.length;
     let size = params.size;
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports: vec![],
         signals: vec![],
         instances: vec![],
@@ -213,7 +213,7 @@ pub fn nand2(params: GateParams) -> Module {
     m
 }
 
-pub fn nor2(params: GateParams) -> Module {
+pub fn nor2(params: &GateParams) -> Module {
     let length = params.length;
     let size = params.size;
 
@@ -233,7 +233,7 @@ pub fn nor2(params: GateParams) -> Module {
     ];
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],
@@ -296,12 +296,12 @@ pub fn nor2(params: GateParams) -> Module {
     m
 }
 
-pub fn nand3(params: GateParams) -> Module {
+pub fn nand3(params: &GateParams) -> Module {
     let length = params.length;
     let size = params.size;
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports: vec![],
         signals: vec![],
         instances: vec![],
@@ -415,7 +415,7 @@ pub fn nand3(params: GateParams) -> Module {
     m
 }
 
-pub fn inv(params: GateParams) -> Module {
+pub fn inv(params: &GateParams) -> Module {
     let length = params.length;
     let size = params.size;
 
@@ -444,7 +444,7 @@ pub fn inv(params: GateParams) -> Module {
     ];
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],

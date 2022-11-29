@@ -18,17 +18,17 @@ use crate::layout::route::{ContactBounds, Router, VertDir};
 use crate::layout::sram::GateList;
 use crate::{bus_bit, Result};
 
-pub fn draw_precharge(lib: &mut PdkLib, args: PrechargeParams) -> Result<Ptr<Cell>> {
-    let name = "precharge".to_string();
+pub fn draw_precharge(lib: &mut PdkLib, args: &PrechargeParams) -> Result<Ptr<Cell>> {
+    let name = &args.name;
 
     let mut layout = Layout {
-        name: name.clone(),
+        name: name.to_string(),
         insts: vec![],
         elems: vec![],
         annotations: vec![],
     };
 
-    let mut abs = Abstract::new(&name);
+    let mut abs = Abstract::new(name);
 
     let mut params = MosParams::new();
     params
@@ -109,7 +109,7 @@ pub fn draw_precharge(lib: &mut PdkLib, args: PrechargeParams) -> Result<Ptr<Cel
     layout.insts.push(inst);
 
     let cell = Cell {
-        name,
+        name: name.to_string(),
         abs: Some(abs),
         layout: Some(layout),
     };
@@ -132,12 +132,13 @@ pub fn draw_tap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(contact)
 }
 
-pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Result<Ptr<Cell>> {
+pub fn draw_precharge_array(lib: &mut PdkLib, args: &PrechargeArrayParams) -> Result<Ptr<Cell>> {
     let PrechargeArrayParams {
-        width,
         instance_params,
         name,
+        ..
     } = args;
+    let width = args.width;
     assert!(width >= 2);
     let pc = draw_precharge(lib, instance_params)?;
 

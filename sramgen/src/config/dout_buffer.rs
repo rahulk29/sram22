@@ -1,6 +1,7 @@
 use pdkprims::config::Int;
 
 pub struct DoutBufParams {
+    pub name: String,
     pub length: Int,
     pub nw1: Int,
     pub pw1: Int,
@@ -10,6 +11,7 @@ pub struct DoutBufParams {
 
 pub struct DoutBufArrayParams {
     pub name: String,
-    pub width: i64,
+    pub width: usize,
+    pub mux_ratio: usize,
     pub instance_params: DoutBufParams,
 }

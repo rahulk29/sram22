@@ -9,7 +9,7 @@ use crate::schematic::conns::{
 use crate::tech::sram_sp_replica_cell_ref;
 
 // .subckt sky130_fd_bd_sram__openram_sp_cell_opt1_replica BL BR VGND VPWR VPB VNB WL
-pub fn replica_bitcell_column(params: ReplicaBitcellColumnParams) -> Vec<Module> {
+pub fn replica_bitcell_column(params: &ReplicaBitcellColumnParams) -> Vec<Module> {
     assert!(params.rows > 0);
     let rows = params.rows as i64;
     let dummy_rows = params.dummy_rows as i64;
@@ -33,7 +33,7 @@ pub fn replica_bitcell_column(params: ReplicaBitcellColumnParams) -> Vec<Module>
     ];
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],

@@ -10,7 +10,7 @@ use crate::schematic::conns::{
 use crate::schematic::gate::and2;
 use crate::schematic::local_reference;
 
-pub fn wordline_driver_array(params: WordlineDriverArrayParams) -> Vec<Module> {
+pub fn wordline_driver_array(params: &WordlineDriverArrayParams) -> Vec<Module> {
     assert!(params.width > 0);
     assert_eq!(params.width % 4, 0);
 
@@ -32,7 +32,7 @@ pub fn wordline_driver_array(params: WordlineDriverArrayParams) -> Vec<Module> {
     ];
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],
@@ -85,7 +85,7 @@ pub fn wordline_driver(params: WordlineDriverParams) -> Vec<Module> {
     };
 
     let and2_name = format!("{}_and2", &params.name);
-    let mut and2 = and2(AndParams {
+    let mut and2 = and2(&AndParams {
         name: and2_name.clone(),
         inv: GateParams {
             name: format!("{}_inv", &and2_name),

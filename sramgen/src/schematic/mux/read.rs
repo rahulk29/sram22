@@ -63,7 +63,7 @@ pub fn read_mux_array(params: &ReadMuxArrayParams) -> Vec<Module> {
         connections.insert("sel_b", conn_slice("sel_b", sel_idx, sel_idx));
         m.instances.push(vlsir::circuit::Instance {
             name: format!("mux_{}", i),
-            module: local_reference("column_read_mux"),
+            module: local_reference(&mux_params.name),
             parameters: HashMap::new(),
             connections: conn_map(connections),
         });

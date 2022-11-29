@@ -9,21 +9,21 @@ use crate::schematic::gate::and2;
 use crate::schematic::inv_chain::inv_chain_grid;
 use crate::schematic::local_reference;
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct EdgeDetectorParams<'a> {
-    pub prefix: &'a str,
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub struct EdgeDetectorParams {
+    pub name: String,
     pub num_inverters: usize,
-    pub and_params: &'a AndParams,
+    pub and_params: AndParams,
 }
 
-pub fn edge_detector(params: EdgeDetectorParams) -> Vec<Module> {
-    assert_eq!(params.num_inverters % 2, 1);
+pub fn edge_detector(params: &EdgeDetectorParams) -> Vec<Module> {
+    let num_inverters = params.num_inverters;
+    assert_eq!(num_inverters % 2, 1);
 
     let EdgeDetectorParams {
-        prefix,
-        num_inverters,
-        and_params,
+        name, and_params, ..
     } = params;
+
     let vdd = signal("vdd");
     let vss = signal("vss");
     let din = signal("din");
@@ -37,16 +37,16 @@ pub fn edge_detector(params: EdgeDetectorParams) -> Vec<Module> {
         port_inout(&vss),
     ];
 
-    let inv_chain_name = format!("{}_invs", prefix);
+    let inv_chain_name = format!("{}_invs", name);
     let chain = inv_chain_grid(&InvChainGridParams {
         name: inv_chain_name.clone(),
         rows: 1,
         cols: num_inverters,
     });
-    let mut and2 = and2(and_params.clone());
+    let mut and2 = and2(and_params);
 
     let mut m = Module {
-        name: prefix.to_string(),
+        name: name.to_string(),
         ports,
         signals: vec![],
         instances: vec![],

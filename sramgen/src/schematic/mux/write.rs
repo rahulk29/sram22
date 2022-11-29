@@ -10,14 +10,17 @@ use crate::schematic::conns::{
 use crate::schematic::local_reference;
 use crate::schematic::mos::Mosfet;
 
-pub fn write_mux_array(params: WriteMuxArrayParams) -> Vec<Module> {
-    let WriteMuxArrayParams {
-        name,
+pub fn write_mux_array(params: &WriteMuxArrayParams) -> Vec<Module> {
+    let &WriteMuxArrayParams {
         cols,
         mux_ratio,
         wmask_width,
-        mux_params,
+        ..
     } = params;
+    let WriteMuxArrayParams {
+        name, mux_params, ..
+    } = params;
+
     let mux_ratio = mux_ratio as i64;
     let wmask_width = wmask_width as i64;
     let cols = cols as i64;
@@ -58,7 +61,7 @@ pub fn write_mux_array(params: WriteMuxArrayParams) -> Vec<Module> {
     }
 
     let mut m = Module {
-        name,
+        name: name.to_string(),
         ports,
         signals: vec![],
         instances: vec![],
@@ -81,7 +84,7 @@ pub fn write_mux_array(params: WriteMuxArrayParams) -> Vec<Module> {
         }
         m.instances.push(vlsir::circuit::Instance {
             name: format!("mux_{}", i),
-            module: local_reference("column_write_mux"),
+            module: local_reference(&mux_params.name),
             parameters: HashMap::new(),
             connections: conn_map(connections),
         });
@@ -90,7 +93,8 @@ pub fn write_mux_array(params: WriteMuxArrayParams) -> Vec<Module> {
     vec![mux, m]
 }
 
-pub fn column_write_mux(params: WriteMuxParams) -> Module {
+pub fn column_write_mux(params: &WriteMuxParams) -> Module {
+    let name = &params.name;
     let length = params.length;
 
     let we = signal("we");
@@ -117,7 +121,7 @@ pub fn column_write_mux(params: WriteMuxParams) -> Module {
     }
 
     let mut m = Module {
-        name: "column_write_mux".to_string(),
+        name: name.to_string(),
         ports,
         signals: vec![],
         instances: vec![],

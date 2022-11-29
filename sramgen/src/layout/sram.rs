@@ -11,9 +11,11 @@ use crate::config::bitcell_array::BitcellArrayParams;
 use crate::config::col_inv::{ColInvArrayParams, ColInvParams};
 use crate::config::decoder::{nand2_dec_params, GateDecArrayParams, NandDecArrayParams};
 use crate::config::dff::DffGridParams;
+use crate::config::dout_buffer::{DoutBufArrayParams, DoutBufParams};
 use crate::config::gate::{AndParams, GateParams, Size};
 use crate::config::mux::{ReadMuxArrayParams, ReadMuxParams, WriteMuxArrayParams, WriteMuxParams};
 use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
+use crate::config::sense_amp::SenseAmpArrayParams;
 use crate::config::sram::{ControlMode, SramParams};
 use crate::config::tmc::TmcParams;
 use crate::config::wmask_control::WriteMaskControlParams;
@@ -24,7 +26,7 @@ use crate::layout::decoder::{
     bus_width, draw_hier_decode, draw_inv_dec_array, draw_nand_dec_array, ConnectSubdecodersArgs,
 };
 use crate::layout::dff::draw_dff_grid;
-use crate::layout::dout_buffer::draw_dout_buffer_array;
+use crate::layout::dout_buffer::draw_dout_buf_array;
 use crate::layout::guard_ring::{draw_guard_ring, GuardRingParams};
 use crate::layout::mux::read::draw_read_mux_array;
 use crate::layout::mux::write::draw_write_mux_array;
@@ -220,7 +222,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     )?;
     let pc = draw_precharge_array(
         lib,
-        PrechargeArrayParams {
+        &PrechargeArrayParams {
             name: "precharge_array".to_string(),
             width: cols,
             instance_params: PrechargeParams {
@@ -273,7 +275,14 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
             },
         },
     )?;
-    let sense_amp = draw_sense_amp_array(lib, cols / mux_ratio, COLUMN_WIDTH * mux_ratio as isize)?;
+    let sense_amp = draw_sense_amp_array(
+        lib,
+        &SenseAmpArrayParams {
+            name: "sense_amp_array".to_string(),
+            width: cols / mux_ratio,
+            spacing: Some(COLUMN_WIDTH * mux_ratio as isize),
+        },
+    )?;
     let din_dff_params = DffGridParams::builder()
         .name("data_dff_array")
         .rows(2)
@@ -281,10 +290,25 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         .row_pitch(2 * mux_ratio as isize * COLUMN_WIDTH)
         .build()?;
     let din_dffs = draw_dff_grid(lib, &din_dff_params)?;
-    let dout_buf = draw_dout_buffer_array(lib, "dout_buffer_array", cols / mux_ratio, mux_ratio)?;
+    let dout_buf = draw_dout_buf_array(
+        lib,
+        &DoutBufArrayParams {
+            name: "dout_buf_array".to_string(),
+            width: cols / mux_ratio,
+            mux_ratio,
+            instance_params: DoutBufParams {
+                name: "dout_buf".to_string(),
+                length: 150,
+                nw1: 1_000,
+                pw1: 1_600,
+                nw2: 2_000,
+                pw2: 3_200,
+            },
+        },
+    )?;
     let tmc = draw_tmc(
         lib,
-        TmcParams {
+        &TmcParams {
             name: "tmc".to_string(),
             multiplier: 6,
             units: 16,
@@ -321,7 +345,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     let mut din_dffs = Instance::new("dff_array", din_dffs);
     let mut addr_dffs = Instance::new("addr_dffs", addr_dffs);
     let mut col_decoder = col_decoder.map(|decoder| Instance::new("col_decoder", decoder));
-    let mut dout_buf = Instance::new("dout_buffer_array", dout_buf);
+    let mut dout_buf = Instance::new("dout_buf_array", dout_buf);
     let mut wmask_dffs = if wmask_width > 1 {
         Some(Instance::new("wmask_dff_array", wmask_dffs))
     } else {

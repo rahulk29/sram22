@@ -50,25 +50,25 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
 
     let tree = DecoderTree::new(params.row_bits);
     let decoder_params = DecoderParams {
+        name: "hierarchical_decoder".to_string(),
         tree,
         lch: 150,
-        name: "hierarchical_decoder".to_string(),
     };
-    let mut decoders = hierarchical_decoder(decoder_params);
+    let mut decoders = hierarchical_decoder(&decoder_params);
 
     let mut col_decoders = if mux_ratio > 2 {
         let tree = DecoderTree::new(params.col_select_bits);
         let decoder_params = DecoderParams {
+            name: "column_decoder".to_string(),
             tree,
             lch: 150,
-            name: "column_decoder".to_string(),
         };
-        hierarchical_decoder(decoder_params)
+        hierarchical_decoder(&decoder_params)
     } else {
         Vec::new()
     };
 
-    let mut wl_drivers = wordline_driver_array(WordlineDriverArrayParams {
+    let mut wl_drivers = wordline_driver_array(&WordlineDriverArrayParams {
         name: "wordline_driver_array".to_string(),
         width: rows,
         instance_params: WordlineDriverParams {
@@ -93,7 +93,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         dummy_cols: 2,
     });
 
-    let mut precharge = precharge_array(PrechargeArrayParams {
+    let mut precharge = precharge_array(&PrechargeArrayParams {
         name: "precharge_array".to_string(),
         width: cols,
         instance_params: PrechargeParams {
@@ -104,7 +104,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         },
     });
 
-    let mut write_muxes = write_mux_array(WriteMuxArrayParams {
+    let mut write_muxes = write_mux_array(&WriteMuxArrayParams {
         name: "write_mux_array".to_string(),
         cols,
         mux_ratio,
@@ -164,15 +164,18 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         .unwrap();
     let mut addr_dff_array = dff_grid(&addr_dff_params);
 
-    let sense_amp_array = sense_amp_array(SenseAmpArrayParams {
+    let sense_amp_array = sense_amp_array(&SenseAmpArrayParams {
         name: "sense_amp_array".to_string(),
-        width: cols_masked,
+        width: cols_masked as usize,
+        spacing: None,
     });
 
-    let mut dout_buf_array = dout_buf_array(DoutBufArrayParams {
+    let mut dout_buf_array = dout_buf_array(&DoutBufArrayParams {
         name: "dout_buf_array".to_string(),
-        width: cols_masked,
+        width: cols_masked as usize,
+        mux_ratio,
         instance_params: DoutBufParams {
+            name: "dout_buf".to_string(),
             length: 150,
             nw1: 1_000,
             pw1: 1_600,

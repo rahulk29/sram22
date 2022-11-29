@@ -139,13 +139,13 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
 }
 
 /// A single delay unit (one forward cell and `multiplier-1` backwards cells).
-pub fn draw_tmc_unit(lib: &mut PdkLib, params: TmcUnitParams) -> Result<Ptr<Cell>> {
+pub fn draw_tmc_unit(lib: &mut PdkLib, params: &TmcUnitParams) -> Result<Ptr<Cell>> {
     assert!(params.multiplier >= 2);
 
     let delay_cell = draw_dbdr_delay_cell(lib, &format!("{}_delay_cell", &params.name))?;
     let mut router = Router::new(format!("{}_route", &params.name), lib.pdk.clone());
 
-    let mut cell = Cell::empty(params.name);
+    let mut cell = Cell::empty(&params.name);
 
     let fwd = Instance::new("forwards", delay_cell.clone());
 
@@ -308,12 +308,12 @@ pub fn draw_tmc_unit(lib: &mut PdkLib, params: TmcUnitParams) -> Result<Ptr<Cell
     Ok(ptr)
 }
 
-pub fn draw_tmc(lib: &mut PdkLib, params: TmcParams) -> Result<Ptr<Cell>> {
+pub fn draw_tmc(lib: &mut PdkLib, params: &TmcParams) -> Result<Ptr<Cell>> {
     assert!(params.multiplier >= 2);
 
     let delay_unit = draw_tmc_unit(
         lib,
-        TmcUnitParams {
+        &TmcUnitParams {
             name: format!("{}_delay_unit", &params.name),
             multiplier: params.multiplier,
         },

@@ -57,7 +57,7 @@ fn test_and2() -> Result<()> {
         },
     };
 
-    let and2 = and2(params.clone());
+    let and2 = and2(&params);
 
     let work_dir = test_work_dir(name);
 

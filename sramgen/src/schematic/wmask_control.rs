@@ -13,7 +13,7 @@ use crate::schematic::gate::and2;
 pub fn write_mask_control(params: &WriteMaskControlParams) -> Vec<Module> {
     assert!(params.width > 0);
 
-    let mut and = and2(params.and_params.clone());
+    let mut and = and2(&params.and_params);
 
     let vdd = signal("vdd");
     let vss = signal("vss");

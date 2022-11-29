@@ -180,7 +180,7 @@ fn test_hier_decode_4bit() -> Result<()> {
         lch: 150,
         name: name.to_string(),
     };
-    let modules = hierarchical_decoder(decoder_params);
+    let modules = hierarchical_decoder(&decoder_params);
 
     let work_dir = test_work_dir(name);
 
@@ -207,7 +207,7 @@ fn test_hier_decode_5bit() -> Result<()> {
         lch: 150,
         name: name.to_string(),
     };
-    let modules = hierarchical_decoder(decoder_params);
+    let modules = hierarchical_decoder(&decoder_params);
 
     let work_dir = test_work_dir(name);
 
@@ -234,7 +234,7 @@ fn test_hier_decode_7bit() -> Result<()> {
         lch: 150,
         name: name.to_string(),
     };
-    let modules = hierarchical_decoder(decoder_params);
+    let modules = hierarchical_decoder(&decoder_params);
 
     let work_dir = test_work_dir(name);
 

@@ -19,7 +19,7 @@ fn test_precharge() -> Result<()> {
         pull_up_width: 1_200,
         equalizer_width: 1_000,
     };
-    let pc = precharge(params.clone());
+    let pc = precharge(&params);
     let ext_modules = all_external_modules();
     let pkg = Package {
         domain: "sramgen_precharge".to_string(),
@@ -36,7 +36,7 @@ fn test_precharge() -> Result<()> {
     generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
-    draw_precharge(&mut lib, params)?;
+    draw_precharge(&mut lib, &params)?;
 
     lib.save_gds(out_gds(&work_dir, name))?;
 
@@ -56,7 +56,7 @@ fn test_precharge_array() -> Result<()> {
         },
         name: name.to_string(),
     };
-    let modules = precharge_array(params.clone());
+    let modules = precharge_array(&params);
     let ext_modules = all_external_modules();
     let pkg = Package {
         domain: name.to_string(),
@@ -73,7 +73,7 @@ fn test_precharge_array() -> Result<()> {
     generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
-    draw_precharge_array(&mut lib, params)?;
+    draw_precharge_array(&mut lib, &params)?;
 
     lib.save_gds(out_gds(&work_dir, name))?;
 
