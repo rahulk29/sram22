@@ -33,22 +33,22 @@ M0 d g s b nlowvt l='l' w='w' mult='mult'
 * Standard cells
 * .subckt sky130_fd_sc_hs__inv_2 A VGND VNB VPB VPWR Y
 .subckt control_logic_inv din din_b vdd vss
-X0 vss din din_b vss sky130_fd_pr__nfet_01v8_lvt w=840000u l=150000u
-X1 din_b din vdd vdd sky130_fd_pr__pfet_01v8 w=1.26 l=150000u
-X2 vdd din din_b vdd sky130_fd_pr__pfet_01v8 w=1.26 l=150000u
-X3 din_b din vss vss sky130_fd_pr__nfet_01v8_lvt w=840000u l=150000u
+X0 vss din din_b vss sky130_fd_pr__nfet_01v8_lvt w=0.74 l=150000u
+X1 din_b din vdd vdd sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X2 vdd din din_b vdd sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X3 din_b din vss vss sky130_fd_pr__nfet_01v8_lvt w=0.74 l=150000u
 .ends
 
 * .subckt sky130_fd_sc_hs__and2_2 A B VGND VNB VPB VPWR X
 .subckt control_logic_and2 A B X vdd vss
-X0 a_129_47# B vss vss sky130_fd_pr__nfet_01v8_lvt w=420000u l=150000u
-X1 vdd a_46_47# X vdd sky130_fd_pr__pfet_01v8 w=1.26 l=150000u
-X2 vss a_46_47# X vss sky130_fd_pr__nfet_01v8_lvt w=840000u l=150000u
-X3 X a_46_47# vss vss sky130_fd_pr__nfet_01v8_lvt w=840000u l=150000u
-X4 a_46_47# A a_129_47# vss sky130_fd_pr__nfet_01v8_lvt w=420000u l=150000u
-X5 X a_46_47# vdd vdd sky130_fd_pr__pfet_01v8 w=1.26 l=150000u
-X6 vdd A a_46_47# vdd sky130_fd_pr__pfet_01v8 w=420000u l=150000u
-X7 a_46_47# B vdd vdd sky130_fd_pr__pfet_01v8 w=420000u l=150000u
+X0 a_31_74# B vdd vdd sky130_fd_pr__pfet_01v8 w=1 l=150000u
+X1 X a_31_74# vss vss sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X2 X a_31_74# vdd vdd sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X3 a_118_74# B vss vss sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X4 a_31_74# A a_118_74# vss sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X5 vdd A a_31_74# vdd sky130_fd_pr__pfet_01v8 w=1 l=150000u
+X6 vdd a_31_74# X vdd sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X7 vss a_31_74# X vss sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
 .ends
 
 * .subckt sky130_fd_sc_hs__nor2_2 A B VGND VNB VPB VPWR Y
