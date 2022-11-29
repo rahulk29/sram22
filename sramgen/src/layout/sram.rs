@@ -487,23 +487,6 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
             .build()?,
     );
 
-    power_grid.add_padded_blockage(
-        2,
-        control
-            .port("clk")
-            .largest_rect(m2)
-            .unwrap()
-            .expand(cfg.line(2) / 2),
-    );
-    power_grid.add_padded_blockage(
-        2,
-        control
-            .port("m2_block")
-            .largest_rect(m2)
-            .unwrap()
-            .expand(80),
-    );
-
     ////////////////////////////////////////////////////////////////////
     // Row routing
     ////////////////////////////////////////////////////////////////////
@@ -953,6 +936,11 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     // Control signal routing
     ////////////////////////////////////////////////////////////////////
 
+    for (_, shapes) in control.port("m2_block").shapes {
+        for shape in shapes {
+            power_grid.add_padded_blockage(2, shape.bbox());
+        }
+    }
     // Route write enable (WE) to control logic
     let src = addr_dffs
         .port(bus_bit("q", total_addr_bits))
@@ -976,13 +964,11 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     power_grid.add_padded_blockage(2, trace.rect().expand(120));
 
     // Route sense amp enable to sense amp clock
-    let src = control.port("sense_en").largest_rect(m0).unwrap();
+    let src = control.port("sense_en").largest_rect(m1).unwrap();
     let dst = sense_amp.port("clk").largest_rect(m2).unwrap();
-    let mut trace = router.trace(src, 0);
+    let mut trace = router.trace(src, 1);
     trace
         .place_cursor_centered()
-        .horiz_to(src.right() - 2 * cfg.line(0))
-        .up()
         .up()
         .set_width(dst.height())
         .horiz_to(dst.left() - 5 * cfg.line(3));
@@ -1041,20 +1027,12 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     let track = grid.get_track_index(Dir::Vert, col_bbox.p0.x, TrackLocator::EndsBefore);
 
     // Write driver enable (write_driver_en)
-    let src = control.port("write_driver_en").largest_rect(m0).unwrap();
+    let src = control.port("write_driver_en").largest_rect(m1).unwrap();
     let dst = we_control.port("wr_en").largest_rect(m1).unwrap();
-    let mut trace = router.trace(src, 0);
-    trace
-        .place_cursor_centered()
-        .left_by(cfg.line(3) + cfg.space(3) + 40)
-        .up()
-        .up()
-        .up()
-        .set_min_width();
-    power_grid.add_padded_blockage(2, trace.cursor_rect().expand(130));
+    let mut trace = router.trace(src, 1);
+    trace.place_cursor(Dir::Vert, true).set_width(src.width());
     trace.vert_to(dst.bottom() - 500);
-    power_grid.add_padded_blockage(3, trace.rect().expand(20));
-    trace.down().set_min_width().horiz_to_rect(dst);
+    trace.up().set_min_width().horiz_to_rect(dst);
     power_grid.add_padded_blockage(2, trace.rect().expand(140));
     trace.down().vert_to(dst.top());
 
@@ -1266,11 +1244,13 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         }
     }
 
-    let src = control.port("clk").largest_rect(m2).unwrap();
-    let mut trace = router.trace(src, 2);
+    let src = control.port("clk").largest_rect(m1).unwrap();
+    let mut trace = router.trace(src, 1);
     trace
-        .place_cursor(Dir::Horiz, true)
-        .set_width(cfg.line(3))
+        .place_cursor(Dir::Vert, false)
+        .set_width(400)
+        .vert_to(control_bbox.bottom() - 600)
+        .up()
         .horiz_to(clk_rect.left());
     power_grid.add_padded_blockage(2, trace.rect());
     trace.up().set_width(400).vert_to_trace(&clk_trace);
