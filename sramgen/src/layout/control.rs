@@ -5,12 +5,13 @@ use crate::layout::sram::GateList;
 use crate::tech::{sc_and2_gds, sc_buf_gds, sc_bufbuf_16_gds, sc_inv_gds, sc_nor2_gds, sc_tap_gds};
 use crate::Result;
 
-use layout21::raw::{Cell, Dir, Instance, Point, Rect};
+use layout21::raw::{BoundBoxTrait, Cell, Dir, Instance, Point, Rect};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
 use super::common::sc_outline;
 use super::inv_chain::{draw_inv_chain, InvChainParams};
+use super::power::{PowerSource, PowerStrapGen, PowerStrapOpts};
 use super::route::Router;
 
 pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cell>> {
@@ -289,6 +290,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
+    let m2 = cfg.layerkey(2);
 
     // Edge detector
     let clk_in = eddc.port("din").largest_rect(m0).unwrap();
@@ -499,6 +501,75 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .down()
         .down();
 
+    let vss_rows = [
+        vec![eddc.clone(), ed_and.clone(), tap0.clone()],
+        vec![
+            ssdc_inst.clone(),
+            sae_ctl_nor1.clone(),
+            sae_ctl_nor2.clone(),
+            sae_buf.clone(),
+            tap3.clone(),
+        ],
+        vec![pcdc.clone()],
+        vec![
+            tap6.clone(),
+            and_wr_en_set.clone(),
+            wr_drv_dc.clone(),
+            wr_drv_ctl_nor1.clone(),
+            wr_drv_ctl_nor2.clone(),
+            wr_drv_buf.clone(),
+            tap7.clone(),
+        ],
+    ];
+
+    let vdd_rows = [
+        vec![
+            tap1.clone(),
+            inv_rbl.clone(),
+            wl_ctl_nor1.clone(),
+            wl_ctl_nor2.clone(),
+            wl_en_buf.clone(),
+            tap2.clone(),
+        ],
+        vec![
+            ssdc_inst.clone(),
+            sae_ctl_nor1.clone(),
+            sae_ctl_nor2.clone(),
+            sae_buf.clone(),
+            tap3.clone(),
+        ],
+        vec![
+            tap6.clone(),
+            and_wr_en_set.clone(),
+            wr_drv_dc.clone(),
+            wr_drv_ctl_nor1.clone(),
+            wr_drv_ctl_nor2.clone(),
+            wr_drv_buf.clone(),
+            tap7.clone(),
+        ],
+    ];
+
+    let mut vss_rects = vec![];
+    for row in vss_rows {
+        let rect = MergeArgs::builder()
+            .layer(m1)
+            .insts(GateList::Cells(&row))
+            .port_name("vgnd")
+            .build()?
+            .rect();
+        vss_rects.push(rect);
+    }
+    let mut vdd_rects = vec![];
+    for row in vdd_rows {
+        let rect = MergeArgs::builder()
+            .layer(m1)
+            .insts(GateList::Cells(&row))
+            .port_name("vpwr")
+            .build()?
+            .rect();
+        vdd_rects.push(rect);
+    }
+
     cell.layout_mut().add_inst(eddc);
     cell.layout_mut().add_inst(ed_and);
     cell.layout_mut().add_inst(tap0);
@@ -526,7 +597,54 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     cell.layout_mut().add_inst(wr_drv_ctl_nor2);
     cell.layout_mut().add_inst(wr_drv_buf);
     cell.layout_mut().add_inst(tap7);
-    cell.layout_mut().add_inst(router.finish());
+
+    let mut power_grid = PowerStrapGen::new(
+        PowerStrapOpts::builder()
+            .h_metal(2)
+            .h_line(10)
+            .h_space(10)
+            .v_metal(2)
+            .v_line(640)
+            .v_space(3 * cfg.space(2))
+            .pdk(lib.pdk.clone())
+            .name("sramgen_control_replica_v1_power_straps")
+            .enclosure(
+                cell.layout()
+                    .bbox()
+                    .into_rect()
+                    .expand_dir(Dir::Horiz, -4 * 640),
+            )
+            .omit_dir(Dir::Horiz)
+            .build()?,
+    );
+    for rect in vss_rects {
+        power_grid.add_gnd_target(1, rect);
+    }
+    for rect in vdd_rects {
+        power_grid.add_vdd_target(1, rect);
+    }
+
+    let route = router.finish();
+    {
+        let route = route.cell.read().unwrap();
+        for elem in route.layout().elems.iter() {
+            if elem.layer == m2 {
+                power_grid.add_padded_blockage(2, elem.inner.bbox().into_rect().expand(75));
+            }
+        }
+    }
+
+    cell.layout_mut().add_inst(route);
+
+    let straps = power_grid.generate()?;
+    for (src, rect) in straps.v_traces {
+        let net = match src {
+            PowerSource::Vdd => "vpwr",
+            PowerSource::Gnd => "vgnd",
+        };
+        cell.add_pin(net, m2, rect);
+    }
+    cell.layout_mut().add_inst(straps.instance);
 
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());

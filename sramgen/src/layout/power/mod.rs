@@ -39,7 +39,7 @@ pub struct PowerStrapOpts {
     #[builder(setter(into))]
     enclosure: Rect,
 
-    #[builder(default)]
+    #[builder(default, setter(strip_option))]
     omit_dir: Option<Dir>,
 }
 
@@ -177,10 +177,12 @@ impl PowerStrapGen {
             .filter(|(_, rect)| rect.top() == grid_bounds.top())
             .collect::<Vec<_>>();
 
-        assert!(left.len() >= 2);
-        assert!(right.len() >= 2);
-        assert!(bottom.len() >= 2);
-        assert!(top.len() >= 2);
+        if self.omit_dir.is_none() {
+            assert!(left.len() >= 2);
+            assert!(right.len() >= 2);
+            assert!(bottom.len() >= 2);
+            assert!(top.len() >= 2);
+        }
 
         Ok(PowerStraps {
             instance: self.router.finish(),

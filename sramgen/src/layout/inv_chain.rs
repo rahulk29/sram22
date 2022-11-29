@@ -81,7 +81,7 @@ pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Ce
         .port_name("vgnd")
         .build()?
         .rect();
-    cell.add_pin("vss", m1, rect);
+    cell.add_pin("vgnd", m1, rect);
 
     let rect = MergeArgs::builder()
         .layer(m1)
@@ -89,7 +89,7 @@ pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Ce
         .port_name("vpwr")
         .build()?
         .rect();
-    cell.add_pin("vdd", m1, rect);
+    cell.add_pin("vpwr", m1, rect);
 
     cell.layout_mut().add_inst(router.finish());
 
@@ -208,7 +208,7 @@ pub fn draw_inv_chain_grid(lib: &mut PdkLib, params: InvChainGridParams) -> Resu
                 .port_name("vgnd")
                 .build()?
                 .rect();
-            cell.add_pin(bus_bit("vss", j / 2), m1, rect);
+            cell.add_pin(bus_bit("vgnd", j / 2), m1, rect);
         } else {
             let rect = MergeArgs::builder()
                 .layer(m1)
@@ -216,15 +216,15 @@ pub fn draw_inv_chain_grid(lib: &mut PdkLib, params: InvChainGridParams) -> Resu
                 .port_name("vpwr")
                 .build()?
                 .rect();
-            cell.add_pin(bus_bit("vdd", j / 2), m1, rect);
+            cell.add_pin(bus_bit("vpwr", j / 2), m1, rect);
         }
 
         // Special case: need to handle the final power rail
         if j == rows - 1 {
             let (iport, xport) = if j % 2 != 0 {
-                ("vpwr", "vdd")
+                ("vpwr", "vpwr")
             } else {
-                ("vgnd", "vss")
+                ("vgnd", "vgnd")
             };
 
             let rect = MergeArgs::builder()
