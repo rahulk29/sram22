@@ -17,6 +17,7 @@ pub struct PowerStrapGen {
     v_space: Int,
     pdk: Pdk,
     enclosure: Rect,
+    omit_dir: Option<Dir>,
 
     router: Router,
     blockages: HashMap<LayerIdx, Vec<Rect>>,
@@ -37,6 +38,9 @@ pub struct PowerStrapOpts {
     name: String,
     #[builder(setter(into))]
     enclosure: Rect,
+
+    #[builder(default)]
+    omit_dir: Option<Dir>,
 }
 
 pub struct PowerStraps {
@@ -61,6 +65,7 @@ impl PowerStrapGen {
             v_space: opts.v_space,
             pdk: opts.pdk.clone(),
             enclosure: opts.enclosure,
+            omit_dir: opts.omit_dir,
 
             router: Router::new(opts.name, opts.pdk),
             blockages: HashMap::new(),
@@ -141,10 +146,20 @@ impl PowerStrapGen {
 
         assert!(h_end > h_start);
 
-        let mut h_traces = self.draw_traces(&mut state, Dir::Horiz);
-        let mut v_traces = self.draw_traces(&mut state, Dir::Vert);
+        let mut h_traces = if Some(Dir::Horiz) != self.omit_dir {
+            self.draw_traces(&mut state, Dir::Horiz)
+        } else {
+            Vec::new()
+        };
+        let mut v_traces = if Some(Dir::Vert) != self.omit_dir {
+            self.draw_traces(&mut state, Dir::Vert)
+        } else {
+            Vec::new()
+        };
 
-        self.connect_traces(&mut h_traces, &mut v_traces);
+        if self.omit_dir.is_none() {
+            self.connect_traces(&mut h_traces, &mut v_traces);
+        }
         let h_rects = h_traces.iter().map(|(src, trace)| (*src, trace.rect()));
         let v_rects = v_traces.iter().map(|(src, trace)| (*src, trace.rect()));
         let left = h_rects
