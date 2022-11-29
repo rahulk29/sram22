@@ -1,4 +1,4 @@
-use crate::config::SramConfig;
+use crate::config::sram::SramConfig;
 use crate::plan::extract::ExtractionResult;
 use crate::plan::{execute_plan, generate_plan};
 use crate::tests::test_work_dir;
@@ -9,12 +9,12 @@ macro_rules! generate_sram_test {
         paste::paste! {
             #[test]
             fn [<test_sram_ $num_words x $data_width m $mux_ratio w $write_size _simple>]() -> Result<()> {
-                crate::tests::sram::test_sram(&crate::config::SramConfig {
+                crate::tests::sram::test_sram(&crate::config::sram::SramConfig {
                     num_words: $num_words,
                     data_width: $data_width,
                     mux_ratio: $mux_ratio,
                     write_size: $write_size,
-                    control: crate::config::ControlMode::Simple,
+                    control: crate::config::sram::ControlMode::Simple,
                 })
             }
         }
@@ -23,12 +23,12 @@ macro_rules! generate_sram_test {
         paste::paste! {
             #[test]
             fn [<test_sram_ $num_words x $data_width m $mux_ratio w $write_size _replica_v1>]() -> Result<()> {
-                crate::tests::sram::test_sram(&crate::config::SramConfig {
+                crate::tests::sram::test_sram(&crate::config::sram::SramConfig {
                     num_words: $num_words,
                     data_width: $data_width,
                     mux_ratio: $mux_ratio,
                     write_size: $write_size,
-                    control: crate::config::ControlMode::ReplicaV1,
+                    control: crate::config::sram::ControlMode::ReplicaV1,
                 })
             }
         }

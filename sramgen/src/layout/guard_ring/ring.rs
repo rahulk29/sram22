@@ -25,7 +25,7 @@ impl RingParams {
 
     #[inline]
     pub fn draw(self) -> Ring {
-        draw_ring(self)
+        draw_ring(&self)
     }
 }
 
@@ -94,12 +94,11 @@ impl BoundBoxTrait for Ring {
     }
 }
 
-pub fn draw_ring(params: RingParams) -> Ring {
-    let RingParams {
-        enclosure,
-        h_width,
-        v_width,
+pub fn draw_ring(params: &RingParams) -> Ring {
+    let &RingParams {
+        h_width, v_width, ..
     } = params;
+    let enclosure = &params.enclosure;
 
     let t_span = Span::new(enclosure.top(), enclosure.top() + h_width);
     let b_span = Span::new(enclosure.bottom() - h_width, enclosure.bottom());

@@ -55,7 +55,7 @@ pub struct PowerStraps {
 }
 
 impl PowerStrapGen {
-    pub fn new(opts: PowerStrapOpts) -> Self {
+    pub fn new(opts: &PowerStrapOpts) -> Self {
         Self {
             h_metal: opts.h_metal,
             v_metal: opts.v_metal,
@@ -67,7 +67,7 @@ impl PowerStrapGen {
             enclosure: opts.enclosure,
             omit_dir: opts.omit_dir,
 
-            router: Router::new(opts.name, opts.pdk),
+            router: Router::new(&opts.name, opts.pdk.clone()),
             blockages: HashMap::new(),
             vdd_targets: HashMap::new(),
             gnd_targets: HashMap::new(),

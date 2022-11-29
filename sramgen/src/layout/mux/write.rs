@@ -9,21 +9,15 @@ use pdkprims::PdkLib;
 
 use crate::layout::array::*;
 
+use crate::config::mux::{WriteMuxArrayParams, WriteMuxParams};
 use crate::layout::route::grid::{Grid, TrackLocator};
 use crate::layout::route::{ContactBounds, Router, VertDir};
 use crate::layout::sram::{connect, ConnectArgs, GateList};
-use crate::tech::BITCELL_WIDTH;
 use crate::{bus_bit, Result};
 
-pub struct WriteMuxParams {
-    pub width: isize,
-    pub wmask: bool,
-}
-
-pub fn draw_write_mux(lib: &mut PdkLib, params: WriteMuxParams) -> Result<Ptr<Cell>> {
-    let WriteMuxParams { wmask, .. } = params;
-
-    let name = "write_mux";
+pub fn draw_write_mux(lib: &mut PdkLib, params: &WriteMuxParams) -> Result<Ptr<Cell>> {
+    let &WriteMuxParams { wmask, .. } = params;
+    let name = &params.name;
 
     let mut cell = Cell::empty(name);
     let mut router = Router::new("write_mux_route", lib.pdk.clone());
@@ -160,52 +154,51 @@ pub fn draw_write_mux(lib: &mut PdkLib, params: WriteMuxParams) -> Result<Ptr<Ce
 /// For example, if width = 64, mux_ratio = 2, and wmask = 4,
 /// then there will be 2 32-bit words, with a 4 bit write mask
 /// enabling byte write.
-pub fn draw_write_mux_array(
-    lib: &mut PdkLib,
-    width: usize,
-    mux_ratio: usize,
-    wmask: usize,
-) -> Result<Ptr<Cell>> {
-    assert!(width >= 2);
-    assert_eq!(width % 2, 0);
+pub fn draw_write_mux_array(lib: &mut PdkLib, params: &WriteMuxArrayParams) -> Result<Ptr<Cell>> {
+    let &WriteMuxArrayParams {
+        cols,
+        mux_ratio,
+        wmask_width,
+        ..
+    } = params;
 
-    let mux = draw_write_mux(
-        lib,
-        WriteMuxParams {
-            width: BITCELL_WIDTH,
-            wmask: wmask > 1,
-        },
-    )?;
+    let WriteMuxArrayParams {
+        name, mux_params, ..
+    } = params;
+
+    assert!(cols >= 2);
+    assert_eq!(cols % 2, 0);
+
+    let mux = draw_write_mux(lib, mux_params)?;
     let muxes = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: "write_mux_core_array".to_string(),
-            num: width,
+            num: cols,
             cell: mux,
             spacing: Some(2_500),
             flip: FlipMode::AlternateFlipHorizontal,
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
     let bbox = muxes.cell.read().unwrap().layout.as_ref().unwrap().bbox();
     let tap = draw_write_mux_tap_cell(lib, bbox.height())?;
 
     let taps = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: "write_mux_tap_array".to_string(),
-            num: width / 2 + 1,
+            num: cols / 2 + 1,
             cell: tap,
             spacing: Some(2 * 2_500),
             flip: FlipMode::AlternateFlipHorizontal,
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
-    let name = "write_mux_array";
     let mut cell = Cell::empty(name);
 
     let core_inst = Instance::new("write_mux_core_array", muxes.cell);
@@ -220,7 +213,7 @@ pub fn draw_write_mux_array(
 
     let mut span = Span::new(0, 0);
 
-    for i in 0..width {
+    for i in 0..cols {
         let src = core_inst.port(bus_bit("vss", i)).largest_rect(m0).unwrap();
         let dst = tap_inst
             .port(bus_bit("vss", (i + 1) / 2))
@@ -237,7 +230,7 @@ pub fn draw_write_mux_array(
 
     let start = tap_inst.port(bus_bit("vss", 0)).largest_rect(m1).unwrap();
     let end = tap_inst
-        .port(bus_bit("vss", width / 2))
+        .port(bus_bit("vss", cols / 2))
         .largest_rect(m1)
         .unwrap();
 
@@ -251,7 +244,7 @@ pub fn draw_write_mux_array(
 
     let mut trace = router.trace(rect, 2);
 
-    for i in 0..(width / 2 + 1) {
+    for i in 0..(cols / 2 + 1) {
         let target = tap_inst.port(bus_bit("vss", i)).largest_rect(m0).unwrap();
         trace.contact_on(
             target.intersection(&trace.rect().into()).into_rect(),
@@ -288,7 +281,7 @@ pub fn draw_write_mux_array(
     let data_track = grid.get_track_index(Dir::Horiz, data.bottom(), TrackLocator::EndsBefore);
     let data_b_track = data_track - 1;
 
-    for (idx, i) in (0..width).step_by(mux_ratio).enumerate() {
+    for (idx, i) in (0..cols).step_by(mux_ratio).enumerate() {
         for port in ["data", "data_b"] {
             let track = match port {
                 "data" => data_track,
@@ -333,14 +326,14 @@ pub fn draw_write_mux_array(
     let track = grid.get_track_index(Dir::Horiz, bbox.bottom(), TrackLocator::EndsBefore);
 
     assert_eq!(
-        width % (mux_ratio * wmask),
+        cols % (mux_ratio * wmask_width),
         0,
         "Width must be divisible by mux_ratio * wmask"
     );
 
     let start = core_inst.port(bus_bit("we", 0)).largest_rect(m0).unwrap();
     let end = core_inst
-        .port(bus_bit("we", width - 1))
+        .port(bus_bit("we", cols - 1))
         .largest_rect(m0)
         .unwrap();
     let mut hspan = Span::new(start.left(), end.right());
@@ -353,7 +346,7 @@ pub fn draw_write_mux_array(
         let we = router.trace(rect, 2);
         cell.add_pin(bus_bit("we", i), m2, rect);
 
-        for j in (i..width).step_by(mux_ratio) {
+        for j in (i..cols).step_by(mux_ratio) {
             let src = core_inst.port(bus_bit("we", j)).largest_rect(m0).unwrap();
             let mut trace = router.trace(src, 0);
 
@@ -366,20 +359,16 @@ pub fn draw_write_mux_array(
         }
     }
 
-    if wmask > 1 {
+    if wmask_width > 1 {
         // Number of columns controlled by one write mask bit
-        let wmask_width = width / wmask;
+        let wmask_size = cols / wmask_width;
 
-        for i in 0..wmask {
+        for i in 0..wmask_width {
             let args = ConnectArgs::builder()
                 .metal_idx(2)
                 .port_idx(1)
                 .router(&mut router)
-                .insts(GateList::ArraySlice(
-                    &core_inst,
-                    i * wmask_width,
-                    wmask_width,
-                ))
+                .insts(GateList::ArraySlice(&core_inst, i * wmask_size, wmask_size))
                 .port_name("wmask")
                 .dir(Dir::Horiz)
                 .overhang(200)

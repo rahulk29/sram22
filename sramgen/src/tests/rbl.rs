@@ -1,3 +1,4 @@
+use crate::config::rbl::*;
 use crate::paths::out_bin;
 use crate::schematic::rbl::*;
 use crate::schematic::{generate_netlist, save_modules};
@@ -6,8 +7,8 @@ use crate::tests::test_work_dir;
 #[test]
 fn test_netlist_replica_bitcell_column() -> Result<(), Box<dyn std::error::Error>> {
     let name = "sramgen_replica_bitcell_column";
-    let modules = replica_bitcell_column(ReplicaBitcellColumnParams {
-        name,
+    let modules = replica_bitcell_column(&ReplicaBitcellColumnParams {
+        name: name.to_string(),
         rows: 64,
         dummy_rows: 0,
     });
@@ -25,8 +26,8 @@ fn test_netlist_replica_bitcell_column() -> Result<(), Box<dyn std::error::Error
 #[test]
 fn test_netlist_replica_bitcell_column_dummies() -> Result<(), Box<dyn std::error::Error>> {
     let name = "sramgen_replica_column_dummies";
-    let modules = replica_bitcell_column(ReplicaBitcellColumnParams {
-        name,
+    let modules = replica_bitcell_column(&ReplicaBitcellColumnParams {
+        name: name.to_string(),
         rows: 32,
         dummy_rows: 2,
     });

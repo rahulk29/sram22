@@ -1,33 +1,24 @@
 use std::collections::HashMap;
 
-use pdkprims::config::Int;
 use pdkprims::mos::MosType;
 
 use vlsir::circuit::Module;
 
+use crate::config::mux::{ReadMuxArrayParams, ReadMuxParams};
 use crate::schematic::conns::{
     bus, conn_map, conn_slice, port_inout, port_input, sig_conn, signal,
 };
 use crate::schematic::local_reference;
 use crate::schematic::mos::Mosfet;
 
-pub struct Params {
-    pub length: Int,
-    pub width: Int,
-}
-
-pub struct ArrayParams {
-    pub mux_params: Params,
-    pub cols: usize,
-    pub mux_ratio: usize,
-}
-
-pub fn read_mux_array(params: ArrayParams) -> Vec<Module> {
-    let ArrayParams {
-        mux_params,
-        cols,
-        mux_ratio,
+pub fn read_mux_array(params: &ReadMuxArrayParams) -> Vec<Module> {
+    let &ReadMuxArrayParams {
+        cols, mux_ratio, ..
     } = params;
+    let ReadMuxArrayParams {
+        name, mux_params, ..
+    } = params;
+
     let mux_ratio = mux_ratio as i64;
     let cols = cols as i64;
 
@@ -52,10 +43,8 @@ pub fn read_mux_array(params: ArrayParams) -> Vec<Module> {
         port_inout(&vdd),
     ];
 
-    let name = String::from("read_mux_array");
-
     let mut m = Module {
-        name,
+        name: name.to_string(),
         ports,
         signals: vec![],
         instances: vec![],
@@ -74,7 +63,7 @@ pub fn read_mux_array(params: ArrayParams) -> Vec<Module> {
         connections.insert("sel_b", conn_slice("sel_b", sel_idx, sel_idx));
         m.instances.push(vlsir::circuit::Instance {
             name: format!("mux_{}", i),
-            module: local_reference("column_read_mux"),
+            module: local_reference(&mux_params.name),
             parameters: HashMap::new(),
             connections: conn_map(connections),
         });
@@ -84,7 +73,7 @@ pub fn read_mux_array(params: ArrayParams) -> Vec<Module> {
 }
 
 /// A read mux using PMOS devices
-pub fn read_mux(params: Params) -> Module {
+pub fn read_mux(params: &ReadMuxParams) -> Module {
     let length = params.length;
 
     let sel_b = signal("sel_b");
@@ -104,7 +93,7 @@ pub fn read_mux(params: Params) -> Module {
     ];
 
     let mut m = Module {
-        name: "column_read_mux".to_string(),
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],

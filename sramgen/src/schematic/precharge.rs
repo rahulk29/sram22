@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use pdkprims::config::Int;
 use pdkprims::mos::MosType;
 
 use vlsir::circuit::connection::Stype;
@@ -8,28 +7,14 @@ use vlsir::circuit::{Connection, Module, Slice};
 use vlsir::reference::To;
 use vlsir::Reference;
 
+use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::schematic::conns::{bus, port_inout, port_input, sig_conn, signal};
 use crate::schematic::mos::Mosfet;
 
-#[derive(Debug, Clone)]
-pub struct PrechargeParams {
-    pub name: String,
-    pub length: Int,
-    pub pull_up_width: Int,
-    pub equalizer_width: Int,
-}
-
-#[derive(Debug, Clone)]
-pub struct PrechargeArrayParams {
-    pub width: usize,
-    pub instance_params: PrechargeParams,
-    pub name: String,
-}
-
-pub fn precharge_array(params: PrechargeArrayParams) -> Vec<Module> {
+pub fn precharge_array(params: &PrechargeArrayParams) -> Vec<Module> {
     assert!(params.width > 0);
 
-    let pc = precharge(params.instance_params.clone());
+    let pc = precharge(&params.instance_params);
 
     let vdd = signal("vdd");
     let en_b = signal("en_b");
@@ -44,7 +29,7 @@ pub fn precharge_array(params: PrechargeArrayParams) -> Vec<Module> {
     ];
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],
@@ -88,7 +73,7 @@ pub fn precharge_array(params: PrechargeArrayParams) -> Vec<Module> {
     vec![pc, m]
 }
 
-pub fn precharge(params: PrechargeParams) -> Module {
+pub fn precharge(params: &PrechargeParams) -> Module {
     let length = params.length;
 
     let vdd = signal("vdd");
@@ -104,7 +89,7 @@ pub fn precharge(params: PrechargeParams) -> Module {
     ];
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],

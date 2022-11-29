@@ -1,42 +1,29 @@
 use std::collections::HashMap;
 
-use pdkprims::config::Int;
 use pdkprims::mos::MosType;
-
 use vlsir::circuit::Module;
 use vlsir::reference::To;
 use vlsir::Reference;
 
+use crate::config::dout_buffer::{DoutBufArrayParams, DoutBufParams};
 use crate::schematic::conns::{
     bus, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
 };
 use crate::schematic::mos::Mosfet;
 
-pub struct DoutBufParams {
-    pub length: Int,
-    pub nw1: Int,
-    pub pw1: Int,
-    pub nw2: Int,
-    pub pw2: Int,
-}
+pub fn dout_buf_array(params: &DoutBufArrayParams) -> Vec<Module> {
+    let width = params.width as i64;
 
-pub struct DoutBufArrayParams {
-    pub name: String,
-    pub width: i64,
-    pub instance_params: DoutBufParams,
-}
+    assert!(width > 0);
 
-pub fn dout_buf_array(params: DoutBufArrayParams) -> Vec<Module> {
-    assert!(params.width > 0);
-
-    let inv = dout_buf(params.instance_params);
+    let inv = dout_buf(&params.instance_params);
 
     let vdd = signal("vdd");
     let vss = signal("vss");
-    let din1 = bus("din1", params.width);
-    let din2 = bus("din2", params.width);
-    let dout1 = bus("dout1", params.width);
-    let dout2 = bus("dout2", params.width);
+    let din1 = bus("din1", width);
+    let din2 = bus("din2", width);
+    let dout1 = bus("dout1", width);
+    let dout2 = bus("dout2", width);
 
     let ports = vec![
         port_input(&din1),
@@ -55,7 +42,7 @@ pub fn dout_buf_array(params: DoutBufArrayParams) -> Vec<Module> {
         parameters: vec![],
     };
 
-    for i in 0..params.width {
+    for i in 0..width {
         let mut connections = HashMap::new();
         connections.insert("vdd".to_string(), sig_conn(&vdd));
         connections.insert("vss".to_string(), sig_conn(&vss));
@@ -76,7 +63,7 @@ pub fn dout_buf_array(params: DoutBufArrayParams) -> Vec<Module> {
     vec![inv, m]
 }
 
-pub fn dout_buf(params: DoutBufParams) -> Module {
+pub fn dout_buf(params: &DoutBufParams) -> Module {
     let length = params.length;
 
     let vdd = signal("vdd");
@@ -98,7 +85,7 @@ pub fn dout_buf(params: DoutBufParams) -> Module {
     ];
 
     let mut m = Module {
-        name: "dout_buf".to_string(),
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],

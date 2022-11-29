@@ -1,5 +1,4 @@
-use crate::config::sram::SramParams;
-use crate::config::{ControlMode, SramConfig};
+use crate::config::sram::{ControlMode, SramConfig, SramParams};
 use crate::layout::sram::draw_sram;
 use crate::paths::{out_bin, out_gds, out_sram, out_verilog};
 use crate::plan::extract::ExtractionResult;

@@ -1,3 +1,4 @@
+use crate::config::tmc::*;
 use crate::layout::tmc::*;
 use crate::paths::out_gds;
 use crate::tests::test_work_dir;
@@ -22,7 +23,7 @@ fn test_tmc_unit_6() -> Result<()> {
     let mut lib = sky130::pdk_lib(name)?;
     draw_tmc_unit(
         &mut lib,
-        TmcUnitParams {
+        &TmcUnitParams {
             name: name.to_string(),
             multiplier: 6,
         },
@@ -40,7 +41,7 @@ fn test_tmc() -> Result<()> {
     let mut lib = sky130::pdk_lib(name)?;
     draw_tmc(
         &mut lib,
-        TmcParams {
+        &TmcParams {
             name: name.to_string(),
             multiplier: 6,
             units: 16,

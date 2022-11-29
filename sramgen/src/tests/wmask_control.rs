@@ -1,6 +1,7 @@
+use crate::config::gate::{AndParams, GateParams, Size};
+use crate::config::wmask_control::*;
 use crate::layout::wmask_control::*;
 use crate::paths::{out_bin, out_gds};
-use crate::schematic::gate::{AndParams, GateParams, Size};
 use crate::schematic::wmask_control::*;
 use crate::schematic::{generate_netlist, save_modules};
 use crate::tests::test_work_dir;
@@ -36,7 +37,7 @@ fn test_wmask_control_2() -> Result<()> {
         and_params,
     };
 
-    let modules = write_mask_control(params.clone());
+    let modules = write_mask_control(&params);
 
     let work_dir = test_work_dir(name);
 
@@ -46,7 +47,7 @@ fn test_wmask_control_2() -> Result<()> {
     generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
-    draw_write_mask_control(&mut lib, params)?;
+    draw_write_mask_control(&mut lib, &params)?;
 
     lib.save_gds(out_gds(&work_dir, name))?;
 

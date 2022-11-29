@@ -6,26 +6,17 @@ use layout21::raw::{
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use crate::schematic::gate::{GateParams, Size};
+use crate::schematic::latch::SrLatchParams;
 
 use super::gate::draw_nor2;
 use super::route::Router;
 
-pub fn draw_sr_latch(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
+pub fn draw_sr_latch(lib: &mut PdkLib, params: &SrLatchParams) -> Result<Ptr<Cell>> {
+    let SrLatchParams { name, nor } = params;
     let mut layout = Layout::new(name);
     let mut abs = Abstract::new(name);
 
-    let nor = draw_nor2(
-        lib,
-        GateParams {
-            name: format!("{}_nor2", name),
-            size: Size {
-                nmos_width: 1_500,
-                pmos_width: 3_000,
-            },
-            length: 150,
-        },
-    )?;
+    let nor = draw_nor2(lib, nor)?;
 
     let nor1 = Instance::new("nor1", nor.clone());
     let mut nor2 = Instance::new("nor2", nor);

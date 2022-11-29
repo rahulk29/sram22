@@ -8,7 +8,7 @@ use psf_ascii::parser::transient::TransientData;
 use serde::{Deserialize, Serialize};
 use waveform::Waveform;
 
-use crate::config::ControlMode;
+use crate::config::sram::ControlMode;
 use crate::verification::utils::push_bus;
 use crate::{Result, LIB_PATH};
 

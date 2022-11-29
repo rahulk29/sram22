@@ -1,4 +1,4 @@
-use crate::config::SramConfig;
+use crate::config::sram::SramConfig;
 use std::path::{Path, PathBuf};
 
 pub fn out_sram(config: &SramConfig) -> String {

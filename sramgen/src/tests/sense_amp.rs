@@ -1,3 +1,4 @@
+use crate::config::sense_amp::SenseAmpArrayParams;
 use crate::layout::sense_amp::*;
 use crate::paths::{out_bin, out_gds};
 use crate::schematic::sense_amp::*;
@@ -11,12 +12,14 @@ use vlsir::circuit::Package;
 #[test]
 fn test_sense_amp_array() -> Result<()> {
     let name = "sramgen_sense_amp_array";
-    let width = 16;
 
-    let sense_amps = sense_amp_array(SenseAmpArrayParams {
+    let params = SenseAmpArrayParams {
         name: name.to_string(),
-        width,
-    });
+        width: 16,
+        spacing: Some(2 * 2_500),
+    };
+
+    let sense_amps = sense_amp_array(&params);
     let ext_modules = all_external_modules();
     let pkg = Package {
         domain: name.to_string(),
@@ -33,7 +36,7 @@ fn test_sense_amp_array() -> Result<()> {
     generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
-    draw_sense_amp_array(&mut lib, width as usize, 2 * 2_500)?;
+    draw_sense_amp_array(&mut lib, &params)?;
 
     lib.save_gds(out_gds(&work_dir, name))?;
 

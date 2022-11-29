@@ -1,6 +1,7 @@
-use crate::config::ControlMode;
+use crate::config::inv_chain::{InvChainGridParams, InvChainParams};
+use crate::config::sram::ControlMode;
 use crate::layout::common::MergeArgs;
-use crate::layout::inv_chain::{draw_inv_chain_grid, InvChainGridParams};
+use crate::layout::inv_chain::draw_inv_chain_grid;
 use crate::layout::sram::GateList;
 use crate::tech::{sc_and2_gds, sc_buf_gds, sc_bufbuf_16_gds, sc_inv_gds, sc_nor2_gds, sc_tap_gds};
 use crate::Result;
@@ -10,7 +11,7 @@ use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
 use super::common::sc_outline;
-use super::inv_chain::{draw_inv_chain, InvChainParams};
+use super::inv_chain::draw_inv_chain;
 use super::power::{PowerSource, PowerStrapGen, PowerStrapOpts};
 use super::route::Router;
 
@@ -30,8 +31,8 @@ pub fn draw_control_logic_simple(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let tap = sc_tap_gds(lib)?;
     let delay_chain = draw_inv_chain_grid(
         lib,
-        InvChainGridParams {
-            prefix: "sram22_control_logic_delay_chain",
+        &InvChainGridParams {
+            name: "sram22_control_logic_delay_chain".to_string(),
             rows: 5,
             cols: 9,
         },
@@ -149,24 +150,24 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     // edge detector delay chain
     let eddc = draw_inv_chain(
         lib,
-        InvChainParams {
-            prefix: "sram22_control_logic_edge_detector_delay_chain",
+        &InvChainParams {
+            name: "sram22_control_logic_edge_detector_delay_chain".to_string(),
             num: 7,
         },
     )?;
     // SAE set delay chain
     let ssdc = draw_inv_chain(
         lib,
-        InvChainParams {
-            prefix: "sram22_control_logic_sae_delay_chain",
+        &InvChainParams {
+            name: "sram22_control_logic_sae_delay_chain".to_string(),
             num: 4,
         },
     )?;
     // precharge delay chain
     let pcdc = draw_inv_chain(
         lib,
-        InvChainParams {
-            prefix: "sram22_control_logic_pc_delay_chain",
+        &InvChainParams {
+            name: "sram22_control_logic_pc_delay_chain".to_string(),
             num: 16,
         },
     )?;
@@ -605,7 +606,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     cell.layout_mut().add_inst(tap7);
 
     let mut power_grid = PowerStrapGen::new(
-        PowerStrapOpts::builder()
+        &PowerStrapOpts::builder()
             .h_metal(2)
             .h_line(10)
             .h_space(10)

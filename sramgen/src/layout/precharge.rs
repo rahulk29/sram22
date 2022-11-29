@@ -8,25 +8,27 @@ use layout21::utils::Ptr;
 use pdkprims::mos::{Intent, MosDevice, MosParams, MosType};
 use pdkprims::PdkLib;
 
-use super::array::*;
-use super::common::{draw_two_level_contact, TwoLevelContactParams};
-use crate::layout::common::{MergeArgs, NWELL_COL_SIDE_EXTEND, NWELL_COL_VERT_EXTEND};
+use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
+use crate::layout::array::*;
+use crate::layout::common::{
+    draw_two_level_contact, MergeArgs, TwoLevelContactParams, NWELL_COL_SIDE_EXTEND,
+    NWELL_COL_VERT_EXTEND,
+};
 use crate::layout::route::{ContactBounds, Router, VertDir};
 use crate::layout::sram::GateList;
-use crate::schematic::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::{bus_bit, Result};
 
-pub fn draw_precharge(lib: &mut PdkLib, args: PrechargeParams) -> Result<Ptr<Cell>> {
-    let name = "precharge".to_string();
+pub fn draw_precharge(lib: &mut PdkLib, args: &PrechargeParams) -> Result<Ptr<Cell>> {
+    let name = &args.name;
 
     let mut layout = Layout {
-        name: name.clone(),
+        name: name.to_string(),
         insts: vec![],
         elems: vec![],
         annotations: vec![],
     };
 
-    let mut abs = Abstract::new(&name);
+    let mut abs = Abstract::new(name);
 
     let mut params = MosParams::new();
     params
@@ -107,7 +109,7 @@ pub fn draw_precharge(lib: &mut PdkLib, args: PrechargeParams) -> Result<Ptr<Cel
     layout.insts.push(inst);
 
     let cell = Cell {
-        name,
+        name: name.to_string(),
         abs: Some(abs),
         layout: Some(layout),
     };
@@ -126,21 +128,23 @@ pub fn draw_tap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .bot_rows(10)
         .top_rows(10)
         .build()?;
-    let contact = draw_two_level_contact(lib, params)?;
+    let contact = draw_two_level_contact(lib, &params)?;
     Ok(contact)
 }
 
-pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Result<Ptr<Cell>> {
+pub fn draw_precharge_array(lib: &mut PdkLib, args: &PrechargeArrayParams) -> Result<Ptr<Cell>> {
     let PrechargeArrayParams {
-        width,
         instance_params,
         name,
+        ..
     } = args;
+    let width = args.width;
     assert!(width >= 2);
     let pc = draw_precharge(lib, instance_params)?;
 
     let core = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: "precharge_pc_array".to_string(),
             num: width,
             cell: pc,
@@ -149,13 +153,13 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Res
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
     let tap = draw_tap_cell(lib)?;
 
     let taps = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: "precharge_tap_array".to_string(),
             num: width + 1,
             cell: tap,
@@ -164,7 +168,6 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: PrechargeArrayParams) -> Res
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
     let mut cell = Cell::empty(name);

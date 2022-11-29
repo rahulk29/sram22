@@ -1,5 +1,5 @@
+use crate::config::gate::{GateParams, Size};
 use crate::layout::Result;
-use crate::schematic::gate::{GateParams, Size};
 use crate::tech::COLUMN_WIDTH;
 
 use layout21::raw::align::AlignRect;
@@ -8,22 +8,28 @@ use layout21::raw::{BoundBoxTrait, Cell, Instance};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
-use super::common::{draw_two_level_contact, MergeArgs, TwoLevelContactParams};
-use super::route::Router;
-use super::sram::{connect, ConnectArgs, GateList};
+use crate::config::dout_buffer::{DoutBufArrayParams, DoutBufParams};
+use crate::layout::array::{draw_cell_array, ArrayCellParams, FlipMode};
+use crate::layout::common::{draw_two_level_contact, MergeArgs, TwoLevelContactParams};
+use crate::layout::route::Router;
+use crate::layout::sram::{connect, ConnectArgs, GateList};
 
-pub fn draw_dout_buffer_array(
-    lib: &mut PdkLib,
-    name: &str,
-    width: usize,
-    mux_ratio: usize,
-) -> Result<Ptr<Cell>> {
+pub fn draw_dout_buf_array(lib: &mut PdkLib, params: &DoutBufArrayParams) -> Result<Ptr<Cell>> {
+    let &DoutBufArrayParams {
+        width, mux_ratio, ..
+    } = params;
+    let DoutBufArrayParams {
+        name,
+        instance_params,
+        ..
+    } = params;
+
     let mut cell = Cell::empty(name.to_string());
 
-    let unit = draw_dout_buffer(lib, &format!("{name}_cell"))?;
+    let unit = draw_dout_buf(lib, instance_params)?;
     let array = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: format!("{name}_array"),
             num: width,
             cell: unit,
@@ -32,7 +38,6 @@ pub fn draw_dout_buffer_array(
             flip_toggle: false,
             direction: Dir::Vert,
         },
-        lib,
     )?;
 
     let mut inst = Instance::new("dout_buffer_array", array.cell);
@@ -95,28 +100,38 @@ pub fn draw_dout_buffer_array(
     Ok(ptr)
 }
 
-pub fn draw_dout_buffer(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
+pub fn draw_dout_buf(lib: &mut PdkLib, params: &DoutBufParams) -> Result<Ptr<Cell>> {
+    let &DoutBufParams {
+        length,
+        nw1,
+        pw1,
+        nw2,
+        pw2,
+        ..
+    } = params;
+    let name = &params.name;
+
     let mut cell = Cell::empty(name.to_string());
     let inv1_cell = super::gate::draw_inv(
         lib,
-        GateParams {
+        &GateParams {
             name: format!("{name}_inv1"),
             size: Size {
-                nmos_width: 1_000,
-                pmos_width: 1_600,
+                nmos_width: nw1,
+                pmos_width: pw1,
             },
-            length: 150,
+            length,
         },
     )?;
     let inv2_cell = super::gate::draw_inv(
         lib,
-        GateParams {
+        &GateParams {
             name: format!("{name}_inv2"),
             size: Size {
-                nmos_width: 2_000,
-                pmos_width: 3_200,
+                nmos_width: nw2,
+                pmos_width: pw2,
             },
-            length: 150,
+            length,
         },
     )?;
 
@@ -287,7 +302,7 @@ fn draw_ntap_cell(lib: &mut PdkLib, cols: isize) -> Result<Ptr<Cell>> {
         .bot_cols(cols)
         .top_cols(cols)
         .build()?;
-    let contact = draw_two_level_contact(lib, params)?;
+    let contact = draw_two_level_contact(lib, &params)?;
     Ok(contact)
 }
 
@@ -299,6 +314,6 @@ fn draw_ptap_cell(lib: &mut PdkLib, cols: isize) -> Result<Ptr<Cell>> {
         .bot_cols(cols)
         .top_cols(cols)
         .build()?;
-    let contact = draw_two_level_contact(lib, params)?;
+    let contact = draw_two_level_contact(lib, &params)?;
     Ok(contact)
 }

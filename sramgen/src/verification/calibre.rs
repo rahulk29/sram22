@@ -49,7 +49,7 @@ pub fn run_sram_drc(work_dir: impl AsRef<Path>, name: &str) -> Result<()> {
 pub fn run_sram_lvs(
     work_dir: impl AsRef<Path>,
     name: &str,
-    control_mode: crate::config::ControlMode,
+    control_mode: crate::config::sram::ControlMode,
 ) -> Result<()> {
     let lvs_work_dir = PathBuf::from(work_dir.as_ref()).join("lvs");
 
@@ -76,7 +76,7 @@ pub fn run_sram_lvs(
 pub fn run_sram_pex(
     work_dir: impl AsRef<Path>,
     name: &str,
-    control_mode: crate::config::ControlMode,
+    control_mode: crate::config::sram::ControlMode,
 ) -> Result<()> {
     let pex_work_dir = PathBuf::from(work_dir.as_ref()).join("pex");
 

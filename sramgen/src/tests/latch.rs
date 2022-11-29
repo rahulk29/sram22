@@ -1,6 +1,6 @@
+use crate::config::gate::{GateParams, Size};
 use crate::layout::latch::*;
 use crate::paths::{out_bin, out_gds};
-use crate::schematic::gate::{GateParams, Size};
 use crate::schematic::latch::{sr_latch, SrLatchParams};
 use crate::schematic::{generate_netlist, save_modules};
 use crate::tests::test_work_dir;
@@ -19,9 +19,12 @@ fn test_sr_latch() -> Result<()> {
         length: 150,
     };
 
-    let params = SrLatchParams { name, nor: &nor };
+    let params = SrLatchParams {
+        name: name.to_string(),
+        nor,
+    };
 
-    let modules = sr_latch(params);
+    let modules = sr_latch(&params);
 
     let work_dir = test_work_dir(name);
 
@@ -31,7 +34,7 @@ fn test_sr_latch() -> Result<()> {
     generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
-    draw_sr_latch(&mut lib, name)?;
+    draw_sr_latch(&mut lib, &params)?;
 
     lib.save_gds(out_gds(&work_dir, name))?;
 

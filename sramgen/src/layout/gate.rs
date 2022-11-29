@@ -1,5 +1,5 @@
+use crate::config::gate::{AndParams, GateParams, Size};
 use crate::layout::Result;
-use crate::schematic::gate::{AndParams, GateParams, Size};
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
 use layout21::raw::{
@@ -12,9 +12,9 @@ use pdkprims::PdkLib;
 use super::draw_rect;
 use super::route::Router;
 
-pub fn draw_and2(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
-    let nand = draw_nand2(lib, params.nand)?;
-    let inv = draw_inv(lib, params.inv)?;
+pub fn draw_and2(lib: &mut PdkLib, params: &AndParams) -> Result<Ptr<Cell>> {
+    let nand = draw_nand2(lib, &params.nand)?;
+    let inv = draw_inv(lib, &params.inv)?;
 
     let mut layout = Layout::new(&params.name);
     let mut abs = Abstract::new(&params.name);
@@ -55,7 +55,7 @@ pub fn draw_and2(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
     layout.add_inst(router.finish());
 
     let cell = Cell {
-        name: params.name,
+        name: params.name.clone(),
         layout: Some(layout),
         abs: Some(abs),
     };
@@ -66,9 +66,9 @@ pub fn draw_and2(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_and3(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
-    let nand = draw_nand3(lib, params.nand)?;
-    let inv = draw_inv(lib, params.inv)?;
+pub fn draw_and3(lib: &mut PdkLib, params: &AndParams) -> Result<Ptr<Cell>> {
+    let nand = draw_nand3(lib, &params.nand)?;
+    let inv = draw_inv(lib, &params.inv)?;
 
     let mut layout = Layout::new(&params.name);
     let mut abs = Abstract::new(&params.name);
@@ -111,7 +111,7 @@ pub fn draw_and3(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
     layout.add_inst(router.finish());
 
     let cell = Cell {
-        name: params.name,
+        name: params.name.clone(),
         layout: Some(layout),
         abs: Some(abs),
     };
@@ -122,21 +122,7 @@ pub fn draw_and3(lib: &mut PdkLib, params: AndParams) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_nand2_dec(lib: &mut PdkLib, name: impl Into<String>) -> Result<Ptr<Cell>> {
-    draw_nand2(
-        lib,
-        GateParams {
-            name: name.into(),
-            size: Size {
-                nmos_width: 3_200,
-                pmos_width: 2_400,
-            },
-            length: 150,
-        },
-    )
-}
-
-pub fn draw_nand2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
+pub fn draw_nand2(lib: &mut PdkLib, args: &GateParams) -> Result<Ptr<Cell>> {
     let mut layout = Layout::new(&args.name);
     let mut abs = Abstract::new(&args.name);
 
@@ -228,7 +214,7 @@ pub fn draw_nand2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     abs.add_port(port_y);
 
     let cell = Cell {
-        name: args.name,
+        name: args.name.clone(),
         abs: Some(abs),
         layout: Some(layout),
     };
@@ -239,7 +225,7 @@ pub fn draw_nand2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_nor2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
+pub fn draw_nor2(lib: &mut PdkLib, args: &GateParams) -> Result<Ptr<Cell>> {
     let mut layout = Layout::new(&args.name);
     let mut abs = Abstract::new(&args.name);
 
@@ -315,7 +301,7 @@ pub fn draw_nor2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     abs.add_port(port_y);
 
     let cell = Cell {
-        name: args.name,
+        name: args.name.clone(),
         abs: Some(abs),
         layout: Some(layout),
     };
@@ -326,7 +312,7 @@ pub fn draw_nor2(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_nand3(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
+pub fn draw_nand3(lib: &mut PdkLib, args: &GateParams) -> Result<Ptr<Cell>> {
     let mut layout = Layout::new(&args.name);
     let mut abs = Abstract::new(&args.name);
 
@@ -409,7 +395,7 @@ pub fn draw_nand3(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     abs.add_port(port_y);
 
     let cell = Cell {
-        name: args.name,
+        name: args.name.clone(),
         abs: Some(abs),
         layout: Some(layout),
     };
@@ -423,7 +409,7 @@ pub fn draw_nand3(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
 pub fn draw_inv_dec(lib: &mut PdkLib, name: impl Into<String>) -> Result<Ptr<Cell>> {
     draw_inv(
         lib,
-        GateParams {
+        &GateParams {
             name: name.into(),
             size: Size {
                 nmos_width: 1_600,
@@ -434,7 +420,7 @@ pub fn draw_inv_dec(lib: &mut PdkLib, name: impl Into<String>) -> Result<Ptr<Cel
     )
 }
 
-pub fn draw_inv(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
+pub fn draw_inv(lib: &mut PdkLib, args: &GateParams) -> Result<Ptr<Cell>> {
     let mut layout = Layout::new(&args.name);
     let mut abs = Abstract::new(&args.name);
 
@@ -495,7 +481,7 @@ pub fn draw_inv(lib: &mut PdkLib, args: GateParams) -> Result<Ptr<Cell>> {
     layout.elems.push(draw_rect(rect, ptx.sd_metal));
 
     let cell = Cell {
-        name: args.name,
+        name: args.name.clone(),
         abs: Some(abs),
         layout: Some(layout),
     };

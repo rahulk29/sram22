@@ -10,9 +10,8 @@ use pdkprims::contact::ContactParams;
 use pdkprims::{Pdk, PdkLib};
 use serde::{Deserialize, Serialize};
 
+use crate::layout::sram::GateList;
 use crate::Result;
-
-use super::sram::GateList;
 
 pub const NWELL_COL_SIDE_EXTEND: Int = 1_000;
 pub const NWELL_COL_VERT_EXTEND: Int = 360;
@@ -50,11 +49,11 @@ impl TwoLevelContactParams {
 
 pub fn draw_two_level_contact(
     lib: &mut PdkLib,
-    params: TwoLevelContactParams,
+    params: &TwoLevelContactParams,
 ) -> Result<Ptr<Cell>> {
     let bot = lib.pdk.get_contact(
         &ContactParams::builder()
-            .stack(params.bot_stack)
+            .stack(&params.bot_stack)
             .rows(params.bot_rows)
             .cols(params.bot_cols)
             .dir(Dir::Vert)
@@ -63,7 +62,7 @@ pub fn draw_two_level_contact(
     );
     let top = lib.pdk.get_contact(
         &ContactParams::builder()
-            .stack(params.top_stack)
+            .stack(&params.top_stack)
             .rows(params.top_rows)
             .cols(params.top_cols)
             .dir(Dir::Vert)
@@ -80,7 +79,7 @@ pub fn draw_two_level_contact(
 
     p0.merge(p1);
 
-    let mut cell = Cell::empty(params.name);
+    let mut cell = Cell::empty(&params.name);
     cell.abs_mut().add_port(p0);
     cell.layout_mut().add_inst(bot);
     cell.layout_mut().add_inst(top);

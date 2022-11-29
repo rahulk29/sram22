@@ -1,60 +1,48 @@
 use std::collections::HashMap;
 
-use pdkprims::config::Int;
 use pdkprims::mos::MosType;
-
 use vlsir::circuit::Module;
 
+use crate::config::mux::{WriteMuxArrayParams, WriteMuxParams};
 use crate::schematic::conns::{
     bus, conn_map, conn_slice, port_inout, port_input, sig_conn, signal,
 };
 use crate::schematic::local_reference;
 use crate::schematic::mos::Mosfet;
 
-pub struct WriteMuxParams {
-    pub length: Int,
-    pub width: Int,
-    pub wmask: bool,
-}
-
-pub struct ArrayParams {
-    pub cols: usize,
-    pub mux_ratio: usize,
-    pub wmask_groups: usize,
-    pub mux_params: WriteMuxParams,
-}
-
-pub fn write_mux_array(params: ArrayParams) -> Vec<Module> {
-    let ArrayParams {
+pub fn write_mux_array(params: &WriteMuxArrayParams) -> Vec<Module> {
+    let &WriteMuxArrayParams {
         cols,
         mux_ratio,
-        wmask_groups,
-        mux_params,
+        wmask_width,
+        ..
     } = params;
+    let WriteMuxArrayParams {
+        name, mux_params, ..
+    } = params;
+
     let mux_ratio = mux_ratio as i64;
-    let wmask_groups = wmask_groups as i64;
+    let wmask_width = wmask_width as i64;
     let cols = cols as i64;
 
     let mux = column_write_mux(mux_params);
 
-    let name = String::from("write_mux_array");
-
     assert!(cols > 0);
     assert_eq!(cols % 2, 0);
-    assert_eq!(cols % (mux_ratio * wmask_groups), 0);
+    assert_eq!(cols % (mux_ratio * wmask_width), 0);
 
     // bits per word
     let bpw = cols / mux_ratio;
 
     // bits per mask signal
-    let bpmask = cols / wmask_groups;
+    let bpmask = cols / wmask_width;
 
-    let enable_wmask = wmask_groups > 1;
+    let enable_wmask = wmask_width > 1;
 
     let vss = signal("vss");
     let bl = bus("bl", cols);
     let br = bus("br", cols);
-    let wmask = bus("wmask", wmask_groups);
+    let wmask = bus("wmask", wmask_width);
     let data = bus("data", bpw);
     let data_b = bus("data_b", bpw);
     let we = bus("we", mux_ratio);
@@ -73,7 +61,7 @@ pub fn write_mux_array(params: ArrayParams) -> Vec<Module> {
     }
 
     let mut m = Module {
-        name,
+        name: name.to_string(),
         ports,
         signals: vec![],
         instances: vec![],
@@ -96,7 +84,7 @@ pub fn write_mux_array(params: ArrayParams) -> Vec<Module> {
         }
         m.instances.push(vlsir::circuit::Instance {
             name: format!("mux_{}", i),
-            module: local_reference("column_write_mux"),
+            module: local_reference(&mux_params.name),
             parameters: HashMap::new(),
             connections: conn_map(connections),
         });
@@ -105,7 +93,8 @@ pub fn write_mux_array(params: ArrayParams) -> Vec<Module> {
     vec![mux, m]
 }
 
-pub fn column_write_mux(params: WriteMuxParams) -> Module {
+pub fn column_write_mux(params: &WriteMuxParams) -> Module {
+    let name = &params.name;
     let length = params.length;
 
     let we = signal("we");
@@ -132,7 +121,7 @@ pub fn column_write_mux(params: WriteMuxParams) -> Module {
     }
 
     let mut m = Module {
-        name: "column_write_mux".to_string(),
+        name: name.to_string(),
         ports,
         signals: vec![],
         instances: vec![],

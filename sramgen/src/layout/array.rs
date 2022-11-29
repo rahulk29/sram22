@@ -6,15 +6,14 @@ use layout21::raw::{
 };
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
-
-use crate::bus_bit;
-use crate::layout::bbox;
-use crate::layout::grid::GridCells;
-use crate::tech::*;
 use serde::{Deserialize, Serialize};
 
-use super::route::Router;
-use super::Result;
+use crate::config::bitcell_array::BitcellArrayParams;
+use crate::layout::bbox;
+use crate::layout::grid::GridCells;
+use crate::layout::route::Router;
+use crate::tech::*;
+use crate::{bus_bit, Result};
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum FlipMode {
@@ -39,7 +38,7 @@ pub struct ArrayedCell {
     pub cell: Ptr<Cell>,
 }
 
-pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<ArrayedCell> {
+pub fn draw_cell_array(lib: &mut PdkLib, params: &ArrayCellParams) -> Result<ArrayedCell> {
     let mut layout = Layout {
         name: params.name.clone(),
         insts: vec![],
@@ -104,7 +103,7 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Arra
     }
 
     let cell = Cell {
-        name: params.name,
+        name: params.name.clone(),
         abs,
         layout: Some(layout),
     };
@@ -115,23 +114,24 @@ pub fn draw_cell_array(params: ArrayCellParams, lib: &mut PdkLib) -> Result<Arra
     Ok(ArrayedCell { cell: ptr })
 }
 
-pub fn draw_bitcell_array(
-    rows: usize,
-    cols: usize,
-    dummy_rows: usize,
-    dummy_cols: usize,
-    lib: &mut PdkLib,
-) -> Result<Ptr<Cell>> {
-    let name = "sram_core".to_string();
+pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Result<Ptr<Cell>> {
+    let &BitcellArrayParams {
+        rows,
+        cols,
+        dummy_rows,
+        dummy_cols,
+        ..
+    } = params;
+    let name = &params.name;
 
     let mut layout = Layout {
-        name: name.clone(),
+        name: name.to_string(),
         insts: vec![],
         elems: vec![],
         annotations: vec![],
     };
 
-    let mut abs = Abstract::new(name.clone());
+    let mut abs = Abstract::new(name.to_string());
 
     let corner = corner_gds(lib)?;
     let colend_cent = colend_cent_gds(lib)?;
@@ -414,7 +414,7 @@ pub fn draw_bitcell_array(
     layout.insts = grid.into_instances();
 
     let cell = Cell {
-        name,
+        name: name.to_string(),
         abs: Some(abs),
         layout: Some(layout),
     };

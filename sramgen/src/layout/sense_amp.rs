@@ -1,32 +1,35 @@
 use layout21::raw::geom::Dir;
-use layout21::raw::{Cell, Element, Instance, Int};
-
+use layout21::raw::{Cell, Element, Instance};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use super::array::*;
-use super::common::MergeArgs;
-use super::sram::GateList;
+use crate::config::sense_amp::SenseAmpArrayParams;
+use crate::layout::array::*;
+use crate::layout::common::MergeArgs;
+use crate::layout::sram::GateList;
 use crate::tech::sramgen_sp_sense_amp_gds;
 use crate::Result;
 
-pub fn draw_sense_amp_array(lib: &mut PdkLib, width: usize, spacing: Int) -> Result<Ptr<Cell>> {
+pub fn draw_sense_amp_array(lib: &mut PdkLib, params: &SenseAmpArrayParams) -> Result<Ptr<Cell>> {
+    let &SenseAmpArrayParams { width, spacing, .. } = params;
+    let name = &params.name;
+
     let sa = sramgen_sp_sense_amp_gds(lib)?;
 
     let core = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: "sense_amp_array_core".to_string(),
             num: width,
             cell: sa,
-            spacing: Some(spacing),
+            spacing,
             flip: FlipMode::None,
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
-    let mut cell = Cell::empty("sense_amp_array");
+    let mut cell = Cell::empty(name);
 
     let inst = Instance::new("sense_amp_array_core", core.cell);
 

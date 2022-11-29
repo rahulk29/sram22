@@ -1,22 +1,16 @@
-use crate::layout::common::MergeArgs;
-use crate::layout::sram::GateList;
-use crate::tech::{sc_inv_gds, sc_tap_gds};
-use crate::{bus_bit, Result};
-
 use layout21::raw::{AbstractPort, BoundBox, BoundBoxTrait, Cell, Instance, Point, Rect, Shape};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use super::common::sc_outline;
-use super::route::Router;
+use crate::config::inv_chain::{InvChainGridParams, InvChainParams};
+use crate::layout::common::{sc_outline, MergeArgs};
+use crate::layout::route::Router;
+use crate::layout::sram::GateList;
+use crate::tech::{sc_inv_gds, sc_tap_gds};
+use crate::{bus_bit, Result};
 
-pub struct InvChainParams<'a> {
-    pub prefix: &'a str,
-    pub num: usize,
-}
-
-pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Cell>> {
-    let mut cell = Cell::empty(params.prefix);
+pub fn draw_inv_chain(lib: &mut PdkLib, params: &InvChainParams) -> Result<Ptr<Cell>> {
+    let mut cell = Cell::empty(&params.name);
 
     let inv = sc_inv_gds(lib)?;
     let tap = sc_tap_gds(lib)?;
@@ -26,7 +20,7 @@ pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Ce
     let inv_outline = sc_outline(&lib.pdk, &tmp);
     let tap_outline = sc_outline(&lib.pdk, &tap0);
 
-    let mut router = Router::new(format!("{}_route", params.prefix), lib.pdk.clone());
+    let mut router = Router::new(format!("{}_route", params.name), lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
@@ -99,16 +93,10 @@ pub fn draw_inv_chain(lib: &mut PdkLib, params: InvChainParams) -> Result<Ptr<Ce
     Ok(ptr)
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct InvChainGridParams<'a> {
-    pub prefix: &'a str,
-    pub rows: usize,
-    pub cols: usize,
-}
-
-pub fn draw_inv_chain_grid(lib: &mut PdkLib, params: InvChainGridParams) -> Result<Ptr<Cell>> {
-    let InvChainGridParams { prefix, rows, cols } = params;
-    let mut cell = Cell::empty(prefix);
+pub fn draw_inv_chain_grid(lib: &mut PdkLib, params: &InvChainGridParams) -> Result<Ptr<Cell>> {
+    let &InvChainGridParams { rows, cols, .. } = params;
+    let name = &params.name;
+    let mut cell = Cell::empty(name);
 
     let inv = sc_inv_gds(lib)?;
     let tap = sc_tap_gds(lib)?;
@@ -120,7 +108,7 @@ pub fn draw_inv_chain_grid(lib: &mut PdkLib, params: InvChainGridParams) -> Resu
 
     assert_eq!(tap_outline.height(), inv_outline.height());
 
-    let mut router = Router::new(format!("{}_route", prefix), lib.pdk.clone());
+    let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
