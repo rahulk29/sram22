@@ -9,23 +9,23 @@ use layout21::utils::Ptr;
 use pdkprims::mos::{Intent, MosDevice, MosParams, MosType};
 use pdkprims::PdkLib;
 
+use crate::config::mux::{ReadMuxArrayParams, ReadMuxParams};
 use crate::layout::array::*;
-use crate::layout::route::grid::{Grid, TrackLocator};
-use crate::layout::route::Router;
-use crate::layout::sram::{connect, ConnectArgs, GateList};
-
-use crate::{bus_bit, Result};
-
 use crate::layout::common::{
     draw_two_level_contact, MergeArgs, TwoLevelContactParams, NWELL_COL_SIDE_EXTEND,
     NWELL_COL_VERT_EXTEND,
 };
+use crate::layout::route::grid::{Grid, TrackLocator};
+use crate::layout::route::Router;
+use crate::layout::sram::{connect, ConnectArgs, GateList};
+use crate::{bus_bit, Result};
 
-pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
-    let name = "read_mux".to_string();
+pub fn draw_read_mux(lib: &mut PdkLib, params: &ReadMuxParams) -> Result<Ptr<Cell>> {
+    let &ReadMuxParams { length, width, .. } = params;
+    let name = &params.name;
 
-    let mut layout = Layout::new(&name);
-    let mut abs = Abstract::new(&name);
+    let mut layout = Layout::new(name);
+    let mut abs = Abstract::new(name);
 
     let mut params = MosParams::new();
     params
@@ -33,16 +33,16 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .direction(Dir::Horiz)
         .add_device(MosDevice {
             mos_type: MosType::Pmos,
-            width: 1_200,
-            length: 150,
+            width,
+            length,
             fingers: 1,
             intent: Intent::Svt,
             skip_sd_metal: vec![],
         })
         .add_device(MosDevice {
             mos_type: MosType::Pmos,
-            width: 1_200,
-            length: 150,
+            width,
+            length,
             fingers: 1,
             intent: Intent::Svt,
             skip_sd_metal: vec![],
@@ -167,7 +167,7 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     layout.insts.push(router.finish());
 
     let cell = Cell {
-        name,
+        name: name.to_string(),
         abs: Some(abs),
         layout: Some(layout),
     };
@@ -178,51 +178,55 @@ pub fn draw_read_mux(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_read_mux_array(
-    lib: &mut PdkLib,
-    mut width: usize,
-    mut mux_ratio: usize,
-) -> Result<Ptr<Cell>> {
+pub fn draw_read_mux_array(lib: &mut PdkLib, params: &ReadMuxArrayParams) -> Result<Ptr<Cell>> {
+    let &ReadMuxArrayParams {
+        mut cols,
+        mut mux_ratio,
+        ..
+    } = params;
+    let ReadMuxArrayParams {
+        name, mux_params, ..
+    } = params;
+
     assert_eq!(mux_ratio % 2, 0);
     assert!(mux_ratio >= 2);
 
     // Divide mux ratio by 2, since read muxes are internally 2:1
     mux_ratio /= 2;
-    width /= 2;
+    cols /= 2;
 
-    let name = "read_mux_array";
     let mut cell = Cell::empty(name);
 
     let tc = lib.pdk.config();
     let tc = tc.read().unwrap();
 
-    let mux = draw_read_mux(lib)?;
+    let mux = draw_read_mux(lib, mux_params)?;
     let tap = draw_read_mux_tap_cell(lib)?;
 
     let array = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: "read_mux_array_core".to_string(),
-            num: width,
+            num: cols,
             cell: mux,
             spacing: Some(2_500 * 2),
             flip: FlipMode::None,
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
     let taps = draw_cell_array(
-        ArrayCellParams {
+        lib,
+        &ArrayCellParams {
             name: "read_mux_array_taps".to_string(),
-            num: width + 1,
+            num: cols + 1,
             cell: tap,
             spacing: Some(2_500 * 2),
             flip: FlipMode::None,
             flip_toggle: false,
             direction: Dir::Horiz,
         },
-        lib,
     )?;
 
     let mut router = Router::new("read_mux_array_route", lib.pdk.clone());
@@ -232,7 +236,7 @@ pub fn draw_read_mux_array(
     let m2 = cfg.layerkey(2);
 
     let inst = Instance::new("read_mux_array_core", array.cell);
-    for i in 0..width {
+    for i in 0..cols {
         cell.add_pin_from_port(
             inst.port(bus_bit("bl_0", i)).named(bus_bit("bl", 2 * i)),
             m1,
@@ -255,7 +259,7 @@ pub fn draw_read_mux_array(
     let mut tap_inst = Instance::new("read_mux_array_taps", taps.cell);
     tap_inst.align_centers_gridded(inst.bbox(), lib.pdk.grid());
 
-    for i in 0..width {
+    for i in 0..cols {
         for port in [
             bus_bit("bl_0", i),
             bus_bit("bl_1", i),
@@ -284,7 +288,7 @@ pub fn draw_read_mux_array(
         .map(|rect| router.trace(rect, 2))
         .collect::<Vec<_>>();
 
-    for i in 0..width {
+    for i in 0..cols {
         let sel = &sel_tracks[2 * i % (2 * mux_ratio)];
         let src = inst.port(bus_bit("sel", i)).largest_rect(m0).unwrap();
         let mut trace = router.trace(src, 0);
@@ -314,7 +318,7 @@ pub fn draw_read_mux_array(
 
     let vpb = MergeArgs::builder()
         .layer(nwell)
-        .insts(GateList::Array(&inst, width))
+        .insts(GateList::Array(&inst, cols))
         .port_name("vpb")
         .top_overhang(NWELL_COL_VERT_EXTEND)
         .bot_overhang(NWELL_COL_VERT_EXTEND)
@@ -327,7 +331,7 @@ pub fn draw_read_mux_array(
         .metal_idx(2)
         .port_idx(1)
         .router(&mut router)
-        .insts(GateList::Array(&tap_inst, width + 1))
+        .insts(GateList::Array(&tap_inst, cols + 1))
         .port_name("x")
         .dir(Dir::Horiz)
         .overhang(100)
@@ -335,8 +339,8 @@ pub fn draw_read_mux_array(
     let trace = connect(args);
     cell.add_pin("vdd", m2, trace.rect());
 
-    assert_eq!(width % mux_ratio, 0);
-    for i in (0..width).step_by(mux_ratio) {
+    assert_eq!(cols % mux_ratio, 0);
+    for i in (0..cols).step_by(mux_ratio) {
         let args = ConnectArgs::builder()
             .metal_idx(2)
             .port_idx(1)
@@ -381,6 +385,6 @@ pub fn draw_read_mux_tap_cell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .bot_rows(7)
         .top_rows(6)
         .build()?;
-    let contact = draw_two_level_contact(lib, params)?;
+    let contact = draw_two_level_contact(lib, &params)?;
     Ok(contact)
 }

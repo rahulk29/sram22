@@ -2,30 +2,36 @@ use std::collections::HashMap;
 
 use vlsir::circuit::{Concat, Connection, Instance, Module};
 
+use crate::config::bitcell_array::BitcellArrayParams;
+use crate::config::col_inv::{ColInvArrayParams, ColInvParams};
+use crate::config::decoder::DecoderParams;
+use crate::config::dff::DffGridParams;
+use crate::config::dout_buffer::{DoutBufArrayParams, DoutBufParams};
+use crate::config::gate::{AndParams, GateParams, Size};
+use crate::config::inv_chain::InvChainGridParams;
+use crate::config::mux::{ReadMuxArrayParams, ReadMuxParams, WriteMuxArrayParams, WriteMuxParams};
+use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
+use crate::config::sense_amp::SenseAmpArrayParams;
 use crate::config::sram::SramParams;
-use crate::layout::inv_chain::InvChainGridParams;
-use crate::schematic::bitcell_array::{bitcell_array, BitcellArrayParams};
-use crate::schematic::col_inv::{col_inv_array, ColInvArrayParams, ColInvParams};
+use crate::config::wl_driver::{WordlineDriverArrayParams, WordlineDriverParams};
+use crate::config::wmask_control::WriteMaskControlParams;
+use crate::schematic::bitcell_array::bitcell_array;
+use crate::schematic::col_inv::col_inv_array;
 use crate::schematic::conns::{
     bus, conn_map, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
 };
-use crate::schematic::decoder::{hierarchical_decoder, DecoderParams, DecoderTree};
-use crate::schematic::dff::dff_array;
-use crate::schematic::dout_buffer::{dout_buf_array, DoutBufArrayParams, DoutBufParams};
-use crate::schematic::gate::{AndParams, GateParams, Size};
+use crate::schematic::decoder::{hierarchical_decoder, DecoderTree};
+use crate::schematic::dff::dff_grid;
+use crate::schematic::dout_buffer::dout_buf_array;
 use crate::schematic::inv_chain::inv_chain_grid;
+use crate::schematic::local_reference;
 use crate::schematic::mux::read::read_mux_array;
-use crate::schematic::mux::write::{write_mux_array, ArrayParams, WriteMuxParams};
-use crate::schematic::precharge::{precharge_array, PrechargeArrayParams, PrechargeParams};
-use crate::schematic::sense_amp::{sense_amp_array, SenseAmpArrayParams};
-use crate::schematic::wl_driver::{
-    wordline_driver_array, WordlineDriverArrayParams, WordlineDriverParams,
-};
-use crate::schematic::wmask_control::{write_mask_control, WriteMaskControlParams};
-use crate::schematic::{local_reference, mux};
+use crate::schematic::mux::write::write_mux_array;
+use crate::schematic::precharge::precharge_array;
+use crate::schematic::sense_amp::sense_amp_array;
+use crate::schematic::wl_driver::wordline_driver_array;
+use crate::schematic::wmask_control::write_mask_control;
 use crate::tech::{openram_dff_ref, sramgen_control_ref};
-
-use crate::schematic::dff::DffArrayParams;
 
 pub fn sram(params: &SramParams) -> Vec<Module> {
     assert!(params.row_bits > 0);
@@ -38,31 +44,31 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     let rows = 1 << params.row_bits;
     let cols = 1 << params.col_bits;
     let mux_ratio = 1 << params.col_select_bits;
-    let wmask_groups = params.wmask_width;
+    let wmask_width = params.wmask_width;
 
     let cols_masked = (cols / mux_ratio) as i64;
 
     let tree = DecoderTree::new(params.row_bits);
     let decoder_params = DecoderParams {
+        name: "hierarchical_decoder".to_string(),
         tree,
         lch: 150,
-        name: "hierarchical_decoder".to_string(),
     };
-    let mut decoders = hierarchical_decoder(decoder_params);
+    let mut decoders = hierarchical_decoder(&decoder_params);
 
     let mut col_decoders = if mux_ratio > 2 {
         let tree = DecoderTree::new(params.col_select_bits);
         let decoder_params = DecoderParams {
+            name: "column_decoder".to_string(),
             tree,
             lch: 150,
-            name: "column_decoder".to_string(),
         };
-        hierarchical_decoder(decoder_params)
+        hierarchical_decoder(&decoder_params)
     } else {
         Vec::new()
     };
 
-    let mut wl_drivers = wordline_driver_array(WordlineDriverArrayParams {
+    let mut wl_drivers = wordline_driver_array(&WordlineDriverArrayParams {
         name: "wordline_driver_array".to_string(),
         width: rows,
         instance_params: WordlineDriverParams {
@@ -79,15 +85,15 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         },
     });
 
-    let bitcells = bitcell_array(BitcellArrayParams {
+    let bitcells = bitcell_array(&BitcellArrayParams {
+        name: "bitcell_array".to_string(),
         rows: rows as usize,
         cols,
         dummy_rows: 2,
         dummy_cols: 2,
-        name: "bitcell_array".to_string(),
     });
 
-    let mut precharge = precharge_array(PrechargeArrayParams {
+    let mut precharge = precharge_array(&PrechargeArrayParams {
         name: "precharge_array".to_string(),
         width: cols,
         instance_params: PrechargeParams {
@@ -98,60 +104,78 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         },
     });
 
-    let mut write_muxes = write_mux_array(ArrayParams {
+    let mut write_muxes = write_mux_array(&WriteMuxArrayParams {
+        name: "write_mux_array".to_string(),
         cols,
         mux_ratio,
-        wmask_groups,
+        wmask_width,
         mux_params: WriteMuxParams {
+            name: "write_mux".to_string(),
             length: 150,
             width: 2_000,
-            wmask: wmask_groups > 1,
+            wmask: wmask_width > 1,
         },
     });
 
-    let mut read_muxes = read_mux_array(mux::read::ArrayParams {
+    let mut read_muxes = read_mux_array(&ReadMuxArrayParams {
+        name: "read_mux_array".to_string(),
         cols,
         mux_ratio,
-        mux_params: mux::read::Params {
+        mux_params: ReadMuxParams {
+            name: "read_mux".to_string(),
             length: 150,
             width: 1_200,
         },
     });
 
-    let mut col_inv = col_inv_array(ColInvArrayParams {
+    let mut col_inv = col_inv_array(&ColInvArrayParams {
         name: "col_inv_array".to_string(),
-        width: cols_masked,
+        width: cols_masked as usize,
+        mux_ratio,
         instance_params: ColInvParams {
+            name: "col_inv".to_string(),
             length: 150,
             nwidth: 1_400,
             pwidth: 2_600,
         },
     });
 
-    let mut data_dff_array = dff_array(DffArrayParams {
-        name: "data_dff_array".to_string(),
-        width: cols / mux_ratio,
-    });
+    let din_dff_params = DffGridParams::builder()
+        .name("data_dff_array")
+        .rows(2)
+        .cols(cols / (2 * mux_ratio))
+        .build()
+        .unwrap();
+    let mut data_dff_array = dff_grid(&din_dff_params);
 
-    let mut wmask_dff_array = dff_array(DffArrayParams {
-        name: "wmask_dff_array".to_string(),
-        width: wmask_groups,
-    });
+    let wmask_dff_params = DffGridParams::builder()
+        .name("wmask_dff_array")
+        .cols(wmask_width)
+        .rows(1)
+        .build()
+        .unwrap();
+    let mut wmask_dff_array = dff_grid(&wmask_dff_params);
 
-    let mut addr_dff_array = dff_array(DffArrayParams {
-        name: "addr_dff_array".to_string(),
-        width: (row_bits + col_mask_bits) as usize,
-    });
+    let addr_dff_params = DffGridParams::builder()
+        .name("addr_dff_array")
+        .cols((row_bits + col_mask_bits) as usize)
+        .rows(1)
+        .build()
+        .unwrap();
+    let mut addr_dff_array = dff_grid(&addr_dff_params);
 
-    let sense_amp_array = sense_amp_array(SenseAmpArrayParams {
+    let sense_amp_array = sense_amp_array(&SenseAmpArrayParams {
         name: "sense_amp_array".to_string(),
-        width: cols_masked,
+        width: cols_masked as usize,
+        spacing: None,
     });
 
-    let mut dout_buf_array = dout_buf_array(DoutBufArrayParams {
+    let mut dout_buf_array = dout_buf_array(&DoutBufArrayParams {
         name: "dout_buf_array".to_string(),
-        width: cols_masked,
+        width: cols_masked as usize,
+        mux_ratio,
         instance_params: DoutBufParams {
+            name: "dout_buf".to_string(),
             length: 150,
             nw1: 1_000,
             pw1: 1_600,
@@ -160,7 +184,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         },
     });
 
-    let mut we_control = write_mask_control(WriteMaskControlParams {
+    let mut we_control = write_mask_control(&WriteMaskControlParams {
         name: "we_control".to_string(),
         width: mux_ratio as i64,
         and_params: AndParams {
@@ -184,8 +208,8 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         },
     });
 
-    let inv_chain = inv_chain_grid(InvChainGridParams {
-        prefix: "control_logic_delay_chain",
+    let inv_chain = inv_chain_grid(&InvChainGridParams {
+        name: "control_logic_delay_chain".to_string(),
         rows: 5,
         cols: 9,
     });
@@ -226,9 +250,9 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     let col_sel_b = bus("col_sel_b", mux_ratio as i64);
 
     // Only used when wmask groups is greater than 1
-    let wmask = bus("wmask", wmask_groups as i64);
-    let bank_wmask = bus("bank_wmask", wmask_groups as i64);
-    let bank_wmask_b = bus("bank_wmask_b", wmask_groups as i64);
+    let wmask = bus("wmask", wmask_width as i64);
+    let bank_wmask = bus("bank_wmask", wmask_width as i64);
+    let bank_wmask_b = bus("bank_wmask_b", wmask_width as i64);
 
     let mut ports = vec![
         port_inout(&vdd),
@@ -240,7 +264,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         port_input(&addr),
     ];
 
-    if wmask_groups > 1 {
+    if wmask_width > 1 {
         ports.push(port_input(&wmask));
     }
 
@@ -283,7 +307,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     });
 
     // Write mask dffs
-    if wmask_groups > 1 {
+    if wmask_width > 1 {
         let mut conns = HashMap::new();
         conns.insert("vdd", sig_conn(&vdd));
         conns.insert("vss", sig_conn(&vss));
@@ -388,7 +412,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     conns.insert("data", sig_conn(&bank_din));
     conns.insert("data_b", sig_conn(&bank_din_b));
     conns.insert("we", sig_conn(&write_driver_en));
-    if wmask_groups > 1 {
+    if wmask_width > 1 {
         conns.insert("wmask", sig_conn(&bank_wmask));
     }
     m.instances.push(Instance {
@@ -555,7 +579,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     modules.append(&mut write_muxes);
     modules.append(&mut data_dff_array);
     modules.append(&mut addr_dff_array);
-    if wmask_groups > 1 {
+    if wmask_width > 1 {
         modules.append(&mut wmask_dff_array);
     }
     modules.append(&mut col_inv);

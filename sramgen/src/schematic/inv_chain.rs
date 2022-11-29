@@ -3,12 +3,13 @@ use std::collections::HashMap;
 use vlsir::circuit::{Instance, Module};
 
 use crate::bus_bit;
-use crate::layout::inv_chain::InvChainGridParams;
+use crate::config::inv_chain::InvChainGridParams;
 use crate::schematic::conns::{conn_map, port_inout, port_input, port_output, sig_conn, signal};
 use crate::tech::control_logic_inv_ref;
 
-pub fn inv_chain_grid(params: InvChainGridParams) -> Module {
-    let InvChainGridParams { prefix, rows, cols } = params;
+pub fn inv_chain_grid(params: &InvChainGridParams) -> Module {
+    let &InvChainGridParams { rows, cols, .. } = params;
+    let name = &params.name;
     let vdd = signal("vdd");
     let vss = signal("vss");
     let din = signal("din");
@@ -22,7 +23,7 @@ pub fn inv_chain_grid(params: InvChainGridParams) -> Module {
     ];
 
     let mut m = Module {
-        name: prefix.to_string(),
+        name: name.to_string(),
         ports,
         signals: vec![],
         instances: vec![],

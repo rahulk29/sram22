@@ -1,47 +1,34 @@
-use crate::layout::sram::{connect, ConnectArgs, GateList};
-use crate::schematic::decoder::TreeNode;
-use crate::schematic::gate::{GateParams, Size};
-use crate::{bus_bit, clog2};
-
-use crate::layout::common::bubble_ports;
-use crate::layout::Result;
 use layout21::raw::align::AlignRect;
 use layout21::raw::geom::Dir;
-use layout21::raw::{BoundBoxTrait, Cell, Instance, Int, Point, Rect, Span};
+use layout21::raw::{BoundBoxTrait, Cell, Instance, Point, Rect, Span};
 use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::contact::ContactParams;
 use pdkprims::PdkLib;
-use serde::{Deserialize, Serialize};
 
-use super::array::{draw_cell_array, ArrayCellParams, FlipMode};
-use super::common::MergeArgs;
+use crate::config::decoder::{AndDecArrayParams, GateDecArrayParams, NandDecArrayParams};
+use crate::config::gate::{GateParams, Size};
+use crate::layout::array::{draw_cell_array, ArrayCellParams, FlipMode};
+use crate::layout::common::{bubble_ports, MergeArgs};
+use crate::layout::route::grid::{Grid, TrackLocator};
+use crate::layout::route::Router;
+use crate::layout::sram::{connect, ConnectArgs, GateList};
+use crate::layout::Result;
+use crate::schematic::decoder::TreeNode;
+use crate::{bus_bit, clog2};
 
-use super::route::grid::{Grid, TrackLocator};
-use super::route::Router;
-
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct GateArrayParams<'a> {
-    pub prefix: &'a str,
-    pub width: usize,
-    pub dir: Dir,
-    pub pitch: Option<Int>,
-}
-
-pub fn draw_gate_array(
+pub fn draw_gate_dec_array(
     lib: &mut PdkLib,
-    params: GateArrayParams,
+    params: &GateDecArrayParams,
     cell: Ptr<Cell>,
     bubble_ports: &[&str],
     connect_ports: &[&str],
     skip_pins: &[&str],
 ) -> Result<Ptr<Cell>> {
-    let GateArrayParams {
-        prefix,
-        width,
-        dir,
-        pitch,
+    let &GateDecArrayParams {
+        width, dir, pitch, ..
     } = params;
+    let name = &params.name;
 
     assert_eq!(dir, Dir::Vert, "Only vertical gate arrays are supported.");
 
@@ -53,8 +40,9 @@ pub fn draw_gate_array(
     let spacing = pitch.unwrap_or(bbox.width() + 3 * 130);
 
     let array = draw_cell_array(
-        ArrayCellParams {
-            name: format!("{}_array", prefix),
+        lib,
+        &ArrayCellParams {
+            name: format!("{}_array", name),
             num: width,
             cell,
             spacing: Some(spacing),
@@ -62,12 +50,11 @@ pub fn draw_gate_array(
             flip_toggle: false,
             direction: Dir::Vert,
         },
-        lib,
     )?;
 
     let inst = Instance::new("array", array.cell);
 
-    let mut cell = Cell::empty(prefix);
+    let mut cell = Cell::empty(name);
     for prefix in bubble_ports {
         for port in inst.ports_starting_with(prefix) {
             cell.abs_mut().add_port(port);
@@ -93,7 +80,7 @@ pub fn draw_gate_array(
     connect_taps_and_pwr(TapFillContext {
         lib,
         cell: &mut cell,
-        prefix,
+        prefix: name,
         inst: &inst,
         width,
         m1_connect_ports: connect_ports,
@@ -107,9 +94,9 @@ pub fn draw_gate_array(
     Ok(ptr)
 }
 
-pub fn draw_inv_dec_array(lib: &mut PdkLib, params: GateArrayParams) -> Result<Ptr<Cell>> {
-    let inv_dec = super::gate::draw_inv_dec(lib, format!("{}_inv", params.prefix))?;
-    draw_gate_array(
+pub fn draw_inv_dec_array(lib: &mut PdkLib, params: &GateDecArrayParams) -> Result<Ptr<Cell>> {
+    let inv_dec = super::gate::draw_inv_dec(lib, format!("{}_inv", params.name))?;
+    draw_gate_dec_array(
         lib,
         params,
         inv_dec,
@@ -119,37 +106,65 @@ pub fn draw_inv_dec_array(lib: &mut PdkLib, params: GateArrayParams) -> Result<P
     )
 }
 
-pub fn draw_nand2_dec_array(lib: &mut PdkLib, params: GateArrayParams) -> Result<Ptr<Cell>> {
-    let nand = super::gate::draw_nand2_dec(lib, format!("{}_nand", &params.prefix))?;
-    draw_gate_array(lib, params, nand, &["a", "b", "y"], &["vdd", "vss"], &[])
-}
+pub fn draw_nand_dec_array(lib: &mut PdkLib, params: &NandDecArrayParams) -> Result<Ptr<Cell>> {
+    let NandDecArrayParams {
+        array_params, gate, ..
+    } = params;
+    let gate_size = params.gate_size;
 
-pub fn draw_nand3_array(
-    lib: &mut PdkLib,
-    params: GateArrayParams,
-    gate: GateParams,
-) -> Result<Ptr<Cell>> {
-    let nand = super::gate::draw_nand3(lib, gate)?;
-    draw_gate_array(
+    let nand = if gate_size == 2 {
+        super::gate::draw_nand2(lib, gate)?
+    } else if gate_size == 3 {
+        super::gate::draw_nand3(lib, gate)?
+    } else {
+        panic!(
+            "Invalid gate size: expected 2 or 3 input gate, found {}",
+            gate_size
+        );
+    };
+
+    let (bubble_ports, connect_ports, skip_pins): (&[&str], &[&str], &[&str]) = if gate_size == 2 {
+        (&["a", "b", "y"], &["vdd", "vss"], &[])
+    } else {
+        (&["a", "b", "c", "y"], &["vdd0", "vdd1", "vss"], &["vdd1"])
+    };
+
+    draw_gate_dec_array(
         lib,
-        params,
+        array_params,
         nand,
-        &["a", "b", "c", "y"],
-        &["vdd0", "vdd1", "vss"],
-        &["vdd1"],
+        bubble_ports,
+        connect_ports,
+        skip_pins,
     )
 }
 
-pub fn draw_and2_array(
-    lib: &mut PdkLib,
-    prefix: &str,
-    width: usize,
-    nand: GateParams,
-    inv: GateParams,
-) -> Result<Ptr<Cell>> {
-    // TODO reduce code duplication between this and draw_and3_array.
+pub fn draw_and_dec_array(lib: &mut PdkLib, params: &AndDecArrayParams) -> Result<Ptr<Cell>> {
+    let AndDecArrayParams {
+        array_params,
+        nand,
+        inv,
+        ..
+    } = params;
+    let gate_size = params.gate_size;
 
-    let nand = super::gate::draw_nand2(lib, nand)?;
+    if gate_size != 2 && gate_size != 3 {
+        panic!(
+            "Invalid gate size: expected 2 or 3 input gate, found {}",
+            gate_size
+        );
+    }
+
+    let &GateDecArrayParams {
+        width, dir, .. // TODO: Use passed in pitch
+    } = array_params;
+    let name = &array_params.name;
+
+    let nand = if gate_size == 2 {
+        super::gate::draw_nand2(lib, nand)?
+    } else {
+        super::gate::draw_nand3(lib, nand)?
+    };
     let inv = super::gate::draw_inv(lib, inv)?;
 
     let pitch = {
@@ -157,25 +172,31 @@ pub fn draw_and2_array(
         nand.layout().bbox().height() + 240
     };
 
-    let nand_arr = draw_gate_array(
+    let (bubble_ports, connect_ports, skip_pins): (&[&str], &[&str], &[&str]) = if gate_size == 2 {
+        (&["a", "b", "y"], &["vdd", "vss"], &[])
+    } else {
+        (&["a", "b", "c", "y"], &["vdd0", "vdd1", "vss"], &["vdd1"])
+    };
+
+    let nand_arr = draw_gate_dec_array(
         lib,
-        GateArrayParams {
-            prefix: &format!("{}_nand_array", prefix),
+        &GateDecArrayParams {
+            name: format!("{}_nand_array", name),
             width,
-            dir: Dir::Vert,
+            dir,
             pitch: Some(pitch),
         },
         nand,
-        &["a", "b", "y"],
-        &["vdd", "vss"],
-        &[],
+        bubble_ports,
+        connect_ports,
+        skip_pins,
     )?;
-    let inv_arr = draw_gate_array(
+    let inv_arr = draw_gate_dec_array(
         lib,
-        GateArrayParams {
-            prefix: &format!("{}_inv_array", prefix),
+        &GateDecArrayParams {
+            name: format!("{}_inv_array", name),
             width,
-            dir: Dir::Vert,
+            dir,
             pitch: Some(pitch),
         },
         inv,
@@ -184,7 +205,7 @@ pub fn draw_and2_array(
         &[],
     )?;
 
-    let mut cell = Cell::empty(prefix);
+    let mut cell = Cell::empty(name);
 
     let nand = Instance::new("nand_array", nand_arr);
     let nand_bbox = nand.bbox();
@@ -193,7 +214,7 @@ pub fn draw_and2_array(
     inv.align_to_the_right_of(nand_bbox, 1_000);
     inv.align_centers_vertically_gridded(nand_bbox, lib.pdk.grid());
 
-    let mut router = Router::new(format!("{}_route", prefix), lib.pdk.clone());
+    let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
@@ -205,7 +226,12 @@ pub fn draw_and2_array(
         let mut trace = router.trace(src, 0);
         trace.place_cursor(Dir::Horiz, true).s_bend(dst, Dir::Horiz);
 
-        for port in ["a", "b"] {
+        let ports: &[&str] = if gate_size == 2 {
+            &["a", "b"]
+        } else {
+            &["a", "b", "c"]
+        };
+        for port in ports {
             cell.add_pin_from_port(nand.port(bus_bit(port, i)), m0);
         }
         cell.add_pin_from_port(nand.port(bus_bit("y", i)).named(bus_bit("y_b", i)), m0);
@@ -213,97 +239,11 @@ pub fn draw_and2_array(
         cell.add_pin_from_port(inv.port(bus_bit("din_b", i)).named(bus_bit("y", i)), m0);
     }
 
-    cell.add_pin_from_port(nand.port("vdd").named("vdd0"), m1);
-    cell.add_pin_from_port(nand.port("vss").named("vss0"), m1);
-    cell.add_pin_from_port(nand.port("vnb").named("vnb0"), m1);
-    cell.add_pin_from_port(nand.port("vpb").named("vpb0"), m1);
-    cell.add_pin_from_port(inv.port("vdd").named("vdd1"), m1);
-    cell.add_pin_from_port(inv.port("vss").named("vss1"), m1);
-    cell.add_pin_from_port(inv.port("vnb").named("vnb1"), m1);
-    cell.add_pin_from_port(inv.port("vpb").named("vpb1"), m1);
-
-    cell.layout_mut().add_inst(nand);
-    cell.layout_mut().add_inst(inv);
-    cell.layout_mut().add_inst(router.finish());
-
-    let ptr = Ptr::new(cell);
-    lib.lib.cells.push(ptr.clone());
-
-    Ok(ptr)
-}
-
-pub fn draw_and3_array(
-    lib: &mut PdkLib,
-    prefix: &str,
-    width: usize,
-    nand: GateParams,
-    inv: GateParams,
-) -> Result<Ptr<Cell>> {
-    let nand = super::gate::draw_nand3(lib, nand)?;
-    let inv = super::gate::draw_inv(lib, inv)?;
-
-    let pitch = {
-        let nand = nand.read().unwrap();
-        nand.layout().bbox().height() + 240
-    };
-
-    let nand_arr = draw_gate_array(
-        lib,
-        GateArrayParams {
-            prefix: &format!("{}_nand_array", prefix),
-            width,
-            dir: Dir::Vert,
-            pitch: Some(pitch),
-        },
-        nand,
-        &["a", "b", "c", "y"],
-        &["vdd0", "vdd1", "vss"],
-        &["vdd1"],
-    )?;
-    let inv_arr = draw_gate_array(
-        lib,
-        GateArrayParams {
-            prefix: &format!("{}_inv_array", prefix),
-            width,
-            dir: Dir::Vert,
-            pitch: Some(pitch),
-        },
-        inv,
-        &["din", "din_b"],
-        &["vdd", "vss"],
-        &[],
-    )?;
-
-    let mut cell = Cell::empty(prefix);
-
-    let nand = Instance::new("nand_array", nand_arr);
-    let nand_bbox = nand.bbox();
-
-    let mut inv = Instance::new("inv_array", inv_arr);
-    inv.align_to_the_right_of(nand_bbox, 1_000);
-    inv.align_centers_vertically_gridded(nand_bbox, lib.pdk.grid());
-
-    let mut router = Router::new(format!("{}_route", prefix), lib.pdk.clone());
-    let cfg = router.cfg();
-    let m0 = cfg.layerkey(0);
-    let m1 = cfg.layerkey(1);
-
-    for i in 0..width {
-        let src = nand.port(bus_bit("y", i)).largest_rect(m0).unwrap();
-        let dst = inv.port(bus_bit("din", i)).largest_rect(m0).unwrap();
-
-        let mut trace = router.trace(src, 0);
-        trace.place_cursor(Dir::Horiz, true).s_bend(dst, Dir::Horiz);
-
-        for port in ["a", "b", "c"] {
-            cell.add_pin_from_port(nand.port(bus_bit(port, i)), m0);
-        }
-        cell.add_pin_from_port(nand.port(bus_bit("y", i)).named(bus_bit("y_b", i)), m0);
-
-        cell.add_pin_from_port(inv.port(bus_bit("din_b", i)).named(bus_bit("y", i)), m0);
+    if gate_size == 2 {
+        cell.add_pin_from_port(nand.port("vdd").named("vdd0"), m1);
+    } else {
+        cell.add_pin_from_port(nand.port("vdd0"), m1);
     }
-
-    cell.add_pin_from_port(nand.port("vdd0"), m1);
     cell.add_pin_from_port(nand.port("vss").named("vss0"), m1);
     cell.add_pin_from_port(nand.port("vnb").named("vnb0"), m1);
     cell.add_pin_from_port(nand.port("vpb").named("vpb0"), m1);
@@ -558,16 +498,20 @@ fn draw_hier_decode_node(
 
     let array_name = format!("{}_{}_and_array", &ctx.prefix, id);
 
-    let and_array = if gate_size == 2 {
-        draw_and2_array(lib, &array_name, node.num, nand_params, inv_params)?
-    } else if gate_size == 3 {
-        draw_and3_array(lib, &array_name, node.num, nand_params, inv_params)?
-    } else {
-        panic!(
-            "Invalid gate size: expected 2 or 3 input gate, found {}",
-            gate_size
-        );
-    };
+    let and_array = draw_and_dec_array(
+        lib,
+        &AndDecArrayParams {
+            array_params: GateDecArrayParams {
+                name: array_name,
+                width: node.num,
+                dir: Dir::Vert,
+                pitch: None,
+            },
+            nand: nand_params,
+            inv: inv_params,
+            gate_size,
+        },
+    )?;
 
     let mut and_array = Instance::new("and_array", and_array);
     if ctx.output_dir == OutputDir::Left {

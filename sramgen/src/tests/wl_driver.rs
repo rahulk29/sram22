@@ -1,5 +1,6 @@
+use crate::config::gate::Size;
+use crate::config::wl_driver::*;
 use crate::paths::out_bin;
-use crate::schematic::gate::Size;
 use crate::schematic::wl_driver::*;
 use crate::schematic::{generate_netlist, save_modules};
 use crate::tests::test_work_dir;
@@ -7,7 +8,7 @@ use crate::tests::test_work_dir;
 #[test]
 fn test_netlist_wordline_driver_array() -> Result<(), Box<dyn std::error::Error>> {
     let name = "sramgen_wordline_driver_array";
-    let modules = wordline_driver_array(WordlineDriverArrayParams {
+    let modules = wordline_driver_array(&WordlineDriverArrayParams {
         name: name.to_string(),
         width: 32,
         instance_params: WordlineDriverParams {

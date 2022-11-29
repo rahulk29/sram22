@@ -1,17 +1,18 @@
 use std::collections::HashMap;
 
 use fanout::FanoutAnalyzer;
-
-use crate::clog2;
-use crate::layout::decoder::get_idxs;
-use crate::schematic::conns::{conn_map, conn_slice, sig_conn, signal, BusConnection};
-use crate::schematic::gate::{inv, nand2, nand3, Gate, GateParams, GateType, Size};
-use pdkprims::config::Int;
 use serde::{Deserialize, Serialize};
 use vlsir::circuit::connection::Stype;
 use vlsir::circuit::{port, Concat, Connection, Instance, Module, Port, Signal, Slice};
 use vlsir::reference::To;
 use vlsir::Reference;
+
+use crate::clog2;
+use crate::config::decoder::{Decoder24Params, DecoderParams};
+use crate::config::gate::{GateParams, Size};
+use crate::layout::decoder::get_idxs;
+use crate::schematic::conns::{conn_map, conn_slice, sig_conn, signal, BusConnection};
+use crate::schematic::gate::{inv, nand2, nand3, Gate, GateType};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DecoderTree {
@@ -161,14 +162,7 @@ fn partition_bits(bits: usize, top: bool) -> Vec<usize> {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct DecoderParams {
-    pub tree: DecoderTree,
-    pub lch: Int,
-    pub name: String,
-}
-
-pub fn hierarchical_decoder(params: DecoderParams) -> Vec<Module> {
+pub fn hierarchical_decoder(params: &DecoderParams) -> Vec<Module> {
     let out = params.tree.root.num;
     let in_bits = clog2(out) as i64;
 
@@ -228,7 +222,7 @@ pub fn hierarchical_decoder(params: DecoderParams) -> Vec<Module> {
     let vdd = signal("vdd");
     let gnd = signal("gnd");
 
-    let mut gen = DecoderGen::new(&params, &vdd, &gnd, in_bits as usize);
+    let mut gen = DecoderGen::new(params, &vdd, &gnd, in_bits as usize);
     gen.helper(Some(&params.tree.root), 0);
 
     m.instances.append(&mut gen.instances);
@@ -333,12 +327,12 @@ impl<'a> DecoderGen<'a> {
         } else {
             let nand_name = format!("{}_nand_{}", &self.params.name, self.get_id());
             let nand = match gate_size {
-                2 => nand2(GateParams {
+                2 => nand2(&GateParams {
                     name: nand_name.clone(),
                     size: node.gate.size,
                     length: self.params.lch,
                 }),
-                3 => nand3(GateParams {
+                3 => nand3(&GateParams {
                     name: nand_name.clone(),
                     size: node.gate.size,
                     length: self.params.lch,
@@ -355,7 +349,7 @@ impl<'a> DecoderGen<'a> {
             inv_name.to_string()
         } else {
             let inv_name = format!("{}_inv_{}", &self.params.name, self.get_id());
-            let inv = inv(GateParams {
+            let inv = inv(&GateParams {
                 name: inv_name.clone(),
                 size: node.buf.unwrap().size,
                 length: self.params.lch,
@@ -428,23 +422,16 @@ impl<'a> DecoderGen<'a> {
     }
 }
 
-pub struct Decoder24Params {
-    pub gate_size: Size,
-    pub inv_size: Size,
-    pub lch: Int,
-    pub name: String,
-}
-
-pub fn decoder_24(params: Decoder24Params) -> Vec<Module> {
+pub fn decoder_24(params: &Decoder24Params) -> Vec<Module> {
     let nand_name = format!("{}_nand", &params.name);
-    let nand = nand2(GateParams {
+    let nand = nand2(&GateParams {
         name: nand_name.clone(),
         size: params.gate_size,
         length: params.lch,
     });
 
     let inv_name = format!("{}_inv", &params.name);
-    let inv = inv(GateParams {
+    let inv = inv(&GateParams {
         name: inv_name.clone(),
         size: params.inv_size,
         length: params.lch,
@@ -489,7 +476,7 @@ pub fn decoder_24(params: Decoder24Params) -> Vec<Module> {
     ];
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],
@@ -583,32 +570,3 @@ pub fn decoder_24(params: Decoder24Params) -> Vec<Module> {
 
     vec![nand, inv, m]
 }
-
-/*
-impl<'a> DecoderGen<'a> {
-    fn generate(&mut self, node: &TreeNode) {
-        let gate_name = format!("nand_dec_{}", self.depth);
-
-        let x = match node.gate.gate_type {
-            GateType::Nand2 => 1,
-            GateType::Nand3 => 2,
-            _ => panic!("unsupported gate type"),
-        };
-        let params = GateParams {
-            name: format!("nand2_dec_{}", self.depth),
-            length: self.lch,
-            size: node.gate.size,
-        };
-
-        for i in 0..node.num {
-            self.m.instances.push(Instance {
-                name: format!("nand_{}_{}", self.depth, i),
-                module: Some(Reference {
-                    to: Some(To::Local(gate_name.clone())),
-                }),
-
-            });
-        }
-    }
-}
-*/

@@ -1,3 +1,7 @@
+use pdkprims::tech::sky130;
+use vlsir::circuit::Package;
+
+use crate::config::inv_chain::*;
 use crate::layout::inv_chain::*;
 use crate::paths::{out_bin, out_gds};
 use crate::schematic::inv_chain::*;
@@ -5,19 +9,17 @@ use crate::schematic::{generate_netlist, save_bin};
 use crate::tech::all_external_modules;
 use crate::tests::test_work_dir;
 use crate::Result;
-use pdkprims::tech::sky130;
-use vlsir::circuit::Package;
 
 #[test]
 fn test_inv_chain_grid() -> Result<()> {
     let name = "sramgen_inv_chain_grid_5x9";
 
     let params = InvChainGridParams {
-        prefix: name,
+        name: name.to_string(),
         rows: 5,
         cols: 9,
     };
-    let inv_chain = inv_chain_grid(params);
+    let inv_chain = inv_chain_grid(&params);
     let ext_modules = all_external_modules();
     let pkg = Package {
         domain: name.to_string(),
@@ -34,7 +36,7 @@ fn test_inv_chain_grid() -> Result<()> {
     generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
-    draw_inv_chain_grid(&mut lib, params)?;
+    draw_inv_chain_grid(&mut lib, &params)?;
 
     let work_dir = test_work_dir(name);
     lib.save_gds(out_gds(work_dir, name))?;
@@ -48,8 +50,8 @@ fn test_inv_chain_12() -> Result<()> {
     let mut lib = sky130::pdk_lib(name)?;
     draw_inv_chain(
         &mut lib,
-        InvChainParams {
-            prefix: name,
+        &InvChainParams {
+            name: name.to_string(),
             num: 12,
         },
     )?;

@@ -1,3 +1,4 @@
+use crate::config::dff::*;
 use crate::layout::dff::*;
 use crate::paths::{out_bin, out_gds};
 use crate::schematic::dff::*;
@@ -13,10 +14,12 @@ fn test_dff_array() -> Result<()> {
     let name = "sramgen_dff_array";
     let width = 16;
 
-    let dffs = dff_array(DffArrayParams {
-        width,
-        name: name.to_string(),
-    });
+    let dff_params = DffGridParams::builder()
+        .name(name)
+        .cols(width)
+        .rows(1)
+        .build()?;
+    let dffs = dff_grid(&dff_params);
 
     let ext_modules = all_external_modules();
     let pkg = Package {
@@ -34,7 +37,7 @@ fn test_dff_array() -> Result<()> {
     generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
-    draw_dff_array(&mut lib, name, width)?;
+    draw_dff_grid(&mut lib, &dff_params)?;
 
     lib.save_gds(out_gds(&work_dir, name))?;
 
@@ -47,10 +50,13 @@ fn test_dff_grid() -> Result<()> {
     let rows = 4;
     let cols = 8;
 
-    let dffs = dff_array(DffArrayParams {
-        width: rows * cols,
-        name: name.to_string(),
-    });
+    let params = DffGridParams::builder()
+        .name(name)
+        .rows(rows)
+        .cols(cols)
+        .row_pitch(4 * COLUMN_WIDTH)
+        .build()?;
+    let dffs = dff_grid(&params);
 
     let ext_modules = all_external_modules();
     let pkg = Package {
@@ -68,13 +74,7 @@ fn test_dff_grid() -> Result<()> {
     generate_netlist(&bin_path, &work_dir)?;
 
     let mut lib = sky130::pdk_lib(name)?;
-    let params = DffGridParams::builder()
-        .name(name)
-        .rows(rows)
-        .cols(cols)
-        .row_pitch(4 * COLUMN_WIDTH)
-        .build()?;
-    draw_dff_grid(&mut lib, params)?;
+    draw_dff_grid(&mut lib, &params)?;
 
     lib.save_gds(out_gds(&work_dir, name))?;
 

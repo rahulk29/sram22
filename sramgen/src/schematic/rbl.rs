@@ -2,20 +2,14 @@ use std::collections::HashMap;
 
 use vlsir::circuit::{Instance, Module};
 
+use crate::config::rbl::ReplicaBitcellColumnParams;
 use crate::schematic::conns::{
     bus, conn_map, conn_slice, port_inout, port_input, sig_conn, signal,
 };
 use crate::tech::sram_sp_replica_cell_ref;
 
-#[derive(Debug, Clone)]
-pub struct ReplicaBitcellColumnParams {
-    pub name: String,
-    pub rows: usize,
-    pub dummy_rows: usize,
-}
-
 // .subckt sky130_fd_bd_sram__openram_sp_cell_opt1_replica BL BR VGND VPWR VPB VNB WL
-pub fn replica_bitcell_column(params: ReplicaBitcellColumnParams) -> Vec<Module> {
+pub fn replica_bitcell_column(params: &ReplicaBitcellColumnParams) -> Vec<Module> {
     assert!(params.rows > 0);
     let rows = params.rows as i64;
     let dummy_rows = params.dummy_rows as i64;
@@ -39,7 +33,7 @@ pub fn replica_bitcell_column(params: ReplicaBitcellColumnParams) -> Vec<Module>
     ];
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],

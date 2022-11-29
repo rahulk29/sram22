@@ -3,23 +3,13 @@ use std::collections::HashMap;
 use vlsir::circuit::Instance;
 use vlsir::Module;
 
+use crate::config::bitcell_array::BitcellArrayParams;
 use crate::schematic::conns::{
     bus, conn_map, conn_slice, port_inout, port_input, sig_conn, signal,
 };
 use crate::tech::{sram_sp_cell_ref, sram_sp_colend_ref};
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct BitcellArrayParams {
-    pub rows: usize,
-    pub cols: usize,
-    pub dummy_rows: usize,
-    pub dummy_cols: usize,
-    pub name: String,
-}
-
-pub fn bitcell_array(params: BitcellArrayParams) -> Module {
+pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
     let rows = params.rows as i64;
     let cols = params.cols as i64;
     let dummy_rows = params.dummy_rows as i64;
@@ -46,7 +36,7 @@ pub fn bitcell_array(params: BitcellArrayParams) -> Module {
     ];
 
     let mut m = Module {
-        name: params.name,
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],

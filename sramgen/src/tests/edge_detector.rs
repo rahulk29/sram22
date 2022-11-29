@@ -1,6 +1,6 @@
+use crate::config::gate::{AndParams, GateParams, Size};
 use crate::paths::out_bin;
 use crate::schematic::edge_detector::{edge_detector, EdgeDetectorParams};
-use crate::schematic::gate::{AndParams, GateParams, Size};
 use crate::schematic::{generate_netlist, save_bin};
 use crate::tech::all_external_modules;
 use crate::tests::test_work_dir;
@@ -32,11 +32,11 @@ fn test_edge_detector() -> Result<()> {
     };
 
     let params = EdgeDetectorParams {
-        prefix: name,
+        name: name.to_string(),
         num_inverters: 7,
-        and_params: &and_params,
+        and_params,
     };
-    let modules = edge_detector(params);
+    let modules = edge_detector(&params);
     let ext_modules = all_external_modules();
     let pkg = Package {
         domain: name.to_string(),

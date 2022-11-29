@@ -1,7 +1,8 @@
+use crate::config::decoder::*;
+use crate::config::gate::{GateParams, Size};
 use crate::layout::decoder::*;
 use crate::paths::{out_bin, out_gds};
 use crate::schematic::decoder::*;
-use crate::schematic::gate::{GateParams, Size};
 use crate::schematic::{generate_netlist, save_modules};
 use crate::tech::BITCELL_HEIGHT;
 use crate::tests::test_work_dir;
@@ -15,8 +16,8 @@ fn test_inv_dec_array() -> Result<()> {
     let mut lib = sky130::pdk_lib(name)?;
     draw_inv_dec_array(
         &mut lib,
-        GateArrayParams {
-            prefix: "inv_dec_array",
+        &GateDecArrayParams {
+            name: "inv_dec_array".to_string(),
             width: 32,
             dir: Dir::Vert,
             pitch: Some(BITCELL_HEIGHT),
@@ -33,13 +34,24 @@ fn test_inv_dec_array() -> Result<()> {
 fn test_nand2_dec_array() -> Result<()> {
     let name = "sramgen_nand2_dec_array";
     let mut lib = sky130::pdk_lib(name)?;
-    draw_inv_dec_array(
+    draw_nand_dec_array(
         &mut lib,
-        GateArrayParams {
-            prefix: "nand2_dec_array",
-            width: 32,
-            dir: Dir::Vert,
-            pitch: Some(BITCELL_HEIGHT),
+        &NandDecArrayParams {
+            array_params: GateDecArrayParams {
+                name: "nand2_dec_array".to_string(),
+                width: 32,
+                dir: Dir::Vert,
+                pitch: Some(BITCELL_HEIGHT),
+            },
+            gate: GateParams {
+                name: "nand3_dec_gate".to_string(),
+                size: Size {
+                    nmos_width: 2_400,
+                    pmos_width: 2_000,
+                },
+                length: 150,
+            },
+            gate_size: 2,
         },
     )?;
 
@@ -53,21 +65,24 @@ fn test_nand2_dec_array() -> Result<()> {
 fn test_nand3_array() -> Result<()> {
     let name = "sramgen_nand3_array";
     let mut lib = sky130::pdk_lib(name)?;
-    draw_nand3_array(
+    draw_nand_dec_array(
         &mut lib,
-        GateArrayParams {
-            prefix: "nand3_dec_array",
-            width: 16,
-            dir: Dir::Vert,
-            pitch: Some(BITCELL_HEIGHT),
-        },
-        GateParams {
-            name: "nand3_dec_gate".to_string(),
-            size: Size {
-                nmos_width: 2_400,
-                pmos_width: 2_000,
+        &NandDecArrayParams {
+            array_params: GateDecArrayParams {
+                name: "nand3_dec_array".to_string(),
+                width: 16,
+                dir: Dir::Vert,
+                pitch: Some(BITCELL_HEIGHT),
             },
-            length: 150,
+            gate: GateParams {
+                name: "nand3_dec_gate".to_string(),
+                size: Size {
+                    nmos_width: 2_400,
+                    pmos_width: 2_000,
+                },
+                length: 150,
+            },
+            gate_size: 3,
         },
     )?;
 
@@ -81,25 +96,32 @@ fn test_nand3_array() -> Result<()> {
 fn test_and3_array() -> Result<()> {
     let name = "sramgen_and3_array";
     let mut lib = sky130::pdk_lib(name)?;
-    draw_and3_array(
+    draw_and_dec_array(
         &mut lib,
-        name,
-        16,
-        GateParams {
-            name: "and3_nand".to_string(),
-            size: Size {
-                nmos_width: 2_400,
-                pmos_width: 2_000,
+        &AndDecArrayParams {
+            array_params: GateDecArrayParams {
+                name: name.to_string(),
+                width: 16,
+                dir: Dir::Vert,
+                pitch: None,
             },
-            length: 150,
-        },
-        GateParams {
-            name: "and3_inv".to_string(),
-            size: Size {
-                nmos_width: 2_000,
-                pmos_width: 4_000,
+            nand: GateParams {
+                name: "and3_nand".to_string(),
+                size: Size {
+                    nmos_width: 2_400,
+                    pmos_width: 2_000,
+                },
+                length: 150,
             },
-            length: 150,
+            inv: GateParams {
+                name: "and3_inv".to_string(),
+                size: Size {
+                    nmos_width: 2_000,
+                    pmos_width: 4_000,
+                },
+                length: 150,
+            },
+            gate_size: 3,
         },
     )?;
 
@@ -113,25 +135,32 @@ fn test_and3_array() -> Result<()> {
 fn test_and2_array() -> Result<()> {
     let name = "sramgen_and2_array";
     let mut lib = sky130::pdk_lib(name)?;
-    draw_and2_array(
+    draw_and_dec_array(
         &mut lib,
-        name,
-        16,
-        GateParams {
-            name: "and2_nand".to_string(),
-            size: Size {
-                nmos_width: 2_400,
-                pmos_width: 2_000,
+        &AndDecArrayParams {
+            array_params: GateDecArrayParams {
+                name: name.to_string(),
+                width: 16,
+                dir: Dir::Vert,
+                pitch: None,
             },
-            length: 150,
-        },
-        GateParams {
-            name: "and2_inv".to_string(),
-            size: Size {
-                nmos_width: 2_000,
-                pmos_width: 4_000,
+            nand: GateParams {
+                name: "and3_nand".to_string(),
+                size: Size {
+                    nmos_width: 2_400,
+                    pmos_width: 2_000,
+                },
+                length: 150,
             },
-            length: 150,
+            inv: GateParams {
+                name: "and3_inv".to_string(),
+                size: Size {
+                    nmos_width: 2_000,
+                    pmos_width: 4_000,
+                },
+                length: 150,
+            },
+            gate_size: 2,
         },
     )?;
 
@@ -151,7 +180,7 @@ fn test_hier_decode_4bit() -> Result<()> {
         lch: 150,
         name: name.to_string(),
     };
-    let modules = hierarchical_decoder(decoder_params);
+    let modules = hierarchical_decoder(&decoder_params);
 
     let work_dir = test_work_dir(name);
 
@@ -178,7 +207,7 @@ fn test_hier_decode_5bit() -> Result<()> {
         lch: 150,
         name: name.to_string(),
     };
-    let modules = hierarchical_decoder(decoder_params);
+    let modules = hierarchical_decoder(&decoder_params);
 
     let work_dir = test_work_dir(name);
 
@@ -205,7 +234,7 @@ fn test_hier_decode_7bit() -> Result<()> {
         lch: 150,
         name: name.to_string(),
     };
-    let modules = hierarchical_decoder(decoder_params);
+    let modules = hierarchical_decoder(&decoder_params);
 
     let work_dir = test_work_dir(name);
 

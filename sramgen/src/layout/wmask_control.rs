@@ -1,28 +1,41 @@
-use crate::schematic::wmask_control::WriteMaskControlParams;
-use crate::{bus_bit, Result};
-
 use layout21::raw::{BoundBoxTrait, Cell, Dir, Instance, Rect, Span};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use super::decoder::draw_and2_array;
-use super::route::Router;
+use crate::config::decoder::{AndDecArrayParams, GateDecArrayParams};
+use crate::config::gate::AndParams;
+use crate::config::wmask_control::WriteMaskControlParams;
+use crate::layout::decoder::draw_and_dec_array;
+use crate::layout::route::Router;
+use crate::{bus_bit, Result};
 
 pub fn draw_write_mask_control(
     lib: &mut PdkLib,
-    params: WriteMaskControlParams,
+    params: &WriteMaskControlParams,
 ) -> Result<Ptr<Cell>> {
+    let width = params.width;
     let WriteMaskControlParams {
-        name,
-        width,
-        and_params,
+        name, and_params, ..
     } = params;
-    let width = width as usize;
-    let mut cell = Cell::empty(&name);
-    let nand = and_params.nand;
-    let inv = and_params.inv;
 
-    let and2_array = draw_and2_array(lib, &format!("{}_and2_array", &name), width, nand, inv)?;
+    let width = width as usize;
+    let mut cell = Cell::empty(name);
+    let AndParams { nand, inv, .. } = and_params;
+
+    let and2_array = draw_and_dec_array(
+        lib,
+        &AndDecArrayParams {
+            array_params: GateDecArrayParams {
+                name: format!("{}_and2_array", name),
+                width,
+                dir: Dir::Vert,
+                pitch: None,
+            },
+            nand: nand.clone(),
+            inv: inv.clone(),
+            gate_size: 2,
+        },
+    )?;
     let and2_array = Instance::new("and2_array", and2_array);
 
     let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());

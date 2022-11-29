@@ -9,26 +9,11 @@ use layout21::utils::Ptr;
 use pdkprims::bus::ContactPolicy;
 use pdkprims::PdkLib;
 
-use crate::schematic::gate::{GateParams, Size};
+use crate::config::gate::{GateParams, Size};
+use crate::config::tmc::{TmcParams, TmcUnitParams};
 
 use super::gate::{draw_inv, draw_nand2};
 use super::route::Router;
-
-pub struct TmcUnitParams {
-    /// The name of the timing multiplier circuit cell.
-    pub name: String,
-    /// The timing multiplier (must be at least 2).
-    pub multiplier: usize,
-}
-
-pub struct TmcParams {
-    /// The name of the timing multiplier circuit cell.
-    pub name: String,
-    /// The timing multiplier (must be at least 2).
-    pub multiplier: usize,
-    /// The number of delay units.
-    pub units: usize,
-}
 
 pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     let mut layout = Layout::new(name);
@@ -36,7 +21,7 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
 
     let nand = draw_nand2(
         lib,
-        GateParams {
+        &GateParams {
             name: format!("{}_nand", name),
             size: Size {
                 nmos_width: 1_200,
@@ -48,7 +33,7 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
 
     let inv = draw_inv(
         lib,
-        GateParams {
+        &GateParams {
             name: format!("{}_inv", name),
             size: Size {
                 nmos_width: 1200,
@@ -154,13 +139,13 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
 }
 
 /// A single delay unit (one forward cell and `multiplier-1` backwards cells).
-pub fn draw_tmc_unit(lib: &mut PdkLib, params: TmcUnitParams) -> Result<Ptr<Cell>> {
+pub fn draw_tmc_unit(lib: &mut PdkLib, params: &TmcUnitParams) -> Result<Ptr<Cell>> {
     assert!(params.multiplier >= 2);
 
     let delay_cell = draw_dbdr_delay_cell(lib, &format!("{}_delay_cell", &params.name))?;
     let mut router = Router::new(format!("{}_route", &params.name), lib.pdk.clone());
 
-    let mut cell = Cell::empty(params.name);
+    let mut cell = Cell::empty(&params.name);
 
     let fwd = Instance::new("forwards", delay_cell.clone());
 
@@ -323,12 +308,12 @@ pub fn draw_tmc_unit(lib: &mut PdkLib, params: TmcUnitParams) -> Result<Ptr<Cell
     Ok(ptr)
 }
 
-pub fn draw_tmc(lib: &mut PdkLib, params: TmcParams) -> Result<Ptr<Cell>> {
+pub fn draw_tmc(lib: &mut PdkLib, params: &TmcParams) -> Result<Ptr<Cell>> {
     assert!(params.multiplier >= 2);
 
     let delay_unit = draw_tmc_unit(
         lib,
-        TmcUnitParams {
+        &TmcUnitParams {
             name: format!("{}_delay_unit", &params.name),
             multiplier: params.multiplier,
         },

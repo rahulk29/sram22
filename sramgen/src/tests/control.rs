@@ -1,4 +1,4 @@
-use crate::config::ControlMode;
+use crate::config::sram::ControlMode;
 use crate::layout::control::*;
 use crate::paths::out_gds;
 use crate::tests::test_work_dir;

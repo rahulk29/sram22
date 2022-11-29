@@ -11,9 +11,9 @@ fn square_200um() -> Result<()> {
     let mut lib = sky130::pdk_lib(name)?;
     draw_guard_ring(
         &mut lib,
-        GuardRingParams {
+        &GuardRingParams {
+            name: name.to_string(),
             enclosure: Rect::new(Point::zero(), Point::new(200_000, 200_000)),
-            prefix: name.to_string(),
         },
     )?;
 
