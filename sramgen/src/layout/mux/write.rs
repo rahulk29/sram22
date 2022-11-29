@@ -173,7 +173,7 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, params: &WriteMuxArrayParams) -> R
     let muxes = draw_cell_array(
         lib,
         &ArrayCellParams {
-            name: name.to_string(),
+            name: "write_mux_core_array".to_string(),
             num: cols,
             cell: mux,
             spacing: Some(2_500),
@@ -199,7 +199,6 @@ pub fn draw_write_mux_array(lib: &mut PdkLib, params: &WriteMuxArrayParams) -> R
         },
     )?;
 
-    let name = "write_mux_array";
     let mut cell = Cell::empty(name);
 
     let core_inst = Instance::new("write_mux_core_array", muxes.cell);
