@@ -639,8 +639,8 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let straps = power_grid.generate()?;
     for (src, rect) in straps.v_traces {
         let net = match src {
-            PowerSource::Vdd => "vpwr",
-            PowerSource::Gnd => "vgnd",
+            PowerSource::Vdd => "vdd",
+            PowerSource::Gnd => "vss",
         };
         cell.add_pin(net, m2, rect);
     }
