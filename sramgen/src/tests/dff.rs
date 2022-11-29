@@ -15,7 +15,7 @@ fn test_dff_array() -> Result<()> {
     let width = 16;
 
     let dff_params = DffGridParams::builder()
-        .name("wmask_dff_array")
+        .name(name)
         .cols(width)
         .rows(1)
         .build()?;

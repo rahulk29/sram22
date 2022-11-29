@@ -158,7 +158,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
 
     let addr_dff_params = DffGridParams::builder()
         .name("addr_dff_array")
-        .cols((row_bits + col_mask_bits + 1) as usize) // 1 extra bit for write enable
+        .cols((row_bits + col_mask_bits) as usize)
         .rows(1)
         .build()
         .unwrap();
