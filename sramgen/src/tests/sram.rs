@@ -59,3 +59,4 @@ pub(crate) fn test_sram(config: &SramConfig) -> Result<()> {
 }
 
 generate_sram_test!(32, 8, 2, 8, ControlMode::ReplicaV1);
+generate_sram_test!(128, 64, 2, 8, ControlMode::ReplicaV1);

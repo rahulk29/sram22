@@ -6,7 +6,7 @@ use crate::layout::sram::GateList;
 use crate::tech::{sc_and2_gds, sc_buf_gds, sc_bufbuf_16_gds, sc_inv_gds, sc_nor2_gds, sc_tap_gds};
 use crate::Result;
 
-use layout21::raw::{BoundBoxTrait, Cell, Dir, Instance, Point, Rect};
+use layout21::raw::{AbstractPort, BoundBoxTrait, Cell, Dir, Instance, Point, Rect};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
@@ -565,6 +565,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
             .build()?
             .rect();
         vss_rects.push(rect);
+        cell.add_pin("vgnd", m1, rect);
     }
     let mut vdd_rects = vec![];
     for row in vdd_rows {
@@ -575,6 +576,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
             .build()?
             .rect();
         vdd_rects.push(rect);
+        cell.add_pin("vpwr", m1, rect);
     }
 
     cell.layout_mut().add_inst(eddc);
@@ -631,27 +633,33 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         power_grid.add_vdd_target(1, rect);
     }
 
+    let mut port = AbstractPort::new("m2_block");
     let route = router.finish();
     {
         let route = route.cell.read().unwrap();
         for elem in route.layout().elems.iter() {
             if elem.layer == m2 {
-                power_grid.add_padded_blockage(2, elem.inner.bbox().into_rect().expand(75));
+                let rect = elem.inner.bbox().into_rect().expand(75);
+                power_grid.add_padded_blockage(2, rect);
+                port.add_shape(m2, layout21::raw::Shape::Rect(rect));
             }
         }
     }
+    cell.abs_mut().add_port(port);
 
     cell.layout_mut().add_inst(route);
 
-    let straps = power_grid.generate()?;
-    for (src, rect) in straps.v_traces {
-        let net = match src {
-            PowerSource::Vdd => "vdd",
-            PowerSource::Gnd => "vss",
-        };
-        cell.add_pin(net, m2, rect);
+    if false {
+        let straps = power_grid.generate()?;
+        for (src, rect) in straps.v_traces {
+            let net = match src {
+                PowerSource::Vdd => "vdd",
+                PowerSource::Gnd => "vss",
+            };
+            cell.add_pin(net, m2, rect);
+        }
+        cell.layout_mut().add_inst(straps.instance);
     }
-    cell.layout_mut().add_inst(straps.instance);
 
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
