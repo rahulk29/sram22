@@ -15,7 +15,13 @@ use super::power::{PowerSource, PowerStrapGen, PowerStrapOpts};
 use super::route::Router;
 
 pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cell>> {
-    assert_eq!(mode, ControlMode::Simple);
+    match mode {
+        ControlMode::Simple => draw_control_logic_simple(lib),
+        ControlMode::ReplicaV1 => draw_control_logic_replica_v1(lib),
+    }
+}
+
+pub fn draw_control_logic_simple(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let mut cell = Cell::empty("sram22_control_logic");
 
     let and = sc_and2_gds(lib)?;

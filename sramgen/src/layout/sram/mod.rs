@@ -9,7 +9,6 @@ use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::{LayerIdx, PdkLib};
 
 use crate::config::sram::SramParams;
-use crate::config::ControlMode;
 use crate::layout::array::draw_power_connector;
 use crate::layout::col_inv::draw_col_inv_array;
 use crate::layout::control::draw_control_logic;
@@ -121,7 +120,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         None
     };
 
-    let control = draw_control_logic(lib, ControlMode::Simple)?;
+    let control = draw_control_logic(lib, params.control)?;
     let we_control = draw_write_mask_control(
         lib,
         WriteMaskControlParams {
