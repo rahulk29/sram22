@@ -93,7 +93,7 @@ pub fn read_mux(params: &ReadMuxParams) -> Module {
     ];
 
     let mut m = Module {
-        name: "column_read_mux".to_string(),
+        name: params.name.clone(),
         ports,
         signals: vec![],
         instances: vec![],
