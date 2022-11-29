@@ -7,7 +7,7 @@ use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::{LayerIdx, PdkLib};
 
-use crate::config::bitcell_array::BitcellArrayParams;
+use crate::config::bitcell_array::{BitcellArrayDummyParams, BitcellArrayParams};
 use crate::config::col_inv::{ColInvArrayParams, ColInvParams};
 use crate::config::decoder::{nand2_dec_params, GateDecArrayParams, NandDecArrayParams};
 use crate::config::dff::DffGridParams;
@@ -172,8 +172,8 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
             name: "bitcell_array".to_string(),
             rows,
             cols,
-            dummy_rows: 2,
-            dummy_cols: 2,
+            replica_cols: 0,
+            dummy_params: BitcellArrayDummyParams::Equal(2),
         },
     )?;
     let nand_dec = draw_nand_dec_array(

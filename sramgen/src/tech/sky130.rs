@@ -16,7 +16,7 @@ use crate::schematic::{simple_ext_module, NETLIST_FORMAT};
 pub const SKY130_DOMAIN: &str = "sky130";
 pub const SRAM_SP_CELL: &str = "sram_sp_cell";
 pub const SRAM_SP_COLEND: &str = "sky130_fd_bd_sram__sram_sp_colend";
-pub const SRAM_SP_REPLICA_CELL: &str = "sram_sp_replica_cell";
+pub const SRAM_SP_CELL_REPLICA: &str = "sram_sp_cell_replica";
 pub const OPENRAM_DFF: &str = "openram_dff";
 pub const SRAM_CONTROL_SIMPLE: &str = "sramgen_control_simple";
 pub const SRAM_CONTROL_REPLICA_V1: &str = "sramgen_control_replica_v1";
@@ -48,11 +48,11 @@ pub fn sram_sp_colend() -> ExternalModule {
 }
 
 #[inline]
-pub fn sram_sp_replica_cell() -> ExternalModule {
+pub fn sram_sp_cell_replica() -> ExternalModule {
     simple_ext_module(
         SKY130_DOMAIN,
-        SRAM_SP_REPLICA_CELL,
-        &["BL", "BR", "VGND", "VPWR", "VPB", "VNB", "WL"],
+        SRAM_SP_CELL_REPLICA,
+        &["BL", "BR", "VSS", "VDD", "VPB", "VNB", "WL"],
     )
 }
 
@@ -168,6 +168,15 @@ pub fn sram_sp_cell_gds(lib: &mut PdkLib) -> CellGdsResult {
 }
 
 #[inline]
+pub fn sram_sp_cell_replica_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_cell_replica.gds",
+        "sky130_fd_bd_sram__openram_sp_cell_opt1_replica",
+    )
+}
+
+#[inline]
 pub fn colend_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
         lib,
@@ -236,6 +245,15 @@ pub fn sram_sp_cell_opt1a_gds(lib: &mut PdkLib) -> CellGdsResult {
         lib,
         "sram_sp_cell_opt1a.gds",
         "sky130_fd_bd_sram__sram_sp_cell_opt1a",
+    )
+}
+
+#[inline]
+pub fn sram_sp_cell_opt1a_replica_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_cell_opt1a_replica.gds",
+        "sky130_fd_bd_sram__openram_sp_cell_opt1a_replica",
     )
 }
 
@@ -323,11 +341,11 @@ pub fn sram_sp_colend_ref() -> Reference {
 }
 
 #[inline]
-pub fn sram_sp_replica_cell_ref() -> Reference {
+pub fn sram_sp_cell_replica_ref() -> Reference {
     Reference {
         to: Some(To::External(QualifiedName {
             domain: SKY130_DOMAIN.to_string(),
-            name: SRAM_SP_REPLICA_CELL.to_string(),
+            name: SRAM_SP_CELL_REPLICA.to_string(),
         })),
     }
 }
@@ -474,7 +492,7 @@ pub fn all_external_modules() -> Vec<ExternalModule> {
         ext_pmos(NETLIST_FORMAT),
         sram_sp_cell(),
         sram_sp_colend(),
-        sram_sp_replica_cell(),
+        sram_sp_cell_replica(),
         sramgen_control_simple(),
         sramgen_control_replica_v1(),
         sramgen_sp_sense_amp(),
