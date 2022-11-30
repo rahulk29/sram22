@@ -148,7 +148,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let nor2 = sc_nor2_gds(lib)?;
 
     // edge detector delay chain
-    let eddc = draw_inv_chain(
+    let delay_chain_7 = draw_inv_chain(
         lib,
         &InvChainParams {
             name: "sram22_control_logic_edge_detector_delay_chain".to_string(),
@@ -156,18 +156,18 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         },
     )?;
     // SAE set delay chain
-    let ssdc = draw_inv_chain(
+    let delay_chain_4 = draw_inv_chain(
         lib,
         &InvChainParams {
-            name: "sram22_control_logic_sae_delay_chain".to_string(),
+            name: "sram22_control_logic_delay_chain_4".to_string(),
             num: 4,
         },
     )?;
     // precharge delay chain
-    let pcdc = draw_inv_chain(
+    let delay_chain_16 = draw_inv_chain(
         lib,
         &InvChainParams {
-            name: "sram22_control_logic_pc_delay_chain".to_string(),
+            name: "sram22_control_logic_delay_chain_16".to_string(),
             num: 16,
         },
     )?;
@@ -175,7 +175,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     // Place standard cells
     let mut x = 0;
     let mut y = 0;
-    let eddc = Instance::new("delay_chain", eddc);
+    let eddc = Instance::new("delay_chain", delay_chain_7.clone());
     let eddc_outline = sc_outline(&lib.pdk, &eddc);
     x += eddc_outline.width();
     let mut ed_and = Instance::new("edge_detector_and", and.clone());
@@ -192,7 +192,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     tap1.loc = Point::new(x, y);
     tap1.reflect_vert_anchored();
     x += tap_outline.width();
-    let mut inv_rbl = Instance::new("inv_rbl", inv);
+    let mut inv_rbl = Instance::new("inv_rbl", inv.clone());
     let inv_outline = sc_outline(&lib.pdk, &inv_rbl);
     inv_rbl.loc = Point::new(x, y);
     inv_rbl.reflect_vert_anchored();
@@ -218,10 +218,33 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     y += tap_outline.height();
     x = 0;
-    let mut ssdc_inst = Instance::new("sae_delay_chain", ssdc.clone());
-    let ssdc_outline = sc_outline(&lib.pdk, &ssdc_inst);
+
+    let mut wl_set_dc0 = Instance::new("wr_drv_delay_chain", delay_chain_4.clone());
+    let dc_4_outline = sc_outline(&lib.pdk, &wl_set_dc0);
+    wl_set_dc0.loc = Point::new(x, y);
+    x += dc_4_outline.width();
+    let mut inv_we = Instance::new("inv_we", inv);
+    inv_we.loc = Point::new(x, y);
+    x += inv_outline.width();
+    let mut cond1 = Instance::new("cond1", and.clone());
+    cond1.loc = Point::new(x, y);
+    x += and_outline.width();
+    let mut wdeddc = Instance::new("wr_en_detector_delay_chain", delay_chain_7);
+    wdeddc.loc = Point::new(x, y);
+    x += eddc_outline.width();
+    let mut wded_and = Instance::new("wr_en_detector_and", and.clone());
+    wded_and.loc = Point::new(x, y);
+    x += and_outline.width();
+    let mut cond2 = Instance::new("cond2", and.clone());
+    cond2.loc = Point::new(x, y);
+    x += and_outline.width();
+
+    y += tap_outline.height();
+    x = 0;
+
+    let mut ssdc_inst = Instance::new("sae_delay_chain", delay_chain_4.clone());
     ssdc_inst.loc = Point::new(x, y);
-    x += ssdc_outline.width();
+    x += dc_4_outline.width();
     let mut sae_ctl_nor1 = Instance::new("sae_ctl_nor1", nor2.clone());
     sae_ctl_nor1.loc = Point::new(x, y);
     x += nor2_outline.width();
@@ -238,7 +261,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     y += tap_outline.height();
     x = 0;
 
-    let mut pcdc = Instance::new("pc_delay_chain", pcdc);
+    let mut pcdc = Instance::new("pc_delay_chain", delay_chain_16);
     pcdc.loc = Point::new(x, y);
     pcdc.reflect_vert_anchored();
 
@@ -271,9 +294,9 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     and_wr_en_set.loc = Point::new(x, y);
     and_wr_en_set.reflect_vert_anchored();
     x += nor2_outline.width();
-    let mut wr_drv_dc = Instance::new("wr_drv_set_delay_chain", ssdc);
+    let mut wr_drv_dc = Instance::new("wr_drv_set_delay_chain", delay_chain_4);
     wr_drv_dc.loc = Point::new(x, y);
-    x += ssdc_outline.width();
+    x += dc_4_outline.width();
     wr_drv_dc.reflect_vert_anchored();
     let mut wr_drv_ctl_nor1 = Instance::new("wr_drv_ctl_nor1", nor2.clone());
     wr_drv_ctl_nor1.loc = Point::new(x, y);
@@ -292,6 +315,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     tap7.loc = Point::new(x, y);
     tap7.reflect_vert_anchored();
 
+    /*
     // Routing
     let mut router = Router::new("sram22_control_logic_route", lib.pdk.clone());
     let cfg = router.cfg();
@@ -578,6 +602,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         vdd_rects.push(rect);
         cell.add_pin("vpwr", m1, rect);
     }
+    */
 
     cell.layout_mut().add_inst(eddc);
     cell.layout_mut().add_inst(ed_and);
@@ -588,6 +613,12 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     cell.layout_mut().add_inst(wl_ctl_nor2);
     cell.layout_mut().add_inst(wl_en_buf);
     cell.layout_mut().add_inst(tap2);
+    cell.layout_mut().add_inst(wl_set_dc0);
+    cell.layout_mut().add_inst(inv_we);
+    cell.layout_mut().add_inst(cond1);
+    cell.layout_mut().add_inst(wdeddc);
+    cell.layout_mut().add_inst(wded_and);
+    cell.layout_mut().add_inst(cond2);
     cell.layout_mut().add_inst(ssdc_inst);
     cell.layout_mut().add_inst(sae_ctl_nor1);
     cell.layout_mut().add_inst(sae_ctl_nor2);
@@ -607,6 +638,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     cell.layout_mut().add_inst(wr_drv_buf);
     cell.layout_mut().add_inst(tap7);
 
+    /*
     let mut power_grid = PowerStrapGen::new(
         &PowerStrapOpts::builder()
             .h_metal(2)
@@ -660,6 +692,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         }
         cell.layout_mut().add_inst(straps.instance);
     }
+    */
 
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
