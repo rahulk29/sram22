@@ -200,16 +200,16 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
             nand: GateParams {
                 name: "we_control_and2_nand".to_string(),
                 size: Size {
-                    nmos_width: 1_200,
-                    pmos_width: 1_800,
+                    nmos_width: 3_000,
+                    pmos_width: 4_000,
                 },
                 length: 150,
             },
             inv: GateParams {
                 name: "we_control_and2_inv".to_string(),
                 size: Size {
-                    nmos_width: 1_200,
-                    pmos_width: 1_800,
+                    nmos_width: 8_000,
+                    pmos_width: 12_000,
                 },
                 length: 150,
             },

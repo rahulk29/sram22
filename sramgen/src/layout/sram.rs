@@ -131,16 +131,16 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
                 nand: GateParams {
                     name: "write_mask_control_and2_nand".to_string(),
                     size: Size {
-                        nmos_width: 1_200,
-                        pmos_width: 1_800,
+                        nmos_width: 3_000,
+                        pmos_width: 4_000,
                     },
                     length: 150,
                 },
                 inv: GateParams {
                     name: "write_mask_control_and2_inv".to_string(),
                     size: Size {
-                        nmos_width: 1_200,
-                        pmos_width: 1_800,
+                        nmos_width: 8_000,
+                        pmos_width: 12_000,
                     },
                     length: 150,
                 },
