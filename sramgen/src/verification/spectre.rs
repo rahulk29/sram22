@@ -110,7 +110,7 @@ pub fn run_sram_spectre(params: &SramParams, work_dir: impl AsRef<Path>, name: &
         verification::Op::Read { addr: addr1 },
     ];
 
-    if false {
+    if true {
         for i in 0..16 {
             let bits = (i % 2) * bit_pattern2 + (1 - (i % 2)) * bit_pattern1 + i + 1;
             ops.push(verification::Op::Write {

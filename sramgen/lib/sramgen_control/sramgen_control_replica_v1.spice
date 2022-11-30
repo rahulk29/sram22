@@ -177,12 +177,13 @@ xand
 * INOUT: vdd vss
 
 Xclk_pulse clk clkp vdd vss control_logic_edge_detector
+Xclkp_delay_chain clkp clkp_delayed vdd vss control_logic_delay_chain8
 
 * Turn on wordlines at start of cycle
 * Turn them off when replica bitline drops low enough
 * to flip an inverter.
 Xinv_rbl rbl rbl_b vdd vss control_logic_inv
-Xwl_en_set_logic clkp we write_driver_en wl_en_set vdd vss sramgen_control_wl_en_logic
+Xwl_en_set_logic clkp_delayed we write_driver_en wl_en_set vdd vss sramgen_control_wl_en_logic
 Xwl_ctl wl_en_set rbl_b wl_en0 wl_en0_b vdd vss control_logic_sr_latch
 Xwl_en_buf wl_en0 wl_en vdd vss control_logic_bufbuf_16
 
@@ -197,15 +198,14 @@ Xpc_ctl pc_set clkp pc pc_b0 vdd vss control_logic_sr_latch
 Xpc_b_buf pc_b0 pc_b vdd vss control_logic_bufbuf_16
 
 * clkp and we forms wr driver enable set signal
-Xand_wr_en_set clkp we wr_drv_set0 vdd vss control_logic_and2
+Xand_wr_en_set clkp_delayed we wr_drv_set0 vdd vss control_logic_and2
 * Delay set signal a bit to ensure we don't turn on write drivers while precharging
 Xwr_drv_set_delay_chain wr_drv_set0 wr_drv_set vdd vss control_logic_delay_chain4
 Xwr_drv_ctl wr_drv_set sense_en0 write_driver_en0 write_driver_en_b vdd vss control_logic_sr_latch
 Xwr_drv_buf write_driver_en0 write_driver_en vdd vss control_logic_bufbuf_16
 .ends
 
-.subckt sramgen_control_wl_en_logic clkp we write_driver_en wl_en_set vdd vss
-Xclkp_delay_chain clkp clkp_delayed vdd vss control_logic_delay_chain4
+.subckt sramgen_control_wl_en_logic clkp_delayed we write_driver_en wl_en_set vdd vss
 Xwr_drv_delay_chain write_driver_en write_driver_en_delayed vdd vss control_logic_delay_chain16
 Xinv_we we we_b vdd vss control_logic_inv
 
