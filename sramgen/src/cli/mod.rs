@@ -15,6 +15,19 @@ use crate::{Result, BUILD_PATH};
 
 pub mod args;
 
+pub const BANNER: &str = r"
+ ________  ________  ________  _____ ______     _______   _______     
+|\   ____\|\   __  \|\   __  \|\   _ \  _   \  /  ___  \ /  ___  \    
+\ \  \___|\ \  \|\  \ \  \|\  \ \  \\\__\ \  \/__/|_/  //__/|_/  /|   
+ \ \_____  \ \   _  _\ \   __  \ \  \\|__| \  \__|//  / /__|//  / /   
+  \|____|\  \ \  \\  \\ \  \ \  \ \  \    \ \  \  /  /_/__  /  /_/__  
+    ____\_\  \ \__\\ _\\ \__\ \__\ \__\    \ \__\|\________\\________\
+   |\_________\|__|\|__|\|__|\|__|\|__|     \|__| \|_______|\|_______|
+   \|_________|                                                       
+                                                                      
+                                                                      
+";
+
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum StepKey {
     ParseConfig,
@@ -58,7 +71,7 @@ pub struct Step {
 
 impl StepContext {
     pub fn new(steps: Vec<Step>) -> Self {
-        if steps.len() > 0 {
+        if !steps.is_empty() {
             steps[0]
                 .progress_bar
                 .enable_steady_tick(Duration::from_millis(200));
@@ -68,22 +81,23 @@ impl StepContext {
 
     #[inline]
     pub fn current_step(&mut self) -> &mut Step {
-        return &mut self.steps[self.step_num];
+        &mut self.steps[self.step_num]
     }
 
     pub fn check<T>(&mut self, res: Result<T>) -> Result<T> {
         if res.is_err() {
             if self.step_num < self.steps.len() {
                 let current_step = self.current_step();
-                current_step.set_status(StepStatus::Failed);
+                current_step.set_status(StepStatus::Failed, None);
                 while self.step_num < self.steps.len() - 1 {
                     self.step_num += 1;
                     let current_step = self.current_step();
                     if !current_step.disabled {
-                        current_step.set_status(StepStatus::Skipped);
+                        current_step.set_status(StepStatus::Skipped, None);
                     }
                 }
             }
+            println!("\n");
         }
 
         res
@@ -104,27 +118,27 @@ impl StepContext {
             panic!("A step was completed out of order");
         }
 
-        current_step.set_status(StepStatus::Done);
+        current_step.set_status(StepStatus::Done, None);
 
         self.step_num += 1;
 
         if self.step_num == self.steps.len() {
             self.done();
         } else {
-            self.current_step().set_status(StepStatus::InProgress);
+            self.current_step().set_status(StepStatus::InProgress, None);
         }
     }
 
     pub fn done(&mut self) {
-        println!("Completed all tasks");
+        println!("\n\nCompleted all tasks");
     }
 }
 
 fn format_template(spinner: bool, status: impl Display) -> String {
     if spinner {
-        format!("{{spinner:.green}} {:30} {{msg}}", format!("[{}]", status))
+        format!("{{spinner:.green}} {:16} {{msg}}", status)
     } else {
-        format!("  {:30} {{msg}}", format!("[{}]", status))
+        format!("  {:16} {{msg}}", status)
     }
 }
 
@@ -135,18 +149,16 @@ impl Step {
                 format_template(false, "Disabled".truecolor(120, 120, 120).bold())
             }
             StepStatus::Done => format_template(false, "Done".green().bold()),
-            StepStatus::Failed => format_template(false, "Failed".red().bold()),
+            StepStatus::Failed => format_template(false, "Failed".bright_white().on_red().bold()),
             StepStatus::InProgress => format_template(true, "In Progress".bright_white().bold()),
-            StepStatus::Pending => format_template(true, "Pending".bold()),
-            StepStatus::Skipped => {
-                format_template(false, "Skipped".truecolor(120, 120, 120).bold())
-            }
+            StepStatus::Pending => format_template(true, "Pending".blue().bold()),
+            StepStatus::Skipped => format_template(false, "Skipped".yellow().bold()),
         };
         self.progress_bar
             .set_style(ProgressStyle::with_template(&status_template).unwrap());
 
         if let Some(msg) = msg {
-            self.progress_bar.set_message(&msg);
+            self.progress_bar.set_message(msg);
         }
 
         if status == StepStatus::InProgress {
@@ -160,6 +172,12 @@ impl Step {
 
 pub fn run() -> Result<()> {
     let args = Args::parse();
+
+    println!("{}", BANNER);
+
+    println!("Starting SRAM generation...\n");
+
+    println!("Tasks:");
 
     let mp = MultiProgress::new();
 
@@ -231,17 +249,22 @@ pub fn run() -> Result<()> {
         },
     ];
 
-    let num_steps = steps.len();
+    let num_steps = steps.iter().filter(|step| !step.disabled).count();
+    let mut counter = 0;
+    let width = format!("{}", num_steps).len();
     for (i, step) in steps.iter_mut().enumerate() {
+        mp.insert(i + 1, step.progress_bar.clone());
         if step.disabled {
-            step.set_status(StepStatus::Disabled, None, format!("{} [{}/{}], step.desc, i, num_steps));
+            let msg = Some(format!("[-/-] {}", step.desc));
+            step.set_status(StepStatus::Disabled, msg);
         } else {
-            step.set_status(StepStatus::Pending, None);
+            counter += 1;
+            let msg = Some(format!(
+                "[{:width$}/{:width$}] {}",
+                counter, num_steps, step.desc
+            ));
+            step.set_status(StepStatus::Pending, msg);
         }
-    }
-
-    for (i, step) in steps.iter_mut().enumerate() {
-        let pb = mp.insert(i + 1, step.progress_bar.clone());
     }
 
     let mut ctx = StepContext::new(steps);
