@@ -161,6 +161,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
     let bitcell = sram_sp_cell_gds(lib)?;
     let bitcell_replica = sram_sp_cell_replica_gds(lib)?;
     let rowend = rowend_gds(lib)?;
+    let rowend_replica = rowend_replica_gds(lib)?;
     let wlstrap = wlstrap_gds(lib)?;
     let wlstrap_p = wlstrap_p_gds(lib)?;
     assert_eq!(colend_bbox.width(), 1200);
@@ -174,11 +175,13 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
     let bitcell_opt1a = sram_sp_cell_opt1a_gds(lib)?;
     let bitcell_opt1a_replica = sram_sp_cell_opt1a_replica_gds(lib)?;
     let rowenda = rowenda_gds(lib)?;
+    let rowenda_replica = rowenda_replica_gds(lib)?;
     let wlstrapa = wlstrapa_gds(lib)?;
     let wlstrapa_p = wlstrapa_p_gds(lib)?;
     assert_eq!(colenda_bbox.width(), 1200);
 
     let mut grid = GridCells::new();
+
     let mut row = vec![
         Instance {
             inst_name: "corner_ul".to_string(),
@@ -235,29 +238,37 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
     for r in 0..total_rows {
         let mut row = Vec::new();
 
-        let dummy_row = r < dummy_rows_top || r >= rows + dummy_rows_top;
+        let is_dummy_row = r < dummy_rows_top || r >= rows + dummy_rows_top;
+        let is_replica_row = replica_cols > 0 && !is_dummy_row;
 
-        let (rowend_r, bitcell_r, bitcell_replica_r, wlstrap_r, wlstrap_p_r) = if r % 2 == 1 {
-            (
-                rowenda.clone(),
-                bitcell_opt1a.clone(),
-                bitcell_opt1a_replica.clone(),
-                wlstrapa.clone(),
-                wlstrapa_p.clone(),
-            )
-        } else {
-            (
-                rowend.clone(),
-                bitcell.clone(),
-                bitcell_replica.clone(),
-                wlstrap.clone(),
-                wlstrap_p.clone(),
-            )
-        };
+        let (rowend_r, rowend_replica_r, bitcell_r, bitcell_replica_r, wlstrap_r, wlstrap_p_r) =
+            if r % 2 == 1 {
+                (
+                    rowenda.clone(),
+                    rowenda_replica.clone(),
+                    bitcell_opt1a.clone(),
+                    bitcell_opt1a_replica.clone(),
+                    wlstrapa.clone(),
+                    wlstrapa_p.clone(),
+                )
+            } else {
+                (
+                    rowend.clone(),
+                    rowend_replica.clone(),
+                    bitcell.clone(),
+                    bitcell_replica.clone(),
+                    wlstrap.clone(),
+                    wlstrap_p.clone(),
+                )
+            };
 
         row.push(Instance {
             inst_name: format!("rowend_l_{}", r),
-            cell: rowend_r.clone(),
+            cell: if is_replica_row {
+                rowend_replica_r.clone()
+            } else {
+                rowend_r.clone()
+            },
             loc: Point::new(0, 0),
             reflect_vert: r % 2 != 0,
             angle: Some(180f64),
@@ -265,7 +276,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
 
         row.push(Instance {
             inst_name: format!("cell_{}_0", r),
-            cell: if dummy_cols_left == 0 && replica_cols > 0 && !dummy_row {
+            cell: if is_replica_row {
                 bitcell_replica_r.clone()
             } else {
                 bitcell_r.clone()
@@ -297,7 +308,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
                 _ => unreachable!("invalid mods"),
             };
 
-            let cell = if c >= dummy_cols_left && c < dummy_cols_left + replica_cols && !dummy_row {
+            let cell = if c < dummy_cols_left + replica_cols && is_replica_row {
                 bitcell_replica_r.clone()
             } else {
                 bitcell_r.clone()
@@ -379,7 +390,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
 
     grid.add_row(row);
 
-    grid.place();
+    grid.place(&lib.pdk);
 
     // Expose ports in abstract
 
@@ -407,11 +418,11 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
         let inst = grid.grid().get(total_rows + 1 - i, 0).unwrap();
         if inst.has_abstract() {
             for mut port in inst.ports() {
-                if i < dummy_rows_bottom + 1 || i > rows + dummy_rows_bottom {
+                if i < dummy_rows_bottom + 1 || i > rows + dummy_rows_bottom + replica_cols {
                     let dummy_i = if i < dummy_rows_bottom + 1 {
                         i
                     } else {
-                        i - rows
+                        i - rows - replica_cols
                     };
                     port.set_net(bus_bit(&format!("{}_dummy", &port.net), dummy_i));
                 } else {
@@ -433,6 +444,12 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
                     let new_net =
                         if i < dummy_cols_left + 1 || i > cols + dummy_cols_left + replica_cols {
                             format!("{}_dummy", &port.net)
+                        } else if i < dummy_cols_left + replica_cols + 1 {
+                            if port.net.starts_with("bl") || port.net.starts_with("br") {
+                                format!("r{}", &port.net)
+                            } else {
+                                format!("{}_replica", &port.net)
+                            }
                         } else {
                             port.net.clone()
                         };
@@ -440,9 +457,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
                         i - 1
                     } else if i < dummy_cols_left + replica_cols + 1 {
                         i - dummy_cols_left - 1
-                    } else if i > dummy_cols_left + replica_cols
-                        && i < cols + dummy_cols_left + replica_cols + 1
-                    {
+                    } else if i < cols + dummy_cols_left + replica_cols + 1 {
                         i - dummy_cols_left - replica_cols - 1
                     } else {
                         i - cols - replica_cols

@@ -1,6 +1,10 @@
 use grid::*;
-use layout21::raw::align::AlignRect;
-use layout21::raw::{BoundBoxTrait, Instance};
+use layout21::raw::align::{AlignMode, AlignRect};
+use layout21::raw::TransformTrait;
+use layout21::raw::{translate::Translate, BoundBoxTrait, Instance, Int, Point};
+use pdkprims::Pdk;
+
+use crate::layout::common::sc_outline;
 
 pub struct GridCells {
     grid: Grid<Instance>,
@@ -18,11 +22,11 @@ impl GridCells {
     }
 
     #[inline]
-    pub fn place(&mut self) {
-        self.place_inner()
+    pub fn place(&mut self, pdk: &Pdk) {
+        self.place_inner(pdk)
     }
 
-    fn place_inner(&mut self) {
+    fn place_inner(&mut self, pdk: &Pdk) {
         let (rows, cols) = self.grid.size();
         let mut prev_row: Option<Instance> = None;
 
@@ -31,11 +35,19 @@ impl GridCells {
             for c in 0..cols {
                 let instance = self.grid.get_mut(r, c).unwrap();
                 if let Some(ref p) = prev {
-                    instance.align_to_the_right_of(p.bbox(), 0);
-                    instance.align_bottom(p.bbox());
+                    let p_outline_bbox = sc_outline(pdk, p).transform(&p.transform());
+                    let outline_bbox = sc_outline(pdk, instance).transform(&instance.transform());
+                    instance.translate(Point::new(
+                        p_outline_bbox.p1.x - outline_bbox.p0.x,
+                        p_outline_bbox.p0.y - outline_bbox.p0.y,
+                    ));
                 } else if let Some(ref p) = prev_row {
-                    instance.align_beneath(p.bbox(), 0);
-                    instance.align_left(p.bbox());
+                    let p_outline_bbox = sc_outline(pdk, p).transform(&p.transform());
+                    let outline_bbox = sc_outline(pdk, instance).transform(&instance.transform());
+                    instance.translate(Point::new(
+                        p_outline_bbox.p0.x - outline_bbox.p0.x,
+                        p_outline_bbox.p0.y - outline_bbox.p1.y,
+                    ));
                 }
                 prev = Some(instance.clone());
                 if c == 0 {

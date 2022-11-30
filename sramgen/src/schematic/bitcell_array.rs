@@ -42,23 +42,26 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
     let vss = signal("vss");
     let bl = bus("bl", cols);
     let br = bus("br", cols);
-    let rbl = bus("rbl", replica_cols);
-    let rbr = bus("rbr", replica_cols);
     let wl = bus("wl", rows);
     let vnb = signal("vnb");
     let vpb = signal("vpb");
 
-    let ports = vec![
+    let mut ports = vec![
         port_inout(&vdd),
         port_inout(&vss),
         port_inout(&bl),
         port_inout(&br),
-        port_inout(&rbl),
-        port_inout(&rbr),
         port_input(&wl),
         port_inout(&vnb),
         port_inout(&vpb),
     ];
+
+    if replica_cols > 0 {
+        let rbl = bus("rbl", replica_cols);
+        let rbr = bus("rbr", replica_cols);
+        ports.push(port_inout(&rbl));
+        ports.push(port_inout(&rbr));
+    }
 
     let mut m = Module {
         name: params.name.clone(),
@@ -75,7 +78,8 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
             connections.insert("VSS".to_string(), sig_conn(&vss));
             connections.insert("VNB".to_string(), sig_conn(&vnb));
             connections.insert("VPB".to_string(), sig_conn(&vpb));
-            if i < dummy_rows_bottom || i > rows + dummy_rows_bottom - 1 {
+
+            if i < dummy_rows_bottom || i >= rows + dummy_rows_bottom {
                 connections.insert("WL".to_string(), sig_conn(&vss));
             } else {
                 connections.insert(
@@ -83,7 +87,7 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
                     conn_slice("wl", i - dummy_rows_bottom, i - dummy_rows_bottom),
                 );
             }
-            if j < dummy_cols_left || j > cols + dummy_cols_left + replica_cols - 1 {
+            if j < dummy_cols_left || j >= cols + dummy_cols_left + replica_cols {
                 connections.insert("BL".to_string(), sig_conn(&vdd));
                 connections.insert("BR".to_string(), sig_conn(&vdd));
             } else if j < dummy_cols_left + replica_cols {
@@ -114,11 +118,16 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
                 );
             }
 
-            let module = Some(if j < dummy_cols_left + replica_cols {
-                sram_sp_cell_replica_ref()
-            } else {
-                sram_sp_cell_ref()
-            });
+            let module = Some(
+                if j < dummy_cols_left + replica_cols
+                    && i >= dummy_rows_bottom
+                    && i < rows + dummy_rows_bottom
+                {
+                    sram_sp_cell_replica_ref()
+                } else {
+                    sram_sp_cell_ref()
+                },
+            );
             let inst = Instance {
                 name: format!("bitcell_{}_{}", i, j),
                 parameters: HashMap::new(),
@@ -131,15 +140,15 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
 
     for i in 0..total_cols {
         // .subckt sky130_fd_bd_sram__sram_sp_colend BL1 VPWR VGND BL0
-        let dummy = i < dummy_cols_left || i > cols + dummy_cols_left + replica_cols - 1;
-        let replica = false; // !dummy && i < dummy_cols_left + replica_cols;
+        let is_dummy = i < dummy_cols_left || i >= cols + dummy_cols_left + replica_cols;
+        let is_replica = !is_dummy && i < dummy_cols_left + replica_cols;
 
         let conns = [
             (
                 "BL1",
-                if dummy {
+                if is_dummy {
                     sig_conn(&vdd)
-                } else if replica {
+                } else if is_replica {
                     conn_slice("rbr", i - dummy_cols_left, i - dummy_cols_left)
                 } else {
                     conn_slice(
@@ -151,9 +160,9 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
             ),
             (
                 "BL0",
-                if dummy {
+                if is_dummy {
                     sig_conn(&vdd)
-                } else if replica {
+                } else if is_replica {
                     conn_slice("rbl", i - dummy_cols_left, i - dummy_cols_left)
                 } else {
                     conn_slice(

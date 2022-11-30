@@ -222,6 +222,15 @@ pub fn rowend_gds(lib: &mut PdkLib) -> CellGdsResult {
 }
 
 #[inline]
+pub fn rowend_replica_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_rowend_replica.gds",
+        "sky130_fd_bd_sram__openram_sp_rowend_replica",
+    )
+}
+
+#[inline]
 pub fn wlstrap_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
         lib,
@@ -299,6 +308,15 @@ pub fn rowenda_gds(lib: &mut PdkLib) -> CellGdsResult {
         lib,
         "sram_sp_rowenda.gds",
         "sky130_fd_bd_sram__sram_sp_rowenda",
+    )
+}
+
+#[inline]
+pub fn rowenda_replica_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_rowenda_replica.gds",
+        "sky130_fd_bd_sram__openram_sp_rowenda_replica",
     )
 }
 
