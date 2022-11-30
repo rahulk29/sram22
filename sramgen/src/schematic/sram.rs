@@ -33,7 +33,10 @@ use crate::schematic::rbl::replica_bitcell_column;
 use crate::schematic::sense_amp::sense_amp_array;
 use crate::schematic::wl_driver::wordline_driver_array;
 use crate::schematic::wmask_control::write_mask_control;
-use crate::tech::{openram_dff_ref, sramgen_control_replica_v1_ref, sramgen_control_simple_ref};
+use crate::tech::{
+    control_logic_bufbuf_16_ref, openram_dff_ref, sramgen_control_replica_v1_ref,
+    sramgen_control_simple_ref,
+};
 
 pub fn sram(params: &SramParams) -> Vec<Module> {
     assert!(params.row_bits > 0);
@@ -267,6 +270,10 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     let col_sel = bus("col_sel", mux_ratio as i64);
     let col_sel_b = bus("col_sel_b", mux_ratio as i64);
 
+    // Only used when mux ratio is 2
+    let bank_addr_buf = signal("bank_addr_buf");
+    let bank_addr_b_buf = signal("bank_addr_b_buf");
+
     // Only used when wmask groups is greater than 1
     let wmask = bus("wmask", wmask_width as i64);
     let bank_wmask = bus("bank_wmask", wmask_width as i64);
@@ -473,6 +480,32 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         parameters: HashMap::new(),
     });
 
+    // Buffer LSB of address if mux ratio is 2
+    if mux_ratio == 2 {
+        let mut conns = HashMap::new();
+        conns.insert("vdd", sig_conn(&vdd));
+        conns.insert("vss", sig_conn(&vss));
+        conns.insert("a", conn_slice("bank_addr", 0, 0));
+        conns.insert("x", sig_conn(&bank_addr_buf));
+        m.instances.push(Instance {
+            name: "bank_addr_buf".to_string(),
+            module: Some(control_logic_bufbuf_16_ref()),
+            connections: conn_map(conns),
+            parameters: HashMap::new(),
+        });
+        let mut conns = HashMap::new();
+        conns.insert("vdd", sig_conn(&vdd));
+        conns.insert("vss", sig_conn(&vss));
+        conns.insert("a", conn_slice("bank_addr_b", 0, 0));
+        conns.insert("x", sig_conn(&bank_addr_b_buf));
+        m.instances.push(Instance {
+            name: "bank_addr_b_buf".to_string(),
+            module: Some(control_logic_bufbuf_16_ref()),
+            connections: conn_map(conns),
+            parameters: HashMap::new(),
+        });
+    }
+
     // Column read muxes
     let mut conns = HashMap::new();
     conns.insert("vdd", sig_conn(&vdd));
@@ -485,10 +518,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         if mux_ratio == 2 {
             Connection {
                 stype: Some(vlsir::circuit::connection::Stype::Concat(Concat {
-                    parts: vec![
-                        conn_slice("bank_addr_b", 0, 0),
-                        conn_slice("bank_addr", 0, 0),
-                    ],
+                    parts: vec![sig_conn(&bank_addr_b_buf), sig_conn(&bank_addr_buf)],
                 })),
             }
         } else {
