@@ -85,12 +85,17 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         },
     });
 
+    let (replica_cols, dummy_params) = match params.control {
+        ControlMode::Simple => (1, BitcellArrayDummyParams::Equal(2)),
+        ControlMode::ReplicaV1 => (1, BitcellArrayDummyParams::Equal(1)),
+    };
+
     let bitcells = bitcell_array(&BitcellArrayParams {
         name: "bitcell_array".to_string(),
         rows: rows as usize,
         cols,
-        replica_cols: 0,
-        dummy_params: BitcellArrayDummyParams::Equal(2),
+        replica_cols,
+        dummy_params,
     });
 
     let pc_cols = if params.control == ControlMode::ReplicaV1 {
@@ -385,20 +390,12 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         parameters: HashMap::new(),
     });
 
-    // Replica column
-    let mut conns = HashMap::new();
-    conns.insert("rbl", sig_conn(&rbl));
-    conns.insert("rbr", sig_conn(&rbr));
-    conns.insert("wl", sig_conn(&wl));
-    conns.insert("vdd", sig_conn(&vdd));
-    conns.insert("vss", sig_conn(&vss));
-    conns.insert("vnb", sig_conn(&vss));
-    conns.insert("vpb", sig_conn(&vdd));
-
     // Bitcells
     let mut conns = HashMap::new();
     conns.insert("bl", sig_conn(&bl));
     conns.insert("br", sig_conn(&br));
+    conns.insert("rbl", sig_conn(&bl));
+    conns.insert("rbr", sig_conn(&br));
     conns.insert("wl", sig_conn(&wl));
     conns.insert("vdd", sig_conn(&vdd));
     conns.insert("vss", sig_conn(&vss));

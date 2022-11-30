@@ -1,7 +1,6 @@
 use grid::*;
-use layout21::raw::align::{AlignMode, AlignRect};
 use layout21::raw::TransformTrait;
-use layout21::raw::{translate::Translate, BoundBoxTrait, Instance, Int, Point};
+use layout21::raw::{translate::Translate, Instance, Point};
 use pdkprims::Pdk;
 
 use crate::layout::common::sc_outline;
