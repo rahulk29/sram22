@@ -20,6 +20,7 @@ pub const SRAM_SP_CELL_REPLICA: &str = "sram_sp_cell_replica";
 pub const OPENRAM_DFF: &str = "openram_dff";
 pub const SRAM_CONTROL_SIMPLE: &str = "sramgen_control_simple";
 pub const SRAM_CONTROL_REPLICA_V1: &str = "sramgen_control_replica_v1";
+pub const SRAM_CONTROL_BUFBUF_16: &str = "control_logic_bufbuf_16";
 pub const SRAM_SP_SENSE_AMP: &str = "sramgen_sp_sense_amp";
 pub const CONTROL_LOGIC_INV: &str = "control_logic_inv";
 
@@ -424,6 +425,16 @@ pub fn sramgen_control_replica_v1_ref() -> Reference {
 }
 
 #[inline]
+pub fn sramgen_control_bufbuf_16() -> Reference {
+    Reference {
+        to: Some(To::External(QualifiedName {
+            domain: SKY130_DOMAIN.to_string(),
+            name: SRAM_CONTROL_BUFBUF_16.to_string(),
+        })),
+    }
+}
+
+#[inline]
 pub fn external_gds_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tech/sky130/gds")
 }
@@ -456,6 +467,21 @@ pub fn control_logic_inv() -> ExternalModule {
         SKY130_DOMAIN,
         CONTROL_LOGIC_INV,
         &["din", "din_b", "vdd", "vss"],
+    )
+}
+
+/// Reference to the high-speed buffer used for control logic. used for the
+///
+/// The SPICE subcircuit definition looks like this:
+/// ```spice
+/// .SUBCKT control_logic_bufbuf_16 A X VPWR VGND
+/// ```
+#[inline]
+pub fn control_logic_bufbuf_16() -> ExternalModule {
+    simple_ext_module(
+        SKY130_DOMAIN,
+        SRAM_CONTROL_BUFBUF_16,
+        &["a", "x", "vdd", "vss"],
     )
 }
 
@@ -504,6 +530,16 @@ pub fn control_logic_inv_ref() -> Reference {
 }
 
 #[inline]
+pub fn control_logic_bufbuf_16_ref() -> Reference {
+    Reference {
+        to: Some(To::External(QualifiedName {
+            domain: SKY130_DOMAIN.to_string(),
+            name: SRAM_CONTROL_BUFBUF_16.to_string(),
+        })),
+    }
+}
+
+#[inline]
 pub fn all_external_modules() -> Vec<ExternalModule> {
     vec![
         ext_nmos(NETLIST_FORMAT),
@@ -515,6 +551,7 @@ pub fn all_external_modules() -> Vec<ExternalModule> {
         sramgen_control_replica_v1(),
         sramgen_sp_sense_amp(),
         control_logic_inv(),
+        control_logic_bufbuf_16(),
         openram_dff(),
     ]
 }
