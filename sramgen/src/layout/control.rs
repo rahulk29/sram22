@@ -1,19 +1,17 @@
-use crate::config::inv_chain::{InvChainGridParams, InvChainParams};
-use crate::config::sram::ControlMode;
-use crate::layout::common::MergeArgs;
-use crate::layout::inv_chain::draw_inv_chain_grid;
-use crate::layout::sram::GateList;
-use crate::tech::{sc_and2_gds, sc_buf_gds, sc_bufbuf_16_gds, sc_inv_gds, sc_nor2_gds, sc_tap_gds};
-use crate::Result;
-
 use layout21::raw::{AbstractPort, BoundBoxTrait, Cell, Dir, Instance, Point, Rect};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
-use super::common::sc_outline;
-use super::inv_chain::draw_inv_chain;
-use super::power::{PowerSource, PowerStrapGen, PowerStrapOpts};
-use super::route::Router;
+use crate::config::inv_chain::{InvChainGridParams, InvChainParams};
+use crate::config::sram::ControlMode;
+use crate::layout::common::{sc_outline, MergeArgs};
+use crate::layout::inv_chain::{draw_inv_chain, draw_inv_chain_grid};
+use crate::layout::power::{PowerSource, PowerStrapGen, PowerStrapOpts};
+use crate::layout::route::Router;
+use crate::layout::rows::AlignedRows;
+use crate::layout::sram::GateList;
+use crate::tech::{sc_and2_gds, sc_buf_gds, sc_bufbuf_16_gds, sc_inv_gds, sc_nor2_gds, sc_tap_gds};
+use crate::Result;
 
 pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cell>> {
     match mode {
@@ -172,148 +170,299 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         },
     )?;
 
+    let mut rows = AlignedRows::new();
     // Place standard cells
-    let mut x = 0;
-    let mut y = 0;
-    let eddc = Instance::new("delay_chain", delay_chain_7.clone());
-    let eddc_outline = sc_outline(&lib.pdk, &eddc);
-    x += eddc_outline.width();
-    let mut ed_and = Instance::new("edge_detector_and", and.clone());
-    let and_outline = sc_outline(&lib.pdk, &ed_and);
-    ed_and.loc.x = x;
-    x += and_outline.width();
-    let mut tap0 = Instance::new("tap0", tap.clone());
-    let tap_outline = sc_outline(&lib.pdk, &tap0);
-    tap0.loc.x = x;
-    y += tap_outline.height();
-    x = 0;
+    rows.add_row(vec![
+        Instance {
+            inst_name: "delay_chain".to_string(),
+            cell: delay_chain_7.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "edge_detector_and".to_string(),
+            cell: and.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "tap0".to_string(),
+            cell: tap.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+    ]);
 
-    let mut tap1 = Instance::new("tap1", tap.clone());
-    tap1.loc = Point::new(x, y);
-    tap1.reflect_vert_anchored();
-    x += tap_outline.width();
-    let mut inv_rbl = Instance::new("inv_rbl", inv.clone());
-    let inv_outline = sc_outline(&lib.pdk, &inv_rbl);
-    inv_rbl.loc = Point::new(x, y);
-    inv_rbl.reflect_vert_anchored();
-    x += inv_outline.width();
-    let mut wl_ctl_nor1 = Instance::new("wl_ctl_nor1", nor2.clone());
-    let nor2_outline = sc_outline(&lib.pdk, &wl_ctl_nor1);
-    wl_ctl_nor1.loc = Point::new(x, y);
-    wl_ctl_nor1.reflect_vert_anchored();
-    wl_ctl_nor1.reflect_horiz_anchored();
-    x += nor2_outline.width();
-    let mut wl_ctl_nor2 = Instance::new("wl_ctl_nor2", nor2.clone());
-    wl_ctl_nor2.loc = Point::new(x, y);
-    wl_ctl_nor2.reflect_vert_anchored();
-    x += nor2_outline.width();
-    let mut wl_en_buf = Instance::new("wl_en_buf", buf.clone());
-    let buf_outline = sc_outline(&lib.pdk, &wl_en_buf);
-    wl_en_buf.loc = Point::new(x, y);
-    wl_en_buf.reflect_vert_anchored();
-    x += buf_outline.width();
-    let mut tap2 = Instance::new("tap2", tap.clone());
-    tap2.loc = Point::new(x, y);
-    tap2.reflect_vert_anchored();
+    let eddc = rows.get(0, 0);
+    let ed_and = rows.get(0, 1);
+    let tap0 = rows.get(0, 2);
 
-    y += tap_outline.height();
-    x = 0;
+    rows.add_row(vec![
+        Instance {
+            inst_name: "tap1".to_string(),
+            cell: tap.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: true,
+            angle: None,
+        },
+        Instance {
+            inst_name: "inv_rbl".to_string(),
+            cell: inv.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: true,
+            angle: None,
+        },
+        Instance {
+            inst_name: "wl_ctl_nor1".to_string(),
+            cell: nor2.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: true,
+            angle: None,
+        },
+        Instance {
+            inst_name: "wl_ctl_nor2".to_string(),
+            cell: nor2.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: true,
+            angle: None,
+        },
+        Instance {
+            inst_name: "wl_en_buf".to_string(),
+            cell: buf.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: true,
+            angle: None,
+        },
+        Instance {
+            inst_name: "tap2".to_string(),
+            cell: tap.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: true,
+            angle: None,
+        },
+    ]);
 
-    let mut wl_set_dc0 = Instance::new("wr_drv_delay_chain", delay_chain_4.clone());
-    let dc_4_outline = sc_outline(&lib.pdk, &wl_set_dc0);
-    wl_set_dc0.loc = Point::new(x, y);
-    x += dc_4_outline.width();
-    let mut inv_we = Instance::new("inv_we", inv);
-    inv_we.loc = Point::new(x, y);
-    x += inv_outline.width();
-    let mut cond1 = Instance::new("cond1", and.clone());
-    cond1.loc = Point::new(x, y);
-    x += and_outline.width();
-    let mut wdeddc = Instance::new("wr_en_detector_delay_chain", delay_chain_7);
-    wdeddc.loc = Point::new(x, y);
-    x += eddc_outline.width();
-    let mut wded_and = Instance::new("wr_en_detector_and", and.clone());
-    wded_and.loc = Point::new(x, y);
-    x += and_outline.width();
-    let mut cond2 = Instance::new("cond2", and.clone());
-    cond2.loc = Point::new(x, y);
-    x += and_outline.width();
+    let tap1 = rows.get(1, 0);
+    let inv_rbl = rows.get(1, 1);
+    let wl_ctl_nor1 = rows.get(1, 2);
+    let wl_ctl_nor2 = rows.get(1, 3);
+    let wl_en_buf = rows.get(1, 4);
+    let tap2 = rows.get(1, 5);
 
-    y += tap_outline.height();
-    x = 0;
+    rows.add_row(vec![
+        Instance {
+            inst_name: "wl_drv_delay_chain".to_string(),
+            cell: delay_chain_4.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "inv_we".to_string(),
+            cell: inv,
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "cond1".to_string(),
+            cell: and.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "wr_en_detector_delay_chain".to_string(),
+            cell: delay_chain_7,
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "wr_en_detector_and".to_string(),
+            cell: and.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "cond2".to_string(),
+            cell: and.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+    ]);
 
-    let mut ssdc_inst = Instance::new("sae_delay_chain", delay_chain_4.clone());
-    ssdc_inst.loc = Point::new(x, y);
-    x += dc_4_outline.width();
-    let mut sae_ctl_nor1 = Instance::new("sae_ctl_nor1", nor2.clone());
-    sae_ctl_nor1.loc = Point::new(x, y);
-    x += nor2_outline.width();
-    sae_ctl_nor1.reflect_horiz_anchored();
-    let mut sae_ctl_nor2 = Instance::new("sae_ctl_nor2", nor2.clone());
-    sae_ctl_nor2.loc = Point::new(x, y);
-    x += nor2_outline.width();
-    let mut sae_buf = Instance::new("sae_buf", buf.clone());
-    sae_buf.loc = Point::new(x, y);
-    x += buf_outline.width();
-    let mut tap3 = Instance::new("tap3", tap.clone());
-    tap3.loc = Point::new(x, y);
+    let wl_set_dc0 = rows.get(2, 0);
+    let inv_we = rows.get(2, 1);
+    let cond1 = rows.get(2, 2);
+    let wdeddc = rows.get(2, 3);
+    let wded_and = rows.get(2, 4);
+    let cond2 = rows.get(2, 5);
 
-    y += tap_outline.height();
-    x = 0;
+    rows.add_row(vec![
+        Instance {
+            inst_name: "sae_delay_chain".to_string(),
+            cell: delay_chain_4.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "sae_ctl_nor1".to_string(),
+            cell: nor2.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "sae_ctl_nor2".to_string(),
+            cell: nor2.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "sae_buf".to_string(),
+            cell: buf.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "tap3".to_string(),
+            cell: tap.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+    ]);
 
-    let mut pcdc = Instance::new("pc_delay_chain", delay_chain_16);
-    pcdc.loc = Point::new(x, y);
-    pcdc.reflect_vert_anchored();
+    let ssdc_inst = rows.get(3, 0);
+    let sae_ctl_nor1 = rows.get(3, 1);
+    let sae_ctl_nor2 = rows.get(3, 2);
+    let sae_buf = rows.get(3, 3);
+    let tap3 = rows.get(3, 4);
 
-    y += tap_outline.height();
+    rows.add_row(vec![Instance {
+        inst_name: "pc_delay_chain".to_string(),
+        cell: delay_chain_16,
+        loc: Point::new(0, 0),
+        reflect_vert: true,
+        angle: None,
+    }]);
 
-    let mut tap4 = Instance::new("tap4", tap.clone());
-    tap4.loc = Point::new(x, y);
-    x += tap_outline.width();
-    let mut pc_ctl_nor1 = Instance::new("pc_ctl_nor1", nor2.clone());
-    pc_ctl_nor1.loc = Point::new(x, y);
-    pc_ctl_nor1.reflect_horiz_anchored();
-    x += nor2_outline.width();
-    let mut pc_ctl_nor2 = Instance::new("pc_ctl_nor2", nor2.clone());
-    pc_ctl_nor2.loc = Point::new(x, y);
-    x += nor2_outline.width();
-    let mut pc_b_buf = Instance::new("pc_b_buf", buf.clone());
-    pc_b_buf.loc = Point::new(x, y);
-    x += buf_outline.width();
-    let mut tap5 = Instance::new("tap5", tap.clone());
-    tap5.loc = Point::new(x, y);
+    let pcdc = rows.get(4, 0);
 
-    x = 0;
-    y += tap_outline.height();
+    rows.add_row(vec![
+        Instance {
+            inst_name: "tap4".to_string(),
+            cell: tap.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "pc_ctl_nor1".to_string(),
+            cell: nor2.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "pc_ctl_nor2".to_string(),
+            cell: nor2.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "pc_b_buf".to_string(),
+            cell: buf.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "tap5".to_string(),
+            cell: tap.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+    ]);
 
-    let mut tap6 = Instance::new("tap6", tap.clone());
-    tap6.loc = Point::new(x, y);
-    tap6.reflect_vert_anchored();
-    x += tap_outline.width();
-    let mut and_wr_en_set = Instance::new("and_wr_en_set", and);
-    and_wr_en_set.loc = Point::new(x, y);
-    and_wr_en_set.reflect_vert_anchored();
-    x += nor2_outline.width();
-    let mut wr_drv_dc = Instance::new("wr_drv_set_delay_chain", delay_chain_4);
-    wr_drv_dc.loc = Point::new(x, y);
-    x += dc_4_outline.width();
-    wr_drv_dc.reflect_vert_anchored();
-    let mut wr_drv_ctl_nor1 = Instance::new("wr_drv_ctl_nor1", nor2.clone());
-    wr_drv_ctl_nor1.loc = Point::new(x, y);
-    wr_drv_ctl_nor1.reflect_vert_anchored();
-    wr_drv_ctl_nor1.reflect_horiz_anchored();
-    x += nor2_outline.width();
-    let mut wr_drv_ctl_nor2 = Instance::new("wr_drv_ctl_nor2", nor2);
-    wr_drv_ctl_nor2.loc = Point::new(x, y);
-    x += nor2_outline.width();
-    wr_drv_ctl_nor2.reflect_vert_anchored();
-    let mut wr_drv_buf = Instance::new("wr_drv_buf", buf);
-    wr_drv_buf.loc = Point::new(x, y);
-    wr_drv_buf.reflect_vert_anchored();
-    x += buf_outline.width();
-    let mut tap7 = Instance::new("tap7", tap);
-    tap7.loc = Point::new(x, y);
-    tap7.reflect_vert_anchored();
+    let tap4 = rows.get(5, 0);
+    let pc_ctl_nor1 = rows.get(5, 1);
+    let pc_ctl_nor2 = rows.get(5, 2);
+    let pc_b_buf = rows.get(5, 3);
+    let tap5 = rows.get(5, 4);
+
+    rows.add_row(vec![
+        Instance {
+            inst_name: "tap6".to_string(),
+            cell: tap.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: true,
+            angle: None,
+        },
+        Instance {
+            inst_name: "and_wr_en_set".to_string(),
+            cell: and,
+            loc: Point::new(0, 0),
+            reflect_vert: true,
+            angle: None,
+        },
+        Instance {
+            inst_name: "wr_drv_set_delay_chain".to_string(),
+            cell: delay_chain_4,
+            loc: Point::new(0, 0),
+            reflect_vert: true,
+            angle: None,
+        },
+        Instance {
+            inst_name: "wr_drv_ctl_nor1".to_string(),
+            cell: nor2.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: true,
+            angle: None,
+        },
+        Instance {
+            inst_name: "wr_drv_ctl_nor2".to_string(),
+            cell: nor2,
+            loc: Point::new(0, 0),
+            reflect_vert: true,
+            angle: None,
+        },
+        Instance {
+            inst_name: "wr_drv_buf".to_string(),
+            cell: buf,
+            loc: Point::new(0, 0),
+            reflect_vert: true,
+            angle: None,
+        },
+        Instance {
+            inst_name: "tap7".to_string(),
+            cell: tap,
+            loc: Point::new(0, 0),
+            reflect_vert: true,
+            angle: None,
+        },
+    ]);
+
+    let tap6 = rows.get(6, 0);
+    let and_wr_en_set = rows.get(6, 1);
+    let wr_drv_dc = rows.get(6, 2);
+    let wr_drv_ctl_nor1 = rows.get(6, 3);
+    let wr_drv_ctl_nor2 = rows.get(6, 4);
+    let wr_drv_buf = rows.get(6, 5);
+    let tap7 = rows.get(6, 6);
+
+    rows.place(&lib.pdk);
 
     /*
     // Routing
@@ -604,39 +753,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     }
     */
 
-    cell.layout_mut().add_inst(eddc);
-    cell.layout_mut().add_inst(ed_and);
-    cell.layout_mut().add_inst(tap0);
-    cell.layout_mut().add_inst(tap1);
-    cell.layout_mut().add_inst(inv_rbl);
-    cell.layout_mut().add_inst(wl_ctl_nor1);
-    cell.layout_mut().add_inst(wl_ctl_nor2);
-    cell.layout_mut().add_inst(wl_en_buf);
-    cell.layout_mut().add_inst(tap2);
-    cell.layout_mut().add_inst(wl_set_dc0);
-    cell.layout_mut().add_inst(inv_we);
-    cell.layout_mut().add_inst(cond1);
-    cell.layout_mut().add_inst(wdeddc);
-    cell.layout_mut().add_inst(wded_and);
-    cell.layout_mut().add_inst(cond2);
-    cell.layout_mut().add_inst(ssdc_inst);
-    cell.layout_mut().add_inst(sae_ctl_nor1);
-    cell.layout_mut().add_inst(sae_ctl_nor2);
-    cell.layout_mut().add_inst(sae_buf);
-    cell.layout_mut().add_inst(tap3);
-    cell.layout_mut().add_inst(pcdc);
-    cell.layout_mut().add_inst(tap4);
-    cell.layout_mut().add_inst(pc_ctl_nor1);
-    cell.layout_mut().add_inst(pc_ctl_nor2);
-    cell.layout_mut().add_inst(pc_b_buf);
-    cell.layout_mut().add_inst(tap5);
-    cell.layout_mut().add_inst(tap6);
-    cell.layout_mut().add_inst(and_wr_en_set);
-    cell.layout_mut().add_inst(wr_drv_dc);
-    cell.layout_mut().add_inst(wr_drv_ctl_nor1);
-    cell.layout_mut().add_inst(wr_drv_ctl_nor2);
-    cell.layout_mut().add_inst(wr_drv_buf);
-    cell.layout_mut().add_inst(tap7);
+    cell.layout_mut().insts = rows.into_instances();
 
     /*
     let mut power_grid = PowerStrapGen::new(

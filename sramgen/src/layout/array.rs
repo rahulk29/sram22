@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::bitcell_array::{BitcellArrayDummyParams, BitcellArrayParams};
 use crate::layout::bbox;
-use crate::layout::grid::GridCells;
 use crate::layout::route::Router;
+use crate::layout::rows::AlignedRows;
 use crate::tech::*;
 use crate::{bus_bit, Result};
 
@@ -180,7 +180,8 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
     let wlstrapa_p = wlstrapa_p_gds(lib)?;
     assert_eq!(colenda_bbox.width(), 1200);
 
-    let mut grid = GridCells::new();
+    let mut aligned_rows = AlignedRows::new();
+    aligned_rows.grow_down();
 
     let mut row = vec![
         Instance {
@@ -233,7 +234,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
         angle: None,
     });
 
-    grid.add_row(row);
+    aligned_rows.add_row(row);
 
     for r in 0..total_rows {
         let mut row = Vec::new();
@@ -330,7 +331,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
             angle: None,
         });
 
-        grid.add_row(row);
+        aligned_rows.add_row(row);
     }
 
     let (corner_bot, colend_bot, colend_cent_bot, colend_p_cent_bot) = if (rows - 1) % 2 == 1 {
@@ -388,9 +389,9 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
         angle: None,
     });
 
-    grid.add_row(row);
+    aligned_rows.add_row(row);
 
-    grid.place(&lib.pdk);
+    aligned_rows.place(&lib.pdk);
 
     // Expose ports in abstract
 
@@ -404,7 +405,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
         };
         let m = if i / 2 == 0 { 0 } else { total_rows + 1 };
         let n = if i % 2 == 0 { 0 } else { 2 * total_cols };
-        let inst = grid.grid().get(m, n).unwrap();
+        let inst = aligned_rows.get(m, n);
         if inst.has_abstract() {
             for mut port in inst.ports() {
                 port.set_net(format!("{}_corner_{}", &port.net, position_str));
@@ -415,7 +416,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
 
     // Leftmost column
     for i in 1..total_rows + 1 {
-        let inst = grid.grid().get(total_rows + 1 - i, 0).unwrap();
+        let inst = aligned_rows.get(total_rows + 1 - i, 0);
         if inst.has_abstract() {
             for mut port in inst.ports() {
                 if i < dummy_rows_bottom + 1 || i > rows + dummy_rows_bottom + replica_cols {
@@ -437,7 +438,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
     for j in vec![0, total_rows + 1].into_iter() {
         let top_str = if j == 0 { "_top" } else { "" };
         for instance_i in 1..2 * total_cols {
-            let inst = grid.grid().get(j, instance_i).unwrap();
+            let inst = aligned_rows.get(j, instance_i);
             if inst.has_abstract() {
                 for mut port in inst.ports() {
                     let i = (instance_i + 1) / 2;
@@ -469,7 +470,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
         }
     }
 
-    layout.insts = grid.into_instances();
+    layout.insts = aligned_rows.into_instances();
 
     let cell = Cell {
         name: name.to_string(),
