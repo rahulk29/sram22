@@ -58,5 +58,23 @@ pub(crate) fn test_sram(config: &SramConfig) -> Result<()> {
     Ok(())
 }
 
+// Small SRAMS for testing
 generate_sram_test!(32, 8, 2, 8, ControlMode::ReplicaV1);
+generate_sram_test!(32, 8, 2, 4, ControlMode::ReplicaV1);
+generate_sram_test!(32, 32, 2, 4, ControlMode::ReplicaV1);
+generate_sram_test!(32, 32, 2, 8, ControlMode::ReplicaV1);
+generate_sram_test!(32, 32, 2, 16, ControlMode::ReplicaV1);
+
+// 1 kbyte, 64-bit word width
 generate_sram_test!(128, 64, 2, 8, ControlMode::ReplicaV1);
+generate_sram_test!(128, 64, 4, 8, ControlMode::ReplicaV1);
+generate_sram_test!(128, 64, 4, 16, ControlMode::ReplicaV1);
+generate_sram_test!(128, 64, 4, 32, ControlMode::ReplicaV1);
+generate_sram_test!(128, 64, 8, 8, ControlMode::ReplicaV1);
+generate_sram_test!(128, 64, 2, 64, ControlMode::ReplicaV1);
+
+// 1 kbyte, 32-bit word width
+generate_sram_test!(256, 32, 2, 8, ControlMode::ReplicaV1);
+generate_sram_test!(256, 32, 4, 8, ControlMode::ReplicaV1);
+generate_sram_test!(256, 32, 8, 8, ControlMode::ReplicaV1);
+generate_sram_test!(256, 32, 4, 32, ControlMode::ReplicaV1);
