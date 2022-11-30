@@ -276,7 +276,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         },
         Instance {
             inst_name: "wr_en_detector_delay_chain".to_string(),
-            cell: delay_chain_7.clone(),
+            cell: delay_chain_7,
             loc: Point::new(0, 0),
             reflect_vert: false,
             angle: None,
@@ -397,8 +397,8 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     ]);
 
     let tap4 = rows.get(5, 0);
-    let pc_tl_nor1 = rows.get(5, 1);
-    let pc_tl_nor2 = rows.get(5, 2);
+    let pc_ctl_nor1 = rows.get(5, 1);
+    let pc_ctl_nor2 = rows.get(5, 2);
     let pc_b_buf = rows.get(5, 3);
     let tap5 = rows.get(5, 4);
 
@@ -456,7 +456,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     let tap6 = rows.get(6, 0);
     let and_wr_en_set = rows.get(6, 1);
-    let wr_drv_set_delay_chain = rows.get(6, 2);
+    let wr_drv_dc = rows.get(6, 2);
     let wr_drv_ctl_nor1 = rows.get(6, 3);
     let wr_drv_ctl_nor2 = rows.get(6, 4);
     let wr_drv_buf = rows.get(6, 5);
