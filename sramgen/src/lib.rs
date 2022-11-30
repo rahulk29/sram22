@@ -5,6 +5,8 @@ pub mod abs;
 pub mod cli;
 pub mod config;
 pub mod layout;
+#[cfg(feature = "liberate_mx")]
+pub mod liberate;
 pub mod paths;
 pub mod plan;
 pub mod schematic;

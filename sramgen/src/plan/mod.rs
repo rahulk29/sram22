@@ -101,5 +101,31 @@ pub fn execute_plan(work_dir: impl AsRef<Path>, plan: &SramPlan) -> Result<()> {
         crate::abs::run_sram_abstract(&work_dir, name, &lef_path, &gds_path, &verilog_path)?;
     }
 
+    #[cfg(feature = "liberate_mx")]
+    {
+        use crate::verification::{source_files, VerificationTask};
+        use liberate_mx::LibParams;
+
+        let source_paths = source_files(
+            work_dir.as_ref(),
+            &plan.sram_params.name,
+            VerificationTask::SpectreSim,
+            plan.sram_params.control,
+        );
+        let params = LibParams::builder()
+            .work_dir(work_dir.as_ref().join("lib"))
+            .save_dir(work_dir.as_ref())
+            .corner("tt")
+            .cell_name(&plan.sram_params.name)
+            .num_words(plan.sram_params.num_words)
+            .data_width(plan.sram_params.data_width)
+            .addr_width(plan.sram_params.addr_width)
+            .wmask_width(plan.sram_params.wmask_width)
+            .mux_ratio(plan.sram_params.mux_ratio)
+            .source_paths(source_paths)
+            .build()?;
+
+        crate::liberate::generate_sram_lib(&params)?;
+    }
     Ok(())
 }
