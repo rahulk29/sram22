@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use vlsir::circuit::{Concat, Connection, Instance, Module};
 
-use crate::config::bitcell_array::BitcellArrayParams;
+use crate::config::bitcell_array::{BitcellArrayDummyParams, BitcellArrayParams};
 use crate::config::col_inv::{ColInvArrayParams, ColInvParams};
 use crate::config::decoder::DecoderParams;
 use crate::config::dff::DffGridParams;
@@ -11,7 +11,6 @@ use crate::config::gate::{AndParams, GateParams, Size};
 use crate::config::inv_chain::InvChainGridParams;
 use crate::config::mux::{ReadMuxArrayParams, ReadMuxParams, WriteMuxArrayParams, WriteMuxParams};
 use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
-use crate::config::rbl::ReplicaBitcellColumnParams;
 use crate::config::sense_amp::SenseAmpArrayParams;
 use crate::config::sram::{ControlMode, SramParams};
 use crate::config::wl_driver::{WordlineDriverArrayParams, WordlineDriverParams};
@@ -29,7 +28,6 @@ use crate::schematic::local_reference;
 use crate::schematic::mux::read::read_mux_array;
 use crate::schematic::mux::write::write_mux_array;
 use crate::schematic::precharge::precharge_array;
-use crate::schematic::rbl::replica_bitcell_column;
 use crate::schematic::sense_amp::sense_amp_array;
 use crate::schematic::wl_driver::wordline_driver_array;
 use crate::schematic::wmask_control::write_mask_control;
@@ -90,12 +88,17 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         },
     });
 
+    let (replica_cols, dummy_params) = match params.control {
+        ControlMode::Simple => (1, BitcellArrayDummyParams::Equal(2)),
+        ControlMode::ReplicaV1 => (1, BitcellArrayDummyParams::Equal(1)),
+    };
+
     let bitcells = bitcell_array(&BitcellArrayParams {
         name: "bitcell_array".to_string(),
         rows: rows as usize,
         cols,
-        dummy_rows: 2,
-        dummy_cols: 2,
+        replica_cols,
+        dummy_params,
     });
 
     let pc_cols = if params.control == ControlMode::ReplicaV1 {
@@ -223,12 +226,6 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         name: "control_logic_delay_chain".to_string(),
         rows: 5,
         cols: 9,
-    });
-
-    let mut replica_col = replica_bitcell_column(&ReplicaBitcellColumnParams {
-        name: "replica_column".to_string(),
-        rows: rows as usize,
-        dummy_rows: 2,
     });
 
     let vdd = signal("vdd");
@@ -400,28 +397,12 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         parameters: HashMap::new(),
     });
 
-    // Replica column
-    let mut conns = HashMap::new();
-    conns.insert("rbl", sig_conn(&rbl));
-    conns.insert("rbr", sig_conn(&rbr));
-    conns.insert("wl", sig_conn(&wl));
-    conns.insert("vdd", sig_conn(&vdd));
-    conns.insert("vss", sig_conn(&vss));
-    conns.insert("vnb", sig_conn(&vss));
-    conns.insert("vpb", sig_conn(&vdd));
-    if params.control == ControlMode::ReplicaV1 {
-        m.instances.push(Instance {
-            name: "replica_column".to_string(),
-            module: local_reference("replica_column"),
-            connections: conn_map(conns),
-            parameters: HashMap::new(),
-        });
-    }
-
     // Bitcells
     let mut conns = HashMap::new();
     conns.insert("bl", sig_conn(&bl));
     conns.insert("br", sig_conn(&br));
+    conns.insert("rbl", sig_conn(&bl));
+    conns.insert("rbr", sig_conn(&br));
     conns.insert("wl", sig_conn(&wl));
     conns.insert("vdd", sig_conn(&vdd));
     conns.insert("vss", sig_conn(&vss));
@@ -677,7 +658,6 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     modules.push(sense_amp_array);
     modules.append(&mut dout_buf_array);
     modules.append(&mut we_control);
-    modules.append(&mut replica_col);
     modules.push(inv_chain);
     modules.push(m);
 

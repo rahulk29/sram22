@@ -7,7 +7,7 @@ use layout21::utils::Ptr;
 use pdkprims::bus::{ContactPolicy, ContactPosition};
 use pdkprims::{LayerIdx, PdkLib};
 
-use crate::config::bitcell_array::BitcellArrayParams;
+use crate::config::bitcell_array::{BitcellArrayDummyParams, BitcellArrayParams};
 use crate::config::col_inv::{ColInvArrayParams, ColInvParams};
 use crate::config::decoder::{nand2_dec_params, GateDecArrayParams, NandDecArrayParams};
 use crate::config::dff::DffGridParams;
@@ -16,7 +16,7 @@ use crate::config::gate::{AndParams, GateParams, Size};
 use crate::config::mux::{ReadMuxArrayParams, ReadMuxParams, WriteMuxArrayParams, WriteMuxParams};
 use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::config::sense_amp::SenseAmpArrayParams;
-use crate::config::sram::SramParams;
+use crate::config::sram::{ControlMode, SramParams};
 use crate::config::tmc::TmcParams;
 use crate::config::wmask_control::WriteMaskControlParams;
 use crate::layout::array::{draw_bitcell_array, draw_power_connector};
@@ -166,14 +166,19 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         .build()?;
     let wmask_dffs = draw_dff_grid(lib, &wmask_dff_params)?;
 
+    let (replica_cols, dummy_params) = match params.control {
+        ControlMode::Simple => (1, BitcellArrayDummyParams::Equal(2)),
+        ControlMode::ReplicaV1 => (1, BitcellArrayDummyParams::Equal(1)),
+    };
+
     let core = draw_bitcell_array(
         lib,
         &BitcellArrayParams {
             name: "bitcell_array".to_string(),
             rows,
             cols,
-            dummy_rows: 2,
-            dummy_cols: 2,
+            replica_cols,
+            dummy_params,
         },
     )?;
     let nand_dec = draw_nand_dec_array(
