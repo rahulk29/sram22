@@ -406,7 +406,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
         let inst = aligned_rows.get(total_rows + 1 - i, 0);
         if inst.has_abstract() {
             for mut port in inst.ports() {
-                if i < dummy_rows_bottom + 1 || i > rows + dummy_rows_bottom + replica_cols {
+                if i < dummy_rows_bottom + 1 || i > rows + dummy_rows_bottom {
                     let dummy_i = if i < dummy_rows_bottom + 1 {
                         i
                     } else {
