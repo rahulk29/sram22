@@ -33,6 +33,7 @@ calibre = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git",
 abstract_lef = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/abstract_lef.git", branch = "master", optional = true }
 tera = "1.17.1"
 lazy_static = "1.4.0"
+colored = "2.0.0"
 
 [build-dependencies]
 prost-build = "0.11.2"
