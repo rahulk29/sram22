@@ -116,7 +116,7 @@ pub fn execute_plan(
         let lef_path = crate::paths::out_lef(&work_dir, name);
         crate::abs::run_sram_abstract(&work_dir, name, &lef_path, &gds_path, &verilog_path)?;
 
-        if let Some(ctx) = ctx {
+        if let Some(ref mut ctx) = ctx {
             ctx.finish(StepKey::GenerateLef);
         }
     }
@@ -147,7 +147,7 @@ pub fn execute_plan(
 
         crate::liberate::generate_sram_lib(&params)?;
 
-        if let Some(ctx) = ctx {
+        if let Some(ref mut ctx) = ctx {
             ctx.finish(StepKey::GenerateLib);
         }
     }
