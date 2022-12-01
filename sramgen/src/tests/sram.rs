@@ -65,6 +65,7 @@ generate_sram_test!(32, 32, 2, 4, ControlMode::ReplicaV1);
 generate_sram_test!(32, 32, 2, 8, ControlMode::ReplicaV1);
 generate_sram_test!(32, 32, 2, 16, ControlMode::ReplicaV1);
 generate_sram_test!(64, 8, 4, 4, ControlMode::ReplicaV1);
+generate_sram_test!(64, 2, 4, 2, ControlMode::ReplicaV1);
 
 // 1 kbyte, 64-bit word width
 generate_sram_test!(128, 64, 2, 8, ControlMode::ReplicaV1);
