@@ -139,7 +139,9 @@ pub fn openram_dff_gds(lib: &mut PdkLib) -> CellGdsResult {
 pub fn sramgen_sp_sense_amp_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(lib, "sramgen_sp_sense_amp.gds", "sramgen_sp_sense_amp")
 }
-
+pub fn sc_or2_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(lib, "sc_or2_2.gds", "sky130_fd_sc_hs__or2_2")
+}
 pub fn sc_and2_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(lib, "sc_and2_2.gds", "sky130_fd_sc_hs__and2_2")
 }
@@ -592,6 +594,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_standard_cells")?;
         sc_inv_gds(&mut lib)?;
         sc_and2_gds(&mut lib)?;
+        sc_or2_gds(&mut lib)?;
         sc_buf_gds(&mut lib)?;
         sc_tap_gds(&mut lib)?;
         Ok(())

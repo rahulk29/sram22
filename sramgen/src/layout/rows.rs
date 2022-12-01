@@ -44,6 +44,10 @@ impl AlignedRows {
         &self.rows[row][col]
     }
 
+    pub fn get_row(&self, row: usize) -> &[Instance] {
+        &self.rows[row]
+    }
+
     pub fn get_mut(&mut self, row: usize, col: usize) -> &mut Instance {
         &mut self.rows[row][col]
     }

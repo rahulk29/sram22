@@ -966,325 +966,321 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     // Control signal routing
     ////////////////////////////////////////////////////////////////////
 
-    // for (_, shapes) in control.port("m2_block").shapes {
-    //     for shape in shapes {
-    //         power_grid.add_padded_blockage(2, shape.bbox());
-    //     }
-    // }
-    // // Route write enable (WE) to control logic
-    // let src = addr_dffs
-    //     .port(bus_bit("q", total_addr_bits))
-    //     .largest_rect(m2)
-    //     .unwrap();
-    // let dst = control.port("we").largest_rect(m0).unwrap();
-    // let mut trace = router.trace(src, 2);
-    // trace
-    //     .place_cursor_centered()
-    //     .up()
-    //     .set_min_width()
-    //     .vert_to_rect(dst);
-    // let blockage = trace.rect().expand(30);
-    // power_grid.add_padded_blockage(3, blockage);
-    // trace
-    //     .down()
-    //     .set_min_width()
-    //     .horiz_to(dst.center().x - cfg.line(0) / 2)
-    //     .down()
-    //     .down();
-    // power_grid.add_padded_blockage(2, trace.rect().expand(120));
+    for (_, shapes) in control.port("m2_block").shapes {
+        for shape in shapes {
+            power_grid.add_padded_blockage(2, shape.bbox());
+        }
+    }
+    // Route write enable (WE) to control logic
+    let src = addr_dffs
+        .port(bus_bit("q", total_addr_bits))
+        .largest_rect(m2)
+        .unwrap();
+    let dst = control.port("we").largest_rect(m2).unwrap();
+    let mut trace = router.trace(src, 2);
+    trace
+        .place_cursor_centered()
+        .up()
+        .set_min_width()
+        .vert_to_rect(dst);
+    let blockage = trace.rect().expand(30);
+    power_grid.add_padded_blockage(3, blockage);
+    trace.down().set_min_width().horiz_to_rect(dst);
+    power_grid.add_padded_blockage(2, trace.rect().expand(120));
 
-    // // Route sense amp enable to sense amp clock
-    // let src = control.port("sense_en").largest_rect(m1).unwrap();
-    // let dst = sense_amp.port("clk").largest_rect(m2).unwrap();
-    // let mut trace = router.trace(src, 1);
-    // trace
-    //     .place_cursor_centered()
-    //     .up()
-    //     .set_width(dst.height())
-    //     .horiz_to(dst.left() - 5 * cfg.line(3));
-    // power_grid.add_padded_blockage(2, trace.rect().expand(80));
-    // if (trace.cursor_rect().center().y - dst.center().y).abs()
-    //     <= 2 * cfg.line(3) + cfg.space(2) + 220
-    // {
-    //     // If there isn't enough space to via up to metal 3, jog on metal 2
-    //     trace.set_width(dst.height()).vert_to_rect(dst);
-    //     power_grid.add_padded_blockage(2, trace.rect());
-    //     trace.horiz_to_rect(dst);
-    // } else {
-    //     trace.up().set_width(cfg.line(3)).vert_to_rect(dst);
-    //     power_grid.add_padded_blockage(3, trace.rect().expand(20));
-    //     trace.down().set_width(dst.height()).horiz_to_rect(dst);
-    // }
-    // power_grid.add_padded_blockage(2, trace.rect().expand(40));
+    // Route sense amp enable to sense amp clock
+    let src = control.port("sense_en").largest_rect(m1).unwrap();
+    let dst = sense_amp.port("clk").largest_rect(m2).unwrap();
+    let mut trace = router.trace(src, 1);
+    trace
+        .place_cursor_centered()
+        .left_by(40)
+        .up()
+        .set_width(dst.height())
+        .horiz_to(dst.left() - 5 * cfg.line(3));
+    power_grid.add_padded_blockage(2, trace.rect().expand(80));
+    if (trace.cursor_rect().center().y - dst.center().y).abs()
+        <= 2 * cfg.line(3) + cfg.space(2) + 220
+    {
+        // If there isn't enough space to via up to metal 3, jog on metal 2
+        trace.set_width(dst.height()).vert_to_rect(dst);
+        power_grid.add_padded_blockage(2, trace.rect());
+        trace.horiz_to_rect(dst);
+    } else {
+        trace.up().set_width(cfg.line(3)).vert_to_rect(dst);
+        power_grid.add_padded_blockage(3, trace.rect().expand(20));
+        trace.down().set_width(dst.height()).horiz_to_rect(dst);
+    }
+    power_grid.add_padded_blockage(2, trace.rect().expand(40));
 
-    // // Route wordline enable (wl_en) from control logic to wordline drivers
-    // let hspan = Span::new(
-    //     wldrv_nand_bbox.left() - space - 2 * cfg.line(1) - 40,
-    //     wldrv_nand_bbox.left() - space,
-    // );
-    // let wl_en_rect = Rect::from_spans(hspan, wldrv_nand_bbox.vspan());
-    // let dst = control.port("wl_en").largest_rect(m1).unwrap();
-    // let mut trace = router.trace(wl_en_rect, 1);
-    // trace
-    //     .set_width(2 * cfg.line(1) + 40)
-    //     .place_cursor(Dir::Vert, false)
-    //     .vert_to(core_bbox.p0.y - 8 * cfg.line(3))
-    //     .up()
-    //     .horiz_to_rect(dst);
-    // power_grid.add_padded_blockage(2, trace.rect().expand(30));
-    // trace.up().set_min_width().vert_to_rect(dst);
-    // power_grid.add_padded_blockage(3, trace.rect().expand(20));
-    // trace.contact_down(dst).decrement_layer().contact_down(dst);
-    // power_grid.add_padded_blockage(2, dst.expand(50));
+    // Route wordline enable (wl_en) from control logic to wordline drivers
+    let hspan = Span::new(
+        wldrv_nand_bbox.left() - space - 2 * cfg.line(1) - 40,
+        wldrv_nand_bbox.left() - space,
+    );
+    let wl_en_rect = Rect::from_spans(hspan, wldrv_nand_bbox.vspan());
+    let dst = control.port("wl_en").largest_rect(m1).unwrap();
+    let mut trace = router.trace(wl_en_rect, 1);
+    trace
+        .set_width(2 * cfg.line(1) + 40)
+        .place_cursor(Dir::Vert, false)
+        .vert_to(core_bbox.p0.y - 8 * cfg.line(3))
+        .up()
+        .horiz_to(dst.right() + 40);
+    power_grid.add_padded_blockage(2, trace.rect().expand(30));
+    trace.up().set_min_width().vert_to(dst.top());
+    power_grid.add_padded_blockage(3, trace.rect().expand(20));
+    trace.down().down();
+    power_grid.add_padded_blockage(2, trace.cursor_rect().expand(100));
 
-    // // Connect wldrv_nand b inputs to wordline enable (wl_en)
-    // for i in 0..rows {
-    //     let src = wldrv_nand.port(bus_bit("b", i)).largest_rect(m0).unwrap();
-    //     let mut trace = router.trace(src, 0);
-    //     trace
-    //         .place_cursor(Dir::Horiz, false)
-    //         .horiz_to_rect(wl_en_rect)
-    //         .contact_up(wl_en_rect);
-    // }
+    // Connect wldrv_nand b inputs to wordline enable (wl_en)
+    for i in 0..rows {
+        let src = wldrv_nand.port(bus_bit("b", i)).largest_rect(m0).unwrap();
+        let mut trace = router.trace(src, 0);
+        trace
+            .place_cursor(Dir::Horiz, false)
+            .horiz_to_rect(wl_en_rect)
+            .contact_up(wl_en_rect);
+    }
 
-    // // Route control signals
-    // let grid = Grid::builder()
-    //     .line(cfg.line(0))
-    //     .space(space)
-    //     .center(Point::zero())
-    //     .grid(cfg.grid())
-    //     .build()?;
-    // let track = grid.get_track_index(Dir::Vert, col_bbox.p0.x, TrackLocator::EndsBefore);
+    // Route control signals
+    let grid = Grid::builder()
+        .line(cfg.line(0))
+        .space(space)
+        .center(Point::zero())
+        .grid(cfg.grid())
+        .build()?;
+    let track = grid.get_track_index(Dir::Vert, col_bbox.p0.x, TrackLocator::EndsBefore);
 
-    // // Write driver enable (write_driver_en)
-    // let src = control.port("write_driver_en").largest_rect(m1).unwrap();
-    // let dst = we_control.port("wr_en").largest_rect(m1).unwrap();
-    // let mut trace = router.trace(src, 1);
-    // trace.place_cursor(Dir::Vert, true).set_width(src.width());
-    // trace.vert_to(dst.bottom() - 500);
-    // trace.up().set_min_width().horiz_to_rect(dst);
-    // power_grid.add_padded_blockage(2, trace.rect().expand(140));
-    // trace.down().vert_to(dst.top());
+    // Write driver enable (write_driver_en)
+    let src = control.port("write_driver_en").largest_rect(m1).unwrap();
+    let dst = we_control.port("wr_en").largest_rect(m1).unwrap();
+    let mut trace = router.trace(src, 1);
+    trace.place_cursor(Dir::Vert, true).set_width(src.width());
+    trace.vert_to(dst.bottom() - 500);
+    trace.up().set_min_width().horiz_to_rect(dst);
+    power_grid.add_padded_blockage(2, trace.rect().expand(140));
+    trace.down().vert_to(dst.top());
 
-    // let (pc_b, rmux_sel_base, wmux_sel_base) = (
-    //     track,
-    //     track - mux_ratio as isize,
-    //     track - 2 * mux_ratio as isize,
-    // );
-    // // precharge bar (pc_b)
-    // let src = pc.port("pc_b").largest_rect(m2).unwrap();
-    // let dst = control.port("pc_b").largest_rect(m1).unwrap();
-    // let mut trace = router.trace(src, 2);
-    // trace
-    //     .set_width(src.height())
-    //     .place_cursor(Dir::Horiz, false)
-    //     .horiz_to(grid.vtrack(pc_b).start());
-    // power_grid.add_padded_blockage(2, trace.rect());
-    // trace
-    //     .down()
-    //     .set_min_width()
-    //     .vert_to(dst.center().y)
-    //     .up()
-    //     .horiz_to_rect(dst)
-    //     .contact_down(dst);
-    // power_grid.add_padded_blockage(2, trace.rect().expand(100));
+    let (pc_b, rmux_sel_base, wmux_sel_base) = (
+        track,
+        track - mux_ratio as isize,
+        track - 2 * mux_ratio as isize,
+    );
+    // precharge bar (pc_b)
+    let src = pc.port("pc_b").largest_rect(m2).unwrap();
+    let dst = control.port("pc_b").largest_rect(m1).unwrap();
+    let mut trace = router.trace(src, 2);
+    trace
+        .set_width(src.height())
+        .place_cursor(Dir::Horiz, false)
+        .horiz_to(grid.vtrack(pc_b).start());
+    power_grid.add_padded_blockage(2, trace.rect());
+    trace
+        .down()
+        .set_min_width()
+        .vert_to(dst.top() + 400)
+        .up()
+        .horiz_to_rect(dst);
+    power_grid.add_padded_blockage(2, trace.rect().expand(100));
+    trace.down().vert_to_rect(dst);
 
-    // // write mux sel / write enable / write driver enable
-    // for i in 0..mux_ratio as isize {
-    //     let src = we_control
-    //         .port(bus_bit("write_driver_en", i as usize))
-    //         .largest_rect(m0)
-    //         .unwrap();
-    //     let dst = write_mux
-    //         .port(bus_bit("we", i as usize))
-    //         .largest_rect(m2)
-    //         .unwrap();
-    //     let mut trace = router.trace(src, 0);
-    //     trace
-    //         .place_cursor(Dir::Horiz, true)
-    //         .horiz_to(grid.vtrack(wmux_sel_base + i).stop())
-    //         .up()
-    //         .set_min_width()
-    //         .vert_to_rect(dst)
-    //         .up()
-    //         .horiz_to(dst.right());
-    //     power_grid.add_padded_blockage(2, trace.rect().expand(100));
-    // }
+    // write mux sel / write enable / write driver enable
+    for i in 0..mux_ratio as isize {
+        let src = we_control
+            .port(bus_bit("write_driver_en", i as usize))
+            .largest_rect(m0)
+            .unwrap();
+        let dst = write_mux
+            .port(bus_bit("we", i as usize))
+            .largest_rect(m2)
+            .unwrap();
+        let mut trace = router.trace(src, 0);
+        trace
+            .place_cursor(Dir::Horiz, true)
+            .horiz_to(grid.vtrack(wmux_sel_base + i).stop())
+            .up()
+            .set_min_width()
+            .vert_to_rect(dst)
+            .up()
+            .horiz_to(dst.right());
+        power_grid.add_padded_blockage(2, trace.rect().expand(100));
+    }
 
-    // // read mux select
-    // for i in 0..mux_ratio as isize {
-    //     let dst = read_mux
-    //         .port(bus_bit("sel", i as usize))
-    //         .largest_rect(m2)
-    //         .unwrap();
-    //     if mux_ratio == 2 {
-    //         let mut trace = router.trace(addr_0_traces[i as usize], 2);
-    //         trace.place_cursor(Dir::Horiz, true);
-    //         trace.horiz_to(grid.vtrack(rmux_sel_base + i).stop());
-    //         power_grid.add_padded_blockage(2, trace.rect().expand(90));
-    //         trace.down().vert_to(dst.top()).up().horiz_to(dst.right());
-    //         power_grid.add_padded_blockage(2, trace.rect().expand(90));
-    //     } else {
-    //         let col_decoder = col_decoder.as_ref().unwrap();
-    //         let src = col_decoder
-    //             .port(bus_bit("dec_b", i as usize))
-    //             .largest_rect(m0)
-    //             .unwrap();
-    //         let mut trace = router.trace(src, 0);
-    //         let offset = if i % 2 == 0 { 1_140 } else { -1_140 };
-    //         trace
-    //             .place_cursor(Dir::Horiz, true)
-    //             .up()
-    //             .up_by(offset)
-    //             .up()
-    //             .set_min_width()
-    //             .horiz_to(grid.vtrack(rmux_sel_base + i).stop());
-    //         power_grid.add_padded_blockage(2, trace.rect().expand(90));
-    //         trace
-    //             .down()
-    //             .set_min_width()
-    //             .vert_to_rect(dst)
-    //             .up()
-    //             .set_min_width()
-    //             .horiz_to_rect(dst);
-    //         power_grid.add_padded_blockage(2, trace.rect().expand(90));
-    //     }
-    // }
+    // read mux select
+    for i in 0..mux_ratio as isize {
+        let dst = read_mux
+            .port(bus_bit("sel", i as usize))
+            .largest_rect(m2)
+            .unwrap();
+        if mux_ratio == 2 {
+            let mut trace = router.trace(addr_0_traces[i as usize], 2);
+            trace.place_cursor(Dir::Horiz, true);
+            trace.horiz_to(grid.vtrack(rmux_sel_base + i).stop());
+            power_grid.add_padded_blockage(2, trace.rect().expand(90));
+            trace.down().vert_to(dst.top()).up().horiz_to(dst.right());
+            power_grid.add_padded_blockage(2, trace.rect().expand(90));
+        } else {
+            let col_decoder = col_decoder.as_ref().unwrap();
+            let src = col_decoder
+                .port(bus_bit("dec_b", i as usize))
+                .largest_rect(m0)
+                .unwrap();
+            let mut trace = router.trace(src, 0);
+            let offset = if i % 2 == 0 { 1_140 } else { -1_140 };
+            trace
+                .place_cursor(Dir::Horiz, true)
+                .up()
+                .up_by(offset)
+                .up()
+                .set_min_width()
+                .horiz_to(grid.vtrack(rmux_sel_base + i).stop());
+            power_grid.add_padded_blockage(2, trace.rect().expand(90));
+            trace
+                .down()
+                .set_min_width()
+                .vert_to_rect(dst)
+                .up()
+                .set_min_width()
+                .horiz_to_rect(dst);
+            power_grid.add_padded_blockage(2, trace.rect().expand(90));
+        }
+    }
 
-    // // write enable control / we_control
-    // if mux_ratio > 2 {
-    //     let col_decoder = col_decoder.as_ref().unwrap();
-    //     for i in 0..mux_ratio as isize {
-    //         let src = col_decoder
-    //             .port(bus_bit("dec", i as usize))
-    //             .largest_rect(m0)
-    //             .unwrap();
-    //         let dst = we_control
-    //             .port(bus_bit("sel", i as usize))
-    //             .largest_rect(m0)
-    //             .unwrap();
-    //         let mut trace = router.trace(src, 0);
-    //         trace.place_cursor(Dir::Horiz, true).s_bend(dst, Dir::Horiz);
-    //     }
-    // } else {
-    //     for i in 0..2 {
-    //         let src = we_control.port(bus_bit("sel", i)).largest_rect(m0).unwrap();
-    //         let mut trace = router.trace(src, 0);
-    //         trace
-    //             .place_cursor(Dir::Horiz, false)
-    //             .horiz_to_rect(traces[2 * total_addr_bits - i - 1].rect())
-    //             .contact_up(traces[2 * total_addr_bits - i - 1].rect());
-    //     }
-    // }
+    // write enable control / we_control
+    if mux_ratio > 2 {
+        let col_decoder = col_decoder.as_ref().unwrap();
+        for i in 0..mux_ratio as isize {
+            let src = col_decoder
+                .port(bus_bit("dec", i as usize))
+                .largest_rect(m0)
+                .unwrap();
+            let dst = we_control
+                .port(bus_bit("sel", i as usize))
+                .largest_rect(m0)
+                .unwrap();
+            let mut trace = router.trace(src, 0);
+            trace.place_cursor(Dir::Horiz, true).s_bend(dst, Dir::Horiz);
+        }
+    } else {
+        for i in 0..2 {
+            let src = we_control.port(bus_bit("sel", i)).largest_rect(m0).unwrap();
+            let mut trace = router.trace(src, 0);
+            trace
+                .place_cursor(Dir::Horiz, false)
+                .horiz_to_rect(traces[2 * total_addr_bits - i - 1].rect())
+                .contact_up(traces[2 * total_addr_bits - i - 1].rect());
+        }
+    }
 
-    // let din_dff_bbox = din_dffs.bbox().into_rect();
-    // let mut blockage_hspan = col_bbox.into_rect().hspan();
-    // blockage_hspan.expand(true, 1_000);
+    let din_dff_bbox = din_dffs.bbox().into_rect();
+    let mut blockage_hspan = col_bbox.into_rect().hspan();
+    blockage_hspan.expand(true, 1_000);
 
-    // let mut spans = Vec::new();
-    // spans.push(din_dff_bbox.vspan());
-    // if let Some(ref wmask_dffs) = wmask_dffs {
-    //     spans.push(wmask_dffs.bbox().into_rect().vspan());
-    // }
+    let mut spans = Vec::new();
+    spans.push(din_dff_bbox.vspan());
+    if let Some(ref wmask_dffs) = wmask_dffs {
+        spans.push(wmask_dffs.bbox().into_rect().vspan());
+    }
 
-    // spans.push(Span::new(
-    //     sense_amp.port("vss").largest_rect(m2).unwrap().bottom(),
-    //     sense_amp.port("vdd").largest_rect(m2).unwrap().top(),
-    // ));
-    // spans.push(Span::new(
-    //     col_inv.bbox().into_rect().bottom(),
-    //     col_inv.port("vss").largest_rect(m2).unwrap().top(),
-    // ));
+    spans.push(Span::new(
+        sense_amp.port("vss").largest_rect(m2).unwrap().bottom(),
+        sense_amp.port("vdd").largest_rect(m2).unwrap().top(),
+    ));
+    spans.push(Span::new(
+        col_inv.bbox().into_rect().bottom(),
+        col_inv.port("vss").largest_rect(m2).unwrap().top(),
+    ));
 
-    // power_grid.add_blockage(2, col_inv.port("vdd").largest_rect(m2).unwrap());
-    // spans.push(Span::new(
-    //     write_mux.bbox().into_rect().bottom(),
-    //     pc_bbox.top() - cfg.space(2),
-    // ));
+    power_grid.add_blockage(2, col_inv.port("vdd").largest_rect(m2).unwrap());
+    spans.push(Span::new(
+        write_mux.bbox().into_rect().bottom(),
+        pc_bbox.top() - cfg.space(2),
+    ));
 
-    // for span in spans {
-    //     let column_blockage = Rect::from_spans(blockage_hspan, span);
-    //     power_grid.add_padded_blockage(2, column_blockage);
-    // }
+    for span in spans {
+        let column_blockage = Rect::from_spans(blockage_hspan, span);
+        power_grid.add_padded_blockage(2, column_blockage);
+    }
 
-    // power_grid.add_padded_blockage(2, addr_dff_bbox.into_rect());
+    power_grid.add_padded_blockage(2, addr_dff_bbox.into_rect());
 
-    // // clock (clk) distribution
-    // let dff_area = din_dff_bbox
-    //     .bbox()
-    //     .union(&addr_dff_bbox)
-    //     .union(&wmask_dff_bbox)
-    //     .into_rect();
-    // let vspan = Span::new(
-    //     dff_area.bottom() - 3 * cfg.line(2) - 3 * cfg.space(2),
-    //     dff_area.bottom() - 3 * cfg.space(2),
-    // );
-    // let clk_rect = Rect::from_spans(dff_area.hspan(), vspan);
-    // let mut clk_trace = router.trace(clk_rect, 2);
+    // clock (clk) distribution
+    let dff_area = din_dff_bbox
+        .bbox()
+        .union(&addr_dff_bbox)
+        .union(&wmask_dff_bbox)
+        .into_rect();
+    let vspan = Span::new(
+        dff_area.bottom() - 3 * cfg.line(2) - 3 * cfg.space(2),
+        dff_area.bottom() - 3 * cfg.space(2),
+    );
+    let clk_rect = Rect::from_spans(dff_area.hspan(), vspan);
+    let mut clk_trace = router.trace(clk_rect, 2);
 
-    // power_grid.add_padded_blockage(2, clk_rect);
+    power_grid.add_padded_blockage(2, clk_rect);
 
-    // for i in 0..(total_addr_bits + 1) {
-    //     let src = addr_dffs.port(bus_bit("clk", i)).largest_rect(m2).unwrap();
-    //     let mut trace = router.trace(src, 2);
-    //     trace
-    //         .place_cursor_centered()
-    //         .up()
-    //         .set_min_width()
-    //         .vert_to_rect(clk_rect)
-    //         .contact_down(clk_rect);
-    //     power_grid.add_padded_blockage(3, trace.rect().expand(20));
-    // }
+    for i in 0..(total_addr_bits + 1) {
+        let src = addr_dffs.port(bus_bit("clk", i)).largest_rect(m2).unwrap();
+        let mut trace = router.trace(src, 2);
+        trace
+            .place_cursor_centered()
+            .up()
+            .set_min_width()
+            .vert_to_rect(clk_rect)
+            .contact_down(clk_rect);
+        power_grid.add_padded_blockage(3, trace.rect().expand(20));
+    }
 
-    // for i in (0..(cols / mux_ratio)).step_by(2) {
-    //     let args = ConnectArgs::builder()
-    //         .metal_idx(3)
-    //         .port_idx(2)
-    //         .router(&mut router)
-    //         .insts(GateList::ArraySlice(&din_dffs, i, 2))
-    //         .port_name("clk")
-    //         .dir(Dir::Vert)
-    //         .width(cfg.line(3))
-    //         .build()?;
-    //     let mut trace = connect(args);
-    //     trace
-    //         .place_cursor(Dir::Vert, true)
-    //         .vert_to_trace(&clk_trace);
-    //     power_grid.add_padded_blockage(3, trace.rect());
-    //     trace.contact_down(clk_trace.rect());
-    // }
+    for i in (0..(cols / mux_ratio)).step_by(2) {
+        let args = ConnectArgs::builder()
+            .metal_idx(3)
+            .port_idx(2)
+            .router(&mut router)
+            .insts(GateList::ArraySlice(&din_dffs, i, 2))
+            .port_name("clk")
+            .dir(Dir::Vert)
+            .width(cfg.line(3))
+            .build()?;
+        let mut trace = connect(args);
+        trace
+            .place_cursor(Dir::Vert, true)
+            .vert_to_trace(&clk_trace);
+        power_grid.add_padded_blockage(3, trace.rect());
+        trace.contact_down(clk_trace.rect());
+    }
 
-    // if let Some(ref wmask_dffs) = wmask_dffs {
-    //     for i in 0..wmask_width {
-    //         let args = ConnectArgs::builder()
-    //             .metal_idx(3)
-    //             .port_idx(2)
-    //             .router(&mut router)
-    //             .insts(GateList::ArraySlice(wmask_dffs, i, 1))
-    //             .port_name("clk")
-    //             .dir(Dir::Vert)
-    //             .width(cfg.line(3))
-    //             .build()?;
-    //         let mut trace = connect(args);
-    //         trace
-    //             .place_cursor(Dir::Vert, true)
-    //             .vert_to_trace(&clk_trace);
-    //         power_grid.add_padded_blockage(3, trace.rect());
-    //         trace.contact_down(clk_trace.rect());
-    //     }
-    // }
+    if let Some(ref wmask_dffs) = wmask_dffs {
+        for i in 0..wmask_width {
+            let args = ConnectArgs::builder()
+                .metal_idx(3)
+                .port_idx(2)
+                .router(&mut router)
+                .insts(GateList::ArraySlice(wmask_dffs, i, 1))
+                .port_name("clk")
+                .dir(Dir::Vert)
+                .width(cfg.line(3))
+                .build()?;
+            let mut trace = connect(args);
+            trace
+                .place_cursor(Dir::Vert, true)
+                .vert_to_trace(&clk_trace);
+            power_grid.add_padded_blockage(3, trace.rect());
+            trace.contact_down(clk_trace.rect());
+        }
+    }
 
-    // let src = control.port("clk").largest_rect(m1).unwrap();
-    // let mut trace = router.trace(src, 1);
-    // trace
-    //     .place_cursor(Dir::Vert, false)
-    //     .set_width(400)
-    //     .vert_to(control_bbox.bottom() - 600)
-    //     .up()
-    //     .horiz_to(clk_rect.left());
-    // power_grid.add_padded_blockage(2, trace.rect());
-    // trace.up().set_width(400).vert_to_trace(&clk_trace);
-    // power_grid.add_padded_blockage(3, trace.rect());
+    let src = control.port("clk").largest_rect(m1).unwrap();
+    let mut trace = router.trace(src, 1);
+    trace
+        .place_cursor(Dir::Vert, false)
+        .set_width(400)
+        .vert_to(control_bbox.bottom() - 600)
+        .up()
+        .horiz_to(clk_rect.left());
+    power_grid.add_padded_blockage(2, trace.rect());
+    trace.up().set_width(400).vert_to_trace(&clk_trace);
+    power_grid.add_padded_blockage(3, trace.rect());
 
     // power strapping - targets on metal 1 and metal 2
     let mut targets = vec![
