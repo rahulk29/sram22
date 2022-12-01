@@ -651,7 +651,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .up()
         .vert_to_trace(&we_trace);
 
-    we_trace.up().vert_to(we_wren.top() - 160);
+    we_trace.up_by(75).up().vert_to(we_wren.top() - 160);
     cell.add_pin("we", m2, we_trace.rect());
     we_trace.down().right_by(100).down();
 
@@ -789,7 +789,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .place_cursor_centered()
         .up()
         .left_by(1_000)
-        .up_by(720)
+        .up_by(800)
         .horiz_to(clkp_delay_cond1.left() + 120)
         .up()
         .vert_to_rect(clkp_delay_cond1)
@@ -817,6 +817,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .place_cursor_centered()
         .up()
         .horiz_to_rect(sae_ctl_clkp)
+        .down_by(40)
         .up()
         .vert_to_rect(sae_ctl_clkp)
         .down()
@@ -844,7 +845,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .place_cursor(Dir::Horiz, false)
         .left_by(2_000)
         .up()
-        .vert_to_rect(wr_drv_dc_in)
+        .vert_to(wr_drv_dc_in.bottom() + 140)
         .down()
         .horiz_to_rect(wr_drv_dc_in)
         .contact_down(wr_drv_dc_in);
@@ -859,54 +860,6 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .up()
         .vert_to_rect(wr_drv_delayed_din)
         .contact_down(wr_drv_delayed_din);
-
-    let vss_rows = [
-        vec![eddc.clone(), ed_and.clone(), tap0.clone()],
-        vec![
-            ssdc_inst.clone(),
-            sae_ctl_nor1.clone(),
-            sae_ctl_nor2.clone(),
-            sae_buf.clone(),
-            tap3.clone(),
-        ],
-        vec![pcdc.clone()],
-        vec![
-            tap6.clone(),
-            and_wr_en_set.clone(),
-            wr_drv_dc.clone(),
-            wr_drv_ctl_nor1.clone(),
-            wr_drv_ctl_nor2.clone(),
-            wr_drv_buf.clone(),
-            tap7.clone(),
-        ],
-    ];
-
-    let vdd_rows = [
-        vec![
-            tap1.clone(),
-            inv_rbl.clone(),
-            wl_ctl_nor1.clone(),
-            wl_ctl_nor2.clone(),
-            wl_en_buf.clone(),
-            tap2.clone(),
-        ],
-        vec![
-            ssdc_inst.clone(),
-            sae_ctl_nor1.clone(),
-            sae_ctl_nor2.clone(),
-            sae_buf.clone(),
-            tap3.clone(),
-        ],
-        vec![
-            tap6.clone(),
-            and_wr_en_set.clone(),
-            wr_drv_dc.clone(),
-            wr_drv_ctl_nor1.clone(),
-            wr_drv_ctl_nor2.clone(),
-            wr_drv_buf.clone(),
-            tap7.clone(),
-        ],
-    ];
 
     let mut vss_rects = vec![];
     for idx in [0, 2, 4, 5, 7] {
