@@ -89,7 +89,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     });
 
     let (replica_cols, dummy_params) = match params.control {
-        ControlMode::Simple => (1, BitcellArrayDummyParams::equal(2)),
+        ControlMode::Simple => (0, BitcellArrayDummyParams::equal(2)),
         ControlMode::ReplicaV1 => (1, BitcellArrayDummyParams::enumerate(2, 2, 1, 2)),
     };
 
