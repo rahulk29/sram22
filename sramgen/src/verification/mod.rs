@@ -366,7 +366,7 @@ pub fn source_files(
             .join("sram_sp_cell_replica/sky130_fd_bd_sram__openram_sp_cell_opt1_replica.lvs.spice"),
     };
     let source_path_sp_sense_amp =
-        PathBuf::from(LIB_PATH).join("sramgen_sp_sense_amp/sramgen_sp_sense_amp.spice");
+        PathBuf::from(LIB_PATH).join("sramgen_sp_sense_amp/sramgen_sp_sense_amp.lvs.spice");
 
     let source_path_control = match control_mode {
         ControlMode::Simple => {
