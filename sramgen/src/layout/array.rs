@@ -139,9 +139,9 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
         } => (top, bottom, left, right),
     };
 
-    // TODO: Make routing work regardless of number of dummy cols/replica cols
-    assert_eq!((dummy_cols_left + replica_cols) % 2, 0); // Routing currently only works when
-                                                         // the first active column is even.
+    // // TODO: Make routing work regardless of number of dummy cols/replica cols
+    // assert_eq!((dummy_cols_left + replica_cols) % 2, 0); // Routing currently only works when
+    // the first active column is even.
 
     let mut layout = Layout {
         name: name.to_string(),

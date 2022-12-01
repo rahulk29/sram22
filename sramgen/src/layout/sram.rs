@@ -166,9 +166,9 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         .build()?;
     let wmask_dffs = draw_dff_grid(lib, &wmask_dff_params)?;
 
-    let (replica_cols, dummy_params) = match params.control {
-        ControlMode::Simple => (1, BitcellArrayDummyParams::Equal(2)),
-        ControlMode::ReplicaV1 => (1, BitcellArrayDummyParams::Equal(1)),
+    let (replica_cols, dummy_cols) = match params.control {
+        ControlMode::Simple => (0, 2),
+        ControlMode::ReplicaV1 => (1, 2),
     };
 
     let core = draw_bitcell_array(
@@ -178,7 +178,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
             rows,
             cols,
             replica_cols,
-            dummy_params,
+            dummy_params: BitcellArrayDummyParams::Equal(dummy_cols),
         },
     )?;
     let nand_dec = draw_nand_dec_array(
@@ -229,7 +229,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         lib,
         &PrechargeArrayParams {
             name: "precharge_array".to_string(),
-            width: cols,
+            width: replica_cols + cols,
             instance_params: PrechargeParams {
                 name: "precharge".to_string(),
                 length: 150,
@@ -544,16 +544,21 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     ////////////////////////////////////////////////////////////////////
     let pc_top = pc_bbox.top() - 500;
 
-    for i in 0..cols {
+    for i in 0..replica_cols + cols {
         let mut bl_rect = Rect::new(Point::zero(), Point::zero());
         let mut br_rect = Rect::new(Point::zero(), Point::zero());
 
         for j in 0..2 {
             let bl = if j == 0 { "bl" } else { "br" };
-            let src = core
-                .port(bus_bit(&format!("bl{j}"), i))
-                .largest_rect(m1)
-                .unwrap();
+            let src = if i < replica_cols {
+                core.port(bus_bit(&format!("rbl{j}"), i))
+                    .largest_rect(m1)
+                    .unwrap()
+            } else {
+                core.port(bus_bit(&format!("bl{j}"), i - replica_cols))
+                    .largest_rect(m1)
+                    .unwrap()
+            };
             let bl1 = pc
                 .port(bus_bit(&format!("{bl}1"), i))
                 .largest_rect(m0)
@@ -564,7 +569,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
                 .unwrap();
 
             let mut trace = router.trace(src, 1);
-            let target = if (i % 2 == 0) ^ (j == 0) {
+            let target = if ((i + dummy_cols) % 2 == 0) ^ (j == 0) {
                 bl0.left() - cfg.space(0) - cfg.line(1)
             } else {
                 bl0.right() + cfg.space(0) + cfg.line(1)
