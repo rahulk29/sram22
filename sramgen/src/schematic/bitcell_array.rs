@@ -13,26 +13,16 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
     let rows = params.rows as i64;
     let cols = params.cols as i64;
     let replica_cols = params.replica_cols as i64;
-    let dummy_params = params.dummy_params;
+    let dummy_params = &params.dummy_params;
 
-    let (dummy_rows_top, dummy_rows_bottom, dummy_cols_left, dummy_cols_right) = match dummy_params
-    {
-        BitcellArrayDummyParams::Equal(all) => (all as i64, all as i64, all as i64, all as i64),
-        BitcellArrayDummyParams::Symmetric {
-            rows: dummy_rows,
-            cols: dummy_cols,
-        } => (
-            dummy_rows as i64,
-            dummy_rows as i64,
-            dummy_cols as i64,
-            dummy_cols as i64,
-        ),
-        BitcellArrayDummyParams::Custom {
+    let (dummy_rows_top, dummy_rows_bottom, dummy_cols_left, dummy_cols_right) = {
+        let &BitcellArrayDummyParams {
             top,
             bottom,
             left,
             right,
-        } => (top as i64, bottom as i64, left as i64, right as i64),
+        } = dummy_params;
+        (top as i64, bottom as i64, left as i64, right as i64)
     };
 
     let total_rows = rows + dummy_rows_top + dummy_rows_bottom;

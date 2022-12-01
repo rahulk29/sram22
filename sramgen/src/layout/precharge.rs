@@ -139,7 +139,10 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: &PrechargeArrayParams) -> Re
         ..
     } = args;
     let width = args.width;
+    let flip_toggle = args.flip_toggle;
+
     assert!(width >= 2);
+
     let pc = draw_precharge(lib, instance_params)?;
 
     let core = draw_cell_array(
@@ -150,7 +153,7 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: &PrechargeArrayParams) -> Re
             cell: pc,
             spacing: Some(2_500),
             flip: FlipMode::AlternateFlipHorizontal,
-            flip_toggle: false,
+            flip_toggle,
             direction: Dir::Horiz,
         },
     )?;
@@ -165,7 +168,7 @@ pub fn draw_precharge_array(lib: &mut PdkLib, args: &PrechargeArrayParams) -> Re
             cell: tap,
             spacing: Some(2_500),
             flip: FlipMode::AlternateFlipHorizontal,
-            flip_toggle: false,
+            flip_toggle,
             direction: Dir::Horiz,
         },
     )?;
