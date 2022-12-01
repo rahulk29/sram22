@@ -199,7 +199,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         },
         Instance {
             inst_name: "clkp_delay_chain".to_string(),
-            cell: delay_chain_8.clone(),
+            cell: delay_chain_8,
             loc: Point::new(0, 0),
             reflect_vert: false,
             angle: None,
@@ -303,7 +303,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         },
         Instance {
             inst_name: "wl_en_set_driver".to_string(),
-            cell: or.clone(),
+            cell: or,
             loc: Point::new(0, 0),
             reflect_vert: false,
             angle: None,
@@ -527,7 +527,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .contact_down(clk_out);
 
     // Wordline control latch (wl_ctl)
-    let (_, wl_en0) = route_latch(&wl_ctl_nor1, &wl_ctl_nor2, &mut router, true);
+    let (_, wl_en0) = route_latch(wl_ctl_nor1, wl_ctl_nor2, &mut router, true);
 
     let buf_a = wl_en_buf.port("a").largest_rect(m0).unwrap();
     router
@@ -564,7 +564,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .horiz_to_rect(ssdc_din)
         .contact_down(ssdc_din);
 
-    let (sense_en0, _) = route_latch(&sae_ctl_nor1, &sae_ctl_nor2, &mut router, true);
+    let (sense_en0, _) = route_latch(sae_ctl_nor1, sae_ctl_nor2, &mut router, true);
     let sense_en_set = sae_ctl_nor1.port("a").largest_rect(m0).unwrap();
     let ssdc_set = ssdc_inst.port("dout").largest_rect(m0).unwrap();
     let mut trace = router.trace(sense_en_set, 0);
@@ -612,7 +612,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .down();
     // pc_set -> pc_ctl_nor1
 
-    let (pc_b0, _) = route_latch(&pc_ctl_nor1, &pc_ctl_nor2, &mut router, true);
+    let (pc_b0, _) = route_latch(pc_ctl_nor1, pc_ctl_nor2, &mut router, true);
     let buf_a = pc_b_buf.port("a").largest_rect(m0).unwrap();
     router
         .trace(pc_b0, 1)
@@ -692,7 +692,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         .horiz_to_rect(wr_drv_dc_dout)
         .contact_down(wr_drv_dc_dout);
 
-    let (write_driver_en0, _) = route_latch(&wr_drv_ctl_nor1, &wr_drv_ctl_nor2, &mut router, false);
+    let (write_driver_en0, _) = route_latch(wr_drv_ctl_nor1, wr_drv_ctl_nor2, &mut router, false);
     let buf_a = wr_drv_buf.port("a").largest_rect(m0).unwrap();
     router
         .trace(write_driver_en0, 1)
