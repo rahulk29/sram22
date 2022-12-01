@@ -614,11 +614,14 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         let vdd_tap_left = pc.port(bus_bit("vdd", i)).largest_rect(m0).unwrap();
         let vdd_tap_right = pc.port(bus_bit("vdd", i + 1)).largest_rect(m0).unwrap();
         let vdd0 = pc
-            .port(bus_bit(&format!("vdd{}", i % 2), i))
+            .port(bus_bit(&format!("vdd{}", (i + dummy_cols_left) % 2), i))
             .largest_rect(m0)
             .unwrap();
         let vdd1 = pc
-            .port(bus_bit(&format!("vdd{}", 1 - (i % 2)), i))
+            .port(bus_bit(
+                &format!("vdd{}", 1 - ((i + dummy_cols_left) % 2)),
+                i,
+            ))
             .largest_rect(m0)
             .unwrap();
 
