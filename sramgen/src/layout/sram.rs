@@ -1235,7 +1235,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         dff_area.bottom() - 3 * cfg.space(2),
     );
     let clk_rect = Rect::from_spans(dff_area.hspan(), vspan);
-    let clk_trace = router.trace(clk_rect, 2);
+    let mut clk_trace = router.trace(clk_rect, 2);
 
     power_grid.add_padded_blockage(2, clk_rect);
 
@@ -1511,47 +1511,47 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     }
 
     // Route clock (clk) pin
-    // clk_trace
-    //     .place_cursor(Dir::Horiz, false)
-    //     .up()
-    //     .set_width(420)
-    //     .vert_to(guard_ring_bbox.bottom());
-    // let clk_pin = Rect::from_spans(
-    //     clk_trace.rect().hspan(),
-    //     Span::new(
-    //         guard_ring_bbox.bottom(),
-    //         guard_ring_bbox.bottom() + 3 * cfg.line(3),
-    //     ),
-    // );
-    // power_grid.add_padded_blockage(3, clk_trace.rect());
-    // cell.add_pin("clk", m3, clk_pin);
+    clk_trace
+        .place_cursor(Dir::Horiz, false)
+        .up()
+        .set_width(420)
+        .vert_to(guard_ring_bbox.bottom());
+    let clk_pin = Rect::from_spans(
+        clk_trace.rect().hspan(),
+        Span::new(
+            guard_ring_bbox.bottom(),
+            guard_ring_bbox.bottom() + 3 * cfg.line(3),
+        ),
+    );
+    power_grid.add_padded_blockage(3, clk_trace.rect());
+    cell.add_pin("clk", m3, clk_pin);
 
-    // // Route address and write enable pins
-    // for i in 0..=total_addr_bits {
-    //     let src = addr_dffs.port(bus_bit("d", i)).largest_rect(m2).unwrap();
-    //     let mut trace = router.trace(src, 2);
-    //     trace
-    //         .place_cursor_centered()
-    //         .up()
-    //         .set_min_width()
-    //         .vert_to(guard_ring_bbox.bottom());
+    // Route address and write enable pins
+    for i in 0..=total_addr_bits {
+        let src = addr_dffs.port(bus_bit("d", i)).largest_rect(m2).unwrap();
+        let mut trace = router.trace(src, 2);
+        trace
+            .place_cursor_centered()
+            .up()
+            .set_min_width()
+            .vert_to(guard_ring_bbox.bottom());
 
-    //     let rect = trace.rect();
-    //     power_grid.add_padded_blockage(3, rect.expand(20));
-    //     let net = if i == total_addr_bits {
-    //         "we".to_string()
-    //     } else {
-    //         bus_bit("addr", total_addr_bits - i - 1)
-    //     };
-    //     cell.add_pin(
-    //         net,
-    //         m3,
-    //         Rect::from_spans(
-    //             rect.hspan(),
-    //             Span::new(rect.bottom(), rect.bottom() + 3 * cfg.line(2)),
-    //         ),
-    //     )
-    // }
+        let rect = trace.rect();
+        power_grid.add_padded_blockage(3, rect.expand(20));
+        let net = if i == total_addr_bits {
+            "we".to_string()
+        } else {
+            bus_bit("addr", total_addr_bits - i - 1)
+        };
+        cell.add_pin(
+            net,
+            m3,
+            Rect::from_spans(
+                rect.hspan(),
+                Span::new(rect.bottom(), rect.bottom() + 3 * cfg.line(2)),
+            ),
+        )
+    }
 
     let straps = power_grid.generate()?;
 
