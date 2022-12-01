@@ -465,14 +465,11 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let eddc = rows.get(0, 0);
     let ed_and = rows.get(0, 1);
     let clkp_delay_chain = rows.get(0, 2);
-    let tap0 = rows.get(0, 3);
 
-    let tap1 = rows.get(1, 0);
     let inv_rbl = rows.get(1, 1);
     let wl_ctl_nor1 = rows.get(1, 2);
     let wl_ctl_nor2 = rows.get(1, 3);
     let wl_en_buf = rows.get(1, 4);
-    let tap2 = rows.get(1, 5);
 
     let inv_we = rows.get(2, 1);
     let cond1 = rows.get(2, 2);
@@ -487,23 +484,18 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let sae_ctl_nor1 = rows.get(4, 1);
     let sae_ctl_nor2 = rows.get(4, 2);
     let sae_buf = rows.get(4, 3);
-    let tap3 = rows.get(4, 4);
 
     let pcdc = rows.get(5, 0);
 
-    let tap4 = rows.get(6, 0);
     let pc_ctl_nor1 = rows.get(6, 1);
     let pc_ctl_nor2 = rows.get(6, 2);
     let pc_b_buf = rows.get(6, 3);
-    let tap5 = rows.get(6, 4);
 
-    let tap6 = rows.get(7, 0);
     let and_wr_en_set = rows.get(7, 1);
     let wr_drv_dc = rows.get(7, 2);
     let wr_drv_ctl_nor1 = rows.get(7, 3);
     let wr_drv_ctl_nor2 = rows.get(7, 4);
     let wr_drv_buf = rows.get(7, 5);
-    let tap7 = rows.get(7, 6);
 
     // Routing
     let mut router = Router::new("sram22_control_logic_route", lib.pdk.clone());
