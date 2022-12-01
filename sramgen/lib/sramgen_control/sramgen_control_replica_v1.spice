@@ -207,8 +207,8 @@ Xwr_drv_buf write_driver_en0 write_driver_en vdd vss control_logic_bufbuf_16
 
 .subckt sramgen_control_wl_en_logic clkp_delayed we write_driver_en wl_en_set vdd vss
 Xwr_drv_delay_chain write_driver_en write_driver_en_delayed vdd vss control_logic_delay_chain16
-Xinv_we we we_b vdd vss control_logic_inv
 
+Xinv_we we we_b vdd vss control_logic_inv
 Xcond1 clkp_delayed we_b cond1 vdd vss control_logic_and2
 Xwr_en_detector write_driver_en_delayed write_wl_en vdd vss control_logic_edge_detector
 Xcond2 write_wl_en we cond2 vdd vss control_logic_and2

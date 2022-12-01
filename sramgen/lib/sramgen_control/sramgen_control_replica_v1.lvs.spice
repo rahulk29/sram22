@@ -30,6 +30,8 @@ M0 d g s b phighvt l='l' w='w' mult='mult'
 M0 d g s b nlowvt l='l' w='w' mult='mult'
 .ENDS
 
+* Sramgen control circuit
+
 * Standard cells
 * .subckt sky130_fd_sc_hs__inv_2 A VGND VNB VPB VPWR Y
 .subckt control_logic_inv din din_b vdd vss
@@ -59,6 +61,18 @@ X2 VGND B Y VNB sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
 X3 Y B a_35_368# VPB sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
 X4 VPWR A a_35_368# VPB sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
 X5 Y A VGND VNB sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+.ends
+
+* .subckt sky130_fd_sc_hs__or2_2 A B VGND VNB VPB VPWR X
+.subckt control_logic_or2 A B X VPWR VGND
+X0 VGND a_27_368# X VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X1 a_27_368# B a_114_368# VPWR sky130_fd_pr__pfet_01v8 w=1 l=150000u
+X2 a_27_368# A VGND VGND sky130_fd_pr__nfet_01v8_lvt w=640000u l=150000u
+X3 VGND B a_27_368# VGND sky130_fd_pr__nfet_01v8_lvt w=640000u l=150000u
+X4 a_114_368# A VPWR VPWR sky130_fd_pr__pfet_01v8 w=1 l=150000u
+X5 X a_27_368# VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
+X6 X a_27_368# VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X7 VPWR a_27_368# X VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
 .ends
 
 .SUBCKT control_logic_sr_latch 
@@ -195,12 +209,14 @@ xand
 * INOUT: vdd vss
 
 Xclk_pulse clk clkp vdd vss control_logic_edge_detector
+Xclkp_delay_chain clkp clkp_delayed vdd vss control_logic_delay_chain8
 
 * Turn on wordlines at start of cycle
 * Turn them off when replica bitline drops low enough
 * to flip an inverter.
 Xinv_rbl rbl rbl_b vdd vss control_logic_inv
-Xwl_ctl clkp rbl_b wl_en0 wl_en0_b vdd vss control_logic_sr_latch
+Xwl_en_set_logic clkp_delayed we write_driver_en wl_en_set vdd vss sramgen_control_wl_en_logic
+Xwl_ctl wl_en_set rbl_b wl_en0 wl_en0_b vdd vss control_logic_sr_latch
 Xwl_en_buf wl_en0 wl_en vdd vss control_logic_bufbuf_16
 
 * SAE_set = delay(rbl_b)
@@ -214,10 +230,19 @@ Xpc_ctl pc_set clkp pc pc_b0 vdd vss control_logic_sr_latch
 Xpc_b_buf pc_b0 pc_b vdd vss control_logic_bufbuf_16
 
 * clkp and we forms wr driver enable set signal
-Xand_wr_en_set clkp we wr_drv_set0 vdd vss control_logic_and2
+Xand_wr_en_set clkp_delayed we wr_drv_set0 vdd vss control_logic_and2
 * Delay set signal a bit to ensure we don't turn on write drivers while precharging
 Xwr_drv_set_delay_chain wr_drv_set0 wr_drv_set vdd vss control_logic_delay_chain4
 Xwr_drv_ctl wr_drv_set sense_en0 write_driver_en0 write_driver_en_b vdd vss control_logic_sr_latch
 Xwr_drv_buf write_driver_en0 write_driver_en vdd vss control_logic_bufbuf_16
 .ends
 
+.subckt sramgen_control_wl_en_logic clkp_delayed we write_driver_en wl_en_set vdd vss
+Xwr_drv_delay_chain write_driver_en write_driver_en_delayed vdd vss control_logic_delay_chain16
+
+Xinv_we we we_b vdd vss control_logic_inv
+Xcond1 clkp_delayed we_b cond1 vdd vss control_logic_and2
+Xwr_en_detector write_driver_en_delayed write_wl_en vdd vss control_logic_edge_detector
+Xcond2 write_wl_en we cond2 vdd vss control_logic_and2
+Xen cond1 cond2 wl_en_set vdd vss control_logic_or2
+.ends

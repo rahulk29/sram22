@@ -48,6 +48,7 @@ fn test_precharge_array() -> Result<()> {
     let name = "sramgen_precharge_array";
     let params = PrechargeArrayParams {
         width: 32,
+        flip_toggle: false,
         instance_params: PrechargeParams {
             name: "sramgen_precharge".to_string(),
             length: 150,

@@ -12,5 +12,6 @@ pub struct PrechargeParams {
 pub struct PrechargeArrayParams {
     pub name: String,
     pub width: usize,
+    pub flip_toggle: bool,
     pub instance_params: PrechargeParams,
 }

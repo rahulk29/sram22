@@ -31,7 +31,7 @@ fn test_bitcell_array_32x32() -> Result<()> {
         rows: 32,
         cols: 32,
         replica_cols: 0,
-        dummy_params: BitcellArrayDummyParams::Equal(2),
+        dummy_params: BitcellArrayDummyParams::equal(2),
     };
 
     let bitcells = bitcell_array(&params);
@@ -67,7 +67,7 @@ fn test_bitcell_array_2x2() -> Result<()> {
         rows: 2,
         cols: 2,
         replica_cols: 0,
-        dummy_params: BitcellArrayDummyParams::Equal(2),
+        dummy_params: BitcellArrayDummyParams::equal(2),
     };
 
     let bitcells = bitcell_array(&params);
@@ -133,22 +133,20 @@ fn test_replica_bitcell_array_2x2() -> Result<()> {
         crate::verification::calibre::run_lvs(
             &work_dir,
             name,
-            crate::verification::source_file::sram_source_files(
+            crate::verification::source_file::bitcell_array_source_files(
                 &work_dir,
                 name,
                 crate::verification::VerificationTask::Lvs,
-                config.control,
             ),
         )?;
         #[cfg(feature = "pex")]
         crate::verification::calibre::run_pex(
             &work_dir,
             name,
-            crate::verification::source_file::sram_source_files(
+            crate::verification::source_file::bitcell_array_source_files(
                 &work_dir,
                 name,
                 crate::verification::VerificationTask::Pex,
-                config.control,
             ),
         )?;
     }
