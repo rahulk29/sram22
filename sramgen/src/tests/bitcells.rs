@@ -127,29 +127,5 @@ fn test_replica_bitcell_array_2x2() -> Result<()> {
 
     lib.save_gds(out_gds(&work_dir, name))?;
 
-    #[cfg(feature = "calibre")]
-    {
-        // crate::verification::calibre::run_drc(&work_dir, name)?;
-        crate::verification::calibre::run_lvs(
-            &work_dir,
-            name,
-            crate::verification::source_file::bitcell_array_source_files(
-                &work_dir,
-                name,
-                crate::verification::VerificationTask::Lvs,
-            ),
-        )?;
-        #[cfg(feature = "pex")]
-        crate::verification::calibre::run_pex(
-            &work_dir,
-            name,
-            crate::verification::source_file::bitcell_array_source_files(
-                &work_dir,
-                name,
-                crate::verification::VerificationTask::Pex,
-            ),
-        )?;
-    }
-
     Ok(())
 }
