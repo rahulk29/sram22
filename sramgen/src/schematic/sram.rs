@@ -89,8 +89,8 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     });
 
     let (replica_cols, dummy_params) = match params.control {
-        ControlMode::Simple => (1, BitcellArrayDummyParams::Equal(2)),
-        ControlMode::ReplicaV1 => (1, BitcellArrayDummyParams::Equal(1)),
+        ControlMode::Simple => (1, BitcellArrayDummyParams::equal(2)),
+        ControlMode::ReplicaV1 => (1, BitcellArrayDummyParams::enumerate(2, 2, 1, 2)),
     };
 
     let bitcells = bitcell_array(&BitcellArrayParams {
@@ -110,6 +110,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     let mut precharge = precharge_array(&PrechargeArrayParams {
         name: "precharge_array".to_string(),
         width: pc_cols,
+        flip_toggle: false,
         instance_params: PrechargeParams {
             name: "precharge".to_string(),
             length: 150,

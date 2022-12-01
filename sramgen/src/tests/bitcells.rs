@@ -31,7 +31,7 @@ fn test_bitcell_array_32x32() -> Result<()> {
         rows: 32,
         cols: 32,
         replica_cols: 0,
-        dummy_params: BitcellArrayDummyParams::Equal(2),
+        dummy_params: BitcellArrayDummyParams::equal(2),
     };
 
     let bitcells = bitcell_array(&params);
@@ -67,7 +67,7 @@ fn test_bitcell_array_2x2() -> Result<()> {
         rows: 2,
         cols: 2,
         replica_cols: 0,
-        dummy_params: BitcellArrayDummyParams::Equal(2),
+        dummy_params: BitcellArrayDummyParams::equal(2),
     };
 
     let bitcells = bitcell_array(&params);
@@ -103,7 +103,7 @@ fn test_replica_bitcell_array_2x2() -> Result<()> {
         rows: 2,
         cols: 2,
         replica_cols: 1,
-        dummy_params: BitcellArrayDummyParams::Equal(1),
+        dummy_params: BitcellArrayDummyParams::enumerate(2, 2, 1, 2),
     };
 
     let bitcells = bitcell_array(&params);
