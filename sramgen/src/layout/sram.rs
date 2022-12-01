@@ -960,10 +960,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         .vert_to_rect(dst);
     let blockage = trace.rect().expand(30);
     power_grid.add_padded_blockage(3, blockage);
-    trace
-        .down()
-        .set_min_width()
-        .horiz_to_rect(dst);
+    trace.down().set_min_width().horiz_to_rect(dst);
     power_grid.add_padded_blockage(2, trace.rect().expand(120));
 
     // Route sense amp enable to sense amp clock
@@ -1056,11 +1053,11 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     trace
         .down()
         .set_min_width()
-        .vert_to(dst.center().y)
+        .vert_to(dst.top() + 200)
         .up()
-        .horiz_to_rect(dst)
-        .contact_down(dst);
+        .horiz_to_rect(dst);
     power_grid.add_padded_blockage(2, trace.rect().expand(100));
+    trace.down().vert_to_rect(dst);
 
     // write mux sel / write enable / write driver enable
     for i in 0..mux_ratio as isize {
