@@ -593,8 +593,8 @@ fn draw_hier_decode_node(
 
         for i in 0..node.num {
             let conns = match bus_width {
-                4 => vec![("a", i % 2), ("b", 2 + (i / 2))],
-                6 => vec![("a", i % 2), ("b", 2 + ((i / 2) % 2)), ("c", 4 + i / 4)],
+                4 => vec![("a", i / 2), ("b", 2 + (i % 2))],
+                6 => vec![("a", i / 4), ("b", 2 + ((i / 2) % 2)), ("c", 4 + i % 2)],
                 _ => unreachable!("bus width must be 4 or 6"),
             };
             for (port, idx) in conns {
@@ -610,8 +610,8 @@ fn draw_hier_decode_node(
 
         // place ports
         for (i, trace) in traces.iter().enumerate().take(bus_width) {
-            let addr_bit = i / 2;
-            let addr_bar = if i % 2 == 0 { "" } else { "_b" };
+            let addr_bit = (bus_width - i - 1) / 2;
+            let addr_bar = if i % 2 == 0 { "_b" } else { "" };
             cell.add_pin(
                 bus_bit(&format!("addr{}", addr_bar), addr_bit),
                 m1,

@@ -917,20 +917,31 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
 
             if let Some((target_port, target_idx, route_at_top)) = if i < decoder1_bits {
                 // Route to decoder1
-                Some((decoder1.port(bus_bit(addr_prefix, i)), i, false))
+                Some((
+                    decoder1.port(bus_bit(addr_prefix, decoder1_bits - i - 1)),
+                    i,
+                    false,
+                ))
             } else if i < decoder2_bits + decoder1_bits {
                 // Route to decoder2
                 Some((
-                    decoder2.port(bus_bit(addr_prefix, i - decoder1_bits)),
+                    decoder2.port(bus_bit(
+                        addr_prefix,
+                        decoder2_bits - (i - decoder1_bits) - 1,
+                    )),
                     i - decoder1_bits,
                     false,
                 ))
             } else {
                 // Route to column decoder or we control
                 let idx = i - decoder1_bits - decoder2_bits;
-                col_decoder
-                    .as_ref()
-                    .map(|col_decoder| (col_decoder.port(bus_bit(addr_prefix, idx)), idx, true))
+                col_decoder.as_ref().map(|col_decoder| {
+                    (
+                        col_decoder.port(bus_bit(addr_prefix, col_sel_bits - 1 - idx)),
+                        idx,
+                        true,
+                    )
+                })
             } {
                 let mut target = target_port.largest_rect(m1).unwrap();
                 if route_at_top {
