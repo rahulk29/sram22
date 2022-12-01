@@ -402,8 +402,8 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     let mut conns = HashMap::new();
     conns.insert("bl", sig_conn(&bl));
     conns.insert("br", sig_conn(&br));
-    conns.insert("rbl", sig_conn(&bl));
-    conns.insert("rbr", sig_conn(&br));
+    conns.insert("rbl", sig_conn(&rbl));
+    conns.insert("rbr", sig_conn(&rbr));
     conns.insert("wl", sig_conn(&wl));
     conns.insert("vdd", sig_conn(&vdd));
     conns.insert("vss", sig_conn(&vss));
