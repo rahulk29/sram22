@@ -1,3 +1,4 @@
+use crate::cli::{StepContext, StepKey};
 use crate::config::sram::{ControlMode, SramConfig, SramParams};
 use crate::layout::sram::draw_sram;
 use crate::paths::{out_bin, out_gds, out_sram, out_verilog};
@@ -70,7 +71,11 @@ pub fn generate_plan(
     })
 }
 
-pub fn execute_plan(work_dir: impl AsRef<Path>, plan: &SramPlan) -> Result<()> {
+pub fn execute_plan(
+    work_dir: impl AsRef<Path>,
+    plan: &SramPlan,
+    mut ctx: Option<&mut StepContext>,
+) -> Result<()> {
     std::fs::create_dir_all(work_dir.as_ref())?;
 
     let modules = sram(&plan.sram_params);
@@ -83,22 +88,37 @@ pub fn execute_plan(work_dir: impl AsRef<Path>, plan: &SramPlan) -> Result<()> {
     generate_netlist(&bin_path, &work_dir)
         .with_context(|| "Error converting netlists to SPICE format")?;
 
+    if let Some(ctx) = ctx.as_mut() {
+        ctx.finish(StepKey::GenerateNetlist);
+    }
+
     let mut lib = sky130::pdk_lib(name)?;
     draw_sram(&mut lib, &plan.sram_params).with_context(|| "Error generating SRAM layout")?;
 
     let gds_path = out_gds(&work_dir, name);
-    let verilog_path = out_verilog(&work_dir, name);
-
     lib.save_gds(&gds_path)
         .with_context(|| "Error saving SRAM GDS")?;
 
+    if let Some(ctx) = ctx.as_mut() {
+        ctx.finish(StepKey::GenerateLayout);
+    }
+
+    let verilog_path = out_verilog(&work_dir, name);
     save_1rw_verilog(&verilog_path, &plan.sram_params)
         .with_context(|| "Error generating or saving Verilog model")?;
+
+    if let Some(ctx) = ctx.as_mut() {
+        ctx.finish(StepKey::GenerateVerilog);
+    }
 
     #[cfg(feature = "abstract_lef")]
     {
         let lef_path = crate::paths::out_lef(&work_dir, name);
         crate::abs::run_sram_abstract(&work_dir, name, &lef_path, &gds_path, &verilog_path)?;
+
+        if let Some(ctx) = ctx {
+            ctx.finish(StepKey::GenerateLef);
+        }
     }
 
     #[cfg(feature = "liberate_mx")]

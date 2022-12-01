@@ -42,7 +42,7 @@ pub(crate) fn test_sram(config: &SramConfig) -> Result<()> {
     let name = &plan.sram_params.name;
 
     let work_dir = test_work_dir(name);
-    execute_plan(&work_dir, &plan)?;
+    execute_plan(&work_dir, &plan, None)?;
 
     #[cfg(feature = "calibre")]
     {
