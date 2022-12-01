@@ -43,6 +43,8 @@ pub enum StepKey {
     RunLvs,
     #[cfg(all(feature = "calibre", feature = "pex"))]
     RunPex,
+    #[cfg(feature = "liberate_mx")]
+    GenerateLib,
     #[cfg(feature = "spectre")]
     RunSpectre,
 }
@@ -216,6 +218,13 @@ pub fn run() -> Result<()> {
         Step {
             desc: "Generate LEF".to_string(),
             key: StepKey::GenerateLef,
+            progress_bar: ProgressBar::new_spinner(),
+            disabled: false,
+        },
+        #[cfg(feature = "liberate_mx")]
+        Step {
+            desc: "Generate LIB".to_string(),
+            key: StepKey::RunPex,
             progress_bar: ProgressBar::new_spinner(),
             disabled: false,
         },

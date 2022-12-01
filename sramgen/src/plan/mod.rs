@@ -146,6 +146,10 @@ pub fn execute_plan(
             .build()?;
 
         crate::liberate::generate_sram_lib(&params)?;
+
+        if let Some(ctx) = ctx {
+            ctx.finish(StepKey::GenerateLib);
+        }
     }
     Ok(())
 }
