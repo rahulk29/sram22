@@ -35,6 +35,8 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
     let wl = bus("wl", rows);
     let vnb = signal("vnb");
     let vpb = signal("vpb");
+    let rbl = signal("rbl");
+    let rbr = signal("rbr");
 
     let mut ports = vec![
         port_inout(&vdd),
@@ -47,8 +49,6 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
     ];
 
     if replica_cols > 0 {
-        let rbl = bus("rbl", replica_cols);
-        let rbr = bus("rbr", replica_cols);
         ports.push(port_inout(&rbl));
         ports.push(port_inout(&rbr));
     }
@@ -83,11 +83,11 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
             } else if j < dummy_cols_left + replica_cols {
                 connections.insert(
                     "BL".to_string(),
-                    conn_slice("rbl", j - dummy_cols_left, j - dummy_cols_left),
+                    sig_conn(&rbl),
                 );
                 connections.insert(
                     "BR".to_string(),
-                    conn_slice("rbr", j - dummy_cols_left, j - dummy_cols_left),
+                    sig_conn(&rbr),
                 );
             } else {
                 connections.insert(
