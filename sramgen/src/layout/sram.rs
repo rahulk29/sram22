@@ -963,7 +963,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     trace
         .down()
         .set_min_width()
-        .horiz_to(dst.center().x - cfg.line(0) / 2);
+        .horiz_to_rect(dst);
     power_grid.add_padded_blockage(2, trace.rect().expand(120));
 
     // Route sense amp enable to sense amp clock
