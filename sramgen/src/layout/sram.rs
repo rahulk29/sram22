@@ -951,7 +951,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         .port(bus_bit("q", total_addr_bits))
         .largest_rect(m2)
         .unwrap();
-    let dst = control.port("we").largest_rect(m0).unwrap();
+    let dst = control.port("we").largest_rect(m2).unwrap();
     let mut trace = router.trace(src, 2);
     trace
         .place_cursor_centered()
@@ -963,9 +963,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     trace
         .down()
         .set_min_width()
-        .horiz_to(dst.center().x - cfg.line(0) / 2)
-        .down()
-        .down();
+        .horiz_to(dst.center().x - cfg.line(0) / 2);
     power_grid.add_padded_blockage(2, trace.rect().expand(120));
 
     // Route sense amp enable to sense amp clock
