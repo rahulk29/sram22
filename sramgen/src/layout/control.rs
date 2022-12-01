@@ -870,7 +870,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
             .build()?
             .rect();
         vss_rects.push(rect);
-        cell.add_pin("vgnd", m1, rect);
+        cell.add_pin("vss", m1, rect);
     }
     let mut vdd_rects = vec![];
     for idx in [0, 2, 4, 7] {
@@ -881,7 +881,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
             .build()?
             .rect();
         vdd_rects.push(rect);
-        cell.add_pin("vpwr", m1, rect);
+        cell.add_pin("vdd", m1, rect);
     }
 
     cell.layout_mut().insts = rows.into_instances();
