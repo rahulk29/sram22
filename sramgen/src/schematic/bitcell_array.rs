@@ -26,7 +26,7 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
     };
 
     let total_rows = rows + dummy_rows_top + dummy_rows_bottom;
-    let total_cols = cols + dummy_cols_left + dummy_cols_right;
+    let total_cols = cols + dummy_cols_left + dummy_cols_right + replica_cols;
 
     let vdd = signal("vdd");
     let vss = signal("vss");
