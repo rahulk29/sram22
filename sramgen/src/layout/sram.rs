@@ -1007,7 +1007,6 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     power_grid.add_padded_blockage(3, trace.rect().expand(20));
     trace.down().down();
     power_grid.add_padded_blockage(2, trace.cursor_rect().expand(100));
-    trace.vert_to_rect(dst);
 
     // Connect wldrv_nand b inputs to wordline enable (wl_en)
     for i in 0..rows {
