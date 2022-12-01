@@ -6,7 +6,8 @@ use std::process::Command;
 use crate::config::sram::SramParams;
 use crate::verification::bit_signal::BitSignal;
 use crate::verification::{
-    self, source_files, PortClass, PortOrder, TbParams, TestCase, VerificationTask,
+    self, source_file::sram_source_files, PortClass, PortOrder, TbParams, TestCase,
+    VerificationTask,
 };
 use crate::Result;
 
@@ -175,7 +176,7 @@ pub fn run_sram_spectre(params: &SramParams, work_dir: impl AsRef<Path>, name: &
         .gnd_port("vss")
         .wmask_port("wmask")
         .work_dir(std::path::PathBuf::from(work_dir.as_ref()).join("sim"))
-        .source_paths(source_files(
+        .source_paths(sram_source_files(
             &work_dir,
             name,
             VerificationTask::SpectreSim,

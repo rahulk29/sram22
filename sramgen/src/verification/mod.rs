@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{anyhow, bail};
 use bit_signal::BitSignal;
@@ -8,9 +8,8 @@ use psf_ascii::parser::transient::TransientData;
 use serde::{Deserialize, Serialize};
 use waveform::Waveform;
 
-use crate::config::sram::ControlMode;
 use crate::verification::utils::push_bus;
-use crate::{Result, LIB_PATH};
+use crate::Result;
 
 use self::netlist::{generate_netlist, write_netlist, TbNetlistParams};
 use self::spectre::{run_spectre, SpectreParams};
@@ -20,6 +19,7 @@ pub mod bit_signal;
 #[cfg(feature = "calibre")]
 pub mod calibre;
 pub mod netlist;
+pub mod source_file;
 pub mod spectre;
 pub mod utils;
 pub mod waveform;
@@ -329,64 +329,6 @@ pub enum VerificationTask {
     SpectreSim,
     Lvs,
     Pex,
-}
-
-pub fn source_files(
-    work_dir: impl AsRef<Path>,
-    sram_name: &str,
-    task: VerificationTask,
-    control_mode: ControlMode,
-) -> Vec<PathBuf> {
-    let source_path_main = match task {
-        VerificationTask::SpectreSim => {
-            PathBuf::from(work_dir.as_ref()).join(format!("{}.spectre.spice", sram_name))
-        }
-        VerificationTask::NgspiceSim => {
-            PathBuf::from(work_dir.as_ref()).join(format!("{}.ngspice.spice", sram_name))
-        }
-        _ => PathBuf::from(work_dir.as_ref()).join(format!("{}.spice", sram_name)),
-    };
-    let source_path_dff = PathBuf::from(LIB_PATH).join("openram_dff/openram_dff.spice");
-    let source_path_sp_cell = match task {
-        VerificationTask::SpiceSim
-        | VerificationTask::NgspiceSim
-        | VerificationTask::SpectreSim => {
-            PathBuf::from(LIB_PATH).join("sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.spice")
-        }
-        VerificationTask::Lvs | VerificationTask::Pex => {
-            PathBuf::from(LIB_PATH).join("sram_sp_cell/sky130_fd_bd_sram__sram_sp_cell.lvs.spice")
-        }
-    };
-    let source_path_sp_replica_cell = match task {
-        VerificationTask::SpiceSim
-        | VerificationTask::NgspiceSim
-        | VerificationTask::SpectreSim => {
-            PathBuf::from(LIB_PATH).join("sram_sp_replica_cell/sram_sp_replica_cell.spice")
-        }
-        VerificationTask::Lvs | VerificationTask::Pex => {
-            PathBuf::from(LIB_PATH).join("sram_sp_replica_cell/sram_sp_replica_cell.lvs.spice")
-        }
-    };
-    let source_path_sp_sense_amp =
-        PathBuf::from(LIB_PATH).join("sramgen_sp_sense_amp/sramgen_sp_sense_amp.spice");
-
-    let source_path_control = match control_mode {
-        ControlMode::Simple => {
-            PathBuf::from(LIB_PATH).join("sramgen_control/sramgen_control_simple.spice")
-        }
-        ControlMode::ReplicaV1 => {
-            PathBuf::from(LIB_PATH).join("sramgen_control/sramgen_control_replica_v1.spice")
-        }
-    };
-
-    vec![
-        source_path_main,
-        source_path_dff,
-        source_path_sp_cell,
-        source_path_sp_replica_cell,
-        source_path_sp_sense_amp,
-        source_path_control,
-    ]
 }
 
 fn verify_simulation(data: &TransientData, tb: &TbParams) -> Result<()> {

@@ -31,14 +31,32 @@ pub fn run() -> Result<()> {
     #[cfg(feature = "calibre")]
     {
         if args.drc || args.all_tests {
-            crate::verification::calibre::run_sram_drc(&work_dir, name)?;
+            crate::verification::calibre::run_drc(&work_dir, name)?;
         }
         if args.lvs || args.all_tests {
-            crate::verification::calibre::run_sram_lvs(&work_dir, name, config.control)?;
+            crate::verification::calibre::run_lvs(
+                &work_dir,
+                name,
+                crate::verification::source_file::sram_source_files(
+                    &work_dir,
+                    name,
+                    crate::verification::VerificationTask::Lvs,
+                    config.control,
+                ),
+            )?;
         }
         #[cfg(feature = "pex")]
         if args.pex || args.all_tests {
-            crate::verification::calibre::run_sram_pex(&work_dir, name, config.control)?;
+            crate::verification::calibre::run_pex(
+                &work_dir,
+                name,
+                crate::verification::source_file::sram_source_files(
+                    &work_dir,
+                    name,
+                    crate::verification::VerificationTask::Pex,
+                    config.control,
+                ),
+            )?;
         }
     }
 

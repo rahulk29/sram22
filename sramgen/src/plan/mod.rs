@@ -103,10 +103,10 @@ pub fn execute_plan(work_dir: impl AsRef<Path>, plan: &SramPlan) -> Result<()> {
 
     #[cfg(feature = "liberate_mx")]
     {
-        use crate::verification::{source_files, VerificationTask};
+        use crate::verification::{source_file::sram_source_files, VerificationTask};
         use liberate_mx::LibParams;
 
-        let source_paths = source_files(
+        let source_paths = sram_source_files(
             work_dir.as_ref(),
             &plan.sram_params.name,
             VerificationTask::SpectreSim,
