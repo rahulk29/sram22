@@ -969,6 +969,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     let mut trace = router.trace(src, 1);
     trace
         .place_cursor_centered()
+        .left_by(40)
         .up()
         .set_width(dst.height())
         .horiz_to(dst.left() - 5 * cfg.line(3));
@@ -1000,12 +1001,13 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         .place_cursor(Dir::Vert, false)
         .vert_to(core_bbox.p0.y - 8 * cfg.line(3))
         .up()
-        .horiz_to_rect(dst);
+        .horiz_to(dst.right() + 40);
     power_grid.add_padded_blockage(2, trace.rect().expand(30));
-    trace.up().set_min_width().vert_to_rect(dst);
+    trace.up().set_min_width().vert_to(dst.top());
     power_grid.add_padded_blockage(3, trace.rect().expand(20));
-    trace.contact_down(dst).decrement_layer().contact_down(dst);
-    power_grid.add_padded_blockage(2, dst.expand(50));
+    trace.down().down();
+    power_grid.add_padded_blockage(2, trace.cursor_rect().expand(100));
+    trace.vert_to_rect(dst);
 
     // Connect wldrv_nand b inputs to wordline enable (wl_en)
     for i in 0..rows {
@@ -1053,7 +1055,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     trace
         .down()
         .set_min_width()
-        .vert_to(dst.top() + 200)
+        .vert_to(dst.top() + 400)
         .up()
         .horiz_to_rect(dst);
     power_grid.add_padded_blockage(2, trace.rect().expand(100));
