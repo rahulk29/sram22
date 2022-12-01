@@ -87,12 +87,10 @@ pub fn bitcell_array_source_files(
     let source_path_sp_replica_cell = match task {
         VerificationTask::SpiceSim
         | VerificationTask::NgspiceSim
-        | VerificationTask::SpectreSim => {
-            PathBuf::from(LIB_PATH).join("sram_sp_replica_cell/sram_sp_replica_cell.spice")
-        }
-        VerificationTask::Lvs | VerificationTask::Pex => {
-            PathBuf::from(LIB_PATH).join("sram_sp_replica_cell/sram_sp_replica_cell.lvs.spice")
-        }
+        | VerificationTask::SpectreSim => PathBuf::from(LIB_PATH)
+            .join("sram_sp_cell_replica/sky130_fd_bd_sram__openram_sp_cell_opt1_replica.spice"),
+        VerificationTask::Lvs | VerificationTask::Pex => PathBuf::from(LIB_PATH)
+            .join("sram_sp_cell_replica/sky130_fd_bd_sram__openram_sp_cell_opt1_replica.lvs.spice"),
     };
 
     vec![

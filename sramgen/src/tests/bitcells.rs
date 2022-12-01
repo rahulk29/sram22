@@ -129,7 +129,7 @@ fn test_replica_bitcell_array_2x2() -> Result<()> {
 
     #[cfg(feature = "calibre")]
     {
-        crate::verification::calibre::run_drc(&work_dir, name)?;
+        // crate::verification::calibre::run_drc(&work_dir, name)?;
         crate::verification::calibre::run_lvs(
             &work_dir,
             name,
