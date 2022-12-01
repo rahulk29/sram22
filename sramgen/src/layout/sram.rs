@@ -172,10 +172,9 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     };
 
     let &BitcellArrayDummyParams {
-        top: dummy_rows_top,
-        bottom: dummy_rows_bottom,
         left: dummy_cols_left,
         right: dummy_cols_right,
+        ..
     } = &dummy_params;
 
     let core = draw_bitcell_array(
@@ -559,6 +558,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
     ////////////////////////////////////////////////////////////////////
     let pc_top = pc_bbox.top() - 500;
 
+    let mut replica_bl = Rect::default();
     for i in 0..replica_cols + cols {
         let mut bl_rect = Rect::new(Point::zero(), Point::zero());
         let mut br_rect = Rect::new(Point::zero(), Point::zero());
@@ -598,6 +598,9 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
 
             if j == 0 {
                 bl_rect = trace.rect();
+                if i == 0 {
+                    replica_bl = bl_rect;
+                }
             } else {
                 br_rect = trace.rect();
             }
@@ -656,6 +659,8 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
             .vert_to(read_mux_bbox.bottom())
             .s_bend(dst2, Dir::Vert);
     }
+    // Make replica_bl immutable.
+    let replica_bl = replica_bl;
 
     let bl_bot = sense_amp
         .port(bus_bit("inp", 0))
@@ -971,6 +976,20 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
             power_grid.add_padded_blockage(2, shape.bbox());
         }
     }
+
+    // Replica bitline (rbl)
+    let rbl_in = control.port("rbl").largest_rect(m0).unwrap();
+    let rbl_out = replica_bl;
+
+    let mut trace = router.trace(rbl_out, 1);
+    trace
+        .place_cursor(Dir::Vert, false)
+        .vert_to(control_bbox.bottom() + 100)
+        .up()
+        .horiz_to(rbl_in.left() + 160);
+    power_grid.add_padded_blockage(2, trace.rect().expand(75));
+    trace.down().vert_to_rect(rbl_in).contact_down(rbl_in);
+
     // Route write enable (WE) to control logic
     let src = addr_dffs
         .port(bus_bit("q", total_addr_bits))
@@ -1216,7 +1235,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         dff_area.bottom() - 3 * cfg.space(2),
     );
     let clk_rect = Rect::from_spans(dff_area.hspan(), vspan);
-    let mut clk_trace = router.trace(clk_rect, 2);
+    let clk_trace = router.trace(clk_rect, 2);
 
     power_grid.add_padded_blockage(2, clk_rect);
 

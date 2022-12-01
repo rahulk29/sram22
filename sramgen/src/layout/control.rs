@@ -910,7 +910,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         let route = route.cell.read().unwrap();
         for elem in route.layout().elems.iter() {
             if elem.layer == m2 {
-                let rect = elem.inner.bbox().into_rect().expand(75);
+                let rect = elem.inner.bbox().into_rect().expand(90);
                 power_grid.add_padded_blockage(2, rect);
                 port.add_shape(m2, layout21::raw::Shape::Rect(rect));
             }
