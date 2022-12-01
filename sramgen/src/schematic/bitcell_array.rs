@@ -81,14 +81,8 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
                 connections.insert("BL".to_string(), sig_conn(&vdd));
                 connections.insert("BR".to_string(), sig_conn(&vdd));
             } else if j < dummy_cols_left + replica_cols {
-                connections.insert(
-                    "BL".to_string(),
-                    sig_conn(&rbl),
-                );
-                connections.insert(
-                    "BR".to_string(),
-                    sig_conn(&rbr),
-                );
+                connections.insert("BL".to_string(), sig_conn(&rbl));
+                connections.insert("BR".to_string(), sig_conn(&rbr));
             } else {
                 connections.insert(
                     "BL".to_string(),
@@ -139,7 +133,7 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
                 if is_dummy {
                     sig_conn(&vdd)
                 } else if is_replica {
-                    conn_slice("rbr", i - dummy_cols_left, i - dummy_cols_left)
+                    sig_conn(&rbr)
                 } else {
                     conn_slice(
                         "br",
@@ -153,7 +147,7 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
                 if is_dummy {
                     sig_conn(&vdd)
                 } else if is_replica {
-                    conn_slice("rbl", i - dummy_cols_left, i - dummy_cols_left)
+                    sig_conn(&rbl)
                 } else {
                     conn_slice(
                         "bl",
