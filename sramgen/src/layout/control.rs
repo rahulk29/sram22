@@ -10,7 +10,9 @@ use crate::layout::power::{PowerSource, PowerStrapGen, PowerStrapOpts};
 use crate::layout::route::Router;
 use crate::layout::rows::AlignedRows;
 use crate::layout::sram::GateList;
-use crate::tech::{sc_and2_gds, sc_buf_gds, sc_bufbuf_16_gds, sc_inv_gds, sc_nor2_gds, sc_tap_gds};
+use crate::tech::{
+    sc_and2_gds, sc_buf_gds, sc_bufbuf_16_gds, sc_inv_gds, sc_nor2_gds, sc_or2_gds, sc_tap_gds,
+};
 use crate::Result;
 
 pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cell>> {
@@ -140,6 +142,7 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let mut cell = Cell::empty("sramgen_control_replica_v1");
 
     let and = sc_and2_gds(lib)?;
+    let or = sc_or2_gds(lib)?;
     let inv = sc_inv_gds(lib)?;
     let buf = sc_bufbuf_16_gds(lib)?;
     let tap = sc_tap_gds(lib)?;
@@ -159,6 +162,13 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         &InvChainParams {
             name: "sram22_control_logic_delay_chain_4".to_string(),
             num: 4,
+        },
+    )?;
+    let delay_chain_8 = draw_inv_chain(
+        lib,
+        &InvChainParams {
+            name: "sram22_control_logic_delay_chain_8".to_string(),
+            num: 8,
         },
     )?;
     // precharge delay chain
@@ -188,6 +198,13 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
             angle: None,
         },
         Instance {
+            inst_name: "clkp_delay_chain".to_string(),
+            cell: delay_chain_8.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
             inst_name: "tap0".to_string(),
             cell: tap.clone(),
             loc: Point::new(0, 0),
@@ -195,10 +212,6 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
             angle: None,
         },
     ]);
-
-    let eddc = rows.get(0, 0);
-    let ed_and = rows.get(0, 1);
-    let tap0 = rows.get(0, 2);
 
     rows.add_row(vec![
         Instance {
@@ -245,17 +258,10 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         },
     ]);
 
-    let tap1 = rows.get(1, 0);
-    let inv_rbl = rows.get(1, 1);
-    let wl_ctl_nor1 = rows.get(1, 2);
-    let wl_ctl_nor2 = rows.get(1, 3);
-    let wl_en_buf = rows.get(1, 4);
-    let tap2 = rows.get(1, 5);
-
     rows.add_row(vec![
         Instance {
-            inst_name: "wl_drv_delay_chain".to_string(),
-            cell: delay_chain_4.clone(),
+            inst_name: "tap".to_string(),
+            cell: tap.clone(),
             loc: Point::new(0, 0),
             reflect_vert: false,
             angle: None,
@@ -295,14 +301,29 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
             reflect_vert: false,
             angle: None,
         },
+        Instance {
+            inst_name: "wl_en_set_driver".to_string(),
+            cell: or.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
+        Instance {
+            inst_name: "tap".to_string(),
+            cell: tap.clone(),
+            loc: Point::new(0, 0),
+            reflect_vert: false,
+            angle: None,
+        },
     ]);
 
-    let wl_set_dc0 = rows.get(2, 0);
-    let inv_we = rows.get(2, 1);
-    let cond1 = rows.get(2, 2);
-    let wdeddc = rows.get(2, 3);
-    let wded_and = rows.get(2, 4);
-    let cond2 = rows.get(2, 5);
+    rows.add_row(vec![Instance {
+        inst_name: "wr_drv_delay_chain".to_string(),
+        cell: delay_chain_16.clone(),
+        loc: Point::new(0, 0),
+        reflect_vert: true,
+        angle: None,
+    }]);
 
     rows.add_row(vec![
         Instance {
@@ -341,13 +362,6 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
             angle: None,
         },
     ]);
-
-    let ssdc_inst = rows.get(3, 0);
-    let sae_ctl_nor1 = rows.get(3, 1);
-    let sae_ctl_nor2 = rows.get(3, 2);
-    let sae_buf = rows.get(3, 3);
-    let tap3 = rows.get(3, 4);
-
     rows.add_row(vec![Instance {
         inst_name: "pc_delay_chain".to_string(),
         cell: delay_chain_16,
@@ -355,8 +369,6 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         reflect_vert: true,
         angle: None,
     }]);
-
-    let pcdc = rows.get(4, 0);
 
     rows.add_row(vec![
         Instance {
@@ -395,12 +407,6 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
             angle: None,
         },
     ]);
-
-    let tap4 = rows.get(5, 0);
-    let pc_ctl_nor1 = rows.get(5, 1);
-    let pc_ctl_nor2 = rows.get(5, 2);
-    let pc_b_buf = rows.get(5, 3);
-    let tap5 = rows.get(5, 4);
 
     rows.add_row(vec![
         Instance {
@@ -454,17 +460,51 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         },
     ]);
 
-    let tap6 = rows.get(6, 0);
-    let and_wr_en_set = rows.get(6, 1);
-    let wr_drv_dc = rows.get(6, 2);
-    let wr_drv_ctl_nor1 = rows.get(6, 3);
-    let wr_drv_ctl_nor2 = rows.get(6, 4);
-    let wr_drv_buf = rows.get(6, 5);
-    let tap7 = rows.get(6, 6);
-
     rows.place(&lib.pdk);
 
-    /*
+    let eddc = rows.get(0, 0);
+    let ed_and = rows.get(0, 1);
+    let clkp_delay_chain = rows.get(0, 2);
+    let tap0 = rows.get(0, 3);
+
+    let tap1 = rows.get(1, 0);
+    let inv_rbl = rows.get(1, 1);
+    let wl_ctl_nor1 = rows.get(1, 2);
+    let wl_ctl_nor2 = rows.get(1, 3);
+    let wl_en_buf = rows.get(1, 4);
+    let tap2 = rows.get(1, 5);
+
+    let inv_we = rows.get(2, 1);
+    let cond1 = rows.get(2, 2);
+    let wdeddc = rows.get(2, 3);
+    let wded_and = rows.get(2, 4);
+    let cond2 = rows.get(2, 5);
+    let wl_en_set_driver = rows.get(2, 6);
+
+    let wr_drv_delay_chain = rows.get(3, 0);
+
+    let ssdc_inst = rows.get(4, 0);
+    let sae_ctl_nor1 = rows.get(4, 1);
+    let sae_ctl_nor2 = rows.get(4, 2);
+    let sae_buf = rows.get(4, 3);
+    let tap3 = rows.get(4, 4);
+
+    let pcdc = rows.get(5, 0);
+
+    let tap4 = rows.get(6, 0);
+    let pc_ctl_nor1 = rows.get(6, 1);
+    let pc_ctl_nor2 = rows.get(6, 2);
+    let pc_b_buf = rows.get(6, 3);
+    let tap5 = rows.get(6, 4);
+
+    let tap6 = rows.get(7, 0);
+    let and_wr_en_set = rows.get(7, 1);
+    let wr_drv_dc = rows.get(7, 2);
+    let wr_drv_ctl_nor1 = rows.get(7, 3);
+    let wr_drv_ctl_nor2 = rows.get(7, 4);
+    let wr_drv_buf = rows.get(7, 5);
+    let tap7 = rows.get(7, 6);
+
     // Routing
     let mut router = Router::new("sram22_control_logic_route", lib.pdk.clone());
     let cfg = router.cfg();
@@ -593,8 +633,42 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     cell.add_pin_from_port(pc_b_buf.port("x").named("pc_b"), m1);
 
+    // Write enable
+    let we_cond2 = cond2.port("b").largest_rect(m0).unwrap();
+    let we_inv = inv_we.port("a").largest_rect(m0).unwrap();
+    let we_wren = and_wr_en_set.port("b").largest_rect(m0).unwrap();
+
+    let mut we_trace = router.trace(we_cond2, 0);
+    we_trace
+        .place_cursor_centered()
+        .up()
+        .down_by(850)
+        .horiz_to_rect(we_inv);
+
+    router
+        .trace(we_inv, 0)
+        .place_cursor_centered()
+        .up()
+        .vert_to_trace(&we_trace);
+
+    we_trace.up().vert_to(we_wren.top() - 160);
+    cell.add_pin("we", m2, we_trace.rect());
+    we_trace.down().right_by(100).down();
+
+    // wl_en_set
+    let wes_out = wl_en_set_driver.port("x").largest_rect(m0).unwrap();
+    let wes_in = wl_ctl_nor2.port("a").largest_rect(m0).unwrap();
+    router
+        .trace(wes_out, 0)
+        .place_cursor_centered()
+        .up()
+        .up()
+        .vert_to_rect(wes_in)
+        .down()
+        .horiz_to_rect(wes_in)
+        .contact_down(wes_in);
+
     // Write driver control
-    cell.add_pin_from_port(and_wr_en_set.port("b").named("we"), m0);
     let wr_drv_dc_in = wr_drv_dc.port("din").largest_rect(m0).unwrap();
     let wr_drv_set0 = and_wr_en_set.port("x").largest_rect(m0).unwrap();
     router
@@ -639,47 +713,152 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     cell.add_pin_from_port(wr_drv_buf.port("x").named("write_driver_en"), m1);
 
+    // we_b -> cond1
+    let we_b_out = inv_we.port("y").largest_rect(m0).unwrap();
+    let we_b_cond1 = cond1.port("a").largest_rect(m0).unwrap();
+
+    router
+        .trace(we_b_cond1, 0)
+        .place_cursor_centered()
+        .horiz_to_rect(we_b_out);
+
+    let wr_en_det_din = wdeddc.port("din").largest_rect(m0).unwrap();
+    let wr_en_det_dout = wdeddc.port("dout").largest_rect(m0).unwrap();
+    let wr_en_det_and_a = wded_and.port("a").largest_rect(m0).unwrap();
+    let wr_en_det_and_b = wded_and.port("b").largest_rect(m0).unwrap();
+    let mut trace = router.trace(wr_en_det_din, 0);
+    trace
+        .place_cursor_centered()
+        .up()
+        .horiz_to_rect(wr_en_det_and_a)
+        .contact_down(wr_en_det_and_a);
+    let wr_drv_delayed_din = trace.rect();
+    router
+        .trace(wr_en_det_and_b, 0)
+        .place_cursor_centered()
+        .up()
+        .down_by(3 * cfg.line(0))
+        .horiz_to_rect(wr_en_det_dout)
+        .contact_down(wr_en_det_dout);
+
+    let write_wl_en_out = wded_and.port("x").largest_rect(m0).unwrap();
+    let write_wl_en_in = cond2.port("a").largest_rect(m0).unwrap();
+
+    router
+        .trace(write_wl_en_in, 0)
+        .place_cursor_centered()
+        .up()
+        .horiz_to_rect(write_wl_en_out)
+        .vert_to_rect(write_wl_en_out)
+        .contact_down(write_wl_en_out);
+
+    let cond1_out = cond1.port("x").largest_rect(m0).unwrap();
+    let cond2_out = cond2.port("x").largest_rect(m0).unwrap();
+    let cond1_in = wl_en_set_driver.port("a").largest_rect(m0).unwrap();
+    let cond2_in = wl_en_set_driver.port("b").largest_rect(m0).unwrap();
+
+    router
+        .trace(cond2_in, 0)
+        .place_cursor_centered()
+        .up()
+        .horiz_to_rect(cond2_out)
+        .vert_to_rect(cond2_out)
+        .contact_down(cond2_out);
+
+    router
+        .trace(cond1_in, 0)
+        .place_cursor_centered()
+        .up()
+        .up_by(370)
+        .horiz_to_rect(cond1_out)
+        .vert_to_rect(cond1_out)
+        .contact_down(cond1_out);
+
     let clkp_out = ed_and.port("x").largest_rect(m0).unwrap();
-    let wl_ctl_clkp = wl_ctl_nor2.port("a").largest_rect(m0).unwrap();
+    let clkp_delay_in = clkp_delay_chain.port("din").largest_rect(m0).unwrap();
+    let clkp_delay_dout = clkp_delay_chain.port("dout").largest_rect(m0).unwrap();
+    let clkp_delay_cond1 = cond1.port("b").largest_rect(m0).unwrap();
+    let clkp_delay_wr_en = and_wr_en_set.port("b").largest_rect(m0).unwrap();
+
     let sae_ctl_clkp = sae_ctl_nor2.port("a").largest_rect(m0).unwrap();
     let pc_ctl_clkp = pc_ctl_nor1.port("a").largest_rect(m0).unwrap();
-    let wr_set_clkp = and_wr_en_set.port("a").largest_rect(m0).unwrap();
 
+    // clkp delayed
+    router
+        .trace(clkp_delay_dout, 0)
+        .place_cursor_centered()
+        .up()
+        .left_by(1_000)
+        .up_by(720)
+        .horiz_to(clkp_delay_cond1.left() + 120)
+        .up()
+        .vert_to_rect(clkp_delay_cond1)
+        .contact_down(clkp_delay_cond1)
+        .decrement_layer()
+        .contact_down(clkp_delay_cond1)
+        .left_by(1_000)
+        .up()
+        .vert_to(clkp_delay_wr_en.top() - 120)
+        .down()
+        .set_width(240)
+        .horiz_to_rect(clkp_delay_wr_en)
+        .contact_down(clkp_delay_wr_en);
+
+    // clkp
+    router
+        .trace(clkp_out, 0)
+        .increment_layer()
+        .place_cursor_centered()
+        .horiz_to(clkp_delay_in.right() - 100)
+        .vert_to_rect(clkp_delay_in)
+        .contact_down(clkp_delay_in);
     let mut clkp_trace = router.trace(clkp_out, 0);
     clkp_trace
         .place_cursor_centered()
         .up()
-        .horiz_to_rect(wl_ctl_clkp)
-        .up()
-        .vert_to_rect(wl_ctl_clkp);
-
-    router
-        .trace(wl_ctl_clkp, 0)
-        .contact_up(clkp_trace.rect())
-        .increment_layer()
-        .contact_up(clkp_trace.rect());
-
-    clkp_trace
-        .down()
         .horiz_to_rect(sae_ctl_clkp)
         .up()
         .vert_to_rect(sae_ctl_clkp)
         .down()
         .down()
         .increment_layer()
-        .increment_layer()
-        .up_by(2_000)
+        .increment_layer();
+
+    clkp_trace
+        .vert_to(pc_ctl_clkp.top() - 1_120)
         .down()
         .horiz_to_rect(pc_ctl_clkp)
         .up()
-        .vert_to_rect(pc_ctl_clkp)
-        .down()
-        .down()
-        .increment_layer()
-        .increment_layer()
-        .vert_to(wr_set_clkp.top() - 200)
+        .vert_to(pc_ctl_clkp.top())
         .down()
         .down();
+
+    // write driver en
+    let wr_drv_en = wr_drv_buf.port("x").largest_rect(m1).unwrap();
+    let wr_drv_dc_in = wr_drv_delay_chain.port("din").largest_rect(m0).unwrap();
+    let wr_drv_delayed_dout = wr_drv_delay_chain.port("dout").largest_rect(m0).unwrap();
+    // wr_drv_delayed_din
+
+    router
+        .trace(wr_drv_en, 1)
+        .place_cursor(Dir::Horiz, false)
+        .left_by(2_000)
+        .up()
+        .vert_to_rect(wr_drv_dc_in)
+        .down()
+        .horiz_to_rect(wr_drv_dc_in)
+        .contact_down(wr_drv_dc_in);
+
+    router
+        .trace(wr_drv_delayed_dout, 0)
+        .place_cursor_centered()
+        .up()
+        .left_by(600)
+        .down_by(600)
+        .horiz_to(wr_drv_delayed_din.center().x)
+        .up()
+        .vert_to_rect(wr_drv_delayed_din)
+        .contact_down(wr_drv_delayed_din);
 
     let vss_rows = [
         vec![eddc.clone(), ed_and.clone(), tap0.clone()],
@@ -730,10 +909,10 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     ];
 
     let mut vss_rects = vec![];
-    for row in vss_rows {
+    for idx in [0, 2, 4, 5, 7] {
         let rect = MergeArgs::builder()
             .layer(m1)
-            .insts(GateList::Cells(&row))
+            .insts(GateList::Cells(rows.get_row(idx)))
             .port_name("vgnd")
             .build()?
             .rect();
@@ -741,21 +920,19 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         cell.add_pin("vgnd", m1, rect);
     }
     let mut vdd_rects = vec![];
-    for row in vdd_rows {
+    for idx in [0, 2, 4, 7] {
         let rect = MergeArgs::builder()
             .layer(m1)
-            .insts(GateList::Cells(&row))
+            .insts(GateList::Cells(rows.get_row(idx)))
             .port_name("vpwr")
             .build()?
             .rect();
         vdd_rects.push(rect);
         cell.add_pin("vpwr", m1, rect);
     }
-    */
 
     cell.layout_mut().insts = rows.into_instances();
 
-    /*
     let mut power_grid = PowerStrapGen::new(
         &PowerStrapOpts::builder()
             .h_metal(2)
@@ -809,13 +986,14 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
         }
         cell.layout_mut().add_inst(straps.instance);
     }
-    */
 
     let ptr = Ptr::new(cell);
     lib.lib.cells.push(ptr.clone());
 
     Ok(ptr)
 }
+
+const LATCH_OFFSET: isize = 300;
 
 fn route_latch(
     nor1: &Instance,
@@ -834,18 +1012,18 @@ fn route_latch(
     let mut trace = router.trace(b1, 0);
     trace.place_cursor_centered().up();
     if invert_routing {
-        trace.up_by(2 * cfg.line(0));
+        trace.up_by(LATCH_OFFSET);
     } else {
-        trace.down_by(2 * cfg.line(0));
+        trace.down_by(LATCH_OFFSET);
     }
     trace.horiz_to_rect(qb).contact_down(qb);
     let qout = trace.rect();
     let mut trace = router.trace(b2, 0);
     trace.place_cursor_centered().up();
     if invert_routing {
-        trace.down_by(2 * cfg.line(0));
+        trace.down_by(LATCH_OFFSET);
     } else {
-        trace.up_by(2 * cfg.line(0));
+        trace.up_by(LATCH_OFFSET);
     }
     trace.horiz_to_rect(q).contact_down(q);
     let qbout = trace.rect();
