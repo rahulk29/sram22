@@ -609,7 +609,7 @@ fn draw_hier_decode_node(
         }
 
         // place ports
-        for (i, trace) in traces.iter().enumerate().take(bus_width) {
+        for (i, trace) in traces.iter().enumerate().take(bus_width).rev() {
             let addr_bit = (bus_width - i - 1) / 2;
             let addr_bar = if i % 2 == 0 { "_b" } else { "" };
             cell.add_pin(
@@ -643,7 +643,7 @@ fn draw_hier_decode_node(
     let mut addr_idx = 0;
     let mut addr_b_idx = 0;
 
-    for decoder in decoder_insts.iter() {
+    for decoder in decoder_insts.iter().rev() {
         for mut port in decoder.ports().into_iter() {
             if port.net.starts_with("addr_b") {
                 port.set_net(bus_bit("addr_b", addr_b_idx));
