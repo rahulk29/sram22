@@ -7,7 +7,6 @@ lint-fix:
 	cargo clippy --fix --allow-staged --allow-dirty --all-features --all-targets
 	cargo +nightly fmt
 
-
 format:
 	cargo +nightly fmt
 	black scripts/
@@ -15,7 +14,7 @@ format:
 
 test:
 	rm -rf sramgen/build/
-	cargo test --release --features calibre,abstract_lef
+	cargo test --release
 
 alltest:
 	rm -rf sramgen/build/
