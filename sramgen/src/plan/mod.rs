@@ -106,6 +106,12 @@ pub fn generate_plan(
     })
 }
 
+#[cfg(any(
+    feature = "abstract_lef",
+    feature = "liberate_mx",
+    feature = "calibre",
+    feature = "spectre"
+))]
 macro_rules! try_finish_task {
     ( $ctx:expr, $task:expr ) => {
         if let Some(ctx) = $ctx.as_mut() {
@@ -114,6 +120,12 @@ macro_rules! try_finish_task {
     };
 }
 
+#[cfg(any(
+    feature = "abstract_lef",
+    feature = "liberate_mx",
+    feature = "calibre",
+    feature = "spectre"
+))]
 macro_rules! try_execute_task {
     ( $tasks:expr, $task:expr, $body:expr, $ctx:expr) => {
         if $tasks.contains(&$task) || $tasks.contains(&TaskKey::All) {
@@ -127,8 +139,8 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
     let ExecutePlanParams {
         work_dir,
         plan,
-        tasks,
         mut ctx,
+        ..
     } = params;
 
     std::fs::create_dir_all(work_dir)?;
@@ -169,7 +181,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
     #[cfg(feature = "abstract_lef")]
     {
         try_execute_task!(
-            tasks,
+            params.tasks,
             TaskKey::GenerateLef,
             crate::abs::run_sram_abstract(
                 work_dir,
@@ -180,32 +192,25 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
             )?,
             ctx
         );
-        // if tasks.contains(ExecutePlanTask::Lef) || tasks.contains(ExecutePlanTask::All) {
-        //     let lef_path = crate::paths::out_lef(work_dir, name);
-
-        //     if let Some(ctx) = ctx {
-        //         ctx.finish(TaskKey::GenerateLef);
-        //     }
-        // }
     }
 
     #[cfg(feature = "calibre")]
     {
         try_execute_task!(
-            tasks,
+            params.tasks,
             TaskKey::RunDrc,
             crate::verification::calibre::run_sram_drc(work_dir, name)?,
             ctx
         );
         try_execute_task!(
-            tasks,
+            params.tasks,
             TaskKey::RunLvs,
             crate::verification::calibre::run_sram_lvs(work_dir, name, plan.sram_params.control)?,
             ctx
         );
         #[cfg(feature = "pex")]
         try_execute_task!(
-            tasks,
+            params.tasks,
             TaskKey::RunPex,
             crate::verification::calibre::run_sram_pex(work_dir, name, plan.sram_params.control)?,
             ctx
@@ -214,7 +219,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
 
     #[cfg(feature = "spectre")]
     try_execute_task!(
-        tasks,
+        params.tasks,
         TaskKey::RunPex,
         crate::verification::spectre::run_sram_spectre(&plan.sram_params, work_dir, name)?,
         ctx
@@ -223,7 +228,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
     #[cfg(feature = "liberate_mx")]
     {
         try_execute_task!(
-            tasks,
+            params.tasks,
             TaskKey::GenerateLib,
             {
                 use crate::verification::{source_files, VerificationTask};
