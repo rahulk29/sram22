@@ -556,7 +556,7 @@ fn draw_hier_decode_node(
     let bbox = bbox.into_rect();
     let grid = Grid::builder()
         .center(Point::zero())
-        .line(cfg.line(1))
+        .line(290)
         .space(space)
         .grid(lib.pdk.grid())
         .build()?;
