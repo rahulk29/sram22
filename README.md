@@ -66,7 +66,7 @@ To generate an SRAM using this configuration, put the above text into a file cal
 
 ```
 cd sramgen_sram_32x32m2w8_replica_v1
-sramgen
+sramgen -o .
 ```
 
 Add additional flags depending on what views you want to generate and what verification you want to run.
