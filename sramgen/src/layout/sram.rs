@@ -469,9 +469,11 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
 
     let bbox = if let Some(ref mut col_decoder) = col_decoder {
         col_decoder.align_to_the_left_of(we_control_bbox, 1_270);
-        col_decoder.align_centers_vertically_gridded(we_control_bbox, lib.pdk.grid());
+        col_decoder.align_beneath(col_dec_bounds, 1_270);
         col_decoder.reflect_horiz_anchored();
-        col_decoder.bbox()
+        let bbox = col_decoder.bbox();
+        we_control.align_centers_vertically_gridded(bbox, lib.pdk.grid());
+        bbox
     } else {
         we_control_bbox
     };
