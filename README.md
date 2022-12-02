@@ -5,22 +5,31 @@
 Sram22 parametrically generates SRAM blocks. At the moment, we only support the SKY130 process.
 Sram22 is still a work in progress.
 
+### Installation
+
+To set up the CLI, run the following commands:
+
+```bash
+git clone https://github.com/rahulk29/sram22.git
+cd sram22
+cargo install --all-features
+```
+
 ### Usage
 
 ```
-sram22 0.1.0
+sramgen 0.1.0
 Rahul Kumar <rahulkumar@berkeley.edu>
 A configurable SRAM generator
 
-USAGE:
-    sram22 <CONFIG>
+Usage: sramgen [OPTIONS]
 
-ARGS:
-    <CONFIG>    Path to a TOML configuration file specifying memory options
-
-OPTIONS:
-    -h, --help       Print help information
-    -V, --version    Print version information
+Options:
+  -c, --config <CONFIG>          Path to TOML configuration file [default: sramgen.toml]
+  -o, --output-dir <OUTPUT_DIR>  Directory in which to write output files
+  -q, --quick                    Skip long running steps (DRC, LVS, LEF generation, etc.)
+  -h, --help                     Print help information
+  -V, --version                  Print version information
 ```
 
 ### Configuration
@@ -28,10 +37,11 @@ OPTIONS:
 Sram22 generates memory blocks based on a TOML configuration file. An example configuration, showing all the available options, is shown below:
 
 ```toml
-rows = 16
-cols = 16
-output_dir = "../_build/sram_16x16/"
-tech_dir = "../tech/sky130/magic"
+num_words=32
+data_width=32
+mux_ratio=2
+write_size=32
+control="Simple"
 ```
 
 ### Technology Setup

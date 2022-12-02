@@ -1,4 +1,4 @@
-use crate::cli::{StepContext, StepKey};
+use crate::cli::progress::{StepContext, StepKey};
 use crate::config::sram::{ControlMode, SramConfig, SramParams};
 use crate::layout::sram::draw_sram;
 use crate::paths::{out_bin, out_gds, out_sram, out_verilog};
@@ -72,6 +72,7 @@ pub fn generate_plan(
 pub fn execute_plan(
     work_dir: impl AsRef<Path>,
     plan: &SramPlan,
+    quick: bool,
     mut ctx: Option<&mut StepContext>,
 ) -> Result<()> {
     std::fs::create_dir_all(work_dir.as_ref())?;
@@ -109,14 +110,27 @@ pub fn execute_plan(
         ctx.finish(StepKey::GenerateVerilog);
     }
 
-    #[cfg(feature = "abstract_lef")]
-    {
-        let lef_path = crate::paths::out_lef(&work_dir, name);
-        crate::abs::run_sram_abstract(&work_dir, name, &lef_path, &gds_path, &verilog_path)?;
+    if !quick {
+        #[cfg(feature = "abstract_lef")]
+        {
+            let lef_path = crate::paths::out_lef(&work_dir, name);
+            crate::abs::run_sram_abstract(&work_dir, name, &lef_path, &gds_path, &verilog_path)?;
 
-        if let Some(ctx) = ctx {
-            ctx.finish(StepKey::GenerateLef);
+            if let Some(ctx) = ctx {
+                ctx.finish(StepKey::GenerateLef);
+            }
         }
+
+        #[cfg(feature = "calibre")]
+        {
+            crate::verification::calibre::run_sram_drc(&work_dir, name)?;
+            crate::verification::calibre::run_sram_lvs(&work_dir, name)?;
+            #[cfg(feature = "pex")]
+            crate::verification::calibre::run_sram_pex(&work_dir, name)?;
+        }
+
+        #[cfg(feature = "spectre")]
+        crate::verification::spectre::run_sram_spectre(&plan.sram_params, &work_dir, name)?;
     }
 
     Ok(())
