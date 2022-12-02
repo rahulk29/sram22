@@ -46,21 +46,9 @@ module {{module_name}}(
     end
   end
 
-  // Update registers
   always @(posedge clk)
   begin
-    we_reg <= we;
-    wmask_reg <= wmask;
-    addr_reg <= addr;
-    din_reg <= din;
-
-    // Output is precharged to VDD for first half clock cycle
-    dout <= {DATA_WIDTH{1'b1}};
-  end
-
-  // Write
-  always @ (negedge clk)
-  begin : MEM_WRITE
+    // Write
     if (we_reg) begin
       {% for i in range(end=wmask_width) %}
         {% set lower = i * bits_per_mask %}
@@ -73,14 +61,17 @@ module {{module_name}}(
       // Output is arbitrary when writing to SRAM
       dout <= {DATA_WIDTH{1'bx}};
     end
-  end
 
-  // Read
-  always @ (negedge clk)
-  begin : MEM_READ
+    // Read
     if (!we_reg) begin
       dout <= mem[addr_reg];
     end
+
+    // Update registers
+    we_reg <= we;
+    wmask_reg <= wmask;
+    addr_reg <= addr;
+    din_reg <= din;
   end
 
 endmodule
