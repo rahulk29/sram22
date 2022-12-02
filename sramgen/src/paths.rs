@@ -29,3 +29,7 @@ pub fn out_verilog(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
 pub fn out_lef(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
     PathBuf::from(work_dir.as_ref()).join(format!("{}.lef", name))
 }
+
+pub fn out_pex(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
+    PathBuf::from(work_dir.as_ref()).join(format!("{}.pex.netlist", name))
+}
