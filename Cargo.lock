@@ -5,7 +5,7 @@ version = 3
 [[package]]
 name = "abstract_lef"
 version = "0.1.0"
-source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/abstract_lef.git?branch=master#fd478e1cd36345a4865ed8323ae1c77ffa532489"
+source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/abstract_lef.git?branch=master#3794c67d5eca5cd58608254a30773eab3f9f875d"
 dependencies = [
  "derive_builder 0.11.2",
  "lazy_static",
