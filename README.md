@@ -58,8 +58,22 @@ num_words = 32
 data_width = 32
 mux_ratio = 2
 write_size = 32
-control= "ReplicaV1"
+control = "ReplicaV1"
 ```
+
+To generate an SRAM using this configuration, put the above text into a file called
+`sramgen_sram_32x32m2w8_replica_v1/sramgen.toml`, then run:
+
+```
+cd sramgen_sram_32x32m2w8_replica_v1
+sramgen
+```
+
+Add additional flags depending on what views you want to generate and what verification you want to run.
+If you do not have access to BWRC servers, most flags will not be available.
+
+If you have access to proprietary tools (eg. Calibre, Spectre, etc.) and would like access
+to the Sram22 plugins for those tools, please contact us. Contact information is in `sramgen/Cargo.toml`.
 
 ### Technology Setup
 
