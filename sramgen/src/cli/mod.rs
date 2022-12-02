@@ -40,11 +40,13 @@ pub fn run() -> Result<()> {
 
     let name = &out_sram(&config);
 
-    let work_dir = canonicalize(if let Some(output_dir) = args.output_dir {
+    let work_dir = if let Some(output_dir) = args.output_dir {
         output_dir
     } else {
         PathBuf::from(name)
-    })?;
+    };
+    std::fs::create_dir_all(&work_dir)?;
+    let work_dir = canonicalize(work_dir)?;
 
     println!("Configuration file: {:?}", &config_path);
     println!("Output directory: {:?}\n", &work_dir);
