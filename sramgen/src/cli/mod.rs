@@ -43,6 +43,8 @@ pub enum StepKey {
     RunLvs,
     #[cfg(all(feature = "calibre", feature = "pex"))]
     RunPex,
+    #[cfg(feature = "liberate_mx")]
+    GenerateLib,
     #[cfg(feature = "spectre")]
     RunSpectre,
 }
@@ -219,6 +221,13 @@ pub fn run() -> Result<()> {
             progress_bar: ProgressBar::new_spinner(),
             disabled: false,
         },
+        #[cfg(feature = "liberate_mx")]
+        Step {
+            desc: "Generate LIB".to_string(),
+            key: StepKey::RunPex,
+            progress_bar: ProgressBar::new_spinner(),
+            disabled: false,
+        },
         #[cfg(feature = "calibre")]
         Step {
             desc: "Run DRC".to_string(),
@@ -299,11 +308,11 @@ pub fn run() -> Result<()> {
             crate::verification::calibre::run_sram_drc(&work_dir, name)?;
         }
         if args.lvs || args.all_tests {
-            crate::verification::calibre::run_sram_lvs(&work_dir, name)?;
+            crate::verification::calibre::run_sram_lvs(&work_dir, name, config.control)?;
         }
         #[cfg(feature = "pex")]
         if args.pex || args.all_tests {
-            crate::verification::calibre::run_sram_pex(&work_dir, name)?;
+            crate::verification::calibre::run_sram_pex(&work_dir, name, config.control)?;
         }
     }
 

@@ -1,5 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use std::fs;
 use std::path::Path;
 
@@ -15,8 +16,16 @@ pub struct SramConfig {
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Serialize, Deserialize)]
 pub enum ControlMode {
     Simple,
-    SimpleChipSelect,
-    Replica,
+    ReplicaV1,
+}
+
+impl Display for ControlMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::Simple => write!(f, "simple"),
+            Self::ReplicaV1 => write!(f, "replica_v1"),
+        }
+    }
 }
 
 #[derive(Debug)]

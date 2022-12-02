@@ -23,7 +23,6 @@ pub mod latch;
 pub mod mos;
 pub mod mux;
 pub mod precharge;
-pub mod rbl;
 pub mod sense_amp;
 pub mod sram;
 pub mod wl_driver;

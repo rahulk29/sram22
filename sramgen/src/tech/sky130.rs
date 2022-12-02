@@ -16,9 +16,11 @@ use crate::schematic::{simple_ext_module, NETLIST_FORMAT};
 pub const SKY130_DOMAIN: &str = "sky130";
 pub const SRAM_SP_CELL: &str = "sram_sp_cell";
 pub const SRAM_SP_COLEND: &str = "sky130_fd_bd_sram__sram_sp_colend";
-pub const SRAM_SP_REPLICA_CELL: &str = "sram_sp_replica_cell";
+pub const SRAM_SP_CELL_REPLICA: &str = "sram_sp_cell_replica";
 pub const OPENRAM_DFF: &str = "openram_dff";
-pub const SRAM_CONTROL: &str = "sramgen_control";
+pub const SRAM_CONTROL_SIMPLE: &str = "sramgen_control_simple";
+pub const SRAM_CONTROL_REPLICA_V1: &str = "sramgen_control_replica_v1";
+pub const SRAM_CONTROL_BUFBUF_16: &str = "control_logic_bufbuf_16";
 pub const SRAM_SP_SENSE_AMP: &str = "sramgen_sp_sense_amp";
 pub const CONTROL_LOGIC_INV: &str = "control_logic_inv";
 
@@ -47,11 +49,11 @@ pub fn sram_sp_colend() -> ExternalModule {
 }
 
 #[inline]
-pub fn sram_sp_replica_cell() -> ExternalModule {
+pub fn sram_sp_cell_replica() -> ExternalModule {
     simple_ext_module(
         SKY130_DOMAIN,
-        SRAM_SP_REPLICA_CELL,
-        &["BL", "BR", "VGND", "VPWR", "VPB", "VNB", "WL"],
+        SRAM_SP_CELL_REPLICA,
+        &["BL", "BR", "VSS", "VDD", "VPB", "VNB", "WL"],
     )
 }
 
@@ -137,18 +139,26 @@ pub fn openram_dff_gds(lib: &mut PdkLib) -> CellGdsResult {
 pub fn sramgen_sp_sense_amp_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(lib, "sramgen_sp_sense_amp.gds", "sramgen_sp_sense_amp")
 }
-
+pub fn sc_or2_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(lib, "sc_or2_2.gds", "sky130_fd_sc_hs__or2_2")
+}
 pub fn sc_and2_gds(lib: &mut PdkLib) -> CellGdsResult {
-    cell_gds(lib, "sc_and2_2.gds", "sky130_fd_sc_lp__and2_2")
+    cell_gds(lib, "sc_and2_2.gds", "sky130_fd_sc_hs__and2_2")
 }
 pub fn sc_buf_gds(lib: &mut PdkLib) -> CellGdsResult {
-    cell_gds(lib, "sc_buf_2.gds", "sky130_fd_sc_lp__buf_2")
+    cell_gds(lib, "sc_buf_2.gds", "sky130_fd_sc_hs__buf_2")
 }
 pub fn sc_inv_gds(lib: &mut PdkLib) -> CellGdsResult {
-    cell_gds(lib, "sc_inv_2.gds", "sky130_fd_sc_lp__inv_2")
+    cell_gds(lib, "sc_inv_2.gds", "sky130_fd_sc_hs__inv_2")
 }
 pub fn sc_tap_gds(lib: &mut PdkLib) -> CellGdsResult {
-    cell_gds(lib, "sc_tap_2.gds", "sky130_fd_sc_lp__tap_2")
+    cell_gds(lib, "sc_tap_2.gds", "sky130_fd_sc_hs__tap_2")
+}
+pub fn sc_bufbuf_16_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(lib, "sc_bufbuf_16.gds", "sky130_fd_sc_hs__bufbuf_16")
+}
+pub fn sc_nor2_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(lib, "sc_nor2_2.gds", "sky130_fd_sc_hs__nor2_2")
 }
 
 #[inline]
@@ -157,6 +167,15 @@ pub fn sram_sp_cell_gds(lib: &mut PdkLib) -> CellGdsResult {
         lib,
         "sram_sp_cell.gds",
         "sky130_fd_bd_sram__sram_sp_cell_opt1",
+    )
+}
+
+#[inline]
+pub fn sram_sp_cell_replica_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_cell_replica.gds",
+        "sky130_fd_bd_sram__openram_sp_cell_opt1_replica",
     )
 }
 
@@ -206,6 +225,15 @@ pub fn rowend_gds(lib: &mut PdkLib) -> CellGdsResult {
 }
 
 #[inline]
+pub fn rowend_replica_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_rowend_replica.gds",
+        "sky130_fd_bd_sram__openram_sp_rowend_replica",
+    )
+}
+
+#[inline]
 pub fn wlstrap_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
         lib,
@@ -229,6 +257,15 @@ pub fn sram_sp_cell_opt1a_gds(lib: &mut PdkLib) -> CellGdsResult {
         lib,
         "sram_sp_cell_opt1a.gds",
         "sky130_fd_bd_sram__sram_sp_cell_opt1a",
+    )
+}
+
+#[inline]
+pub fn sram_sp_cell_opt1a_replica_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_cell_opt1a_replica.gds",
+        "sky130_fd_bd_sram__openram_sp_cell_opt1a_replica",
     )
 }
 
@@ -278,6 +315,15 @@ pub fn rowenda_gds(lib: &mut PdkLib) -> CellGdsResult {
 }
 
 #[inline]
+pub fn rowenda_replica_gds(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_rowenda_replica.gds",
+        "sky130_fd_bd_sram__openram_sp_rowenda_replica",
+    )
+}
+
+#[inline]
 pub fn wlstrapa_gds(lib: &mut PdkLib) -> CellGdsResult {
     cell_gds(
         lib,
@@ -316,11 +362,11 @@ pub fn sram_sp_colend_ref() -> Reference {
 }
 
 #[inline]
-pub fn sram_sp_replica_cell_ref() -> Reference {
+pub fn sram_sp_cell_replica_ref() -> Reference {
     Reference {
         to: Some(To::External(QualifiedName {
             domain: SKY130_DOMAIN.to_string(),
-            name: SRAM_SP_REPLICA_CELL.to_string(),
+            name: SRAM_SP_CELL_REPLICA.to_string(),
         })),
     }
 }
@@ -335,16 +381,21 @@ pub fn openram_dff_ref() -> Reference {
     }
 }
 
+/// Very simple replica timing control logic.
+///
+/// The SPICE subcircuit definition looks like this:
+/// ```spice
+/// .subckt sramgen_control clk we pc_b wl_en write_driver_en sense_en vdd vss
+/// ```
 #[inline]
-pub fn sramgen_control() -> ExternalModule {
+pub fn sramgen_control_replica_v1() -> ExternalModule {
     simple_ext_module(
         SKY130_DOMAIN,
-        SRAM_CONTROL,
+        SRAM_CONTROL_REPLICA_V1,
         &[
             "clk",
-            "cs",
             "we",
-            "pc",
+            "rbl",
             "pc_b",
             "wl_en",
             "write_driver_en",
@@ -356,11 +407,31 @@ pub fn sramgen_control() -> ExternalModule {
 }
 
 #[inline]
-pub fn sramgen_control_ref() -> Reference {
+pub fn sramgen_control_simple_ref() -> Reference {
     Reference {
         to: Some(To::External(QualifiedName {
             domain: SKY130_DOMAIN.to_string(),
-            name: SRAM_CONTROL.to_string(),
+            name: SRAM_CONTROL_SIMPLE.to_string(),
+        })),
+    }
+}
+
+#[inline]
+pub fn sramgen_control_replica_v1_ref() -> Reference {
+    Reference {
+        to: Some(To::External(QualifiedName {
+            domain: SKY130_DOMAIN.to_string(),
+            name: SRAM_CONTROL_REPLICA_V1.to_string(),
+        })),
+    }
+}
+
+#[inline]
+pub fn sramgen_control_bufbuf_16() -> Reference {
+    Reference {
+        to: Some(To::External(QualifiedName {
+            domain: SKY130_DOMAIN.to_string(),
+            name: SRAM_CONTROL_BUFBUF_16.to_string(),
         })),
     }
 }
@@ -401,6 +472,21 @@ pub fn control_logic_inv() -> ExternalModule {
     )
 }
 
+/// Reference to the high-speed buffer used for control logic. used for the
+///
+/// The SPICE subcircuit definition looks like this:
+/// ```spice
+/// .SUBCKT control_logic_bufbuf_16 A X VPWR VGND
+/// ```
+#[inline]
+pub fn control_logic_bufbuf_16() -> ExternalModule {
+    simple_ext_module(
+        SKY130_DOMAIN,
+        SRAM_CONTROL_BUFBUF_16,
+        &["a", "x", "vdd", "vss"],
+    )
+}
+
 /// Reference to the simplest control logic available.
 ///
 /// The SPICE subcircuit definition looks like this:
@@ -411,7 +497,7 @@ pub fn control_logic_inv() -> ExternalModule {
 pub fn sramgen_control_simple() -> ExternalModule {
     simple_ext_module(
         SKY130_DOMAIN,
-        SRAM_CONTROL,
+        SRAM_CONTROL_SIMPLE,
         &[
             "clk",
             "we",
@@ -446,16 +532,28 @@ pub fn control_logic_inv_ref() -> Reference {
 }
 
 #[inline]
+pub fn control_logic_bufbuf_16_ref() -> Reference {
+    Reference {
+        to: Some(To::External(QualifiedName {
+            domain: SKY130_DOMAIN.to_string(),
+            name: SRAM_CONTROL_BUFBUF_16.to_string(),
+        })),
+    }
+}
+
+#[inline]
 pub fn all_external_modules() -> Vec<ExternalModule> {
     vec![
         ext_nmos(NETLIST_FORMAT),
         ext_pmos(NETLIST_FORMAT),
         sram_sp_cell(),
         sram_sp_colend(),
-        sram_sp_replica_cell(),
+        sram_sp_cell_replica(),
         sramgen_control_simple(),
+        sramgen_control_replica_v1(),
         sramgen_sp_sense_amp(),
         control_logic_inv(),
+        control_logic_bufbuf_16(),
         openram_dff(),
     ]
 }
@@ -496,6 +594,7 @@ mod tests {
         let mut lib = sky130::pdk_lib("test_standard_cells")?;
         sc_inv_gds(&mut lib)?;
         sc_and2_gds(&mut lib)?;
+        sc_or2_gds(&mut lib)?;
         sc_buf_gds(&mut lib)?;
         sc_tap_gds(&mut lib)?;
         Ok(())

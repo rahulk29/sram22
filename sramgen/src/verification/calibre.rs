@@ -46,7 +46,11 @@ pub fn run_sram_drc(work_dir: impl AsRef<Path>, name: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn run_sram_lvs(work_dir: impl AsRef<Path>, name: &str) -> Result<()> {
+pub fn run_sram_lvs(
+    work_dir: impl AsRef<Path>,
+    name: &str,
+    control_mode: crate::config::sram::ControlMode,
+) -> Result<()> {
     let lvs_work_dir = PathBuf::from(work_dir.as_ref()).join("lvs");
 
     let layout_path = out_gds(&work_dir, name);
@@ -55,7 +59,7 @@ pub fn run_sram_lvs(work_dir: impl AsRef<Path>, name: &str) -> Result<()> {
         work_dir: lvs_work_dir,
         layout_path,
         layout_cell_name: name.to_string(),
-        source_paths: source_files(&work_dir, name, VerificationTask::Lvs),
+        source_paths: source_files(&work_dir, name, VerificationTask::Lvs, control_mode),
         source_cell_name: name.to_string(),
         lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
     })?
@@ -69,7 +73,11 @@ pub fn run_sram_lvs(work_dir: impl AsRef<Path>, name: &str) -> Result<()> {
 }
 
 #[cfg(feature = "pex")]
-pub fn run_sram_pex(work_dir: impl AsRef<Path>, name: &str) -> Result<()> {
+pub fn run_sram_pex(
+    work_dir: impl AsRef<Path>,
+    name: &str,
+    control_mode: crate::config::sram::ControlMode,
+) -> Result<()> {
     let pex_work_dir = PathBuf::from(work_dir.as_ref()).join("pex");
 
     let layout_path = out_gds(&work_dir, name);
@@ -78,7 +86,7 @@ pub fn run_sram_pex(work_dir: impl AsRef<Path>, name: &str) -> Result<()> {
         work_dir: pex_work_dir,
         layout_path,
         layout_cell_name: name.to_string(),
-        source_paths: source_files(&work_dir, name, VerificationTask::Pex),
+        source_paths: source_files(&work_dir, name, VerificationTask::Pex, control_mode),
         source_cell_name: name.to_string(),
         pex_rules_path: PathBuf::from(SKY130_PEX_RULES_PATH),
     })?

@@ -556,7 +556,7 @@ fn draw_hier_decode_node(
     let bbox = bbox.into_rect();
     let grid = Grid::builder()
         .center(Point::zero())
-        .line(cfg.line(1))
+        .line(290)
         .space(space)
         .grid(lib.pdk.grid())
         .build()?;
@@ -593,8 +593,8 @@ fn draw_hier_decode_node(
 
         for i in 0..node.num {
             let conns = match bus_width {
-                4 => vec![("a", i % 2), ("b", 2 + (i / 2))],
-                6 => vec![("a", i % 2), ("b", 2 + ((i / 2) % 2)), ("c", 4 + i / 4)],
+                4 => vec![("a", i / 2), ("b", 2 + (i % 2))],
+                6 => vec![("a", i / 4), ("b", 2 + ((i / 2) % 2)), ("c", 4 + i % 2)],
                 _ => unreachable!("bus width must be 4 or 6"),
             };
             for (port, idx) in conns {
@@ -609,9 +609,9 @@ fn draw_hier_decode_node(
         }
 
         // place ports
-        for (i, trace) in traces.iter().enumerate().take(bus_width) {
-            let addr_bit = i / 2;
-            let addr_bar = if i % 2 == 0 { "" } else { "_b" };
+        for (i, trace) in traces.iter().enumerate().take(bus_width).rev() {
+            let addr_bit = (bus_width - i - 1) / 2;
+            let addr_bar = if i % 2 == 0 { "_b" } else { "" };
             cell.add_pin(
                 bus_bit(&format!("addr{}", addr_bar), addr_bit),
                 m1,
@@ -643,7 +643,7 @@ fn draw_hier_decode_node(
     let mut addr_idx = 0;
     let mut addr_b_idx = 0;
 
-    for decoder in decoder_insts.iter() {
+    for decoder in decoder_insts.iter().rev() {
         for mut port in decoder.ports().into_iter() {
             if port.net.starts_with("addr_b") {
                 port.set_net(bus_bit("addr_b", addr_b_idx));

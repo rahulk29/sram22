@@ -42,34 +42,29 @@ module {{module_name}}(
     end
   end
 
-  // Update registers
   always @(posedge clk)
   begin
-    we_reg <= we;
-    addr_reg <= addr;
-    din_reg <= din;
-
-    // Output is precharged to VDD for first half clock cycle
-    dout <= {DATA_WIDTH{1'b1}};
-  end
-
-  // Write
-  always @ (negedge clk)
-  begin : MEM_WRITE
+    // Write
     if (we_reg) begin
         mem[addr_reg] <= din_reg;
-
         // Output is arbitrary when writing to SRAM
         dout <= {DATA_WIDTH{1'bx}};
     end
+
+    // Read
+    if (!we_reg) begin
+       dout <= mem[addr_reg];
+     end
+
+    // Update registers
+    we_reg <= we;
+    addr_reg <= addr;
+    din_reg <= din;
   end
 
   // Read
   always @ (negedge clk)
   begin : MEM_READ
-    if (!we_reg) begin
-       dout <= mem[addr_reg];
-     end
   end
 
 endmodule

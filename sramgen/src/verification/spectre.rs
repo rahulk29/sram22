@@ -94,24 +94,54 @@ pub fn run_sram_spectre(params: &SramParams, work_dir: impl AsRef<Path>, name: &
     let addr1 = BitSignal::zeros(addr_width);
     let addr2 = BitSignal::ones(addr_width);
 
-    let test_case = TestCase::builder()
-        .clk_period(20e-9)
-        .ops([
-            verification::Op::Write {
-                addr: addr1.clone(),
-                data: BitSignal::from_u64(bit_pattern1, data_width),
-            },
-            verification::Op::Write {
-                addr: addr2.clone(),
-                data: BitSignal::from_u64(bit_pattern2, data_width),
-            },
-            verification::Op::Read {
-                addr: addr1.clone(),
-            },
-            verification::Op::Read { addr: addr2 },
-            verification::Op::Read { addr: addr1 },
-        ])
-        .build()?;
+    let mut ops = vec![
+        verification::Op::Write {
+            addr: addr1.clone(),
+            data: BitSignal::from_u64(bit_pattern1, data_width),
+        },
+        verification::Op::Write {
+            addr: addr2.clone(),
+            data: BitSignal::from_u64(bit_pattern2, data_width),
+        },
+        verification::Op::Read {
+            addr: addr1.clone(),
+        },
+        verification::Op::Read { addr: addr2 },
+        verification::Op::Read { addr: addr1 },
+    ];
+
+    if true {
+        for i in 0..16 {
+            let bits = (i % 2) * bit_pattern2 + (1 - (i % 2)) * bit_pattern1 + i + 1;
+            ops.push(verification::Op::Write {
+                addr: BitSignal::from_u64(i, addr_width),
+                data: BitSignal::from_u64(bits, data_width),
+            });
+        }
+        for i in 0..16 {
+            ops.push(verification::Op::Read {
+                addr: BitSignal::from_u64(i, addr_width),
+            });
+        }
+
+        if wmask_width > 1 {
+            for i in 0..16 {
+                let bits = (1 - (i % 2)) * bit_pattern2 + (i % 2) * bit_pattern1 + i + 1;
+                ops.push(verification::Op::WriteMasked {
+                    addr: BitSignal::from_u64(i, addr_width),
+                    data: BitSignal::from_u64(bits, data_width),
+                    mask: BitSignal::from_u64(bit_pattern1, wmask_width),
+                });
+            }
+            for i in 0..16 {
+                ops.push(verification::Op::Read {
+                    addr: BitSignal::from_u64(i, addr_width),
+                });
+            }
+        }
+    }
+
+    let test_case = TestCase::builder().clk_period(20e-9).ops(ops).build()?;
 
     let mut ports = vec![
         (PortClass::Power, PortOrder::MsbFirst),
@@ -145,7 +175,12 @@ pub fn run_sram_spectre(params: &SramParams, work_dir: impl AsRef<Path>, name: &
         .gnd_port("vss")
         .wmask_port("wmask")
         .work_dir(std::path::PathBuf::from(work_dir.as_ref()).join("sim"))
-        .source_paths(source_files(&work_dir, name, VerificationTask::SpectreSim));
+        .source_paths(source_files(
+            &work_dir,
+            name,
+            VerificationTask::SpectreSim,
+            params.control,
+        ));
 
     tb.includes(crate::verification::spectre::sky130_includes());
 

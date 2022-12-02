@@ -60,7 +60,7 @@ pub fn draw_sense_amp_array(lib: &mut PdkLib, params: &SenseAmpArrayParams) -> R
     );
     for prefix in ["inp", "inn", "outp", "outn"] {
         for port in inst.ports_starting_with(prefix) {
-            cell.abs_mut().add_port(port);
+            cell.add_pin_from_port(port, lib.pdk.metal(2));
         }
     }
 

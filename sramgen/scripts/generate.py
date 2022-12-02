@@ -45,6 +45,11 @@ M0 d g s b ppu l='l' w='w' mult='mult'
 .PARAM w=1.0 l=1.0 mult=1
 M0 d g s b phighvt l='l' w='w' mult='mult'
 .ENDS
+
+.SUBCKT sky130_fd_pr__nfet_01v8_lvt d g s b
+.PARAM w=1.0 l=1.0 mult=1
+M0 d g s b nlowvt l='l' w='w' mult='mult'
+.ENDS
 """
 
 PROPRIETARY_PRELUDE_SPICE = """*SPICE NETLIST
@@ -72,6 +77,10 @@ M0 d g s b ppu l='l' w='w' mult='mult'
 
 .SUBCKT sky130_fd_pr__pfet_01v8_hvt d g s b PARAMS: w=1.0 l=1.0 mult=1
 M0 d g s b phighvt l='l' w='w' mult='mult'
+.ENDS
+
+.SUBCKT sky130_fd_pr__nfet_01v8_lvt d g s b PARAMS: w=1.0 l=1.0 mult=1
+M0 d g s b nlowvt l='l' w='w' mult='mult'
 .ENDS
 """
 
