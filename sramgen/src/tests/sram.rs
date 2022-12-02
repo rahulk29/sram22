@@ -80,3 +80,6 @@ generate_sram_test!(256, 32, 2, 8, ControlMode::ReplicaV1);
 generate_sram_test!(256, 32, 4, 8, ControlMode::ReplicaV1);
 generate_sram_test!(256, 32, 8, 8, ControlMode::ReplicaV1);
 generate_sram_test!(256, 32, 4, 32, ControlMode::ReplicaV1);
+
+// 16 kbyte
+generate_sram_test!(4096, 32, 8, 8, ControlMode::ReplicaV1);
