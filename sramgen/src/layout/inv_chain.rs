@@ -1,4 +1,4 @@
-use layout21::raw::{AbstractPort, BoundBox, BoundBoxTrait, Cell, Instance, Point, Shape};
+use layout21::raw::{AbstractPort, BoundBox, BoundBoxTrait, Cell, Instance, Point, Rect, Shape};
 use layout21::utils::Ptr;
 use pdkprims::PdkLib;
 
@@ -53,6 +53,16 @@ pub fn draw_inv_chain(lib: &mut PdkLib, params: &InvChainParams) -> Result<Ptr<C
         prev = Some(inv);
     }
 
+    let outline = Rect::new(
+        Point::new(0, 0),
+        Point::new(
+            2 * tap_outline.width() + params.num as isize * inv_outline.width(),
+            tap_outline.height(),
+        ),
+    );
+    let outline_layer = lib.pdk.get_layerkey("outline").unwrap();
+    cell.layout_mut().draw_rect(outline_layer, outline);
+
     let mut tap1 = Instance::new("tap1", tap);
     tap1.loc.x = x;
 
@@ -65,7 +75,7 @@ pub fn draw_inv_chain(lib: &mut PdkLib, params: &InvChainParams) -> Result<Ptr<C
         .port_name("vgnd")
         .build()?
         .rect();
-    cell.add_pin("vss", m1, rect);
+    cell.add_pin("vgnd", m1, rect);
 
     let rect = MergeArgs::builder()
         .layer(m1)
@@ -73,7 +83,7 @@ pub fn draw_inv_chain(lib: &mut PdkLib, params: &InvChainParams) -> Result<Ptr<C
         .port_name("vpwr")
         .build()?
         .rect();
-    cell.add_pin("vdd", m1, rect);
+    cell.add_pin("vpwr", m1, rect);
 
     cell.layout_mut().add_inst(router.finish());
 
@@ -186,7 +196,7 @@ pub fn draw_inv_chain_grid(lib: &mut PdkLib, params: &InvChainGridParams) -> Res
                 .port_name("vgnd")
                 .build()?
                 .rect();
-            cell.add_pin(bus_bit("vss", j / 2), m1, rect);
+            cell.add_pin(bus_bit("vgnd", j / 2), m1, rect);
         } else {
             let rect = MergeArgs::builder()
                 .layer(m1)
@@ -194,15 +204,15 @@ pub fn draw_inv_chain_grid(lib: &mut PdkLib, params: &InvChainGridParams) -> Res
                 .port_name("vpwr")
                 .build()?
                 .rect();
-            cell.add_pin(bus_bit("vdd", j / 2), m1, rect);
+            cell.add_pin(bus_bit("vpwr", j / 2), m1, rect);
         }
 
         // Special case: need to handle the final power rail
         if j == rows - 1 {
             let (iport, xport) = if j % 2 != 0 {
-                ("vpwr", "vdd")
+                ("vpwr", "vpwr")
             } else {
-                ("vgnd", "vss")
+                ("vgnd", "vgnd")
             };
 
             let rect = MergeArgs::builder()

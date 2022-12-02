@@ -11,19 +11,21 @@ module {{module_name}}(
     clk,we,addr,din,dout
   );
 
+  // These parameters should NOT be set to
+  // anything other than their defaults.
   parameter DATA_WIDTH = {{data_width}} ;
   parameter ADDR_WIDTH = {{addr_width}} ;
   parameter RAM_DEPTH = 1 << ADDR_WIDTH;
 
 `ifdef USE_POWER_PINS
-    inout vdd;
-    inout vss;
+    inout vdd; // power
+    inout vss; // ground
 `endif
   input  clk; // clock
   input  we; // write enable
-  input [ADDR_WIDTH-1:0]  addr;
-  input [DATA_WIDTH-1:0]  din;
-  output reg [DATA_WIDTH-1:0] dout;
+  input [ADDR_WIDTH-1:0]  addr; // address
+  input [DATA_WIDTH-1:0]  din; // data in
+  output reg [DATA_WIDTH-1:0] dout; // data out
 
   reg  we_reg;
   reg [ADDR_WIDTH-1:0]  addr_reg;
@@ -42,34 +44,24 @@ module {{module_name}}(
     end
   end
 
-  // Update registers
   always @(posedge clk)
   begin
-    we_reg <= we;
-    addr_reg <= addr;
-    din_reg <= din;
-
-    // Output is precharged to VDD for first half clock cycle
-    dout <= {DATA_WIDTH{1'b1}};
-  end
-
-  // Write
-  always @ (negedge clk)
-  begin : MEM_WRITE
+    // Write
     if (we_reg) begin
         mem[addr_reg] <= din_reg;
-
         // Output is arbitrary when writing to SRAM
         dout <= {DATA_WIDTH{1'bx}};
     end
-  end
 
-  // Read
-  always @ (negedge clk)
-  begin : MEM_READ
+    // Read
     if (!we_reg) begin
        dout <= mem[addr_reg];
      end
+
+    // Update registers
+    we_reg <= we;
+    addr_reg <= addr;
+    din_reg <= din;
   end
 
 endmodule

@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fmt::Display;
 use std::time::Duration;
 
@@ -5,25 +6,9 @@ use anyhow::Error;
 use colored::Colorize;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
+use crate::cli::args::Args;
+use crate::plan::TaskKey;
 use crate::Result;
-
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub enum StepKey {
-    GeneratePlan,
-    GenerateNetlist,
-    GenerateLayout,
-    GenerateVerilog,
-    #[cfg(feature = "abstract_lef")]
-    GenerateLef,
-    #[cfg(feature = "calibre")]
-    RunDrc,
-    #[cfg(feature = "calibre")]
-    RunLvs,
-    #[cfg(all(feature = "calibre", feature = "pex"))]
-    RunPex,
-    #[cfg(feature = "spectre")]
-    RunSpectre,
-}
 
 #[derive(PartialEq, Eq)]
 pub enum StepStatus {
@@ -42,74 +27,81 @@ pub struct StepContext {
 
 pub struct Step {
     desc: String,
-    key: StepKey,
+    key: TaskKey,
     progress_bar: ProgressBar,
     disabled: bool,
 }
 
 impl StepContext {
-    pub fn new(quick: bool) -> Self {
+    pub fn new(tasks: &HashSet<TaskKey>) -> Self {
         println!("Tasks:");
 
         let mut steps = vec![
             Step {
                 desc: "Generate plan".to_string(),
-                key: StepKey::GeneratePlan,
+                key: TaskKey::GeneratePlan,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
             },
             Step {
                 desc: "Generate netlist".to_string(),
-                key: StepKey::GenerateNetlist,
+                key: TaskKey::GenerateNetlist,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
             },
             Step {
                 desc: "Generate layout".to_string(),
-                key: StepKey::GenerateLayout,
+                key: TaskKey::GenerateLayout,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
             },
             Step {
                 desc: "Generate Verilog".to_string(),
-                key: StepKey::GenerateVerilog,
+                key: TaskKey::GenerateVerilog,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
             },
             #[cfg(feature = "abstract_lef")]
             Step {
                 desc: "Generate LEF".to_string(),
-                key: StepKey::GenerateLef,
+                key: TaskKey::GenerateLef,
                 progress_bar: ProgressBar::new_spinner(),
-                disabled: quick,
+                disabled: !tasks.contains(&TaskKey::GenerateLef) && !tasks.contains(&TaskKey::All),
+            },
+            #[cfg(feature = "liberate_mx")]
+            Step {
+                desc: "Generate LIB".to_string(),
+                key: TaskKey::RunPex,
+                progress_bar: ProgressBar::new_spinner(),
+                disabled: !tasks.contains(&TaskKey::GenerateLib) && !tasks.contains(&TaskKey::All),
             },
             #[cfg(feature = "calibre")]
             Step {
                 desc: "Run DRC".to_string(),
-                key: StepKey::RunDrc,
+                key: TaskKey::RunDrc,
                 progress_bar: ProgressBar::new_spinner(),
-                disabled: quick,
+                disabled: !tasks.contains(&TaskKey::RunDrc) && !tasks.contains(&TaskKey::All),
             },
             #[cfg(feature = "calibre")]
             Step {
                 desc: "Run LVS".to_string(),
-                key: StepKey::RunLvs,
+                key: TaskKey::RunLvs,
                 progress_bar: ProgressBar::new_spinner(),
-                disabled: quick,
+                disabled: !tasks.contains(&TaskKey::RunLvs) && !tasks.contains(&TaskKey::All),
             },
             #[cfg(all(feature = "calibre", feature = "pex"))]
             Step {
                 desc: "Run PEX".to_string(),
-                key: StepKey::RunPex,
+                key: TaskKey::RunPex,
                 progress_bar: ProgressBar::new_spinner(),
-                disabled: quick,
+                disabled: !tasks.contains(&TaskKey::RunPex) && !tasks.contains(&TaskKey::All),
             },
             #[cfg(feature = "spectre")]
             Step {
                 desc: "Run Spectre".to_string(),
-                key: StepKey::RunPex,
+                key: TaskKey::RunPex,
                 progress_bar: ProgressBar::new_spinner(),
-                disabled: quick,
+                disabled: !tasks.contains(&TaskKey::RunSpectre) && !tasks.contains(&TaskKey::All),
             },
         ];
         let mp = MultiProgress::new();
@@ -177,7 +169,7 @@ impl StepContext {
         self.check(Err(e))
     }
 
-    pub fn finish(&mut self, key: StepKey) {
+    pub fn finish(&mut self, key: TaskKey) {
         if let Some(current_step) = self.current_step() {
             if current_step.key != key {
                 panic!("A step was completed out of order");

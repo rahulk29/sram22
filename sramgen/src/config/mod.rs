@@ -7,7 +7,6 @@ pub mod gate;
 pub mod inv_chain;
 pub mod mux;
 pub mod precharge;
-pub mod rbl;
 pub mod sense_amp;
 pub mod sram;
 pub mod tmc;

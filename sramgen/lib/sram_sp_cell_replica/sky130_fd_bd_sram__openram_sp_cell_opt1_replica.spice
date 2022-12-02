@@ -1,0 +1,12 @@
+* NGSPICE file created from sky130_fd_bd_sram__openram_sp_cell_opt1_replica.ext - technology: sky130A
+
+.subckt sram_sp_cell_replica BL BR VSS VDD VPB VNB WL
+X0 VDD WL BR VNB sky130_fd_pr__special_nfet_pass ad=0.04375 pd=920000u as=0.0168 ps=520000u w=140000u l=150000u
+X1 Q VDD VSS VNB sky130_fd_pr__special_nfet_latch ad=0.156 pd=2.38 as=0.0808 ps=1.28 w=210000u l=150000u
+X2 BL WL Q VNB sky130_fd_pr__special_nfet_pass ad=0.0168 pd=520000u as=0.0425 ps=920000u w=140000u l=150000u
+*X3 Q WL Q VPB sky130_fd_pr__special_pfet_pass ad=0.035 pd=780000u as=0p ps=0u w=70000u l=95000u
+*X4 VDD WL VDD VPB sky130_fd_pr__special_pfet_pass ad=0.0972 pd=1.86 as=0p ps=0u w=70000u l=95000u
+X5 VDD Q VDD VPB sky130_fd_pr__special_pfet_pass ad=0p pd=0u as=0p ps=0u w=140000u l=150000u
+X6 Q VDD VDD VPB sky130_fd_pr__special_pfet_pass ad=0p pd=0u as=0p ps=0u w=140000u l=150000u
+X7 VSS Q VDD VNB sky130_fd_pr__special_nfet_latch ad=0p pd=0u as=0p ps=0u w=210000u l=150000u
+.ends

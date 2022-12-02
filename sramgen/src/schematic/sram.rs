@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use vlsir::circuit::{Concat, Connection, Instance, Module};
 
-use crate::config::bitcell_array::BitcellArrayParams;
+use crate::config::bitcell_array::{BitcellArrayDummyParams, BitcellArrayParams};
 use crate::config::col_inv::{ColInvArrayParams, ColInvParams};
 use crate::config::decoder::DecoderParams;
 use crate::config::dff::DffGridParams;
@@ -12,7 +12,7 @@ use crate::config::inv_chain::InvChainGridParams;
 use crate::config::mux::{ReadMuxArrayParams, ReadMuxParams, WriteMuxArrayParams, WriteMuxParams};
 use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
 use crate::config::sense_amp::SenseAmpArrayParams;
-use crate::config::sram::SramParams;
+use crate::config::sram::{ControlMode, SramParams};
 use crate::config::wl_driver::{WordlineDriverArrayParams, WordlineDriverParams};
 use crate::config::wmask_control::WriteMaskControlParams;
 use crate::schematic::bitcell_array::bitcell_array;
@@ -31,7 +31,10 @@ use crate::schematic::precharge::precharge_array;
 use crate::schematic::sense_amp::sense_amp_array;
 use crate::schematic::wl_driver::wordline_driver_array;
 use crate::schematic::wmask_control::write_mask_control;
-use crate::tech::{openram_dff_ref, sramgen_control_ref};
+use crate::tech::{
+    control_logic_bufbuf_16_ref, openram_dff_ref, sramgen_control_replica_v1_ref,
+    sramgen_control_simple_ref,
+};
 
 pub fn sram(params: &SramParams) -> Vec<Module> {
     assert!(params.row_bits > 0);
@@ -85,17 +88,29 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         },
     });
 
+    let (replica_cols, dummy_params) = match params.control {
+        ControlMode::Simple => (1, BitcellArrayDummyParams::equal(2)),
+        ControlMode::ReplicaV1 => (1, BitcellArrayDummyParams::enumerate(2, 2, 1, 2)),
+    };
+
     let bitcells = bitcell_array(&BitcellArrayParams {
         name: "bitcell_array".to_string(),
         rows: rows as usize,
         cols,
-        dummy_rows: 2,
-        dummy_cols: 2,
+        replica_cols,
+        dummy_params,
     });
+
+    let pc_cols = if params.control == ControlMode::ReplicaV1 {
+        cols + 1
+    } else {
+        cols
+    };
 
     let mut precharge = precharge_array(&PrechargeArrayParams {
         name: "precharge_array".to_string(),
-        width: cols,
+        width: pc_cols,
+        flip_toggle: false,
         instance_params: PrechargeParams {
             name: "precharge".to_string(),
             length: 150,
@@ -192,16 +207,16 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
             nand: GateParams {
                 name: "we_control_and2_nand".to_string(),
                 size: Size {
-                    nmos_width: 1_200,
-                    pmos_width: 1_800,
+                    nmos_width: 3_000,
+                    pmos_width: 4_000,
                 },
                 length: 150,
             },
             inv: GateParams {
                 name: "we_control_and2_inv".to_string(),
                 size: Size {
-                    nmos_width: 1_200,
-                    pmos_width: 1_800,
+                    nmos_width: 8_000,
+                    pmos_width: 12_000,
                 },
                 length: 150,
             },
@@ -245,9 +260,17 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     let write_driver_en = bus("write_driver_en", mux_ratio as i64);
     let sae = signal("sense_amp_en");
 
+    // Only used for replica timing
+    let rbl = signal("rbl");
+    let rbr = signal("rbr");
+
     // Only used when mux ratio is greater than 2
     let col_sel = bus("col_sel", mux_ratio as i64);
     let col_sel_b = bus("col_sel_b", mux_ratio as i64);
+
+    // Only used when mux ratio is 2
+    let bank_addr_buf = signal("bank_addr_buf");
+    let bank_addr_b_buf = signal("bank_addr_b_buf");
 
     // Only used when wmask groups is greater than 1
     let wmask = bus("wmask", wmask_width as i64);
@@ -269,7 +292,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     }
 
     let mut m = Module {
-        name: params.name.clone(),
+        name: params.name.to_string(),
         ports,
         signals: vec![],
         instances: vec![],
@@ -379,6 +402,8 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     let mut conns = HashMap::new();
     conns.insert("bl", sig_conn(&bl));
     conns.insert("br", sig_conn(&br));
+    conns.insert("rbl", sig_conn(&rbl));
+    conns.insert("rbr", sig_conn(&rbr));
     conns.insert("wl", sig_conn(&wl));
     conns.insert("vdd", sig_conn(&vdd));
     conns.insert("vss", sig_conn(&vss));
@@ -395,8 +420,23 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     let mut conns = HashMap::new();
     conns.insert("vdd", sig_conn(&vdd));
     conns.insert("en_b", sig_conn(&pc_b));
-    conns.insert("bl", sig_conn(&bl));
-    conns.insert("br", sig_conn(&br));
+    let (blc, brc) = match params.control {
+        ControlMode::Simple => (sig_conn(&bl), sig_conn(&br)),
+        ControlMode::ReplicaV1 => (
+            Connection {
+                stype: Some(vlsir::circuit::connection::Stype::Concat(Concat {
+                    parts: vec![sig_conn(&rbl), sig_conn(&bl)],
+                })),
+            },
+            Connection {
+                stype: Some(vlsir::circuit::connection::Stype::Concat(Concat {
+                    parts: vec![sig_conn(&rbr), sig_conn(&br)],
+                })),
+            },
+        ),
+    };
+    conns.insert("bl", blc);
+    conns.insert("br", brc);
     m.instances.push(Instance {
         name: "precharge_array".to_string(),
         module: local_reference("precharge_array"),
@@ -422,6 +462,32 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         parameters: HashMap::new(),
     });
 
+    // Buffer LSB of address if mux ratio is 2
+    if mux_ratio == 2 {
+        let mut conns = HashMap::new();
+        conns.insert("vdd", sig_conn(&vdd));
+        conns.insert("vss", sig_conn(&vss));
+        conns.insert("a", conn_slice("bank_addr", 0, 0));
+        conns.insert("x", sig_conn(&bank_addr_buf));
+        m.instances.push(Instance {
+            name: "bank_addr_buf".to_string(),
+            module: Some(control_logic_bufbuf_16_ref()),
+            connections: conn_map(conns),
+            parameters: HashMap::new(),
+        });
+        let mut conns = HashMap::new();
+        conns.insert("vdd", sig_conn(&vdd));
+        conns.insert("vss", sig_conn(&vss));
+        conns.insert("a", conn_slice("bank_addr_b", 0, 0));
+        conns.insert("x", sig_conn(&bank_addr_b_buf));
+        m.instances.push(Instance {
+            name: "bank_addr_b_buf".to_string(),
+            module: Some(control_logic_bufbuf_16_ref()),
+            connections: conn_map(conns),
+            parameters: HashMap::new(),
+        });
+    }
+
     // Column read muxes
     let mut conns = HashMap::new();
     conns.insert("vdd", sig_conn(&vdd));
@@ -434,10 +500,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         if mux_ratio == 2 {
             Connection {
                 stype: Some(vlsir::circuit::connection::Stype::Concat(Concat {
-                    parts: vec![
-                        conn_slice("bank_addr_b", 0, 0),
-                        conn_slice("bank_addr", 0, 0),
-                    ],
+                    parts: vec![sig_conn(&bank_addr_b_buf), sig_conn(&bank_addr_buf)],
                 })),
             }
         } else {
@@ -495,8 +558,8 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         parameters: HashMap::new(),
     });
 
-    // Simple control logic
-    let conns: HashMap<_, _> = [
+    // Control logic
+    let mut conns: HashMap<_, _> = [
         ("clk", sig_conn(&clk)),
         ("we", sig_conn(&bank_we)),
         ("pc_b", sig_conn(&pc_b)),
@@ -507,9 +570,19 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         ("vss", sig_conn(&vss)),
     ]
     .into();
+
+    if params.control == ControlMode::ReplicaV1 {
+        conns.insert("rbl", sig_conn(&rbl));
+    }
+
+    let reference = match params.control {
+        ControlMode::Simple => sramgen_control_simple_ref(),
+        ControlMode::ReplicaV1 => sramgen_control_replica_v1_ref(),
+    };
+
     m.instances.push(Instance {
-        name: "sramgen_control_logic".to_string(),
-        module: Some(sramgen_control_ref()),
+        name: "control_logic".to_string(),
+        module: Some(reference),
         connections: conn_map(conns),
         parameters: HashMap::new(),
     });
