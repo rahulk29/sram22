@@ -32,6 +32,7 @@ pub struct Step {
 }
 
 impl StepContext {
+    #[allow(unused_variables)]
     pub fn new(tasks: &HashSet<TaskKey>) -> Self {
         println!("Tasks:");
 
