@@ -27,10 +27,10 @@ pub fn run_sram_drc(work_dir: impl AsRef<Path>, name: &str) -> Result<()> {
     let layout_path = out_gds(&work_dir, name);
 
     let data = run_drc(&DrcParams {
-        cell_name: name.to_string(),
-        work_dir: drc_work_dir,
-        layout_path,
-        drc_rules_path: PathBuf::from(SKY130_DRC_RULES_PATH),
+        cell_name: name,
+        work_dir: &drc_work_dir,
+        layout_path: &layout_path,
+        drc_rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
     })?;
 
     if data
@@ -56,12 +56,12 @@ pub fn run_sram_lvs(
     let layout_path = out_gds(&work_dir, name);
 
     if run_lvs(&LvsParams {
-        work_dir: lvs_work_dir,
-        layout_path,
-        layout_cell_name: name.to_string(),
-        source_paths: source_files(&work_dir, name, VerificationTask::Lvs, control_mode),
-        source_cell_name: name.to_string(),
-        lvs_rules_path: PathBuf::from(SKY130_LVS_RULES_PATH),
+        work_dir: &lvs_work_dir,
+        layout_path: &layout_path,
+        layout_cell_name: name,
+        source_paths: &source_files(&work_dir, name, VerificationTask::Lvs, control_mode),
+        source_cell_name: name,
+        lvs_rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
     })?
     .status
         != LvsStatus::Correct
@@ -83,12 +83,12 @@ pub fn run_sram_pex(
     let layout_path = out_gds(&work_dir, name);
 
     if run_pex(&PexParams {
-        work_dir: pex_work_dir,
-        layout_path,
-        layout_cell_name: name.to_string(),
-        source_paths: source_files(&work_dir, name, VerificationTask::Pex, control_mode),
-        source_cell_name: name.to_string(),
-        pex_rules_path: PathBuf::from(SKY130_PEX_RULES_PATH),
+        work_dir: &pex_work_dir,
+        layout_path: &layout_path,
+        layout_cell_name: name,
+        source_paths: &source_files(&work_dir, name, VerificationTask::Pex, control_mode),
+        source_cell_name: name,
+        pex_rules_path: &PathBuf::from(SKY130_PEX_RULES_PATH),
     })?
     .status
         != LvsStatus::Correct
