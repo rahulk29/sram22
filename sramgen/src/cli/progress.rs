@@ -6,7 +6,6 @@ use anyhow::Error;
 use colored::Colorize;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
-use crate::cli::args::Args;
 use crate::plan::TaskKey;
 use crate::Result;
 

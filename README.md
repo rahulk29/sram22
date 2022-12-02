@@ -11,8 +11,8 @@ To set up the CLI, run the following commands:
 
 ```bash
 git clone https://github.com/rahulk29/sram22.git
-cd sram22
-cargo install --all-features
+cd sram22/sramgen
+cargo install --all-features --path .
 ```
 
 ### Usage
@@ -37,11 +37,11 @@ Options:
 Sram22 generates memory blocks based on a TOML configuration file. An example configuration, showing all the available options, is shown below:
 
 ```toml
-num_words=32
-data_width=32
-mux_ratio=2
-write_size=32
-control="Simple"
+num_words = 32
+data_width = 32
+mux_ratio = 2
+write_size = 32
+control= "ReplicaV1"
 ```
 
 ### Technology Setup
@@ -53,6 +53,6 @@ See the `tech/sky130/` directory for an example of how to set up a new process t
 
 In order to use Sram22, your system will need to have the following components:
 
-- Rust (Sram22 is tested with version 1.63.0)
+- Rust (Sram22 is tested with version 1.65.0)
 - Cmake
 

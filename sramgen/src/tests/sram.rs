@@ -1,6 +1,8 @@
+use std::collections::HashSet;
+
 use crate::config::sram::SramConfig;
 use crate::plan::extract::ExtractionResult;
-use crate::plan::{execute_plan, generate_plan};
+use crate::plan::{execute_plan, generate_plan, ExecutePlanParams};
 use crate::tests::test_work_dir;
 use crate::Result;
 
@@ -42,18 +44,13 @@ pub(crate) fn test_sram(config: &SramConfig) -> Result<()> {
     let name = &plan.sram_params.name;
 
     let work_dir = test_work_dir(name);
-    execute_plan(&work_dir, &plan, None)?;
 
-    #[cfg(feature = "calibre")]
-    {
-        crate::verification::calibre::run_sram_drc(&work_dir, name)?;
-        crate::verification::calibre::run_sram_lvs(&work_dir, name, config.control)?;
-        #[cfg(feature = "pex")]
-        crate::verification::calibre::run_sram_pex(&work_dir, name, config.control)?;
-    }
-
-    #[cfg(feature = "spectre")]
-    crate::verification::spectre::run_sram_spectre(&plan.sram_params, &work_dir, name)?;
+    execute_plan(ExecutePlanParams {
+        work_dir: &work_dir,
+        plan: &plan,
+        tasks: &HashSet::new(),
+        ctx: None,
+    })?;
 
     Ok(())
 }
