@@ -486,7 +486,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
 
     addr_dffs.align_beneath(
         control_bbox.bbox(),
-        3_000 + 460 * 2 * predecoder_bus_bits as isize,
+        3_000 + 500 * 2 * predecoder_bus_bits as isize,
     );
     addr_dffs.align_to_the_left_of(col_bbox, 4_000);
     let addr_dff_bbox = addr_dffs.bbox();
@@ -908,11 +908,11 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
             trace
                 .up()
                 .set_min_width()
-                .vert_to(addr_dff_bbox.p1.y + 660 + idx as isize * (460));
+                .vert_to(addr_dff_bbox.p1.y + 660 + idx as isize * (500));
             power_grid.add_padded_blockage(3, trace.rect().expand(15));
             trace
                 .down()
-                .set_min_width()
+                .set_width(320)
                 .horiz_to_trace(&traces[idx])
                 .contact_down(traces[idx].rect());
             power_grid.add_padded_blockage(2, trace.rect().expand(120));
