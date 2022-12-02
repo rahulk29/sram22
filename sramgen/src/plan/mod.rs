@@ -1,7 +1,7 @@
 use crate::cli::progress::StepContext;
 use crate::config::sram::{ControlMode, SramConfig, SramParams};
 use crate::layout::sram::draw_sram;
-use crate::paths::{out_bin, out_gds, out_sram, out_verilog};
+use crate::paths::{out_bin, out_gds, out_pex, out_sram, out_verilog};
 use crate::plan::extract::ExtractionResult;
 use crate::schematic::sram::sram;
 use crate::schematic::{generate_netlist, save_modules};
@@ -182,6 +182,8 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
         );
     }
 
+    let pex_netlist_path = out_pex(work_dir, name);
+
     #[cfg(feature = "calibre")]
     {
         try_execute_task!(
@@ -200,7 +202,12 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
         try_execute_task!(
             params.tasks,
             TaskKey::RunPex,
-            crate::verification::calibre::run_sram_pex(work_dir, name, plan.sram_params.control)?,
+            crate::verification::calibre::run_sram_pex(
+                work_dir,
+                &pex_netlist_path,
+                name,
+                plan.sram_params.control
+            )?,
             ctx
         );
     }
@@ -222,12 +229,17 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                 use crate::verification::{source_files, VerificationTask};
                 use liberate_mx::LibParams;
 
-                let source_paths = source_files(
-                    work_dir,
-                    &plan.sram_params.name,
-                    VerificationTask::SpectreSim,
-                    plan.sram_params.control,
-                );
+                let source_paths = if pex_netlist_path.exists() {
+                    source_files(
+                        work_dir,
+                        &plan.sram_params.name,
+                        VerificationTask::SpectreSim,
+                        plan.sram_params.control,
+                    )
+                } else {
+                    vec![pex_netlist_path]
+                };
+
                 let params = LibParams::builder()
                     .work_dir(work_dir.join("lib"))
                     .save_dir(work_dir)

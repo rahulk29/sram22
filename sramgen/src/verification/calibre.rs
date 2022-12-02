@@ -75,10 +75,12 @@ pub fn run_sram_lvs(
 #[cfg(feature = "pex")]
 pub fn run_sram_pex(
     work_dir: impl AsRef<Path>,
+    pex_netlist_path: impl AsRef<Path>,
     name: &str,
     control_mode: crate::config::sram::ControlMode,
 ) -> Result<()> {
     let pex_work_dir = PathBuf::from(work_dir.as_ref()).join("pex");
+    let pex_netlist_path = pex_netlist_path.as_ref();
 
     let layout_path = out_gds(&work_dir, name);
 
@@ -89,6 +91,7 @@ pub fn run_sram_pex(
         source_paths: &source_files(&work_dir, name, VerificationTask::Pex, control_mode),
         source_cell_name: name,
         pex_rules_path: &PathBuf::from(SKY130_PEX_RULES_PATH),
+        pex_netlist_path,
     })?
     .status
         != LvsStatus::Correct

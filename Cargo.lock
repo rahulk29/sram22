@@ -204,7 +204,7 @@ checksum = "dfb24e866b15a1af2a1b663f10c6b6b8f397a84aadb828f12e5b289ec23a3a3c"
 [[package]]
 name = "calibre"
 version = "0.1.0"
-source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git?branch=master#97049ae3f55c41305bffab59f119bf18d269e9fb"
+source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git?branch=master#76812289c13195a3c33e6d2bd074ac0f59f7260d"
 dependencies = [
  "anyhow",
  "lazy_static",
