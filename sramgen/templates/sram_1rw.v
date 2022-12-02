@@ -11,19 +11,21 @@ module {{module_name}}(
     clk,we,addr,din,dout
   );
 
+  // These parameters should NOT be set to
+  // anything other than their defaults.
   parameter DATA_WIDTH = {{data_width}} ;
   parameter ADDR_WIDTH = {{addr_width}} ;
   parameter RAM_DEPTH = 1 << ADDR_WIDTH;
 
 `ifdef USE_POWER_PINS
-    inout vdd;
-    inout vss;
+    inout vdd; // power
+    inout vss; // ground
 `endif
   input  clk; // clock
   input  we; // write enable
-  input [ADDR_WIDTH-1:0]  addr;
-  input [DATA_WIDTH-1:0]  din;
-  output reg [DATA_WIDTH-1:0] dout;
+  input [ADDR_WIDTH-1:0]  addr; // address
+  input [DATA_WIDTH-1:0]  din; // data in
+  output reg [DATA_WIDTH-1:0] dout; // data out
 
   reg  we_reg;
   reg [ADDR_WIDTH-1:0]  addr_reg;
@@ -60,11 +62,6 @@ module {{module_name}}(
     we_reg <= we;
     addr_reg <= addr;
     din_reg <= din;
-  end
-
-  // Read
-  always @ (negedge clk)
-  begin : MEM_READ
   end
 
 endmodule
