@@ -12,45 +12,45 @@ use std::path::PathBuf;
     )
 )]
 pub struct Args {
-    /// Path to TOML configuration file
+    /// Path to TOML configuration file.
     #[arg(short, long, default_value = "sramgen.toml")]
     pub config: PathBuf,
 
-    /// Directory in which to write output files
+    /// Directory to which output files should be saved.
     #[arg(short, long)]
     pub output_dir: Option<PathBuf>,
 
-    /// Generate LEF
+    /// Generate LEF (used in place and route).
     #[cfg(feature = "abstract_lef")]
     #[arg(long)]
     pub lef: bool,
 
-    /// Generate LIB
+    /// Generate LIB (setup, hold, and delay timing information).
     #[cfg(feature = "liberate_mx")]
     #[arg(long)]
     pub lib: bool,
 
-    /// Run DRC
+    /// Run DRC using Calibre.
     #[cfg(feature = "calibre")]
     #[arg(long)]
     pub drc: bool,
 
-    /// Run LVS
+    /// Run LVS using Calibre.
     #[cfg(feature = "calibre")]
     #[arg(long)]
     pub lvs: bool,
 
-    /// Run PEX
+    /// Run PEX using Calibre.
     #[cfg(all(feature = "calibre", feature = "pex"))]
     #[arg(long)]
     pub pex: bool,
 
-    /// Run Spectre
+    /// Run Spectre to verify SRAM functionality.
     #[cfg(feature = "spectre")]
     #[arg(long)]
     pub sim: bool,
 
-    /// Run all steps
+    /// Run all available steps.
     #[cfg(any(
         feature = "abstract_lef",
         feature = "liberate_mx",

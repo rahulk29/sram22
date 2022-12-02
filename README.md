@@ -7,12 +7,23 @@ Sram22 is still a work in progress.
 
 ### Installation
 
-To set up the CLI, run the following commands:
+If you have BWRC access, you can install Sram22 using the following commands:
 
 ```bash
 git clone https://github.com/rahulk29/sram22.git
 cd sram22/sramgen
 cargo install --all-features --path .
+```
+
+If you do not have BWRC access, you can still install Sram22, albeit without
+the ability to invoke proprietary tools for DRC, LVS, PEX, and simulation.
+
+Use the following commands:
+
+```bash
+git clone https://github.com/rahulk29/sram22.git
+cd sram22/sramgen
+cargo install --path .
 ```
 
 ### Usage
@@ -26,8 +37,14 @@ Usage: sramgen [OPTIONS]
 
 Options:
   -c, --config <CONFIG>          Path to TOML configuration file [default: sramgen.toml]
-  -o, --output-dir <OUTPUT_DIR>  Directory in which to write output files
-  -q, --quick                    Skip long running steps (DRC, LVS, LEF generation, etc.)
+  -o, --output-dir <OUTPUT_DIR>  Directory to which output files should be saved
+      --lef                      Generate LEF (used in place and route)
+      --lib                      Generate LIB (setup, hold, and delay timing information)
+      --drc                      Run DRC using Calibre
+      --lvs                      Run LVS using Calibre
+      --pex                      Run PEX using Calibre
+      --sim                      Run Spectre to verify SRAM functionality
+  -a, --all                      Run all available steps
   -h, --help                     Print help information
   -V, --version                  Print version information
 ```
