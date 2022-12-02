@@ -99,7 +99,7 @@ impl StepContext {
             #[cfg(feature = "spectre")]
             Step {
                 desc: "Run Spectre".to_string(),
-                key: TaskKey::RunPex,
+                key: TaskKey::RunSpectre,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::RunSpectre) && !tasks.contains(&TaskKey::All),
             },

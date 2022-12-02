@@ -106,12 +106,6 @@ pub fn generate_plan(
     })
 }
 
-#[cfg(any(
-    feature = "abstract_lef",
-    feature = "liberate_mx",
-    feature = "calibre",
-    feature = "spectre"
-))]
 macro_rules! try_finish_task {
     ( $ctx:expr, $task:expr ) => {
         if let Some(ctx) = $ctx.as_mut() {
@@ -155,9 +149,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
     generate_netlist(&bin_path, work_dir)
         .with_context(|| "Error converting netlists to SPICE format")?;
 
-    if let Some(ctx) = ctx.as_mut() {
-        ctx.finish(TaskKey::GenerateNetlist);
-    }
+    try_finish_task!(ctx, TaskKey::GenerateNetlist);
 
     let mut lib = sky130::pdk_lib(name)?;
     draw_sram(&mut lib, &plan.sram_params).with_context(|| "Error generating SRAM layout")?;
@@ -166,17 +158,13 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
     lib.save_gds(&gds_path)
         .with_context(|| "Error saving SRAM GDS")?;
 
-    if let Some(ctx) = ctx.as_mut() {
-        ctx.finish(TaskKey::GenerateLayout);
-    }
+    try_finish_task!(ctx, TaskKey::GenerateLayout);
 
     let verilog_path = out_verilog(work_dir, name);
     save_1rw_verilog(&verilog_path, &plan.sram_params)
         .with_context(|| "Error generating or saving Verilog model")?;
 
-    if let Some(ctx) = ctx.as_mut() {
-        ctx.finish(TaskKey::GenerateVerilog);
-    }
+    try_finish_task!(ctx, TaskKey::GenerateVerilog);
 
     #[cfg(feature = "abstract_lef")]
     {
@@ -220,7 +208,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
     #[cfg(feature = "spectre")]
     try_execute_task!(
         params.tasks,
-        TaskKey::RunPex,
+        TaskKey::RunSpectre,
         crate::verification::spectre::run_sram_spectre(&plan.sram_params, work_dir, name)?,
         ctx
     );
