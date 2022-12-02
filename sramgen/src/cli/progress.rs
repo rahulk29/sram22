@@ -68,13 +68,6 @@ impl StepContext {
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::GenerateLef) && !tasks.contains(&TaskKey::All),
             },
-            #[cfg(feature = "liberate_mx")]
-            Step {
-                desc: "Generate LIB".to_string(),
-                key: TaskKey::RunPex,
-                progress_bar: ProgressBar::new_spinner(),
-                disabled: !tasks.contains(&TaskKey::GenerateLib) && !tasks.contains(&TaskKey::All),
-            },
             #[cfg(feature = "calibre")]
             Step {
                 desc: "Run DRC".to_string(),
@@ -95,6 +88,13 @@ impl StepContext {
                 key: TaskKey::RunPex,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::RunPex) && !tasks.contains(&TaskKey::All),
+            },
+            #[cfg(feature = "liberate_mx")]
+            Step {
+                desc: "Generate LIB".to_string(),
+                key: TaskKey::GenerateLib,
+                progress_bar: ProgressBar::new_spinner(),
+                disabled: !tasks.contains(&TaskKey::GenerateLib) && !tasks.contains(&TaskKey::All),
             },
             #[cfg(feature = "spectre")]
             Step {
