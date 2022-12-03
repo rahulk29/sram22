@@ -1,17 +1,10 @@
 use std::path::Path;
 
 use crate::config::sram::SramParams;
-use crate::Result;
+use crate::{Result, TEMPLATES};
 
-use anyhow::anyhow;
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use tera::{Context, Tera};
-
-lazy_static! {
-    pub static ref TEMPLATES: std::result::Result<Tera, tera::Error> =
-        Tera::new(concat!(env!("CARGO_MANIFEST_DIR"), "/templates/**/*.v"));
-}
+use tera::Context;
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Sram1RwParams {
@@ -38,10 +31,7 @@ pub fn generate_1rw_verilog(params: &SramParams) -> Result<String> {
         wmask_width: params.wmask_width,
     };
 
-    Ok(TEMPLATES
-        .as_ref()
-        .map_err(|e| anyhow!("Failed to load Verilog templates: {e}"))?
-        .render(template, &Context::from_serialize(template_params)?)?)
+    Ok(TEMPLATES.render(template, &Context::from_serialize(template_params)?)?)
 }
 
 pub fn save_1rw_verilog(path: impl AsRef<Path>, params: &SramParams) -> Result<()> {
