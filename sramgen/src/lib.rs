@@ -1,4 +1,6 @@
 pub use anyhow::{anyhow, Result};
+use lazy_static::lazy_static;
+use tera::Tera;
 
 #[cfg(feature = "abstract_lef")]
 pub mod abs;
@@ -18,6 +20,14 @@ pub mod verilog;
 
 pub const BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
 pub const LIB_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/lib");
+
+lazy_static! {
+    pub static ref TEMPLATES: Tera =
+        match Tera::new(concat!(env!("CARGO_MANIFEST_DIR"), "/templates/*")) {
+            Ok(t) => t,
+            Err(e) => panic!("Error parsing templates: {}", e),
+        };
+}
 
 pub fn bus_bit(name: &str, index: usize) -> String {
     format!("{name}[{index}]")

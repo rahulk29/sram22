@@ -1,14 +1,18 @@
 use anyhow::{bail, Context};
 use psf_ascii::parser::transient::TransientData;
+use serde::Serialize;
+use std::fs::File;
+use std::os::unix::prelude::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use tera::Context as TeraContext;
 
 use crate::config::sram::SramParams;
 use crate::verification::bit_signal::BitSignal;
 use crate::verification::{
     self, source_files, PortClass, PortOrder, TbParams, TestCase, VerificationTask,
 };
-use crate::Result;
+use crate::{Result, TEMPLATES};
 
 pub struct SpectreParams {
     pub work_dir: PathBuf,
@@ -20,6 +24,7 @@ pub struct SpectreGeneratedPaths {
     pub log_path: PathBuf,
     pub stdout_path: PathBuf,
     pub stderr_path: PathBuf,
+    pub run_script_path: PathBuf,
 }
 
 pub fn sky130_includes() -> Vec<String> {
@@ -36,20 +41,16 @@ pub fn sky130_includes() -> Vec<String> {
 pub fn run_spectre(params: &SpectreParams) -> Result<TransientData> {
     let paths = generate_paths(params);
 
+    write_run_script(params, &paths)?;
+    let mut perms = std::fs::metadata(&paths.run_script_path)?.permissions();
+    perms.set_mode(0o755);
+    std::fs::set_permissions(&paths.run_script_path, perms)?;
+
     let out_file = std::fs::File::create(paths.stdout_path)?;
     let err_file = std::fs::File::create(paths.stderr_path)?;
 
-    let status = Command::new("spectre")
-        .arg("-64")
-        .arg("+spice")
-        .arg("+aps")
-        .arg("-format")
-        .arg("psfascii")
-        .arg(&params.spice_path)
-        .arg("-raw")
-        .arg(&paths.raw_output_dir)
-        .arg("=log")
-        .arg(&paths.log_path)
+    let status = Command::new("/usr/bin/bash")
+        .arg(&paths.run_script_path)
         .stdout(out_file)
         .stderr(err_file)
         .current_dir(&params.work_dir)
@@ -68,12 +69,34 @@ pub fn run_spectre(params: &SpectreParams) -> Result<TransientData> {
     Ok(data)
 }
 
+#[derive(Debug, Copy, Clone, Serialize)]
+struct RunScriptContext<'a> {
+    spice_path: &'a PathBuf,
+    raw_output_dir: &'a PathBuf,
+    log_path: &'a PathBuf,
+}
+
+fn write_run_script(params: &SpectreParams, paths: &SpectreGeneratedPaths) -> Result<()> {
+    let ctx = RunScriptContext {
+        spice_path: &params.spice_path,
+        raw_output_dir: &paths.raw_output_dir,
+        log_path: &paths.log_path,
+    };
+    let ctx = TeraContext::from_serialize(&ctx)?;
+
+    let mut f = File::create(&paths.run_script_path)?;
+    TEMPLATES.render_to("run_sim.sh", &ctx, &mut f)?;
+
+    Ok(())
+}
+
 fn generate_paths(params: &SpectreParams) -> SpectreGeneratedPaths {
     SpectreGeneratedPaths {
         raw_output_dir: params.work_dir.join("psf/"),
         log_path: params.work_dir.join("spectre.log"),
         stdout_path: params.work_dir.join("spectre.out"),
         stderr_path: params.work_dir.join("spectre.err"),
+        run_script_path: params.work_dir.join("run_sim.sh"),
     }
 }
 
