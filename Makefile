@@ -1,4 +1,4 @@
-.PHONY: lint lint-fix format test alltest devtest check
+.PHONY: lint lint-fix format test alltest devtest check install-all install
 
 lint:
 	cargo clippy --all-features --all-targets -- -D warnings
@@ -27,3 +27,8 @@ devtest:
 check:
 	cargo check --all-features --all-targets
 
+install-all:
+	cd sramgen && cargo install --all-features --path . && cd -
+
+install:
+	cd sramgen && cargo install --path . && cd -
