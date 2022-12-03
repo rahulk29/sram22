@@ -3,10 +3,8 @@ use std::path::Path;
 use crate::config::sram::SramParams;
 use crate::{Result, TEMPLATES};
 
-use anyhow::anyhow;
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use tera::{Context, Tera};
+use tera::Context;
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Sram1RwParams {

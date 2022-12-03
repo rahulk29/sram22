@@ -82,7 +82,7 @@ fn write_run_script(params: &SpectreParams, paths: &SpectreGeneratedPaths) -> Re
         raw_output_dir: &paths.raw_output_dir,
         log_path: &paths.log_path,
     };
-    let ctx = TeraContext::from_serialize(&ctx)?;
+    let ctx = TeraContext::from_serialize(ctx)?;
 
     let mut f = File::create(&paths.run_script_path)?;
     TEMPLATES.render_to("run_sim.sh", &ctx, &mut f)?;
