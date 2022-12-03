@@ -230,14 +230,14 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                 use liberate_mx::LibParams;
 
                 let source_paths = if pex_netlist_path.exists() {
+                    vec![pex_netlist_path]
+                } else {
                     source_files(
                         work_dir,
                         &plan.sram_params.name,
                         VerificationTask::SpectreSim,
                         plan.sram_params.control,
                     )
-                } else {
-                    vec![pex_netlist_path]
                 };
 
                 let params = LibParams::builder()
