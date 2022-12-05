@@ -1152,16 +1152,30 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
             .unwrap();
         if mux_ratio == 2 {
             let (buf_in, buf_out) = if i == 0 {
-                (control.port("addr_0").largest_rect(m0).unwrap(), control.port("addr_0_buf").largest_rect(m1).unwrap())
+                (
+                    control.port("addr_0").largest_rect(m0).unwrap(),
+                    control.port("addr_0_buf").largest_rect(m1).unwrap(),
+                )
             } else {
-                (control.port("addr_b_0").largest_rect(m0).unwrap(), control.port("addr_b_0_buf").largest_rect(m1).unwrap())
+                (
+                    control.port("addr_b_0").largest_rect(m0).unwrap(),
+                    control.port("addr_b_0_buf").largest_rect(m1).unwrap(),
+                )
             };
             let mut trace = router.trace(addr_0_traces[i as usize], 2);
-            trace.set_width(320).place_cursor(Dir::Horiz, true).horiz_to_rect(buf_in);
+            trace
+                .set_width(320)
+                .place_cursor(Dir::Horiz, true)
+                .horiz_to_rect(buf_in);
             power_grid.add_padded_blockage(2, trace.rect().expand(90));
             trace.down().vert_to_rect(buf_in).contact_down(buf_in);
             let mut trace = router.trace(buf_out, 1);
-            trace.set_width(230).place_cursor(Dir::Vert, true).up_by(1_000 + 3*cfg.line(0)*i).up().set_min_width();
+            trace
+                .set_width(230)
+                .place_cursor(Dir::Vert, true)
+                .up_by(1_000 + 3 * cfg.line(0) * i)
+                .up()
+                .set_min_width();
             trace.horiz_to(grid.vtrack(rmux_sel_base + i).stop());
             power_grid.add_padded_blockage(2, trace.rect().expand(90));
             trace.down().vert_to(dst.top()).up().horiz_to(dst.right());

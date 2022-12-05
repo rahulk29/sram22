@@ -15,7 +15,11 @@ use crate::tech::{
 };
 use crate::Result;
 
-pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode, include_addr_bufs: bool) -> Result<Ptr<Cell>> {
+pub fn draw_control_logic(
+    lib: &mut PdkLib,
+    mode: ControlMode,
+    include_addr_bufs: bool,
+) -> Result<Ptr<Cell>> {
     match mode {
         ControlMode::Simple => draw_control_logic_simple(lib),
         ControlMode::ReplicaV1 => draw_control_logic_replica_v1(lib, include_addr_bufs),
@@ -138,7 +142,10 @@ pub fn draw_control_logic_simple(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_control_logic_replica_v1(lib: &mut PdkLib, include_addr_bufs: bool) -> Result<Ptr<Cell>> {
+pub fn draw_control_logic_replica_v1(
+    lib: &mut PdkLib,
+    include_addr_bufs: bool,
+) -> Result<Ptr<Cell>> {
     let mut cell = Cell::empty("sramgen_control_replica_v1");
 
     let and = sc_and2_gds(lib)?;
@@ -184,54 +191,53 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib, include_addr_bufs: bool) 
     // Place standard cells
 
     if include_addr_bufs {
-    rows.add_row(vec![
-        Instance {
-            inst_name: "tap".to_string(),
-            cell: tap.clone(),
-            loc: Point::new(0, 0),
-            reflect_vert: false,
-            angle: None,
-        },
-        Instance {
-            inst_name: "buf_addr_0".to_string(),
-            cell: buf.clone(),
-            loc: Point::new(0, 0),
-            reflect_vert: false,
-            angle: None,
-        },
-        Instance {
-            inst_name: "tap".to_string(),
-            cell: tap.clone(),
-            loc: Point::new(0, 0),
-            reflect_vert: false,
-            angle: None,
-        },
-    ]);
+        rows.add_row(vec![
+            Instance {
+                inst_name: "tap".to_string(),
+                cell: tap.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: false,
+                angle: None,
+            },
+            Instance {
+                inst_name: "buf_addr_0".to_string(),
+                cell: buf.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: false,
+                angle: None,
+            },
+            Instance {
+                inst_name: "tap".to_string(),
+                cell: tap.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: false,
+                angle: None,
+            },
+        ]);
 
-    rows.add_row(vec![
-        Instance {
-            inst_name: "tap".to_string(),
-            cell: tap.clone(),
-            loc: Point::new(0, 0),
-            reflect_vert: true,
-            angle: None,
-        },
-        Instance {
-            inst_name: "buf_addr_1".to_string(),
-            cell: buf.clone(),
-            loc: Point::new(0, 0),
-            reflect_vert: true,
-            angle: None,
-        },
-        Instance {
-            inst_name: "tap".to_string(),
-            cell: tap.clone(),
-            loc: Point::new(0, 0),
-            reflect_vert: true,
-            angle: None,
-        },
-    ]);
-
+        rows.add_row(vec![
+            Instance {
+                inst_name: "tap".to_string(),
+                cell: tap.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: true,
+                angle: None,
+            },
+            Instance {
+                inst_name: "buf_addr_1".to_string(),
+                cell: buf.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: true,
+                angle: None,
+            },
+            Instance {
+                inst_name: "tap".to_string(),
+                cell: tap.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: true,
+                angle: None,
+            },
+        ]);
     }
 
     rows.add_row(vec![
@@ -516,9 +522,9 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib, include_addr_bufs: bool) 
 
     let ofs = if include_addr_bufs { 2 } else { 0 };
 
-    let eddc = rows.get(ofs + 0, 0);
-    let ed_and = rows.get(ofs + 0, 1);
-    let clkp_delay_chain = rows.get(ofs + 0, 2);
+    let eddc = rows.get(ofs, 0);
+    let ed_and = rows.get(ofs, 1);
+    let clkp_delay_chain = rows.get(ofs, 2);
 
     let inv_rbl = rows.get(ofs + 1, 1);
     let wl_ctl_nor1 = rows.get(ofs + 1, 2);
