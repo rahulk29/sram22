@@ -9,7 +9,6 @@ lint-fix:
 
 format:
 	cargo +nightly fmt
-	black scripts/
 	black sramgen/scripts/
 
 test:
