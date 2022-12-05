@@ -13,16 +13,10 @@ format:
 	black sramgen/scripts/
 
 test:
-	rm -rf sramgen/build/
 	cargo test --release
 
 alltest:
-	rm -rf sramgen/build/
 	cargo test --release --all-features
-
-devtest:
-	rm -rf sramgen/build/
-	cargo test --release
 
 check:
 	cargo check --all-features --all-targets
