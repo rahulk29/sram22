@@ -1,4 +1,0 @@
-rows = 16
-cols = 16
-output_dir = "../_build/sram_16x16/"
-tech_dir = "../tech/sky130/magic"
