@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::config::sram::SramConfig;
 use crate::plan::extract::ExtractionResult;
-use crate::plan::{execute_plan, generate_plan, ExecutePlanParams};
+use crate::plan::{execute_plan, generate_plan, ExecutePlanParams, TaskKey};
 use crate::tests::test_work_dir;
 use crate::Result;
 
@@ -48,7 +48,7 @@ pub(crate) fn test_sram(config: &SramConfig) -> Result<()> {
     execute_plan(ExecutePlanParams {
         work_dir: &work_dir,
         plan: &plan,
-        tasks: &HashSet::new(),
+        tasks: &HashSet::from([TaskKey::RunDrc, TaskKey::RunLvs]),
         ctx: None,
     })?;
 
