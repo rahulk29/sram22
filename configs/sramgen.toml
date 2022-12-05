@@ -1,5 +1,0 @@
-num_words=128
-data_width=64
-mux_ratio=2
-write_size=8
-control="ReplicaV1"
