@@ -11,7 +11,9 @@ If you have BWRC access, you can install Sram22 using the following commands:
 
 ```bash
 git clone https://github.com/rahulk29/sram22.git
-cd sram22/sramgen
+cd sram22
+git submodule update --init
+cd sramgen
 cargo install --all-features --path .
 ```
 
@@ -22,7 +24,9 @@ Use the following commands:
 
 ```bash
 git clone https://github.com/rahulk29/sram22.git
-cd sram22/sramgen
+cd sram22
+git submodule update --init
+cd sramgen
 cargo install --path .
 ```
 
