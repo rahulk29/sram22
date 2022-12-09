@@ -1,12 +1,6 @@
-[submodule "sram22/src/verification/plugins/netgen_lvs"]
-	path = edatool/src/plugins/netgen_lvs
-	url = git@github.com:rahulk29/netgen_lvs.git
-[submodule "sram22/src/verification/plugins/magic_pex"]
-	path = edatool/src/plugins/magic_pex
-	url = git@github.com:rahulk29/magic_pex.git
 [submodule "deps/Layout21"]
 	path = deps/Layout21
-	url = git@github.com:rahulk29/Layout21.git
+	url = https://github.com/rahulk29/Layout21.git
 [submodule "deps/Vlsir"]
 	path = deps/Vlsir
-	url = git@github.com:rahulk29/Vlsir.git
+	url = https://github.com/rahulk29/Vlsir.git
