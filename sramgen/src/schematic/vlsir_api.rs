@@ -22,6 +22,7 @@ impl Module {
         }
     }
 
+    #[allow(dead_code)]
     fn add_ports(&mut self, ports: &[&circuit::Port]) {
         for &port in ports {
             self.add_port(port.to_owned());
@@ -46,6 +47,7 @@ impl Module {
         self.add_ports_from_signals(signals, port::Direction::Inout);
     }
 
+    #[allow(dead_code)]
     fn add_port(&mut self, port: circuit::Port) {
         self.inner.ports.push(port.to_owned());
     }
@@ -110,6 +112,12 @@ impl Instance {
         }
     }
 
+    pub fn add_conn(&mut self, port: &str, signal: &Signal) {
+        self.inner
+            .connections
+            .insert(port.to_string(), (*signal).to_owned().into());
+    }
+
     pub fn add_params(&mut self, params: &[(&str, &ParameterValue)]) {
         for (name, value) in params {
             self.inner
@@ -155,10 +163,6 @@ struct SignalSlice {
 }
 
 impl SignalSlice {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
     fn width(&self) -> usize {
         assert!(self.end > self.start);
         let width = self.end - self.start;
@@ -190,7 +194,7 @@ impl Into<circuit::Connection> for &SignalSlice {
 
             circuit::Connection {
                 stype: Some(Stype::Slice(circuit::Slice {
-                    signal: self.name,
+                    signal: self.name.clone(),
                     top,
                     bot,
                 })),
@@ -201,7 +205,26 @@ impl Into<circuit::Connection> for &SignalSlice {
 
 impl Into<circuit::Connection> for SignalSlice {
     fn into(self) -> circuit::Connection {
-        (&self).into()
+        if self.start == 0 && self.total_width == self.end {
+            let signal: Signal = self.into();
+            circuit::Connection {
+                stype: Some(Stype::Sig(signal.into())),
+            }
+        } else {
+            let top = (self.end - 1) as i64;
+            let bot = self.start as i64;
+
+            assert!(top >= 0);
+            assert!(bot >= 0);
+
+            circuit::Connection {
+                stype: Some(Stype::Slice(circuit::Slice {
+                    signal: self.name,
+                    top,
+                    bot,
+                })),
+            }
+        }
     }
 }
 
@@ -406,7 +429,7 @@ impl Into<circuit::Connection> for &Signal {
         );
 
         if self.parts.len() == 1 {
-            self.parts[0].into()
+            self.parts[0].clone().into()
         } else {
             circuit::Connection {
                 stype: Some(Stype::Concat(circuit::Concat {

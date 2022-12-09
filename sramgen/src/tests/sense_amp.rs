@@ -24,7 +24,7 @@ fn test_sense_amp_array() -> Result<()> {
     let pkg = Package {
         domain: name.to_string(),
         desc: "Sramgen generated cells".to_string(),
-        modules: vec![sense_amps],
+        modules: vec![sense_amps.into()],
         ext_modules,
     };
 

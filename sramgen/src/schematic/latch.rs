@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::config::gate::GateParams;
 use crate::schematic::gate::nor2;
 use crate::schematic::vlsir_api::{local_reference, signal, Instance, Module};

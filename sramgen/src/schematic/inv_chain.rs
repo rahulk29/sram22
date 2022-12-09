@@ -17,17 +17,17 @@ pub fn inv_chain_grid(params: &InvChainGridParams) -> Module {
     m.add_ports_inout(&[&vdd, &vss]);
 
     for i in 0..(rows * cols) {
-        let input = if i == 0 { &din } else { &int.get(i - 1) };
+        let input = if i == 0 { din.clone() } else { int.get(i - 1) };
         let output = if i == rows * cols - 1 {
-            &dout
+            dout.clone()
         } else {
-            &int.get(i)
+            int.get(i)
         };
 
         let mut inst = Instance::new(format!("inv_{}", i), control_logic_inv_ref());
         inst.add_conns(&[
-            ("DIN", input),
-            ("DIN_B", output),
+            ("DIN", &input),
+            ("DIN_B", &output),
             ("VDD", &vdd),
             ("VSS", &vss),
         ]);

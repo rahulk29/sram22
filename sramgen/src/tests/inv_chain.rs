@@ -24,7 +24,7 @@ fn test_inv_chain_grid() -> Result<()> {
     let pkg = Package {
         domain: name.to_string(),
         desc: "Sramgen generated cells".to_string(),
-        modules: vec![inv_chain],
+        modules: vec![inv_chain.into()],
         ext_modules,
     };
 

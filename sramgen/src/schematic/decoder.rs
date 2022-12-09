@@ -2,17 +2,13 @@ use std::collections::HashMap;
 
 use fanout::FanoutAnalyzer;
 use serde::{Deserialize, Serialize};
-use vlsir::circuit::connection::Stype;
-use vlsir::circuit::{port, Concat, Connection, Port, Slice};
-use vlsir::reference::To;
-use vlsir::Reference;
 
 use crate::clog2;
 use crate::config::decoder::{Decoder24Params, DecoderParams};
 use crate::config::gate::{GateParams, Size};
 use crate::layout::decoder::get_idxs;
 use crate::schematic::gate::{inv, nand2, nand3, Gate, GateType};
-use crate::schematic::vlsir_api::{bus, concat, signal, Instance, Module, Signal};
+use crate::schematic::vlsir_api::{bus, concat, local_reference, signal, Instance, Module, Signal};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DecoderTree {
@@ -313,53 +309,31 @@ impl<'a> DecoderGen<'a> {
             assert!(node.children.len() <= 4);
             let ports = ["a", "b", "c", "d"].into_iter().take(gate_size);
 
-            let mut conns: HashMap<_, _> = [
-                ("vdd", sig_conn(self.vdd)),
-                ("gnd", sig_conn(self.gnd)),
-                ("y", sig_conn(&tmp)),
-            ]
-            .into();
+            let mut nand = Instance::new(
+                format!("nand_{}", self.get_id()),
+                local_reference(&nand_name),
+            );
+            nand.add_conns(&[("VDD", self.vdd), ("GND", self.gnd), ("Y", &tmp)]);
 
             for (j, port) in ports.enumerate() {
-                let conn = Connection {
-                    stype: Some(Stype::Slice(sigs[j].get(idxs[j]).unwrap())),
-                };
-                conns.insert(port, conn);
+                nand.add_conn(port, &sigs[j].get(idxs[j]));
             }
 
-            let nand = Instance {
-                name: format!("nand_{}", self.get_id()),
-                module: Some(Reference {
-                    to: Some(To::Local(nand_name.clone())),
-                }),
-                connections: conn_map(conns),
-                ..Default::default()
-            };
             self.instances.push(nand);
 
-            let conns: HashMap<_, _> = [
-                ("vdd", sig_conn(self.vdd)),
-                ("gnd", sig_conn(self.gnd)),
-                ("din", sig_conn(&tmp)),
-                ("din_b", conn_slice(&out_name, i as i64, i as i64)),
-            ]
-            .into();
+            let mut inv =
+                Instance::new(format!("inv_{}", self.get_id()), local_reference(&inv_name));
+            inv.add_conns(&[
+                ("VDD", self.vdd),
+                ("GND", self.gnd),
+                ("DIN", &tmp),
+                ("DIN_B", &out.get(i)),
+            ]);
 
-            let inv = Instance {
-                name: format!("inv_{}", self.get_id()),
-                module: Some(Reference {
-                    to: Some(To::Local(inv_name.clone())),
-                }),
-                connections: conn_map(conns),
-                ..Default::default()
-            };
             self.instances.push(inv);
         }
 
-        Connection {
-            stype: Some(Stype::Sig(out)),
-        }
-        .into()
+        out
     }
 }
 
@@ -380,133 +354,43 @@ pub fn decoder_24(params: &Decoder24Params) -> Vec<Module> {
 
     let vdd = signal("vdd");
     let gnd = signal("gnd");
-    let din = Signal {
-        name: "din".to_string(),
-        width: 2,
-    };
-    let din_b = Signal {
-        name: "din_b".to_string(),
-        width: 2,
-    };
-    let dout = Signal {
-        name: "dout".to_string(),
-        width: 4,
-    };
+    let din = bus("din", 2);
+    let din_b = bus("din_b", 2);
+    let dout = bus("dout", 4);
 
-    let ports = vec![
-        Port {
-            signal: Some(vdd.clone()),
-            direction: port::Direction::Inout as i32,
-        },
-        Port {
-            signal: Some(gnd.clone()),
-            direction: port::Direction::Inout as i32,
-        },
-        Port {
-            signal: Some(din),
-            direction: port::Direction::Input as i32,
-        },
-        Port {
-            signal: Some(din_b),
-            direction: port::Direction::Input as i32,
-        },
-        Port {
-            signal: Some(dout),
-            direction: port::Direction::Output as i32,
-        },
-    ];
-
-    let mut m = Module {
-        name: params.name.clone(),
-        ports,
-        signals: vec![],
-        instances: vec![],
-        parameters: vec![],
-    };
+    let mut m = Module::new(&params.name);
+    m.add_ports_inout(&[&vdd, &gnd]);
+    m.add_ports_input(&[&din, &din_b]);
+    m.add_port_output(&dout);
 
     for i in 0..4 {
-        let mut conns = HashMap::with_capacity(4);
-        conns.insert(
-            "vdd".to_string(),
-            Connection {
-                stype: Some(Stype::Sig(vdd.clone())),
-            },
-        );
-        conns.insert(
-            "gnd".to_string(),
-            Connection {
-                stype: Some(Stype::Sig(gnd.clone())),
-            },
-        );
-
-        let mut inv_conns = conns.clone();
-
         let tmp = signal(format!("out_b_{}", i));
-        conns.insert(
-            "y".to_string(),
-            Connection {
-                stype: Some(Stype::Sig(tmp.clone())),
-            },
-        );
 
-        let sig1 = match i & 0x1 {
-            0 => "din",
-            1 => "din_b",
-            _ => unreachable!(),
-        };
-        let sig2 = match (i >> 1) & 0x1 {
-            0 => "din",
-            1 => "din_b",
-            _ => unreachable!(),
-        };
+        let mut nand = Instance::new(format!("nand_{}", i), local_reference(&nand_name));
+        nand.add_conns(&[
+            ("VDD", &vdd),
+            ("GND", &gnd),
+            ("Y", &tmp),
+            ("A", &(if i % 2 == 0 { din.get(0) } else { din_b.get(0) })),
+            (
+                "B",
+                &(if (i >> 1) % 2 == 0 {
+                    din.get(1)
+                } else {
+                    din_b.get(1)
+                }),
+            ),
+        ]);
+        m.add_instance(nand);
 
-        let a = Connection {
-            stype: Some(Stype::Slice(Slice {
-                signal: sig1.to_string(),
-                top: 0,
-                bot: 0,
-            })),
-        };
-        let b = Connection {
-            stype: Some(Stype::Slice(Slice {
-                signal: sig2.to_string(),
-                top: 1,
-                bot: 1,
-            })),
-        };
-        conns.insert("a".to_string(), a);
-        conns.insert("b".to_string(), b);
-        let nand = Instance {
-            name: format!("nand_{}", i),
-            module: Some(Reference {
-                to: Some(To::Local(nand_name.clone())),
-            }),
-            connections: conns,
-            ..Default::default()
-        };
-        m.instances.push(nand);
-
-        inv_conns.insert("din".to_string(), sig_conn(&tmp));
-        inv_conns.insert(
-            "din_b".to_string(),
-            Connection {
-                stype: Some(Stype::Slice(Slice {
-                    signal: "dout".to_string(),
-                    top: i,
-                    bot: i,
-                })),
-            },
-        );
-
-        let inv = Instance {
-            name: format!("inv_{}", i),
-            module: Some(Reference {
-                to: Some(To::Local(inv_name.clone())),
-            }),
-            connections: inv_conns,
-            ..Default::default()
-        };
-        m.instances.push(inv);
+        let mut inv = Instance::new(format!("inv_{}", i), local_reference(&inv_name));
+        inv.add_conns(&[
+            ("VDD", &vdd),
+            ("GND", &gnd),
+            ("DIN", &tmp),
+            ("DOUT", &dout.get(i)),
+        ]);
+        m.add_instance(inv);
     }
 
     vec![nand, inv, m]

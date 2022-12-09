@@ -1,7 +1,3 @@
-use std::collections::HashMap;
-
-use vlsir::circuit::{Concat, Connection};
-
 use crate::config::bitcell_array::{BitcellArrayDummyParams, BitcellArrayParams};
 use crate::config::col_inv::{ColInvArrayParams, ColInvParams};
 use crate::config::decoder::DecoderParams;
@@ -29,8 +25,7 @@ use crate::schematic::vlsir_api::{bus, concat, local_reference, signal, Instance
 use crate::schematic::wl_driver::wordline_driver_array;
 use crate::schematic::wmask_control::write_mask_control;
 use crate::tech::{
-    control_logic_bufbuf_16_ref, openram_dff_ref, sramgen_control_replica_v1_ref,
-    sramgen_control_simple_ref,
+    control_logic_bufbuf_16_ref, sramgen_control_replica_v1_ref, sramgen_control_simple_ref,
 };
 
 pub fn sram(params: &SramParams) -> Vec<Module> {
@@ -198,7 +193,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
 
     let mut we_control = write_mask_control(&WriteMaskControlParams {
         name: "we_control".to_string(),
-        width: mux_ratio as i64,
+        width: mux_ratio,
         and_params: AndParams {
             name: "we_control_and2".to_string(),
             nand: GateParams {
@@ -280,7 +275,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     m.add_port_output(&dout);
 
     if wmask_width > 1 {
-        ports.add_port_input(&wmask);
+        m.add_port_input(&wmask);
     }
 
     // Data dffs
@@ -293,7 +288,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         ("Q", &bank_din),
         ("Q_B", &dff_din_b),
     ]);
-    m.instances.push(inst);
+    m.add_instance(inst);
 
     // Address dffs
     let mut inst = Instance::new("addr_dffs", local_reference("addr_dff_array"));
@@ -305,7 +300,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         ("Q", &bank_addr),
         ("Q_B", &bank_addr_b),
     ]);
-    m.instances.push(inst);
+    m.add_instance(inst);
 
     // Write mask dffs
     if wmask_width > 1 {
@@ -318,7 +313,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
             ("Q", &bank_wmask),
             ("Q_B", &bank_wmask_b),
         ]);
-        m.instances.push(inst);
+        m.add_instance(inst);
     }
 
     // we dff
@@ -331,7 +326,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         ("Q", &bank_we),
         ("Q_N", &bank_we_b),
     ]);
-    m.instances.push(inst);
+    m.add_instance(inst);
 
     // Decoder
     let mut inst = Instance::new("decoder", local_reference("hierarchical_decoder"));
@@ -349,7 +344,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         ("DECODE", &wl_data),
         ("DECODE_B", &wl_data_b),
     ]);
-    m.instances.push(inst);
+    m.add_instance(inst);
 
     // Wordline driver array
     let mut inst = Instance::new("wl_driver_array", local_reference("wordline_driver_array"));
@@ -360,7 +355,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         ("WL_EN", &wl_en),
         ("WL", &wl),
     ]);
-    m.instances.push(inst);
+    m.add_instance(inst);
 
     // Bitcells
     let mut inst = Instance::new("bitcells", local_reference("bitcell_array"));
@@ -375,17 +370,20 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         ("VNB", &vss),
         ("VPB", &vdd),
     ]);
-    m.instances.push(inst);
+    m.add_instance(inst);
 
     // Precharge
     let mut inst = Instance::new("precharge_array", local_reference("precharge_array"));
     let (blc, brc) = match params.control {
-        ControlMode::Simple => (&bl, &br),
-        ControlMode::ReplicaV1 => (concat(vec![rbl, bl]), concat(vec![rbr, br])),
+        ControlMode::Simple => (bl.clone(), br.clone()),
+        ControlMode::ReplicaV1 => (
+            concat(vec![rbl.clone(), bl.clone()]),
+            concat(vec![rbr.clone(), br.clone()]),
+        ),
     };
-    inst.add_conns(&[("VDD", &vdd), ("EN_B", &pc_b), ("BL", blc), ("BR", brc)]);
+    inst.add_conns(&[("VDD", &vdd), ("EN_B", &pc_b), ("BL", &blc), ("BR", &brc)]);
 
-    m.instances.push(inst);
+    m.add_instance(inst);
 
     // Column write muxes
     let mut inst = Instance::new("write_mux_array", local_reference("write_mux_array"));
@@ -400,7 +398,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     if wmask_width > 1 {
         inst.add_conns(&[("wmask", &bank_wmask)]);
     }
-    m.instances.push(inst);
+    m.add_instance(inst);
 
     // Buffer LSB of address if mux ratio is 2
     if mux_ratio == 2 {
@@ -420,7 +418,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
             ("A", &bank_addr_b.get(0)),
             ("X", &bank_addr_b_buf),
         ]);
-        m.instances.push(inst);
+        m.add_instance(inst);
     }
 
     // Column read muxes
@@ -433,14 +431,14 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         ("BR_OUT", &br_read),
         (
             "SEL_B",
-            if mux_ratio == 2 {
-                &concat(vec![bank_addr_b_buf, bank_addr_buf])
+            &(if mux_ratio == 2 {
+                concat(vec![bank_addr_b_buf, bank_addr_buf])
             } else {
-                &col_sel_b
-            },
+                col_sel_b.clone()
+            }),
         ),
     ]);
-    m.instances.push(inst);
+    m.add_instance(inst);
 
     // Column data inverters
     let mut inst = Instance::new("col_inv_array", local_reference("col_inv_array"));
@@ -512,13 +510,6 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         ]);
         m.add_instance(inst);
     } else {
-        let mut conns = HashMap::new();
-        conns.insert("vdd", sig_conn(&vdd));
-        conns.insert("gnd", sig_conn(&vss));
-        conns.insert("addr", conn_slice("bank_addr", col_mask_bits - 1, 0));
-        conns.insert("addr_b", conn_slice("bank_addr_b", col_mask_bits - 1, 0));
-        conns.insert("decode", sig_conn(&col_sel));
-        conns.insert("decode_b", sig_conn(&col_sel_b));
         let mut inst = Instance::new("column_decoder", local_reference("column_decoder"));
         inst.add_conns(&[
             ("VDD", &vdd),

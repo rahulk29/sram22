@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use pdkprims::mos::MosType;
 
 use crate::config::mux::{ReadMuxArrayParams, ReadMuxParams};
@@ -62,7 +60,7 @@ pub fn read_mux(params: &ReadMuxParams) -> Module {
     m.add_port_input(&sel_b);
     m.add_ports_inout(&[&bl, &br, &bl_out, &br_out, &vdd]);
 
-    m.instances.push(
+    m.add_instance(
         Mosfet {
             name: "MBL".to_string(),
             width: params.width,
@@ -75,7 +73,7 @@ pub fn read_mux(params: &ReadMuxParams) -> Module {
         }
         .into(),
     );
-    m.instances.push(
+    m.add_instance(
         Mosfet {
             name: "MBR".to_string(),
             width: params.width,

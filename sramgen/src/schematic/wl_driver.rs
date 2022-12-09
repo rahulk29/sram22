@@ -1,10 +1,7 @@
-use std::collections::HashMap;
-
 use crate::config::gate::{AndParams, GateParams};
 use crate::config::wl_driver::{WordlineDriverArrayParams, WordlineDriverParams};
 use crate::schematic::gate::and2;
-use crate::schematic::local_reference;
-use crate::schematic::vlsir_api::{bus, signal, Instance, Module};
+use crate::schematic::vlsir_api::{bus, local_reference, signal, Instance, Module};
 
 pub fn wordline_driver_array(params: &WordlineDriverArrayParams) -> Vec<Module> {
     assert_eq!(params.width % 4, 0);
@@ -17,14 +14,6 @@ pub fn wordline_driver_array(params: &WordlineDriverArrayParams) -> Vec<Module> 
     let din = bus("din", params.width);
     let wl_en = signal("wl_en");
     let wl = bus("wl", params.width);
-
-    let ports = vec![
-        port_inout(&vdd),
-        port_inout(&vss),
-        port_input(&din),
-        port_input(&wl_en),
-        port_output(&wl),
-    ];
 
     let mut m = Module::new(&params.name);
     m.add_ports_inout(&[&vdd, &vss]);
@@ -43,7 +32,7 @@ pub fn wordline_driver_array(params: &WordlineDriverArrayParams) -> Vec<Module> 
             ("WL_EN", &wl_en),
             ("WL", &wl.get(i)),
         ]);
-        m.instances.push(inst);
+        m.add_instance(inst);
     }
 
     let mut modules = Vec::new();
@@ -59,14 +48,6 @@ pub fn wordline_driver(params: WordlineDriverParams) -> Vec<Module> {
     let din = signal("din");
     let wl_en = signal("wl_en");
     let wl = signal("wl");
-
-    let ports = vec![
-        port_inout(&vdd),
-        port_inout(&vss),
-        port_input(&din),
-        port_input(&wl_en),
-        port_output(&wl),
-    ];
 
     let mut m = Module::new(&params.name);
     m.add_ports_inout(&[&vdd, &vss]);

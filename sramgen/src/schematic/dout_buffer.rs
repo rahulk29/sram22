@@ -1,8 +1,4 @@
-use std::collections::HashMap;
-
 use pdkprims::mos::MosType;
-use vlsir::reference::To;
-use vlsir::Reference;
 
 use crate::config::dout_buffer::{DoutBufArrayParams, DoutBufParams};
 use crate::schematic::mos::Mosfet;

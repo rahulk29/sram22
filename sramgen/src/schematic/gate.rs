@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use pdkprims::mos::MosType;
 use serde::{Deserialize, Serialize};
 

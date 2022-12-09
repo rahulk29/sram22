@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::config::gate::AndParams;
 use crate::config::inv_chain::InvChainGridParams;
 use crate::schematic::gate::and2;
