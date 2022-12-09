@@ -1,14 +1,10 @@
 use std::collections::HashMap;
 
 use pdkprims::mos::MosType;
-use vlsir::circuit::Module;
 
 use crate::config::mux::{WriteMuxArrayParams, WriteMuxParams};
-use crate::schematic::conns::{
-    bus, conn_map, conn_slice, port_inout, port_input, sig_conn, signal,
-};
-use crate::schematic::local_reference;
 use crate::schematic::mos::Mosfet;
+use crate::schematic::vlsir_api::{bus, local_reference, signal, Instance, Module};
 
 pub fn write_mux_array(params: &WriteMuxArrayParams) -> Vec<Module> {
     let &WriteMuxArrayParams {
@@ -21,13 +17,8 @@ pub fn write_mux_array(params: &WriteMuxArrayParams) -> Vec<Module> {
         name, mux_params, ..
     } = params;
 
-    let mux_ratio = mux_ratio as i64;
-    let wmask_width = wmask_width as i64;
-    let cols = cols as i64;
-
     let mux = column_write_mux(mux_params);
 
-    assert!(cols > 0);
     assert_eq!(cols % 2, 0);
     assert_eq!(cols % (mux_ratio * wmask_width), 0);
 
@@ -56,17 +47,12 @@ pub fn write_mux_array(params: &WriteMuxArrayParams) -> Vec<Module> {
         port_inout(&vss),
     ];
 
+    let mut m = Module::new(name);
+    m.add_port_input(&we);
     if enable_wmask {
-        ports.insert(1, port_input(&wmask));
+        m.add_port_input(&wmask);
     }
-
-    let mut m = Module {
-        name: name.to_string(),
-        ports,
-        signals: vec![],
-        instances: vec![],
-        parameters: vec![],
-    };
+    m.add_ports_inout(&[&data, &data_b, &bl, &br, &vss]);
 
     for i in 0..cols {
         let sel_idx = i % mux_ratio;

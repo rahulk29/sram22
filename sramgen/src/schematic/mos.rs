@@ -4,9 +4,8 @@ use pdkprims::config::Int;
 use pdkprims::mos::MosType;
 use serde::{Deserialize, Serialize};
 use vlsir::circuit::parameter_value::Value;
-use vlsir::circuit::{port, Connection, ExternalModule, Parameter, ParameterValue, Port};
-use vlsir::reference::To;
-use vlsir::{QualifiedName, Reference};
+use vlsir::circuit::{ExternalModule, Parameter, ParameterValue};
+use vlsir::QualifiedName;
 
 use crate::schematic::vlsir_api::{port_inout, signal, Instance, Signal};
 use crate::schematic::NetlistFormat;
@@ -102,11 +101,11 @@ impl From<Mosfet> for Instance {
                 value: Some(Value::Double(m.length as f64 / 1000.0)),
             },
         );
-        inst.params(&[
+        inst.add_params(&[
             ("w", &parameter_double(m.width as f64 / 1000.0)),
             ("l", &parameter_double(m.length as f64 / 1000.0)),
         ]);
-        inst.connections(&[
+        inst.add_conns(&[
             ("d", &m.drain),
             ("g", &m.gate),
             ("s", &m.source),

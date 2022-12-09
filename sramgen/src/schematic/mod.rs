@@ -2,12 +2,11 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 use anyhow::anyhow;
-use vlsir::circuit::{port, ExternalModule, Package, Port};
-use vlsir::reference::To;
+use vlsir::circuit::{port, ExternalModule, Package};
 use vlsir::spice::SimInput;
-use vlsir::{Module, QualifiedName, Reference};
+use vlsir::QualifiedName;
 
-use crate::schematic::vlsir_api::{port, signal};
+use crate::schematic::vlsir_api::{port, signal, Module};
 use crate::tech::all_external_modules;
 use crate::Result;
 
@@ -64,7 +63,7 @@ pub fn save_modules(path: impl AsRef<Path>, name: &str, modules: Vec<Module>) ->
     let pkg = vlsir::circuit::Package {
         domain: format!("sramgen_{}", name),
         desc: "Sramgen generated cells".to_string(),
-        modules,
+        modules: modules.into_iter().map(|module| module.into()).collect(),
         ext_modules,
     };
 

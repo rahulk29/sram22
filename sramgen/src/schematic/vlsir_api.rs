@@ -24,7 +24,7 @@ impl Module {
 
     fn add_ports(&mut self, ports: &[&circuit::Port]) {
         for &port in ports {
-            self.port(port.to_owned());
+            self.add_port(port.to_owned());
         }
     }
 
@@ -182,11 +182,17 @@ impl Into<circuit::Connection> for &SignalSlice {
                 stype: Some(Stype::Sig(signal.into())),
             }
         } else {
+            let top = (self.end - 1) as i64;
+            let bot = self.start as i64;
+
+            assert!(top >= 0);
+            assert!(bot >= 0);
+
             circuit::Connection {
                 stype: Some(Stype::Slice(circuit::Slice {
                     signal: self.name,
-                    top: (self.end - 1) as i64,
-                    bot: self.start as i64,
+                    top,
+                    bot,
                 })),
             }
         }
@@ -195,20 +201,7 @@ impl Into<circuit::Connection> for &SignalSlice {
 
 impl Into<circuit::Connection> for SignalSlice {
     fn into(self) -> circuit::Connection {
-        if self.start == 0 && self.total_width == self.end {
-            let signal: Signal = self.into();
-            circuit::Connection {
-                stype: Some(Stype::Sig(signal.into())),
-            }
-        } else {
-            circuit::Connection {
-                stype: Some(Stype::Slice(circuit::Slice {
-                    signal: self.name,
-                    top: (self.end - 1) as i64,
-                    bot: self.start as i64,
-                })),
-            }
-        }
+        (&self).into()
     }
 }
 
@@ -390,6 +383,8 @@ impl Into<circuit::Signal> for Signal {
                 );
 
                 let width = ss.width() as i64;
+
+                assert!(width >= 0);
 
                 circuit::Signal {
                     name: ss.name,

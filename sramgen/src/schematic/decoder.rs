@@ -12,7 +12,7 @@ use crate::config::decoder::{Decoder24Params, DecoderParams};
 use crate::config::gate::{GateParams, Size};
 use crate::layout::decoder::get_idxs;
 use crate::schematic::gate::{inv, nand2, nand3, Gate, GateType};
-use crate::schematic::vlsir_api::{bus, signal, Instance, Module, Signal};
+use crate::schematic::vlsir_api::{bus, concat, signal, Instance, Module, Signal};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DecoderTree {
@@ -233,27 +233,10 @@ impl<'a> DecoderGen<'a> {
         if node.is_none() {
             assert!(self.addr_bits >= 1);
             self.addr_bits -= 1;
-            let c = Connection {
-                stype: Some(Stype::Concat(Concat {
-                    parts: vec![
-                        Connection {
-                            stype: Some(Stype::Slice(Slice {
-                                signal: "addr_b".to_string(),
-                                top: self.addr_bits as i64,
-                                bot: self.addr_bits as i64,
-                            })),
-                        },
-                        Connection {
-                            stype: Some(Stype::Slice(Slice {
-                                signal: "addr".to_string(),
-                                top: self.addr_bits as i64,
-                                bot: self.addr_bits as i64,
-                            })),
-                        },
-                    ],
-                })),
-            };
-            return c.into();
+            return concat(vec![
+                self.addr_b.get(self.addr_bits),
+                self.addr.get(self.addr_bits),
+            ]);
         }
 
         let node = node.unwrap();
@@ -278,10 +261,7 @@ impl<'a> DecoderGen<'a> {
             format!("predecode_{}", self.get_id())
         };
 
-        let out = Signal {
-            name: out_name.clone(),
-            width: node.num as i64,
-        };
+        let out = bus(&out_name, node.num);
 
         let nand_name = if let Some(nand_name) = self.nands.get(&(gate_size, node.gate.size)) {
             nand_name.to_string()

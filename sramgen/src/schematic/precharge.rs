@@ -1,15 +1,8 @@
-use std::collections::HashMap;
-
 use pdkprims::mos::MosType;
 
-use vlsir::circuit::connection::Stype;
-use vlsir::circuit::{Connection, Module, Slice};
-use vlsir::reference::To;
-use vlsir::Reference;
-
 use crate::config::precharge::{PrechargeArrayParams, PrechargeParams};
-use crate::schematic::conns::{bus, port_inout, port_input, sig_conn, signal};
 use crate::schematic::mos::Mosfet;
+use crate::schematic::vlsir_api::{bus, local_reference, signal, Instance, Module};
 
 pub fn precharge_array(params: &PrechargeArrayParams) -> Vec<Module> {
     assert!(params.width > 0);
@@ -18,56 +11,25 @@ pub fn precharge_array(params: &PrechargeArrayParams) -> Vec<Module> {
 
     let vdd = signal("vdd");
     let en_b = signal("en_b");
-    let bl = bus("bl", params.width as i64);
-    let br = bus("br", params.width as i64);
+    let bl = bus("bl", params.width);
+    let br = bus("br", params.width);
 
-    let ports = vec![
-        port_inout(&vdd),
-        port_input(&en_b),
-        port_inout(&bl),
-        port_inout(&br),
-    ];
+    let mut m = Module::new(&params.name);
+    m.add_ports_inout(&[&vdd, &bl, &br]);
+    m.add_port_input(&en_b);
 
-    let mut m = Module {
-        name: params.name.clone(),
-        ports,
-        signals: vec![],
-        instances: vec![],
-        parameters: vec![],
-    };
-
-    for i in 0..params.width as i64 {
-        let mut connections = HashMap::new();
-        connections.insert("vdd".to_string(), sig_conn(&vdd));
-        connections.insert("en_b".to_string(), sig_conn(&en_b));
-        connections.insert(
-            "bl".to_string(),
-            Connection {
-                stype: Some(Stype::Slice(Slice {
-                    signal: "bl".to_string(),
-                    top: i,
-                    bot: i,
-                })),
-            },
+    for i in 0..params.width {
+        let mut inst = Instance::new(
+            format!("precharge_{}", i),
+            local_reference(&params.instance_params.name),
         );
-        connections.insert(
-            "br".to_string(),
-            Connection {
-                stype: Some(Stype::Slice(Slice {
-                    signal: "br".to_string(),
-                    top: i,
-                    bot: i,
-                })),
-            },
-        );
-        m.instances.push(vlsir::circuit::Instance {
-            name: format!("precharge_{}", i),
-            module: Some(Reference {
-                to: Some(To::Local(params.instance_params.name.clone())),
-            }),
-            parameters: HashMap::new(),
-            connections,
-        });
+        inst.add_conns(&[
+            ("VDD", &vdd),
+            ("EN_B", &en_b),
+            ("BL", &bl.get(i)),
+            ("BR", &br.get(i)),
+        ]);
+        m.add_instance(inst);
     }
 
     vec![pc, m]
@@ -79,59 +41,48 @@ pub fn precharge(params: &PrechargeParams) -> Module {
     let vdd = signal("vdd");
     let bl = signal("bl");
     let br = signal("br");
-    let en = signal("en_b");
+    let en_b = signal("en_b");
 
-    let ports = vec![
-        port_inout(&vdd),
-        port_inout(&bl),
-        port_inout(&br),
-        port_input(&en),
-    ];
+    let mut m = Module::new(&params.name);
+    m.add_ports_inout(&[&vdd, &bl, &br]);
+    m.add_port_input(&en_b);
 
-    let mut m = Module {
-        name: params.name.clone(),
-        ports,
-        signals: vec![],
-        instances: vec![],
-        parameters: vec![],
-    };
-
-    m.instances.push(
+    m.add_instance(
         Mosfet {
             name: "bl_pull_up".to_string(),
             width: params.pull_up_width,
             length,
-            drain: sig_conn(&bl),
-            source: sig_conn(&vdd),
-            gate: sig_conn(&en),
-            body: sig_conn(&vdd),
+            drain: bl.clone(),
+            source: vdd.clone(),
+            gate: en_b.clone(),
+            body: vdd.clone(),
             mos_type: MosType::Pmos,
         }
         .into(),
     );
-    m.instances.push(
+    m.add_instance(
         Mosfet {
             name: "br_pull_up".to_string(),
             width: params.pull_up_width,
             length,
-            drain: sig_conn(&br),
-            source: sig_conn(&vdd),
-            gate: sig_conn(&en),
-            body: sig_conn(&vdd),
+            drain: br.clone(),
+            source: vdd.clone(),
+            gate: en_b.clone(),
+            body: vdd.clone(),
             mos_type: MosType::Pmos,
         }
         .into(),
     );
 
-    m.instances.push(
+    m.add_instance(
         Mosfet {
             name: "equalizer".to_string(),
             width: params.equalizer_width,
             length,
-            drain: sig_conn(&bl),
-            source: sig_conn(&br),
-            gate: sig_conn(&en),
-            body: sig_conn(&vdd),
+            drain: bl.clone(),
+            source: br.clone(),
+            gate: en_b.clone(),
+            body: vdd.clone(),
             mos_type: MosType::Pmos,
         }
         .into(),

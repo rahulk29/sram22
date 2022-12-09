@@ -1,13 +1,10 @@
 use std::collections::HashMap;
 
-use vlsir::circuit::{Instance, Module};
-
 use crate::config::gate::AndParams;
 use crate::config::inv_chain::InvChainGridParams;
-use crate::schematic::conns::{conn_map, port_inout, port_input, port_output, sig_conn, signal};
 use crate::schematic::gate::and2;
 use crate::schematic::inv_chain::inv_chain_grid;
-use crate::schematic::local_reference;
+use crate::schematic::vlsir_api::{local_reference, signal, Instance, Module};
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct EdgeDetectorParams {
@@ -30,12 +27,10 @@ pub fn edge_detector(params: &EdgeDetectorParams) -> Vec<Module> {
     let dout = signal("dout");
     let delayed = signal("delayed");
 
-    let ports = vec![
-        port_input(&din),
-        port_output(&dout),
-        port_inout(&vdd),
-        port_inout(&vss),
-    ];
+    let mut m = Module::new(name);
+    m.add_port_input(&din);
+    m.add_port_output(&dout);
+    m.add_ports_inout(&[&vdd, &vss]);
 
     let inv_chain_name = format!("{}_invs", name);
     let chain = inv_chain_grid(&InvChainGridParams {
@@ -45,40 +40,26 @@ pub fn edge_detector(params: &EdgeDetectorParams) -> Vec<Module> {
     });
     let mut and2 = and2(and_params);
 
-    let mut m = Module {
-        name: name.to_string(),
-        ports,
-        signals: vec![],
-        instances: vec![],
-        parameters: vec![],
-    };
+    let mut inst = Instance::new("delay_chain", local_reference(&inv_chain_name));
+    inst.add_conns(&[
+        ("DIN", &din),
+        ("DOUT", &delayed),
+        ("VDD", &vdd),
+        ("VSS", &vss),
+    ]);
 
-    let mut connections = HashMap::new();
-    connections.insert("din", sig_conn(&din));
-    connections.insert("dout", sig_conn(&delayed));
-    connections.insert("vdd", sig_conn(&vdd));
-    connections.insert("vss", sig_conn(&vss));
+    m.add_instance(inst);
 
-    m.instances.push(Instance {
-        name: "delay_chain".to_string(),
-        module: local_reference(&inv_chain_name),
-        parameters: HashMap::new(),
-        connections: conn_map(connections),
-    });
+    let mut inst = Instance::new("and", local_reference(&and_params.name));
+    inst.add_conns(&[
+        ("A", &din),
+        ("B", &delayed),
+        ("Y", &dout),
+        ("VDD", &vdd),
+        ("VSS", &vss),
+    ]);
 
-    let mut connections = HashMap::new();
-    connections.insert("a", sig_conn(&din));
-    connections.insert("b", sig_conn(&delayed));
-    connections.insert("y", sig_conn(&dout));
-    connections.insert("vdd", sig_conn(&vdd));
-    connections.insert("vss", sig_conn(&vss));
-
-    m.instances.push(Instance {
-        name: "and".to_string(),
-        module: local_reference(&and_params.name),
-        parameters: HashMap::new(),
-        connections: conn_map(connections),
-    });
+    m.add_instance(inst);
 
     let mut modules = Vec::new();
     modules.push(chain);

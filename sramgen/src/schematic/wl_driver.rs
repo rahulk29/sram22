@@ -1,17 +1,12 @@
 use std::collections::HashMap;
 
-use vlsir::circuit::{Instance, Module};
-
 use crate::config::gate::{AndParams, GateParams};
 use crate::config::wl_driver::{WordlineDriverArrayParams, WordlineDriverParams};
-use crate::schematic::conns::{
-    bus, conn_map, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
-};
 use crate::schematic::gate::and2;
 use crate::schematic::local_reference;
+use crate::schematic::vlsir_api::{bus, signal, Instance, Module};
 
 pub fn wordline_driver_array(params: &WordlineDriverArrayParams) -> Vec<Module> {
-    assert!(params.width > 0);
     assert_eq!(params.width % 4, 0);
 
     let iparams = params.instance_params.clone();
@@ -31,27 +26,24 @@ pub fn wordline_driver_array(params: &WordlineDriverArrayParams) -> Vec<Module> 
         port_output(&wl),
     ];
 
-    let mut m = Module {
-        name: params.name.clone(),
-        ports,
-        signals: vec![],
-        instances: vec![],
-        parameters: vec![],
-    };
+    let mut m = Module::new(&params.name);
+    m.add_ports_inout(&[&vdd, &vss]);
+    m.add_ports_input(&[&din, &wl_en]);
+    m.add_port_output(&wl);
 
     for i in 0..params.width {
-        let mut connections = HashMap::new();
-        connections.insert("vdd".to_string(), sig_conn(&vdd));
-        connections.insert("vss".to_string(), sig_conn(&vss));
-        connections.insert("din".to_string(), conn_slice("din", i, i));
-        connections.insert("wl_en".to_string(), sig_conn(&wl_en));
-        connections.insert("wl".to_string(), conn_slice("wl", i, i));
-        m.instances.push(vlsir::circuit::Instance {
-            name: format!("wl_driver_{}", i),
-            module: local_reference(&params.instance_params.name),
-            parameters: HashMap::new(),
-            connections,
-        });
+        let mut inst = Instance::new(
+            format!("wl_driver_{}", i),
+            local_reference(&params.instance_params.name),
+        );
+        inst.add_conns(&[
+            ("VDD", &vdd),
+            ("VSS", &vss),
+            ("DIN", &din.get(i)),
+            ("WL_EN", &wl_en),
+            ("WL", &wl.get(i)),
+        ]);
+        m.instances.push(inst);
     }
 
     let mut modules = Vec::new();
@@ -76,13 +68,10 @@ pub fn wordline_driver(params: WordlineDriverParams) -> Vec<Module> {
         port_output(&wl),
     ];
 
-    let mut m = Module {
-        name: params.name.clone(),
-        ports,
-        signals: vec![],
-        instances: vec![],
-        parameters: vec![],
-    };
+    let mut m = Module::new(&params.name);
+    m.add_ports_inout(&[&vdd, &vss]);
+    m.add_ports_input(&[&din, &wl_en]);
+    m.add_port_output(&wl);
 
     let and2_name = format!("{}_and2", &params.name);
     let mut and2 = and2(&AndParams {
@@ -99,19 +88,16 @@ pub fn wordline_driver(params: WordlineDriverParams) -> Vec<Module> {
         },
     });
 
-    let mut conns = HashMap::new();
-    conns.insert("a", sig_conn(&din));
-    conns.insert("b", sig_conn(&wl_en));
-    conns.insert("y", sig_conn(&wl));
-    conns.insert("vdd", sig_conn(&vdd));
-    conns.insert("vss", sig_conn(&vss));
+    let mut inst = Instance::new("and2", local_reference(and2_name));
+    inst.add_conns(&[
+        ("A", &din),
+        ("B", &wl_en),
+        ("Y", &wl),
+        ("VDD", &vdd),
+        ("VSS", &vss),
+    ]);
 
-    m.instances.push(Instance {
-        name: "and2".to_string(),
-        module: local_reference(and2_name),
-        parameters: HashMap::new(),
-        connections: conn_map(conns),
-    });
+    m.add_instance(inst);
 
     let mut modules = Vec::new();
     modules.append(&mut and2);
