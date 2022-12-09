@@ -167,6 +167,11 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
     let wlstrapa_p = wlstrapa_p_gds(lib)?;
     assert_eq!(colenda_bbox.width(), 1200);
 
+    let hstrap = sp_hstrap(lib)?;
+    let rowend_hstrap = sp_rowend_hstrap(lib)?;
+    let horiz_wlstrap = sp_horiz_wlstrap(lib)?;
+    let horiz_wlstrap_p = sp_horiz_wlstrap_p(lib)?;
+
     let mut aligned_rows = AlignedRows::new();
     aligned_rows.grow_down();
 
@@ -187,7 +192,14 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
         },
     ];
 
-    let total_rows = rows + dummy_rows_top + dummy_rows_bottom;
+    let hstrap_frequency = 8; // Place one horizontal tap row every 8 bitcell rows.
+
+    let core_rows = if rows > hstrap_frequency {
+        rows * (hstrap_frequency + 1) / hstrap_frequency - 1
+    } else {
+        rows
+    };
+    let total_rows = core_rows + dummy_rows_top + dummy_rows_bottom;
     let total_cols = cols + dummy_cols_left + dummy_cols_right + replica_cols;
 
     for i in 1..total_cols {
@@ -223,100 +235,163 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
 
     aligned_rows.add_row(row);
 
+    let mut flip = false;
+
     for r in 0..total_rows {
         let mut row = Vec::new();
 
-        let is_dummy_row = r < dummy_rows_top || r >= rows + dummy_rows_top;
+        let is_dummy_row = r < dummy_rows_top || r >= core_rows + dummy_rows_top;
         let is_replica_row = replica_cols > 0 && !is_dummy_row;
 
-        let (rowend_r, rowend_replica_r, bitcell_r, bitcell_replica_r, wlstrap_r, wlstrap_p_r) =
-            if r % 2 == 1 {
-                (
-                    rowenda.clone(),
-                    rowenda_replica.clone(),
-                    bitcell_opt1a.clone(),
-                    bitcell_opt1a_replica.clone(),
-                    wlstrapa.clone(),
-                    wlstrapa_p.clone(),
-                )
-            } else {
-                (
-                    rowend.clone(),
-                    rowend_replica.clone(),
-                    bitcell.clone(),
-                    bitcell_replica.clone(),
-                    wlstrap.clone(),
-                    wlstrap_p.clone(),
-                )
-            };
-
-        row.push(Instance {
-            inst_name: format!("rowend_l_{}", r),
-            cell: if is_replica_row {
-                rowend_replica_r.clone()
-            } else {
-                rowend_r.clone()
-            },
-            loc: Point::new(0, 0),
-            reflect_vert: r % 2 != 0,
-            angle: Some(180f64),
-        });
-
-        row.push(Instance {
-            inst_name: format!("cell_{}_0", r),
-            cell: if is_replica_row {
-                bitcell_replica_r.clone()
-            } else {
-                bitcell_r.clone()
-            },
-            loc: Point::new(0, 0),
-            reflect_vert: r % 2 != 0,
-            angle: Some(180f64),
-        });
-
-        for c in 1..total_cols {
-            let strap = if c % 2 == 0 {
-                wlstrap_r.clone()
-            } else {
-                wlstrap_p_r.clone()
-            };
+        if r >= dummy_rows_top
+            && r < core_rows + dummy_rows_top - 1
+            && (r - dummy_rows_top) % (hstrap_frequency + 1) == hstrap_frequency - 1
+        {
             row.push(Instance {
-                inst_name: format!("wlstrap_{}_{}", r, c),
-                cell: strap,
+                inst_name: format!("rowend_l_{}", r),
+                cell: rowend_hstrap.clone(),
                 loc: Point::new(0, 0),
-                reflect_vert: r % 2 == 0,
+                reflect_vert: flip,
+                angle: Some(180f64),
+            });
+
+            row.push(Instance {
+                inst_name: format!("cell_{}_0", r),
+                cell: hstrap.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: flip,
+                angle: Some(180f64),
+            });
+
+            for c in 1..total_cols {
+                let strap = if c % 2 == 0 {
+                    horiz_wlstrap.clone()
+                } else {
+                    horiz_wlstrap_p.clone()
+                };
+                row.push(Instance {
+                    inst_name: format!("wlstrap_{}_{}", r, c),
+                    cell: strap,
+                    loc: Point::new(0, 0),
+                    reflect_vert: !flip,
+                    angle: None,
+                });
+
+                let (reflect_vert, angle) = match (flip, c % 2) {
+                    (false, 0) => (false, Some(180f64)),
+                    (false, 1) => (true, None),
+                    (true, 0) => (true, Some(180f64)),
+                    (true, 1) => (false, None),
+                    _ => unreachable!("invalid mods"),
+                };
+
+                row.push(Instance {
+                    inst_name: format!("cell_{}_{}", r, c),
+                    cell: hstrap.clone(),
+                    loc: Point::new(0, 0),
+                    reflect_vert,
+                    angle,
+                });
+            }
+
+            row.push(Instance {
+                inst_name: format!("rowend_r_{}", r),
+                cell: rowend_hstrap.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: !flip,
                 angle: None,
             });
+        } else {
+            let (rowend_r, rowend_replica_r, bitcell_r, bitcell_replica_r, wlstrap_r, wlstrap_p_r) =
+                if flip {
+                    (
+                        rowenda.clone(),
+                        rowenda_replica.clone(),
+                        bitcell_opt1a.clone(),
+                        bitcell_opt1a_replica.clone(),
+                        wlstrapa.clone(),
+                        wlstrapa_p.clone(),
+                    )
+                } else {
+                    (
+                        rowend.clone(),
+                        rowend_replica.clone(),
+                        bitcell.clone(),
+                        bitcell_replica.clone(),
+                        wlstrap.clone(),
+                        wlstrap_p.clone(),
+                    )
+                };
 
-            let (reflect_vert, angle) = match (r % 2, c % 2) {
-                (0, 0) => (false, Some(180f64)),
-                (0, 1) => (true, None),
-                (1, 0) => (true, Some(180f64)),
-                (1, 1) => (false, None),
-                _ => unreachable!("invalid mods"),
-            };
-
-            let cell = if c < dummy_cols_left + replica_cols && is_replica_row {
-                bitcell_replica_r.clone()
-            } else {
-                bitcell_r.clone()
-            };
             row.push(Instance {
-                inst_name: format!("cell_{}_{}", r, c),
-                cell,
+                inst_name: format!("rowend_l_{}", r),
+                cell: if is_replica_row {
+                    rowend_replica_r.clone()
+                } else {
+                    rowend_r.clone()
+                },
                 loc: Point::new(0, 0),
-                reflect_vert,
-                angle,
+                reflect_vert: flip,
+                angle: Some(180f64),
             });
-        }
 
-        row.push(Instance {
-            inst_name: format!("rowend_r_{}", r),
-            cell: rowend_r.clone(),
-            loc: Point::new(0, 0),
-            reflect_vert: r % 2 == 0,
-            angle: None,
-        });
+            row.push(Instance {
+                inst_name: format!("cell_{}_0", r),
+                cell: if is_replica_row {
+                    bitcell_replica_r.clone()
+                } else {
+                    bitcell_r.clone()
+                },
+                loc: Point::new(0, 0),
+                reflect_vert: flip,
+                angle: Some(180f64),
+            });
+
+            for c in 1..total_cols {
+                let strap = if c % 2 == 0 {
+                    wlstrap_r.clone()
+                } else {
+                    wlstrap_p_r.clone()
+                };
+                row.push(Instance {
+                    inst_name: format!("wlstrap_{}_{}", r, c),
+                    cell: strap,
+                    loc: Point::new(0, 0),
+                    reflect_vert: !flip,
+                    angle: None,
+                });
+
+                let (reflect_vert, angle) = match (flip, c % 2) {
+                    (false, 0) => (false, Some(180f64)),
+                    (false, 1) => (true, None),
+                    (true, 0) => (true, Some(180f64)),
+                    (true, 1) => (false, None),
+                    _ => unreachable!("invalid mods"),
+                };
+
+                let cell = if c < dummy_cols_left + replica_cols && is_replica_row {
+                    bitcell_replica_r.clone()
+                } else {
+                    bitcell_r.clone()
+                };
+                row.push(Instance {
+                    inst_name: format!("cell_{}_{}", r, c),
+                    cell,
+                    loc: Point::new(0, 0),
+                    reflect_vert,
+                    angle,
+                });
+            }
+
+            row.push(Instance {
+                inst_name: format!("rowend_r_{}", r),
+                cell: rowend_r.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: !flip,
+                angle: None,
+            });
+            flip = !flip;
+        }
 
         aligned_rows.add_row(row);
     }

@@ -342,6 +342,42 @@ pub fn wlstrapa_p_gds(lib: &mut PdkLib) -> CellGdsResult {
 }
 
 #[inline]
+pub fn sp_hstrap(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_hstrap.gds",
+        "sky130_fd_bd_sram__sram_sp_hstrap",
+    )
+}
+
+#[inline]
+pub fn sp_horiz_wlstrap(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_horiz_wlstrap.gds",
+        "sky130_fd_bd_sram__sram_sp_horiz_wlstrap",
+    )
+}
+
+#[inline]
+pub fn sp_horiz_wlstrap_p(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_horiz_wlstrap_p.gds",
+        "sky130_fd_bd_sram__sram_sp_horiz_wlstrap_p",
+    )
+}
+
+#[inline]
+pub fn sp_rowend_hstrap(lib: &mut PdkLib) -> CellGdsResult {
+    cell_gds(
+        lib,
+        "sram_sp_rowend_hstrap.gds",
+        "sky130_fd_bd_sram__sram_sp_rowend_hstrap",
+    )
+}
+
+#[inline]
 pub fn sram_sp_cell_ref() -> Reference {
     Reference {
         to: Some(To::External(QualifiedName {
