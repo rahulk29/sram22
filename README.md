@@ -87,4 +87,5 @@ In order to use Sram22, your system will need to have the following components:
 - Rust (Sram22 is tested with version 1.65.0)
 - Cmake
 - Git v2.13+
+- Python 3.8+
 
