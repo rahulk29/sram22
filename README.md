@@ -10,11 +10,9 @@ Sram22 is still a work in progress.
 If you have BWRC access, you can install Sram22 using the following commands:
 
 ```bash
-git clone https://github.com/rahulk29/sram22.git
-cd sram22
-git submodule update --init
-cd sramgen
-cargo install --all-features --path .
+git clone --recurse-submodules https://github.com/rahulk29/sram22.git
+cd sram22/deps/Vlsir/bindings/python && pip install -e . && cd -
+cd sram22/sramgen && cargo install --all-features --path .
 ```
 
 If you do not have BWRC access, you can still install Sram22, albeit without
@@ -23,11 +21,9 @@ the ability to invoke proprietary tools for DRC, LVS, PEX, and simulation.
 Use the following commands:
 
 ```bash
-git clone https://github.com/rahulk29/sram22.git
-cd sram22
-git submodule update --init
-cd sramgen
-cargo install --path .
+git clone --recurse-submodules https://github.com/rahulk29/sram22.git
+cd sram22/deps/Vlsir/bindings/python && pip install -e . && cd -
+cd sram22/sramgen && cargo install --path .
 ```
 
 ### Usage
@@ -90,4 +86,5 @@ In order to use Sram22, your system will need to have the following components:
 
 - Rust (Sram22 is tested with version 1.65.0)
 - Cmake
+- Git v2.13+
 
