@@ -1,7 +1,7 @@
 use crate::cli::progress::StepContext;
 use crate::config::sram::{ControlMode, SramConfig, SramParams};
 use crate::layout::sram::draw_sram;
-use crate::paths::{out_bin, out_gds, out_pex, out_sram, out_verilog};
+use crate::paths::{out_bin, out_gds, out_sram, out_verilog};
 use crate::plan::extract::ExtractionResult;
 use crate::schematic::sram::sram;
 use crate::schematic::{generate_netlist, save_modules};
@@ -182,7 +182,8 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
         );
     }
 
-    let pex_netlist_path = out_pex(work_dir, name);
+    #[cfg(any(all(feature = "calibre", feature = "pex"), feature = "liberate_mx"))]
+    let pex_netlist_path = crate::paths::out_pex(work_dir, name);
 
     #[cfg(feature = "calibre")]
     {

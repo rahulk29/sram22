@@ -51,4 +51,4 @@ pex = ["dep:calibre"]
 abstract_lef = ["dep:abstract_lef"]
 liberate_mx = ["dep:liberate_mx"]
 
-default = ["calibre", "spectre", "pex", "abstract_lef", "liberate_mx"]
+default = []
