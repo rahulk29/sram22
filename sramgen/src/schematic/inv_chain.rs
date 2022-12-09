@@ -34,12 +34,12 @@ pub fn inv_chain_grid(params: &InvChainGridParams) -> Module {
         let input = if i == 0 {
             din.clone()
         } else {
-            signal(bus_bit("int", i))
+            conn_slice("int", i, i)
         };
         let output = if i == rows * cols - 1 {
             dout.clone()
         } else {
-            signal(bus_bit("int", i + 1))
+            conn_slice("int", i + 1, i + 1)
         };
 
         let mut connections = HashMap::new();

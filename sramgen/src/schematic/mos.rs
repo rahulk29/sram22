@@ -4,12 +4,14 @@ use pdkprims::config::Int;
 use pdkprims::mos::MosType;
 use serde::{Deserialize, Serialize};
 use vlsir::circuit::parameter_value::Value;
-use vlsir::circuit::{port, Connection, ExternalModule, Instance, Parameter, ParameterValue, Port};
+use vlsir::circuit::{port, Connection, ExternalModule, Parameter, ParameterValue, Port};
 use vlsir::reference::To;
 use vlsir::{QualifiedName, Reference};
 
-use crate::schematic::conns::signal;
+use crate::schematic::vlsir_api::{port_inout, signal, Instance, Signal};
 use crate::schematic::NetlistFormat;
+
+use super::vlsir_api::{external_reference, parameter_double};
 
 /// A schematic-level representation of a MOSFET.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,20 +19,17 @@ pub struct Mosfet {
     pub name: String,
     pub width: Int,
     pub length: Int,
-    pub drain: Connection,
-    pub source: Connection,
-    pub gate: Connection,
-    pub body: Connection,
+    pub drain: Signal,
+    pub source: Signal,
+    pub gate: Signal,
+    pub body: Signal,
     pub mos_type: pdkprims::mos::MosType,
 }
 
 pub fn ext_nmos(format: NetlistFormat) -> ExternalModule {
     let ports = ["d", "g", "s", "b"]
         .into_iter()
-        .map(|n| Port {
-            signal: Some(signal(n)),
-            direction: port::Direction::Inout as i32,
-        })
+        .map(|n| port_inout(signal(n)))
         .collect::<Vec<_>>();
 
     let parameters = ["w", "l"]
@@ -60,10 +59,7 @@ pub fn ext_nmos(format: NetlistFormat) -> ExternalModule {
 pub fn ext_pmos(format: NetlistFormat) -> ExternalModule {
     let ports = ["d", "g", "s", "b"]
         .into_iter()
-        .map(|n| Port {
-            signal: Some(signal(n)),
-            direction: port::Direction::Inout as i32,
-        })
+        .map(|n| port_inout(signal(n)))
         .collect::<Vec<_>>();
 
     let parameters = ["w", "l"]
@@ -92,6 +88,7 @@ pub fn ext_pmos(format: NetlistFormat) -> ExternalModule {
 
 impl From<Mosfet> for Instance {
     fn from(m: Mosfet) -> Self {
+        let mut inst = Self::new(m.name, external_reference("sky130", to_name(m.mos_type)));
         let mut parameters = HashMap::new();
         parameters.insert(
             "w".to_string(),
@@ -105,26 +102,18 @@ impl From<Mosfet> for Instance {
                 value: Some(Value::Double(m.length as f64 / 1000.0)),
             },
         );
+        inst.params(&[
+            ("w", &parameter_double(m.width as f64 / 1000.0)),
+            ("l", &parameter_double(m.length as f64 / 1000.0)),
+        ]);
+        inst.connections(&[
+            ("d", &m.drain),
+            ("g", &m.gate),
+            ("s", &m.source),
+            ("s", &m.body),
+        ]);
 
-        let mut connections = HashMap::new();
-
-        connections.insert("d".to_string(), m.drain);
-        connections.insert("g".to_string(), m.gate);
-        connections.insert("s".to_string(), m.source);
-        connections.insert("b".to_string(), m.body);
-
-        Self {
-            name: m.name,
-            module: Some(Reference {
-                to: Some(To::External(QualifiedName {
-                    domain: "sky130".to_string(),
-                    name: to_name(m.mos_type),
-                })),
-            }),
-
-            parameters,
-            connections,
-        }
+        inst
     }
 }
 

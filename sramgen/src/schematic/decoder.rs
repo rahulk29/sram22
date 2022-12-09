@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use fanout::FanoutAnalyzer;
 use serde::{Deserialize, Serialize};
 use vlsir::circuit::connection::Stype;
-use vlsir::circuit::{port, Concat, Connection, Instance, Module, Port, Signal, Slice};
+use vlsir::circuit::{port, Concat, Connection, Port, Slice};
 use vlsir::reference::To;
 use vlsir::Reference;
 
@@ -11,8 +11,8 @@ use crate::clog2;
 use crate::config::decoder::{Decoder24Params, DecoderParams};
 use crate::config::gate::{GateParams, Size};
 use crate::layout::decoder::get_idxs;
-use crate::schematic::conns::{conn_map, conn_slice, sig_conn, signal, BusConnection};
 use crate::schematic::gate::{inv, nand2, nand3, Gate, GateType};
+use crate::schematic::vlsir_api::{bus, signal, Instance, Module, Signal};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DecoderTree {
@@ -164,68 +164,23 @@ fn partition_bits(bits: usize, top: bool) -> Vec<usize> {
 
 pub fn hierarchical_decoder(params: &DecoderParams) -> Vec<Module> {
     let out = params.tree.root.num;
-    let in_bits = clog2(out) as i64;
+    let in_bits = clog2(out);
 
-    let ports = vec![
-        Port {
-            signal: Some(Signal {
-                name: "vdd".to_string(),
-                width: 1,
-            }),
-            direction: port::Direction::Inout as i32,
-        },
-        Port {
-            signal: Some(Signal {
-                name: "gnd".to_string(),
-                width: 1,
-            }),
-            direction: port::Direction::Inout as i32,
-        },
-        Port {
-            signal: Some(Signal {
-                name: "addr".to_string(),
-                width: in_bits,
-            }),
-            direction: port::Direction::Input as i32,
-        },
-        Port {
-            signal: Some(Signal {
-                name: "addr_b".to_string(),
-                width: in_bits,
-            }),
-            direction: port::Direction::Input as i32,
-        },
-        Port {
-            signal: Some(Signal {
-                name: "decode".to_string(),
-                width: out as i64,
-            }),
-            direction: port::Direction::Output as i32,
-        },
-        Port {
-            signal: Some(Signal {
-                name: "decode_b".to_string(),
-                width: out as i64,
-            }),
-            direction: port::Direction::Output as i32,
-        },
-    ];
-
-    let mut m = Module {
-        name: params.name.clone(),
-        ports,
-        signals: vec![],
-        instances: vec![],
-        parameters: vec![],
-    };
+    let mut m = Module::new(&params.name);
 
     let vdd = signal("vdd");
     let gnd = signal("gnd");
+    let addr = bus("addr", in_bits);
+    let addr_b = bus("addr_b", in_bits);
 
-    let mut gen = DecoderGen::new(params, &vdd, &gnd, in_bits as usize);
+    m.add_ports_inout(&[&vdd, &gnd]);
+    m.add_ports_input(&[&addr, &addr_b]);
+    m.add_ports_output(&[&bus("decode", out), &bus("decode_b", out)]);
+
+    let mut gen = DecoderGen::new(params, &vdd, &gnd, &addr, &addr_b, in_bits as usize);
     gen.helper(Some(&params.tree.root), 0);
 
-    m.instances.append(&mut gen.instances);
+    m.add_instances(gen.instances);
     gen.modules.push(m);
 
     gen.modules
@@ -236,6 +191,8 @@ struct DecoderGen<'a> {
     params: &'a DecoderParams,
     vdd: &'a Signal,
     gnd: &'a Signal,
+    addr: &'a Signal,
+    addr_b: &'a Signal,
     modules: Vec<Module>,
     instances: Vec<Instance>,
     addr_bits: usize,
@@ -248,6 +205,8 @@ impl<'a> DecoderGen<'a> {
         params: &'a DecoderParams,
         vdd: &'a Signal,
         gnd: &'a Signal,
+        addr: &'a Signal,
+        addr_b: &'a Signal,
         addr_bits: usize,
     ) -> Self {
         Self {
@@ -255,6 +214,8 @@ impl<'a> DecoderGen<'a> {
             params,
             vdd,
             gnd,
+            addr,
+            addr_b,
             modules: vec![],
             instances: vec![],
             addr_bits,
@@ -268,7 +229,7 @@ impl<'a> DecoderGen<'a> {
         self.ctr
     }
 
-    fn helper(&mut self, node: Option<&TreeNode>, depth: usize) -> BusConnection {
+    fn helper(&mut self, node: Option<&TreeNode>, depth: usize) -> Signal {
         if node.is_none() {
             assert!(self.addr_bits >= 1);
             self.addr_bits -= 1;

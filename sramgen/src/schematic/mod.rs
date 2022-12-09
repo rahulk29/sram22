@@ -7,7 +7,7 @@ use vlsir::reference::To;
 use vlsir::spice::SimInput;
 use vlsir::{Module, QualifiedName, Reference};
 
-use crate::schematic::conns::signal;
+use crate::schematic::vlsir_api::{port, signal};
 use crate::tech::all_external_modules;
 use crate::Result;
 
@@ -28,7 +28,7 @@ pub mod sram;
 pub mod wl_driver;
 pub mod wmask_control;
 
-pub mod conns;
+pub mod vlsir_api;
 
 pub const GENERATE_SCRIPT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/generate.py");
 pub const NETLIST_FORMAT: NetlistFormat = NetlistFormat::Spectre;
@@ -45,10 +45,7 @@ pub fn simple_ext_module(
 ) -> ExternalModule {
     let ports = ports
         .iter()
-        .map(|&n| Port {
-            signal: Some(signal(n)),
-            direction: port::Direction::Inout as i32,
-        })
+        .map(|&n| port(signal(n), port::Direction::Inout))
         .collect::<Vec<_>>();
 
     ExternalModule {
@@ -60,12 +57,6 @@ pub fn simple_ext_module(
         ports,
         parameters: vec![],
     }
-}
-
-pub fn local_reference(name: impl Into<String>) -> Option<Reference> {
-    Some(Reference {
-        to: Some(To::Local(name.into())),
-    })
 }
 
 pub fn save_modules(path: impl AsRef<Path>, name: &str, modules: Vec<Module>) -> Result<()> {

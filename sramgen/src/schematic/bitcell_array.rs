@@ -1,18 +1,13 @@
 use std::collections::HashMap;
 
-use vlsir::circuit::Instance;
-use vlsir::Module;
-
 use crate::config::bitcell_array::{BitcellArrayDummyParams, BitcellArrayParams};
-use crate::schematic::conns::{
-    bus, conn_map, conn_slice, port_inout, port_input, sig_conn, signal,
-};
+use crate::schematic::vlsir_api::{bus, signal, Instance, Module};
 use crate::tech::{sram_sp_cell_ref, sram_sp_cell_replica_ref, sram_sp_colend_ref};
 
 pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
-    let rows = params.rows as i64;
-    let cols = params.cols as i64;
-    let replica_cols = params.replica_cols as i64;
+    let rows = params.rows;
+    let cols = params.cols;
+    let replica_cols = params.replica_cols;
     let dummy_params = &params.dummy_params;
 
     let (dummy_rows_top, dummy_rows_bottom, dummy_cols_left, dummy_cols_right) = {
@@ -22,7 +17,7 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
             left,
             right,
         } = dummy_params;
-        (top as i64, bottom as i64, left as i64, right as i64)
+        (top, bottom, left, right)
     };
 
     let total_rows = rows + dummy_rows_top + dummy_rows_bottom;
@@ -38,87 +33,57 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
     let rbl = signal("rbl");
     let rbr = signal("rbr");
 
-    let mut ports = vec![
-        port_inout(&vdd),
-        port_inout(&vss),
-        port_inout(&bl),
-        port_inout(&br),
-        port_input(&wl),
-        port_inout(&vnb),
-        port_inout(&vpb),
-    ];
+    let mut m = Module::new(&params.name);
+
+    m.add_ports_inout(&[&vdd, &vss, &bl, &br, &vnb, &vpb]);
+
+    m.add_port_input(&wl);
 
     if replica_cols > 0 {
-        ports.push(port_inout(&rbl));
-        ports.push(port_inout(&rbr));
+        m.add_ports_inout(&[&rbl, &rbr]);
     }
-
-    let mut m = Module {
-        name: params.name.clone(),
-        ports,
-        signals: vec![],
-        instances: vec![],
-        parameters: vec![],
-    };
 
     for i in 0..total_rows {
         for j in 0..total_cols {
-            let mut connections = HashMap::new();
-            connections.insert("VDD".to_string(), sig_conn(&vdd));
-            connections.insert("VSS".to_string(), sig_conn(&vss));
-            connections.insert("VNB".to_string(), sig_conn(&vnb));
-            connections.insert("VPB".to_string(), sig_conn(&vpb));
-
-            if i < dummy_rows_bottom || i >= rows + dummy_rows_bottom {
-                connections.insert("WL".to_string(), sig_conn(&vss));
+            let module = if j < dummy_cols_left + replica_cols
+                && i >= dummy_rows_bottom
+                && i < rows + dummy_rows_bottom
+            {
+                sram_sp_cell_replica_ref()
             } else {
-                connections.insert(
-                    "WL".to_string(),
-                    conn_slice("wl", i - dummy_rows_bottom, i - dummy_rows_bottom),
-                );
-            }
-            if j < dummy_cols_left || j >= cols + dummy_cols_left + replica_cols {
-                connections.insert("BL".to_string(), sig_conn(&vdd));
-                connections.insert("BR".to_string(), sig_conn(&vdd));
-            } else if j < dummy_cols_left + replica_cols {
-                connections.insert("BL".to_string(), sig_conn(&rbl));
-                connections.insert("BR".to_string(), sig_conn(&rbr));
-            } else {
-                connections.insert(
-                    "BL".to_string(),
-                    conn_slice(
-                        "bl",
-                        j - dummy_cols_left - replica_cols,
-                        j - dummy_cols_left - replica_cols,
-                    ),
-                );
-                connections.insert(
-                    "BR".to_string(),
-                    conn_slice(
-                        "br",
-                        j - dummy_cols_left - replica_cols,
-                        j - dummy_cols_left - replica_cols,
-                    ),
-                );
-            }
-
-            let module = Some(
-                if j < dummy_cols_left + replica_cols
-                    && i >= dummy_rows_bottom
-                    && i < rows + dummy_rows_bottom
-                {
-                    sram_sp_cell_replica_ref()
-                } else {
-                    sram_sp_cell_ref()
-                },
-            );
-            let inst = Instance {
-                name: format!("bitcell_{}_{}", i, j),
-                parameters: HashMap::new(),
-                module,
-                connections,
+                sram_sp_cell_ref()
             };
-            m.instances.push(inst);
+            let mut inst = Instance::new(format!("bitcell_{}_{}", i, j), module);
+
+            let wl_sig = if i < dummy_rows_bottom || i >= rows + dummy_rows_bottom {
+                &vss
+            } else {
+                &wl.get(i - dummy_rows_bottom)
+            };
+
+            let (bl_sig, br_sig) =
+                if j < dummy_cols_left || j >= cols + dummy_cols_left + replica_cols {
+                    (&vdd, &vdd)
+                } else if j < dummy_cols_left + replica_cols {
+                    (&rbl, &rbr)
+                } else {
+                    (
+                        &bl.get(j - dummy_cols_left - replica_cols),
+                        &br.get(j - dummy_cols_left - replica_cols),
+                    )
+                };
+
+            inst.add_conns(&[
+                ("VDD", &vdd),
+                ("VSS", &vss),
+                ("VNB", &vnb),
+                ("VPB", &vpb),
+                ("WL", wl_sig),
+                ("BL", bl_sig),
+                ("BR", br_sig),
+            ]);
+
+            m.add_instance(inst);
         }
     }
 
@@ -127,56 +92,35 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
         let is_dummy = i < dummy_cols_left || i >= cols + dummy_cols_left + replica_cols;
         let is_replica = !is_dummy && i < dummy_cols_left + replica_cols;
 
-        let conns = [
+        let (bl0_sig, bl1_sig) = if is_dummy {
+            (&vdd, &vdd)
+        } else if is_replica {
+            (&rbl, &rbr)
+        } else {
             (
-                "BL1",
-                if is_dummy {
-                    sig_conn(&vdd)
-                } else if is_replica {
-                    sig_conn(&rbr)
-                } else {
-                    conn_slice(
-                        "br",
-                        i - dummy_cols_left - replica_cols,
-                        i - dummy_cols_left - replica_cols,
-                    )
-                },
-            ),
-            (
-                "BL0",
-                if is_dummy {
-                    sig_conn(&vdd)
-                } else if is_replica {
-                    sig_conn(&rbl)
-                } else {
-                    conn_slice(
-                        "bl",
-                        i - dummy_cols_left - replica_cols,
-                        i - dummy_cols_left - replica_cols,
-                    )
-                },
-            ),
-            ("VPWR", sig_conn(&vdd)),
-            ("VGND", sig_conn(&vss)),
-            ("VNB", sig_conn(&vnb)),
-            ("VPB", sig_conn(&vpb)),
+                &bl.get(i - dummy_cols_left - replica_cols),
+                &br.get(i - dummy_cols_left - replica_cols),
+            )
+        };
+
+        let conns = vec![
+            ("BL1", bl1_sig),
+            ("BL0", bl0_sig),
+            ("VPWR", &vdd),
+            ("VGND", &vss),
+            ("VNB", &vnb),
+            ("VPB", &vpb),
         ];
 
-        let inst = Instance {
-            name: format!("colend_{}_bot", i),
-            parameters: HashMap::new(),
-            module: Some(sram_sp_colend_ref()),
-            connections: conn_map(conns.clone().into()),
-        };
-        m.instances.push(inst);
+        let mut inst = Instance::new(format!("colend_{}_bot", i), sram_sp_colend_ref());
+        inst.add_conns(&conns);
 
-        let inst = Instance {
-            name: format!("colend_{}_top", i),
-            parameters: HashMap::new(),
-            module: Some(sram_sp_colend_ref()),
-            connections: conn_map(conns.into()),
-        };
-        m.instances.push(inst);
+        m.add_instance(inst);
+
+        let mut inst = Instance::new(format!("colend_{}_top", i), sram_sp_colend_ref());
+        inst.add_conns(&conns);
+
+        m.add_instance(inst);
     }
 
     m
