@@ -80,18 +80,18 @@ pub fn and2(params: &AndParams) -> Vec<Module> {
     // nand
     let mut inst = Instance::new("nand", local_reference(nand_name));
     inst.add_conns(&[
-        ("VDD", &vdd),
-        ("GND", &vss),
-        ("A", &a),
-        ("B", &b),
-        ("Y", &tmp),
+        ("vdd", &vdd),
+        ("gnd", &vss),
+        ("a", &a),
+        ("b", &b),
+        ("y", &tmp),
     ]);
 
     m.add_instance(inst);
 
     // inv
     let mut inst = Instance::new("inv", local_reference(inv_name));
-    inst.add_conns(&[("VDD", &vdd), ("GND", &vss), ("DIN", &tmp), ("DIN_B", &y)]);
+    inst.add_conns(&[("vdd", &vdd), ("gnd", &vss), ("din", &tmp), ("din_b", &y)]);
 
     m.add_instance(inst);
 
@@ -133,7 +133,7 @@ pub fn nand2(params: &GateParams) -> Module {
             width: size.nmos_width,
             length,
             drain: y.clone(),
-            source: x.clone(),
+            source: x,
             gate: b.clone(),
             body: gnd.clone(),
             mos_type: MosType::Nmos,
@@ -230,7 +230,7 @@ pub fn nor2(params: &GateParams) -> Module {
             name: "p2".to_string(),
             width: size.pmos_width,
             length,
-            drain: x.clone(),
+            drain: x,
             source: vdd.clone(),
             gate: b.clone(),
             body: vdd.clone(),
@@ -279,7 +279,7 @@ pub fn nand3(params: &GateParams) -> Module {
             width: size.nmos_width,
             length,
             drain: x2.clone(),
-            source: x1.clone(),
+            source: x1,
             gate: b.clone(),
             body: gnd.clone(),
             mos_type: MosType::Nmos,
@@ -292,7 +292,7 @@ pub fn nand3(params: &GateParams) -> Module {
             width: size.nmos_width,
             length,
             drain: y.clone(),
-            source: x2.clone(),
+            source: x2,
             gate: c.clone(),
             body: gnd.clone(),
             mos_type: MosType::Nmos,
@@ -306,7 +306,7 @@ pub fn nand3(params: &GateParams) -> Module {
             length,
             drain: y.clone(),
             source: vdd.clone(),
-            gate: a.clone(),
+            gate: a,
             body: vdd.clone(),
             mos_type: MosType::Pmos,
         }
@@ -319,7 +319,7 @@ pub fn nand3(params: &GateParams) -> Module {
             length,
             drain: y.clone(),
             source: vdd.clone(),
-            gate: b.clone(),
+            gate: b,
             body: vdd.clone(),
             mos_type: MosType::Pmos,
         }
@@ -330,10 +330,10 @@ pub fn nand3(params: &GateParams) -> Module {
             name: "p3".to_string(),
             width: size.pmos_width,
             length,
-            drain: y.clone(),
+            drain: y,
             source: vdd.clone(),
-            gate: c.clone(),
-            body: vdd.clone(),
+            gate: c,
+            body: vdd,
             mos_type: MosType::Pmos,
         }
         .into(),

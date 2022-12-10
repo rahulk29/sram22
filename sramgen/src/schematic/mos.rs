@@ -109,7 +109,7 @@ impl From<Mosfet> for Instance {
             ("d", &m.drain),
             ("g", &m.gate),
             ("s", &m.source),
-            ("s", &m.body),
+            ("b", &m.body),
         ]);
 
         inst

@@ -24,10 +24,10 @@ pub fn precharge_array(params: &PrechargeArrayParams) -> Vec<Module> {
             local_reference(&params.instance_params.name),
         );
         inst.add_conns(&[
-            ("VDD", &vdd),
-            ("EN_B", &en_b),
-            ("BL", &bl.get(i)),
-            ("BR", &br.get(i)),
+            ("vdd", &vdd),
+            ("en_b", &en_b),
+            ("bl", &bl.get(i)),
+            ("br", &br.get(i)),
         ]);
         m.add_instance(inst);
     }

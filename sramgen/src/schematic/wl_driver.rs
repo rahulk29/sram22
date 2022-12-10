@@ -26,11 +26,11 @@ pub fn wordline_driver_array(params: &WordlineDriverArrayParams) -> Vec<Module> 
             local_reference(&params.instance_params.name),
         );
         inst.add_conns(&[
-            ("VDD", &vdd),
-            ("VSS", &vss),
-            ("DIN", &din.get(i)),
-            ("WL_EN", &wl_en),
-            ("WL", &wl.get(i)),
+            ("vdd", &vdd),
+            ("vss", &vss),
+            ("din", &din.get(i)),
+            ("wl_en", &wl_en),
+            ("wl", &wl.get(i)),
         ]);
         m.add_instance(inst);
     }
@@ -71,11 +71,11 @@ pub fn wordline_driver(params: WordlineDriverParams) -> Vec<Module> {
 
     let mut inst = Instance::new("and2", local_reference(and2_name));
     inst.add_conns(&[
-        ("A", &din),
-        ("B", &wl_en),
-        ("Y", &wl),
-        ("VDD", &vdd),
-        ("VSS", &vss),
+        ("a", &din),
+        ("b", &wl_en),
+        ("y", &wl),
+        ("vdd", &vdd),
+        ("vss", &vss),
     ]);
 
     m.add_instance(inst);

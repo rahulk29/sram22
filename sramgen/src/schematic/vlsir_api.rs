@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use vlsir::circuit::{connection::Stype, parameter_value::Value, port, ParameterValue};
+use vlsir::circuit::connection::Stype;
+use vlsir::circuit::parameter_value::Value;
+use vlsir::circuit::{port, ParameterValue};
 use vlsir::reference::To;
 use vlsir::{circuit, QualifiedName, Reference};
 
@@ -49,7 +51,7 @@ impl Module {
 
     #[allow(dead_code)]
     fn add_port(&mut self, port: circuit::Port) {
-        self.inner.ports.push(port.to_owned());
+        self.inner.ports.push(port);
     }
 
     fn add_port_from_signal(&mut self, signal: &Signal, dir: port::Direction) {
@@ -82,6 +84,7 @@ impl Module {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<vlsir::Module> for Module {
     fn into(self) -> vlsir::Module {
         self.inner
@@ -122,11 +125,12 @@ impl Instance {
         for (name, value) in params {
             self.inner
                 .parameters
-                .insert(name.to_string(), (*value).to_owned().into());
+                .insert(name.to_string(), (*value).to_owned());
         }
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<circuit::Instance> for Instance {
     fn into(self) -> circuit::Instance {
         self.inner
@@ -170,14 +174,15 @@ impl SignalSlice {
     }
 }
 
-impl Into<Signal> for SignalSlice {
-    fn into(self) -> Signal {
-        Signal {
-            parts: vec![SignalComponent::SignalSlice(self)],
+impl From<SignalSlice> for Signal {
+    fn from(signal: SignalSlice) -> Self {
+        Self {
+            parts: vec![SignalComponent::SignalSlice(signal)],
         }
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<circuit::Connection> for &SignalSlice {
     fn into(self) -> circuit::Connection {
         if self.start == 0 && self.total_width == self.end {
@@ -203,6 +208,7 @@ impl Into<circuit::Connection> for &SignalSlice {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<circuit::Connection> for SignalSlice {
     fn into(self) -> circuit::Connection {
         if self.start == 0 && self.total_width == self.end {
@@ -243,6 +249,7 @@ impl SignalComponent {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<circuit::Connection> for &SignalComponent {
     fn into(self) -> circuit::Connection {
         match self {
@@ -252,6 +259,7 @@ impl Into<circuit::Connection> for &SignalComponent {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<circuit::Connection> for SignalComponent {
     fn into(self) -> circuit::Connection {
         match self {
@@ -382,7 +390,7 @@ impl Signal {
             end -= width;
         }
 
-        if new_parts.len() == 0 {
+        if new_parts.is_empty() {
             panic!("Index out of range");
         }
 
@@ -390,6 +398,7 @@ impl Signal {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<circuit::Signal> for Signal {
     fn into(mut self) -> circuit::Signal {
         assert_eq!(
@@ -421,10 +430,11 @@ impl Into<circuit::Signal> for Signal {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<circuit::Connection> for &Signal {
     fn into(self) -> circuit::Connection {
         assert!(
-            self.parts.len() > 0,
+            !self.parts.is_empty(),
             "Empty signals cannot be converted to Vlsir connections"
         );
 
@@ -444,10 +454,11 @@ impl Into<circuit::Connection> for &Signal {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<circuit::Connection> for Signal {
     fn into(mut self) -> circuit::Connection {
         assert!(
-            self.parts.len() > 0,
+            !self.parts.is_empty(),
             "Empty signals cannot be converted to Vlsir connections"
         );
 
@@ -573,7 +584,7 @@ mod tests {
         let wl = bus("wl", 16);
 
         let mut instance = Instance::new(name, local_reference(name));
-        instance.add_conns(&vec![("vss", &vss), ("bl", &bl.get(0)), ("wl", &wl.get(0))]);
+        instance.add_conns(&[("vss", &vss), ("bl", &bl.get(0)), ("wl", &wl.get(0))]);
 
         let instance: circuit::Instance = instance.into();
         assert_eq!(instance.name, name, "Instance name does not match");

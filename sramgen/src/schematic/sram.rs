@@ -25,7 +25,8 @@ use crate::schematic::vlsir_api::{bus, concat, local_reference, signal, Instance
 use crate::schematic::wl_driver::wordline_driver_array;
 use crate::schematic::wmask_control::write_mask_control;
 use crate::tech::{
-    control_logic_bufbuf_16_ref, sramgen_control_replica_v1_ref, sramgen_control_simple_ref,
+    control_logic_bufbuf_16_ref, openram_dff_ref, sramgen_control_replica_v1_ref,
+    sramgen_control_simple_ref,
 };
 
 pub fn sram(params: &SramParams) -> Vec<Module> {
@@ -281,24 +282,24 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     // Data dffs
     let mut inst = Instance::new("din_dffs", local_reference("data_dff_array"));
     inst.add_conns(&[
-        ("VDD", &vdd),
-        ("VSS", &vss),
-        ("D", &din),
-        ("CLK", &clk),
-        ("Q", &bank_din),
-        ("Q_B", &dff_din_b),
+        ("vdd", &vdd),
+        ("vss", &vss),
+        ("d", &din),
+        ("clk", &clk),
+        ("q", &bank_din),
+        ("q_b", &dff_din_b),
     ]);
     m.add_instance(inst);
 
     // Address dffs
     let mut inst = Instance::new("addr_dffs", local_reference("addr_dff_array"));
     inst.add_conns(&[
-        ("VDD", &vdd),
-        ("VSS", &vss),
-        ("D", &addr),
-        ("CLK", &clk),
-        ("Q", &bank_addr),
-        ("Q_B", &bank_addr_b),
+        ("vdd", &vdd),
+        ("vss", &vss),
+        ("d", &addr),
+        ("clk", &clk),
+        ("q", &bank_addr),
+        ("q_b", &bank_addr_b),
     ]);
     m.add_instance(inst);
 
@@ -306,18 +307,18 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     if wmask_width > 1 {
         let mut inst = Instance::new("wmask_dffs", local_reference("wmask_dff_array"));
         inst.add_conns(&[
-            ("VDD", &vdd),
-            ("VSS", &vss),
-            ("D", &wmask),
-            ("CLK", &clk),
-            ("Q", &bank_wmask),
-            ("Q_B", &bank_wmask_b),
+            ("vdd", &vdd),
+            ("vss", &vss),
+            ("d", &wmask),
+            ("clk", &clk),
+            ("q", &bank_wmask),
+            ("q_b", &bank_wmask_b),
         ]);
         m.add_instance(inst);
     }
 
     // we dff
-    let mut inst = Instance::new("addr_dffs", local_reference("addr_dff_array"));
+    let mut inst = Instance::new("we_dff", openram_dff_ref());
     inst.add_conns(&[
         ("VDD", &vdd),
         ("GND", &vss),
@@ -331,44 +332,44 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     // Decoder
     let mut inst = Instance::new("decoder", local_reference("hierarchical_decoder"));
     inst.add_conns(&[
-        ("VDD", &vdd),
-        ("VSS", &vss),
+        ("vdd", &vdd),
+        ("gnd", &vss),
         (
-            "ADDR",
+            "addr",
             &bank_addr.get_range(col_mask_bits, row_bits + col_mask_bits),
         ),
         (
-            "ADDR_B",
+            "addr_b",
             &bank_addr_b.get_range(col_mask_bits, row_bits + col_mask_bits),
         ),
-        ("DECODE", &wl_data),
-        ("DECODE_B", &wl_data_b),
+        ("decode", &wl_data),
+        ("decode_b", &wl_data_b),
     ]);
     m.add_instance(inst);
 
     // Wordline driver array
     let mut inst = Instance::new("wl_driver_array", local_reference("wordline_driver_array"));
     inst.add_conns(&[
-        ("VDD", &vdd),
-        ("VSS", &vss),
-        ("DIN", &wl_data),
-        ("WL_EN", &wl_en),
-        ("WL", &wl),
+        ("vdd", &vdd),
+        ("vss", &vss),
+        ("din", &wl_data),
+        ("wl_en", &wl_en),
+        ("wl", &wl),
     ]);
     m.add_instance(inst);
 
     // Bitcells
     let mut inst = Instance::new("bitcells", local_reference("bitcell_array"));
     inst.add_conns(&[
-        ("BL", &bl),
-        ("BR", &br),
-        ("RBL", &rbl),
-        ("RBR", &rbr),
-        ("WL", &wl),
-        ("VDD", &vdd),
-        ("VSS", &vss),
-        ("VNB", &vss),
-        ("VPB", &vdd),
+        ("bl", &bl),
+        ("br", &br),
+        ("rbl", &rbl),
+        ("rbr", &rbr),
+        ("wl", &wl),
+        ("vdd", &vdd),
+        ("vss", &vss),
+        ("vnb", &vss),
+        ("vpb", &vdd),
     ]);
     m.add_instance(inst);
 
@@ -381,19 +382,19 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
             concat(vec![rbr.clone(), br.clone()]),
         ),
     };
-    inst.add_conns(&[("VDD", &vdd), ("EN_B", &pc_b), ("BL", &blc), ("BR", &brc)]);
+    inst.add_conns(&[("vdd", &vdd), ("en_b", &pc_b), ("bl", &blc), ("br", &brc)]);
 
     m.add_instance(inst);
 
     // Column write muxes
     let mut inst = Instance::new("write_mux_array", local_reference("write_mux_array"));
     inst.add_conns(&[
-        ("VSS", &vss),
-        ("BL", &bl),
-        ("BR", &br),
-        ("DATA", &bank_din),
-        ("DATA_B", &bank_din_b),
-        ("WE", &write_driver_en),
+        ("vss", &vss),
+        ("bl", &bl),
+        ("br", &br),
+        ("data", &bank_din),
+        ("data_b", &bank_din_b),
+        ("we", &write_driver_en),
     ]);
     if wmask_width > 1 {
         inst.add_conns(&[("wmask", &bank_wmask)]);
@@ -404,74 +405,72 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     if mux_ratio == 2 {
         let mut inst = Instance::new("bank_addr_buf", control_logic_bufbuf_16_ref());
         inst.add_conns(&[
-            ("VDD", &vdd),
-            ("VSS", &vss),
-            ("A", &bank_addr.get(0)),
-            ("X", &bank_addr_buf),
+            ("vdd", &vdd),
+            ("vss", &vss),
+            ("a", &bank_addr.get(0)),
+            ("x", &bank_addr_buf),
         ]);
         m.add_instance(inst);
 
         let mut inst = Instance::new("bank_addr_b_buf", control_logic_bufbuf_16_ref());
         inst.add_conns(&[
-            ("VDD", &vdd),
-            ("VSS", &vss),
-            ("A", &bank_addr_b.get(0)),
-            ("X", &bank_addr_b_buf),
+            ("vdd", &vdd),
+            ("vss", &vss),
+            ("a", &bank_addr_b.get(0)),
+            ("x", &bank_addr_b_buf),
         ]);
         m.add_instance(inst);
     }
 
     // Column read muxes
+    let sel_b = if mux_ratio == 2 {
+        concat(vec![bank_addr_b_buf, bank_addr_buf])
+    } else {
+        col_sel_b.clone()
+    };
     let mut inst = Instance::new("read_mux_array", local_reference("read_mux_array"));
     inst.add_conns(&[
-        ("VDD", &vdd),
-        ("BL", &bl),
-        ("BR", &br),
-        ("BL_OUT", &bl_read),
-        ("BR_OUT", &br_read),
-        (
-            "SEL_B",
-            &(if mux_ratio == 2 {
-                concat(vec![bank_addr_b_buf, bank_addr_buf])
-            } else {
-                col_sel_b.clone()
-            }),
-        ),
+        ("vdd", &vdd),
+        ("bl", &bl),
+        ("br", &br),
+        ("bl_out", &bl_read),
+        ("br_out", &br_read),
+        ("sel_b", &sel_b),
     ]);
     m.add_instance(inst);
 
     // Column data inverters
     let mut inst = Instance::new("col_inv_array", local_reference("col_inv_array"));
     inst.add_conns(&[
-        ("VDD", &vdd),
-        ("VSS", &vss),
-        ("DIN", &bank_din),
-        ("DIN_B", &bank_din_b),
+        ("vdd", &vdd),
+        ("vss", &vss),
+        ("din", &bank_din),
+        ("din_b", &bank_din_b),
     ]);
     m.add_instance(inst);
 
     // Sense amplifier array
     let mut inst = Instance::new("sense_amp_array", local_reference("sense_amp_array"));
     inst.add_conns(&[
-        ("VDD", &vdd),
-        ("VSS", &vss),
-        ("CLK", &sae),
-        ("BL", &bl_read),
-        ("BR", &br_read),
-        ("DATA", &sa_outp),
-        ("DATA_B", &sa_outn),
+        ("vdd", &vdd),
+        ("vss", &vss),
+        ("clk", &sae),
+        ("bl", &bl_read),
+        ("br", &br_read),
+        ("data", &sa_outp),
+        ("data_b", &sa_outn),
     ]);
     m.add_instance(inst);
 
     // Data output buffers
     let mut inst = Instance::new("dout_buf_array", local_reference("dout_buf_array"));
     inst.add_conns(&[
-        ("VDD", &vdd),
-        ("VSS", &vss),
-        ("DIN1", &sa_outp),
-        ("DIN2", &sa_outn),
-        ("DOUT1", &dout),
-        ("DOUT2", &dout_b),
+        ("vdd", &vdd),
+        ("vss", &vss),
+        ("din1", &sa_outp),
+        ("din2", &sa_outn),
+        ("dout1", &dout),
+        ("dout2", &dout_b),
     ]);
     m.add_instance(inst);
 
@@ -482,14 +481,14 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     };
     let mut inst = Instance::new("control_logic", reference);
     inst.add_conns(&[
-        ("CLK", &clk),
-        ("WE", &bank_we),
-        ("PC_B", &pc_b),
-        ("WL_EN", &wl_en),
-        ("WRITE_DRIVER_EN", &wr_en),
-        ("SENSE_EN", &sae),
-        ("VDD", &vdd),
-        ("VSS", &vss),
+        ("clk", &clk),
+        ("we", &bank_we),
+        ("pc_b", &pc_b),
+        ("wl_en", &wl_en),
+        ("write_driver_en", &wr_en),
+        ("sense_en", &sae),
+        ("vdd", &vdd),
+        ("vss", &vss),
     ]);
 
     if params.control == ControlMode::ReplicaV1 {
@@ -502,32 +501,32 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     if mux_ratio == 2 {
         let mut inst = Instance::new("we_control", local_reference("we_control"));
         inst.add_conns(&[
-            ("WR_EN", &wr_en),
-            ("SEL", &concat(vec![bank_addr.get(0), bank_addr_b.get(0)])),
-            ("WRITE_DRIVER_EN", &write_driver_en),
-            ("VDD", &vdd),
-            ("VSS", &vss),
+            ("wr_en", &wr_en),
+            ("sel", &concat(vec![bank_addr.get(0), bank_addr_b.get(0)])),
+            ("write_driver_en", &write_driver_en),
+            ("vdd", &vdd),
+            ("vss", &vss),
         ]);
         m.add_instance(inst);
     } else {
         let mut inst = Instance::new("column_decoder", local_reference("column_decoder"));
         inst.add_conns(&[
-            ("VDD", &vdd),
-            ("GND", &vss),
-            ("ADDR", &bank_addr.get_range(0, col_mask_bits)),
-            ("ADDR_B", &bank_addr_b.get_range(0, col_mask_bits)),
-            ("DECODE", &col_sel),
-            ("DECODE_B", &col_sel_b),
+            ("vdd", &vdd),
+            ("gnd", &vss),
+            ("addr", &bank_addr.get_range(0, col_mask_bits)),
+            ("addr_b", &bank_addr_b.get_range(0, col_mask_bits)),
+            ("decode", &col_sel),
+            ("decode_b", &col_sel_b),
         ]);
         m.add_instance(inst);
 
         let mut inst = Instance::new("we_control", local_reference("we_control"));
         inst.add_conns(&[
-            ("WR_EN", &wr_en),
-            ("SEL", &col_sel),
-            ("WRITE_DRIVER_EN", &write_driver_en),
-            ("VDD", &vdd),
-            ("VSS", &vss),
+            ("wr_en", &wr_en),
+            ("sel", &col_sel),
+            ("write_driver_en", &write_driver_en),
+            ("vdd", &vdd),
+            ("vss", &vss),
         ]);
         m.add_instance(inst);
     }

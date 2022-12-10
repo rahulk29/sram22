@@ -26,10 +26,10 @@ pub fn inv_chain_grid(params: &InvChainGridParams) -> Module {
 
         let mut inst = Instance::new(format!("inv_{}", i), control_logic_inv_ref());
         inst.add_conns(&[
-            ("DIN", &input),
-            ("DIN_B", &output),
-            ("VDD", &vdd),
-            ("VSS", &vss),
+            ("din", &input),
+            ("din_b", &output),
+            ("vdd", &vdd),
+            ("vss", &vss),
         ]);
         m.add_instance(inst);
     }

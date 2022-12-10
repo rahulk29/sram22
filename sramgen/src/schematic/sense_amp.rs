@@ -23,11 +23,11 @@ pub fn sense_amp_array(params: &SenseAmpArrayParams) -> Module {
     for i in 0..width {
         let mut inst = Instance::new(format!("sense_amp_{}", i), sramgen_sp_sense_amp_ref());
         inst.add_conns(&[
-            ("CLK", &clk),
-            ("INN", &br.get(i)),
-            ("INP", &bl.get(i)),
-            ("OUTP", &data.get(i)),
-            ("OUTN", &data_b.get(i)),
+            ("clk", &clk),
+            ("inn", &br.get(i)),
+            ("inp", &bl.get(i)),
+            ("outp", &data.get(i)),
+            ("outn", &data_b.get(i)),
             ("VDD", &vdd),
             ("VSS", &vss),
         ]);

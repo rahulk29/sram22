@@ -33,9 +33,11 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
 
     let mut m = Module::new(&params.name);
 
-    m.add_ports_inout(&[&vdd, &vss, &bl, &br, &vnb, &vpb]);
+    m.add_ports_inout(&[&vdd, &vss, &bl, &br]);
 
     m.add_port_input(&wl);
+
+    m.add_ports_inout(&[&vnb, &vpb]);
 
     if replica_cols > 0 {
         m.add_ports_inout(&[&rbl, &rbr]);

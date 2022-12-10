@@ -40,21 +40,21 @@ pub fn edge_detector(params: &EdgeDetectorParams) -> Vec<Module> {
 
     let mut inst = Instance::new("delay_chain", local_reference(&inv_chain_name));
     inst.add_conns(&[
-        ("DIN", &din),
-        ("DOUT", &delayed),
-        ("VDD", &vdd),
-        ("VSS", &vss),
+        ("din", &din),
+        ("dout", &delayed),
+        ("vdd", &vdd),
+        ("vss", &vss),
     ]);
 
     m.add_instance(inst);
 
     let mut inst = Instance::new("and", local_reference(&and_params.name));
     inst.add_conns(&[
-        ("A", &din),
-        ("B", &delayed),
-        ("Y", &dout),
-        ("VDD", &vdd),
-        ("VSS", &vss),
+        ("a", &din),
+        ("b", &delayed),
+        ("y", &dout),
+        ("vdd", &vdd),
+        ("vss", &vss),
     ]);
 
     m.add_instance(inst);

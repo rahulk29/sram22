@@ -28,21 +28,21 @@ pub fn sr_latch(params: &SrLatchParams) -> Vec<Module> {
 
     let mut inst = Instance::new("nor_set", local_reference(&params.nor.name));
     inst.add_conns(&[
-        ("A", &s),
-        ("B", &q),
-        ("Y", &qb),
-        ("VDD", &vdd),
-        ("GND", &vss),
+        ("a", &s),
+        ("b", &q),
+        ("y", &qb),
+        ("vdd", &vdd),
+        ("gnd", &vss),
     ]);
     m.add_instance(inst);
 
     let mut inst = Instance::new("nor_reset", local_reference(&params.nor.name));
     inst.add_conns(&[
-        ("A", &r),
-        ("B", &qb),
-        ("Y", &q),
-        ("VDD", &vdd),
-        ("GND", &vss),
+        ("a", &r),
+        ("b", &qb),
+        ("y", &q),
+        ("vdd", &vdd),
+        ("gnd", &vss),
     ]);
     m.add_instance(inst);
 

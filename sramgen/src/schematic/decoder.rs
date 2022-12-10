@@ -313,7 +313,7 @@ impl<'a> DecoderGen<'a> {
                 format!("nand_{}", self.get_id()),
                 local_reference(&nand_name),
             );
-            nand.add_conns(&[("VDD", self.vdd), ("GND", self.gnd), ("Y", &tmp)]);
+            nand.add_conns(&[("vdd", self.vdd), ("gnd", self.gnd), ("y", &tmp)]);
 
             for (j, port) in ports.enumerate() {
                 nand.add_conn(port, &sigs[j].get(idxs[j]));
@@ -324,10 +324,10 @@ impl<'a> DecoderGen<'a> {
             let mut inv =
                 Instance::new(format!("inv_{}", self.get_id()), local_reference(&inv_name));
             inv.add_conns(&[
-                ("VDD", self.vdd),
-                ("GND", self.gnd),
-                ("DIN", &tmp),
-                ("DIN_B", &out.get(i)),
+                ("vdd", self.vdd),
+                ("gnd", self.gnd),
+                ("din", &tmp),
+                ("din_b", &out.get(i)),
             ]);
 
             self.instances.push(inv);
@@ -368,12 +368,12 @@ pub fn decoder_24(params: &Decoder24Params) -> Vec<Module> {
 
         let mut nand = Instance::new(format!("nand_{}", i), local_reference(&nand_name));
         nand.add_conns(&[
-            ("VDD", &vdd),
-            ("GND", &gnd),
-            ("Y", &tmp),
-            ("A", &(if i % 2 == 0 { din.get(0) } else { din_b.get(0) })),
+            ("vdd", &vdd),
+            ("gnd", &gnd),
+            ("y", &tmp),
+            ("a", &(if i % 2 == 0 { din.get(0) } else { din_b.get(0) })),
             (
-                "B",
+                "b",
                 &(if (i >> 1) % 2 == 0 {
                     din.get(1)
                 } else {
@@ -385,10 +385,10 @@ pub fn decoder_24(params: &Decoder24Params) -> Vec<Module> {
 
         let mut inv = Instance::new(format!("inv_{}", i), local_reference(&inv_name));
         inv.add_conns(&[
-            ("VDD", &vdd),
-            ("GND", &gnd),
-            ("DIN", &tmp),
-            ("DOUT", &dout.get(i)),
+            ("vdd", &vdd),
+            ("gnd", &gnd),
+            ("din", &tmp),
+            ("dout", &dout.get(i)),
         ]);
         m.add_instance(inv);
     }

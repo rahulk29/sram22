@@ -25,12 +25,12 @@ pub fn dout_buf_array(params: &DoutBufArrayParams) -> Vec<Module> {
     for i in 0..width {
         let mut inst = Instance::new(format!("buf_{}", i), local_reference("dout_buf"));
         inst.add_conns(&[
-            ("VDD", &vdd),
-            ("VSS", &vss),
-            ("DIN1", &din1.get(i)),
-            ("DIN2", &din2.get(i)),
-            ("DOUT1", &dout1.get(i)),
-            ("DOUT1", &dout2.get(i)),
+            ("vdd", &vdd),
+            ("vss", &vss),
+            ("din1", &din1.get(i)),
+            ("din2", &din2.get(i)),
+            ("dout1", &dout1.get(i)),
+            ("dout1", &dout2.get(i)),
         ]);
         m.add_instance(inst);
     }

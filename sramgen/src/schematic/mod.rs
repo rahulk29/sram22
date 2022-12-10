@@ -2,13 +2,13 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 use anyhow::anyhow;
-use vlsir::circuit::{port, ExternalModule, Package};
+use vlsir::circuit::{ExternalModule, Package};
 use vlsir::spice::SimInput;
 use vlsir::QualifiedName;
 
-use crate::schematic::vlsir_api::{port, signal, Module};
+use crate::schematic::vlsir_api::{port_inout, signal, Module};
 use crate::tech::all_external_modules;
-use crate::Result;
+use crate::{into_map, Result};
 
 pub mod bitcell_array;
 pub mod col_inv;
@@ -44,7 +44,7 @@ pub fn simple_ext_module(
 ) -> ExternalModule {
     let ports = ports
         .iter()
-        .map(|&n| port(signal(n), port::Direction::Inout))
+        .map(|&n| port_inout(signal(n)))
         .collect::<Vec<_>>();
 
     ExternalModule {
@@ -63,7 +63,7 @@ pub fn save_modules(path: impl AsRef<Path>, name: &str, modules: Vec<Module>) ->
     let pkg = vlsir::circuit::Package {
         domain: format!("sramgen_{}", name),
         desc: "Sramgen generated cells".to_string(),
-        modules: modules.into_iter().map(|module| module.into()).collect(),
+        modules: into_map(modules),
         ext_modules,
     };
 

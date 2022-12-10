@@ -50,12 +50,12 @@ pub fn write_mux_array(params: &WriteMuxArrayParams) -> Vec<Module> {
         let wmask_idx = i / bpmask;
         let mut inst = Instance::new(format!("mux_{}", i), local_reference(&mux_params.name));
         inst.add_conns(&[
-            ("WE", &we.get(sel_idx)),
-            ("DATA", &data.get(group_idx)),
-            ("DATA_B", &data_b.get(group_idx)),
-            ("BL", &bl.get(i)),
-            ("BR", &br.get(i)),
-            ("VSS", &vss),
+            ("we", &we.get(sel_idx)),
+            ("data", &data.get(group_idx)),
+            ("data_b", &data_b.get(group_idx)),
+            ("bl", &bl.get(i)),
+            ("br", &br.get(i)),
+            ("vss", &vss),
         ]);
         if enable_wmask {
             inst.add_conns(&[("wmask", &wmask.get(wmask_idx))]);
@@ -124,7 +124,7 @@ pub fn column_write_mux(params: &WriteMuxParams) -> Module {
                 length,
                 drain: x.clone(),
                 source: y.clone(),
-                gate: wmask.clone(),
+                gate: wmask,
                 body: vss.clone(),
                 mos_type: MosType::Nmos,
             }
@@ -137,10 +137,10 @@ pub fn column_write_mux(params: &WriteMuxParams) -> Module {
             name: "MPD".to_string(),
             width: params.width,
             length,
-            drain: if params.wmask { y.clone() } else { x.clone() },
+            drain: if params.wmask { y } else { x },
             source: vss.clone(),
-            gate: we.clone(),
-            body: vss.clone(),
+            gate: we,
+            body: vss,
             mos_type: MosType::Nmos,
         }
         .into(),
