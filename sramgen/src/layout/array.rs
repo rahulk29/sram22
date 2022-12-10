@@ -193,14 +193,20 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
     ];
 
     let hstrap_frequency = 8; // Place one horizontal tap row every 8 bitcell rows.
+    let wlstrap_frequency = 8; // Place one wordline strap col every 8 bitcell cols.
 
     let core_rows = if rows > hstrap_frequency {
         rows * (hstrap_frequency + 1) / hstrap_frequency - 1
     } else {
         rows
     };
+    let core_cols = if cols > wlstrap_frequency {
+        cols * (wlstrap_frequency + 1) / wlstrap_frequency - 1
+    } else {
+        cols
+    };
     let total_rows = core_rows + dummy_rows_top + dummy_rows_bottom;
-    let total_cols = cols + dummy_cols_left + dummy_cols_right + replica_cols;
+    let total_cols = core_cols + dummy_cols_left + dummy_cols_right + replica_cols;
 
     for i in 1..total_cols {
         let colend_cent_i = if i % 2 == 0 {
@@ -209,20 +215,23 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
             colend_p_cent.clone()
         };
 
-        row.push(Instance {
-            inst_name: format!("colend_cent_top_{}", i),
-            cell: colend_cent_i,
-            loc: Point::new(0, 0),
-            reflect_vert: false,
-            angle: None,
-        });
-        row.push(Instance {
-            inst_name: format!("colend_top_{}", i),
-            cell: colend.clone(),
-            loc: Point::new(0, 0),
-            reflect_vert: i % 2 != 0,
-            angle: if i % 2 != 0 { Some(180f64) } else { None },
-        });
+        if is_wlstrap(i, core_cols, dummy_cols_left, replica_cols, wlstrap_frequency) {
+            row.push(Instance {
+                inst_name: format!("colend_cent_top_{}", i),
+                cell: colend_cent_i,
+                loc: Point::new(0, 0),
+                reflect_vert: false,
+                angle: None,
+            });
+        } else {
+            row.push(Instance {
+                inst_name: format!("colend_top_{}", i),
+                cell: colend.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: i % 2 != 0,
+                angle: if i % 2 != 0 { Some(180f64) } else { None },
+            });
+        }
     }
 
     row.push(Instance {
@@ -264,34 +273,36 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
             });
 
             for c in 1..total_cols {
-                let strap = if c % 2 == 0 {
-                    horiz_wlstrap.clone()
+                if is_wlstrap(c, core_cols, dummy_cols_left, replica_cols, wlstrap_frequency) {
+                    let strap = if c % 2 == 0 {
+                        horiz_wlstrap.clone()
+                    } else {
+                        horiz_wlstrap_p.clone()
+                    };
+                    row.push(Instance {
+                        inst_name: format!("wlstrap_{}_{}", r, c),
+                        cell: strap,
+                        loc: Point::new(0, 0),
+                        reflect_vert: !flip,
+                        angle: None,
+                    });
                 } else {
-                    horiz_wlstrap_p.clone()
-                };
-                row.push(Instance {
-                    inst_name: format!("wlstrap_{}_{}", r, c),
-                    cell: strap,
-                    loc: Point::new(0, 0),
-                    reflect_vert: !flip,
-                    angle: None,
-                });
+                    let (reflect_vert, angle) = match (flip, c % 2) {
+                        (false, 0) => (false, Some(180f64)),
+                        (false, 1) => (true, None),
+                        (true, 0) => (true, Some(180f64)),
+                        (true, 1) => (false, None),
+                        _ => unreachable!("invalid mods"),
+                    };
 
-                let (reflect_vert, angle) = match (flip, c % 2) {
-                    (false, 0) => (false, Some(180f64)),
-                    (false, 1) => (true, None),
-                    (true, 0) => (true, Some(180f64)),
-                    (true, 1) => (false, None),
-                    _ => unreachable!("invalid mods"),
-                };
-
-                row.push(Instance {
-                    inst_name: format!("cell_{}_{}", r, c),
-                    cell: hstrap.clone(),
-                    loc: Point::new(0, 0),
-                    reflect_vert,
-                    angle,
-                });
+                    row.push(Instance {
+                        inst_name: format!("cell_{}_{}", r, c),
+                        cell: hstrap.clone(),
+                        loc: Point::new(0, 0),
+                        reflect_vert,
+                        angle,
+                    });
+                }
             }
 
             row.push(Instance {
@@ -348,39 +359,41 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
             });
 
             for c in 1..total_cols {
-                let strap = if c % 2 == 0 {
-                    wlstrap_r.clone()
+                if is_wlstrap(c, core_cols, dummy_cols_left, replica_cols, wlstrap_frequency) {
+                    let strap = if c % 2 == 0 {
+                        wlstrap_r.clone()
+                    } else {
+                        wlstrap_p_r.clone()
+                    };
+                    row.push(Instance {
+                        inst_name: format!("wlstrap_{}_{}", r, c),
+                        cell: strap,
+                        loc: Point::new(0, 0),
+                        reflect_vert: !flip,
+                        angle: None,
+                    });
                 } else {
-                    wlstrap_p_r.clone()
-                };
-                row.push(Instance {
-                    inst_name: format!("wlstrap_{}_{}", r, c),
-                    cell: strap,
-                    loc: Point::new(0, 0),
-                    reflect_vert: !flip,
-                    angle: None,
-                });
+                    let (reflect_vert, angle) = match (flip, c % 2) {
+                        (false, 0) => (false, Some(180f64)),
+                        (false, 1) => (true, None),
+                        (true, 0) => (true, Some(180f64)),
+                        (true, 1) => (false, None),
+                        _ => unreachable!("invalid mods"),
+                    };
 
-                let (reflect_vert, angle) = match (flip, c % 2) {
-                    (false, 0) => (false, Some(180f64)),
-                    (false, 1) => (true, None),
-                    (true, 0) => (true, Some(180f64)),
-                    (true, 1) => (false, None),
-                    _ => unreachable!("invalid mods"),
-                };
-
-                let cell = if c < dummy_cols_left + replica_cols && is_replica_row {
-                    bitcell_replica_r.clone()
-                } else {
-                    bitcell_r.clone()
-                };
-                row.push(Instance {
-                    inst_name: format!("cell_{}_{}", r, c),
-                    cell,
-                    loc: Point::new(0, 0),
-                    reflect_vert,
-                    angle,
-                });
+                    let cell = if c < dummy_cols_left + replica_cols && is_replica_row {
+                        bitcell_replica_r.clone()
+                    } else {
+                        bitcell_r.clone()
+                    };
+                    row.push(Instance {
+                        inst_name: format!("cell_{}_{}", r, c),
+                        cell,
+                        loc: Point::new(0, 0),
+                        reflect_vert,
+                        angle,
+                    });
+                }
             }
 
             row.push(Instance {
@@ -420,27 +433,29 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
     ];
 
     for i in 1..total_cols {
-        let colend_cent_i = if i % 2 == 0 {
-            colend_cent_bot.clone()
+        if is_wlstrap(i, core_cols, dummy_cols_left, replica_cols, wlstrap_frequency) {
+            let colend_cent_i = if i % 2 == 0 {
+                colend_cent_bot.clone()
+            } else {
+                colend_p_cent_bot.clone()
+            };
+
+            row.push(Instance {
+                inst_name: format!("colend_cent_bot_{}", i),
+                cell: colend_cent_i,
+                loc: Point::new(0, 0),
+                reflect_vert: true,
+                angle: None,
+            });
         } else {
-            colend_p_cent_bot.clone()
-        };
-
-        row.push(Instance {
-            inst_name: format!("colend_cent_bot_{}", i),
-            cell: colend_cent_i,
-            loc: Point::new(0, 0),
-            reflect_vert: true,
-            angle: None,
-        });
-
-        row.push(Instance {
-            inst_name: format!("colend_bot_{}", i),
-            cell: colend_bot.clone(),
-            loc: Point::new(0, 0),
-            reflect_vert: i % 2 == 0,
-            angle: if i % 2 != 0 { Some(180f64) } else { None },
-        });
+            row.push(Instance {
+                inst_name: format!("colend_bot_{}", i),
+                cell: colend_bot.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: i % 2 == 0,
+                angle: if i % 2 != 0 { Some(180f64) } else { None },
+            });
+        }
     }
 
     row.push(Instance {
@@ -466,7 +481,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
             _ => "bottom_right",
         };
         let m = if i / 2 == 0 { 0 } else { total_rows + 1 };
-        let n = if i % 2 == 0 { 0 } else { 2 * total_cols };
+        let n = if i % 2 == 0 { 0 } else { total_cols + 1 };
         let inst = aligned_rows.get(m, n);
         if inst.has_abstract() {
             for mut port in inst.ports() {
@@ -499,7 +514,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
     // Top and bottom rows
     for j in vec![0, total_rows + 1].into_iter() {
         let top_str = if j == 0 { "_top" } else { "" };
-        for instance_i in 1..2 * total_cols {
+        for instance_i in 1..=total_cols + 1 {
             let inst = aligned_rows.get(j, instance_i);
             if inst.has_abstract() {
                 for mut port in inst.ports() {
@@ -703,4 +718,16 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
     lib.lib.cells.push(ptr.clone());
 
     Ok(ptr)
+}
+
+fn is_wlstrap(
+    c: usize,
+    core_cols: usize,
+    dummy_cols_left: usize,
+    replica_cols: usize,
+    wlstrap_frequency: usize,
+) -> bool {
+    c >= dummy_cols_left + replica_cols
+        && c < core_cols + dummy_cols_left + replica_cols - 1
+        && (c - dummy_cols_left - replica_cols) % (wlstrap_frequency + 1) == wlstrap_frequency - 1
 }
