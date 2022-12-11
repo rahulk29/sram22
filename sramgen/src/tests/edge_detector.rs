@@ -41,7 +41,7 @@ fn test_edge_detector() -> Result<()> {
     let pkg = Package {
         domain: name.to_string(),
         desc: "Sramgen generated cells".to_string(),
-        modules,
+        modules: modules.into_iter().map(|module| module.into()).collect(),
         ext_modules,
     };
 

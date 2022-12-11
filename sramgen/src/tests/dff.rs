@@ -5,7 +5,7 @@ use crate::schematic::dff::*;
 use crate::schematic::{generate_netlist, save_bin};
 use crate::tech::{all_external_modules, COLUMN_WIDTH};
 use crate::tests::test_work_dir;
-use crate::Result;
+use crate::{into_map, Result};
 use pdkprims::tech::sky130;
 use vlsir::circuit::Package;
 
@@ -25,7 +25,7 @@ fn test_dff_array() -> Result<()> {
     let pkg = Package {
         domain: name.to_string(),
         desc: "Sramgen generated cells".to_string(),
-        modules: dffs,
+        modules: into_map(dffs),
         ext_modules,
     };
 
@@ -62,7 +62,7 @@ fn test_dff_grid() -> Result<()> {
     let pkg = Package {
         domain: name.to_string(),
         desc: "Sramgen generated cells".to_string(),
-        modules: dffs,
+        modules: into_map(dffs),
         ext_modules,
     };
 

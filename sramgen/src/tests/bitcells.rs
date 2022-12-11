@@ -39,7 +39,7 @@ fn test_bitcell_array_32x32() -> Result<()> {
     let pkg = Package {
         domain: name.to_string(),
         desc: "Sramgen generated cells".to_string(),
-        modules: vec![bitcells],
+        modules: vec![bitcells.into()],
         ext_modules,
     };
 
@@ -110,7 +110,7 @@ fn test_bitcell_array_2x2() -> Result<()> {
     let pkg = Package {
         domain: name.to_string(),
         desc: "Sramgen generated cells".to_string(),
-        modules: vec![bitcells],
+        modules: vec![bitcells.into()],
         ext_modules,
     };
 
@@ -146,7 +146,7 @@ fn test_replica_bitcell_array_2x2() -> Result<()> {
     let pkg = Package {
         domain: name.to_string(),
         desc: "Sramgen generated cells".to_string(),
-        modules: vec![bitcells],
+        modules: vec![bitcells.into()],
         ext_modules,
     };
 

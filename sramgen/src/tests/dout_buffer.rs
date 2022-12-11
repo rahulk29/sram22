@@ -27,7 +27,7 @@ fn test_dout_buf() -> Result<()> {
     let pkg = Package {
         domain: name.to_string(),
         desc: "Sramgen generated cells".to_string(),
-        modules: vec![buf],
+        modules: vec![buf.into()],
         ext_modules,
     };
 

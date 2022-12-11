@@ -14,6 +14,6 @@ pub struct WordlineDriverParams {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct WordlineDriverArrayParams {
     pub name: String,
-    pub width: i64,
+    pub width: usize,
     pub instance_params: WordlineDriverParams,
 }
