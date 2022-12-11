@@ -278,9 +278,7 @@ mod tests {
     fn assert_approx_eq_one(x: f64, y: f64) {
         assert!(
             (x - y).abs() < 0.00000001 * x,
-            "difference between {} and {} too large",
-            x,
-            y
+            "difference between {x} and {y} too large",
         );
     }
 

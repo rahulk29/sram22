@@ -15,8 +15,9 @@ pub fn precharge_array(params: &PrechargeArrayParams) -> Vec<Module> {
     let br = bus("br", params.width);
 
     let mut m = Module::new(&params.name);
-    m.add_ports_inout(&[&vdd, &bl, &br]);
+    m.add_port_inout(&vdd);
     m.add_port_input(&en_b);
+    m.add_ports_inout(&[&bl, &br]);
 
     for i in 0..params.width {
         let mut inst = Instance::new(

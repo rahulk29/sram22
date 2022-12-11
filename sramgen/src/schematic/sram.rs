@@ -379,8 +379,8 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
     let (blc, brc) = match params.control {
         ControlMode::Simple => (bl.clone(), br.clone()),
         ControlMode::ReplicaV1 => (
-            concat(vec![rbl.clone(), bl.clone()]),
-            concat(vec![rbr.clone(), br.clone()]),
+            concat(vec![bl.clone(), rbl.clone()]),
+            concat(vec![br.clone(), rbr.clone()]),
         ),
     };
     inst.add_conns(&[("vdd", &vdd), ("en_b", &pc_b), ("bl", &blc), ("br", &brc)]);
@@ -503,7 +503,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
         let mut inst = Instance::new("we_control", local_reference("we_control"));
         inst.add_conns(&[
             ("wr_en", &wr_en),
-            ("sel", &concat(vec![bank_addr.get(0), bank_addr_b.get(0)])),
+            ("sel", &concat(vec![bank_addr_b.get(0), bank_addr.get(0)])),
             ("write_driver_en", &write_driver_en),
             ("vdd", &vdd),
             ("vss", &vss),

@@ -345,8 +345,8 @@ impl Signal {
                     SignalComponent::SignalSlice(ss) => SignalSlice {
                         name: ss.name.clone(),
                         total_width: ss.total_width,
-                        start: idx,
-                        end: idx + 1,
+                        start: ss.start + idx,
+                        end: ss.start + idx + 1,
                     }
                     .into(),
                 };
@@ -377,8 +377,8 @@ impl Signal {
                         new_parts.push(SignalComponent::SignalSlice(SignalSlice {
                             name: ss.name.clone(),
                             total_width: ss.total_width,
-                            start: current_start,
-                            end: current_end,
+                            start: ss.start + current_start,
+                            end: ss.start + current_end,
                         }));
                     }
                 }
@@ -446,6 +446,7 @@ impl Into<circuit::Connection> for &Signal {
                     parts: self
                         .parts
                         .iter()
+                        .rev()
                         .map(|sig_slice| sig_slice.into())
                         .collect(),
                 })),
@@ -470,6 +471,7 @@ impl Into<circuit::Connection> for Signal {
                     parts: self
                         .parts
                         .into_iter()
+                        .rev()
                         .map(|sig_slice| sig_slice.into())
                         .collect(),
                 })),
