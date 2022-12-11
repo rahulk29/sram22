@@ -1,18 +1,8 @@
-use std::collections::HashMap;
-
-use vlsir::circuit::Module;
-use vlsir::reference::To;
-use vlsir::Reference;
-
 use crate::config::wmask_control::WriteMaskControlParams;
-use crate::schematic::conns::{
-    bus, conn_map, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
-};
 use crate::schematic::gate::and2;
+use crate::schematic::vlsir_api::{bus, local_reference, signal, Instance, Module};
 
 pub fn write_mask_control(params: &WriteMaskControlParams) -> Vec<Module> {
-    assert!(params.width > 0);
-
     let mut and = and2(&params.and_params);
 
     let vdd = signal("vdd");
@@ -21,38 +11,24 @@ pub fn write_mask_control(params: &WriteMaskControlParams) -> Vec<Module> {
     let sel = bus("sel", params.width);
     let write_driver_en = bus("write_driver_en", params.width);
 
-    let ports = vec![
-        port_input(&wr_en),
-        port_input(&sel),
-        port_output(&write_driver_en),
-        port_inout(&vdd),
-        port_inout(&vss),
-    ];
-
-    let mut m = Module {
-        name: params.name.clone(),
-        ports,
-        signals: vec![],
-        instances: vec![],
-        parameters: vec![],
-    };
+    let mut m = Module::new(&params.name);
+    m.add_ports_input(&[&wr_en, &sel]);
+    m.add_port_output(&write_driver_en);
+    m.add_ports_inout(&[&vdd, &vss]);
 
     for i in 0..params.width {
-        let conns = [
-            ("vdd", sig_conn(&vdd)),
-            ("vss", sig_conn(&vss)),
-            ("a", conn_slice("sel", i, i)),
-            ("b", sig_conn(&wr_en)),
-            ("y", conn_slice("write_driver_en", i, i)),
-        ];
-        m.instances.push(vlsir::circuit::Instance {
-            name: format!("and2_{}", i),
-            module: Some(Reference {
-                to: Some(To::Local(params.and_params.name.clone())),
-            }),
-            parameters: HashMap::new(),
-            connections: conn_map(conns.into()),
-        });
+        let mut inst = Instance::new(
+            format!("and2_{}", i),
+            local_reference(&params.and_params.name),
+        );
+        inst.add_conns(&[
+            ("vdd", &vdd),
+            ("vss", &vss),
+            ("a", &sel.get(i)),
+            ("b", &wr_en),
+            ("y", &write_driver_en.get(i)),
+        ]);
+        m.add_instance(inst);
     }
 
     let mut modules = Vec::new();

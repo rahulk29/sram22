@@ -1,7 +1,11 @@
 use derive_builder::Builder;
 use pdkprims::config::Int;
 
-use crate::layout::common::GridOrder;
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum GridOrder {
+    RowMajor,
+    ColumnMajor,
+}
 
 #[derive(Clone, Eq, PartialEq, Builder)]
 pub struct DffGridParams {

@@ -125,7 +125,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         lib,
         &WriteMaskControlParams {
             name: "write_mask_control".to_string(),
-            width: mux_ratio as i64,
+            width: mux_ratio,
             and_params: AndParams {
                 name: "write_mask_control_and2".to_string(),
                 nand: GateParams {

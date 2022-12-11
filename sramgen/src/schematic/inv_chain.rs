@@ -1,10 +1,5 @@
-use std::collections::HashMap;
-
-use vlsir::circuit::{Instance, Module};
-
-use crate::bus_bit;
 use crate::config::inv_chain::InvChainGridParams;
-use crate::schematic::conns::{conn_map, port_inout, port_input, port_output, sig_conn, signal};
+use crate::schematic::vlsir_api::{bus, signal, Instance, Module};
 use crate::tech::control_logic_inv_ref;
 
 pub fn inv_chain_grid(params: &InvChainGridParams) -> Module {
@@ -14,46 +9,29 @@ pub fn inv_chain_grid(params: &InvChainGridParams) -> Module {
     let vss = signal("vss");
     let din = signal("din");
     let dout = signal("dout");
+    let int = bus("int", rows * cols - 1);
 
-    let ports = vec![
-        port_input(&din),
-        port_output(&dout),
-        port_inout(&vdd),
-        port_inout(&vss),
-    ];
-
-    let mut m = Module {
-        name: name.to_string(),
-        ports,
-        signals: vec![],
-        instances: vec![],
-        parameters: vec![],
-    };
+    let mut m = Module::new(name);
+    m.add_port_input(&din);
+    m.add_port_output(&dout);
+    m.add_ports_inout(&[&vdd, &vss]);
 
     for i in 0..(rows * cols) {
-        let input = if i == 0 {
-            din.clone()
-        } else {
-            signal(bus_bit("int", i))
-        };
+        let input = if i == 0 { din.clone() } else { int.get(i - 1) };
         let output = if i == rows * cols - 1 {
             dout.clone()
         } else {
-            signal(bus_bit("int", i + 1))
+            int.get(i)
         };
 
-        let mut connections = HashMap::new();
-        connections.insert("din", sig_conn(&input));
-        connections.insert("din_b", sig_conn(&output));
-        connections.insert("vdd", sig_conn(&vdd));
-        connections.insert("vss", sig_conn(&vss));
-
-        m.instances.push(Instance {
-            name: format!("inv_{}", i),
-            module: Some(control_logic_inv_ref()),
-            parameters: HashMap::new(),
-            connections: conn_map(connections),
-        });
+        let mut inst = Instance::new(format!("inv_{}", i), control_logic_inv_ref());
+        inst.add_conns(&[
+            ("din", &input),
+            ("din_b", &output),
+            ("vdd", &vdd),
+            ("vss", &vss),
+        ]);
+        m.add_instance(inst);
     }
 
     m

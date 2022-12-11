@@ -10,10 +10,9 @@ use layout21::utils::Ptr;
 use pdkprims::contact::Contact;
 use pdkprims::PdkLib;
 
-use crate::config::dff::DffGridParams;
-
-use super::common::{GridOrder, MergeArgs};
-use super::sram::GateList;
+use crate::config::dff::{DffGridParams, GridOrder};
+use crate::layout::common::MergeArgs;
+use crate::layout::sram::GateList;
 
 pub fn draw_dff_grid(lib: &mut PdkLib, params: &DffGridParams) -> Result<Ptr<Cell>> {
     let &DffGridParams {

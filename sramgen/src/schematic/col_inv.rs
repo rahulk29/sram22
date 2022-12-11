@@ -1,16 +1,8 @@
-use std::collections::HashMap;
-
 use pdkprims::mos::MosType;
 
-use vlsir::circuit::Module;
-use vlsir::reference::To;
-use vlsir::Reference;
-
 use crate::config::col_inv::{ColInvArrayParams, ColInvParams};
-use crate::schematic::conns::{
-    bus, conn_slice, port_inout, port_input, port_output, sig_conn, signal,
-};
 use crate::schematic::mos::Mosfet;
+use crate::schematic::vlsir_api::{bus, local_reference, signal, Instance, Module};
 
 pub fn col_inv_array(params: &ColInvArrayParams) -> Vec<Module> {
     assert!(params.width > 0);
@@ -19,39 +11,23 @@ pub fn col_inv_array(params: &ColInvArrayParams) -> Vec<Module> {
 
     let vdd = signal("vdd");
     let vss = signal("vss");
-    let din = bus("din", params.width as i64);
-    let din_b = bus("din_b", params.width as i64);
+    let din = bus("din", params.width);
+    let din_b = bus("din_b", params.width);
 
-    let ports = vec![
-        port_input(&din),
-        port_output(&din_b),
-        port_inout(&vdd),
-        port_inout(&vss),
-    ];
-
-    let mut m = Module {
-        name: params.name.clone(),
-        ports,
-        signals: vec![],
-        instances: vec![],
-        parameters: vec![],
-    };
+    let mut m = Module::new(&params.name);
+    m.add_port_input(&din);
+    m.add_port_output(&din_b);
+    m.add_ports_inout(&[&vdd, &vss]);
 
     for i in 0..params.width {
-        let i = i as i64;
-        let mut connections = HashMap::new();
-        connections.insert("vdd".to_string(), sig_conn(&vdd));
-        connections.insert("vss".to_string(), sig_conn(&vss));
-        connections.insert("din".to_string(), conn_slice("din", i, i));
-        connections.insert("din_b".to_string(), conn_slice("din_b", i, i));
-        m.instances.push(vlsir::circuit::Instance {
-            name: format!("inv_{}", i),
-            module: Some(Reference {
-                to: Some(To::Local("col_data_inv".to_string())),
-            }),
-            parameters: HashMap::new(),
-            connections,
-        });
+        let mut inst = Instance::new(format!("inv_{}", i), local_reference("col_data_inv"));
+        inst.add_conns(&[
+            ("vdd", &vdd),
+            ("vss", &vss),
+            ("din", &din.get(i)),
+            ("din_b", &din_b.get(i)),
+        ]);
+        m.add_instance(inst);
     }
 
     vec![inv, m]
@@ -65,44 +41,34 @@ pub fn col_inv(params: &ColInvParams) -> Module {
     let din = signal("din");
     let din_b = signal("din_b");
 
-    let ports = vec![
-        port_input(&din),
-        port_output(&din_b),
-        port_inout(&vdd),
-        port_inout(&vss),
-    ];
+    let mut m = Module::new("col_data_inv");
+    m.add_port_input(&din);
+    m.add_port_output(&din_b);
+    m.add_ports_inout(&[&vdd, &vss]);
 
-    let mut m = Module {
-        name: "col_data_inv".to_string(),
-        ports,
-        signals: vec![],
-        instances: vec![],
-        parameters: vec![],
-    };
-
-    m.instances.push(
+    m.add_instance(
         Mosfet {
             name: "MP0".to_string(),
             width: params.pwidth,
             length,
-            drain: sig_conn(&din_b),
-            source: sig_conn(&vdd),
-            gate: sig_conn(&din),
-            body: sig_conn(&vdd),
+            drain: din_b.clone(),
+            source: vdd.clone(),
+            gate: din.clone(),
+            body: vdd.clone(),
             mos_type: MosType::Pmos,
         }
         .into(),
     );
 
-    m.instances.push(
+    m.add_instance(
         Mosfet {
             name: "MN0".to_string(),
             width: params.nwidth,
             length,
-            drain: sig_conn(&din_b),
-            source: sig_conn(&vss),
-            gate: sig_conn(&din),
-            body: sig_conn(&vss),
+            drain: din_b,
+            source: vss.clone(),
+            gate: din,
+            body: vss,
             mos_type: MosType::Nmos,
         }
         .into(),

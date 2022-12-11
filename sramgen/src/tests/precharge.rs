@@ -7,7 +7,7 @@ use crate::schematic::precharge::*;
 use crate::schematic::{generate_netlist, save_bin};
 use crate::tech::all_external_modules;
 use crate::tests::test_work_dir;
-use crate::Result;
+use crate::{into_map, Result};
 use pdkprims::tech::sky130;
 
 #[test]
@@ -24,7 +24,7 @@ fn test_precharge() -> Result<()> {
     let pkg = Package {
         domain: "sramgen_precharge".to_string(),
         desc: "Sramgen generated cells".to_string(),
-        modules: vec![pc],
+        modules: vec![pc.into()],
         ext_modules,
     };
 
@@ -57,7 +57,7 @@ fn test_precharge_array() -> Result<()> {
         },
         name: name.to_string(),
     };
-    let modules = precharge_array(&params);
+    let modules = into_map(precharge_array(&params));
     let ext_modules = all_external_modules();
     let pkg = Package {
         domain: name.to_string(),
