@@ -21,6 +21,7 @@ You can then install Sram22 using the following commands:
 ```bash
 git clone --recurse-submodules https://github.com/rahulk29/sram22.git
 cd sram22/deps/Vlsir/bindings/python && pip install -e . && cd -
+cd sram22/deps/Vlsir/VlsirTools && pip install -e . && cd -
 cd sram22/sramgen && cargo install --all-features --path .
 ```
 
