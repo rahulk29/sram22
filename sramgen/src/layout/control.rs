@@ -15,10 +15,14 @@ use crate::tech::{
 };
 use crate::Result;
 
-pub fn draw_control_logic(lib: &mut PdkLib, mode: ControlMode) -> Result<Ptr<Cell>> {
+pub fn draw_control_logic(
+    lib: &mut PdkLib,
+    mode: ControlMode,
+    include_addr_bufs: bool,
+) -> Result<Ptr<Cell>> {
     match mode {
         ControlMode::Simple => draw_control_logic_simple(lib),
-        ControlMode::ReplicaV1 => draw_control_logic_replica_v1(lib),
+        ControlMode::ReplicaV1 => draw_control_logic_replica_v1(lib, include_addr_bufs),
     }
 }
 
@@ -138,7 +142,10 @@ pub fn draw_control_logic_simple(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     Ok(ptr)
 }
 
-pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
+pub fn draw_control_logic_replica_v1(
+    lib: &mut PdkLib,
+    include_addr_bufs: bool,
+) -> Result<Ptr<Cell>> {
     let mut cell = Cell::empty("sramgen_control_replica_v1");
 
     let and = sc_and2_gds(lib)?;
@@ -182,6 +189,57 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     let mut rows = AlignedRows::new();
     // Place standard cells
+
+    if include_addr_bufs {
+        rows.add_row(vec![
+            Instance {
+                inst_name: "tap".to_string(),
+                cell: tap.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: false,
+                angle: None,
+            },
+            Instance {
+                inst_name: "buf_addr_0".to_string(),
+                cell: buf.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: false,
+                angle: None,
+            },
+            Instance {
+                inst_name: "tap".to_string(),
+                cell: tap.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: false,
+                angle: None,
+            },
+        ]);
+
+        rows.add_row(vec![
+            Instance {
+                inst_name: "tap".to_string(),
+                cell: tap.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: true,
+                angle: None,
+            },
+            Instance {
+                inst_name: "buf_addr_1".to_string(),
+                cell: buf.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: true,
+                angle: None,
+            },
+            Instance {
+                inst_name: "tap".to_string(),
+                cell: tap.clone(),
+                loc: Point::new(0, 0),
+                reflect_vert: true,
+                angle: None,
+            },
+        ]);
+    }
+
     rows.add_row(vec![
         Instance {
             inst_name: "delay_chain".to_string(),
@@ -462,40 +520,42 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
 
     rows.place(&lib.pdk);
 
-    let eddc = rows.get(0, 0);
-    let ed_and = rows.get(0, 1);
-    let clkp_delay_chain = rows.get(0, 2);
+    let ofs = if include_addr_bufs { 2 } else { 0 };
 
-    let inv_rbl = rows.get(1, 1);
-    let wl_ctl_nor1 = rows.get(1, 2);
-    let wl_ctl_nor2 = rows.get(1, 3);
-    let wl_en_buf = rows.get(1, 4);
+    let eddc = rows.get(ofs, 0);
+    let ed_and = rows.get(ofs, 1);
+    let clkp_delay_chain = rows.get(ofs, 2);
 
-    let inv_we = rows.get(2, 1);
-    let cond1 = rows.get(2, 2);
-    let wdeddc = rows.get(2, 3);
-    let wded_and = rows.get(2, 4);
-    let cond2 = rows.get(2, 5);
-    let wl_en_set_driver = rows.get(2, 6);
+    let inv_rbl = rows.get(ofs + 1, 1);
+    let wl_ctl_nor1 = rows.get(ofs + 1, 2);
+    let wl_ctl_nor2 = rows.get(ofs + 1, 3);
+    let wl_en_buf = rows.get(ofs + 1, 4);
 
-    let wr_drv_delay_chain = rows.get(3, 0);
+    let inv_we = rows.get(ofs + 2, 1);
+    let cond1 = rows.get(ofs + 2, 2);
+    let wdeddc = rows.get(ofs + 2, 3);
+    let wded_and = rows.get(ofs + 2, 4);
+    let cond2 = rows.get(ofs + 2, 5);
+    let wl_en_set_driver = rows.get(ofs + 2, 6);
 
-    let ssdc_inst = rows.get(4, 0);
-    let sae_ctl_nor1 = rows.get(4, 1);
-    let sae_ctl_nor2 = rows.get(4, 2);
-    let sae_buf = rows.get(4, 3);
+    let wr_drv_delay_chain = rows.get(ofs + 3, 0);
 
-    let pcdc = rows.get(5, 0);
+    let ssdc_inst = rows.get(ofs + 4, 0);
+    let sae_ctl_nor1 = rows.get(ofs + 4, 1);
+    let sae_ctl_nor2 = rows.get(ofs + 4, 2);
+    let sae_buf = rows.get(ofs + 4, 3);
 
-    let pc_ctl_nor1 = rows.get(6, 1);
-    let pc_ctl_nor2 = rows.get(6, 2);
-    let pc_b_buf = rows.get(6, 3);
+    let pcdc = rows.get(ofs + 5, 0);
 
-    let and_wr_en_set = rows.get(7, 1);
-    let wr_drv_dc = rows.get(7, 2);
-    let wr_drv_ctl_nor1 = rows.get(7, 3);
-    let wr_drv_ctl_nor2 = rows.get(7, 4);
-    let wr_drv_buf = rows.get(7, 5);
+    let pc_ctl_nor1 = rows.get(ofs + 6, 1);
+    let pc_ctl_nor2 = rows.get(ofs + 6, 2);
+    let pc_b_buf = rows.get(ofs + 6, 3);
+
+    let and_wr_en_set = rows.get(ofs + 7, 1);
+    let wr_drv_dc = rows.get(ofs + 7, 2);
+    let wr_drv_ctl_nor1 = rows.get(ofs + 7, 3);
+    let wr_drv_ctl_nor2 = rows.get(ofs + 7, 4);
+    let wr_drv_buf = rows.get(ofs + 7, 5);
 
     // Routing
     let mut router = Router::new("sram22_control_logic_route", lib.pdk.clone());
@@ -503,6 +563,16 @@ pub fn draw_control_logic_replica_v1(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
     let m2 = cfg.layerkey(2);
+
+    if include_addr_bufs {
+        let addr_buf = rows.get(0, 1);
+        let addr_b_buf = rows.get(1, 1);
+
+        cell.add_pin_from_port(addr_buf.port("a").named("addr_0"), m0);
+        cell.add_pin_from_port(addr_b_buf.port("a").named("addr_b_0"), m0);
+        cell.add_pin_from_port(addr_buf.port("x").named("addr_0_buf"), m1);
+        cell.add_pin_from_port(addr_b_buf.port("x").named("addr_b_0_buf"), m1);
+    }
 
     // Edge detector
     let clk_in = eddc.port("din").largest_rect(m0).unwrap();

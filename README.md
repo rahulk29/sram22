@@ -7,13 +7,27 @@ Sram22 is still a work in progress.
 
 ### Installation
 
-If you have BWRC access, you can install Sram22 using the following commands:
+#### BWRC
+
+If you have BWRC access, you can install all features of Sram22. Make sure that you have SSH access to [bwrcrepo.eecs.berkeley.edu](https://bwrcrepo.eecs.berkeley.edu) from a BWRC machine by [adding your SSH key to your GitLab account](https://docs.gitlab.com/ee/user/ssh.html#add-an-ssh-key-to-your-gitlab-account). You will then need to add the following lines to your `~/.cargo/config` file:
+
+```
+[net]
+git-fetch-with-cli = true
+```
+
+You can then install Sram22 using the following commands:
 
 ```bash
-git clone https://github.com/rahulk29/sram22.git
-cd sram22/sramgen
-cargo install --all-features --path .
+git clone --recurse-submodules https://github.com/rahulk29/sram22.git
+cd sram22/deps/Vlsir/bindings/python && pip install -e . && cd -
+cd sram22/deps/Vlsir/VlsirTools && pip install -e . && cd -
+cd sram22/sramgen && cargo install --all-features --path .
 ```
+
+_Note: As Sram22 currently only supports the Sky130 process, you will need to have a signed Sky130 NDA on file to use certain features._
+
+#### External
 
 If you do not have BWRC access, you can still install Sram22, albeit without
 the ability to invoke proprietary tools for DRC, LVS, PEX, and simulation.
@@ -21,9 +35,10 @@ the ability to invoke proprietary tools for DRC, LVS, PEX, and simulation.
 Use the following commands:
 
 ```bash
-git clone https://github.com/rahulk29/sram22.git
-cd sram22/sramgen
-cargo install --path .
+git clone --recurse-submodules https://github.com/rahulk29/sram22.git
+cd sram22/deps/Vlsir/bindings/python && pip install -e . && cd -
+cd sram22/deps/Vlsir/VlsirTools && pip install -e . && cd -
+cd sram22/sramgen && cargo install --path .
 ```
 
 ### Usage
@@ -86,4 +101,12 @@ In order to use Sram22, your system will need to have the following components:
 
 - Rust (Sram22 is tested with version 1.65.0)
 - Cmake
+- Git v2.13+
+- Python 3.8+
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you shall be licensed under the BSD 3-Clause license,
+without any additional terms or conditions.
 

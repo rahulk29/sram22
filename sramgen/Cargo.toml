@@ -11,7 +11,7 @@ derive_builder = "0.12.0"
 grid = "0.9.0"
 thiserror = "1.0.37"
 fanout = { path = "../fanout" }
-serde = { version = "1.0.148", features = ["derive"] }
+serde = { version = "1.0.149", features = ["derive"] }
 serde_json = "1.0.89"
 toml = "0.5.9"
 log = "0.4.17"
@@ -51,4 +51,4 @@ pex = ["dep:calibre"]
 abstract_lef = ["dep:abstract_lef"]
 liberate_mx = ["dep:liberate_mx"]
 
-default = ["calibre", "spectre", "pex", "abstract_lef", "liberate_mx"]
+default = []

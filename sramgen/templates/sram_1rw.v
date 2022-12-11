@@ -27,10 +27,6 @@ module {{module_name}}(
   input [DATA_WIDTH-1:0]  din; // data in
   output reg [DATA_WIDTH-1:0] dout; // data out
 
-  reg  we_reg;
-  reg [ADDR_WIDTH-1:0]  addr_reg;
-  reg [DATA_WIDTH-1:0]  din_reg;
-
   reg [DATA_WIDTH-1:0] mem [0:RAM_DEPTH-1];
 
   // Fill memory with zeros.
@@ -47,21 +43,16 @@ module {{module_name}}(
   always @(posedge clk)
   begin
     // Write
-    if (we_reg) begin
-        mem[addr_reg] <= din_reg;
+    if (we) begin
+        mem[addr] <= din;
         // Output is arbitrary when writing to SRAM
         dout <= {DATA_WIDTH{1'bx}};
     end
 
     // Read
-    if (!we_reg) begin
-       dout <= mem[addr_reg];
+    if (!we) begin
+       dout <= mem[addr];
      end
-
-    // Update registers
-    we_reg <= we;
-    addr_reg <= addr;
-    din_reg <= din;
   end
 
 endmodule

@@ -30,11 +30,6 @@ module {{module_name}}(
   input [DATA_WIDTH-1:0]  din; // data in
   output reg [DATA_WIDTH-1:0] dout; // data out
 
-  reg  we_reg;
-  reg [WMASK_WIDTH-1:0] wmask_reg;
-  reg [ADDR_WIDTH-1:0]  addr_reg;
-  reg [DATA_WIDTH-1:0]  din_reg;
-
   reg [DATA_WIDTH-1:0] mem [0:RAM_DEPTH-1];
 
   // Fill memory with zeros.
@@ -51,12 +46,12 @@ module {{module_name}}(
   always @(posedge clk)
   begin
     // Write
-    if (we_reg) begin
+    if (we) begin
       {%- for i in range(end=wmask_width) -%}
         {% set lower = i * bits_per_mask %}
         {% set upper = (i + 1) * bits_per_mask - 1 -%}
-        if (wmask_reg[{{i}}]) begin
-          mem[addr_reg][{{upper}}:{{lower}}] <= din_reg[{{upper}}:{{lower}}];
+        if (wmask[{{i}}]) begin
+          mem[addr][{{upper}}:{{lower}}] <= din[{{upper}}:{{lower}}];
         end
       {%- endfor %}
 
@@ -65,15 +60,9 @@ module {{module_name}}(
     end
 
     // Read
-    if (!we_reg) begin
-      dout <= mem[addr_reg];
+    if (!we) begin
+      dout <= mem[addr];
     end
-
-    // Update registers
-    we_reg <= we;
-    wmask_reg <= wmask;
-    addr_reg <= addr;
-    din_reg <= din;
   end
 
 endmodule
