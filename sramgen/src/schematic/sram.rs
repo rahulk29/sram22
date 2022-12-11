@@ -272,8 +272,9 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
 
     let mut m = Module::new(&params.name);
     m.add_ports_inout(&[&vdd, &vss]);
-    m.add_ports_input(&[&clk, &din, &we, &addr]);
+    m.add_ports_input(&[&clk, &din]);
     m.add_port_output(&dout);
+    m.add_ports_input(&[&we, &addr]);
 
     if wmask_width > 1 {
         m.add_port_input(&wmask);
@@ -424,7 +425,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
 
     // Column read muxes
     let sel_b = if mux_ratio == 2 {
-        concat(vec![bank_addr_b_buf, bank_addr_buf])
+        concat(vec![bank_addr_buf, bank_addr_b_buf])
     } else {
         col_sel_b.clone()
     };
