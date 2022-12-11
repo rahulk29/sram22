@@ -30,7 +30,7 @@ pub fn dout_buf_array(params: &DoutBufArrayParams) -> Vec<Module> {
             ("din1", &din1.get(i)),
             ("din2", &din2.get(i)),
             ("dout1", &dout1.get(i)),
-            ("dout1", &dout2.get(i)),
+            ("dout2", &dout2.get(i)),
         ]);
         m.add_instance(inst);
     }
@@ -51,6 +51,9 @@ pub fn dout_buf(params: &DoutBufParams) -> Module {
     let x2 = signal("x2");
 
     let mut m = Module::new(&params.name);
+    m.add_ports_input(&[&din1, &din2]);
+    m.add_ports_output(&[&dout1, &dout2]);
+    m.add_ports_inout(&[&vdd, &vss]);
 
     for (din, x, dout, suffix) in [(&din1, &x1, &dout1, "1"), (&din2, &x2, &dout2, "2")] {
         m.add_instance(
