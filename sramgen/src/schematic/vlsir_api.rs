@@ -707,16 +707,16 @@ mod tests {
                 parts: vec![
                     circuit::Connection {
                         stype: Some(Stype::Slice(circuit::Slice {
-                            signal: "a".to_string(),
-                            top: 31,
-                            bot: 30,
+                            signal: "b".to_string(),
+                            top: 1,
+                            bot: 0,
                         }))
                     },
                     circuit::Connection {
                         stype: Some(Stype::Slice(circuit::Slice {
-                            signal: "b".to_string(),
-                            top: 1,
-                            bot: 0,
+                            signal: "a".to_string(),
+                            top: 31,
+                            bot: 30,
                         }))
                     },
                 ]
