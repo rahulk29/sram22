@@ -208,16 +208,23 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
     let total_rows = core_rows + dummy_rows_top + dummy_rows_bottom;
     let total_cols = core_cols + dummy_cols_left + dummy_cols_right + replica_cols;
 
-    for i in 1..total_cols {
-        let colend_cent_i = if i % 2 == 0 {
+    let mut cflip = true;
+    for c in 1..total_cols {
+        let colend_cent_i = if !cflip {
             colend_cent.clone()
         } else {
             colend_p_cent.clone()
         };
 
-        if is_wlstrap(i, core_cols, dummy_cols_left, replica_cols, wlstrap_frequency) {
+        if is_wlstrap(
+            c,
+            core_cols,
+            dummy_cols_left,
+            replica_cols,
+            wlstrap_frequency,
+        ) {
             row.push(Instance {
-                inst_name: format!("colend_cent_top_{}", i),
+                inst_name: format!("colend_cent_top_{}", c),
                 cell: colend_cent_i,
                 loc: Point::new(0, 0),
                 reflect_vert: false,
@@ -225,12 +232,13 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
             });
         } else {
             row.push(Instance {
-                inst_name: format!("colend_top_{}", i),
+                inst_name: format!("colend_top_{}", c),
                 cell: colend.clone(),
                 loc: Point::new(0, 0),
-                reflect_vert: i % 2 != 0,
-                angle: if i % 2 != 0 { Some(180f64) } else { None },
+                reflect_vert: cflip,
+                angle: if cflip { Some(180f64) } else { None },
             });
+            cflip = !cflip;
         }
     }
 
@@ -244,7 +252,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
 
     aligned_rows.add_row(row);
 
-    let mut flip = false;
+    let mut rflip = false;
 
     for r in 0..total_rows {
         let mut row = Vec::new();
@@ -260,7 +268,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
                 inst_name: format!("rowend_l_{}", r),
                 cell: rowend_hstrap.clone(),
                 loc: Point::new(0, 0),
-                reflect_vert: flip,
+                reflect_vert: rflip,
                 angle: Some(180f64),
             });
 
@@ -268,13 +276,20 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
                 inst_name: format!("cell_{}_0", r),
                 cell: hstrap.clone(),
                 loc: Point::new(0, 0),
-                reflect_vert: flip,
+                reflect_vert: rflip,
                 angle: Some(180f64),
             });
 
+            let mut cflip = true;
             for c in 1..total_cols {
-                if is_wlstrap(c, core_cols, dummy_cols_left, replica_cols, wlstrap_frequency) {
-                    let strap = if c % 2 == 0 {
+                if is_wlstrap(
+                    c,
+                    core_cols,
+                    dummy_cols_left,
+                    replica_cols,
+                    wlstrap_frequency,
+                ) {
+                    let strap = if !cflip {
                         horiz_wlstrap.clone()
                     } else {
                         horiz_wlstrap_p.clone()
@@ -283,16 +298,15 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
                         inst_name: format!("wlstrap_{}_{}", r, c),
                         cell: strap,
                         loc: Point::new(0, 0),
-                        reflect_vert: !flip,
+                        reflect_vert: !rflip,
                         angle: None,
                     });
                 } else {
-                    let (reflect_vert, angle) = match (flip, c % 2) {
-                        (false, 0) => (false, Some(180f64)),
-                        (false, 1) => (true, None),
-                        (true, 0) => (true, Some(180f64)),
-                        (true, 1) => (false, None),
-                        _ => unreachable!("invalid mods"),
+                    let (reflect_vert, angle) = match (rflip, cflip) {
+                        (false, false) => (false, Some(180f64)),
+                        (false, true) => (true, None),
+                        (true, false) => (true, Some(180f64)),
+                        (true, true) => (false, None),
                     };
 
                     row.push(Instance {
@@ -302,6 +316,8 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
                         reflect_vert,
                         angle,
                     });
+
+                    cflip = !cflip;
                 }
             }
 
@@ -309,12 +325,12 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
                 inst_name: format!("rowend_r_{}", r),
                 cell: rowend_hstrap.clone(),
                 loc: Point::new(0, 0),
-                reflect_vert: !flip,
+                reflect_vert: !rflip,
                 angle: None,
             });
         } else {
             let (rowend_r, rowend_replica_r, bitcell_r, bitcell_replica_r, wlstrap_r, wlstrap_p_r) =
-                if flip {
+                if rflip {
                     (
                         rowenda.clone(),
                         rowenda_replica.clone(),
@@ -342,7 +358,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
                     rowend_r.clone()
                 },
                 loc: Point::new(0, 0),
-                reflect_vert: flip,
+                reflect_vert: rflip,
                 angle: Some(180f64),
             });
 
@@ -354,13 +370,20 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
                     bitcell_r.clone()
                 },
                 loc: Point::new(0, 0),
-                reflect_vert: flip,
+                reflect_vert: rflip,
                 angle: Some(180f64),
             });
 
+            let mut cflip = true;
             for c in 1..total_cols {
-                if is_wlstrap(c, core_cols, dummy_cols_left, replica_cols, wlstrap_frequency) {
-                    let strap = if c % 2 == 0 {
+                if is_wlstrap(
+                    c,
+                    core_cols,
+                    dummy_cols_left,
+                    replica_cols,
+                    wlstrap_frequency,
+                ) {
+                    let strap = if !cflip {
                         wlstrap_r.clone()
                     } else {
                         wlstrap_p_r.clone()
@@ -369,16 +392,15 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
                         inst_name: format!("wlstrap_{}_{}", r, c),
                         cell: strap,
                         loc: Point::new(0, 0),
-                        reflect_vert: !flip,
+                        reflect_vert: !rflip,
                         angle: None,
                     });
                 } else {
-                    let (reflect_vert, angle) = match (flip, c % 2) {
-                        (false, 0) => (false, Some(180f64)),
-                        (false, 1) => (true, None),
-                        (true, 0) => (true, Some(180f64)),
-                        (true, 1) => (false, None),
-                        _ => unreachable!("invalid mods"),
+                    let (reflect_vert, angle) = match (rflip, cflip) {
+                        (false, false) => (false, Some(180f64)),
+                        (false, true) => (true, None),
+                        (true, false) => (true, Some(180f64)),
+                        (true, true) => (false, None),
                     };
 
                     let cell = if c < dummy_cols_left + replica_cols && is_replica_row {
@@ -393,6 +415,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
                         reflect_vert,
                         angle,
                     });
+                    cflip = !cflip;
                 }
             }
 
@@ -400,10 +423,10 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
                 inst_name: format!("rowend_r_{}", r),
                 cell: rowend_r.clone(),
                 loc: Point::new(0, 0),
-                reflect_vert: !flip,
+                reflect_vert: !rflip,
                 angle: None,
             });
-            flip = !flip;
+            rflip = !rflip;
         }
 
         aligned_rows.add_row(row);
@@ -432,16 +455,23 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
         },
     ];
 
-    for i in 1..total_cols {
-        if is_wlstrap(i, core_cols, dummy_cols_left, replica_cols, wlstrap_frequency) {
-            let colend_cent_i = if i % 2 == 0 {
+    let mut cflip = true;
+    for c in 1..total_cols {
+        if is_wlstrap(
+            c,
+            core_cols,
+            dummy_cols_left,
+            replica_cols,
+            wlstrap_frequency,
+        ) {
+            let colend_cent_i = if !cflip {
                 colend_cent_bot.clone()
             } else {
                 colend_p_cent_bot.clone()
             };
 
             row.push(Instance {
-                inst_name: format!("colend_cent_bot_{}", i),
+                inst_name: format!("colend_cent_bot_{}", c),
                 cell: colend_cent_i,
                 loc: Point::new(0, 0),
                 reflect_vert: true,
@@ -449,12 +479,13 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
             });
         } else {
             row.push(Instance {
-                inst_name: format!("colend_bot_{}", i),
+                inst_name: format!("colend_bot_{}", c),
                 cell: colend_bot.clone(),
                 loc: Point::new(0, 0),
-                reflect_vert: i % 2 == 0,
-                angle: if i % 2 != 0 { Some(180f64) } else { None },
+                reflect_vert: !cflip,
+                angle: if cflip { Some(180f64) } else { None },
             });
+            cflip = !cflip;
         }
     }
 
