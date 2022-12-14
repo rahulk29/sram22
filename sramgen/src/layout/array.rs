@@ -523,56 +523,41 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
     }
 
     // Leftmost column
-    for i in 1..total_rows + 1 {
-        let inst = aligned_rows.get(total_rows + 1 - i, 0);
-        if inst.has_abstract() {
-            for mut port in inst.ports() {
-                if i < dummy_rows_bottom + 1 || i > rows + dummy_rows_bottom {
-                    let dummy_i = if i < dummy_rows_bottom + 1 {
-                        i
-                    } else {
-                        i - rows - replica_cols
-                    };
-                    port.set_net(bus_bit(&format!("{}_dummy", &port.net), dummy_i));
-                } else {
-                    port.set_net(bus_bit(&port.net, i - dummy_rows_bottom - 1));
-                }
-                abs.add_port(port);
+    let mut wl_ctr = 0;
+    for i in (1..total_rows + 1).rev() {
+        let inst = aligned_rows.get(i, 0);
+        for mut port in inst.ports() {
+            if port.net.to_lowercase() == "wl" {
+                port.set_net(bus_bit(&port.net, wl_ctr));
+                wl_ctr += 1;
             }
+            println!("Adding port {}", &port.net);
+            abs.add_port(port);
         }
     }
 
     // Top and bottom rows
+
+    let mut map = HashMap::new();
     for j in vec![0, total_rows + 1].into_iter() {
-        let top_str = if j == 0 { "_top" } else { "" };
-        for instance_i in 1..=total_cols + 1 {
-            let inst = aligned_rows.get(j, instance_i);
+        for i in 1..=total_cols + 1 {
+            let inst = aligned_rows.get(j, i);
             if inst.has_abstract() {
                 for mut port in inst.ports() {
-                    let i = (instance_i + 1) / 2;
-                    let new_net =
-                        if i < dummy_cols_left + 1 || i > cols + dummy_cols_left + replica_cols {
-                            format!("{}_dummy", &port.net)
-                        } else if i < dummy_cols_left + replica_cols + 1 {
-                            if port.net.starts_with("bl") || port.net.starts_with("br") {
-                                format!("r{}", &port.net)
-                            } else {
-                                format!("{}_replica", &port.net)
-                            }
-                        } else {
-                            port.net.clone()
-                        };
-                    let i_final = if i < dummy_cols_left + 1 {
-                        i - 1
-                    } else if i < dummy_cols_left + replica_cols + 1 {
-                        i - dummy_cols_left - 1
-                    } else if i < cols + dummy_cols_left + replica_cols + 1 {
-                        i - dummy_cols_left - replica_cols - 1
-                    } else {
-                        i - cols - replica_cols
-                    };
-                    port.set_net(bus_bit(&format!("{}{}", &new_net, top_str), i_final));
+
+                    if i > dummy_cols_left && i <= dummy_cols_left + replica_cols {
+                        if port.net == "bl0" {
+                            port.net = "rbl0".to_string();
+                        } else if port.net == "bl1" {
+                            port.net = "rbl1".to_string();
+                        }
+                    }
+                    let idx = map.entry(port.net.clone()).or_insert(0);
+
+                    port.set_net(bus_bit(&port.net, *idx));
                     abs.add_port(port);
+
+                    *idx += 1;
                 }
             }
         }
@@ -761,4 +746,15 @@ fn is_wlstrap(
     c >= dummy_cols_left + replica_cols
         && c < core_cols + dummy_cols_left + replica_cols - 1
         && (c - dummy_cols_left - replica_cols) % (wlstrap_frequency + 1) == wlstrap_frequency - 1
+}
+
+fn is_hstrap(
+    r: usize,
+    core_rows: usize,
+    dummy_rows_top: usize,
+    hstrap_frequency: usize,
+) -> bool {
+        r >= dummy_rows_top
+            && r < core_rows + dummy_rows_top - 1
+            && (r - dummy_rows_top) % (hstrap_frequency + 1) == hstrap_frequency - 1
 }
