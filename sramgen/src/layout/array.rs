@@ -544,7 +544,6 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
             let inst = aligned_rows.get(j, i);
             if inst.has_abstract() {
                 for mut port in inst.ports() {
-
                     if i > dummy_cols_left && i <= dummy_cols_left + replica_cols {
                         if port.net == "bl0" {
                             port.net = "rbl0".to_string();
@@ -748,13 +747,8 @@ fn is_wlstrap(
         && (c - dummy_cols_left - replica_cols) % (wlstrap_frequency + 1) == wlstrap_frequency - 1
 }
 
-fn is_hstrap(
-    r: usize,
-    core_rows: usize,
-    dummy_rows_top: usize,
-    hstrap_frequency: usize,
-) -> bool {
-        r >= dummy_rows_top
-            && r < core_rows + dummy_rows_top - 1
-            && (r - dummy_rows_top) % (hstrap_frequency + 1) == hstrap_frequency - 1
+fn is_hstrap(r: usize, core_rows: usize, dummy_rows_top: usize, hstrap_frequency: usize) -> bool {
+    r >= dummy_rows_top
+        && r < core_rows + dummy_rows_top - 1
+        && (r - dummy_rows_top) % (hstrap_frequency + 1) == hstrap_frequency - 1
 }
