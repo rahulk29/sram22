@@ -1,6 +1,7 @@
 use pdkprims::config::Int;
+use serde::Serialize;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PrechargeParams {
     pub name: String,
     pub length: Int,

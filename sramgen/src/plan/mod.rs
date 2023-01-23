@@ -146,8 +146,8 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
     let bin_path = out_bin(work_dir, name);
     save_modules(&bin_path, name, modules).with_context(|| "Error saving netlist binaries")?;
 
-    generate_netlist(&bin_path, work_dir)
-        .with_context(|| "Error converting netlists to SPICE format")?;
+    // generate_netlist(&bin_path, work_dir)
+    //     .with_context(|| "Error converting netlists to SPICE format")?;
 
     try_finish_task!(ctx, TaskKey::GenerateNetlist);
 

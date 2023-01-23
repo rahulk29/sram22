@@ -1,5 +1,14 @@
+use std::path::PathBuf;
+use std::sync::Arc;
+
 pub use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
+use ngspice::Ngspice;
+use sky130_open_pdk::Sky130Pdk;
+use substrate::data::{SubstrateConfig, SubstrateCtx};
+use substrate::pdk::{Pdk, PdkParams};
+use substrate::schematic::netlist::impls::spice::SpiceNetlister;
+use substrate::simulation::{Simulator, SimulatorOpts};
 use tera::Tera;
 
 #[cfg(feature = "abstract_lef")]
@@ -44,4 +53,21 @@ where
     T: Into<U>,
 {
     v.into_iter().map(|x| x.into()).collect()
+}
+
+pub fn setup_ctx() -> SubstrateCtx {
+    let simulator = Ngspice::new(SimulatorOpts::default()).unwrap();
+
+    let cfg = SubstrateConfig::builder()
+        .netlister(Arc::new(SpiceNetlister::new()))
+        .simulator(Arc::new(simulator))
+        .pdk(Arc::new(
+            Sky130Pdk::new(&PdkParams {
+                pdk_root: PathBuf::from("/path/to/sky130"),
+            })
+            .unwrap(),
+        ))
+        .build()
+        .unwrap();
+    SubstrateCtx::from_config(cfg)
 }
