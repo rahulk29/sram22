@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use arcstr::ArcStr;
 use codegen::hard_macro;
 use grid::Grid;
-use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams, View};
 use substrate::data::SubstrateCtx;
 use substrate::layout::geom::orientation::Named;
@@ -13,6 +12,7 @@ use substrate::layout::placement::nine_patch::{NpTiler, Region};
 use substrate::layout::placement::tile::{OptionTile, RelativeRectBbox};
 use substrate::{into_grid, into_vec};
 
+use super::{SpCell, SpCellArray, SpCellReplica, SpColend};
 use crate::tech::external_gds_path;
 
 fn layout_path(_ctx: &SubstrateCtx, name: &str, view: View) -> Option<PathBuf> {
@@ -21,32 +21,6 @@ fn layout_path(_ctx: &SubstrateCtx, name: &str, view: View) -> Option<PathBuf> {
         _ => None,
     }
 }
-
-#[hard_macro(
-    name = "sram_sp_cell",
-    pdk = "sky130-open",
-    path_fn = "layout_path",
-    gds_cell_name = "sky130_fd_bd_sram__sram_sp_cell_opt1",
-    spice_subckt_name = "sram_sp_cell"
-)]
-pub struct SpCell;
-
-#[hard_macro(
-    name = "sram_sp_cell_replica",
-    pdk = "sky130-open",
-    path_fn = "layout_path",
-    gds_cell_name = "sky130_fd_bd_sram__openram_sp_cell_opt1_replica",
-    spice_subckt_name = "sky130_fd_bd_sram__sram_sp_cell_opt1"
-)]
-pub struct SpCellReplica;
-
-#[hard_macro(
-    name = "sram_sp_colend",
-    pdk = "sky130-open",
-    path_fn = "layout_path",
-    gds_cell_name = "sky130_fd_bd_sram__sram_sp_colend"
-)]
-pub struct SpColend;
 
 #[hard_macro(
     name = "sram_sp_colend_cent",
@@ -575,34 +549,8 @@ impl Component for SpCellArrayRight {
     }
 }
 
-pub struct SpCellArray {
-    params: SpCellArrayParams,
-}
-
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
-pub struct SpCellArrayParams {
-    pub rows: usize,
-    pub cols: usize,
-}
-
-impl Component for SpCellArray {
-    type Params = SpCellArrayParams;
-
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        if params.rows % 8 != 0 || params.cols % 8 != 0 || params.rows == 0 || params.cols == 0 {
-            return Err(substrate::component::error::Error::InvalidParams.into());
-        }
-        Ok(Self { params: *params })
-    }
-
-    fn name(&self) -> ArcStr {
-        arcstr::literal!("sp_cell_array")
-    }
-
-    fn layout(
+impl SpCellArray {
+    pub(crate) fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
@@ -638,25 +586,5 @@ impl Component for SpCellArray {
 
         ctx.draw(tiler)?;
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::paths::out_gds;
-    use crate::setup_ctx;
-    use crate::tests::test_work_dir;
-
-    use super::*;
-
-    #[test]
-    fn test_sp_cell_array() {
-        let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_sp_cell_array");
-        ctx.write_layout::<SpCellArray>(
-            &SpCellArrayParams { rows: 32, cols: 32 },
-            out_gds(work_dir, "layout"),
-        )
-        .expect("failed to write layout");
     }
 }

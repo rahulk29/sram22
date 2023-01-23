@@ -26,7 +26,6 @@ pub mod rows;
 pub mod sense_amp;
 pub mod sram;
 pub mod tmc;
-pub mod v2;
 pub mod wmask_control;
 
 pub fn draw_bitcell(lib: &mut PdkLib) -> Result<Ptr<Cell>> {
