@@ -24,6 +24,7 @@ pub mod schematic;
 pub mod tech;
 #[cfg(test)]
 mod tests;
+pub mod v2;
 pub mod verification;
 pub mod verilog;
 

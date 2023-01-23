@@ -1,4 +1,4 @@
-use substrate::component::{Component, NoParams};
+use substrate::component::NoParams;
 use substrate::index::IndexOwned;
 use substrate::layout::cell::{CellPort, Port};
 use substrate::layout::elements::mos::LayoutMos;
@@ -17,27 +17,10 @@ use substrate::pdk::mos::spec::MosKind;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 use substrate::script::Script;
 
-use crate::config::precharge::PrechargeParams;
+use super::Precharge;
 
-pub struct Precharge {
-    params: PrechargeParams,
-}
-
-impl Component for Precharge {
-    type Params = PrechargeParams;
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
-    }
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("precharge")
-    }
-
-    fn layout(
+impl Precharge {
+    pub(crate) fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
@@ -254,30 +237,5 @@ impl Script for PhysicalDesignScript {
             grid: 5,
             m0,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::paths::out_gds;
-    use crate::setup_ctx;
-    use crate::tests::test_work_dir;
-
-    use super::*;
-
-    #[test]
-    fn test_precharge() {
-        let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_precharge");
-        ctx.write_layout::<Precharge>(
-            &PrechargeParams {
-                name: "precharge".into(),
-                length: 150,
-                pull_up_width: 1_600,
-                equalizer_width: 1_000,
-            },
-            out_gds(work_dir, "layout"),
-        )
-        .expect("failed to write layout");
     }
 }
