@@ -321,8 +321,10 @@ impl<'a> DecoderGen<'a> {
 
             self.instances.push(nand);
 
-            let mut inv =
-                Instance::new(format!("inv_{}", self.get_id()), local_reference(inv_name.clone()));
+            let mut inv = Instance::new(
+                format!("inv_{}", self.get_id()),
+                local_reference(inv_name.clone()),
+            );
             inv.add_conns(&[
                 ("vdd", self.vdd),
                 ("gnd", self.gnd),
