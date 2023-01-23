@@ -85,7 +85,7 @@ fn cell_gds(pdk_lib: &mut PdkLib, gds_file: &str, cell_name: &str) -> CellGdsRes
     }
 
     let path = external_gds_path().join(gds_file);
-    let lib = GdsLibrary::load(&path)?;
+    let lib = GdsLibrary::load(path)?;
     let lib = Library::from_gds(&lib, Some(pdk_lib.pdk.layers.clone()))?;
 
     let map = name_map(&pdk_lib.lib);

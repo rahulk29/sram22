@@ -477,7 +477,7 @@ fn draw_hier_decode_node(
     let id = ctx.alloc_id();
 
     let name = format!("{}_{}", ctx.prefix, id);
-    let mut cell = Cell::empty(&name);
+    let mut cell = Cell::empty(name);
 
     let nand_params = GateParams {
         name: format!("{}_nand_{}", ctx.prefix, id),

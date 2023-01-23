@@ -2,10 +2,10 @@ use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
 use substrate::layout::cell::Port;
 use substrate::layout::elements::mos::LayoutMos;
-use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
+use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::geom::bbox::{Bbox, BoundBox};
 use substrate::layout::geom::orientation::Named;
-use substrate::layout::geom::{Corner, Dir, Point, Rect, Span};
+use substrate::layout::geom::{Dir, Point, Rect, Span};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerKey;
 use substrate::layout::placement::align::AlignRect;
@@ -26,7 +26,7 @@ impl Component for Precharge {
     type Params = PrechargeParams;
     fn new(
         params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
+        _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         Ok(Self {
             params: params.clone(),
@@ -245,7 +245,7 @@ impl Script for PhysicalDesignScript {
     type Output = PhysicalDesign;
 
     fn run(
-        params: &Self::Params,
+        _params: &Self::Params,
         ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self::Output> {
         let layers = ctx.layers();
