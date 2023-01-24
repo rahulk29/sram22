@@ -1,5 +1,5 @@
 use serde::Serialize;
-use substrate::component::{Component, NoParams};
+use substrate::component::Component;
 
 mod layout;
 mod schematic;
@@ -71,7 +71,7 @@ impl Component for PrechargeCent {
 
     fn schematic(
         &self,
-        ctx: &mut substrate::schematic::context::SchematicCtx,
+        _ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
         Ok(())
     }
@@ -100,7 +100,7 @@ impl Component for PrechargeEnd {
 
     fn schematic(
         &self,
-        ctx: &mut substrate::schematic::context::SchematicCtx,
+        _ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
         Ok(())
     }
@@ -115,7 +115,6 @@ impl Component for PrechargeEnd {
 
 #[cfg(test)]
 mod tests {
-    use substrate::component::NoParams;
 
     use crate::paths::out_gds;
     use crate::setup_ctx;

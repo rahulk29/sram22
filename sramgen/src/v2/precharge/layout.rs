@@ -35,22 +35,22 @@ impl Precharge {
             contact_strategy: GateContactStrategy::SingleSide,
             devices: vec![
                 MosParams {
-                    w: self.params.equalizer_width as i64,
-                    l: self.params.length as i64,
+                    w: self.params.equalizer_width,
+                    l: self.params.length,
                     m: 1,
                     nf: 1,
                     id: mos.id(),
                 },
                 MosParams {
-                    w: self.params.pull_up_width as i64,
-                    l: self.params.length as i64,
+                    w: self.params.pull_up_width,
+                    l: self.params.length,
                     m: 1,
                     nf: 1,
                     id: mos.id(),
                 },
                 MosParams {
-                    w: self.params.pull_up_width as i64,
-                    l: self.params.length as i64,
+                    w: self.params.pull_up_width,
+                    l: self.params.length,
                     m: 1,
                     nf: 1,
                     id: mos.id(),
