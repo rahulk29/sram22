@@ -2,8 +2,8 @@ use substrate::component::NoParams;
 use substrate::index::IndexOwned;
 use substrate::layout::cell::{CellPort, Port};
 use substrate::layout::elements::mos::LayoutMos;
-use substrate::layout::elements::via::{Via, ViaParams};
-use substrate::layout::geom::bbox::{Bbox, BoundBox};
+use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
+use substrate::layout::geom::bbox::{Bbox, BoundBox, LayerBoundBox};
 use substrate::layout::geom::orientation::Named;
 use substrate::layout::geom::{Dir, Point, Rect, Side, Span};
 use substrate::layout::layers::selector::Selector;
@@ -17,7 +17,7 @@ use substrate::pdk::mos::spec::MosKind;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 use substrate::script::Script;
 
-use super::{Precharge, PrechargeCent};
+use super::{Precharge, PrechargeCent, PrechargeEnd};
 
 impl Precharge {
     pub(crate) fn layout(
@@ -154,6 +154,7 @@ impl Precharge {
 
         let mut via1 = ViaParams::builder()
             .layers(dsn.v_metal, dsn.h_metal)
+            .expand(ViaExpansion::LongerDirection)
             .geometry(rects[0].double(Side::Left), stripe)
             .build();
         let via = ctx.instantiate::<Via>(&via1)?;
@@ -221,8 +222,8 @@ impl PrechargeCent {
             .layers(tap, m0)
             .geometry(tap_rect, tap_rect)
             .build();
-        let via = ctx.instantiate::<Via>(&viap)?;
-        ctx.draw(via)?;
+        let tap = ctx.instantiate::<Via>(&viap)?;
+        ctx.draw_ref(&tap)?;
 
         let y = dsn.cut + 2 * dsn.v_line + dsn.v_space;
         let half_tr = Rect::from_spans(Span::new(0, dsn.v_line / 2), Span::new(y, brect.top()));
@@ -230,15 +231,106 @@ impl PrechargeCent {
 
         let mut via = ctx.instantiate::<Via>(&meta.m1_via)?;
         ctx.draw(via.clone())?;
+        ctx.draw_rect(
+            dsn.m0,
+            Rect::from_spans(
+                Span::new(0, tap.layer_bbox(dsn.m0).p0.x),
+                via.brect().vspan(),
+            ),
+        );
 
         via.place_center(Point::new(dsn.tap_width, via.brect().center().y));
-        ctx.draw(via)?;
+        ctx.draw(via.clone())?;
+
+        ctx.draw_rect(
+            dsn.m0,
+            Rect::from_spans(
+                Span::new(tap.layer_bbox(dsn.m0).p1.x, dsn.tap_width),
+                via.brect().vspan(),
+            ),
+        );
 
         let half_tr = Rect::from_spans(
             Span::with_stop_and_length(dsn.tap_width, dsn.v_line / 2),
             Span::new(y, brect.top()),
         );
         ctx.draw_rect(dsn.v_metal, half_tr);
+
+        let stripe_span = Span::new(-dsn.tap_width, 2 * dsn.tap_width);
+        ctx.draw_rect(dsn.h_metal, Rect::from_spans(stripe_span, dsn.gate_stripe));
+        ctx.draw_rect(dsn.h_metal, Rect::from_spans(stripe_span, dsn.power_stripe));
+
+        let mut via = ctx.instantiate::<Via>(&meta.m2_via)?;
+        ctx.draw_ref(&via)?;
+
+        via.place_center(Point::new(dsn.tap_width, via.brect().center().y));
+        ctx.draw(via)?;
+
+        ctx.flatten();
+        ctx.trim(&brect);
+
+        Ok(())
+    }
+}
+
+impl PrechargeEnd {
+    pub(crate) fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let pc = ctx.instantiate::<Precharge>(&self.params)?;
+        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&NoParams)?;
+        let meta = pc.cell().get_metadata::<Metadata>();
+        let layers = ctx.layers();
+
+        let tap = layers.get(Selector::Name("tap"))?;
+        let nwell = layers.get(Selector::Name("nwell"))?;
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+        let m0 = layers.get(Selector::Metal(0))?;
+
+        let brect = Rect::new(
+            Point::new(0, 0),
+            Point::new(dsn.tap_width, pc.brect().top()),
+        );
+
+        ctx.draw_rect(nwell, brect);
+        ctx.draw_rect(nsdm, brect);
+
+        let tap_rect = brect.shrink(300);
+
+        let viap = ViaParams::builder()
+            .layers(tap, m0)
+            .geometry(tap_rect, tap_rect)
+            .build();
+        let tap = ctx.instantiate::<Via>(&viap)?;
+        ctx.draw_ref(&tap)?;
+
+        let y = dsn.cut + 2 * dsn.v_line + dsn.v_space;
+
+        let mut via = ctx.instantiate::<Via>(&meta.m1_via)?;
+        via.place_center(Point::new(dsn.tap_width, via.brect().center().y));
+        ctx.draw(via.clone())?;
+        ctx.draw_rect(
+            dsn.m0,
+            Rect::from_spans(
+                Span::new(tap.layer_bbox(dsn.m0).p1.x, dsn.tap_width),
+                via.brect().vspan(),
+            ),
+        );
+
+        let half_tr = Rect::from_spans(
+            Span::with_stop_and_length(dsn.tap_width, dsn.v_line / 2),
+            Span::new(y, brect.top()),
+        );
+        ctx.draw_rect(dsn.v_metal, half_tr);
+
+        let stripe_span = Span::new(-dsn.tap_width, 2 * dsn.tap_width);
+        ctx.draw_rect(dsn.h_metal, Rect::from_spans(stripe_span, dsn.gate_stripe));
+        ctx.draw_rect(dsn.h_metal, Rect::from_spans(stripe_span, dsn.power_stripe));
+
+        let mut via = ctx.instantiate::<Via>(&meta.m2_via)?;
+        via.place_center(Point::new(dsn.tap_width, via.brect().center().y));
+        ctx.draw(via)?;
 
         ctx.flatten();
         ctx.trim(&brect);
@@ -299,7 +391,7 @@ impl Script for PhysicalDesignScript {
             grid: 5,
         });
 
-        let power_stripe = Span::new(3_400, 3_800);
+        let power_stripe = Span::new(3_400, 4_200);
         let gate_stripe = Span::new(0, 360);
 
         Ok(PhysicalDesign {
