@@ -17,7 +17,7 @@ use substrate::pdk::mos::spec::MosKind;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 use substrate::script::Script;
 
-use super::Precharge;
+use super::{Precharge, PrechargeCent};
 
 impl Precharge {
     pub(crate) fn layout(
@@ -71,7 +71,7 @@ impl Precharge {
 
         let bbox = ctx.bbox().into_rect();
 
-        let cut = mos.port("sd_0_0")?.bbox(dsn.m0).into_rect().top();
+        let cut = dsn.cut;
         let gate = mos.port("gate_0")?.largest_rect(dsn.m0)?;
 
         let mut orects = Vec::with_capacity(dsn.out_tracks.len());
@@ -118,6 +118,7 @@ impl Precharge {
         let via = ctx.instantiate::<Via>(&via0)?;
         ctx.draw(via)?;
 
+        let mut m1_via = None;
         for (port, rect, x) in [("sd_2_0", rects[3], dsn.width), ("sd_1_1", rects[0], 0)] {
             let port = mos.port(port)?.largest_rect(dsn.m0)?;
             via0.set_geometry(Bbox::from_point(Point::new(x, port.center().y)), rect);
@@ -127,6 +128,10 @@ impl Precharge {
                 Rect::from_spans(port.hspan().union(via.brect().hspan()), via.brect().vspan()),
             );
             ctx.draw(via)?;
+
+            if x == 0 {
+                m1_via = Some(via0.clone());
+            }
         }
 
         for (port, rect) in [("sd_0_0", orects[0]), ("sd_0_1", orects[2])] {
@@ -154,6 +159,12 @@ impl Precharge {
         let via = ctx.instantiate::<Via>(&via1)?;
         ctx.draw(via)?;
 
+        let metadata = Metadata {
+            m1_via: m1_via.unwrap(),
+            m2_via: via1.clone(),
+        };
+        ctx.set_metadata(metadata);
+
         via1.set_geometry(rects[3].double(Side::Right), stripe);
         let via = ctx.instantiate::<Via>(&via1)?;
         ctx.draw(via)?;
@@ -167,7 +178,71 @@ impl Precharge {
         ctx.flatten();
 
         let bounds = ctx.brect().with_hspan(Span::new(0, dsn.width));
+
+        let layers = ctx.layers();
+        let psdm = layers.get(Selector::Name("psdm"))?;
+        ctx.draw_rect(psdm, bounds);
         ctx.trim(&bounds);
+        Ok(())
+    }
+}
+
+struct Metadata {
+    m1_via: ViaParams,
+    m2_via: ViaParams,
+}
+
+impl PrechargeCent {
+    pub(crate) fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let pc = ctx.instantiate::<Precharge>(&self.params)?;
+        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&NoParams)?;
+        let meta = pc.cell().get_metadata::<Metadata>();
+        let layers = ctx.layers();
+
+        let tap = layers.get(Selector::Name("tap"))?;
+        let nwell = layers.get(Selector::Name("nwell"))?;
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+        let m0 = layers.get(Selector::Metal(0))?;
+
+        let brect = Rect::new(
+            Point::new(0, 0),
+            Point::new(dsn.tap_width, pc.brect().top()),
+        );
+
+        ctx.draw_rect(nwell, brect);
+        ctx.draw_rect(nsdm, brect);
+
+        let tap_rect = brect.shrink(300);
+
+        let viap = ViaParams::builder()
+            .layers(tap, m0)
+            .geometry(tap_rect, tap_rect)
+            .build();
+        let via = ctx.instantiate::<Via>(&viap)?;
+        ctx.draw(via)?;
+
+        let y = dsn.cut + 2 * dsn.v_line + dsn.v_space;
+        let half_tr = Rect::from_spans(Span::new(0, dsn.v_line / 2), Span::new(y, brect.top()));
+        ctx.draw_rect(dsn.v_metal, half_tr);
+
+        let mut via = ctx.instantiate::<Via>(&meta.m1_via)?;
+        ctx.draw(via.clone())?;
+
+        via.place_center(Point::new(dsn.tap_width, via.brect().center().y));
+        ctx.draw(via)?;
+
+        let half_tr = Rect::from_spans(
+            Span::with_stop_and_length(dsn.tap_width, dsn.v_line / 2),
+            Span::new(y, brect.top()),
+        );
+        ctx.draw_rect(dsn.v_metal, half_tr);
+
+        ctx.flatten();
+        ctx.trim(&brect);
+
         Ok(())
     }
 }
@@ -179,6 +254,7 @@ pub struct PhysicalDesign {
     power_stripe: Span,
     gate_stripe: Span,
     h_metal: LayerKey,
+    cut: i64,
     width: i64,
     in_tracks: FixedTracks,
     out_tracks: FixedTracks,
@@ -187,6 +263,8 @@ pub struct PhysicalDesign {
     v_space: i64,
     m0: LayerKey,
     grid: i64,
+
+    tap_width: i64,
 }
 
 impl Script for PhysicalDesignScript {
@@ -228,6 +306,7 @@ impl Script for PhysicalDesignScript {
             power_stripe,
             gate_stripe,
             h_metal: m2,
+            cut: 1_920,
             width: 1_200,
             v_metal: m1,
             v_line: 140,
@@ -235,6 +314,7 @@ impl Script for PhysicalDesignScript {
             in_tracks,
             out_tracks,
             grid: 5,
+            tap_width: 1_300,
             m0,
         })
     }
