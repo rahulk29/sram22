@@ -1,33 +1,33 @@
 use serde::Serialize;
 use substrate::component::Component;
 
-pub mod layout;
-pub mod schematic;
+mod layout;
+mod schematic;
 
-pub struct Precharge {
-    params: PrechargeParams,
+pub struct ReadMux {
+    params: ReadMuxParams,
 }
 
-/// Precharge taps.
-pub struct PrechargeCent {
-    params: PrechargeParams,
+/// ReadMux taps.
+pub struct ReadMuxCent {
+    params: ReadMuxParams,
 }
 
-/// Precharge end cap.
-pub struct PrechargeEnd {
-    params: PrechargeParams,
+/// ReadMux end cap.
+pub struct ReadMuxEnd {
+    params: ReadMuxParams,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct PrechargeParams {
-    pub name: String,
+pub struct ReadMuxParams {
     pub length: i64,
-    pub pull_up_width: i64,
-    pub equalizer_width: i64,
+    pub width: i64,
+    pub mux_ratio: usize,
+    pub idx: usize,
 }
 
-impl Component for Precharge {
-    type Params = PrechargeParams;
+impl Component for ReadMux {
+    type Params = ReadMuxParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
@@ -37,7 +37,7 @@ impl Component for Precharge {
         })
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("precharge")
+        arcstr::literal!("read_mux")
     }
 
     fn schematic(
@@ -55,8 +55,8 @@ impl Component for Precharge {
     }
 }
 
-impl Component for PrechargeCent {
-    type Params = PrechargeParams;
+impl Component for ReadMuxCent {
+    type Params = ReadMuxParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
@@ -66,7 +66,7 @@ impl Component for PrechargeCent {
         })
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("precharge_cent")
+        arcstr::literal!("read_mux_cent")
     }
 
     fn schematic(
@@ -84,8 +84,8 @@ impl Component for PrechargeCent {
     }
 }
 
-impl Component for PrechargeEnd {
-    type Params = PrechargeParams;
+impl Component for ReadMuxEnd {
+    type Params = ReadMuxParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
@@ -95,7 +95,7 @@ impl Component for PrechargeEnd {
         })
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("precharge_end")
+        arcstr::literal!("read_mux_end")
     }
 
     fn schematic(
@@ -122,51 +122,34 @@ mod tests {
 
     use super::*;
 
+    const READ_MUX_PARAMS: ReadMuxParams = ReadMuxParams {
+        length: 150,
+        width: 2_000,
+        mux_ratio: 4,
+        idx: 2,
+    };
+
     #[test]
-    fn test_precharge() {
+    fn test_read_mux() {
         let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_precharge");
-        ctx.write_layout::<Precharge>(
-            &PrechargeParams {
-                name: "precharge".into(),
-                length: 150,
-                pull_up_width: 1_600,
-                equalizer_width: 1_000,
-            },
-            out_gds(work_dir, "layout"),
-        )
-        .expect("failed to write layout");
+        let work_dir = test_work_dir("test_read_mux");
+        ctx.write_layout::<ReadMux>(&READ_MUX_PARAMS, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
     }
 
     #[test]
-    fn test_precharge_cent() {
+    fn test_read_mux_cent() {
         let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_precharge_cent");
-        ctx.write_layout::<PrechargeCent>(
-            &PrechargeParams {
-                name: "precharge".into(),
-                length: 150,
-                pull_up_width: 1_600,
-                equalizer_width: 1_000,
-            },
-            out_gds(work_dir, "layout"),
-        )
-        .expect("failed to write layout");
+        let work_dir = test_work_dir("test_read_mux_cent");
+        ctx.write_layout::<ReadMuxCent>(&READ_MUX_PARAMS, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
     }
 
     #[test]
-    fn test_precharge_end() {
+    fn test_read_mux_end() {
         let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_precharge_end");
-        ctx.write_layout::<PrechargeEnd>(
-            &PrechargeParams {
-                name: "precharge".into(),
-                length: 150,
-                pull_up_width: 1_600,
-                equalizer_width: 1_000,
-            },
-            out_gds(work_dir, "layout"),
-        )
-        .expect("failed to write layout");
+        let work_dir = test_work_dir("test_read_mux_end");
+        ctx.write_layout::<ReadMuxEnd>(&READ_MUX_PARAMS, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
     }
 }

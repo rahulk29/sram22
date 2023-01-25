@@ -343,20 +343,19 @@ pub struct PhysicalDesignScript;
 
 pub struct PhysicalDesign {
     /// Location of the horizontal power strap
-    power_stripe: Span,
-    gate_stripe: Span,
-    h_metal: LayerKey,
-    cut: i64,
-    width: i64,
-    in_tracks: FixedTracks,
-    out_tracks: FixedTracks,
-    v_metal: LayerKey,
-    v_line: i64,
-    v_space: i64,
-    m0: LayerKey,
-    grid: i64,
-
-    tap_width: i64,
+    pub(crate) power_stripe: Span,
+    pub(crate) gate_stripe: Span,
+    pub(crate) h_metal: LayerKey,
+    pub(crate) cut: i64,
+    pub(crate) width: i64,
+    pub(crate) in_tracks: FixedTracks,
+    pub(crate) out_tracks: FixedTracks,
+    pub(crate) v_metal: LayerKey,
+    pub(crate) v_line: i64,
+    pub(crate) v_space: i64,
+    pub(crate) m0: LayerKey,
+    pub(crate) grid: i64,
+    pub(crate) tap_width: i64,
 }
 
 impl Script for PhysicalDesignScript {
