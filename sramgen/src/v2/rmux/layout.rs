@@ -1,6 +1,7 @@
 use substrate::component::NoParams;
 use substrate::index::IndexOwned;
 use substrate::layout::cell::Port;
+use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::geom::bbox::{BoundBox, LayerBoundBox};
@@ -15,7 +16,7 @@ use substrate::pdk::mos::query::Query;
 use substrate::pdk::mos::spec::MosKind;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 
-use super::{ReadMux, ReadMuxCent, ReadMuxEnd};
+use super::{ReadMux, ReadMuxCent, ReadMuxEnd, ReadMuxParams};
 
 use derive_builder::Builder;
 
@@ -249,90 +250,110 @@ impl ReadMuxCent {
             .inner()
             .run_script::<crate::v2::precharge::layout::PhysicalDesignScript>(&NoParams)?;
 
-        let mux = ctx.instantiate::<ReadMux>(&self.params)?;
-        let stripe_hspan = Span::new(-pc.width, 2 * pc.width);
-        let abs_bot = -(GATE_LINE + GATE_SPACE) * self.params.mux_ratio as i64;
+        read_mux_tap_layout(pc.tap_width, false, &self.params, ctx)?;
+        Ok(())
+    }
+}
 
-        let meta = mux.cell().get_metadata::<Metadata>();
+fn read_mux_tap_layout(
+    width: i64,
+    end: bool,
+    params: &ReadMuxParams,
+    ctx: &mut LayoutCtx,
+) -> substrate::error::Result<()> {
+    let pc = ctx
+        .inner()
+        .run_script::<crate::v2::precharge::layout::PhysicalDesignScript>(&NoParams)?;
 
-        let mut via = ctx.instantiate::<Via>(&meta.split_via)?;
-        via.place_center(Point::new(pc.tap_width, via.brect().center().y));
-        ctx.draw_ref(&via)?;
+    let mux = ctx.instantiate::<ReadMux>(&params)?;
+    let stripe_hspan = Span::new(-width, 2 * width);
+
+    let meta = mux.cell().get_metadata::<Metadata>();
+
+    let mut via = ctx.instantiate::<Via>(&meta.split_via)?;
+    via.place_center(Point::new(width, via.brect().center().y));
+    ctx.draw_ref(&via)?;
+    if !end {
         via.place_center(Point::new(0, via.brect().center().y));
         ctx.draw_ref(&via)?;
+    }
 
-        let mut vtrack = meta.split_track.double(Side::Left);
+    let mut vtrack = meta.split_track.double(Side::Left);
+    if !end {
         ctx.draw_rect(pc.v_metal, vtrack);
-        vtrack.place_center(Point::new(pc.tap_width, vtrack.center().y));
-        ctx.draw_rect(pc.v_metal, vtrack);
+    }
+    vtrack.place_center(Point::new(width, vtrack.center().y));
+    ctx.draw_rect(pc.v_metal, vtrack);
 
-        for i in 0..self.params.mux_ratio {
-            let vspan = Span::with_stop_and_length(-(GATE_LINE + GATE_SPACE) * i as i64, GATE_LINE);
-            let rect = Rect::from_spans(stripe_hspan, vspan);
-            ctx.draw_rect(pc.h_metal, rect);
-        }
+    for i in 0..params.mux_ratio {
+        let vspan = Span::with_stop_and_length(-(GATE_LINE + GATE_SPACE) * i as i64, GATE_LINE);
+        let rect = Rect::from_spans(stripe_hspan, vspan);
+        ctx.draw_rect(pc.h_metal, rect);
+    }
 
-        let power_stripe = Rect::from_spans(stripe_hspan, Span::new(2_200, 3_000));
-        ctx.draw_rect(pc.h_metal, power_stripe);
+    let power_stripe = Rect::from_spans(stripe_hspan, Span::new(2_200, 3_000));
+    ctx.draw_rect(pc.h_metal, power_stripe);
 
-        let bounds = Rect::from_spans(Span::new(0, pc.tap_width), mux.brect().vspan());
-        ctx.flatten();
-        ctx.trim(&bounds);
+    let bounds = Rect::from_spans(Span::new(0, width), mux.brect().vspan());
+    ctx.flatten();
+    ctx.trim(&bounds);
 
-        let tap_rect = bounds.shrink(300);
+    let tap_rect = bounds.shrink(300);
 
-        let layers = ctx.layers();
-        let tap = layers.get(Selector::Name("tap"))?;
-        let nwell = layers.get(Selector::Name("nwell"))?;
-        let nsdm = layers.get(Selector::Name("nsdm"))?;
+    let layers = ctx.layers();
+    let tap = layers.get(Selector::Name("tap"))?;
+    let nwell = layers.get(Selector::Name("nwell"))?;
+    let nsdm = layers.get(Selector::Name("nsdm"))?;
 
-        let viap = ViaParams::builder()
-            .layers(tap, pc.m0)
-            .geometry(tap_rect, tap_rect)
-            .build();
-        let tap = ctx.instantiate::<Via>(&viap)?;
-        ctx.draw_ref(&tap)?;
+    let viap = ViaParams::builder()
+        .layers(tap, pc.m0)
+        .geometry(tap_rect, tap_rect)
+        .build();
+    let tap = ctx.instantiate::<Via>(&viap)?;
+    ctx.draw_ref(&tap)?;
 
-        let target = tap.layer_bbox(pc.m0).into_rect();
-        let viap = ViaParams::builder()
-            .layers(pc.m0, pc.v_metal)
-            .geometry(target, target)
-            .build();
-        let via = ctx.instantiate::<Via>(&viap)?;
-        ctx.draw_ref(&via)?;
+    let target = tap.layer_bbox(pc.m0).into_rect();
+    let viap = ViaParams::builder()
+        .layers(pc.m0, pc.v_metal)
+        .geometry(target, target)
+        .build();
+    let via = ctx.instantiate::<Via>(&viap)?;
+    ctx.draw_ref(&via)?;
 
-        let target = via.layer_bbox(pc.v_metal).into_rect();
-        let viap = ViaParams::builder()
-            .layers(pc.v_metal, pc.h_metal)
-            .geometry(target, power_stripe)
-            .build();
-        let via = ctx.instantiate::<Via>(&viap)?;
-        ctx.draw_ref(&via)?;
+    let target = via.layer_bbox(pc.v_metal).into_rect();
+    let viap = ViaParams::builder()
+        .layers(pc.v_metal, pc.h_metal)
+        .geometry(target, power_stripe)
+        .build();
+    let via = ctx.instantiate::<Via>(&viap)?;
+    ctx.draw_ref(&via)?;
 
+    if !end {
         ctx.draw_rect(
             pc.h_metal,
             Rect::from_spans(Span::new(0, 200), meta.bot_stripe),
         );
-        ctx.draw_rect(
-            pc.h_metal,
-            Rect::from_spans(
-                Span::with_stop_and_length(pc.tap_width, 200),
-                meta.bot_stripe,
-            ),
-        );
-
-        ctx.draw_rect(nwell, bounds);
-        ctx.draw_rect(nsdm, bounds);
-
-        Ok(())
     }
+    ctx.draw_rect(
+        pc.h_metal,
+        Rect::from_spans(Span::with_stop_and_length(width, 200), meta.bot_stripe),
+    );
+
+    ctx.draw_rect(nwell, bounds);
+    ctx.draw_rect(nsdm, bounds);
+
+    Ok(())
 }
 
 impl ReadMuxEnd {
     pub(crate) fn layout(
         &self,
-        _ctx: &mut substrate::layout::context::LayoutCtx,
+        ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        let pc = ctx
+            .inner()
+            .run_script::<crate::v2::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+        read_mux_tap_layout(pc.tap_width, true, &self.params, ctx)?;
         Ok(())
     }
 }
