@@ -1,25 +1,23 @@
 use substrate::component::NoParams;
 use substrate::index::IndexOwned;
-use substrate::layout::cell::{CellPort, Port};
+use substrate::layout::cell::Port;
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
-use substrate::layout::geom::bbox::{Bbox, BoundBox, LayerBoundBox};
+use substrate::layout::geom::bbox::{BoundBox, LayerBoundBox};
 use substrate::layout::geom::orientation::Named;
-use substrate::layout::geom::{Corner, Dir, Point, Rect, Side, Span};
+use substrate::layout::geom::{Dir, Point, Rect, Side, Span};
 use substrate::layout::layers::selector::Selector;
-use substrate::layout::layers::LayerKey;
-use substrate::layout::placement::align::AlignRect;
+
 use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::routing::manual::jog::SimpleJog;
-use substrate::layout::routing::tracks::{Boundary, CenteredTrackParams, FixedTracks};
+
 use substrate::pdk::mos::query::Query;
 use substrate::pdk::mos::spec::MosKind;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
-use substrate::script::Script;
-
-use crate::v2::precharge::Precharge;
 
 use super::{ReadMux, ReadMuxCent, ReadMuxEnd};
+
+use derive_builder::Builder;
 
 const GATE_LINE: i64 = 320;
 const GATE_SPACE: i64 = 180;
@@ -120,6 +118,8 @@ impl ReadMux {
             tracks.push(rect);
         }
 
+        let mut metadata = Metadata::builder();
+
         for (port, idx) in [("sd_1_1", 1), ("sd_0_0", 2)] {
             let target = mos.port(port)?.largest_rect(pc.m0)?;
             let viap = ViaParams::builder()
@@ -131,8 +131,8 @@ impl ReadMux {
         }
 
         for (port, idx, x, side) in [
-            ("sd_0_1", 0, 0, Side::Left),
             ("sd_1_0", 3, pc.width, Side::Right),
+            ("sd_0_1", 0, 0, Side::Left),
         ] {
             let target = mos.port(port)?.largest_rect(pc.m0)?;
             let viap = ViaParams::builder()
@@ -163,10 +163,16 @@ impl ReadMux {
                 .expand(ViaExpansion::LongerDirection)
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;
+            metadata.split_via(viap);
+            metadata.bot_stripe(stripe.vspan());
             ctx.draw_ref(&via)?;
 
             ctx.draw_rect(pc.h_metal, stripe);
         }
+
+        metadata.split_track(tracks[0]);
+
+        ctx.set_metadata(metadata.build().unwrap());
 
         assert!(self.params.idx < self.params.mux_ratio);
 
@@ -177,7 +183,8 @@ impl ReadMux {
 
             if i == self.params.idx {
                 let target = mos.port("gate_0")?.largest_rect(pc.m0)?;
-                let gate_conn = Rect::from_spans(target.hspan(), target.vspan().union(rect.vspan()));
+                let gate_conn =
+                    Rect::from_spans(target.hspan(), target.vspan().union(rect.vspan()));
 
                 let viap = ViaParams::builder()
                     .layers(pc.v_metal, pc.h_metal)
@@ -189,16 +196,16 @@ impl ReadMux {
 
                 let viap = ViaParams::builder()
                     .layers(pc.m0, pc.v_metal)
-                    .geometry(gate_conn, Rect::from_spans(pc.out_tracks.index(1), rect.vspan()))
+                    .geometry(
+                        gate_conn,
+                        Rect::from_spans(pc.out_tracks.index(1), rect.vspan()),
+                    )
                     .build();
                 let mut via = ctx.instantiate::<Via>(&viap)?;
                 via.place_center(rect.center());
                 ctx.draw_ref(&via)?;
 
-                ctx.draw_rect(
-                    pc.m0,
-                    gate_conn
-                );
+                ctx.draw_rect(pc.m0, gate_conn);
             }
         }
 
@@ -220,11 +227,103 @@ impl ReadMux {
     }
 }
 
+#[derive(Debug, Builder)]
+struct Metadata {
+    split_via: ViaParams,
+    split_track: Rect,
+    bot_stripe: Span,
+}
+
+impl Metadata {
+    pub fn builder() -> MetadataBuilder {
+        MetadataBuilder::default()
+    }
+}
+
 impl ReadMuxCent {
     pub(crate) fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        let pc = ctx
+            .inner()
+            .run_script::<crate::v2::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+
+        let mux = ctx.instantiate::<ReadMux>(&self.params)?;
+        let stripe_hspan = Span::new(-pc.width, 2 * pc.width);
+        let abs_bot = -(GATE_LINE + GATE_SPACE) * self.params.mux_ratio as i64;
+
+        let meta = mux.cell().get_metadata::<Metadata>();
+
+        let mut via = ctx.instantiate::<Via>(&meta.split_via)?;
+        via.place_center(Point::new(pc.tap_width, via.brect().center().y));
+        ctx.draw_ref(&via)?;
+        via.place_center(Point::new(0, via.brect().center().y));
+        ctx.draw_ref(&via)?;
+
+        let mut vtrack = meta.split_track.double(Side::Left);
+        ctx.draw_rect(pc.v_metal, vtrack);
+        vtrack.place_center(Point::new(pc.tap_width, vtrack.center().y));
+        ctx.draw_rect(pc.v_metal, vtrack);
+
+        for i in 0..self.params.mux_ratio {
+            let vspan = Span::with_stop_and_length(-(GATE_LINE + GATE_SPACE) * i as i64, GATE_LINE);
+            let rect = Rect::from_spans(stripe_hspan, vspan);
+            ctx.draw_rect(pc.h_metal, rect);
+        }
+
+        let power_stripe = Rect::from_spans(stripe_hspan, Span::new(2_200, 3_000));
+        ctx.draw_rect(pc.h_metal, power_stripe);
+
+        let bounds = Rect::from_spans(Span::new(0, pc.tap_width), mux.brect().vspan());
+        ctx.flatten();
+        ctx.trim(&bounds);
+
+        let tap_rect = bounds.shrink(300);
+
+        let layers = ctx.layers();
+        let tap = layers.get(Selector::Name("tap"))?;
+        let nwell = layers.get(Selector::Name("nwell"))?;
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+
+        let viap = ViaParams::builder()
+            .layers(tap, pc.m0)
+            .geometry(tap_rect, tap_rect)
+            .build();
+        let tap = ctx.instantiate::<Via>(&viap)?;
+        ctx.draw_ref(&tap)?;
+
+        let target = tap.layer_bbox(pc.m0).into_rect();
+        let viap = ViaParams::builder()
+            .layers(pc.m0, pc.v_metal)
+            .geometry(target, target)
+            .build();
+        let via = ctx.instantiate::<Via>(&viap)?;
+        ctx.draw_ref(&via)?;
+
+        let target = via.layer_bbox(pc.v_metal).into_rect();
+        let viap = ViaParams::builder()
+            .layers(pc.v_metal, pc.h_metal)
+            .geometry(target, power_stripe)
+            .build();
+        let via = ctx.instantiate::<Via>(&viap)?;
+        ctx.draw_ref(&via)?;
+
+        ctx.draw_rect(
+            pc.h_metal,
+            Rect::from_spans(Span::new(0, 200), meta.bot_stripe),
+        );
+        ctx.draw_rect(
+            pc.h_metal,
+            Rect::from_spans(
+                Span::with_stop_and_length(pc.tap_width, 200),
+                meta.bot_stripe,
+            ),
+        );
+
+        ctx.draw_rect(nwell, bounds);
+        ctx.draw_rect(nsdm, bounds);
+
         Ok(())
     }
 }
@@ -232,7 +331,7 @@ impl ReadMuxCent {
 impl ReadMuxEnd {
     pub(crate) fn layout(
         &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
+        _ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         Ok(())
     }
