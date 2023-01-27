@@ -22,7 +22,7 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     let nand = draw_nand2(
         lib,
         &GateParams {
-            name: format!("{}_nand", name),
+            name: format!("{name}_nand"),
             size: Size {
                 nmos_width: 1_200,
                 pmos_width: 1_200,
@@ -34,7 +34,7 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     let inv = draw_inv(
         lib,
         &GateParams {
-            name: format!("{}_inv", name),
+            name: format!("{name}_inv"),
             size: Size {
                 nmos_width: 1200,
                 pmos_width: 1200,
@@ -54,7 +54,7 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
     nand2.align_beneath(nand1_bbox, 200);
     let nand2_bbox = nand2.bbox();
 
-    let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());
+    let mut router = Router::new(format!("{name}_route"), lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
@@ -84,12 +84,12 @@ pub fn draw_dbdr_delay_cell(lib: &mut PdkLib, name: &str) -> Result<Ptr<Cell>> {
             .pdk
             .get_contact_sized(stack, Dir::Horiz, m0, dst0.width())
             .unwrap();
-        let mut top_tap = Instance::new(format!("{}_tap_top", inv_port), tap.cell.clone());
+        let mut top_tap = Instance::new(format!("{inv_port}_tap_top"), tap.cell.clone());
         top_tap.align_above(inv_bbox, 200);
         top_tap.align_centers_horizontally_gridded(dst2.into(), cfg.grid());
         let dst3 = top_tap.port("x").largest_rect(m0).unwrap();
 
-        let mut bot_tap = Instance::new(format!("{}_tap_bot", inv_port), tap.cell.clone());
+        let mut bot_tap = Instance::new(format!("{inv_port}_tap_bot"), tap.cell.clone());
         bot_tap.align_beneath(nand2_bbox, 200);
         bot_tap.align_centers_horizontally_gridded(dst2.into(), cfg.grid());
         let dst4 = bot_tap.port("x").largest_rect(m0).unwrap();
@@ -210,7 +210,7 @@ pub fn draw_tmc_unit(lib: &mut PdkLib, params: &TmcUnitParams) -> Result<Ptr<Cel
 
         if inst.inst_name != "backwards_0" {
             let vdd = router.trace(rect, 1);
-            cell.add_pin(format!("vdd{}", vdd_port_num), m1, rect);
+            cell.add_pin(format!("vdd{vdd_port_num}"), m1, rect);
             vdd_port_num += 1;
             let mut trace = router.trace(dst, 0);
             trace
@@ -253,9 +253,9 @@ pub fn draw_tmc_unit(lib: &mut PdkLib, params: &TmcUnitParams) -> Result<Ptr<Cel
             leftmost_rect = Some(rect);
         }
 
-        cell.add_pin_from_port(inst.port("vdd").named(format!("vdd{}", vdd_port_num)), m1);
+        cell.add_pin_from_port(inst.port("vdd").named(format!("vdd{vdd_port_num}")), m1);
         vdd_port_num += 1;
-        cell.add_pin_from_port(inst.port("vss").named(format!("vss{}", vss_port_num)), m1);
+        cell.add_pin_from_port(inst.port("vss").named(format!("vss{vss_port_num}")), m1);
         vss_port_num += 1;
     }
 

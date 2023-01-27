@@ -265,7 +265,7 @@ fn read_mux_tap_layout(
         .inner()
         .run_script::<crate::v2::precharge::layout::PhysicalDesignScript>(&NoParams)?;
 
-    let mux = ctx.instantiate::<ReadMux>(&params)?;
+    let mux = ctx.instantiate::<ReadMux>(params)?;
     let stripe_hspan = Span::new(-width, 2 * width);
 
     let meta = mux.cell().get_metadata::<Metadata>();

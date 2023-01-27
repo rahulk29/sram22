@@ -19,7 +19,7 @@ pub fn dff_grid(params: &DffGridParams) -> Vec<Module> {
     m.add_ports_output(&[&q, &q_b]);
 
     for i in 0..width {
-        let mut inst = Instance::new(format!("dff_{}", i), openram_dff_ref());
+        let mut inst = Instance::new(format!("dff_{i}"), openram_dff_ref());
         inst.add_conns(&[
             ("VDD", &vdd),
             ("GND", &vss),

@@ -42,7 +42,7 @@ pub fn draw_gate_dec_array(
     let array = draw_cell_array(
         lib,
         &ArrayCellParams {
-            name: format!("{}_array", name),
+            name: format!("{name}_array"),
             num: width,
             cell,
             spacing: Some(spacing),
@@ -117,10 +117,7 @@ pub fn draw_nand_dec_array(lib: &mut PdkLib, params: &NandDecArrayParams) -> Res
     } else if gate_size == 3 {
         super::gate::draw_nand3(lib, gate)?
     } else {
-        panic!(
-            "Invalid gate size: expected 2 or 3 input gate, found {}",
-            gate_size
-        );
+        panic!("Invalid gate size: expected 2 or 3 input gate, found {gate_size}");
     };
 
     let (bubble_ports, connect_ports, skip_pins): (&[&str], &[&str], &[&str]) = if gate_size == 2 {
@@ -149,10 +146,7 @@ pub fn draw_and_dec_array(lib: &mut PdkLib, params: &AndDecArrayParams) -> Resul
     let gate_size = params.gate_size;
 
     if gate_size != 2 && gate_size != 3 {
-        panic!(
-            "Invalid gate size: expected 2 or 3 input gate, found {}",
-            gate_size
-        );
+        panic!("Invalid gate size: expected 2 or 3 input gate, found {gate_size}");
     }
 
     let &GateDecArrayParams {
@@ -181,7 +175,7 @@ pub fn draw_and_dec_array(lib: &mut PdkLib, params: &AndDecArrayParams) -> Resul
     let nand_arr = draw_gate_dec_array(
         lib,
         &GateDecArrayParams {
-            name: format!("{}_nand_array", name),
+            name: format!("{name}_nand_array"),
             width,
             dir,
             pitch: Some(pitch),
@@ -194,7 +188,7 @@ pub fn draw_and_dec_array(lib: &mut PdkLib, params: &AndDecArrayParams) -> Resul
     let inv_arr = draw_gate_dec_array(
         lib,
         &GateDecArrayParams {
-            name: format!("{}_inv_array", name),
+            name: format!("{name}_inv_array"),
             width,
             dir,
             pitch: Some(pitch),
@@ -214,7 +208,7 @@ pub fn draw_and_dec_array(lib: &mut PdkLib, params: &AndDecArrayParams) -> Resul
     inv.align_to_the_right_of(nand_bbox, 1_000);
     inv.align_centers_vertically_gridded(nand_bbox, lib.pdk.grid());
 
-    let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());
+    let mut router = Router::new(format!("{name}_route"), lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);
@@ -282,8 +276,8 @@ fn connect_taps_and_pwr(ctx: TapFillContext) -> Result<()> {
         m1_connect_ports,
         skip_pins,
     } = ctx;
-    let ntapcell = draw_ntap(lib, &format!("{}_ntap", prefix))?;
-    let ptapcell = draw_ptap(lib, &format!("{}_ptap", prefix))?;
+    let ntapcell = draw_ntap(lib, &format!("{prefix}_ntap"))?;
+    let ptapcell = draw_ptap(lib, &format!("{prefix}_ptap"))?;
 
     let psdm = lib.pdk.get_layerkey("psdm").unwrap();
     let nsdm = lib.pdk.get_layerkey("nsdm").unwrap();
@@ -310,19 +304,19 @@ fn connect_taps_and_pwr(ctx: TapFillContext) -> Result<()> {
             .unwrap();
 
         let bbox = pwr1.bbox().union(&pwr2.bbox());
-        let mut tapinst = Instance::new(format!("ntap_{}", i), ntapcell.clone());
+        let mut tapinst = Instance::new(format!("ntap_{i}"), ntapcell.clone());
         tapinst.align_to_the_right_of(bbox, 130);
         tapinst.align_centers_vertically_gridded(bbox, lib.pdk.grid());
         ntaps.push(tapinst);
 
         let bbox = gnd1.bbox().union(&gnd2.bbox());
-        let mut tapinst = Instance::new(format!("ptap_{}", i), ptapcell.clone());
+        let mut tapinst = Instance::new(format!("ptap_{i}"), ptapcell.clone());
         tapinst.align_to_the_left_of(bbox, 130);
         tapinst.align_centers_vertically_gridded(bbox, lib.pdk.grid());
         ptaps.push(tapinst);
     }
 
-    let mut router = Router::new(format!("{}_route", prefix), lib.pdk.clone());
+    let mut router = Router::new(format!("{prefix}_route"), lib.pdk.clone());
     let cfg = router.cfg();
     let m1 = cfg.layerkey(1);
 
@@ -613,7 +607,7 @@ fn draw_hier_decode_node(
             let addr_bit = (bus_width - i - 1) / 2;
             let addr_bar = if i % 2 == 0 { "_b" } else { "" };
             cell.add_pin(
-                bus_bit(&format!("addr{}", addr_bar), addr_bit),
+                bus_bit(&format!("addr{addr_bar}"), addr_bit),
                 m1,
                 trace.rect(),
             )

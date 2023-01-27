@@ -53,7 +53,7 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
             } else {
                 sram_sp_cell_ref()
             };
-            let mut inst = Instance::new(format!("bitcell_{}_{}", i, j), module);
+            let mut inst = Instance::new(format!("bitcell_{i}_{j}"), module);
 
             let wl_sig = if i < dummy_rows_bottom || i >= rows + dummy_rows_bottom {
                 vss.clone()
@@ -112,12 +112,12 @@ pub fn bitcell_array(params: &BitcellArrayParams) -> Module {
             ("VPB", &vpb),
         ];
 
-        let mut inst = Instance::new(format!("colend_{}_bot", i), sram_sp_colend_ref());
+        let mut inst = Instance::new(format!("colend_{i}_bot"), sram_sp_colend_ref());
         inst.add_conns(&conns);
 
         m.add_instance(inst);
 
-        let mut inst = Instance::new(format!("colend_{}_top", i), sram_sp_colend_ref());
+        let mut inst = Instance::new(format!("colend_{i}_top"), sram_sp_colend_ref());
         inst.add_conns(&conns);
 
         m.add_instance(inst);

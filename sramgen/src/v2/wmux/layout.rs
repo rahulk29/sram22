@@ -4,9 +4,9 @@ use substrate::layout::cell::Port;
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
-use substrate::layout::geom::bbox::{BoundBox, LayerBoundBox};
+use substrate::layout::geom::bbox::BoundBox;
 use substrate::layout::geom::orientation::Named;
-use substrate::layout::geom::{Dir, Point, Rect, Side, Sign, Span};
+use substrate::layout::geom::{Dir, Point, Rect, Sign, Span};
 use substrate::layout::layers::selector::Selector;
 
 use substrate::layout::placement::align::AlignRect;
@@ -53,7 +53,7 @@ impl WriteMux {
             }],
         };
 
-        let mut meta = Metadata::builder();
+        let _meta = Metadata::builder();
 
         let mut mux1 = ctx.instantiate::<LayoutMos>(&params)?;
         mux1.set_orientation(Named::R90);
@@ -260,17 +260,17 @@ impl Metadata {
 impl WriteMuxCent {
     pub(crate) fn layout(
         &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
+        _ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         Ok(())
     }
 }
 
 fn write_mux_tap_layout(
-    width: i64,
-    end: bool,
-    params: &WriteMuxParams,
-    ctx: &mut LayoutCtx,
+    _width: i64,
+    _end: bool,
+    _params: &WriteMuxParams,
+    _ctx: &mut LayoutCtx,
 ) -> substrate::error::Result<()> {
     Ok(())
 }
@@ -278,7 +278,7 @@ fn write_mux_tap_layout(
 impl WriteMuxEnd {
     pub(crate) fn layout(
         &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
+        _ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         Ok(())
     }

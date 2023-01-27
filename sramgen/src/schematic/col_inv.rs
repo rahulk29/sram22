@@ -20,7 +20,7 @@ pub fn col_inv_array(params: &ColInvArrayParams) -> Vec<Module> {
     m.add_ports_inout(&[&vdd, &vss]);
 
     for i in 0..params.width {
-        let mut inst = Instance::new(format!("inv_{}", i), local_reference("col_data_inv"));
+        let mut inst = Instance::new(format!("inv_{i}"), local_reference("col_data_inv"));
         inst.add_conns(&[
             ("vdd", &vdd),
             ("vss", &vss),

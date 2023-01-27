@@ -366,9 +366,9 @@ pub fn decoder_24(params: &Decoder24Params) -> Vec<Module> {
     m.add_port_output(&dout);
 
     for i in 0..4 {
-        let tmp = signal(format!("out_b_{}", i));
+        let tmp = signal(format!("out_b_{i}"));
 
-        let mut nand = Instance::new(format!("nand_{}", i), local_reference(&nand_name));
+        let mut nand = Instance::new(format!("nand_{i}"), local_reference(&nand_name));
         nand.add_conns(&[
             ("vdd", &vdd),
             ("gnd", &gnd),
@@ -385,7 +385,7 @@ pub fn decoder_24(params: &Decoder24Params) -> Vec<Module> {
         ]);
         m.add_instance(nand);
 
-        let mut inv = Instance::new(format!("inv_{}", i), local_reference(&inv_name));
+        let mut inv = Instance::new(format!("inv_{i}"), local_reference(&inv_name));
         inv.add_conns(&[
             ("vdd", &vdd),
             ("gnd", &gnd),
