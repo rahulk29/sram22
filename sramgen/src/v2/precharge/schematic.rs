@@ -1,4 +1,7 @@
-use substrate::schematic::circuit::Direction;
+use substrate::{
+    pdk::mos::{query::Query, spec::MosKind, MosParams},
+    schematic::{circuit::Direction, elements::mos::SchematicMos},
+};
 
 use super::Precharge;
 
@@ -9,56 +12,49 @@ impl Precharge {
     ) -> substrate::error::Result<()> {
         let length = self.params.length;
 
-        let vdd = ctx.port("vin", Direction::Inout);
-        let bl = ctx.port("bl", Direction::Inout);
-        let br = ctx.port("br", Direction::Inout);
+        let vdd = ctx.port("vdd", Direction::InOut);
+        let bl = ctx.port("bl", Direction::InOut);
+        let br = ctx.port("br", Direction::InOut);
         let en_b = ctx.port("en_b", Direction::Input);
 
-        let mut m = Module::new(&params.name);
-        m.add_ports_inout(&[&vdd, &bl, &br]);
-        m.add_port_input(&en_b);
+        let pmos_id = ctx
+            .mos_db()
+            .query(Query::builder().kind(MosKind::Pmos).build().unwrap())?
+            .id();
 
-        m.add_instance(
-            Mosfet {
-                name: "bl_pull_up".to_string(),
-                width: params.pull_up_width,
-                length,
-                drain: bl.clone(),
-                source: vdd.clone(),
-                gate: en_b.clone(),
-                body: vdd.clone(),
-                mos_type: MosType::Pmos,
-            }
-            .into(),
-        );
-        m.add_instance(
-            Mosfet {
-                name: "br_pull_up".to_string(),
-                width: params.pull_up_width,
-                length,
-                drain: br.clone(),
-                source: vdd.clone(),
-                gate: en_b.clone(),
-                body: vdd.clone(),
-                mos_type: MosType::Pmos,
-            }
-            .into(),
-        );
+        let mut bl_pull_up = ctx.instantiate::<SchematicMos>(&MosParams {
+            w: self.params.pull_up_width,
+            l: length,
+            m: 1,
+            nf: 1,
+            id: pmos_id,
+        })?;
+        bl_pull_up.connect_all([("d", &bl), ("g", &en_b), ("s", &vdd), ("b", &vdd)]);
+        bl_pull_up.set_name("bl_pull_up");
+        ctx.add_instance(bl_pull_up);
 
-        m.add_instance(
-            Mosfet {
-                name: "equalizer".to_string(),
-                width: params.equalizer_width,
-                length,
-                drain: bl.clone(),
-                source: br.clone(),
-                gate: en_b.clone(),
-                body: vdd.clone(),
-                mos_type: MosType::Pmos,
-            }
-            .into(),
-        );
+        let mut br_pull_up = ctx.instantiate::<SchematicMos>(&MosParams {
+            w: self.params.pull_up_width,
+            l: length,
+            m: 1,
+            nf: 1,
+            id: pmos_id,
+        })?;
+        br_pull_up.connect_all([("d", &br), ("g", &en_b), ("s", &vdd), ("b", &vdd)]);
+        br_pull_up.set_name("br_pull_up");
+        ctx.add_instance(br_pull_up);
 
-        m
+        let mut equalizer = ctx.instantiate::<SchematicMos>(&MosParams {
+            w: self.params.equalizer_width,
+            l: length,
+            m: 1,
+            nf: 1,
+            id: pmos_id,
+        })?;
+        equalizer.connect_all([("d", &bl), ("g", &en_b), ("s", &br), ("b", &vdd)]);
+        equalizer.set_name("equalizer");
+        ctx.add_instance(equalizer);
+
+        Ok(())
     }
 }

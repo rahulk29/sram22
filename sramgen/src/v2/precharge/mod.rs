@@ -116,7 +116,7 @@ impl Component for PrechargeEnd {
 #[cfg(test)]
 mod tests {
 
-    use crate::paths::out_gds;
+    use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -126,16 +126,17 @@ mod tests {
     fn test_precharge() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_precharge");
-        ctx.write_layout::<Precharge>(
-            &PrechargeParams {
-                name: "precharge".into(),
-                length: 150,
-                pull_up_width: 1_600,
-                equalizer_width: 1_000,
-            },
-            out_gds(work_dir, "layout"),
-        )
-        .expect("failed to write layout");
+
+        let params = PrechargeParams {
+            name: "precharge".into(),
+            length: 150,
+            pull_up_width: 1_600,
+            equalizer_width: 1_000,
+        };
+        ctx.write_layout::<Precharge>(&params, out_gds(&work_dir, "layout"))
+            .expect("failed to write layout");
+        ctx.write_schematic_to_file::<Precharge>(&params, out_spice(&work_dir, "netlist"))
+            .expect("failed to write schematic");
     }
 
     #[test]
