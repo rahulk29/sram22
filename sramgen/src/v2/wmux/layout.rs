@@ -22,8 +22,8 @@ use super::{WriteMux, WriteMuxCent, WriteMuxEnd, WriteMuxParams};
 
 use derive_builder::Builder;
 
-const GATE_LINE: i64 = 320;
-const GATE_SPACE: i64 = 180;
+const GATE_LINE: i64 = 340;
+const GATE_SPACE: i64 = 160;
 
 impl WriteMux {
     pub(crate) fn layout(
@@ -111,13 +111,13 @@ impl WriteMux {
         let mut wmask = ctx.instantiate::<LayoutMos>(&params)?;
         wmask.set_orientation(Named::R90);
         wmask.place_center_x(cx);
-        wmask.align_beneath(mux2.bbox(), 300);
+        wmask.align_beneath(mux2.bbox(), GATE_SPACE);
         ctx.draw_ref(&wmask)?;
 
         let mut npd = ctx.instantiate::<LayoutMos>(&params)?;
         npd.set_orientation(Named::R90);
         npd.place_center_x(cx);
-        npd.align_beneath(wmask.bbox(), 300);
+        npd.align_beneath(wmask.bbox(), GATE_SPACE);
         ctx.draw_ref(&npd)?;
 
         for (inst, port, idx) in [(&mux1, "sd_0_1", 0), (&mux2, "sd_0_0", 2)] {
@@ -137,20 +137,26 @@ impl WriteMux {
         let tracks = pc
             .out_tracks
             .iter()
-            .map(|track| {
-                let r =
-                    Rect::from_spans(track, Span::new(mux2.brect().bottom(), ctx.brect().top()));
+            .map(|track| -> Result<Rect, substrate::error::SubstrateError> {
+                let r = Rect::from_spans(
+                    track,
+                    Span::new(
+                        mux2.port("gate_0")?.largest_rect(pc.m0)?.top(),
+                        ctx.brect().top(),
+                    ),
+                );
                 ctx.draw_rect(pc.v_metal, r);
-                r
+                Ok(r)
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, _>>()?;
 
-        let target = npd.port("sd_0_1")?.largest_rect(pc.m0)?;
+        let target = wmask.port("sd_0_0")?.largest_rect(pc.m0)?;
         let jog = SJog::builder()
             .src(tracks[1])
             .dst(target)
             .layer(pc.v_metal)
             .dir(Dir::Vert)
+            .grid(pc.grid)
             .build()
             .unwrap();
         ctx.draw_ref(&jog)?;
@@ -169,8 +175,6 @@ impl WriteMux {
 
         let power_stripe = Rect::from_spans(stripe_span, power_span);
         ctx.draw_rect(pc.h_metal, power_stripe);
-
-        let target = npd.port("sd_0_0")?.largest_rect(pc.m0)?;
         let viap = ViaParams::builder()
             .layers(pc.m0, pc.v_metal)
             .geometry(target, target)
@@ -186,14 +190,46 @@ impl WriteMux {
         let v = ctx.instantiate::<Via>(&viap)?;
         ctx.draw(v)?;
 
-        for mux in [&mux1, &mux2] {
-            let target = mux.port("gate_0")?.largest_rect(pc.m0)?;
+        let mut h_stripes = Vec::with_capacity(3);
+        let mut m0_stripes = Vec::with_capacity(3);
+        for inst in [&mux1, &mux2, &wmask] {
+            let target = inst.port("gate_0")?.largest_rect(pc.m0)?;
             let rect = Rect::from_spans(stripe_span, target.vspan());
             ctx.draw_rect(pc.m0, rect);
+            m0_stripes.push(target.vspan());
 
             let span = Span::from_center_span_gridded(target.center().y, 340, pc.grid);
             let rect = Rect::from_spans(stripe_span, span);
             ctx.draw_rect(pc.h_metal, rect);
+            h_stripes.push(span);
+
+            if std::ptr::eq(inst, &wmask) {
+                via.place_center(Point::new(cx + 220, target.center().y));
+                ctx.draw_ref(&via)?;
+
+                let viap = ViaParams::builder()
+                    .layers(pc.v_metal, pc.h_metal)
+                    .geometry(via.brect(), rect)
+                    .build();
+                let v = ctx.instantiate::<Via>(&viap)?;
+                ctx.draw(v)?;
+            }
+        }
+
+        let src = wmask.port("sd_0_1")?.largest_rect(pc.m0)?;
+        let dst = npd.port("sd_0_1")?.largest_rect(pc.m0)?;
+        let rect = src.bbox().union(dst.bbox()).into_rect();
+        ctx.draw_rect(pc.v_metal, rect);
+
+        for inst in [&wmask, &npd] {
+            let bot = inst.port("sd_0_1")?.largest_rect(pc.m0)?;
+            let viap = ViaParams::builder()
+                .geometry(bot, rect)
+                .layers(pc.m0, pc.v_metal)
+                .expand(ViaExpansion::LongerDirection)
+                .build();
+            let via = ctx.instantiate::<Via>(&viap)?;
+            ctx.draw(via)?;
         }
 
         let tracks = FixedTracks {
@@ -245,9 +281,8 @@ impl WriteMux {
 
 #[derive(Debug, Builder)]
 struct Metadata {
-    data_stripe: Span,
-    data_b_stripe: Span,
-    pd_stripe: Span,
+    h_stripes: Vec<Span>,
+    m0_stripes: Vec<Span>,
     power_stripe: Span,
 }
 
