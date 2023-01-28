@@ -18,11 +18,10 @@ use substrate::pdk::mos::query::Query;
 use substrate::pdk::mos::spec::MosKind;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 
-use super::{WriteMux, WriteMuxCent, WriteMuxCentParams, WriteMuxEnd, WriteMuxParams};
+use super::{WriteMux, WriteMuxCent, WriteMuxCentParams, WriteMuxEnd};
 
 use derive_builder::Builder;
 
-const GATE_LINE: i64 = 340;
 const GATE_SPACE: i64 = 160;
 
 impl WriteMux {
