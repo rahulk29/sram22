@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 
 mod layout;
@@ -10,20 +10,58 @@ pub struct WriteMux {
 
 /// WriteMux taps.
 pub struct WriteMuxCent {
-    params: WriteMuxParams,
+    params: WriteMuxCentParams,
 }
 
 /// WriteMux end cap.
 pub struct WriteMuxEnd {
-    params: WriteMuxParams,
+    params: WriteMuxEndParams,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct WriteMuxSizing {
+    pub length: i64,
+    pub mux_width: i64,
+    pub mux_ratio: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct WriteMuxParams {
-    pub length: i64,
-    pub mux_width: i64,
-    pub mux_ratio: usize,
+    pub sizing: WriteMuxSizing,
     pub idx: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct WriteMuxCentParams {
+    pub sizing: WriteMuxSizing,
+    /// Whether to cut the data line between adjacent muxes.
+    pub cut_data: bool,
+    /// Whether to cut the wmask line between adjacent muxes.
+    pub cut_wmask: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct WriteMuxEndParams {
+    pub sizing: WriteMuxSizing,
+}
+
+impl WriteMuxCentParams {
+    pub(crate) fn for_wmux(&self) -> WriteMuxParams {
+        WriteMuxParams {
+            sizing: self.sizing,
+            idx: 0,
+        }
+    }
+}
+
+impl WriteMuxEndParams {
+    pub(crate) fn for_wmux_cent(&self) -> WriteMuxCentParams {
+        WriteMuxCentParams {
+            sizing: self.sizing,
+            cut_data: true,
+            cut_wmask: true,
+        }
+    }
 }
 
 impl Component for WriteMux {
@@ -56,7 +94,7 @@ impl Component for WriteMux {
 }
 
 impl Component for WriteMuxCent {
-    type Params = WriteMuxParams;
+    type Params = WriteMuxCentParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
@@ -85,7 +123,7 @@ impl Component for WriteMuxCent {
 }
 
 impl Component for WriteMuxEnd {
-    type Params = WriteMuxParams;
+    type Params = WriteMuxEndParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
@@ -122,11 +160,23 @@ mod tests {
 
     use super::*;
 
-    const WRITE_MUX_PARAMS: WriteMuxParams = WriteMuxParams {
+    const WRITE_MUX_SIZING: WriteMuxSizing = WriteMuxSizing {
         length: 150,
         mux_width: 2_000,
         mux_ratio: 4,
+    };
+
+    const WRITE_MUX_PARAMS: WriteMuxParams = WriteMuxParams {
+        sizing: WRITE_MUX_SIZING,
         idx: 2,
+    };
+    const WRITE_MUX_CENT_PARAMS: WriteMuxCentParams = WriteMuxCentParams {
+        sizing: WRITE_MUX_SIZING,
+        cut_data: true,
+        cut_wmask: false,
+    };
+    const WRITE_MUX_END_PARAMS: WriteMuxEndParams = WriteMuxEndParams {
+        sizing: WRITE_MUX_SIZING,
     };
 
     #[test]
@@ -141,7 +191,7 @@ mod tests {
     fn test_write_mux_cent() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_write_mux_cent");
-        ctx.write_layout::<WriteMuxCent>(&WRITE_MUX_PARAMS, out_gds(work_dir, "layout"))
+        ctx.write_layout::<WriteMuxCent>(&WRITE_MUX_CENT_PARAMS, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 
@@ -149,7 +199,7 @@ mod tests {
     fn test_write_mux_end() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_write_mux_end");
-        ctx.write_layout::<WriteMuxEnd>(&WRITE_MUX_PARAMS, out_gds(work_dir, "layout"))
+        ctx.write_layout::<WriteMuxEnd>(&WRITE_MUX_END_PARAMS, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 }

@@ -4,7 +4,7 @@ use substrate::layout::cell::Port;
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
-use substrate::layout::geom::bbox::BoundBox;
+use substrate::layout::geom::bbox::{BoundBox, LayerBoundBox};
 use substrate::layout::geom::orientation::Named;
 use substrate::layout::geom::{Dir, Point, Rect, Sign, Span};
 use substrate::layout::layers::selector::Selector;
@@ -18,7 +18,7 @@ use substrate::pdk::mos::query::Query;
 use substrate::pdk::mos::spec::MosKind;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 
-use super::{WriteMux, WriteMuxCent, WriteMuxEnd, WriteMuxParams};
+use super::{WriteMux, WriteMuxCent, WriteMuxCentParams, WriteMuxEnd, WriteMuxParams};
 
 use derive_builder::Builder;
 
@@ -45,8 +45,8 @@ impl WriteMux {
             deep_nwell: true,
             contact_strategy: GateContactStrategy::SingleSide,
             devices: vec![MosParams {
-                w: self.params.mux_width,
-                l: self.params.length,
+                w: self.params.sizing.mux_width,
+                l: self.params.sizing.length,
                 m: 1,
                 nf: 1,
                 id: mos.id(),
@@ -190,18 +190,16 @@ impl WriteMux {
         let v = ctx.instantiate::<Via>(&viap)?;
         ctx.draw(v)?;
 
-        let mut h_stripes = Vec::with_capacity(3);
-        let mut m0_stripes = Vec::with_capacity(3);
+        let mut gate_stripes = Vec::with_capacity(3);
         for inst in [&mux1, &mux2, &wmask] {
             let target = inst.port("gate_0")?.largest_rect(pc.m0)?;
             let rect = Rect::from_spans(stripe_span, target.vspan());
             ctx.draw_rect(pc.m0, rect);
-            m0_stripes.push(target.vspan());
 
             let span = Span::from_center_span_gridded(target.center().y, 340, pc.grid);
             let rect = Rect::from_spans(stripe_span, span);
             ctx.draw_rect(pc.h_metal, rect);
-            h_stripes.push(span);
+            gate_stripes.push((target.vspan(), span));
 
             if std::ptr::eq(inst, &wmask) {
                 via.place_center(Point::new(cx + 220, target.center().y));
@@ -236,12 +234,18 @@ impl WriteMux {
             line: 340,
             space: 160,
             boundary_space: 160,
-            interior_tracks: self.params.mux_ratio.checked_sub(2).unwrap(),
+            interior_tracks: self.params.sizing.mux_ratio.checked_sub(2).unwrap(),
             start: npd.brect().bottom(),
             lower_boundary: Boundary::Track,
             upper_boundary: Boundary::Track,
             sign: Sign::Neg,
         };
+
+        ctx.set_metadata(Metadata {
+            gate_stripes,
+            power_stripe: power_stripe.vspan(),
+            ctrl_tracks: tracks.clone(),
+        });
 
         for (i, track) in tracks.iter().enumerate() {
             let rect = Rect::from_spans(stripe_span, track);
@@ -281,9 +285,12 @@ impl WriteMux {
 
 #[derive(Debug, Builder)]
 struct Metadata {
-    h_stripes: Vec<Span>,
-    m0_stripes: Vec<Span>,
+    /// m0 and h_metal gate stripes for data, data_b, and wmask
+    gate_stripes: Vec<(Span, Span)>,
+    /// Horizontal power stripe
     power_stripe: Span,
+    /// Mux control tracks.
+    ctrl_tracks: FixedTracks,
 }
 
 impl Metadata {
@@ -292,29 +299,125 @@ impl Metadata {
     }
 }
 
+fn write_mux_tap_layout(
+    end: bool,
+    params: &WriteMuxCentParams,
+    ctx: &mut LayoutCtx,
+) -> substrate::error::Result<()> {
+    let pc = ctx
+        .inner()
+        .run_script::<crate::v2::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+
+    let mux = ctx.instantiate::<WriteMux>(&params.for_wmux())?;
+    let meta = mux.cell().get_metadata::<Metadata>();
+    let stripe_span = Span::new(-pc.tap_width, 2 * pc.tap_width);
+
+    let hspan = Span::new(0, pc.tap_width);
+    let bounds = Rect::from_spans(hspan, mux.brect().vspan());
+
+    let tap_span = Span::from_center_span_gridded(pc.tap_width / 2, 170, pc.grid);
+    let tap_space = tap_span.expand_all(170);
+
+    for (i, (bot_span, top_span)) in meta.gate_stripes.iter().copied().enumerate() {
+        for (j, hspan) in [
+            Span::new(0, tap_space.start()),
+            Span::new(tap_space.stop(), pc.tap_width),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            if end && j == 0 {
+                continue;
+            }
+
+            let bot = Rect::from_spans(hspan, bot_span);
+            let top = Rect::from_spans(hspan, top_span);
+            ctx.draw_rect(pc.m0, bot);
+            ctx.draw_rect(pc.h_metal, top);
+            ctx.draw_rect(pc.v_metal, Rect::from_spans(hspan.shrink_all(20), top_span));
+            let viap = ViaParams::builder()
+                .layers(pc.m0, pc.v_metal)
+                .geometry(bot, top)
+                .build();
+            let via = ctx.instantiate::<Via>(&viap)?;
+            ctx.draw(via)?;
+
+            let viap = ViaParams::builder()
+                .layers(pc.v_metal, pc.h_metal)
+                .geometry(bot, top)
+                .build();
+            let via = ctx.instantiate::<Via>(&viap)?;
+            ctx.draw(via)?;
+        }
+
+        let short = (i < 2 && !params.cut_data) || (i == 2 && !params.cut_wmask);
+        if short {
+            let rect = Rect::from_spans(stripe_span, top_span);
+            ctx.draw_rect(pc.h_metal, rect);
+        }
+    }
+
+    let layers = ctx.layers();
+    let tap = layers.get(Selector::Name("tap"))?;
+
+    let tap_area = Rect::from_spans(tap_span, bounds.vspan().shrink_all(300));
+    let viap = ViaParams::builder()
+        .layers(tap, pc.m0)
+        .geometry(tap_area, tap_area)
+        .expand(ViaExpansion::LongerDirection)
+        .build();
+    let via = ctx.instantiate::<Via>(&viap)?;
+    ctx.draw_ref(&via)?;
+
+    let viap = ViaParams::builder()
+        .layers(pc.m0, pc.v_metal)
+        .geometry(via.layer_bbox(pc.m0), tap_area)
+        .expand(ViaExpansion::LongerDirection)
+        .build();
+    let via = ctx.instantiate::<Via>(&viap)?;
+    ctx.draw_ref(&via)?;
+
+    let power_stripe = Rect::from_spans(stripe_span, meta.power_stripe);
+    ctx.draw_rect(pc.h_metal, power_stripe);
+
+    let viap = ViaParams::builder()
+        .layers(pc.v_metal, pc.h_metal)
+        .geometry(via.layer_bbox(pc.v_metal), power_stripe)
+        .expand(ViaExpansion::LongerDirection)
+        .build();
+    let via = ctx.instantiate::<Via>(&viap)?;
+    ctx.draw_ref(&via)?;
+
+    for track in meta.ctrl_tracks.iter() {
+        let rect = Rect::from_spans(hspan, track);
+        ctx.draw_rect(pc.h_metal, rect);
+    }
+
+    let psdm = layers.get(Selector::Name("psdm"))?;
+    ctx.draw_rect(psdm, bounds);
+
+    ctx.flatten();
+    ctx.trim(&bounds);
+
+    Ok(())
+}
+
 impl WriteMuxCent {
     pub(crate) fn layout(
         &self,
-        _ctx: &mut substrate::layout::context::LayoutCtx,
+        ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        write_mux_tap_layout(false, &self.params, ctx)?;
         Ok(())
     }
-}
-
-fn write_mux_tap_layout(
-    _width: i64,
-    _end: bool,
-    _params: &WriteMuxParams,
-    _ctx: &mut LayoutCtx,
-) -> substrate::error::Result<()> {
-    Ok(())
 }
 
 impl WriteMuxEnd {
     pub(crate) fn layout(
         &self,
-        _ctx: &mut substrate::layout::context::LayoutCtx,
+        ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        write_mux_tap_layout(true, &self.params.for_wmux_cent(), ctx)?;
         Ok(())
     }
 }
