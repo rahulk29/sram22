@@ -20,7 +20,6 @@ pub struct PrechargeEnd {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PrechargeParams {
-    pub name: String,
     pub length: i64,
     pub pull_up_width: i64,
     pub equalizer_width: i64,
@@ -128,7 +127,6 @@ mod tests {
         let work_dir = test_work_dir("test_precharge");
         ctx.write_layout::<Precharge>(
             &PrechargeParams {
-                name: "precharge".into(),
                 length: 150,
                 pull_up_width: 1_600,
                 equalizer_width: 1_000,
@@ -144,7 +142,6 @@ mod tests {
         let work_dir = test_work_dir("test_precharge_cent");
         ctx.write_layout::<PrechargeCent>(
             &PrechargeParams {
-                name: "precharge".into(),
                 length: 150,
                 pull_up_width: 1_600,
                 equalizer_width: 1_000,
@@ -160,7 +157,6 @@ mod tests {
         let work_dir = test_work_dir("test_precharge_end");
         ctx.write_layout::<PrechargeEnd>(
             &PrechargeParams {
-                name: "precharge".into(),
                 length: 150,
                 pull_up_width: 1_600,
                 equalizer_width: 1_000,

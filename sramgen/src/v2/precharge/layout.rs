@@ -118,7 +118,7 @@ impl Precharge {
         let via = ctx.instantiate::<Via>(&via0)?;
         ctx.draw(via)?;
 
-        let mut m1_via = None;
+        let mut m1_vias = Vec::with_capacity(2);
         for (port, rect, x) in [("sd_2_0", rects[3], dsn.width), ("sd_1_1", rects[0], 0)] {
             let port = mos.port(port)?.largest_rect(dsn.m0)?;
             via0.set_geometry(Bbox::from_point(Point::new(x, port.center().y)), rect);
@@ -129,9 +129,7 @@ impl Precharge {
             );
             ctx.draw(via)?;
 
-            if x == 0 {
-                m1_via = Some(via0.clone());
-            }
+            m1_vias.push(via0.clone());
         }
 
         for (port, rect) in [("sd_0_0", orects[0]), ("sd_0_1", orects[2])] {
@@ -161,7 +159,8 @@ impl Precharge {
         ctx.draw(via)?;
 
         let metadata = Metadata {
-            m1_via: m1_via.unwrap(),
+            m1_via_top: m1_vias[0].clone(),
+            m1_via_bot: m1_vias[1].clone(),
             m2_via: via1.clone(),
         };
         ctx.set_metadata(metadata);
@@ -189,7 +188,8 @@ impl Precharge {
 }
 
 struct Metadata {
-    m1_via: ViaParams,
+    m1_via_bot: ViaParams,
+    m1_via_top: ViaParams,
     m2_via: ViaParams,
 }
 
@@ -229,7 +229,8 @@ impl PrechargeCent {
         let half_tr = Rect::from_spans(Span::new(0, dsn.v_line / 2), Span::new(y, brect.top()));
         ctx.draw_rect(dsn.v_metal, half_tr);
 
-        let mut via = ctx.instantiate::<Via>(&meta.m1_via)?;
+        let mut via = ctx.instantiate::<Via>(&meta.m1_via_top)?;
+        via.place_center(Point::new(0, via.brect().center().y));
         ctx.draw(via.clone())?;
         ctx.draw_rect(
             dsn.m0,
@@ -307,7 +308,7 @@ impl PrechargeEnd {
 
         let y = dsn.cut + 2 * dsn.v_line + dsn.v_space;
 
-        let mut via = ctx.instantiate::<Via>(&meta.m1_via)?;
+        let mut via = ctx.instantiate::<Via>(&meta.m1_via_bot)?;
         via.place_center(Point::new(dsn.tap_width, via.brect().center().y));
         ctx.draw(via.clone())?;
         ctx.draw_rect(
