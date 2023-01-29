@@ -44,6 +44,14 @@ pub struct SpCellReplica;
 )]
 pub struct SpColend;
 
+#[hard_macro(
+    name = "sramgen_sp_sense_amp",
+    pdk = "sky130-open",
+    path_fn = "path",
+    gds_cell_name = "sramgen_sp_sense_amp"
+)]
+pub struct SenseAmp;
+
 pub struct SpCellArray {
     params: SpCellArrayParams,
 }

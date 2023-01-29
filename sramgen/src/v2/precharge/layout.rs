@@ -259,7 +259,23 @@ impl PrechargeCent {
 
         let stripe_span = Span::new(-dsn.tap_width, 2 * dsn.tap_width);
         ctx.draw_rect(dsn.h_metal, Rect::from_spans(stripe_span, dsn.gate_stripe));
-        ctx.draw_rect(dsn.h_metal, Rect::from_spans(stripe_span, dsn.power_stripe));
+
+        let power_stripe = Rect::from_spans(stripe_span, dsn.power_stripe);
+        ctx.draw_rect(dsn.h_metal, power_stripe);
+
+        let viap = ViaParams::builder()
+            .layers(dsn.m0, dsn.v_metal)
+            .geometry(tap.layer_bbox(dsn.m0), tap.layer_bbox(dsn.m0))
+            .build();
+        let via = ctx.instantiate::<Via>(&viap)?;
+        ctx.draw_ref(&via)?;
+
+        let viap = ViaParams::builder()
+            .layers(dsn.v_metal, dsn.h_metal)
+            .geometry(via.layer_bbox(dsn.v_metal), power_stripe)
+            .build();
+        let via = ctx.instantiate::<Via>(&viap)?;
+        ctx.draw(via)?;
 
         let mut via = ctx.instantiate::<Via>(&meta.m2_via)?;
         ctx.draw_ref(&via)?;
@@ -327,7 +343,22 @@ impl PrechargeEnd {
 
         let stripe_span = Span::new(-dsn.tap_width, 2 * dsn.tap_width);
         ctx.draw_rect(dsn.h_metal, Rect::from_spans(stripe_span, dsn.gate_stripe));
-        ctx.draw_rect(dsn.h_metal, Rect::from_spans(stripe_span, dsn.power_stripe));
+        let power_stripe = Rect::from_spans(stripe_span, dsn.power_stripe);
+        ctx.draw_rect(dsn.h_metal, power_stripe);
+
+        let viap = ViaParams::builder()
+            .layers(dsn.m0, dsn.v_metal)
+            .geometry(tap.layer_bbox(dsn.m0), tap.layer_bbox(dsn.m0))
+            .build();
+        let via = ctx.instantiate::<Via>(&viap)?;
+        ctx.draw_ref(&via)?;
+
+        let viap = ViaParams::builder()
+            .layers(dsn.v_metal, dsn.h_metal)
+            .geometry(via.layer_bbox(dsn.v_metal), power_stripe)
+            .build();
+        let via = ctx.instantiate::<Via>(&viap)?;
+        ctx.draw(via)?;
 
         let mut via = ctx.instantiate::<Via>(&meta.m2_via)?;
         via.place_center(Point::new(dsn.tap_width, via.brect().center().y));
