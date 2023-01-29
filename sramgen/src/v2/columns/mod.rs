@@ -8,6 +8,7 @@ use super::wmux::WriteMuxSizing;
 use serde::Serialize;
 
 pub mod layout;
+pub mod routing;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ColParams {
@@ -46,6 +47,7 @@ mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
+    use super::layout::Column;
     use super::*;
 
     const WRITE_MUX_SIZING: WriteMuxSizing = WriteMuxSizing {
@@ -76,6 +78,14 @@ mod tests {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_col_peripherals");
         ctx.write_layout::<ColPeripherals>(&COL_PARAMS, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
+    }
+
+    #[test]
+    fn test_column_4() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_column_4");
+        ctx.write_layout::<Column>(&COL_PARAMS, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 }
