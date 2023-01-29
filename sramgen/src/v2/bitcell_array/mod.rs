@@ -13,7 +13,7 @@ mod schematic;
 
 fn path(_ctx: &SubstrateCtx, name: &str, view: View) -> Option<PathBuf> {
     match view {
-        View::Layout => Some(external_gds_path().join(format!("{}.gds", name))),
+        View::Layout => Some(external_gds_path().join(format!("{name}.gds"))),
         _ => None,
     }
 }

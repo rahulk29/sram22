@@ -35,7 +35,7 @@ lazy_static! {
     pub static ref TEMPLATES: Tera =
         match Tera::new(concat!(env!("CARGO_MANIFEST_DIR"), "/templates/*")) {
             Ok(t) => t,
-            Err(e) => panic!("Error parsing templates: {}", e),
+            Err(e) => panic!("Error parsing templates: {e}"),
         };
 }
 

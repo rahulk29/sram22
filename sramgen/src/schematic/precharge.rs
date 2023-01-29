@@ -21,7 +21,7 @@ pub fn precharge_array(params: &PrechargeArrayParams) -> Vec<Module> {
 
     for i in 0..params.width {
         let mut inst = Instance::new(
-            format!("precharge_{}", i),
+            format!("precharge_{i}"),
             local_reference(&params.instance_params.name),
         );
         inst.add_conns(&[

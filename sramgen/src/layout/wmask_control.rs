@@ -25,7 +25,7 @@ pub fn draw_write_mask_control(
         lib,
         &AndDecArrayParams {
             array_params: GateDecArrayParams {
-                name: format!("{}_and2_array", name),
+                name: format!("{name}_and2_array"),
                 width,
                 dir: Dir::Vert,
                 pitch: None,
@@ -37,7 +37,7 @@ pub fn draw_write_mask_control(
     )?;
     let and2_array = Instance::new("and2_array", and2_array);
 
-    let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());
+    let mut router = Router::new(format!("{name}_route"), lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);

@@ -66,7 +66,7 @@ pub fn draw_dout_buf_array(lib: &mut PdkLib, params: &DoutBufArrayParams) -> Res
     cell.layout_mut().draw_rect(nwell, rect);
     cell.add_pin("vpb1", nwell, rect);
 
-    let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());
+    let mut router = Router::new(format!("{name}_route"), lib.pdk.clone());
     let cfg = router.cfg();
     let m2 = cfg.layerkey(2);
 
