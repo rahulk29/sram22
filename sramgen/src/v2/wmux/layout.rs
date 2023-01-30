@@ -381,6 +381,7 @@ fn write_mux_tap_layout(
 
     let power_stripe = Rect::from_spans(stripe_span, meta.power_stripe);
     ctx.draw_rect(pc.h_metal, power_stripe);
+    ctx.add_port(CellPort::with_shape("vss", pc.h_metal, power_stripe));
 
     let viap = ViaParams::builder()
         .layers(pc.v_metal, pc.h_metal)

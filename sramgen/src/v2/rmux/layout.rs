@@ -294,6 +294,7 @@ fn read_mux_tap_layout(
 
     let power_stripe = Rect::from_spans(stripe_hspan, Span::new(2_200, 3_000));
     ctx.draw_rect(pc.h_metal, power_stripe);
+    ctx.add_port(CellPort::with_shape("vdd", pc.h_metal, power_stripe));
 
     let bounds = Rect::from_spans(Span::new(0, width), mux.brect().vspan());
     ctx.flatten();

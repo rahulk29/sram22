@@ -424,6 +424,7 @@ impl Component for ColumnCent {
             sizing: self.params.wmux,
         })?;
         let mut sa = ctx.instantiate::<SenseAmpCent>(&NoParams)?;
+        sa.set_orientation(Named::ReflectVert);
         let mut grid = Grid::new(0, 0);
         grid.push_row(into_vec![pc.clone()]);
         grid.push_row(into_vec![rmux.clone()]);
@@ -487,6 +488,12 @@ impl Component for ColumnCent {
                 }
                 Ok(())
             };
+
+        connect(&pc, "vdd", TapTrack::Vdd)?;
+        connect(&rmux, "vdd", TapTrack::Vdd)?;
+        connect(&wmux, "vss", TapTrack::Vss)?;
+        connect(&sa, "vdd", TapTrack::Vdd)?;
+        connect(&sa, "vss", TapTrack::Vss)?;
 
         Ok(())
     }
