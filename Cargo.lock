@@ -721,6 +721,9 @@ dependencies = [
 [[package]]
 name = "fanout"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "fastrand"

@@ -1,7 +1,10 @@
 pub mod bitcell_array;
 pub mod buf;
+pub mod col_inv;
 pub mod columns;
+pub mod decoder;
 pub mod dff;
+pub mod gate;
 pub mod precharge;
 pub mod rmux;
 pub mod wmux;

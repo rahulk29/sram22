@@ -27,87 +27,26 @@ use super::{ColParams, ColPeripherals};
 
 impl ColPeripherals {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> substrate::error::Result<()> {
-        let mux_ratio = self.params.rmux.mux_ratio;
-        let groups = 16;
+        let col = ctx.instantiate::<Column>(&self.params)?;
+        let bbox = Rect::from_spans(Span::new(0, 4_800), col.brect().vspan());
+        let col = RectBbox::new(col, bbox);
+        let cent = ctx.instantiate::<ColumnCent>(&self.params)?;
 
-        let pc_end = ctx.instantiate::<PrechargeEnd>(&self.params.pc)?;
-        let pc = ctx.instantiate::<Precharge>(&self.params.pc)?;
-        let pc_cent = ctx.instantiate::<PrechargeCent>(&self.params.pc)?;
-
-        let rmux_end = ctx.instantiate::<ReadMuxEnd>(&self.params.rmux)?;
-        let rmux_cent = ctx.instantiate::<ReadMuxCent>(&self.params.rmux)?;
-
-        let wmux_end = ctx.instantiate::<WriteMuxEnd>(&WriteMuxEndParams {
-            sizing: self.params.wmux,
-        })?;
-        let wmux_cent = ctx.instantiate::<WriteMuxCent>(&WriteMuxCentParams {
-            sizing: self.params.wmux,
-            cut_data: true,
-            cut_wmask: true,
-        })?;
-
+        let row = into_vec![
+            &cent,
+            col.clone(),
+            &cent,
+            col.clone(),
+            &cent,
+            col.clone(),
+            &cent,
+            col.clone(),
+            &cent,
+            col.clone(),
+            &cent
+        ];
         let mut grid = Grid::new(0, 0);
-
-        let col = into_vec![&pc_end, None, None, None];
-        grid.push_col(col);
-        let col = into_vec![&pc, None, None, None];
-        grid.push_col(col);
-        let col = into_vec![&pc_cent, &rmux_end, &wmux_end, None];
-        grid.push_col(col);
-
-        for grp in 0..groups {
-            let sa = ctx.instantiate::<SenseAmp>(&NoParams)?;
-            for i in 0..mux_ratio {
-                let mut pc = pc.clone();
-                let mut rmux_params = self.params.rmux.clone();
-                rmux_params.idx = i;
-                let mut rmux = ctx.instantiate::<ReadMux>(&rmux_params)?;
-                let mut wmux = ctx.instantiate::<WriteMux>(&WriteMuxParams {
-                    sizing: self.params.wmux,
-                    idx: i,
-                })?;
-
-                let sa = if i == 0 {
-                    let sa = sa.with_orientation(Named::ReflectVert);
-                    let bbox = Rect::from_spans(pc.brect().hspan(), sa.brect().vspan());
-                    Some(Tile::from(RectBbox::new(sa, bbox)))
-                } else {
-                    None
-                };
-
-                if i % 2 == 1 {
-                    rmux.orientation_mut().reflect_horiz();
-                    wmux.orientation_mut().reflect_horiz();
-                } else {
-                    pc.orientation_mut().reflect_horiz();
-                }
-                let a = into_vec![pc, rmux, wmux, sa];
-                grid.push_col(a);
-            }
-
-            if grp != groups - 1 {
-                let col = into_vec![&pc_cent, &rmux_cent, &wmux_cent, None];
-                grid.push_col(col);
-            }
-        }
-
-        let col = into_vec![
-            &pc_cent,
-            rmux_end.with_orientation(Named::ReflectHoriz),
-            wmux_end.with_orientation(Named::ReflectHoriz),
-            None
-        ];
-        grid.push_col(col);
-
-        let col = into_vec![pc.with_orientation(Named::ReflectHoriz), None, None, None];
-        grid.push_col(col);
-        let col = into_vec![
-            pc_end.with_orientation(Named::ReflectHoriz),
-            None,
-            None,
-            None
-        ];
-        grid.push_col(col);
+        grid.push_row(row);
 
         let grid_tiler = GridTiler::new(grid);
         ctx.draw(grid_tiler)?;
@@ -139,10 +78,10 @@ impl From<usize> for TapTrack {
     }
 }
 
-impl Into<usize> for TapTrack {
-    fn into(self) -> usize {
+impl From<TapTrack> for usize {
+    fn from(value: TapTrack) -> usize {
         use TapTrack::*;
-        match self {
+        match value {
             Vdd => 0,
             Vss => 1,
         }
@@ -174,10 +113,10 @@ impl From<usize> for CellTrack {
     }
 }
 
-impl Into<usize> for CellTrack {
-    fn into(self) -> usize {
+impl From<CellTrack> for usize {
+    fn from(value: CellTrack) -> Self {
         use CellTrack::*;
-        match self {
+        match value {
             ReadP => 0,
             ReadN => 1,
             Vss => 2,

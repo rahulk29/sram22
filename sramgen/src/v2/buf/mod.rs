@@ -8,7 +8,6 @@ use substrate::layout::geom::bbox::{BoundBox, LayerBoundBox};
 use substrate::layout::geom::orientation::Named;
 use substrate::layout::geom::transform::Transform;
 use substrate::layout::geom::{Corner, Dir, Point, Rect, Span};
-use substrate::layout::group::Group;
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::routing::manual::jog::SJog;
@@ -90,7 +89,7 @@ impl Component for DiffBuf {
         let mut cols = Vec::with_capacity(2);
         for j in 0..2 {
             let mut col = ColBuilder::default();
-            for i in 0..2 {
+            for (i, out) in outs.iter_mut().enumerate() {
                 let mut inv = ctx.instantiate::<LayoutMos>(&params)?;
                 inv.place_center_x(j * (inv.brect().width() + 2 * 170));
                 if i == 0 {
@@ -107,7 +106,7 @@ impl Component for DiffBuf {
                 let short = src.bbox().union(dst.bbox()).into_rect();
                 ctx.draw_rect(m0, short);
                 if j == 0 {
-                    outs[i] = Some(short);
+                    *out = Some(short);
                 }
 
                 for (port, name) in [("sd_0_1", "vss"), ("sd_1_1", "vdd")] {
@@ -146,7 +145,7 @@ impl Component for DiffBuf {
                 if j == 1 {
                     let dst = inv.port("gate_0")?.largest_rect(m0)?;
                     let jog = SJog::builder()
-                        .src(outs[i].unwrap())
+                        .src(out.unwrap())
                         .dst(dst)
                         .dir(Dir::Horiz)
                         .layer(m0)
