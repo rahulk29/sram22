@@ -139,10 +139,10 @@ impl From<usize> for TapTrack {
     }
 }
 
-impl Into<usize> for TapTrack {
-    fn into(self) -> usize {
+impl From<TapTrack> for usize {
+    fn from(value: TapTrack) -> usize {
         use TapTrack::*;
-        match self {
+        match value {
             Vdd => 0,
             Vss => 1,
         }
@@ -174,10 +174,10 @@ impl From<usize> for CellTrack {
     }
 }
 
-impl Into<usize> for CellTrack {
-    fn into(self) -> usize {
+impl From<CellTrack> for usize {
+    fn from(value: CellTrack) -> Self {
         use CellTrack::*;
-        match self {
+        match value {
             ReadP => 0,
             ReadN => 1,
             Vss => 2,
