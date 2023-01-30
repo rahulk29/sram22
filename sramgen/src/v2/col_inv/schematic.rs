@@ -3,6 +3,8 @@ use substrate::{
     schematic::{circuit::Direction, elements::mos::SchematicMos},
 };
 
+use crate::v2::gate::{Inv, PrimitiveGateParams};
+
 use super::ColInv;
 
 impl ColInv {
@@ -15,12 +17,10 @@ impl ColInv {
         let din = ctx.port("din", Direction::Input);
         let din_b = ctx.port("din_b", Direction::Output);
 
-        let mut inv = ctx.instantiate::<Inv>(&GateParams {
-            size: Size {
-                nmos_width: self.nwidth,
-                pmos_width: self.pwidth,
-            },
-            length: self.length,
+        let mut inv = ctx.instantiate::<Inv>(&PrimitiveGateParams {
+            nwidth: self.params.nwidth,
+            pwidth: self.params.pwidth,
+            length: self.params.length,
         })?;
         inv.connect_all([
             ("vdd", &vdd),

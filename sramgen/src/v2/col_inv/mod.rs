@@ -60,8 +60,8 @@ mod tests {
 
         let params = ColInvParams {
             length: 150,
-            pull_up_width: 1_400,
-            equalizer_width: 2_600,
+            nwidth: 1_400,
+            pwidth: 2_600,
         };
         ctx.write_layout::<ColInv>(&params, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");

@@ -10,8 +10,6 @@ impl And2 {
         &self,
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
-        let length = self.params.length;
-
         let vdd = ctx.port("vdd", Direction::InOut);
         let a = ctx.port("a", Direction::Input);
         let b = ctx.port("b", Direction::Input);
@@ -20,18 +18,18 @@ impl And2 {
         let tmp = ctx.signal("tmp");
 
         let mut nand = ctx.instantiate::<Nand2>(&self.params.nand)?;
-        mp.connect_all([
+        nand.connect_all([
             ("vdd", &vdd),
             ("a", &a),
             ("b", &b),
             ("y", &tmp),
             ("vss", &vss),
         ]);
-        ctx.add_instance(mp);
+        ctx.add_instance(nand);
 
-        let mut mn = ctx.instantiate::<Inv>(&self.params.inv)?;
-        mn.connect_all([("vdd", &vdd), ("din", &tmp), ("din_b", &y), ("vss", &vss)]);
-        ctx.add_instance(mn);
+        let mut inv = ctx.instantiate::<Inv>(&self.params.inv)?;
+        inv.connect_all([("vdd", &vdd), ("din", &tmp), ("din_b", &y), ("vss", &vss)]);
+        ctx.add_instance(inv);
 
         Ok(())
     }
@@ -91,7 +89,6 @@ impl Nand2 {
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
         let length = self.params.length;
-        let size = self.params.size;
 
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
@@ -111,7 +108,7 @@ impl Nand2 {
             .id();
 
         let mut n1 = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: size.nmos_width,
+            w: self.params.nwidth,
             l: length,
             m: 1,
             nf: 1,
@@ -122,7 +119,7 @@ impl Nand2 {
         ctx.add_instance(n1);
 
         let mut n2 = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: size.nmos_width,
+            w: self.params.nwidth,
             l: length,
             m: 1,
             nf: 1,
@@ -133,22 +130,22 @@ impl Nand2 {
         ctx.add_instance(n2);
 
         let mut p1 = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: size.pmos_width,
+            w: self.params.pwidth,
             l: length,
             m: 1,
             nf: 1,
-            id: nmos_id,
+            id: pmos_id,
         })?;
         p1.connect_all([("d", &y), ("g", &a), ("s", &vdd), ("b", &vdd)]);
         p1.set_name("p1");
         ctx.add_instance(p1);
 
         let mut p2 = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: size.pmos_width,
+            w: self.params.pwidth,
             l: length,
             m: 1,
             nf: 1,
-            id: nmos_id,
+            id: pmos_id,
         })?;
         p2.connect_all([("d", &y), ("g", &b), ("s", &vdd), ("b", &vdd)]);
         p2.set_name("p2");
@@ -164,7 +161,6 @@ impl Nand3 {
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
         let length = self.params.length;
-        let size = self.params.size;
 
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
@@ -186,7 +182,7 @@ impl Nand3 {
             .id();
 
         let mut n1 = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: size.nmos_width,
+            w: self.params.nwidth,
             l: length,
             m: 1,
             nf: 1,
@@ -197,7 +193,7 @@ impl Nand3 {
         ctx.add_instance(n1);
 
         let mut n2 = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: size.nmos_width,
+            w: self.params.nwidth,
             l: length,
             m: 1,
             nf: 1,
@@ -208,7 +204,7 @@ impl Nand3 {
         ctx.add_instance(n2);
 
         let mut n3 = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: size.nmos_width,
+            w: self.params.nwidth,
             l: length,
             m: 1,
             nf: 1,
@@ -219,33 +215,33 @@ impl Nand3 {
         ctx.add_instance(n3);
 
         let mut p1 = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: size.pmos_width,
+            w: self.params.pwidth,
             l: length,
             m: 1,
             nf: 1,
-            id: nmos_id,
+            id: pmos_id,
         })?;
         p1.connect_all([("d", &y), ("g", &a), ("s", &vdd), ("b", &vdd)]);
         p1.set_name("p1");
         ctx.add_instance(p1);
 
         let mut p2 = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: size.pmos_width,
+            w: self.params.pwidth,
             l: length,
             m: 1,
             nf: 1,
-            id: nmos_id,
+            id: pmos_id,
         })?;
         p2.connect_all([("d", &y), ("g", &b), ("s", &vdd), ("b", &vdd)]);
         p2.set_name("p2");
         ctx.add_instance(p2);
 
         let mut p3 = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: size.pmos_width,
+            w: self.params.pwidth,
             l: length,
             m: 1,
             nf: 1,
-            id: nmos_id,
+            id: pmos_id,
         })?;
         p3.connect_all([("d", &y), ("g", &c), ("s", &vdd), ("b", &vdd)]);
         p3.set_name("p3");
@@ -261,7 +257,6 @@ impl Nor2 {
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
         let length = self.params.length;
-        let size = self.params.size;
 
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
@@ -281,7 +276,7 @@ impl Nor2 {
             .id();
 
         let mut n1 = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: size.nmos_width,
+            w: self.params.nwidth,
             l: length,
             m: 1,
             nf: 1,
@@ -292,7 +287,7 @@ impl Nor2 {
         ctx.add_instance(n1);
 
         let mut n2 = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: size.nmos_width,
+            w: self.params.nwidth,
             l: length,
             m: 1,
             nf: 1,
@@ -303,22 +298,22 @@ impl Nor2 {
         ctx.add_instance(n2);
 
         let mut p1 = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: size.pmos_width,
+            w: self.params.pwidth,
             l: length,
             m: 1,
             nf: 1,
-            id: nmos_id,
+            id: pmos_id,
         })?;
         p1.connect_all([("d", &y), ("g", &a), ("s", &x), ("b", &vdd)]);
         p1.set_name("p1");
         ctx.add_instance(p1);
 
         let mut p2 = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: size.pmos_width,
+            w: self.params.pwidth,
             l: length,
             m: 1,
             nf: 1,
-            id: nmos_id,
+            id: pmos_id,
         })?;
         p2.connect_all([("d", &x), ("g", &b), ("s", &vdd), ("b", &vdd)]);
         p2.set_name("p2");

@@ -1,130 +1,128 @@
-use substrate::{
-    pdk::mos::{query::Query, spec::MosKind, MosParams},
-    schematic::{circuit::Direction, elements::mos::SchematicMos},
+use std::collections::VecDeque;
+
+use substrate::schematic::{
+    circuit::Direction,
+    context::SchematicCtx,
+    elements::mos::SchematicMos,
+    signal::{Signal, Slice},
 };
 
-use super::Decoder;
-use crate::clog2;
+use substrate::index::IndexOwned;
+
+use super::{Decoder, DecoderStage, DecoderStageParams, TreeNode};
+use crate::{
+    clog2,
+    v2::{
+        decoder::get_idxs,
+        gate::{GateParams, GateType, Inv, Nand2, Nand3},
+    },
+};
 
 impl Decoder {
-    pub(crate) fn schematic(
-        &self,
-        ctx: &mut substrate::schematic::context::SchematicCtx,
-    ) -> substrate::error::Result<()> {
-        let out = self.params.tree.root.num;
-        let in_bits = clog2(out);
+    pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
+        let out_bits = self.params.tree.root.num;
+        let mut in_bits = clog2(out_bits);
 
         let vdd = ctx.port("vdd", Direction::InOut);
-        let gnd = ctx.port("gnd", Direction::InOut);
-        let addr = ctx.bus_port("addr", Direction::Input);
-        let addr_b = ctx.bus_port("addr_b", Direction::Input);
-        let decode = ctx.bus_port("decode", Direction::Output);
-        let decode_b = ctx.bus_port("decode_b", Direction::Output);
+        let vss = ctx.port("vss", Direction::InOut);
+        let addr = ctx.bus_port("addr", in_bits, Direction::Input);
+        let addr_b = ctx.bus_port("addr_b", in_bits, Direction::Input);
+        let decode = ctx.bus_port("decode", out_bits, Direction::Output);
+        let decode_b = ctx.bus_port("decode_b", out_bits, Direction::Output);
 
-        let pmos_id = ctx
-            .mos_db()
-            .query(Query::builder().kind(MosKind::Pmos).build().unwrap())?
-            .id();
+        let port_names = vec!["a", "b", "c"];
 
-        let nmos_id = ctx
-            .mos_db()
-            .query(Query::builder().kind(MosKind::Nmos).build().unwrap())?
-            .id();
+        // Initialize all gates in the decoder tree using BFS.
+        let mut queue = VecDeque::<(Option<Slice>, &TreeNode)>::new();
+        queue.push_back((None, &self.params.tree.root));
+        let mut ctr = 0;
 
-        let mut mp = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: self.params.pwidth,
-            l: length,
-            m: 1,
-            nf: 1,
-            id: pmos_id,
-        })?;
-        mp.connect_all([("d", &din_b), ("g", &din), ("s", &vdd), ("b", &vdd)]);
-        mp.set_name("MP0");
-        ctx.add_instance(mp);
+        while let Some((output_port, node)) = queue.pop_front() {
+            ctr += 1;
+            let gate_size = node.gate.num_inputs();
+            let mut stage = ctx.instantiate::<DecoderStage>(&DecoderStageParams {
+                gate: node.gate,
+                buf: node.buf,
+                num: node.num,
+                child_sizes: (0..gate_size)
+                    .map(|i| node.children.get(i).map(|child| child.num).unwrap_or(2))
+                    .collect(),
+            })?;
+            stage.connect_all([("vdd", &vdd), ("vss", &vss)]);
 
-        let mut mn = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: self.params.nwidth,
-            l: length,
-            m: 1,
-            nf: 1,
-            id: nmos_id,
-        })?;
-        mn.connect_all([("d", &din_b), ("g", &din), ("s", &vss), ("b", &vss)]);
-        mn.set_name("MN0");
-        ctx.add_instance(mn);
+            if let Some(output_port) = output_port {
+                let unused_wire = ctx.bus(format!("unused_{}", ctr), output_port.width());
+                stage.connect_all([("decode", &output_port), ("decode_b", &unused_wire)]);
+            } else {
+                println!("drive decode");
+                stage.connect_all([("decode", &decode), ("decode_b", &decode_b)]);
+            }
+
+            for i in 0..gate_size {
+                let input_signal = if let Some(child) = node.children.get(i) {
+                    let input_bus = ctx.bus(format!("{}_{}", port_names[i], ctr), child.num);
+                    queue.push_back((Some(input_bus), child));
+                    input_bus.into()
+                } else {
+                    assert!(in_bits >= 1);
+                    in_bits -= 1;
+                    Signal::new(vec![addr_b.index(in_bits), addr.index(in_bits)])
+                };
+                stage.connect(port_names[i], input_signal);
+            }
+            ctx.add_instance(stage);
+        }
 
         Ok(())
     }
 }
 
-pub struct PhysicalDesignScript;
+impl DecoderStage {
+    pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
+        let num = self.params.num;
 
-pub struct PhysicalDesign {
-    /// Location of the horizontal power strap
-    pub(crate) power_stripe: Span,
-    pub(crate) gate_stripe: Span,
-    pub(crate) h_metal: LayerKey,
-    pub(crate) cut: i64,
-    pub(crate) width: i64,
-    pub(crate) in_tracks: FixedTracks,
-    pub(crate) out_tracks: FixedTracks,
-    pub(crate) v_metal: LayerKey,
-    pub(crate) v_line: i64,
-    pub(crate) v_space: i64,
-    pub(crate) m0: LayerKey,
-    pub(crate) grid: i64,
-    pub(crate) tap_width: i64,
-}
+        let vdd = ctx.port("vdd", Direction::InOut);
+        let vss = ctx.port("vss", Direction::InOut);
+        let decode = ctx.bus_port("decode", num, Direction::Output);
+        let decode_b = ctx.bus_port("decode_b", num, Direction::Output);
 
-impl Script for PhysicalDesignScript {
-    type Params = NoParams;
-    type Output = PhysicalDesign;
+        let port_names = vec!["a", "b", "c"];
 
-    fn run(
-        _params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self::Output> {
-        let layers = ctx.layers();
-        let m0 = layers.get(Selector::Metal(0))?;
-        let m1 = layers.get(Selector::Metal(1))?;
-        let m2 = layers.get(Selector::Metal(2))?;
+        // Instantiate NAND gate.
+        println!("{:?}", self.params.gate);
+        let (nand_blueprint, gate_size) = match self.params.gate {
+            GateParams::Nand2(params) => (ctx.instantiate::<Nand2>(&params)?, 2),
+            GateParams::Nand3(params) => (ctx.instantiate::<Nand3>(&params)?, 3),
+            _ => unreachable!(),
+        };
 
-        let in_tracks = FixedTracks::from_centered_tracks(CenteredTrackParams {
-            line: 140,
-            space: 230,
-            span: Span::new(0, 1_200),
-            num: 4,
-            lower_boundary: Boundary::HalfTrack,
-            upper_boundary: Boundary::HalfTrack,
-            grid: 5,
-        });
-        let out_tracks = FixedTracks::from_centered_tracks(CenteredTrackParams {
-            line: 140,
-            space: 230,
-            span: Span::new(0, 1_200),
-            num: 3,
-            lower_boundary: Boundary::HalfSpace,
-            upper_boundary: Boundary::HalfSpace,
-            grid: 5,
-        });
+        assert_eq!(self.params.child_sizes.len(), gate_size);
+        assert_eq!(self.params.child_sizes.iter().product::<usize>(), num);
 
-        let power_stripe = Span::new(3_400, 4_200);
-        let gate_stripe = Span::new(0, 360);
+        let input_ports = (0..gate_size)
+            .map(|i| ctx.bus_port(port_names[i], self.params.child_sizes[i], Direction::Input))
+            .collect::<Vec<Slice>>();
 
-        Ok(PhysicalDesign {
-            power_stripe,
-            gate_stripe,
-            h_metal: m2,
-            cut: 1_920,
-            width: 1_200,
-            v_metal: m1,
-            v_line: 140,
-            v_space: 140,
-            in_tracks,
-            out_tracks,
-            grid: 5,
-            tap_width: 1_300,
-            m0,
-        })
+        for i in 0..num {
+            let idxs = get_idxs(i, &self.params.child_sizes);
+
+            let mut nand = nand_blueprint.clone();
+            nand.connect_all([("vdd", &vdd), ("vss", &vss), ("y", &decode_b.index(i))]);
+            for j in 0..gate_size {
+                nand.connect(port_names[j], &input_ports[j].index(idxs[j]));
+            }
+            ctx.add_instance(nand);
+
+            let mut inv = ctx.instantiate::<Inv>(&self.params.buf)?;
+            inv.connect_all([
+                ("vdd", &vdd),
+                ("vss", &vss),
+                ("din", &decode_b.index(i)),
+                ("din_b", &decode.index(i)),
+            ]);
+            ctx.add_instance(inv);
+        }
+
+        Ok(())
     }
 }
