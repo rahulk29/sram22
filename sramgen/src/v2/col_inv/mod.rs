@@ -26,7 +26,7 @@ impl Component for ColInv {
         })
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("precharge")
+        arcstr::literal!("col_inv")
     }
 
     fn schematic(
