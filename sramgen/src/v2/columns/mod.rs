@@ -2,6 +2,7 @@
 
 use substrate::component::Component;
 
+use super::buf::DiffBufParams;
 use super::precharge::PrechargeParams;
 use super::rmux::ReadMuxParams;
 use super::wmux::WriteMuxSizing;
@@ -15,6 +16,7 @@ pub struct ColParams {
     pc: PrechargeParams,
     rmux: ReadMuxParams,
     wmux: WriteMuxSizing,
+    buf: DiffBufParams,
 }
 
 pub struct ColPeripherals {
@@ -47,7 +49,7 @@ mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
-    use super::layout::Column;
+    use super::layout::{Column, ColumnCent};
     use super::*;
 
     const WRITE_MUX_SIZING: WriteMuxSizing = WriteMuxSizing {
@@ -66,11 +68,18 @@ mod tests {
         pull_up_width: 1_600,
         equalizer_width: 1_000,
     };
+    const DIFF_BUF_PARAMS: DiffBufParams = DiffBufParams {
+        width: 4_800,
+        nw: 1_200,
+        pw: 2_000,
+        lch: 150,
+    };
 
     const COL_PARAMS: ColParams = ColParams {
         pc: PRECHARGE_PARAMS,
         rmux: READ_MUX_PARAMS,
         wmux: WRITE_MUX_SIZING,
+        buf: DIFF_BUF_PARAMS,
     };
 
     #[test]
@@ -86,6 +95,14 @@ mod tests {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_column_4");
         ctx.write_layout::<Column>(&COL_PARAMS, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
+    }
+
+    #[test]
+    fn test_column_cent_4() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_column_cent_4");
+        ctx.write_layout::<ColumnCent>(&COL_PARAMS, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 }
