@@ -1,6 +1,6 @@
 use substrate::component::NoParams;
 use substrate::index::IndexOwned;
-use substrate::layout::cell::Port;
+use substrate::layout::cell::{CellPort, Port};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
@@ -131,9 +131,9 @@ impl ReadMux {
             ctx.draw(via)?;
         }
 
-        for (port, idx, x, side) in [
-            ("sd_1_0", 3, pc.width, Side::Right),
-            ("sd_0_1", 0, 0, Side::Left),
+        for (port, idx, x, side, name) in [
+            ("sd_1_0", 3, pc.width, Side::Right, "read_br"),
+            ("sd_0_1", 0, 0, Side::Left, "read_bl"),
         ] {
             let target = mos.port(port)?.largest_rect(pc.m0)?;
             let viap = ViaParams::builder()
@@ -169,6 +169,7 @@ impl ReadMux {
             ctx.draw_ref(&via)?;
 
             ctx.draw_rect(pc.h_metal, stripe);
+            ctx.add_port(CellPort::with_shape(name, pc.h_metal, stripe));
         }
 
         metadata.split_track(tracks[0]);
@@ -293,6 +294,7 @@ fn read_mux_tap_layout(
 
     let power_stripe = Rect::from_spans(stripe_hspan, Span::new(2_200, 3_000));
     ctx.draw_rect(pc.h_metal, power_stripe);
+    ctx.add_port(CellPort::with_shape("vdd", pc.h_metal, power_stripe));
 
     let bounds = Rect::from_spans(Span::new(0, width), mux.brect().vspan());
     ctx.flatten();

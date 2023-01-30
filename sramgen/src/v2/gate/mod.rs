@@ -125,7 +125,7 @@ impl Component for Gate {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(match params.clone() {
+        Ok(match *params {
             GateParams::And2(params) => Self::And2(And2 { params }),
             GateParams::Inv(params) => Self::Inv(Inv { params }),
             GateParams::Nand2(params) => Self::Nand2(Nand2 { params }),
@@ -159,9 +159,7 @@ impl Component for And2 {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("and2")
@@ -188,9 +186,7 @@ impl Component for Inv {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("inv")
@@ -227,9 +223,7 @@ impl Component for Nand2 {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("nand2")
@@ -266,9 +260,7 @@ impl Component for Nand3 {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("nand3")
@@ -295,9 +287,7 @@ impl Component for Nor2 {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("nor2")

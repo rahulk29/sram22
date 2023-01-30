@@ -249,7 +249,7 @@ impl Component for DecoderStage {
 #[cfg(test)]
 mod tests {
 
-    use crate::paths::{out_gds, out_spice};
+    use crate::paths::out_spice;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -261,9 +261,9 @@ mod tests {
         let work_dir = test_work_dir("test_decoder_4bit");
 
         let tree = DecoderTree::new(4);
-        let params = DecoderParams { tree: tree.clone() };
+        let params = DecoderParams { tree };
 
-        ctx.write_schematic_to_file::<Decoder>(&params, out_spice(&work_dir, "netlist"))
+        ctx.write_schematic_to_file::<Decoder>(&params, out_spice(work_dir, "netlist"))
             .expect("failed to write schematic");
     }
 }

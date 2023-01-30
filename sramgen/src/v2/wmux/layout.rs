@@ -1,6 +1,6 @@
 use substrate::component::NoParams;
 use substrate::index::IndexOwned;
-use substrate::layout::cell::Port;
+use substrate::layout::cell::{CellPort, Port};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
@@ -169,11 +169,12 @@ impl WriteMux {
         ctx.draw(via_arr)?;
 
         let target = npd.port("sd_0_0")?.largest_rect(pc.m0)?;
-        let power_span = Span::from_center_span_gridded(target.center().y, 600, pc.grid);
+        let power_span = Span::from_center_span_gridded(target.center().y, 800, pc.grid);
         let stripe_span = Span::new(-pc.width, 2 * pc.width);
 
         let power_stripe = Rect::from_spans(stripe_span, power_span);
         ctx.draw_rect(pc.h_metal, power_stripe);
+        ctx.add_port(CellPort::with_shape("vss", pc.h_metal, power_stripe));
         let viap = ViaParams::builder()
             .layers(pc.m0, pc.v_metal)
             .geometry(target, target)
@@ -190,7 +191,7 @@ impl WriteMux {
         ctx.draw(v)?;
 
         let mut gate_stripes = Vec::with_capacity(3);
-        for inst in [&mux1, &mux2, &wmask] {
+        for (inst, port) in [(&mux1, "data"), (&mux2, "data_b"), (&wmask, "wmask")] {
             let target = inst.port("gate_0")?.largest_rect(pc.m0)?;
             let rect = Rect::from_spans(stripe_span, target.vspan());
             ctx.draw_rect(pc.m0, rect);
@@ -199,6 +200,8 @@ impl WriteMux {
             let rect = Rect::from_spans(stripe_span, span);
             ctx.draw_rect(pc.h_metal, rect);
             gate_stripes.push((target.vspan(), span));
+
+            ctx.add_port(CellPort::with_shape(port, pc.h_metal, rect));
 
             if std::ptr::eq(inst, &wmask) {
                 via.place_center(Point::new(cx + 220, target.center().y));
@@ -378,6 +381,7 @@ fn write_mux_tap_layout(
 
     let power_stripe = Rect::from_spans(stripe_span, meta.power_stripe);
     ctx.draw_rect(pc.h_metal, power_stripe);
+    ctx.add_port(CellPort::with_shape("vss", pc.h_metal, power_stripe));
 
     let viap = ViaParams::builder()
         .layers(pc.v_metal, pc.h_metal)

@@ -44,6 +44,30 @@ pub struct SpCellReplica;
 )]
 pub struct SpColend;
 
+#[hard_macro(
+    name = "sramgen_sp_sense_amp",
+    pdk = "sky130-open",
+    path_fn = "path",
+    gds_cell_name = "sramgen_sp_sense_amp"
+)]
+pub struct SenseAmp;
+
+#[hard_macro(
+    name = "sramgen_sp_sense_amp_cent",
+    pdk = "sky130-open",
+    path_fn = "path",
+    gds_cell_name = "sramgen_sp_sense_amp_cent"
+)]
+pub struct SenseAmpCent;
+
+#[hard_macro(
+    name = "openram_dff_col",
+    pdk = "sky130-open",
+    path_fn = "path",
+    gds_cell_name = "sky130_fd_bd_sram__openram_dff_col"
+)]
+pub struct DffCol;
+
 pub struct SpCellArray {
     params: SpCellArrayParams,
 }

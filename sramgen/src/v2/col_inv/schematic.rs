@@ -1,7 +1,4 @@
-use substrate::{
-    pdk::mos::{query::Query, spec::MosKind, MosParams},
-    schematic::{circuit::Direction, elements::mos::SchematicMos},
-};
+use substrate::schematic::circuit::Direction;
 
 use crate::v2::gate::{Inv, PrimitiveGateParams};
 

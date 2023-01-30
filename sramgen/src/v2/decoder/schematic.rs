@@ -1,22 +1,15 @@
 use std::collections::VecDeque;
 
-use substrate::schematic::{
-    circuit::Direction,
-    context::SchematicCtx,
-    elements::mos::SchematicMos,
-    signal::{Signal, Slice},
-};
+use substrate::schematic::circuit::Direction;
+use substrate::schematic::context::SchematicCtx;
+use substrate::schematic::signal::{Signal, Slice};
 
 use substrate::index::IndexOwned;
 
 use super::{Decoder, DecoderStage, DecoderStageParams, TreeNode};
-use crate::{
-    clog2,
-    v2::{
-        decoder::get_idxs,
-        gate::{GateParams, GateType, Inv, Nand2, Nand3},
-    },
-};
+use crate::clog2;
+use crate::v2::decoder::get_idxs;
+use crate::v2::gate::{GateParams, Inv, Nand2, Nand3};
 
 impl Decoder {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
@@ -58,9 +51,9 @@ impl Decoder {
                 stage.connect_all([("decode", &decode), ("decode_b", &decode_b)]);
             }
 
-            for i in 0..gate_size {
+            for (i, &port_name) in port_names.iter().enumerate().take(gate_size) {
                 let input_signal = if let Some(child) = node.children.get(i) {
-                    let input_bus = ctx.bus(format!("{}_{}", port_names[i], ctr), child.num);
+                    let input_bus = ctx.bus(format!("{}_{}", port_name, ctr), child.num);
                     queue.push_back((Some(input_bus), child));
                     input_bus.into()
                 } else {
@@ -68,7 +61,7 @@ impl Decoder {
                     in_bits -= 1;
                     Signal::new(vec![addr_b.index(in_bits), addr.index(in_bits)])
                 };
-                stage.connect(port_names[i], input_signal);
+                stage.connect(port_name, input_signal);
             }
             ctx.add_instance(stage);
         }
@@ -109,7 +102,7 @@ impl DecoderStage {
             let mut nand = nand_blueprint.clone();
             nand.connect_all([("vdd", &vdd), ("vss", &vss), ("y", &decode_b.index(i))]);
             for j in 0..gate_size {
-                nand.connect(port_names[j], &input_ports[j].index(idxs[j]));
+                nand.connect(port_names[j], input_ports[j].index(idxs[j]));
             }
             ctx.add_instance(nand);
 
