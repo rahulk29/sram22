@@ -1,10 +1,12 @@
+use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use substrate::component::Component;
-use substrate::layout::cell::{CellPort, Port};
+use substrate::layout::cell::{CellPort, Instance, Port};
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::geom::bbox::{BoundBox, LayerBoundBox};
 use substrate::layout::geom::orientation::Named;
+use substrate::layout::geom::transform::Transform;
 use substrate::layout::geom::{Corner, Dir, Point, Rect, Span};
 use substrate::layout::group::Group;
 use substrate::layout::layers::selector::Selector;
@@ -40,7 +42,7 @@ impl Component for DiffBuf {
         })
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("buf")
+        arcstr::literal!("diff_buf")
     }
     fn layout(
         &self,
@@ -85,7 +87,9 @@ impl Component for DiffBuf {
         let stripe_space = 160;
         let stripe_span = Span::new(-self.params.width, 2 * self.params.width);
 
+        let mut cols = Vec::with_capacity(2);
         for j in 0..2 {
+            let mut col = ColBuilder::default();
             for i in 0..2 {
                 let mut inv = ctx.instantiate::<LayoutMos>(&params)?;
                 inv.place_center_x(j * (inv.brect().width() + 2 * 170));
@@ -95,6 +99,8 @@ impl Component for DiffBuf {
                     inv.orientation_mut().reflect_vert();
                     inv.place_center_y(3 * self.params.width / 4);
                 }
+
+                col.inv(inv.clone());
 
                 let src = inv.port("sd_0_0")?.largest_rect(m0)?;
                 let dst = inv.port("sd_1_0")?.largest_rect(m0)?;
@@ -127,6 +133,13 @@ impl Component for DiffBuf {
                     if i == 0 {
                         ctx.draw_rect(m2, power_stripe);
                         ctx.merge_port(CellPort::with_shape(name, m2, power_stripe));
+                        if name == "vss" {
+                            col.vss(power_stripe.hspan());
+                        } else if name == "vdd" {
+                            col.vdd(power_stripe.hspan());
+                        } else {
+                            unreachable!()
+                        }
                     }
                 }
 
@@ -213,13 +226,123 @@ impl Component for DiffBuf {
                 }
                 ctx.draw(inv)?;
             }
+            cols.push(col.build().unwrap());
         }
+
+        ctx.set_metadata(Metadata { cols });
 
         let vspan = Span::new(0, self.params.width);
         let bounds = Rect::from_spans(ctx.brect().hspan(), vspan);
         ctx.flatten();
         ctx.trim(&bounds);
 
+        Ok(())
+    }
+}
+
+struct Metadata {
+    cols: Vec<Col>,
+}
+
+#[derive(Builder)]
+struct Col {
+    inv: Instance,
+    vdd: Span,
+    vss: Span,
+}
+
+pub struct DiffBufCent {
+    params: DiffBufParams,
+}
+
+impl Component for DiffBufCent {
+    type Params = DiffBufParams;
+    fn new(
+        params: &Self::Params,
+        ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("diff_buf_cent")
+    }
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+        let nwell = layers.get(Selector::Name("nwell"))?;
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+        let psdm = layers.get(Selector::Name("psdm"))?;
+        let outline = layers.get(Selector::Name("outline"))?;
+        let tap = layers.get(Selector::Name("tap"))?;
+        let m0 = layers.get(Selector::Metal(0))?;
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+
+        let inst = ctx.instantiate::<DiffBuf>(&self.params)?;
+        let meta = inst.cell().get_metadata::<Metadata>();
+
+        let vspan = Span::new(0, 1_300);
+
+        for col in meta.cols.iter() {
+            let mut nspan = None;
+            let mut pspan = None;
+            let tf = col.inv.transformation();
+            for elem in col.inv.cell().elems() {
+                let elem = elem.transform(tf);
+                let layer = elem.layer.layer();
+                let hspan = elem.brect().hspan();
+                let rect = Rect::from_spans(hspan, vspan);
+                if layer == nwell {
+                    ctx.draw_rect(nwell, rect);
+                } else if layer == nsdm {
+                    pspan = Some(hspan);
+                    ctx.draw_rect(psdm, rect);
+                } else if layer == psdm {
+                    nspan = Some(hspan);
+                    ctx.draw_rect(nsdm, rect);
+                }
+            }
+
+            let nspan = nspan.unwrap();
+            let pspan = pspan.unwrap();
+
+            for (span, vdd) in [(nspan, true), (pspan, false)] {
+                let r = Rect::from_spans(span, vspan).shrink(200);
+                let viap = ViaParams::builder().layers(tap, m0).geometry(r, r).build();
+                let via = ctx.instantiate::<Via>(&viap)?;
+                ctx.draw(via)?;
+
+                let pspan = if vdd { col.vdd } else { col.vss };
+                let power_stripe = Rect::from_spans(pspan, vspan);
+
+                let viap = ViaParams::builder().layers(m0, m1).geometry(r, r).build();
+                let via = ctx.instantiate::<Via>(&viap)?;
+                ctx.draw_ref(&via)?;
+
+                let viap = ViaParams::builder()
+                    .layers(m1, m2)
+                    .geometry(via.layer_bbox(m1), power_stripe)
+                    .expand(ViaExpansion::LongerDirection)
+                    .build();
+                let via = ctx.instantiate::<Via>(&viap)?;
+                ctx.draw(via)?;
+
+                ctx.draw_rect(m2, power_stripe);
+
+                let name = if vdd {
+                    arcstr::literal!("vdd")
+                } else {
+                    arcstr::literal!("vss")
+                };
+                ctx.merge_port(CellPort::with_shape(name, m2, power_stripe));
+            }
+        }
+
+        ctx.draw_rect(outline, Rect::from_spans(inst.brect().hspan(), vspan));
         Ok(())
     }
 }
@@ -245,6 +368,14 @@ mod tests {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_diff_buf");
         ctx.write_layout::<DiffBuf>(&PARAMS, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
+    }
+
+    #[test]
+    fn test_diff_buf_cent() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_diff_buf_cent");
+        ctx.write_layout::<DiffBufCent>(&PARAMS, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 }

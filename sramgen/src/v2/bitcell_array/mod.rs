@@ -68,6 +68,14 @@ pub struct SenseAmpCent;
 )]
 pub struct DffCol;
 
+#[hard_macro(
+    name = "openram_dff_col_cent",
+    pdk = "sky130-open",
+    path_fn = "path",
+    gds_cell_name = "sky130_fd_bd_sram__openram_dff_col_cent"
+)]
+pub struct DffColCent;
+
 pub struct SpCellArray {
     params: SpCellArrayParams,
 }

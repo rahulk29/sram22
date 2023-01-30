@@ -15,8 +15,8 @@ use substrate::layout::placement::grid::GridTiler;
 use substrate::layout::placement::tile::{OptionTile, RectBbox, Tile};
 use substrate::layout::routing::tracks::{Boundary, CenteredTrackParams, FixedTracks};
 
-use crate::v2::bitcell_array::{DffCol, SenseAmp, SenseAmpCent};
-use crate::v2::buf::DiffBuf;
+use crate::v2::bitcell_array::{DffCol, DffColCent, SenseAmp, SenseAmpCent};
+use crate::v2::buf::{DiffBuf, DiffBufCent};
 use crate::v2::precharge::{Precharge, PrechargeCent, PrechargeEnd};
 use crate::v2::rmux::{ReadMux, ReadMuxCent, ReadMuxEnd, ReadMuxParams};
 use crate::v2::wmux::{
@@ -409,7 +409,7 @@ impl Component for ColumnCent {
         })
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("column")
+        arcstr::literal!("column_cent")
     }
 
     fn layout(&self, ctx: &mut LayoutCtx) -> substrate::error::Result<()> {
@@ -425,19 +425,26 @@ impl Component for ColumnCent {
         })?;
         let mut sa = ctx.instantiate::<SenseAmpCent>(&NoParams)?;
         sa.set_orientation(Named::ReflectVert);
+        let mut buf = ctx.instantiate::<DiffBufCent>(&self.params.buf)?;
+        buf.set_orientation(Named::R90Cw);
+        let mut dff = ctx.instantiate::<DffColCent>(&NoParams)?;
         let mut grid = Grid::new(0, 0);
         grid.push_row(into_vec![pc.clone()]);
         grid.push_row(into_vec![rmux.clone()]);
         grid.push_row(into_vec![wmux.clone()]);
         grid.push_row(into_vec![sa.clone()]);
+        grid.push_row(into_vec![buf.clone()]);
+        grid.push_row(into_vec![dff.clone()]);
 
-        // sa, buf, reg
+        // TODO: wmask reg cent
 
         let tiler = GridTiler::new(grid);
         pc.translate(tiler.translation(0, 0));
         rmux.translate(tiler.translation(1, 0));
         wmux.translate(tiler.translation(2, 0));
         sa.translate(tiler.translation(3, 0));
+        buf.translate(tiler.translation(4, 0));
+        dff.translate(tiler.translation(5, 0));
         ctx.draw(tiler)?;
 
         let hspan = Span::new(0, pc.brect().width());
@@ -494,6 +501,10 @@ impl Component for ColumnCent {
         connect(&wmux, "vss", TapTrack::Vss)?;
         connect(&sa, "vdd", TapTrack::Vdd)?;
         connect(&sa, "vss", TapTrack::Vss)?;
+        connect(&buf, "vdd", TapTrack::Vdd)?;
+        connect(&buf, "vss", TapTrack::Vss)?;
+        connect(&dff, "vdd", TapTrack::Vdd)?;
+        connect(&dff, "vss", TapTrack::Vss)?;
 
         Ok(())
     }
