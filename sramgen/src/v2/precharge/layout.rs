@@ -173,7 +173,7 @@ impl Precharge {
         let via = ctx.instantiate::<Via>(&via1)?;
         ctx.draw(via)?;
 
-        ctx.draw_rect(dsn.m0, orects[1]);
+        ctx.draw_rect(dsn.m0, Rect::from_spans(gate.hspan(), orects[1].vspan()));
 
         ctx.flatten();
 
