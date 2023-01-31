@@ -51,6 +51,7 @@ impl Component for DiffBuf {
         let m0 = layers.get(Selector::Metal(0))?;
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
+        let nwell = layers.get(Selector::Name("nwell"))?;
         let db = ctx.mos_db();
         let nmos = db
             .query(Query::builder().kind(MosKind::Nmos).build().unwrap())
@@ -99,6 +100,13 @@ impl Component for DiffBuf {
                     inv.place_center_y(3 * self.params.width / 4);
                 }
 
+                for elem in inv.cell().elems() {
+                    if elem.layer.layer() == nwell {
+                        let elem = elem.transform(inv.transformation());
+                        let rect = Rect::from_spans(elem.brect().hspan(), stripe_span);
+                        ctx.draw_rect(nwell, rect);
+                    }
+                }
                 col.inv(inv.clone());
 
                 let src = inv.port("sd_0_0")?.largest_rect(m0)?;

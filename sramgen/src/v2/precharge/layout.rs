@@ -181,7 +181,9 @@ impl Precharge {
 
         let layers = ctx.layers();
         let psdm = layers.get(Selector::Name("psdm"))?;
+        let nwell = layers.get(Selector::Name("nwell"))?;
         ctx.draw_rect(psdm, bounds);
+        ctx.draw_rect(nwell, bounds);
         ctx.trim(&bounds);
         Ok(())
     }

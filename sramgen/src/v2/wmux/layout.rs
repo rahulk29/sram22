@@ -23,6 +23,7 @@ use super::{WriteMux, WriteMuxCent, WriteMuxCentParams, WriteMuxEnd};
 use derive_builder::Builder;
 
 const GATE_SPACE: i64 = 160;
+const IMPLANT_PAD: i64 = 400;
 
 impl WriteMux {
     pub(crate) fn layout(
@@ -133,16 +134,14 @@ impl WriteMux {
             ctx.draw_rect(pc.m0, rect);
         }
 
+        let top = ctx.brect().top() + IMPLANT_PAD;
         let tracks = pc
             .out_tracks
             .iter()
             .map(|track| -> Result<Rect, substrate::error::SubstrateError> {
                 let r = Rect::from_spans(
                     track,
-                    Span::new(
-                        mux2.port("gate_0")?.largest_rect(pc.m0)?.top(),
-                        ctx.brect().top(),
-                    ),
+                    Span::new(mux2.port("gate_0")?.largest_rect(pc.m0)?.top(), top),
                 );
                 ctx.draw_rect(pc.v_metal, r);
                 Ok(r)
@@ -276,8 +275,12 @@ impl WriteMux {
         let layers = ctx.layers();
         let nsdm = layers.get(Selector::Name("nsdm"))?;
 
-        let bounds = Rect::from_spans(Span::new(0, pc.width), ctx.brect().vspan());
-        ctx.draw_rect(nsdm, bounds);
+        let hspan = Span::new(0, pc.width);
+        let vspan = ctx.brect().vspan();
+        let bounds = Rect::from_spans(hspan, vspan);
+        let vspan = vspan.shrink(Sign::Pos, IMPLANT_PAD);
+        let implant = Rect::from_spans(hspan, vspan);
+        ctx.draw_rect(nsdm, implant);
         ctx.flatten();
         ctx.trim(&bounds);
 
@@ -315,7 +318,7 @@ fn write_mux_tap_layout(
     let stripe_span = Span::new(-pc.tap_width, 2 * pc.tap_width);
 
     let hspan = Span::new(0, pc.tap_width);
-    let bounds = Rect::from_spans(hspan, mux.brect().vspan());
+    let bounds = Rect::from_spans(hspan, mux.brect().vspan().shrink(Sign::Pos, IMPLANT_PAD));
 
     let tap_span = Span::from_center_span_gridded(pc.tap_width / 2, 170, pc.grid);
     let tap_space = tap_span.expand_all(170);
@@ -361,6 +364,7 @@ fn write_mux_tap_layout(
 
     let layers = ctx.layers();
     let tap = layers.get(Selector::Name("tap"))?;
+    let outline = layers.get(Selector::Name("outline"))?;
 
     let tap_area = Rect::from_spans(tap_span, bounds.vspan().shrink_all(300));
     let viap = ViaParams::builder()
@@ -398,6 +402,9 @@ fn write_mux_tap_layout(
 
     let psdm = layers.get(Selector::Name("psdm"))?;
     ctx.draw_rect(psdm, bounds);
+    ctx.draw_rect(outline, Rect::from_spans(hspan, mux.brect().vspan()));
+
+    let bounds = Rect::from_spans(hspan, mux.brect().vspan());
 
     ctx.flatten();
     ctx.trim(&bounds);
