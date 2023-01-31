@@ -17,6 +17,14 @@ pub struct ColParams {
     rmux: ReadMuxParams,
     wmux: WriteMuxSizing,
     buf: DiffBufParams,
+    cols: usize,
+    mask_granularity: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ColCentParams {
+    col: ColParams,
+    end: bool,
 }
 
 pub struct ColPeripherals {
@@ -32,6 +40,10 @@ impl Component for ColPeripherals {
         Ok(Self {
             params: params.clone(),
         })
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("col_peripherals")
     }
 
     fn layout(
@@ -80,6 +92,8 @@ mod tests {
         rmux: READ_MUX_PARAMS,
         wmux: WRITE_MUX_SIZING,
         buf: DIFF_BUF_PARAMS,
+        cols: 128,
+        mask_granularity: 8,
     };
 
     #[test]
@@ -102,7 +116,27 @@ mod tests {
     fn test_column_cent_4() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_column_cent_4");
-        ctx.write_layout::<ColumnCent>(&COL_PARAMS, out_gds(work_dir, "layout"))
-            .expect("failed to write layout");
+        ctx.write_layout::<ColumnCent>(
+            &ColCentParams {
+                col: COL_PARAMS,
+                end: false,
+            },
+            out_gds(work_dir, "layout"),
+        )
+        .expect("failed to write layout");
+    }
+
+    #[test]
+    fn test_column_end_4() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_column_end_4");
+        ctx.write_layout::<ColumnCent>(
+            &ColCentParams {
+                col: COL_PARAMS,
+                end: true,
+            },
+            out_gds(work_dir, "layout"),
+        )
+        .expect("failed to write layout");
     }
 }

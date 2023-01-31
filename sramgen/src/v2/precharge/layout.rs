@@ -346,6 +346,7 @@ impl PrechargeEnd {
         ctx.draw_rect(dsn.h_metal, Rect::from_spans(stripe_span, dsn.gate_stripe));
         let power_stripe = Rect::from_spans(stripe_span, dsn.power_stripe);
         ctx.draw_rect(dsn.h_metal, power_stripe);
+        ctx.add_port(CellPort::with_shape("vdd", dsn.h_metal, power_stripe));
 
         let viap = ViaParams::builder()
             .layers(dsn.m0, dsn.v_metal)

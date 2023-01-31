@@ -11,9 +11,11 @@ use substrate::layout::geom::orientation::Named;
 use substrate::layout::geom::transform::Translate;
 use substrate::layout::geom::{Rect, Span};
 use substrate::layout::layers::selector::Selector;
+use substrate::layout::placement::align::AlignRect;
 use substrate::layout::placement::grid::GridTiler;
 use substrate::layout::placement::tile::{OptionTile, RectBbox, Tile};
 use substrate::layout::routing::tracks::{Boundary, CenteredTrackParams, FixedTracks};
+use substrate::layout::Draw;
 
 use crate::v2::bitcell_array::{DffCol, DffColCent, SenseAmp, SenseAmpCent};
 use crate::v2::buf::{DiffBuf, DiffBufCent};
@@ -23,33 +25,63 @@ use crate::v2::wmux::{
     WriteMux, WriteMuxCent, WriteMuxCentParams, WriteMuxEnd, WriteMuxEndParams, WriteMuxParams,
 };
 
-use super::{ColParams, ColPeripherals};
+use super::{ColCentParams, ColParams, ColPeripherals};
 
 impl ColPeripherals {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> substrate::error::Result<()> {
+        let mut pc = ctx.instantiate::<Precharge>(&self.params.pc)?;
+        let mut pc_end = ctx.instantiate::<PrechargeEnd>(&self.params.pc)?;
+
         let col = ctx.instantiate::<Column>(&self.params)?;
         let bbox = Rect::from_spans(Span::new(0, 4_800), col.brect().vspan());
         let col = RectBbox::new(col, bbox);
-        let cent = ctx.instantiate::<ColumnCent>(&self.params)?;
+        let cent = ctx.instantiate::<ColumnCent>(&ColCentParams {
+            col: self.params.clone(),
+            end: false,
+        })?;
+        let end = ctx.instantiate::<ColumnCent>(&ColCentParams {
+            col: self.params.clone(),
+            end: true,
+        })?;
 
-        let row = into_vec![
-            &cent,
-            col.clone(),
-            &cent,
-            col.clone(),
-            &cent,
-            col.clone(),
-            &cent,
-            col.clone(),
-            &cent,
-            col.clone(),
-            &cent
-        ];
+        let mut row = vec![end.clone().into()];
+        let groups = self.params.cols / self.params.rmux.mux_ratio;
+        for i in 0..groups {
+            row.push(col.clone().into());
+            if i != groups - 1 {
+                row.push(cent.clone().into());
+            }
+        }
+        row.push(end.with_orientation(Named::ReflectHoriz).into());
+
         let mut grid = Grid::new(0, 0);
         grid.push_row(row);
 
         let grid_tiler = GridTiler::new(grid);
-        ctx.draw(grid_tiler)?;
+        let group = grid_tiler.draw()?;
+
+        let bbox = group.bbox();
+        ctx.draw(group)?;
+
+        assert!(!bbox.is_empty());
+        pc.align_to_the_left_of(bbox, 0);
+        pc.align_top(bbox);
+        pc_end.align_to_the_left_of(&pc, 0);
+        pc_end.align_top(bbox);
+
+        ctx.draw_ref(&pc)?;
+        ctx.draw_ref(&pc_end)?;
+
+        pc.orientation_mut().reflect_horiz();
+        pc_end.orientation_mut().reflect_horiz();
+
+        pc.align_to_the_right_of(bbox, 0);
+        pc.align_top(bbox);
+        pc_end.align_to_the_right_of(&pc, 0);
+        pc_end.align_top(bbox);
+
+        ctx.draw_ref(&pc)?;
+        ctx.draw_ref(&pc_end)?;
         Ok(())
     }
 }
@@ -58,7 +90,7 @@ pub struct Column {
     params: ColParams,
 }
 pub struct ColumnCent {
-    params: ColParams,
+    params: ColCentParams,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Serialize, Deserialize)]
@@ -338,7 +370,7 @@ impl Component for Column {
 }
 
 impl Component for ColumnCent {
-    type Params = ColParams;
+    type Params = ColCentParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
@@ -352,19 +384,31 @@ impl Component for ColumnCent {
     }
 
     fn layout(&self, ctx: &mut LayoutCtx) -> substrate::error::Result<()> {
-        let mut pc = ctx.instantiate::<PrechargeCent>(&self.params.pc)?;
-        let mut rmux = ctx.instantiate::<ReadMuxCent>(&ReadMuxParams {
+        let read_mux_params = ReadMuxParams {
             idx: 0,
-            ..self.params.rmux.clone()
-        })?;
-        let mut wmux = ctx.instantiate::<WriteMuxCent>(&WriteMuxCentParams {
-            cut_data: false,
-            cut_wmask: false,
-            sizing: self.params.wmux,
-        })?;
+            ..self.params.col.rmux.clone()
+        };
+        // Always use a precharge center tile; the real precharge end
+        // is used for the replica and dummy column.
+        let mut pc = ctx.instantiate::<PrechargeCent>(&self.params.col.pc)?;
+        let (mut rmux, mut wmux) = if self.params.end {
+            let rmux = ctx.instantiate::<ReadMuxEnd>(&read_mux_params)?;
+            let wmux = ctx.instantiate::<WriteMuxEnd>(&WriteMuxEndParams {
+                sizing: self.params.col.wmux,
+            })?;
+            (rmux, wmux)
+        } else {
+            let rmux = ctx.instantiate::<ReadMuxCent>(&read_mux_params)?;
+            let wmux = ctx.instantiate::<WriteMuxCent>(&WriteMuxCentParams {
+                cut_data: true,
+                cut_wmask: true,
+                sizing: self.params.col.wmux,
+            })?;
+            (rmux, wmux)
+        };
         let mut sa = ctx.instantiate::<SenseAmpCent>(&NoParams)?;
         sa.set_orientation(Named::ReflectVert);
-        let mut buf = ctx.instantiate::<DiffBufCent>(&self.params.buf)?;
+        let mut buf = ctx.instantiate::<DiffBufCent>(&self.params.col.buf)?;
         buf.set_orientation(Named::R90Cw);
         let mut dff = ctx.instantiate::<DffColCent>(&NoParams)?;
         let mut grid = Grid::new(0, 0);
