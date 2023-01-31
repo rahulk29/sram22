@@ -22,7 +22,7 @@ use super::{WriteMux, WriteMuxCent, WriteMuxCentParams, WriteMuxEnd};
 
 use derive_builder::Builder;
 
-const GATE_SPACE: i64 = 160;
+const GATE_SPACE: i64 = 210;
 const IMPLANT_PAD: i64 = 400;
 
 impl WriteMux {
