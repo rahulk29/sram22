@@ -7,7 +7,7 @@ use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::geom::bbox::{BoundBox, LayerBoundBox};
 
 use substrate::layout::geom::transform::Transform;
-use substrate::layout::geom::{Corner, Dir, Point, Rect, Span};
+use substrate::layout::geom::{Corner, Dims, Dir, ExpandMode, Point, Rect, Span};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::routing::manual::jog::SJog;
@@ -25,6 +25,7 @@ pub struct DiffBufParams {
 
 pub const POWER_HEIGHT: i64 = 800;
 pub const GRID: i64 = 5;
+pub const WELL_PAD: i64 = 1_000;
 
 pub struct DiffBuf {
     params: DiffBufParams,
@@ -242,6 +243,12 @@ impl Component for DiffBuf {
         let bounds = Rect::from_spans(ctx.brect().hspan(), vspan);
         ctx.flatten();
         ctx.trim(&bounds);
+
+        let outline = layers.get(Selector::Name("outline"))?;
+        let rect = ctx
+            .brect()
+            .expand_dims(Dims::new(WELL_PAD, 0), ExpandMode::UpperRight);
+        ctx.draw_rect(outline, rect);
 
         Ok(())
     }
