@@ -5,7 +5,7 @@ use substrate::layout::cell::{CellPort, Instance, Port};
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::geom::bbox::{BoundBox, LayerBoundBox};
-use substrate::layout::geom::orientation::Named;
+
 use substrate::layout::geom::transform::Transform;
 use substrate::layout::geom::{Corner, Dir, Point, Rect, Span};
 use substrate::layout::layers::selector::Selector;
@@ -258,7 +258,7 @@ impl Component for DiffBufCent {
     type Params = DiffBufParams;
     fn new(
         params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
+        _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         Ok(Self {
             params: params.clone(),

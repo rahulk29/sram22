@@ -44,7 +44,7 @@ impl Decoder {
             stage.connect_all([("vdd", &vdd), ("vss", &vss)]);
 
             if let Some(output_port) = output_port {
-                let unused_wire = ctx.bus(format!("unused_{}", ctr), output_port.width());
+                let unused_wire = ctx.bus(format!("unused_{ctr}"), output_port.width());
                 stage.connect_all([("decode", &output_port), ("decode_b", &unused_wire)]);
             } else {
                 println!("drive decode");
@@ -53,7 +53,7 @@ impl Decoder {
 
             for (i, &port_name) in port_names.iter().enumerate().take(gate_size) {
                 let input_signal = if let Some(child) = node.children.get(i) {
-                    let input_bus = ctx.bus(format!("{}_{}", port_name, ctr), child.num);
+                    let input_bus = ctx.bus(format!("{port_name}_{ctr}"), child.num);
                     queue.push_back((Some(input_bus), child));
                     input_bus.into()
                 } else {

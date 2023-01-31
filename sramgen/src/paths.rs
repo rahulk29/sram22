@@ -18,7 +18,7 @@ pub fn out_bin(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
 }
 
 pub fn out_spice(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
-    PathBuf::from(work_dir.as_ref()).join(format!("{}.spice", name))
+    PathBuf::from(work_dir.as_ref()).join(format!("{name}.spice"))
 }
 
 pub fn out_gds(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
