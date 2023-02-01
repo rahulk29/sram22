@@ -5,6 +5,8 @@ pub use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use ngspice::Ngspice;
 use sky130_open_pdk::Sky130Pdk;
+#[cfg(feature = "calibre")]
+use sub_calibre::CalibreDrc;
 use substrate::data::{SubstrateConfig, SubstrateCtx};
 use substrate::pdk::{Pdk, PdkParams};
 use substrate::schematic::netlist::impls::spice::SpiceNetlister;
@@ -59,7 +61,13 @@ where
 pub fn setup_ctx() -> SubstrateCtx {
     let simulator = Ngspice::new(SimulatorOpts::default()).unwrap();
 
-    let cfg = SubstrateConfig::builder()
+    let builder = SubstrateConfig::builder();
+
+    #[cfg(feature = "calibre")]
+    let builder = builder.drc_tool(Arc::new(CalibreDrc::new(
+        crate::verification::calibre::SKY130_DRC_RULES_PATH,
+    )));
+    let cfg = builder
         .netlister(Arc::new(SpiceNetlister::new()))
         .simulator(Arc::new(simulator))
         .pdk(Arc::new(
