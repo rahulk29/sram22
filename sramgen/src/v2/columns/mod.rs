@@ -100,8 +100,17 @@ mod tests {
     fn test_col_peripherals() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_col_peripherals");
-        ctx.write_layout::<ColPeripherals>(&COL_PARAMS, out_gds(work_dir, "layout"))
+        ctx.write_layout::<ColPeripherals>(&COL_PARAMS, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
+
+        #[cfg(feature = "calibre")]
+        {
+            let drc_work_dir = work_dir.join("drc");
+            let output = ctx
+                .write_drc::<ColPeripherals>(&COL_PARAMS, drc_work_dir)
+                .expect("failed to run DRC");
+            assert!(matches!(output.summary, substrate::drc::DrcSummary::Pass));
+        }
     }
 
     #[test]
