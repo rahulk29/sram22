@@ -144,6 +144,7 @@ impl ReadMux {
                 )
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;
+            metadata.split_via0(viap);
             ctx.draw_rect(
                 pc.m0,
                 Rect::from_spans(
@@ -164,7 +165,7 @@ impl ReadMux {
                 .expand(ViaExpansion::LongerDirection)
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;
-            metadata.split_via(viap);
+            metadata.split_via1(viap);
             metadata.bot_stripe(stripe.vspan());
             ctx.draw_ref(&via)?;
 
@@ -238,7 +239,8 @@ impl ReadMux {
 
 #[derive(Debug, Builder)]
 struct Metadata {
-    split_via: ViaParams,
+    split_via1: ViaParams,
+    split_via0: ViaParams,
     split_track: Rect,
     bot_stripe: Span,
 }
@@ -278,12 +280,17 @@ fn read_mux_tap_layout(
 
     let meta = mux.cell().get_metadata::<Metadata>();
 
-    let mut via = ctx.instantiate::<Via>(&meta.split_via)?;
-    via.place_center(Point::new(width, via.brect().center().y));
-    ctx.draw_ref(&via)?;
+    let mut via1 = ctx.instantiate::<Via>(&meta.split_via1)?;
+    let mut via0 = ctx.instantiate::<Via>(&meta.split_via0)?;
+    via1.place_center(Point::new(width, via1.brect().center().y));
+    via0.place_center(Point::new(width, via0.brect().center().y));
+    ctx.draw_ref(&via1)?;
+    ctx.draw_ref(&via0)?;
     if !end {
-        via.place_center(Point::new(0, via.brect().center().y));
-        ctx.draw_ref(&via)?;
+        via1.place_center(Point::new(0, via1.brect().center().y));
+        via0.place_center(Point::new(0, via0.brect().center().y));
+        ctx.draw_ref(&via1)?;
+        ctx.draw_ref(&via0)?;
     }
 
     let mut vtrack = meta.split_track.double(Side::Left);
