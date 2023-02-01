@@ -182,7 +182,14 @@ impl Precharge {
         let layers = ctx.layers();
         let psdm = layers.get(Selector::Name("psdm"))?;
         let nwell = layers.get(Selector::Name("nwell"))?;
-        ctx.draw_rect(psdm, bounds);
+        let implants = ctx
+            .elems()
+            .filter(|elem| elem.layer.layer() == psdm)
+            .map(|elem| elem.brect().vspan())
+            .collect::<Vec<_>>();
+        for span in implants {
+            ctx.draw_rect(psdm, Rect::from_spans(bounds.hspan(), span));
+        }
         ctx.draw_rect(nwell, bounds);
         ctx.trim(&bounds);
         Ok(())

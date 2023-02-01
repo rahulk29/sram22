@@ -220,10 +220,17 @@ impl ReadMux {
 
         let layers = ctx.layers();
         let nwell = layers.get(Selector::Name("nwell"))?;
-        let psdm = layers.get(Selector::Name("psdm"))?;
-
         ctx.draw_rect(nwell, bounds);
-        ctx.draw_rect(psdm, bounds);
+
+        let psdm = layers.get(Selector::Name("psdm"))?;
+        let implants = ctx
+            .elems()
+            .filter(|elem| elem.layer.layer() == psdm)
+            .map(|elem| elem.brect().vspan())
+            .collect::<Vec<_>>();
+        for span in implants {
+            ctx.draw_rect(psdm, Rect::from_spans(bounds.hspan(), span));
+        }
 
         Ok(())
     }

@@ -400,12 +400,10 @@ fn write_mux_tap_layout(
         ctx.draw_rect(pc.h_metal, rect);
     }
 
-    let psdm = layers.get(Selector::Name("psdm"))?;
-    ctx.draw_rect(psdm, bounds);
-    ctx.draw_rect(outline, Rect::from_spans(hspan, mux.brect().vspan()));
-
     let bounds = Rect::from_spans(hspan, mux.brect().vspan());
-
+    let psdm = layers.get(Selector::Name("psdm"))?;
+    ctx.draw_rect(outline, bounds);
+    ctx.draw_rect(psdm, bounds);
     ctx.flatten();
     ctx.trim(&bounds);
 
