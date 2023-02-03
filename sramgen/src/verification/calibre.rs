@@ -11,6 +11,8 @@ use std::path::{Path, PathBuf};
 
 pub(crate) const SKY130_DRC_RULES_PATH: &str =
     "/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/DRC/Calibre/s8_drcRules";
+pub(crate) const SKY130_DRC_RUNSET_PATH: &str =
+    "/tools/B/rahulkumar/sky130/priv/drc/runset";
 pub(crate) const SKY130_LVS_RULES_PATH: &str =
     "/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/LVS/Calibre/lvs_s8_opts";
 
@@ -31,7 +33,8 @@ pub fn run_sram_drc(work_dir: impl AsRef<Path>, name: &str) -> Result<()> {
         cell_name: name,
         work_dir: &drc_work_dir,
         layout_path: &layout_path,
-        drc_rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+        rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+        runset_path: Some(&PathBuf::from(SKY130_DRC_RUNSET_PATH)),
     })?;
 
     if data
