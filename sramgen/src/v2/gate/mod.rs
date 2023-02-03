@@ -6,6 +6,7 @@ pub mod schematic;
 
 pub enum Gate {
     And2(And2),
+    And3(And3),
     Inv(Inv),
     Nand2(Nand2),
     Nand3(Nand3),
@@ -13,6 +14,10 @@ pub enum Gate {
 }
 
 pub struct And2 {
+    params: AndParams,
+}
+
+pub struct And3 {
     params: AndParams,
 }
 
@@ -41,6 +46,7 @@ pub struct AndParams {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
 pub enum GateParams {
     And2(AndParams),
+    And3(AndParams),
     Inv(PrimitiveGateParams),
     Nand2(PrimitiveGateParams),
     Nand3(PrimitiveGateParams),
@@ -50,6 +56,7 @@ pub enum GateParams {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
 pub enum GateType {
     And2,
+    And3,
     Inv,
     Nand2,
     Nand3,
@@ -77,6 +84,7 @@ impl GateParams {
     pub fn num_inputs(&self) -> usize {
         match self {
             GateParams::And2(_) => 2,
+            GateParams::And3(_) => 3,
             GateParams::Inv(_) => 1,
             GateParams::Nand2(_) => 2,
             GateParams::Nand3(_) => 3,
@@ -111,6 +119,7 @@ macro_rules! call_gate_fn {
     ($name:expr, $fn_call:ident, $($arg:expr),*) => {
         match $name {
             Gate::And2(gate) => gate.$fn_call($($arg),*),
+            Gate::And3(gate) => gate.$fn_call($($arg),*),
             Gate::Inv(gate) => gate.$fn_call($($arg),*),
             Gate::Nand2(gate) => gate.$fn_call($($arg),*),
             Gate::Nand3(gate) => gate.$fn_call($($arg),*),
@@ -127,6 +136,7 @@ impl Component for Gate {
     ) -> substrate::error::Result<Self> {
         Ok(match *params {
             GateParams::And2(params) => Self::And2(And2 { params }),
+            GateParams::And3(params) => Self::And3(And3 { params }),
             GateParams::Inv(params) => Self::Inv(Inv { params }),
             GateParams::Nand2(params) => Self::Nand2(Nand2 { params }),
             GateParams::Nand3(params) => Self::Nand3(Nand3 { params }),
@@ -163,6 +173,33 @@ impl Component for And2 {
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("and2")
+    }
+
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        self.schematic(ctx)
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        self.layout(ctx)
+    }
+}
+
+impl Component for And3 {
+    type Params = AndParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self { params: *params })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("and3")
     }
 
     fn schematic(
@@ -337,6 +374,29 @@ mod tests {
         ctx.write_layout::<And2>(&params, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
         ctx.write_schematic_to_file::<And2>(&params, out_spice(&work_dir, "netlist"))
+            .expect("failed to write schematic");
+    }
+
+    #[test]
+    fn test_and3() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_and3");
+
+        let params = AndParams {
+            nand: PrimitiveGateParams {
+                pwidth: 2_400,
+                nwidth: 4_000,
+                length: 150,
+            },
+            inv: PrimitiveGateParams {
+                pwidth: 2_400,
+                nwidth: 1_800,
+                length: 150,
+            },
+        };
+        ctx.write_layout::<And3>(&params, out_gds(&work_dir, "layout"))
+            .expect("failed to write layout");
+        ctx.write_schematic_to_file::<And3>(&params, out_spice(&work_dir, "netlist"))
             .expect("failed to write schematic");
     }
 

@@ -4,7 +4,7 @@ use substrate::pdk::mos::MosParams;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::elements::mos::SchematicMos;
 
-use super::{And2, Inv, Nand2, Nand3, Nor2};
+use super::{And2, And3, Inv, Nand2, Nand3, Nor2};
 
 impl And2 {
     pub(crate) fn schematic(
@@ -23,6 +23,38 @@ impl And2 {
             ("vdd", &vdd),
             ("a", &a),
             ("b", &b),
+            ("y", &tmp),
+            ("vss", &vss),
+        ]);
+        ctx.add_instance(nand);
+
+        let mut inv = ctx.instantiate::<Inv>(&self.params.inv)?;
+        inv.connect_all([("vdd", &vdd), ("din", &tmp), ("din_b", &y), ("vss", &vss)]);
+        ctx.add_instance(inv);
+
+        Ok(())
+    }
+}
+
+impl And3 {
+    pub(crate) fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        let vdd = ctx.port("vdd", Direction::InOut);
+        let a = ctx.port("a", Direction::Input);
+        let b = ctx.port("b", Direction::Input);
+        let c = ctx.port("c", Direction::Input);
+        let y = ctx.port("y", Direction::Output);
+        let vss = ctx.port("vss", Direction::InOut);
+        let tmp = ctx.signal("tmp");
+
+        let mut nand = ctx.instantiate::<Nand3>(&self.params.nand)?;
+        nand.connect_all([
+            ("vdd", &vdd),
+            ("a", &a),
+            ("b", &b),
+            ("c", &c),
             ("y", &tmp),
             ("vss", &vss),
         ]);

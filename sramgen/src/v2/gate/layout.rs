@@ -6,7 +6,7 @@ use substrate::layout::placement::align::AlignRect;
 use substrate::layout::routing::manual::jog::ElbowJog;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 
-use super::{And2, Inv, Nand2, Nand3, Nor2};
+use super::{And2, And3, Inv, Nand2, Nand3, Nor2};
 
 impl And2 {
     pub(crate) fn layout(
@@ -48,6 +48,58 @@ impl And2 {
         );
         ctx.add_port(nand.port("a")?);
         ctx.add_port(nand.port("b")?);
+        ctx.add_port(inv.port("y")?);
+
+        ctx.draw_ref(&nand)?;
+        ctx.draw_ref(&inv)?;
+
+        ctx.flatten();
+
+        Ok(())
+    }
+}
+
+impl And3 {
+    pub(crate) fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let nand = ctx.instantiate::<Nand3>(&self.params.nand)?;
+        let mut inv = ctx.instantiate::<Inv>(&self.params.inv)?;
+
+        inv.align_to_the_right_of(nand.bbox(), 300);
+        inv.align_centers_vertically_gridded(nand.bbox(), ctx.pdk().layout_grid());
+
+        let m0 = nand.port("y")?.any_layer();
+        let dst = inv.port("a")?.largest_rect(m0)?;
+        let jog = ElbowJog::builder()
+            .dir(substrate::layout::geom::Dir::Horiz)
+            .sign(substrate::layout::geom::Sign::Pos)
+            .src(nand.port("y")?.largest_rect(m0)?)
+            .dst(dst.bottom())
+            .layer(m0)
+            .space(170)
+            .build()
+            .unwrap();
+        let rect = Rect::from_spans(Span::new(jog.r2().left(), dst.right()), dst.vspan());
+        ctx.draw(jog)?;
+        ctx.draw_rect(m0, rect);
+
+        ctx.add_port(
+            nand.port("vdd")?
+                .into_cell_port()
+                .merged_with(inv.port("vdd")?)
+                .with_must_connect(MustConnect::Yes),
+        );
+        ctx.add_port(
+            nand.port("vss")?
+                .into_cell_port()
+                .merged_with(inv.port("vss")?)
+                .with_must_connect(MustConnect::Yes),
+        );
+        ctx.add_port(nand.port("a")?);
+        ctx.add_port(nand.port("b")?);
+        ctx.add_port(nand.port("c")?);
         ctx.add_port(inv.port("y")?);
 
         ctx.draw_ref(&nand)?;
