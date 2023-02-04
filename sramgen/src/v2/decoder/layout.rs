@@ -9,7 +9,7 @@ use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::geom::bbox::BoundBox;
 use substrate::layout::geom::orientation::Named;
 use substrate::layout::geom::transform::Translate;
-use substrate::layout::geom::{Point, Rect, Sign, Span};
+use substrate::layout::geom::{Rect, Sign, Span};
 use substrate::layout::group::elements::ElementGroup;
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerKey;
