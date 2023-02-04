@@ -15,21 +15,21 @@ impl And2 {
         let a = ctx.port("a", Direction::Input);
         let b = ctx.port("b", Direction::Input);
         let y = ctx.port("y", Direction::Output);
+        let yb = ctx.port("yb", Direction::Output);
         let vss = ctx.port("vss", Direction::InOut);
-        let tmp = ctx.signal("tmp");
 
         let mut nand = ctx.instantiate::<Nand2>(&self.params.nand)?;
         nand.connect_all([
             ("vdd", &vdd),
             ("a", &a),
             ("b", &b),
-            ("y", &tmp),
+            ("y", &yb),
             ("vss", &vss),
         ]);
         ctx.add_instance(nand);
 
         let mut inv = ctx.instantiate::<Inv>(&self.params.inv)?;
-        inv.connect_all([("vdd", &vdd), ("din", &tmp), ("din_b", &y), ("vss", &vss)]);
+        inv.connect_all([("vdd", &vdd), ("din", &yb), ("din_b", &y), ("vss", &vss)]);
         ctx.add_instance(inv);
 
         Ok(())
@@ -46,8 +46,8 @@ impl And3 {
         let b = ctx.port("b", Direction::Input);
         let c = ctx.port("c", Direction::Input);
         let y = ctx.port("y", Direction::Output);
+        let yb = ctx.port("yb", Direction::Output);
         let vss = ctx.port("vss", Direction::InOut);
-        let tmp = ctx.signal("tmp");
 
         let mut nand = ctx.instantiate::<Nand3>(&self.params.nand)?;
         nand.connect_all([
@@ -55,13 +55,13 @@ impl And3 {
             ("a", &a),
             ("b", &b),
             ("c", &c),
-            ("y", &tmp),
+            ("y", &yb),
             ("vss", &vss),
         ]);
         ctx.add_instance(nand);
 
         let mut inv = ctx.instantiate::<Inv>(&self.params.inv)?;
-        inv.connect_all([("vdd", &vdd), ("din", &tmp), ("din_b", &y), ("vss", &vss)]);
+        inv.connect_all([("vdd", &vdd), ("din", &yb), ("din_b", &y), ("vss", &vss)]);
         ctx.add_instance(inv);
 
         Ok(())

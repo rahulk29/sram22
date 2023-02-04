@@ -2,7 +2,7 @@ use fanout::FanoutAnalyzer;
 use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 
-use super::gate::{GateParams, GateType, PrimitiveGateParams};
+use super::gate::{AndParams, GateParams, GateType, PrimitiveGateParams};
 
 pub mod layout;
 pub mod schematic;
@@ -23,7 +23,6 @@ pub struct DecoderParams {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DecoderStageParams {
     pub gate: GateParams,
-    pub buf: PrimitiveGateParams,
     pub num: usize,
     pub child_sizes: Vec<usize>,
 }
@@ -36,7 +35,6 @@ pub struct DecoderTree {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct TreeNode {
     pub gate: GateParams,
-    pub buf: PrimitiveGateParams,
     // Number of one-hot outputs.
     pub num: usize,
     pub children: Vec<TreeNode>,
@@ -69,8 +67,9 @@ fn size_decoder(tree: &PlanTreeNode) -> TreeNode {
     nodes.reverse();
 
     for (i, node) in nodes.iter().enumerate() {
-        f.add_gate(node.gate.into());
-        f.add_gate(fanout::GateType::INV);
+        for gate in node.gate.as_fanout_gates() {
+            f.add_gate(gate);
+        }
         if let Some(next) = nodes.get(i + 1) {
             f.add_branch((next.num / node.num) as f64);
         }
@@ -86,22 +85,22 @@ fn size_decoder(tree: &PlanTreeNode) -> TreeNode {
 
 fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64]) -> TreeNode {
     // TODO size decoder
-    let buf = PrimitiveGateParams {
-        nwidth: 1_600,
-        pwidth: 2_400,
-        length: 150,
-    };
-
     TreeNode {
-        gate: GateParams::new_primitive(
+        gate: GateParams::new_and(
             x.gate,
-            PrimitiveGateParams {
-                nwidth: 3_200,
-                pwidth: 2_400,
-                length: 150,
+            AndParams {
+                nand: PrimitiveGateParams {
+                    nwidth: 3_200,
+                    pwidth: 2_400,
+                    length: 150,
+                },
+                inv: PrimitiveGateParams {
+                    nwidth: 2_000,
+                    pwidth: 2_000,
+                    length: 150,
+                },
             },
         ),
-        buf,
         num: x.num,
         children: x
             .children
@@ -115,21 +114,21 @@ fn plan_decoder(bits: usize, top: bool) -> PlanTreeNode {
     assert!(bits > 1);
     if bits == 2 {
         PlanTreeNode {
-            gate: GateType::Nand2,
+            gate: GateType::And2,
             num: 4,
             children: vec![],
         }
     } else if bits == 3 {
         PlanTreeNode {
-            gate: GateType::Nand3,
+            gate: GateType::And3,
             num: 8,
             children: vec![],
         }
     } else {
         let split = partition_bits(bits, top);
         let gate = match split.len() {
-            2 => GateType::Nand2,
-            3 => GateType::Nand3,
+            2 => GateType::And2,
+            3 => GateType::And3,
             _ => panic!("unexpected bit split"),
         };
 
@@ -249,9 +248,10 @@ impl Component for DecoderStage {
 #[cfg(test)]
 mod tests {
 
-    use crate::paths::out_spice;
+    use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
+    use crate::v2::gate::AndParams;
 
     use super::*;
 
@@ -265,5 +265,31 @@ mod tests {
 
         ctx.write_schematic_to_file::<Decoder>(&params, out_spice(work_dir, "netlist"))
             .expect("failed to write schematic");
+    }
+
+    #[test]
+    fn test_decoder_stage() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_decoder_stage_4");
+
+        let params = DecoderStageParams {
+            gate: GateParams::And3(AndParams {
+                nand: PrimitiveGateParams {
+                    nwidth: 3_000,
+                    pwidth: 1_200,
+                    length: 150,
+                },
+                inv: PrimitiveGateParams {
+                    nwidth: 2_000,
+                    pwidth: 2_000,
+                    length: 150,
+                },
+            }),
+            num: 4,
+            child_sizes: vec![2, 2],
+        };
+
+        ctx.write_layout::<DecoderStage>(&params, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
     }
 }

@@ -9,7 +9,7 @@ use substrate::index::IndexOwned;
 use super::{Decoder, DecoderStage, DecoderStageParams, TreeNode};
 use crate::clog2;
 use crate::v2::decoder::get_idxs;
-use crate::v2::gate::{GateParams, Inv, Nand2, Nand3};
+use crate::v2::gate::{GateParams, Inv, Nand2, Nand3, And3, And2};
 
 impl Decoder {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
@@ -35,7 +35,6 @@ impl Decoder {
             let gate_size = node.gate.num_inputs();
             let mut stage = ctx.instantiate::<DecoderStage>(&DecoderStageParams {
                 gate: node.gate,
-                buf: node.buf,
                 num: node.num,
                 child_sizes: (0..gate_size)
                     .map(|i| node.children.get(i).map(|child| child.num).unwrap_or(2))
@@ -79,13 +78,13 @@ impl DecoderStage {
         let decode = ctx.bus_port("decode", num, Direction::Output);
         let decode_b = ctx.bus_port("decode_b", num, Direction::Output);
 
-        let port_names = vec!["a", "b", "c"];
+        let port_names = [arcstr::literal!("a"), arcstr::literal!("b"), arcstr::literal!("c")];
 
         // Instantiate NAND gate.
         println!("{:?}", self.params.gate);
-        let (nand_blueprint, gate_size) = match self.params.gate {
-            GateParams::Nand2(params) => (ctx.instantiate::<Nand2>(&params)?, 2),
-            GateParams::Nand3(params) => (ctx.instantiate::<Nand3>(&params)?, 3),
+        let (and, gate_size) = match self.params.gate {
+            GateParams::And2(params) => (ctx.instantiate::<And2>(&params)?, 2),
+            GateParams::And3(params) => (ctx.instantiate::<And3>(&params)?, 3),
             _ => unreachable!(),
         };
 
@@ -93,27 +92,23 @@ impl DecoderStage {
         assert_eq!(self.params.child_sizes.iter().product::<usize>(), num);
 
         let input_ports = (0..gate_size)
-            .map(|i| ctx.bus_port(port_names[i], self.params.child_sizes[i], Direction::Input))
+            .map(|i| ctx.bus_port(port_names[i].clone(), self.params.child_sizes[i], Direction::Input))
             .collect::<Vec<Slice>>();
 
         for i in 0..num {
             let idxs = get_idxs(i, &self.params.child_sizes);
 
-            let mut nand = nand_blueprint.clone();
-            nand.connect_all([("vdd", &vdd), ("vss", &vss), ("y", &decode_b.index(i))]);
-            for j in 0..gate_size {
-                nand.connect(port_names[j], input_ports[j].index(idxs[j]));
-            }
-            ctx.add_instance(nand);
-
-            let mut inv = ctx.instantiate::<Inv>(&self.params.buf)?;
-            inv.connect_all([
+            let mut and = and.clone();
+            and.connect_all([
                 ("vdd", &vdd),
                 ("vss", &vss),
-                ("din", &decode_b.index(i)),
-                ("din_b", &decode.index(i)),
+                ("yb", &decode_b.index(i)),
+                ("y", &decode.index(i)),
             ]);
-            ctx.add_instance(inv);
+            for j in 0..gate_size {
+                and.connect(port_names[j].clone(), input_ports[j].index(idxs[j]));
+            }
+            ctx.add_instance(and);
         }
 
         Ok(())

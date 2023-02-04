@@ -70,6 +70,18 @@ pub struct PrimitiveGateParams {
     pub length: i64,
 }
 
+impl GateType {
+    pub fn as_fanout_gates(&self) -> Vec<fanout::GateType> {
+        match self {
+            GateType::Inv => vec![fanout::GateType::INV],
+            GateType::Nand2 => vec![fanout::GateType::NAND2],
+            GateType::Nand3 => vec![fanout::GateType::NAND3],
+            GateType::And2 => vec![fanout::GateType::NAND2, fanout::GateType::INV],
+            GateType::And3 => vec![fanout::GateType::NAND3, fanout::GateType::INV],
+            _ => panic!("unsupported gate type for fanout calculations"),
+        }
+    }
+}
 impl GateParams {
     pub fn new_primitive(gt: GateType, params: PrimitiveGateParams) -> Self {
         match gt {
@@ -78,6 +90,14 @@ impl GateParams {
             GateType::Nand3 => Self::Nand3(params),
             GateType::Nor2 => Self::Nor2(params),
             _ => panic!("not a primitive gate"),
+        }
+    }
+
+    pub fn new_and(gt: GateType, params: AndParams) -> Self {
+        match gt {
+            GateType::And2 => Self::And2(params),
+            GateType::And3 => Self::And3(params),
+            _ => panic!("not an and gate"),
         }
     }
 
@@ -91,25 +111,14 @@ impl GateParams {
             GateParams::Nor2(_) => 2,
         }
     }
-}
 
-impl From<GateParams> for fanout::GateType {
-    fn from(x: GateParams) -> Self {
-        match x {
-            GateParams::Inv(_) => fanout::GateType::INV,
-            GateParams::Nand2(_) => fanout::GateType::NAND2,
-            GateParams::Nand3(_) => fanout::GateType::NAND3,
-            _ => panic!("unsupported gate type for fanout calculations"),
-        }
-    }
-}
-
-impl From<GateType> for fanout::GateType {
-    fn from(x: GateType) -> Self {
-        match x {
-            GateType::Inv => fanout::GateType::INV,
-            GateType::Nand2 => fanout::GateType::NAND2,
-            GateType::Nand3 => fanout::GateType::NAND3,
+    pub fn as_fanout_gates(&self) -> Vec<fanout::GateType> {
+        match self {
+            GateParams::Inv(_) => vec![fanout::GateType::INV],
+            GateParams::Nand2(_) => vec![fanout::GateType::NAND2],
+            GateParams::Nand3(_) => vec![fanout::GateType::NAND3],
+            GateParams::And2(_) => vec![fanout::GateType::NAND2, fanout::GateType::INV],
+            GateParams::And3(_) => vec![fanout::GateType::NAND3, fanout::GateType::INV],
             _ => panic!("unsupported gate type for fanout calculations"),
         }
     }
