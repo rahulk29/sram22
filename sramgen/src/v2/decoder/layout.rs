@@ -2,12 +2,14 @@ use std::collections::HashSet;
 
 use grid::Grid;
 use serde::{Deserialize, Serialize};
-use substrate::component::{NoParams, Component};
+use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
-use substrate::layout::cell::Element;
+use substrate::layout::cell::{CellPort, Element, Port};
+use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::geom::bbox::BoundBox;
-use substrate::layout::geom::{Span, Point, Rect, Sign};
 use substrate::layout::geom::orientation::Named;
+use substrate::layout::geom::transform::Translate;
+use substrate::layout::geom::{Rect, Sign, Span};
 use substrate::layout::group::elements::ElementGroup;
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerKey;
@@ -44,24 +46,84 @@ impl Component for LastBitDecoderStage {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let dsn = ctx.inner().run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
-        let gate = ctx.instantiate::<DecoderGate>(&DecoderGateParams {
+        let mut gate = ctx.instantiate::<DecoderGate>(&DecoderGateParams {
             gate: self.params.gate.clone(),
             dsn: (*dsn).clone(),
         })?;
-        let row = (0..self.params.num)
+        gate.set_orientation(Named::R90Cw);
+        let col = (0..self.params.num)
             .map(|_| gate.clone().into())
             .collect::<Vec<_>>();
         let mut grid = Grid::new(0, 0);
-        grid.push_row(row);
+        grid.push_col(col);
         let tiler = GridTiler::new(grid);
-        ctx.draw(tiler)?;
-        let tracks = UniformTracks::builder().line(dsn.hline).space(dsn.hspace).start(ctx.brect().bottom()).sign(Sign::Neg).build().unwrap();
-        let hspan =  ctx.brect().hspan();
-        for i in 0..self.params.num {
-            ctx.draw_rect(dsn.hm, Rect::from_spans(hspan, tracks.index(i)));
+        ctx.draw_ref(&tiler)?;
+        let tracks = UniformTracks::builder()
+            .line(dsn.line)
+            .space(dsn.space)
+            .start(ctx.brect().left())
+            .sign(Sign::Neg)
+            .build()
+            .unwrap();
+        let vspan = ctx.brect().vspan();
+        let mut child_tracks = Vec::new();
+        let mut idx = 0usize;
+        for (i, s) in self.params.child_sizes.iter().copied().enumerate() {
+            child_tracks.push(Vec::new());
+            for j in 0..s {
+                let tr = tracks.index(idx);
+                let rect = Rect::from_spans(tr, vspan);
+                ctx.draw_rect(dsn.vm, rect);
+                ctx.add_port(CellPort::with_shape(
+                    arcstr::format!("decode_{i}_{j}"),
+                    dsn.vm,
+                    rect,
+                ));
+                idx += 1;
+                child_tracks[i].push(rect);
+            }
+        }
+        for n in 0..self.params.num {
+            let idxs = base_indices(n, &self.params.child_sizes);
+            let tf = tiler.translation(n, 0);
+            let mut gate = gate.clone();
+            gate.translate(tf);
+            let ports = ["a", "b", "c", "d"];
+            for (i, j) in idxs.into_iter().enumerate() {
+                // connect to child_tracks[i][j].
+                let port = gate.port(ports[i])?.largest_rect(dsn.li)?;
+                let track = child_tracks[i][j];
+
+                let bot = Rect::from_spans(track.hspan(), port.vspan());
+                let viap = ViaParams::builder()
+                    .layers(dsn.li, dsn.vm)
+                    .geometry(bot, bot)
+                    .build();
+                let via = ctx.instantiate::<Via>(&viap)?;
+                ctx.draw_ref(&via)?;
+
+                ctx.draw_rect(
+                    dsn.li,
+                    Rect::from_spans(port.hspan().union(via.brect().hspan()), port.vspan()),
+                )
+            }
+            ctx.add_port(
+                gate.port("y")?
+                    .into_cell_port()
+                    .named(arcstr::format!("decode_{n}")),
+            );
         }
         Ok(())
+}
+}
+
+fn base_indices(mut i: usize, sizes: &[usize]) -> Vec<usize> {
+    let mut res = Vec::new();
+    for sz in sizes {
+        res.push(i % sz);
+        i /= sz;
     }
+    res
 }
 
 impl DecoderStage {
@@ -80,12 +142,69 @@ impl DecoderStage {
         let mut grid = Grid::new(0, 0);
         grid.push_row(row);
         let tiler = GridTiler::new(grid);
-        ctx.draw(tiler)?;
-        let tracks = UniformTracks::builder().line(dsn.hline).space(dsn.hspace).start(ctx.brect().bottom()).sign(Sign::Neg).build().unwrap();
-        let hspan =  ctx.brect().hspan();
-        for i in 0..self.params.num {
-            ctx.draw_rect(dsn.hm, Rect::from_spans(hspan, tracks.index(i)));
+        ctx.draw_ref(&tiler)?;
+        let tracks = UniformTracks::builder()
+            .line(dsn.line)
+            .space(dsn.space)
+            .start(ctx.brect().bottom())
+            .sign(Sign::Neg)
+            .build()
+            .unwrap();
+        let hspan = ctx.brect().hspan();
+        let mut child_tracks = Vec::new();
+        let mut idx = 0usize;
+        for (i, s) in self.params.child_sizes.iter().copied().enumerate() {
+            child_tracks.push(Vec::new());
+            for j in 0..s {
+                let tr = tracks.index(idx);
+                let rect = Rect::from_spans(hspan, tr);
+                ctx.draw_rect(dsn.hm, rect);
+                ctx.add_port(CellPort::with_shape(
+                    arcstr::format!("predecode_{i}_{j}"),
+                    dsn.hm,
+                    rect,
+                ));
+                idx += 1;
+                child_tracks[i].push(rect);
+            }
         }
+        for n in 0..self.params.num {
+            let idxs = base_indices(n, &self.params.child_sizes);
+            let tf = tiler.translation(0, n);
+            let mut gate = gate.clone();
+            gate.translate(tf);
+            let ports = ["a", "b", "c", "d"];
+            for (i, j) in idxs.into_iter().enumerate() {
+                // connect to child_tracks[i][j].
+                let port = gate.port(ports[i])?.largest_rect(dsn.li)?;
+                let track = child_tracks[i][j];
+
+                let bot = Rect::from_spans(port.hspan(), track.vspan());
+                let viap = ViaParams::builder()
+                    .layers(dsn.li, dsn.vm)
+                    .geometry(bot, bot)
+                    .build();
+                let via = ctx.instantiate::<Via>(&viap)?;
+                ctx.draw_ref(&via)?;
+                let viap = ViaParams::builder()
+                    .layers(dsn.vm, dsn.hm)
+                    .geometry(via.brect(), track)
+                    .build();
+                let via = ctx.instantiate::<Via>(&viap)?;
+                ctx.draw_ref(&via)?;
+
+                ctx.draw_rect(
+                    dsn.li,
+                    Rect::from_spans(port.hspan(), port.vspan().union(via.brect().vspan())),
+                )
+            }
+            ctx.add_port(
+                gate.port("y")?
+                    .into_cell_port()
+                    .named(arcstr::format!("decode_{n}")),
+            );
+        }
+
         Ok(())
     }
 }
@@ -105,6 +224,7 @@ impl Component for DecoderGate {
     fn new(params: &Self::Params, _ctx: &substrate::data::SubstrateCtx) -> substrate::error::Result<Self> {
         Ok(Self { params: params.clone() })
     }
+
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("decoder_gate")
     }
@@ -118,7 +238,7 @@ impl Component for DecoderGate {
         let hspan = Span::until(dsn.width);
         let mut gate = ctx.instantiate::<Gate>(&self.params.gate)?;
         gate.set_orientation(Named::R90);
-        gate.place_center_x(dsn.width/2);
+        gate.place_center_x(dsn.width / 2);
         ctx.add_ports(gate.ports());
         ctx.draw(gate)?;
 
@@ -155,6 +275,8 @@ pub struct PhysicalDesign {
     line: i64,
     /// Spacing between wires in bus.
     space: i64,
+    /// Width of power rail.
+    rail_width: i64,
     /// Layers that should be extended to the edge of decoder gates and tap cells.
     abut_layers: HashSet<LayerKey>,
 }
@@ -182,8 +304,9 @@ impl Script for PredecoderPhysicalDesignScript {
             hm,
             vm,
             li,
-            hline: 320,
-            hspace: 160,
+            line: 320,
+            space: 160,
+            rail_width: 180,
             abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
         })
     }
@@ -207,13 +330,14 @@ impl Script for LastBitDecoderPhysicalDesignScript {
         let psdm = layers.get(Selector::Name("psdm"))?;
         let nsdm = layers.get(Selector::Name("nsdm"))?;
         Ok(Self::Output {
-            width: 5_840,
-            tap_width: 1_300,
+            width: 1_580,
+            tap_width: 790,
             hm,
             vm,
             li,
-            hline: 320,
-            hspace: 160,
+            line: 320,
+            space: 160,
+            rail_width: 180,
             abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
         })
     }

@@ -9,7 +9,7 @@ use substrate::index::IndexOwned;
 use super::{Decoder, DecoderStage, DecoderStageParams, TreeNode};
 use crate::clog2;
 use crate::v2::decoder::get_idxs;
-use crate::v2::gate::{GateParams, Inv, Nand2, Nand3, And3, And2};
+use crate::v2::gate::{And2, And3, GateParams};
 
 impl Decoder {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
@@ -78,7 +78,11 @@ impl DecoderStage {
         let decode = ctx.bus_port("decode", num, Direction::Output);
         let decode_b = ctx.bus_port("decode_b", num, Direction::Output);
 
-        let port_names = [arcstr::literal!("a"), arcstr::literal!("b"), arcstr::literal!("c")];
+        let port_names = [
+            arcstr::literal!("a"),
+            arcstr::literal!("b"),
+            arcstr::literal!("c"),
+        ];
 
         // Instantiate NAND gate.
         println!("{:?}", self.params.gate);
@@ -92,7 +96,13 @@ impl DecoderStage {
         assert_eq!(self.params.child_sizes.iter().product::<usize>(), num);
 
         let input_ports = (0..gate_size)
-            .map(|i| ctx.bus_port(port_names[i].clone(), self.params.child_sizes[i], Direction::Input))
+            .map(|i| {
+                ctx.bus_port(
+                    port_names[i].clone(),
+                    self.params.child_sizes[i],
+                    Direction::Input,
+                )
+            })
             .collect::<Vec<Slice>>();
 
         for i in 0..num {

@@ -269,7 +269,7 @@ mod tests {
         let work_dir = test_work_dir("test_decoder_stage_4");
 
         let params = DecoderStageParams {
-            gate: GateParams::And3(AndParams {
+            gate: GateParams::And2(AndParams {
                 nand: PrimitiveGateParams {
                     nwidth: 3_000,
                     pwidth: 1_200,
@@ -295,7 +295,7 @@ mod tests {
         let work_dir = test_work_dir("test_last_bit_decoder_4");
 
         let params = DecoderStageParams {
-            gate: GateParams::And3(AndParams {
+            gate: GateParams::And2(AndParams {
                 nand: PrimitiveGateParams {
                     nwidth: 3_000,
                     pwidth: 1_200,
