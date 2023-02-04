@@ -197,6 +197,7 @@ impl Component for Decoder {
             params: params.clone(),
         })
     }
+
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("decoder")
     }
@@ -206,13 +207,6 @@ impl Component for Decoder {
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
         self.schematic(ctx)
-    }
-
-    fn layout(
-        &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
-    ) -> substrate::error::Result<()> {
-        self.layout(ctx)
     }
 }
 
@@ -226,6 +220,7 @@ impl Component for DecoderStage {
             params: params.clone(),
         })
     }
+
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("decoder_stage")
     }
@@ -254,6 +249,7 @@ mod tests {
     use crate::v2::gate::AndParams;
 
     use super::*;
+    use super::layout::LastBitDecoderStage;
 
     #[test]
     fn test_decode_4bit() {
@@ -290,6 +286,32 @@ mod tests {
         };
 
         ctx.write_layout::<DecoderStage>(&params, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
+    }
+
+    #[test]
+    fn test_last_bit_decoder_stage() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_last_bit_decoder_4");
+
+        let params = DecoderStageParams {
+            gate: GateParams::And3(AndParams {
+                nand: PrimitiveGateParams {
+                    nwidth: 3_000,
+                    pwidth: 1_200,
+                    length: 150,
+                },
+                inv: PrimitiveGateParams {
+                    nwidth: 2_000,
+                    pwidth: 2_000,
+                    length: 150,
+                },
+            }),
+            num: 4,
+            child_sizes: vec![2, 2],
+        };
+
+        ctx.write_layout::<LastBitDecoderStage>(&params, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 }
