@@ -11,6 +11,10 @@ pub struct Decoder {
     params: DecoderParams,
 }
 
+pub struct Predecoder {
+    params: DecoderParams,
+}
+
 pub struct DecoderStage {
     params: DecoderStageParams,
 }
@@ -216,6 +220,28 @@ impl Component for Decoder {
     }
 }
 
+impl Component for Predecoder {
+    type Params = DecoderParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("predecoder")
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        self.layout(ctx)
+    }
+}
+
 impl Component for DecoderStage {
     type Params = DecoderStageParams;
     fn new(
@@ -290,6 +316,30 @@ mod tests {
         };
 
         ctx.write_layout::<DecoderStage>(&params, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
+    }
+
+    #[test]
+    fn test_predecoder_4() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_predecoder_4");
+
+        let tree = DecoderTree::new(4);
+        let params = DecoderParams { tree };
+
+        ctx.write_layout::<Predecoder>(&params, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
+    }
+
+    #[test]
+    fn test_predecoder_6() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_predecoder_6");
+
+        let tree = DecoderTree::new(6);
+        let params = DecoderParams { tree };
+
+        ctx.write_layout::<Predecoder>(&params, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 }

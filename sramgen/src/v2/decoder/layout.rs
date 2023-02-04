@@ -3,14 +3,17 @@ use std::collections::HashSet;
 use grid::Grid;
 use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams};
+use substrate::error::Result as SubResult;
 use substrate::index::IndexOwned;
-use substrate::layout::cell::{CellPort, Element, Port};
+use substrate::layout::cell::{CellPort, Element, Instance, Port};
+use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::geom::bbox::BoundBox;
 use substrate::layout::geom::orientation::Named;
 use substrate::layout::geom::transform::Translate;
-use substrate::layout::geom::{Rect, Sign, Span};
+use substrate::layout::geom::{Corner, Point, Rect, Sign, Span};
 use substrate::layout::group::elements::ElementGroup;
+use substrate::layout::group::Group;
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerKey;
 use substrate::layout::placement::grid::GridTiler;
@@ -20,7 +23,7 @@ use substrate::script::Script;
 
 use crate::v2::gate::{Gate, GateParams};
 
-use super::{Decoder, DecoderStage};
+use super::{Decoder, DecoderStage, DecoderStageParams, Predecoder, TreeNode};
 
 impl Decoder {
     pub(crate) fn layout(
@@ -28,6 +31,36 @@ impl Decoder {
         _ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         Ok(())
+    }
+}
+
+impl Predecoder {
+    pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> SubResult<()> {
+        let group = self.helper(&self.params.tree.root, ctx)?;
+        ctx.draw(group)?;
+        Ok(())
+    }
+
+    fn helper(&self, node: &TreeNode, ctx: &mut LayoutCtx) -> SubResult<Group> {
+        let params = DecoderStageParams {
+            gate: node.gate,
+            num: node.num,
+            child_sizes: node.children.iter().map(|n| n.num).collect(),
+        };
+        let mut group = Group::new();
+        let mut inst = ctx.instantiate::<DecoderStage>(&params)?;
+        inst.place(Corner::LowerLeft, Point::zero());
+        group.add(inst);
+
+        let mut x = 0;
+        for node in node.children.iter() {
+            let mut grp = self.helper(node, ctx)?;
+            grp.place(Corner::UpperLeft, Point::new(x, 0));
+            x += grp.brect().width();
+            group.add_group(grp);
+        }
+
+        Ok(group)
     }
 }
 
