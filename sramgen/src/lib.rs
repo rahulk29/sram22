@@ -64,9 +64,10 @@ pub fn setup_ctx() -> SubstrateCtx {
     let builder = SubstrateConfig::builder();
 
     #[cfg(feature = "calibre")]
-    let builder = builder.drc_tool(Arc::new(CalibreDrc::new(
-        crate::verification::calibre::SKY130_DRC_RULES_PATH,
-    )));
+    let builder = builder.drc_tool(Arc::new(CalibreDrc::builder().rules_file(
+        PathBuf::from(crate::verification::calibre::SKY130_DRC_RULES_PATH)).runset_file(
+        PathBuf::from(crate::verification::calibre::SKY130_DRC_RUNSET_PATH)).build().unwrap()
+    ));
     let cfg = builder
         .netlister(Arc::new(SpiceNetlister::new()))
         .simulator(Arc::new(simulator))
