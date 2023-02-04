@@ -20,15 +20,101 @@ use substrate::script::Script;
 
 use crate::v2::gate::{Gate, GateParams};
 
-use super::{Decoder, DecoderStage};
+use super::{Decoder, DecoderStage, DecoderTree, DecoderStageParams};
 
-impl Decoder {
-    pub(crate) fn layout(
-        &self,
-        _ctx: &mut substrate::layout::context::LayoutCtx,
-    ) -> substrate::error::Result<()> {
-        Ok(())
+pub struct LastBitDecoderStage {
+    params: DecoderStageParams,
+}
+
+impl Component for LastBitDecoderStage {
+    type Params = DecoderStageParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
     }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("last_bit_decoder_stage")
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let dsn = ctx.inner().run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
+        let mut gate = ctx.instantiate::<DecoderGate>(&DecoderGateParams {
+            gate: self.params.gate.clone(),
+            dsn: (*dsn).clone(),
+        })?;
+        gate.set_orientation(Named::R90Cw);
+        let col = (0..self.params.num)
+            .map(|_| gate.clone().into())
+            .collect::<Vec<_>>();
+        let mut grid = Grid::new(0, 0);
+        grid.push_col(col);
+        let tiler = GridTiler::new(grid);
+        ctx.draw_ref(&tiler)?;
+        let tracks = UniformTracks::builder()
+            .line(dsn.line)
+            .space(dsn.space)
+            .start(ctx.brect().left())
+            .sign(Sign::Neg)
+            .build()
+            .unwrap();
+        let vspan = ctx.brect().vspan();
+        let mut child_tracks = Vec::new();
+        let mut idx = 0usize;
+        for (i, s) in self.params.child_sizes.iter().copied().enumerate() {
+            child_tracks.push(Vec::new());
+            for j in 0..s {
+                let tr = tracks.index(idx);
+                let rect = Rect::from_spans(tr, vspan);
+                ctx.draw_rect(dsn.vm, rect);
+                ctx.add_port(CellPort::with_shape(
+                    arcstr::format!("decode_{i}_{j}"),
+                    dsn.vm,
+                    rect,
+                ));
+                idx += 1;
+                child_tracks[i].push(rect);
+            }
+        }
+        for n in 0..self.params.num {
+            let idxs = base_indices(n, &self.params.child_sizes);
+            let tf = tiler.translation(n, 0);
+            let mut gate = gate.clone();
+            gate.translate(tf);
+            let ports = ["a", "b", "c", "d"];
+            for (i, j) in idxs.into_iter().enumerate() {
+                // connect to child_tracks[i][j].
+                let port = gate.port(ports[i])?.largest_rect(dsn.li)?;
+                let track = child_tracks[i][j];
+
+                let bot = Rect::from_spans(track.hspan(), port.vspan());
+                let viap = ViaParams::builder()
+                    .layers(dsn.li, dsn.vm)
+                    .geometry(bot, bot)
+                    .build();
+                let via = ctx.instantiate::<Via>(&viap)?;
+                ctx.draw_ref(&via)?;
+
+                ctx.draw_rect(
+                    dsn.li,
+                    Rect::from_spans(port.hspan().union(via.brect().hspan()), port.vspan()),
+                )
+            }
+            ctx.add_port(
+                gate.port("y")?
+                    .into_cell_port()
+                    .named(arcstr::format!("decode_{n}")),
+            );
+        }
+        Ok(())
+}
 }
 
 fn base_indices(mut i: usize, sizes: &[usize]) -> Vec<usize> {
@@ -45,8 +131,11 @@ impl DecoderStage {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&NoParams)?;
-        let gate = ctx.instantiate::<DecoderGate>(&self.params.gate)?;
+        let dsn = ctx.inner().run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
+        let gate = ctx.instantiate::<DecoderGate>(&DecoderGateParams {
+            gate: self.params.gate.clone(),
+            dsn: (*dsn).clone(),
+        })?;
         let row = (0..self.params.num)
             .map(|_| gate.clone().into())
             .collect::<Vec<_>>();
@@ -55,8 +144,8 @@ impl DecoderStage {
         let tiler = GridTiler::new(grid);
         ctx.draw_ref(&tiler)?;
         let tracks = UniformTracks::builder()
-            .line(dsn.hline)
-            .space(dsn.hspace)
+            .line(dsn.line)
+            .space(dsn.space)
             .start(ctx.brect().bottom())
             .sign(Sign::Neg)
             .build()
@@ -120,32 +209,34 @@ impl DecoderStage {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct DecoderGateParams {
+    pub gate: GateParams,
+    pub dsn: PhysicalDesign,
+}
+
 pub struct DecoderGate {
-    pub params: GateParams,
+    pub params: DecoderGateParams,
 }
 
 impl Component for DecoderGate {
-    type Params = GateParams;
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        Ok(Self { params: *params })
+    type Params = DecoderGateParams;
+    fn new(params: &Self::Params, _ctx: &substrate::data::SubstrateCtx) -> substrate::error::Result<Self> {
+        Ok(Self { params: params.clone() })
     }
+
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("decoder_gate")
     }
 
-    fn layout(
-        &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
-    ) -> substrate::error::Result<()> {
+    fn layout(&self, ctx: &mut substrate::layout::context::LayoutCtx) -> substrate::error::Result<()> {
+        let dsn = &self.params.dsn;
+
         let layers = ctx.layers();
         let outline = layers.get(Selector::Name("outline"))?;
 
-        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&NoParams)?;
         let hspan = Span::until(dsn.width);
-        let mut gate = ctx.instantiate::<Gate>(&self.params)?;
+        let mut gate = ctx.instantiate::<Gate>(&self.params.gate)?;
         gate.set_orientation(Named::R90);
         gate.place_center_x(dsn.width / 2);
         ctx.add_ports(gate.ports());
@@ -168,8 +259,6 @@ impl Component for DecoderGate {
     }
 }
 
-pub struct PhysicalDesignScript;
-
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PhysicalDesign {
     /// Width of a decoder cell.
@@ -182,15 +271,19 @@ pub struct PhysicalDesign {
     vm: LayerKey,
     /// The metal used to connect to MOS sources, drains, gates, and taps.
     li: LayerKey,
-    /// Width of wires on (`hm`)[PhysicalDesign::hm].
-    hline: i64,
-    /// Spacing between wires on (`hm`)[PhysicalDesign::hm].
-    hspace: i64,
+    /// Width of wires in bus.
+    line: i64,
+    /// Spacing between wires in bus.
+    space: i64,
+    /// Width of power rail.
+    rail_width: i64,
     /// Layers that should be extended to the edge of decoder gates and tap cells.
     abut_layers: HashSet<LayerKey>,
 }
 
-impl Script for PhysicalDesignScript {
+pub struct PredecoderPhysicalDesignScript;
+
+impl Script for PredecoderPhysicalDesignScript {
     type Params = NoParams;
     type Output = PhysicalDesign;
 
@@ -211,8 +304,40 @@ impl Script for PhysicalDesignScript {
             hm,
             vm,
             li,
-            hline: 320,
-            hspace: 160,
+            line: 320,
+            space: 160,
+            rail_width: 180,
+            abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
+        })
+    }
+}
+
+pub struct LastBitDecoderPhysicalDesignScript;
+
+impl Script for LastBitDecoderPhysicalDesignScript {
+    type Params = NoParams;
+    type Output = PhysicalDesign;
+
+    fn run(
+        _params: &Self::Params,
+        ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self::Output> {
+        let layers = ctx.layers();
+        let li = layers.get(Selector::Metal(0))?;
+        let vm = layers.get(Selector::Metal(1))?;
+        let hm = layers.get(Selector::Metal(2))?;
+        let nwell = layers.get(Selector::Name("nwell"))?;
+        let psdm = layers.get(Selector::Name("psdm"))?;
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+        Ok(Self::Output {
+            width: 1_580,
+            tap_width: 790,
+            hm,
+            vm,
+            li,
+            line: 320,
+            space: 160,
+            rail_width: 180,
             abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
         })
     }
