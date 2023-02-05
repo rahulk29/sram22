@@ -2110,6 +2110,7 @@ dependencies = [
  "anyhow",
  "approx",
  "arcstr",
+ "array_map",
  "bytes",
  "calibre",
  "clap",

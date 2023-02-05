@@ -248,8 +248,8 @@ mod tests {
     use crate::tests::test_work_dir;
     use crate::v2::gate::AndParams;
 
-    use super::*;
     use super::layout::LastBitDecoderStage;
+    use super::*;
 
     #[test]
     fn test_decode_4bit() {
@@ -307,11 +307,15 @@ mod tests {
                     length: 150,
                 },
             }),
-            num: 4,
-            child_sizes: vec![2, 2],
+            num: 16,
+            child_sizes: vec![4, 4],
         };
 
-        ctx.write_layout::<LastBitDecoderStage>(&params, out_gds(work_dir, "layout"))
+        ctx.write_layout::<LastBitDecoderStage>(&params, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
+        #[cfg(feature = "calibre")]
+        let output = ctx
+            .write_drc::<LastBitDecoderStage>(&params, workdir.join("drc"))
+            .expect("failed to run drc");
     }
 }
