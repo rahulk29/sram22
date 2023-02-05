@@ -315,7 +315,7 @@ mod tests {
             .expect("failed to write layout");
         #[cfg(feature = "calibre")]
         let output = ctx
-            .write_drc::<LastBitDecoderStage>(&params, workdir.join("drc"))
+            .write_drc::<LastBitDecoderStage>(&params, work_dir.join("drc"))
             .expect("failed to run drc");
     }
 }
