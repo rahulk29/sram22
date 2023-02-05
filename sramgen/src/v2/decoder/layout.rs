@@ -1,12 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::iter::Extend;
 
-use grid::{grid, Grid};
 use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams};
 use substrate::error::Result;
 use substrate::index::IndexOwned;
-use substrate::layout::cell::Instance;
+
 use substrate::layout::cell::{CellPort, Element, Port};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::via::{Via, ViaParams};
@@ -15,19 +14,18 @@ use substrate::layout::geom::orientation::Named;
 use substrate::layout::geom::transform::Translate;
 use substrate::layout::geom::{Corner, Point, Rect, Sign, Span};
 use substrate::layout::group::elements::ElementGroup;
-use substrate::layout::group::Group;
+
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerKey;
-use substrate::layout::placement::grid::{ArrayTiler, GridTiler};
-use substrate::layout::placement::nine_patch::{NpTiler, Region};
+use substrate::layout::placement::grid::ArrayTiler;
+
 use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::routing::tracks::UniformTracks;
-use substrate::layout::Draw;
 use substrate::script::Script;
 
-use crate::v2::gate::{And2, Gate, GateParams};
+use crate::v2::gate::{Gate, GateParams};
 
-use super::{Decoder, DecoderParams, DecoderStage, DecoderStageParams, DecoderTree, Predecoder};
+use super::{DecoderParams, DecoderStage, DecoderStageParams, Predecoder};
 
 pub struct LastBitDecoderStage {
     params: DecoderStageParams,
@@ -40,7 +38,7 @@ fn decoder_stage_layout(
 ) -> Result<()> {
     // TODO: Parameter validation
     let decoder_params = DecoderGateParams {
-        gate: params.gate.clone(),
+        gate: params.gate,
         dsn: (*dsn).clone(),
     };
     let gate = ctx.instantiate::<DecoderGate>(&decoder_params)?;
@@ -86,7 +84,6 @@ fn decoder_stage_layout(
     for n in 0..params.num {
         let idxs = base_indices(n, &params.child_sizes);
         let n_calc = n + (n + dsn.tap_period) / dsn.tap_period / 2;
-        println!("{}", n_calc);
         let tf = grid.translation(0, n_calc);
         let mut gate = gate.clone();
         gate.translate(tf);
