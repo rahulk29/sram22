@@ -371,15 +371,29 @@ impl Component for DecoderTap {
 
         for (mut layer, spans) in gate_spans.abutted_layers.iter() {
             // P+ tap for NMOS, N+ tap for PMOS
-            if *layer == nsdm {
-                layer = &psdm;
-            } else if *layer == psdm {
-                layer = &nsdm;
+            if *layer == nsdm || *layer == psdm {
+                continue;
             }
             for vspan in spans {
                 ctx.draw_rect(*layer, Rect::from_spans(hspan, *vspan));
             }
         }
+
+        let hspan = hspan.shrink_all(130);
+
+        if let Some(spans) = gate_spans.abutted_layers.get(&nsdm) {
+            for vspan in spans {
+                ctx.draw_rect(psdm, Rect::from_spans(hspan, (*vspan).shrink_all(110)));
+            }
+        }
+
+        if let Some(spans) = gate_spans.abutted_layers.get(&psdm) {
+            for vspan in spans {
+                ctx.draw_rect(nsdm, Rect::from_spans(hspan, (*vspan).shrink_all(110)));
+            }
+        }
+
+        let hspan = hspan.shrink_all(125);
 
         let mut via_metals = Vec::new();
         via_metals.push(dsn.li);
@@ -388,7 +402,7 @@ impl Component for DecoderTap {
         if let Some(spans) = gate_spans.abutted_layers.get(&dsn.stripe_metal) {
             for vspan in spans {
                 let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
-                    rect: Rect::from_spans(hspan, gate_spans.met_to_diff[vspan]),
+                    rect: Rect::from_spans(hspan, gate_spans.met_to_diff[vspan].shrink_all(290)),
                     via_metals: vec![tap, dsn.li],
                 })?;
                 ctx.draw(via)?;
