@@ -357,11 +357,18 @@ mod tests {
                     length: 150,
                 },
             }),
-            num: 4,
-            child_sizes: vec![2, 2],
+            num: 16,
+            child_sizes: vec![4, 4],
         };
 
-        ctx.write_layout::<LastBitDecoderStage>(&params, out_gds(work_dir, "layout"))
+        ctx.write_layout::<LastBitDecoderStage>(&params, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
+        #[cfg(feature = "calibre")]
+        {
+            let output = ctx
+                .write_drc::<LastBitDecoderStage>(&params, work_dir.join("drc"))
+                .expect("failed to run drc");
+            assert!(matches!(output.summary, substrate::drc::DrcSummary::Pass));
+        }
     }
 }
