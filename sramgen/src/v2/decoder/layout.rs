@@ -13,7 +13,7 @@ use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::geom::bbox::BoundBox;
 use substrate::layout::geom::orientation::Named;
 use substrate::layout::geom::transform::Translate;
-use substrate::layout::geom::{Rect, Sign, Span};
+use substrate::layout::geom::{Corner, Point, Rect, Sign, Span};
 use substrate::layout::group::elements::ElementGroup;
 use substrate::layout::group::Group;
 use substrate::layout::layers::selector::Selector;
@@ -27,7 +27,7 @@ use substrate::script::Script;
 
 use crate::v2::gate::{Gate, GateParams};
 
-use super::{Decoder, DecoderStage, DecoderStageParams, DecoderTree};
+use super::{Decoder, DecoderParams, DecoderStage, DecoderStageParams, DecoderTree, Predecoder};
 
 pub struct LastBitDecoderStage {
     params: DecoderStageParams,
@@ -73,10 +73,10 @@ fn decoder_stage_layout(
         for j in 0..s {
             let tr = tracks.index(idx);
             let rect = Rect::from_spans(hspan, tr);
-            ctx.draw_rect(dsn.routing_metal, rect);
+            ctx.draw_rect(dsn.stripe_metal, rect);
             ctx.add_port(CellPort::with_shape(
                 arcstr::format!("predecode_{i}_{j}"),
-                dsn.routing_metal,
+                dsn.stripe_metal,
                 rect,
             ));
             idx += 1;
@@ -101,7 +101,7 @@ fn decoder_stage_layout(
             let mut via_metals = Vec::new();
             via_metals.push(dsn.li);
             via_metals.extend(dsn.via_metals.clone());
-            via_metals.push(dsn.routing_metal);
+            via_metals.push(dsn.stripe_metal);
 
             let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
                 rect: bot,
@@ -148,6 +148,63 @@ impl Component for LastBitDecoderStage {
             .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
         decoder_stage_layout(ctx, &self.params, &dsn)
     }
+}
+
+impl Predecoder {
+    pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
+        let dsn = ctx
+            .inner()
+            .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
+        let node = &self.params.tree.root;
+        let child_sizes = if node.children.is_empty() {
+            (0..node.num.ilog2()).map(|_| 2).collect()
+        } else {
+            node.children.iter().map(|n| n.num).collect()
+        };
+        let params = DecoderStageParams {
+            gate: node.gate,
+            num: node.num,
+            child_sizes,
+        };
+        let mut inst = ctx.instantiate::<DecoderStage>(&params)?;
+        inst.place(Corner::LowerLeft, Point::zero());
+        ctx.add_ports(inst.ports_starting_with("decode"));
+
+        let mut x = 0;
+        for (i, node) in node.children.iter().enumerate() {
+            let mut child = ctx.instantiate::<Predecoder>(&DecoderParams {
+                tree: super::DecoderTree { root: node.clone() },
+            })?;
+            child.place(Corner::UpperLeft, Point::new(x, 0));
+            x += child.brect().width() + 2 * dsn.width;
+
+            for j in 0..node.num {
+                let src = child.port(&format!("decode_{j}"))?.largest_rect(dsn.li)?;
+                let dst = inst
+                    .port(&format!("predecode_{i}_{j}"))?
+                    .largest_rect(dsn.stripe_metal)?;
+                let rect = Rect::from_spans(src.hspan(), dst.vspan().add_point(src.top()));
+                ctx.draw_rect(dsn.wire_metal, rect);
+            }
+            ctx.draw(child)?;
+        }
+        ctx.draw(inst)?;
+
+        ctx.flatten();
+
+        Ok(())
+    }
+}
+
+enum PredecoderTracks {
+    /// Forward through any higher predecoders.
+    Forward,
+    /// Backward through any lower predecoders.
+    Backward,
+    /// Hop from one stage to the next.
+    Hop,
+    /// Power rails (ground if odd, power if even).
+    Power,
 }
 
 fn base_indices(mut i: usize, sizes: &[usize]) -> Vec<usize> {
@@ -255,9 +312,9 @@ impl Component for DecoderGate {
             .collect();
 
         for rect in rects {
-            ctx.draw_rect(dsn.routing_metal, rect);
+            ctx.draw_rect(dsn.stripe_metal, rect);
             abutted_layers
-                .entry(dsn.routing_metal)
+                .entry(dsn.stripe_metal)
                 .or_insert(Vec::new())
                 .push(rect.vspan());
         }
@@ -330,8 +387,8 @@ impl Component for DecoderTap {
         let mut via_metals = Vec::new();
         via_metals.push(dsn.li);
         via_metals.extend(dsn.via_metals.clone());
-        via_metals.push(dsn.routing_metal);
-        if let Some(spans) = gate_spans.abutted_layers.get(&dsn.routing_metal) {
+        via_metals.push(dsn.stripe_metal);
+        if let Some(spans) = gate_spans.abutted_layers.get(&dsn.stripe_metal) {
             for vspan in spans {
                 let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
                     rect: Rect::from_spans(hspan, gate_spans.met_to_diff[vspan]),
@@ -406,10 +463,12 @@ pub struct PhysicalDesign {
     tap_width: i64,
     /// Number of decoders on either side of each tap.
     tap_period: usize,
-    /// The metal layer used for routing and power rails.
-    routing_metal: LayerKey,
+    /// The metal layer used for buses and power rails.
+    stripe_metal: LayerKey,
+    /// The metal layer used for connecting stripes to individual decoders.
+    wire_metal: LayerKey,
     /// List of intermediate layers in via between (`li`)[PhysicalDesign::li] and
-    /// (`routing_metal`)[PhysicalDesign::routing_metal)
+    /// (`stripe_metal`)[PhysicalDesign::stripe_metal)
     via_metals: Vec<LayerKey>,
     /// The metal used to connect to MOS sources, drains, gates, and taps.
     li: LayerKey,
@@ -435,16 +494,18 @@ impl Script for PredecoderPhysicalDesignScript {
     ) -> substrate::error::Result<Self::Output> {
         let layers = ctx.layers();
         let li = layers.get(Selector::Metal(0))?;
-        let routing_metal = layers.get(Selector::Metal(2))?;
+        let stripe_metal = layers.get(Selector::Metal(2))?;
+        let wire_metal = layers.get(Selector::Metal(1))?;
         let via_metals = vec![layers.get(Selector::Metal(1))?];
         let nwell = layers.get(Selector::Name("nwell"))?;
         let psdm = layers.get(Selector::Name("psdm"))?;
         let nsdm = layers.get(Selector::Name("nsdm"))?;
         Ok(Self::Output {
-            width: 5_840,
+            width: 2_920,
             tap_width: 1_300,
             tap_period: 1,
-            routing_metal,
+            stripe_metal,
+            wire_metal,
             via_metals,
             li,
             line: 320,
@@ -467,7 +528,8 @@ impl Script for LastBitDecoderPhysicalDesignScript {
     ) -> substrate::error::Result<Self::Output> {
         let layers = ctx.layers();
         let li = layers.get(Selector::Metal(0))?;
-        let routing_metal = layers.get(Selector::Metal(1))?;
+        let stripe_metal = layers.get(Selector::Metal(1))?;
+        let wire_metal = layers.get(Selector::Metal(2))?;
         let nwell = layers.get(Selector::Name("nwell"))?;
         let psdm = layers.get(Selector::Name("psdm"))?;
         let nsdm = layers.get(Selector::Name("nsdm"))?;
@@ -475,7 +537,8 @@ impl Script for LastBitDecoderPhysicalDesignScript {
             width: 1_580,
             tap_width: 790,
             tap_period: 4,
-            routing_metal,
+            stripe_metal,
+            wire_metal,
             via_metals: vec![],
             li,
             line: 320,
