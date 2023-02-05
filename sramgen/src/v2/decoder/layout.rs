@@ -25,7 +25,7 @@ use substrate::layout::routing::tracks::UniformTracks;
 use substrate::layout::Draw;
 use substrate::script::Script;
 
-use crate::v2::gate::{Gate, GateParams};
+use crate::v2::gate::{And2, Gate, GateParams};
 
 use super::{Decoder, DecoderParams, DecoderStage, DecoderStageParams, DecoderTree, Predecoder};
 
