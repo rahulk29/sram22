@@ -369,7 +369,7 @@ impl Component for DecoderTap {
 
         let gate_spans = decoder_gate.cell().get_metadata::<DecoderGateSpans>();
 
-        for (mut layer, spans) in gate_spans.abutted_layers.iter() {
+        for (layer, spans) in gate_spans.abutted_layers.iter() {
             // P+ tap for NMOS, N+ tap for PMOS
             if *layer == nsdm || *layer == psdm {
                 continue;
