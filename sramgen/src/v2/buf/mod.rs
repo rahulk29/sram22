@@ -5,6 +5,17 @@ pub mod layout;
 pub mod schematic;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BufParams {
+    pub nw: i64,
+    pub pw: i64,
+    pub lch: i64,
+}
+
+pub struct Buf {
+    params: BufParams,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiffBufParams {
     pub width: i64,
     pub nw: i64,
@@ -14,6 +25,27 @@ pub struct DiffBufParams {
 
 pub struct DiffBuf {
     params: DiffBufParams,
+}
+
+impl Component for Buf {
+    type Params = BufParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("buf")
+    }
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        self.schematic(ctx)
+    }
 }
 
 impl Component for DiffBuf {

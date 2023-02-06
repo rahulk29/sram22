@@ -17,6 +17,11 @@ use super::{ColPeripherals, Column};
 
 impl ColPeripherals {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
+        let cols = self.params.cols;
+        let mux_ratio = self.params.rmux.mux_ratio;
+        let word_length = cols / mux_ratio;
+
+        let clk = ctx.port("clk", Direction::Input);
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
         let bl = ctx.bus_port("bl", self.params.cols, Direction::InOut);
@@ -25,8 +30,9 @@ impl ColPeripherals {
         let br_dummy = ctx.bus_port("br_dummy", 2, Direction::InOut);
         let en_b = ctx.port("en_b", Direction::Input);
         let sel_b = ctx.bus_port("sel_b", self.params.cols, Direction::Input);
+        let wmask = ctx.port("wmask", Direction::Input);
+        let data = ctx.bus_port("data", word_length, Direction::Input);
 
-        let mux_ratio = self.params.rmux.mux_ratio;
         let pc = ctx.instantiate::<Precharge>(&self.params.pc)?;
         Ok(())
     }
@@ -43,10 +49,14 @@ impl Column {
         let sel_b = ctx.bus_port("sel_b", self.params.rmux.mux_ratio, Direction::Input);
         let we = ctx.port("we", Direction::Input);
         let wmask = ctx.port("wmask", Direction::Input);
-        let data = ctx.signal("data");
+        let data = ctx.port("data", Direction::Input);
+        let outp = ctx.port("outp", Direction::Output);
+        let outn = ctx.port("outn", Direction::Output);
 
         let bl_out = ctx.signal("bl_out");
         let br_out = ctx.signal("br_out");
+        let sa_outp = ctx.signal("sa_outp");
+        let sa_outn = ctx.signal("sa_outn");
         let q = ctx.signal("q");
         let q_b = ctx.signal("q_b");
 
@@ -99,8 +109,8 @@ impl Column {
             ("clk", &clk),
             ("inn", &br_out),
             ("inp", &bl_out),
-            ("outp", &q),
-            ("outn", &q_b),
+            ("outp", &sa_outp),
+            ("outn", &sa_outn),
             ("vdd", &vdd),
             ("vss", &vss),
         ]);
@@ -111,10 +121,10 @@ impl Column {
         buf.connect_all([
             ("vdd", &vdd),
             ("vss", &vss),
-            ("din1", &br_out),
-            ("din2", &bl_out),
-            ("dout1", &br_out),
-            ("dout2", &bl_out),
+            ("din1", &sa_outp),
+            ("din2", &sa_outn),
+            ("dout1", &outp),
+            ("dout2", &outn),
         ]);
         buf.set_name("buf");
         ctx.add_instance(buf);
