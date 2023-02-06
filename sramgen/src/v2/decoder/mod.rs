@@ -370,6 +370,13 @@ mod tests {
 
         ctx.write_layout::<Predecoder>(&params, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
+        #[cfg(feature = "calibre")]
+        {
+            let output = ctx
+                .write_drc::<Predecoder>(&params, work_dir.join("drc"))
+                .expect("failed to run drc");
+            assert!(matches!(output.summary, substrate::drc::DrcSummary::Pass));
+        }
     }
 
     #[test]
