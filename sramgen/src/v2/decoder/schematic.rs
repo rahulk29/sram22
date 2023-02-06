@@ -46,7 +46,6 @@ impl Decoder {
                 let unused_wire = ctx.bus(format!("unused_{ctr}"), output_port.width());
                 stage.connect_all([("decode", &output_port), ("decode_b", &unused_wire)]);
             } else {
-                println!("drive decode");
                 stage.connect_all([("decode", &decode), ("decode_b", &decode_b)]);
             }
 
@@ -85,7 +84,6 @@ impl DecoderStage {
         ];
 
         // Instantiate NAND gate.
-        println!("{:?}", self.params.gate);
         let (and, gate_size) = match self.params.gate {
             GateParams::And2(params) => (ctx.instantiate::<And2>(&params)?, 2),
             GateParams::And3(params) => (ctx.instantiate::<And3>(&params)?, 3),

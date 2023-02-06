@@ -269,12 +269,16 @@ impl Component for DecoderStage {
 #[cfg(test)]
 mod tests {
 
+    use substrate::component::NoParams;
+
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::v2::gate::AndParams;
 
-    use super::layout::LastBitDecoderStage;
+    use super::layout::{
+        DecoderGate, DecoderGateParams, LastBitDecoderPhysicalDesignScript, LastBitDecoderStage,
+    };
     use super::*;
 
     #[test]
@@ -312,6 +316,35 @@ mod tests {
         };
 
         ctx.write_layout::<DecoderStage>(&params, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
+    }
+
+    #[test]
+    fn test_decoder_gate() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_decoder_gate");
+
+        let dsn = ctx
+            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)
+            .expect("failed to run design script");
+
+        let params = DecoderGateParams {
+            gate: GateParams::And2(AndParams {
+                nand: PrimitiveGateParams {
+                    nwidth: 3_000,
+                    pwidth: 1_200,
+                    length: 150,
+                },
+                inv: PrimitiveGateParams {
+                    nwidth: 2_000,
+                    pwidth: 2_000,
+                    length: 150,
+                },
+            }),
+            dsn: (*dsn).clone(),
+        };
+
+        ctx.write_layout::<DecoderGate>(&params, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 
@@ -357,11 +390,18 @@ mod tests {
                     length: 150,
                 },
             }),
-            num: 4,
-            child_sizes: vec![2, 2],
+            num: 16,
+            child_sizes: vec![4, 4],
         };
 
-        ctx.write_layout::<LastBitDecoderStage>(&params, out_gds(work_dir, "layout"))
+        ctx.write_layout::<LastBitDecoderStage>(&params, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
+        #[cfg(feature = "calibre")]
+        {
+            let output = ctx
+                .write_drc::<LastBitDecoderStage>(&params, work_dir.join("drc"))
+                .expect("failed to run drc");
+            assert!(matches!(output.summary, substrate::drc::DrcSummary::Pass));
+        }
     }
 }
