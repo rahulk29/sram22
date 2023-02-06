@@ -368,7 +368,7 @@ mod tests {
         let tree = DecoderTree::new(6);
         let params = DecoderParams { tree };
 
-        ctx.write_layout::<Predecoder>(&params, out_gds(work_dir, "layout"))
+        ctx.write_layout::<Predecoder>(&params, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
         #[cfg(feature = "calibre")]
         {
