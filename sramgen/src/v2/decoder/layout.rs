@@ -12,14 +12,16 @@ use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::geom::bbox::BoundBox;
 use substrate::layout::geom::orientation::Named;
 use substrate::layout::geom::transform::Translate;
-use substrate::layout::geom::{Corner, Point, Rect, Sign, Span};
+use substrate::layout::geom::{Corner, Dir, Point, Rect, Sign, Span};
 use substrate::layout::group::elements::ElementGroup;
+use substrate::layout::DrawRef;
 
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerKey;
 use substrate::layout::placement::grid::ArrayTiler;
 
 use substrate::layout::placement::place_bbox::PlaceBbox;
+use substrate::layout::routing::manual::jog::ElbowJog;
 use substrate::layout::routing::tracks::UniformTracks;
 use substrate::script::Script;
 
@@ -44,13 +46,17 @@ fn decoder_stage_layout(
     let gate = ctx.instantiate::<DecoderGate>(&decoder_params)?;
     let tap = ctx.instantiate::<DecoderTap>(&decoder_params)?;
 
-    let mut tiler = ArrayTiler::new();
+    let mut period_tiler = ArrayTiler::new();
+    period_tiler.push_num(gate.clone(), dsn.tap_period);
+    period_tiler.push(tap.clone());
 
-    for _ in 0..params.num / dsn.tap_period / 2 {
-        tiler.push_num(gate.clone(), dsn.tap_period);
-        tiler.push(tap.clone());
-        tiler.push_num(gate.clone(), dsn.tap_period);
-    }
+    let period_grid = period_tiler.into_grid_tiler();
+
+    let period_group = period_grid.draw_ref()?;
+
+    let mut tiler = ArrayTiler::new();
+    tiler.push(tap.clone());
+    tiler.push_num(period_group.clone(), params.num / dsn.tap_period);
 
     let grid = tiler.into_grid_tiler();
 
@@ -83,8 +89,8 @@ fn decoder_stage_layout(
     }
     for n in 0..params.num {
         let idxs = base_indices(n, &params.child_sizes);
-        let n_calc = n + (n + dsn.tap_period) / dsn.tap_period / 2;
-        let tf = grid.translation(0, n_calc);
+        let tf = grid.translation(0, n / dsn.tap_period + 1)
+            + period_grid.translation(0, n % dsn.tap_period);
         let mut gate = gate.clone();
         gate.translate(tf);
         let ports = ["a", "b", "c", "d"];
@@ -173,15 +179,37 @@ impl Predecoder {
                 tree: super::DecoderTree { root: node.clone() },
             })?;
             child.place(Corner::UpperLeft, Point::new(x, 0));
-            x += child.brect().width() + 2 * dsn.width;
+            x += child.brect().width() + dsn.width * dsn.tap_period as i64;
 
             for j in 0..node.num {
                 let src = child.port(&format!("decode_{j}"))?.largest_rect(dsn.li)?;
                 let dst = inst
                     .port(&format!("predecode_{i}_{j}"))?
                     .largest_rect(dsn.stripe_metal)?;
-                let rect = Rect::from_spans(src.hspan(), dst.vspan().add_point(src.top()));
-                ctx.draw_rect(dsn.wire_metal, rect);
+                let rect =
+                    Rect::from_spans(src.hspan(), Span::new(src.top() - src.width(), src.top()));
+                let jog = ElbowJog::builder()
+                    .dir(Dir::Horiz)
+                    .sign(Sign::Neg)
+                    .src(rect)
+                    .space(335)
+                    .dst(dst.top())
+                    .layer(dsn.li)
+                    .build()
+                    .unwrap();
+
+                let mut via_metals = Vec::new();
+                via_metals.push(dsn.li);
+                via_metals.extend(dsn.via_metals.clone());
+                via_metals.push(dsn.stripe_metal);
+
+                let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
+                    rect: jog.r2().bbox().intersection(dst.bbox()).into_rect(),
+                    via_metals,
+                })?;
+
+                ctx.draw(jog)?;
+                ctx.draw(via)?;
             }
             ctx.draw(child)?;
         }
@@ -512,9 +540,9 @@ impl Script for PredecoderPhysicalDesignScript {
         let psdm = layers.get(Selector::Name("psdm"))?;
         let nsdm = layers.get(Selector::Name("nsdm"))?;
         Ok(Self::Output {
-            width: 2_920,
-            tap_width: 1_300,
-            tap_period: 1,
+            width: 2_000,
+            tap_width: 790,
+            tap_period: 4,
             stripe_metal,
             wire_metal,
             via_metals,
@@ -547,7 +575,7 @@ impl Script for LastBitDecoderPhysicalDesignScript {
         Ok(Self::Output {
             width: 1_580,
             tap_width: 790,
-            tap_period: 4,
+            tap_period: 8,
             stripe_metal,
             wire_metal,
             via_metals: vec![],
