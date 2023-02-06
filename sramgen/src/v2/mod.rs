@@ -7,4 +7,5 @@ pub mod dff;
 pub mod gate;
 pub mod precharge;
 pub mod rmux;
+pub mod sram;
 pub mod wmux;

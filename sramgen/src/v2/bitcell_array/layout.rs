@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use arcstr::ArcStr;
 use codegen::hard_macro;
 use grid::Grid;
+use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams, View};
 use substrate::data::SubstrateCtx;
 use substrate::layout::geom::orientation::Named;
@@ -183,9 +184,9 @@ pub struct SpWlstrapa;
 )]
 pub struct SpWlstrapaP;
 
-pub struct SpCellArrayCornerTop;
+pub struct SpCellArrayCornerUl;
 
-impl Component for SpCellArrayCornerTop {
+impl Component for SpCellArrayCornerUl {
     type Params = NoParams;
 
     fn new(
@@ -196,7 +197,7 @@ impl Component for SpCellArrayCornerTop {
     }
 
     fn name(&self) -> ArcStr {
-        arcstr::literal!("sp_cell_array_corner_top")
+        arcstr::literal!("sp_cell_array_corner_ul")
     }
 
     fn layout(
@@ -215,9 +216,9 @@ impl Component for SpCellArrayCornerTop {
     }
 }
 
-pub struct SpCellArrayLeft;
+pub struct SpCellArrayCornerUr;
 
-impl Component for SpCellArrayLeft {
+impl Component for SpCellArrayCornerUr {
     type Params = NoParams;
 
     fn new(
@@ -225,6 +226,162 @@ impl Component for SpCellArrayLeft {
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         Ok(Self)
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::literal!("sp_cell_array_corner_ur")
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let colend = ctx
+            .instantiate::<SpColend>(&NoParams)?
+            .with_orientation(Named::ReflectHoriz);
+        let corner = ctx
+            .instantiate::<SpCorner>(&NoParams)?
+            .with_orientation(Named::ReflectHoriz);
+        let rowend = ctx
+            .instantiate::<SpRowend>(&NoParams)?
+            .with_orientation(Named::ReflectHoriz);
+        let colend_p_cent = ctx.instantiate::<SpColendPCent>(&NoParams)?;
+        let wlstrap_p = ctx.instantiate::<SpWlstrapP>(&NoParams)?;
+        let cell = ctx
+            .instantiate::<SpCell>(&NoParams)?
+            .with_orientation(Named::ReflectHoriz);
+
+        let grid_tiler =
+            GridTiler::new(into_grid![[colend_p_cent, colend, corner][wlstrap_p, cell, rowend]]);
+        ctx.draw(grid_tiler)?;
+
+        Ok(())
+    }
+}
+
+pub struct SpCellArrayCornerLr;
+
+impl Component for SpCellArrayCornerLr {
+    type Params = NoParams;
+
+    fn new(
+        _params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self)
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::literal!("sp_cell_array_corner_lr")
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let colend = ctx
+            .instantiate::<SpColend>(&NoParams)?
+            .with_orientation(Named::R180);
+        let corner = ctx
+            .instantiate::<SpCorner>(&NoParams)?
+            .with_orientation(Named::R180);
+        let rowend = ctx
+            .instantiate::<SpRowend>(&NoParams)?
+            .with_orientation(Named::R180);
+        let horiz_wlstrap_p = ctx.instantiate::<SpHorizWlstrapP>(&NoParams)?;
+        let colend_p_cent = ctx
+            .instantiate::<SpColendPCent>(&NoParams)?
+            .with_orientation(Named::ReflectVert);
+        let wlstrap_p = ctx
+            .instantiate::<SpWlstrapP>(&NoParams)?
+            .with_orientation(Named::ReflectVert);
+        let hstrap = ctx.instantiate::<SpHstrap>(&NoParams)?;
+        let rowend_hstrap = ctx
+            .instantiate::<SpRowendHstrap>(&NoParams)?
+            .with_orientation(Named::R180);
+        let cell = ctx
+            .instantiate::<SpCell>(&NoParams)?
+            .with_orientation(Named::R180);
+
+        let grid_tiler = GridTiler::new(into_grid![
+                    [horiz_wlstrap_p, hstrap, rowend_hstrap]
+                    [wlstrap_p, cell, rowend]
+                    [colend_p_cent, colend, corner]
+        ]);
+        ctx.draw(grid_tiler)?;
+
+        Ok(())
+    }
+}
+
+pub struct SpCellArrayCornerLl;
+
+impl Component for SpCellArrayCornerLl {
+    type Params = NoParams;
+
+    fn new(
+        _params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self)
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::literal!("sp_cell_array_corner_ll")
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let colend = ctx
+            .instantiate::<SpColend>(&NoParams)?
+            .with_orientation(Named::ReflectVert);
+        let corner = ctx
+            .instantiate::<SpCorner>(&NoParams)?
+            .with_orientation(Named::ReflectVert);
+        let rowend = ctx
+            .instantiate::<SpRowend>(&NoParams)?
+            .with_orientation(Named::ReflectVert);
+        let hstrap = ctx
+            .instantiate::<SpHstrap>(&NoParams)?
+            .with_orientation(Named::ReflectHoriz);
+        let rowend_hstrap = ctx
+            .instantiate::<SpRowendHstrap>(&NoParams)?
+            .with_orientation(Named::ReflectVert);
+        let cell = ctx
+            .instantiate::<SpCell>(&NoParams)?
+            .with_orientation(Named::ReflectVert);
+
+        let grid_tiler = GridTiler::new(into_grid![
+                    [rowend_hstrap, hstrap]
+                    [rowend, cell]
+                    [corner, colend]
+        ]);
+        ctx.draw(grid_tiler)?;
+
+        Ok(())
+    }
+}
+
+pub struct SpCellArrayLeft {
+    params: TapRatio,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct TapRatio {
+    pub mux_ratio: usize,
+    pub hstrap_ratio: usize,
+}
+
+impl Component for SpCellArrayLeft {
+    type Params = TapRatio;
+
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self { params: *params })
     }
 
     fn name(&self) -> ArcStr {
@@ -256,12 +413,8 @@ impl Component for SpCellArrayLeft {
         let hstrap: Vec<OptionTile> = into_vec![rowend_hstrap, hstrap];
 
         let mut grid = Grid::new(0, 0);
-        for _ in 0..2 {
-            grid.push_row(cell_opt1a_row.clone());
-            grid.push_row(cell_row.clone());
-        }
         grid.push_row(hstrap);
-        for _ in 0..2 {
+        for _ in 0..self.params.hstrap_ratio / 2 {
             grid.push_row(cell_opt1a_row.clone());
             grid.push_row(cell_row.clone());
         }
@@ -309,16 +462,18 @@ impl Component for SpCellArrayCornerBottom {
     }
 }
 
-pub struct SpCellArrayTop;
+pub struct SpCellArrayTop {
+    params: TapRatio,
+}
 
 impl Component for SpCellArrayTop {
-    type Params = NoParams;
+    type Params = TapRatio;
 
     fn new(
-        _params: &Self::Params,
+        params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self)
+        Ok(Self { params: *params })
     }
 
     fn name(&self) -> ArcStr {
@@ -343,12 +498,8 @@ impl Component for SpCellArrayTop {
         let wlstrap = into_vec![colend_p_cent, wlstrap_p];
 
         let mut grid = Grid::new(0, 0);
-        for _ in 0..2 {
-            grid.push_col(cell_2_col.clone());
-            grid.push_col(cell_1_col.clone());
-        }
         grid.push_col(wlstrap);
-        for _ in 0..2 {
+        for _ in 0..self.params.mux_ratio / 2 {
             grid.push_col(cell_2_col.clone());
             grid.push_col(cell_1_col.clone());
         }
@@ -360,16 +511,18 @@ impl Component for SpCellArrayTop {
     }
 }
 
-pub struct SpCellArrayCenter;
+pub struct SpCellArrayCenter {
+    params: TapRatio,
+}
 
 impl Component for SpCellArrayCenter {
-    type Params = NoParams;
+    type Params = TapRatio;
 
     fn new(
-        _params: &Self::Params,
+        params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self)
+        Ok(Self { params: *params })
     }
 
     fn name(&self) -> ArcStr {
@@ -396,39 +549,25 @@ impl Component for SpCellArrayCenter {
         wlstrapa_p.set_orientation(Named::ReflectVert);
         hstrap_1.set_orientation(Named::ReflectHoriz);
 
-        let cell_row = into_vec![
-            &cell_2, &cell_1, &cell_2, &cell_1, &wlstrap_p, &cell_2, &cell_1, &cell_2, &cell_1
-        ];
-        let cell_opt1a_row = into_vec![
-            &cell_opt1a_2,
-            &cell_opt1a_1,
-            &cell_opt1a_2,
-            &cell_opt1a_1,
-            &wlstrapa_p,
-            &cell_opt1a_2,
-            &cell_opt1a_1,
-            &cell_opt1a_2,
-            &cell_opt1a_1
-        ];
-        let hstrap = into_vec![
-            &hstrap_2,
-            &hstrap_1,
-            &hstrap_2,
-            &hstrap_1,
-            &horiz_wlstrap_p,
-            &hstrap_2,
-            &hstrap_1,
-            &hstrap_2,
-            &hstrap_1
-        ];
+        let mut cell_row = Vec::new();
+        let mut cell_opt1a_row = Vec::new();
+        let mut hstrap_row = Vec::new();
+
+        cell_row.push(wlstrap_p.into());
+        hstrap_row.push(horiz_wlstrap_p.clone().into());
+        cell_opt1a_row.push(wlstrapa_p.clone().into());
+        for _ in 0..self.params.mux_ratio / 2 {
+            cell_row.push(cell_2.clone().into());
+            cell_row.push(cell_1.clone().into());
+            cell_opt1a_row.push(cell_opt1a_2.clone().into());
+            cell_opt1a_row.push(cell_opt1a_1.clone().into());
+            hstrap_row.push(hstrap_2.clone().into());
+            hstrap_row.push(hstrap_1.clone().into());
+        }
 
         let mut grid = Grid::new(0, 0);
-        for _ in 0..2 {
-            grid.push_row(cell_opt1a_row.clone());
-            grid.push_row(cell_row.clone());
-        }
-        grid.push_row(hstrap);
-        for _ in 0..2 {
+        grid.push_row(hstrap_row);
+        for _ in 0..self.params.hstrap_ratio / 2 {
             grid.push_row(cell_opt1a_row.clone());
             grid.push_row(cell_row.clone());
         }
@@ -440,20 +579,22 @@ impl Component for SpCellArrayCenter {
     }
 }
 
-pub struct SpCellArrayBottom;
+pub struct SpCellArrayBottom {
+    params: TapRatio,
+}
 
 impl Component for SpCellArrayBottom {
-    type Params = NoParams;
+    type Params = TapRatio;
 
     fn new(
-        _params: &Self::Params,
+        params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self)
+        Ok(Self { params: *params })
     }
 
     fn name(&self) -> ArcStr {
-        arcstr::literal!("sp_cell_array_top")
+        arcstr::literal!("sp_cell_array_bot")
     }
 
     fn layout(
@@ -466,6 +607,11 @@ impl Component for SpCellArrayBottom {
         let mut cell_opt1a_2 = ctx.instantiate::<SpCellOpt1a>(&NoParams)?;
         let mut wlstrapa_p = ctx.instantiate::<SpWlstrapaP>(&NoParams)?;
         let mut colenda_p_cent = ctx.instantiate::<SpColendaPCent>(&NoParams)?;
+        let hstrap_1 = ctx
+            .instantiate::<SpHstrap>(&NoParams)?
+            .with_orientation(Named::ReflectHoriz);
+        let hstrap_2 = ctx.instantiate::<SpHstrap>(&NoParams)?;
+        let horiz_wlstrap_p = ctx.instantiate::<SpHorizWlstrapP>(&NoParams)?;
         colenda_1.set_orientation(Named::ReflectVert);
         colenda_2.set_orientation(Named::R180);
         cell_opt1a_1.set_orientation(Named::ReflectVert);
@@ -473,17 +619,13 @@ impl Component for SpCellArrayBottom {
         wlstrapa_p.set_orientation(Named::ReflectVert);
         colenda_p_cent.set_orientation(Named::ReflectVert);
 
-        let cell_1_col = into_vec![cell_opt1a_1, colenda_1];
-        let cell_2_col = into_vec![cell_opt1a_2, colenda_2];
-        let wlstrap = into_vec![wlstrapa_p, colenda_p_cent];
+        let cell_1_col = into_vec![hstrap_1, cell_opt1a_1, colenda_1];
+        let cell_2_col = into_vec![hstrap_2, cell_opt1a_2, colenda_2];
+        let wlstrap = into_vec![horiz_wlstrap_p, wlstrapa_p, colenda_p_cent];
 
         let mut grid = Grid::new(0, 0);
-        for _ in 0..2 {
-            grid.push_col(cell_2_col.clone());
-            grid.push_col(cell_1_col.clone());
-        }
         grid.push_col(wlstrap);
-        for _ in 0..2 {
+        for _ in 0..self.params.mux_ratio / 2 {
             grid.push_col(cell_2_col.clone());
             grid.push_col(cell_1_col.clone());
         }
@@ -495,16 +637,18 @@ impl Component for SpCellArrayBottom {
     }
 }
 
-pub struct SpCellArrayRight;
+pub struct SpCellArrayRight {
+    params: TapRatio,
+}
 
 impl Component for SpCellArrayRight {
-    type Params = NoParams;
+    type Params = TapRatio;
 
     fn new(
-        _params: &Self::Params,
+        params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self)
+        Ok(Self { params: *params })
     }
 
     fn name(&self) -> ArcStr {
@@ -521,23 +665,24 @@ impl Component for SpCellArrayRight {
         let mut cell = ctx.instantiate::<SpCell>(&NoParams)?;
         let mut cell_opt1a = ctx.instantiate::<SpCellOpt1a>(&NoParams)?;
         let hstrap = ctx.instantiate::<SpHstrap>(&NoParams)?;
+        let horiz_wlstrap_p = ctx.instantiate::<SpHorizWlstrapP>(&NoParams)?;
+        let wlstrap_p = ctx.instantiate::<SpWlstrapP>(&NoParams)?;
+        let wlstrapa_p = ctx
+            .instantiate::<SpWlstrapaP>(&NoParams)?
+            .with_orientation(Named::ReflectVert);
         rowend.set_orientation(Named::ReflectHoriz);
         rowenda.set_orientation(Named::R180);
         rowend_hstrap.set_orientation(Named::R180);
         cell.set_orientation(Named::ReflectHoriz);
         cell_opt1a.set_orientation(Named::R180);
 
-        let cell_row: Vec<OptionTile> = into_vec![cell, rowend];
-        let cell_opt1a_row = into_vec![cell_opt1a, rowenda];
-        let hstrap = into_vec![hstrap, rowend_hstrap];
+        let cell_row: Vec<OptionTile> = into_vec![wlstrap_p, cell, rowend];
+        let cell_opt1a_row = into_vec![wlstrapa_p, cell_opt1a, rowenda];
+        let hstrap = into_vec![horiz_wlstrap_p, hstrap, rowend_hstrap];
 
         let mut grid = Grid::new(0, 0);
-        for _ in 0..2 {
-            grid.push_row(cell_opt1a_row.clone());
-            grid.push_row(cell_row.clone());
-        }
         grid.push_row(hstrap);
-        for _ in 0..2 {
+        for _ in 0..self.params.hstrap_ratio / 2 {
             grid.push_row(cell_opt1a_row.clone());
             grid.push_row(cell_row.clone());
         }
@@ -554,33 +699,33 @@ impl SpCellArray {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let cell_array_corner_upper_left = ctx.instantiate::<SpCellArrayCornerTop>(&NoParams)?;
-        let cell_array_left = ctx.instantiate::<SpCellArrayLeft>(&NoParams)?;
-        let cell_array_corner_lower_left = ctx.instantiate::<SpCellArrayCornerBottom>(&NoParams)?;
+        let tap_ratio = TapRatio {
+            mux_ratio: self.params.mux_ratio,
+            hstrap_ratio: 8,
+        };
+        let corner_ul = ctx.instantiate::<SpCellArrayCornerUl>(&NoParams)?;
+        let left = ctx.instantiate::<SpCellArrayLeft>(&tap_ratio)?;
+        let corner_ll = ctx.instantiate::<SpCellArrayCornerLl>(&NoParams)?;
 
-        let cell_array_top = ctx.instantiate::<SpCellArrayTop>(&NoParams)?;
-        let cell_array_center = ctx.instantiate::<SpCellArrayCenter>(&NoParams)?;
-        let cell_array_bottom = ctx.instantiate::<SpCellArrayBottom>(&NoParams)?;
+        let top = ctx.instantiate::<SpCellArrayTop>(&tap_ratio)?;
+        let center = ctx.instantiate::<SpCellArrayCenter>(&tap_ratio)?;
+        let bot = ctx.instantiate::<SpCellArrayBottom>(&tap_ratio)?;
 
-        let mut cell_array_corner_upper_right =
-            ctx.instantiate::<SpCellArrayCornerTop>(&NoParams)?;
-        let cell_array_right = ctx.instantiate::<SpCellArrayRight>(&NoParams)?;
-        let mut cell_array_corner_lower_right =
-            ctx.instantiate::<SpCellArrayCornerBottom>(&NoParams)?;
-        cell_array_corner_upper_right.set_orientation(Named::ReflectHoriz);
-        cell_array_corner_lower_right.set_orientation(Named::ReflectHoriz);
+        let corner_ur = ctx.instantiate::<SpCellArrayCornerUr>(&NoParams)?;
+        let right = ctx.instantiate::<SpCellArrayRight>(&tap_ratio)?;
+        let corner_lr = ctx.instantiate::<SpCellArrayCornerLr>(&NoParams)?;
 
         let tiler = NpTiler::builder()
-            .set(Region::CornerUl, &cell_array_corner_upper_left)
-            .set(Region::Left, &cell_array_left)
-            .set(Region::CornerLl, &cell_array_corner_lower_left)
-            .set(Region::Top, &cell_array_top)
-            .set(Region::Center, &cell_array_center)
-            .set(Region::Bottom, &cell_array_bottom)
-            .set(Region::CornerUr, &cell_array_corner_upper_right)
-            .set(Region::Right, &cell_array_right)
-            .set(Region::CornerLr, &cell_array_corner_lower_right)
-            .nx(self.params.cols / 8)
+            .set(Region::CornerUl, &corner_ul)
+            .set(Region::Left, &left)
+            .set(Region::CornerLl, &corner_ll)
+            .set(Region::Top, &top)
+            .set(Region::Center, &center)
+            .set(Region::Bottom, &bot)
+            .set(Region::CornerUr, &corner_ur)
+            .set(Region::Right, &right)
+            .set(Region::CornerLr, &corner_lr)
+            .nx(self.params.cols / self.params.mux_ratio)
             .ny(self.params.rows / 8)
             .build();
 
