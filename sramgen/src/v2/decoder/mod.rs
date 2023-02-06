@@ -1,6 +1,8 @@
 use fanout::FanoutAnalyzer;
 use serde::{Deserialize, Serialize};
-use substrate::component::Component;
+use substrate::component::{Component, NoParams};
+
+use self::layout::{decoder_stage_layout, LastBitDecoderPhysicalDesignScript, RoutingStyle, PredecoderPhysicalDesignScript};
 
 use super::gate::{AndParams, GateParams, GateType, PrimitiveGateParams};
 
@@ -49,6 +51,66 @@ struct PlanTreeNode {
     gate: GateType,
     num: usize,
     children: Vec<PlanTreeNode>,
+}
+
+pub struct WlDriver {
+    params: DecoderStageParams,
+}
+
+impl Component for WlDriver {
+    type Params = DecoderStageParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("wordline_driver")
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let dsn = ctx
+            .inner()
+            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
+        decoder_stage_layout(ctx, &self.params, &dsn, RoutingStyle::Driver)
+    }
+}
+
+pub struct WmuxDriver {
+    params: DecoderStageParams,
+}
+
+impl Component for WmuxDriver {
+    type Params = DecoderStageParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("wmux_driver")
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let dsn = ctx
+            .inner()
+            .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
+        decoder_stage_layout(ctx, &self.params, &dsn, RoutingStyle::Driver)
+    }
 }
 
 impl DecoderTree {

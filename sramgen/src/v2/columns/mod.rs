@@ -13,12 +13,12 @@ pub mod routing;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ColParams {
-    pc: PrechargeParams,
-    rmux: ReadMuxParams,
-    wmux: WriteMuxSizing,
-    buf: DiffBufParams,
-    cols: usize,
-    mask_granularity: usize,
+    pub pc: PrechargeParams,
+    pub rmux: ReadMuxParams,
+    pub wmux: WriteMuxSizing,
+    pub buf: DiffBufParams,
+    pub cols: usize,
+    pub mask_granularity: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]

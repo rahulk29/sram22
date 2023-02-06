@@ -33,10 +33,16 @@ pub struct LastBitDecoderStage {
     params: DecoderStageParams,
 }
 
-fn decoder_stage_layout(
+pub enum RoutingStyle {
+    Decoder,
+    Driver,
+}
+
+pub(crate) fn decoder_stage_layout(
     ctx: &mut LayoutCtx,
     params: &DecoderStageParams,
     dsn: &PhysicalDesign,
+    routing_style: RoutingStyle,
 ) -> Result<()> {
     // TODO: Parameter validation
     let decoder_params = DecoderGateParams {
@@ -72,52 +78,91 @@ fn decoder_stage_layout(
     let hspan = ctx.brect().hspan();
     let mut child_tracks = Vec::new();
     let mut idx = 0usize;
-    for (i, s) in params.child_sizes.iter().copied().enumerate() {
-        child_tracks.push(Vec::new());
-        for j in 0..s {
-            let tr = tracks.index(idx);
+    match routing_style {
+        RoutingStyle::Decoder => {
+            for (i, s) in params.child_sizes.iter().copied().enumerate() {
+                child_tracks.push(Vec::new());
+                for j in 0..s {
+                    let tr = tracks.index(idx);
+                    let rect = Rect::from_spans(hspan, tr);
+                    ctx.draw_rect(dsn.stripe_metal, rect);
+                    ctx.add_port(CellPort::with_shape(
+                        arcstr::format!("predecode_{i}_{j}"),
+                        dsn.stripe_metal,
+                        rect,
+                    ));
+                    idx += 1;
+                    child_tracks[i].push(rect);
+                }
+            }
+        }
+        RoutingStyle::Driver => {
+            let tr = tracks.index(0usize);
             let rect = Rect::from_spans(hspan, tr);
+            child_tracks.push(vec![rect]);
             ctx.draw_rect(dsn.stripe_metal, rect);
             ctx.add_port(CellPort::with_shape(
-                arcstr::format!("predecode_{i}_{j}"),
+                arcstr::literal!("wl_en"),
                 dsn.stripe_metal,
                 rect,
             ));
-            idx += 1;
-            child_tracks[i].push(rect);
         }
     }
+
+    let mut via_metals = Vec::new();
+    via_metals.push(dsn.li);
+    via_metals.extend(dsn.via_metals.clone());
+    via_metals.push(dsn.stripe_metal);
+    let ports = ["a", "b", "c", "d"];
+
     for n in 0..params.num {
-        let idxs = base_indices(n, &params.child_sizes);
         let tf = grid.translation(0, n / dsn.tap_period + 1)
             + period_grid.translation(0, n % dsn.tap_period);
         let mut gate = gate.clone();
         gate.translate(tf);
-        let ports = ["a", "b", "c", "d"];
-        for (i, j) in idxs.into_iter().enumerate() {
-            // connect to child_tracks[i][j].
-            let port = gate.port(ports[i])?.largest_rect(dsn.li)?;
-            let track = child_tracks[i][j];
+        match routing_style {
+            RoutingStyle::Decoder => {
+                let idxs = base_indices(n, &params.child_sizes);
+                for (i, j) in idxs.into_iter().enumerate() {
+                    // connect to child_tracks[i][j].
+                    let port = gate.port(ports[i])?.largest_rect(dsn.li)?;
+                    let track = child_tracks[i][j];
 
-            let bot = Rect::from_spans(port.hspan(), track.vspan());
+                    let bot = Rect::from_spans(port.hspan(), track.vspan());
 
-            let mut via_metals = Vec::new();
-            via_metals.push(dsn.li);
-            via_metals.extend(dsn.via_metals.clone());
-            via_metals.push(dsn.stripe_metal);
+                    let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
+                        rect: bot,
+                        via_metals: via_metals.clone(),
+                    })?;
 
-            let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
-                rect: bot,
-                via_metals,
-            })?;
+                    ctx.draw_ref(&via)?;
 
-            ctx.draw_ref(&via)?;
+                    ctx.draw_rect(
+                        dsn.li,
+                        Rect::from_spans(port.hspan(), port.vspan().union(via.brect().vspan())),
+                    );
+                }
+            }
+            RoutingStyle::Driver => {
+                // connect to child_tracks[0][0].
+                let port = gate.port(ports[0])?.largest_rect(dsn.li)?;
+                let track = child_tracks[0][0];
 
-            ctx.draw_rect(
-                dsn.li,
-                Rect::from_spans(port.hspan(), port.vspan().union(via.brect().vspan())),
-            );
-        }
+                let bot = Rect::from_spans(port.hspan(), track.vspan());
+
+                let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
+                    rect: bot,
+                    via_metals: via_metals.clone(),
+                })?;
+
+                ctx.draw_ref(&via)?;
+
+                ctx.draw_rect(
+                    dsn.li,
+                    Rect::from_spans(port.hspan(), port.vspan().union(via.brect().vspan())),
+                );
+            }
+        };
         ctx.add_port(
             gate.port("y")?
                 .into_cell_port()
@@ -149,7 +194,7 @@ impl Component for LastBitDecoderStage {
         let dsn = ctx
             .inner()
             .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
-        decoder_stage_layout(ctx, &self.params, &dsn)
+        decoder_stage_layout(ctx, &self.params, &dsn, RoutingStyle::Decoder)
     }
 }
 
@@ -249,7 +294,7 @@ impl DecoderStage {
         let dsn = ctx
             .inner()
             .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
-        decoder_stage_layout(ctx, &self.params, &dsn)
+        decoder_stage_layout(ctx, &self.params, &dsn, RoutingStyle::Decoder)
     }
 }
 

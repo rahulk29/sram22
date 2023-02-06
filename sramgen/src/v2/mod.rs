@@ -8,4 +8,5 @@ pub mod gate;
 pub mod precharge;
 pub mod rmux;
 pub mod sram;
+pub mod control;
 pub mod wmux;
