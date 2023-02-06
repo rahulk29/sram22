@@ -540,7 +540,7 @@ impl Script for PredecoderPhysicalDesignScript {
         let psdm = layers.get(Selector::Name("psdm"))?;
         let nsdm = layers.get(Selector::Name("nsdm"))?;
         Ok(Self::Output {
-            width: 1_500,
+            width: 2_000,
             tap_width: 790,
             tap_period: 4,
             stripe_metal,
