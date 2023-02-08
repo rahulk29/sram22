@@ -1,16 +1,25 @@
 use substrate::component::NoParams;
 use substrate::error::Result;
+use substrate::layout::cell::Port;
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::geom::bbox::BoundBox;
 use substrate::layout::geom::orientation::Named;
+use substrate::layout::geom::{Corner, Dir, Side};
+use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignRect;
+use substrate::layout::routing::auto::{
+    GreedyTwoLayerRouter, GreedyTwoLayerRouterConfig, LayerConfig,
+};
 
+use crate::bus_bit;
 use crate::v2::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::v2::buf::DiffBufParams;
 use crate::v2::columns::{ColParams, ColPeripherals};
 use crate::v2::control::{ControlLogicReplicaV1, DffArray};
 use crate::v2::decoder::layout::LastBitDecoderStage;
-use crate::v2::decoder::{DecoderStageParams, DecoderTree, WlDriver, DecoderParams, Predecoder, WmuxDriver};
+use crate::v2::decoder::{
+    DecoderParams, DecoderStageParams, DecoderTree, Predecoder, WlDriver, WmuxDriver,
+};
 use crate::v2::precharge::PrechargeParams;
 use crate::v2::rmux::ReadMuxParams;
 use crate::v2::wmux::WriteMuxSizing;
@@ -64,11 +73,15 @@ impl Sram {
             .with_orientation(Named::R90Cw);
 
         let mut p1 = ctx.instantiate::<Predecoder>(&DecoderParams {
-            tree: DecoderTree { root: tree.root.children[0].clone()},
+            tree: DecoderTree {
+                root: tree.root.children[0].clone(),
+            },
         })?;
 
         let mut p2 = ctx.instantiate::<Predecoder>(&DecoderParams {
-            tree: DecoderTree { root: tree.root.children[1].clone()},
+            tree: DecoderTree {
+                root: tree.root.children[1].clone(),
+            },
         })?;
 
         let col_tree = DecoderTree::new(self.params.col_select_bits);
@@ -81,9 +94,10 @@ impl Sram {
             num: col_tree.root.num,
             child_sizes: vec![],
         };
-        let mut wmux_driver = ctx
-            .instantiate::<WmuxDriver>(&wmux_driver_params)?;
-        let mut control = ctx.instantiate::<ControlLogicReplicaV1>(&NoParams)?.with_orientation(Named::R90);
+        let mut wmux_driver = ctx.instantiate::<WmuxDriver>(&wmux_driver_params)?;
+        let mut control = ctx
+            .instantiate::<ControlLogicReplicaV1>(&NoParams)?
+            .with_orientation(Named::R90);
 
         let num_dffs = self.params.addr_width + 1;
         let mut dffs = ctx.instantiate::<DffArray>(&num_dffs)?;
@@ -94,6 +108,7 @@ impl Sram {
         wl_driver.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
         decoder.align_to_the_left_of(wl_driver.bbox(), 1_270);
         decoder.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
+        decoder.align_side_to_grid(Side::Left, 480);
         p1.align_beneath(wl_driver.bbox(), 1_270);
         p1.align_right(wl_driver.bbox());
         p2.align_beneath(p1.bbox(), 1_270);
@@ -107,16 +122,69 @@ impl Sram {
         dffs.align_beneath(control.bbox(), 1_270);
         dffs.align_right(wl_driver.bbox());
 
-        ctx.draw(bitcells)?;
-        ctx.draw(cols)?;
-        ctx.draw(decoder)?;
-        ctx.draw(wl_driver)?;
-        ctx.draw(wmux_driver)?;
-        ctx.draw(p1)?;
-        ctx.draw(p2)?;
-        ctx.draw(col_dec)?;
-        ctx.draw(control)?;
-        ctx.draw(dffs)?;
+        ctx.draw_ref(&bitcells)?;
+        ctx.draw_ref(&cols)?;
+        ctx.draw_ref(&decoder)?;
+        ctx.draw_ref(&wl_driver)?;
+        ctx.draw_ref(&wmux_driver)?;
+        ctx.draw_ref(&p1)?;
+        ctx.draw_ref(&p2)?;
+        ctx.draw_ref(&col_dec)?;
+        ctx.draw_ref(&control)?;
+        ctx.draw_ref(&dffs)?;
+
+        let layers = ctx.layers();
+        let m0 = layers.get(Selector::Metal(0))?;
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+        let m3 = layers.get(Selector::Metal(3))?;
+
+        let mut router = GreedyTwoLayerRouter::with_config(GreedyTwoLayerRouterConfig {
+            area: ctx.brect(),
+            top: LayerConfig {
+                line: 320,
+                space: 160,
+                dir: Dir::Vert,
+                layer: m3,
+            },
+            bot: LayerConfig {
+                line: 320,
+                space: 160,
+                dir: Dir::Horiz,
+                layer: m2,
+            },
+        });
+        for inst in [&bitcells, &cols] {
+            router.block(m2, inst.brect());
+            router.block(m3, inst.brect());
+        }
+        for inst in [&p1, &p2, &col_dec, &control, &wmux_driver, &dffs] {
+            for shape in inst.shapes_on(m2) {
+                let rect = shape.brect();
+                router.block(m2, rect);
+            }
+        }
+
+        for i in 0..tree.root.children[0].num {
+            let src = p1.port(&format!("decode_{i}"))?.largest_rect(m0)?;
+            let dst = decoder
+                .port(&format!("predecode_0_{i}"))?
+                .largest_rect(m1)?;
+            let _ = router.route(m2, src, m2, dst);
+        }
+        for i in 0..tree.root.children[1].num {
+            let src = p2.port(&format!("decode_{i}"))?.largest_rect(m0)?;
+            let dst = decoder
+                .port(&format!("predecode_1_{i}"))?
+                .largest_rect(m1)?;
+            let _ = router.route(m2, src, m2, dst);
+        }
+
+        // let src = dffs.port(&bus_bit("q", 0))?.largest_rect(m2)?;
+        // let dst = p1.port(&bus_bit("predecode_1", 0))?.largest_rect(m2)?;
+        // router.route(m2, src, m2, dst);
+
+        ctx.draw(router)?;
         Ok(())
     }
 }

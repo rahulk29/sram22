@@ -2,7 +2,10 @@ use fanout::FanoutAnalyzer;
 use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams};
 
-use self::layout::{decoder_stage_layout, LastBitDecoderPhysicalDesignScript, RoutingStyle, PredecoderPhysicalDesignScript};
+use self::layout::{
+    decoder_stage_layout, LastBitDecoderPhysicalDesignScript, PredecoderPhysicalDesignScript,
+    RoutingStyle,
+};
 
 use super::gate::{AndParams, GateParams, GateType, PrimitiveGateParams};
 
