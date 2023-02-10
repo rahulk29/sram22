@@ -45,6 +45,9 @@ impl Component for Sram {
             params: params.clone(),
         })
     }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("sramgen_sram")
+    }
     fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
@@ -74,12 +77,33 @@ mod tests {
         addr_width: 8,
         control: ControlMode::ReplicaV1,
     };
+    const PARAMS_2: SramParams = SramParams {
+        wmask_width: 8,
+        row_bits: 9,
+        col_bits: 8,
+        col_select_bits: 2,
+        rows: 512,
+        cols: 256,
+        mux_ratio: 4,
+        num_words: 2048,
+        data_width: 64,
+        addr_width: 11,
+        control: ControlMode::ReplicaV1,
+    };
 
     #[test]
     fn test_sram_1() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_sram_1");
         ctx.write_layout::<Sram>(&PARAMS_1, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
+    }
+
+    #[test]
+    fn test_sram_2() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_sram_2");
+        ctx.write_layout::<Sram>(&PARAMS_2, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 }
