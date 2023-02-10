@@ -36,7 +36,7 @@ impl ColPeripherals {
         let data_out = ctx.bus_port("outp", word_length, Direction::Output);
 
         for i in 0..word_length {
-            let col = ctx.instantiate::<Column>(&self.params)?;
+            let mut col = ctx.instantiate::<Column>(&self.params)?;
             col.connect_all([("clk", &clk), ("vdd", &vdd), ("vss", &vss)]);
         }
 
@@ -78,7 +78,7 @@ impl Column {
             pc_i.set_name(format!("precharge_{i}"));
             ctx.add_instance(pc_i);
 
-            let rmux = ctx.instantiate::<ReadMux>(&ReadMuxParams {
+            let mut rmux = ctx.instantiate::<ReadMux>(&ReadMuxParams {
                 idx: i,
                 ..self.params.rmux.clone()
             })?;
@@ -93,7 +93,7 @@ impl Column {
             rmux.set_name(format!("read_mux_{i}"));
             ctx.add_instance(rmux);
 
-            let wmux = ctx.instantiate::<WriteMux>(&WriteMuxParams {
+            let mut wmux = ctx.instantiate::<WriteMux>(&WriteMuxParams {
                 sizing: self.params.wmux,
                 idx: i,
             })?;

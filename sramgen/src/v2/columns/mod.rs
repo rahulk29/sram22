@@ -77,7 +77,7 @@ impl Component for Column {
         self.schematic(ctx)
     }
 
-    fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
+    fn layout(&self, ctx: &mut LayoutCtx) -> substrate::error::Result<()> {
         self.layout(ctx)
     }
 }
@@ -89,7 +89,7 @@ mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
-    use super::layout::{Column, ColumnCent};
+    use super::layout::{ColCentParams, ColumnCent};
     use super::*;
 
     const WRITE_MUX_SIZING: WriteMuxSizing = WriteMuxSizing {

@@ -1,6 +1,5 @@
 pub mod bitcell_array;
 pub mod buf;
-pub mod col_inv;
 pub mod columns;
 pub mod control;
 pub mod decoder;
