@@ -76,6 +76,14 @@ pub struct DffCol;
 )]
 pub struct DffColCent;
 
+#[hard_macro(
+    name = "openram_dff_col_extend",
+    pdk = "sky130-open",
+    path_fn = "path",
+    gds_cell_name = "sky130_fd_bd_sram__openram_dff_col_extend"
+)]
+pub struct DffColExtend;
+
 pub struct SpCellArray {
     params: SpCellArrayParams,
 }

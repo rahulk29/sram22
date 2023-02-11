@@ -48,6 +48,7 @@ impl And2 {
         );
         ctx.add_port(nand.port("a")?);
         ctx.add_port(nand.port("b")?);
+        ctx.add_port(nand.port("y")?.into_cell_port().named("y_b"));
         ctx.add_port(inv.port("y")?);
 
         ctx.draw_ref(&nand)?;
@@ -100,6 +101,7 @@ impl And3 {
         ctx.add_port(nand.port("a")?);
         ctx.add_port(nand.port("b")?);
         ctx.add_port(nand.port("c")?);
+        ctx.add_port(nand.port("y")?.into_cell_port().named("y_b"));
         ctx.add_port(inv.port("y")?);
 
         ctx.draw_ref(&nand)?;
