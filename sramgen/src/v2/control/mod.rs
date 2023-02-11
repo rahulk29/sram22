@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use arcstr::ArcStr;
 use codegen::hard_macro;
-use serde::{Deserialize, Serialize};
+
 use substrate::component::{Component, NoParams, View};
 use substrate::data::SubstrateCtx;
 use substrate::layout::geom::Corner;

@@ -554,7 +554,7 @@ impl Component for SpCellArrayCenter {
         let mut hstrap_row = Vec::new();
 
         cell_row.push(wlstrap_p.into());
-        hstrap_row.push(horiz_wlstrap_p.clone().into());
+        hstrap_row.push(horiz_wlstrap_p.into());
         cell_opt1a_row.push(wlstrapa_p.clone().into());
         for _ in 0..self.params.mux_ratio / 2 {
             cell_row.push(cell_2.clone().into());

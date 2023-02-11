@@ -4,7 +4,7 @@ use substrate::layout::cell::Port;
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::geom::bbox::BoundBox;
 use substrate::layout::geom::orientation::Named;
-use substrate::layout::geom::{Corner, Dir, Side};
+use substrate::layout::geom::{Dir, Side};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignRect;
 use substrate::layout::routing::auto::{
@@ -63,7 +63,7 @@ impl Sram {
         })?;
         let tree = DecoderTree::new(self.params.row_bits);
         let decoder_params = DecoderStageParams {
-            gate: tree.root.gate.clone(),
+            gate: tree.root.gate,
             num: tree.root.num,
             child_sizes: tree.root.children.iter().map(|n| n.num).collect(),
         };
@@ -96,7 +96,7 @@ impl Sram {
 
         let mut col_dec = ctx.instantiate::<Predecoder>(&col_decoder_params)?;
         let wmux_driver_params = DecoderStageParams {
-            gate: col_tree.root.gate.clone(),
+            gate: col_tree.root.gate,
             num: col_tree.root.num,
             child_sizes: vec![],
         };
@@ -192,14 +192,14 @@ impl Sram {
             let dst = decoder
                 .port(&format!("predecode_0_{i}"))?
                 .largest_rect(m1)?;
-            let _ = router.route(m2, src, m2, dst)?;
+            router.route(m2, src, m2, dst)?;
         }
         for i in 0..tree.root.children[1].num {
             let src = p2.port(&format!("decode_{i}"))?.largest_rect(m0)?;
             let dst = decoder
                 .port(&format!("predecode_1_{i}"))?
                 .largest_rect(m1)?;
-            let _ = router.route(m2, src, m2, dst)?;
+            router.route(m2, src, m2, dst)?;
         }
 
         // Route wordline decoder to wordlin driver

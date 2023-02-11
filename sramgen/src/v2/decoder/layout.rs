@@ -63,8 +63,8 @@ pub(crate) fn decoder_stage_layout(
     let period_group = period_grid.draw_ref()?;
 
     let mut tiler = ArrayTiler::new();
-    tiler.push(tap.clone());
-    tiler.push_num(period_group.clone(), params.num / dsn.tap_period);
+    tiler.push(tap);
+    tiler.push_num(period_group, params.num / dsn.tap_period);
 
     let grid = tiler.into_grid_tiler();
 
@@ -293,17 +293,6 @@ impl Predecoder {
 
         Ok(())
     }
-}
-
-enum PredecoderTracks {
-    /// Forward through any higher predecoders.
-    Forward,
-    /// Backward through any lower predecoders.
-    Backward,
-    /// Hop from one stage to the next.
-    Hop,
-    /// Power rails (ground if odd, power if even).
-    Power,
 }
 
 fn base_indices(mut i: usize, sizes: &[usize]) -> Vec<usize> {
