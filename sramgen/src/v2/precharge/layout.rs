@@ -439,7 +439,7 @@ impl Script for PhysicalDesignScript {
             grid: 5,
         });
 
-        let power_stripe = Span::new(3_400, 4_200);
+        let power_stripe = Span::new(4_000, 4_800);
         let gate_stripe = Span::new(0, 360);
 
         Ok(PhysicalDesign {

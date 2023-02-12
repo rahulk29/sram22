@@ -441,6 +441,11 @@ pub fn external_gds_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tech/sky130/gds")
 }
 
+#[inline]
+pub fn external_spice_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tech/sky130/spice")
+}
+
 /// Reference to a single port sense amplifier.
 ///
 /// The SPICE subcircuit definition looks like this:

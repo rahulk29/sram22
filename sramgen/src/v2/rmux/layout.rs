@@ -22,6 +22,7 @@ use derive_builder::Builder;
 
 const GATE_LINE: i64 = 320;
 const GATE_SPACE: i64 = 180;
+const POWER_VSPAN: Span = Span::new_unchecked(3_000, 3_800);
 
 impl ReadMux {
     pub(crate) fn layout(
@@ -212,7 +213,7 @@ impl ReadMux {
             }
         }
 
-        let power_stripe = Rect::from_spans(stripe_hspan, Span::new(2_200, 3_000));
+        let power_stripe = Rect::from_spans(stripe_hspan, POWER_VSPAN);
         ctx.draw_rect(pc.h_metal, power_stripe);
 
         let bounds = Rect::from_spans(Span::new(0, pc.width), ctx.brect().vspan());
@@ -306,7 +307,7 @@ fn read_mux_tap_layout(
         ctx.draw_rect(pc.h_metal, rect);
     }
 
-    let power_stripe = Rect::from_spans(stripe_hspan, Span::new(2_200, 3_000));
+    let power_stripe = Rect::from_spans(stripe_hspan, POWER_VSPAN);
     ctx.draw_rect(pc.h_metal, power_stripe);
     ctx.add_port(CellPort::with_shape("vdd", pc.h_metal, power_stripe));
 

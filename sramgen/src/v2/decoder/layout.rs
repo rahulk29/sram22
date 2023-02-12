@@ -19,8 +19,9 @@ use substrate::layout::DrawRef;
 
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerKey;
-use substrate::layout::placement::grid::ArrayTiler;
 
+use substrate::layout::placement::align::AlignMode;
+use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::routing::manual::jog::ElbowJog;
 use substrate::layout::routing::tracks::UniformTracks;
@@ -54,21 +55,23 @@ pub(crate) fn decoder_stage_layout(
     let gate = ctx.instantiate::<DecoderGate>(&decoder_params)?;
     let tap = ctx.instantiate::<DecoderTap>(&decoder_params)?;
 
-    let mut period_tiler = ArrayTiler::new();
-    period_tiler.push_num(gate.clone(), dsn.tap_period);
-    period_tiler.push(tap.clone());
+    let period_tiler = ArrayTiler::builder()
+        .push_num(gate.clone(), dsn.tap_period)
+        .push(tap.clone())
+        .mode(AlignMode::ToTheRight)
+        .alt_mode(AlignMode::CenterVertical)
+        .build();
 
-    let period_grid = period_tiler.into_grid_tiler();
+    let period_group = period_tiler.draw_ref()?;
 
-    let period_group = period_grid.draw_ref()?;
+    let tiler = ArrayTiler::builder()
+        .push(tap)
+        .push_num(period_group, params.num / dsn.tap_period)
+        .mode(AlignMode::ToTheRight)
+        .alt_mode(AlignMode::CenterVertical)
+        .build();
 
-    let mut tiler = ArrayTiler::new();
-    tiler.push(tap);
-    tiler.push_num(period_group, params.num / dsn.tap_period);
-
-    let grid = tiler.into_grid_tiler();
-
-    ctx.draw_ref(&grid)?;
+    ctx.draw_ref(&tiler)?;
 
     let tracks = UniformTracks::builder()
         .line(dsn.line)
@@ -118,8 +121,8 @@ pub(crate) fn decoder_stage_layout(
     let ports = ["a", "b", "c", "d"];
 
     for n in 0..params.num {
-        let tf = grid.translation(0, n / dsn.tap_period + 1)
-            + period_grid.translation(0, n % dsn.tap_period);
+        let tf = tiler.translation(n / dsn.tap_period + 1)
+            + period_tiler.translation(n % dsn.tap_period);
         let mut gate = gate.clone();
         gate.translate(tf);
         match routing_style {

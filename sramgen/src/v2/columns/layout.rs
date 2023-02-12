@@ -479,8 +479,6 @@ impl Component for ColumnCent {
         let wmask_tile = Pad::new(wmask_dff.clone(), DFF_PADDING);
         grid.push_row(into_vec![wmask_tile]);
 
-        // TODO: wmask reg cent
-
         let tiler = GridTiler::new(grid);
         pc.translate(tiler.translation(0, 0));
         rmux.translate(tiler.translation(1, 0));

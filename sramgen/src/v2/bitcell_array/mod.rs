@@ -6,14 +6,16 @@ use serde::{Deserialize, Serialize};
 use substrate::component::{Component, View};
 use substrate::data::SubstrateCtx;
 
-use crate::tech::external_gds_path;
+use crate::tech::{external_gds_path, external_spice_path};
 
 mod layout;
+mod replica;
 mod schematic;
 
 fn path(_ctx: &SubstrateCtx, name: &str, view: View) -> Option<PathBuf> {
     match view {
         View::Layout => Some(external_gds_path().join(format!("{name}.gds"))),
+        View::Schematic => Some(external_spice_path().join(format!("{name}.spice"))),
         _ => None,
     }
 }
@@ -131,7 +133,7 @@ impl Component for SpCellArray {
 mod tests {
     use substrate::component::NoParams;
 
-    use crate::paths::out_gds;
+    use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::v2::bitcell_array::layout::*;
@@ -142,15 +144,16 @@ mod tests {
     fn test_sp_cell_array() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_sp_cell_array");
-        ctx.write_layout::<SpCellArray>(
-            &SpCellArrayParams {
-                rows: 32,
-                cols: 32,
-                mux_ratio: 4,
-            },
-            out_gds(work_dir, "layout"),
-        )
-        .expect("failed to write layout");
+        let params = SpCellArrayParams {
+            rows: 32,
+            cols: 32,
+            mux_ratio: 4,
+        };
+        ctx.write_layout::<SpCellArray>(&params, out_gds(&work_dir, "layout"))
+            .expect("failed to write layout");
+
+        ctx.write_schematic_to_file::<SpCellArray>(&params, out_spice(&work_dir, "schematic"))
+            .expect("failed to write schematic");
     }
 
     #[test]
