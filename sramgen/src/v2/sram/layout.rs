@@ -7,9 +7,7 @@ use substrate::layout::geom::orientation::Named;
 use substrate::layout::geom::{Dir, Side};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignRect;
-use substrate::layout::routing::auto::{
-    GreedyTwoLayerRouter, GreedyTwoLayerRouterConfig, LayerConfig,
-};
+use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
 use substrate::layout::routing::manual::jog::SJog;
 
 use crate::bus_bit;
@@ -145,30 +143,38 @@ impl Sram {
         let m2 = layers.get(Selector::Metal(2))?;
         let m3 = layers.get(Selector::Metal(3))?;
 
-        let mut router = GreedyTwoLayerRouter::with_config(GreedyTwoLayerRouterConfig {
-            area: ctx.brect().snap_to_grid(640),
-            top: LayerConfig {
-                line: 320,
-                space: 320,
-                dir: Dir::Vert,
-                layer: m3,
-            },
-            bot: LayerConfig {
-                line: 320,
-                space: 160,
-                dir: Dir::Horiz,
-                layer: m2,
-            },
+        let mut router = GreedyRouter::with_config(GreedyRouterConfig {
+            area: ctx.brect().expand(5 * 680).snap_to_grid(680),
+            layers: vec![
+                LayerConfig {
+                    line: 170,
+                    space: 170,
+                    dir: Dir::Vert,
+                    layer: m1,
+                },
+                LayerConfig {
+                    line: 340,
+                    space: 340,
+                    dir: Dir::Horiz,
+                    layer: m2,
+                },
+                LayerConfig {
+                    line: 340,
+                    space: 340,
+                    dir: Dir::Vert,
+                    layer: m3,
+                },
+            ],
         });
 
         for inst in [&bitcells, &cols] {
-            router.block(m2, inst.brect());
-            router.block(m3, inst.brect());
+            // router.block(m2, inst.brect());
+            // router.block(m3, inst.brect());
         }
         for inst in [&p1, &p2, &col_dec, &control, &wmux_driver, &dffs] {
             for shape in inst.shapes_on(m2) {
                 let rect = shape.brect();
-                router.block(m2, rect);
+                // router.block(m2, rect);
             }
         }
 
@@ -178,10 +184,10 @@ impl Sram {
             for i in 0..num {
                 let src = dffs.port(&bus_bit("q", ctr))?.largest_rect(m2)?;
                 let dst = inst.port(&format!("predecode_{i}_0"))?.largest_rect(m2)?;
-                router.route(m2, src, m2, dst)?;
+                // router.route(ctx, m2, src, m2, dst)?;
                 let src = dffs.port(&bus_bit("qn", ctr))?.largest_rect(m2)?;
                 let dst = inst.port(&format!("predecode_{i}_1"))?.largest_rect(m2)?;
-                router.route(m2, src, m2, dst)?;
+                // router.route(ctx, m2, src, m2, dst)?;
                 ctr += 1;
             }
         }
@@ -192,14 +198,14 @@ impl Sram {
             let dst = decoder
                 .port(&format!("predecode_0_{i}"))?
                 .largest_rect(m1)?;
-            router.route(m2, src, m2, dst)?;
+            // router.route(ctx, m2, src, m1, dst)?;
         }
         for i in 0..tree.root.children[1].num {
             let src = p2.port(&format!("decode_{i}"))?.largest_rect(m0)?;
             let dst = decoder
                 .port(&format!("predecode_1_{i}"))?
                 .largest_rect(m1)?;
-            router.route(m2, src, m2, dst)?;
+            router.route(ctx, m2, src, m1, dst)?;
         }
 
         // Route wordline decoder to wordlin driver

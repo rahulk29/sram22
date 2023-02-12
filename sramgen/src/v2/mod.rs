@@ -6,6 +6,7 @@ pub mod control;
 pub mod decoder;
 pub mod dff;
 pub mod gate;
+pub mod guard_ring;
 pub mod precharge;
 pub mod rmux;
 pub mod sram;
