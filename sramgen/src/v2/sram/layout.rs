@@ -4,12 +4,13 @@ use substrate::layout::cell::Port;
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::geom::bbox::BoundBox;
 use substrate::layout::geom::orientation::Named;
-use substrate::layout::geom::{Corner, Dir, Side};
+use substrate::layout::geom::{Dir, Side};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignRect;
 use substrate::layout::routing::auto::{
     GreedyTwoLayerRouter, GreedyTwoLayerRouterConfig, LayerConfig,
 };
+use substrate::layout::routing::manual::jog::SJog;
 
 use crate::bus_bit;
 use crate::v2::bitcell_array::{SpCellArray, SpCellArrayParams};
@@ -57,11 +58,12 @@ impl Sram {
                 lch: 150,
             },
             cols: self.params.cols,
-            mask_granularity: 8, // TODO
+            wmask_granularity: 8,
+            include_wmask: true,
         })?;
         let tree = DecoderTree::new(self.params.row_bits);
         let decoder_params = DecoderStageParams {
-            gate: tree.root.gate.clone(),
+            gate: tree.root.gate,
             num: tree.root.num,
             child_sizes: tree.root.children.iter().map(|n| n.num).collect(),
         };
@@ -77,6 +79,8 @@ impl Sram {
                 root: tree.root.children[0].clone(),
             },
         })?;
+        let p1_bits = tree.root.children[0].num.ilog2() as usize;
+        let p2_bits = tree.root.children[1].num.ilog2() as usize;
 
         let mut p2 = ctx.instantiate::<Predecoder>(&DecoderParams {
             tree: DecoderTree {
@@ -88,9 +92,11 @@ impl Sram {
         let col_decoder_params = DecoderParams {
             tree: col_tree.clone(),
         };
+        let col_bits = col_tree.root.num.ilog2() as usize;
+
         let mut col_dec = ctx.instantiate::<Predecoder>(&col_decoder_params)?;
         let wmux_driver_params = DecoderStageParams {
-            gate: col_tree.root.gate.clone(),
+            gate: col_tree.root.gate,
             num: col_tree.root.num,
             child_sizes: vec![],
         };
@@ -108,7 +114,7 @@ impl Sram {
         wl_driver.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
         decoder.align_to_the_left_of(wl_driver.bbox(), 1_270);
         decoder.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
-        decoder.align_side_to_grid(Side::Left, 480);
+        decoder.align_side_to_grid(Side::Left, 640);
         p1.align_beneath(wl_driver.bbox(), 1_270);
         p1.align_right(wl_driver.bbox());
         p2.align_beneath(p1.bbox(), 1_270);
@@ -140,10 +146,10 @@ impl Sram {
         let m3 = layers.get(Selector::Metal(3))?;
 
         let mut router = GreedyTwoLayerRouter::with_config(GreedyTwoLayerRouterConfig {
-            area: ctx.brect(),
+            area: ctx.brect().snap_to_grid(640),
             top: LayerConfig {
                 line: 320,
-                space: 160,
+                space: 320,
                 dir: Dir::Vert,
                 layer: m3,
             },
@@ -154,6 +160,7 @@ impl Sram {
                 layer: m2,
             },
         });
+
         for inst in [&bitcells, &cols] {
             router.block(m2, inst.brect());
             router.block(m3, inst.brect());
@@ -165,24 +172,67 @@ impl Sram {
             }
         }
 
+        // Route address bits from DFFs to decoders
+        let mut ctr = 0;
+        for (inst, num) in [(&p1, p1_bits), (&p2, p2_bits), (&col_dec, col_bits)] {
+            for i in 0..num {
+                let src = dffs.port(&bus_bit("q", ctr))?.largest_rect(m2)?;
+                let dst = inst.port(&format!("predecode_{i}_0"))?.largest_rect(m2)?;
+                router.route(m2, src, m2, dst)?;
+                let src = dffs.port(&bus_bit("qn", ctr))?.largest_rect(m2)?;
+                let dst = inst.port(&format!("predecode_{i}_1"))?.largest_rect(m2)?;
+                router.route(m2, src, m2, dst)?;
+                ctr += 1;
+            }
+        }
+
+        // Route predecoders to final decoder stage
         for i in 0..tree.root.children[0].num {
             let src = p1.port(&format!("decode_{i}"))?.largest_rect(m0)?;
             let dst = decoder
                 .port(&format!("predecode_0_{i}"))?
                 .largest_rect(m1)?;
-            let _ = router.route(m2, src, m2, dst);
+            router.route(m2, src, m2, dst)?;
         }
         for i in 0..tree.root.children[1].num {
             let src = p2.port(&format!("decode_{i}"))?.largest_rect(m0)?;
             let dst = decoder
                 .port(&format!("predecode_1_{i}"))?
                 .largest_rect(m1)?;
-            let _ = router.route(m2, src, m2, dst);
+            router.route(m2, src, m2, dst)?;
         }
 
-        // let src = dffs.port(&bus_bit("q", 0))?.largest_rect(m2)?;
-        // let dst = p1.port(&bus_bit("predecode_1", 0))?.largest_rect(m2)?;
-        // router.route(m2, src, m2, dst);
+        // Route wordline decoder to wordlin driver
+        for i in 0..tree.root.num {
+            let src = decoder.port(&format!("decode_{i}"))?.largest_rect(m0)?;
+            let dst = wl_driver.port(&bus_bit("in", i))?.largest_rect(m0)?;
+            let jog = SJog::builder()
+                .src(src)
+                .dst(dst)
+                .dir(Dir::Horiz)
+                .layer(m0)
+                .width(170)
+                .grid(ctx.pdk().layout_grid())
+                .build()
+                .unwrap();
+            ctx.draw(jog)?;
+        }
+
+        // Route column decoder to wmux driver
+        for i in 0..col_tree.root.num {
+            let src = col_dec.port(&format!("decode_{i}"))?.largest_rect(m0)?;
+            let dst = wmux_driver.port(&bus_bit("in", i))?.largest_rect(m0)?;
+            let jog = SJog::builder()
+                .src(src)
+                .dst(dst)
+                .dir(Dir::Vert)
+                .layer(m0)
+                .width(170)
+                .grid(ctx.pdk().layout_grid())
+                .build()
+                .unwrap();
+            ctx.draw(jog)?;
+        }
 
         ctx.draw(router)?;
         Ok(())

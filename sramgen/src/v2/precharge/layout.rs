@@ -80,6 +80,12 @@ impl Precharge {
             let rect = Rect::from_spans(dsn.out_tracks.index(i), Span::new(0, top));
             ctx.draw_rect(dsn.v_metal, rect);
             orects.push(rect);
+            if i == 0 {
+                ctx.add_port(CellPort::with_shape("bl_out", dsn.v_metal, rect));
+            }
+            if i == 2 {
+                ctx.add_port(CellPort::with_shape("br_out", dsn.v_metal, rect));
+            }
         }
 
         let jog = SimpleJog::builder()
@@ -433,7 +439,7 @@ impl Script for PhysicalDesignScript {
             grid: 5,
         });
 
-        let power_stripe = Span::new(3_400, 4_200);
+        let power_stripe = Span::new(4_000, 4_800);
         let gate_stripe = Span::new(0, 360);
 
         Ok(PhysicalDesign {

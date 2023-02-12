@@ -20,7 +20,8 @@ pub struct ColParams {
     pub wmux: WriteMuxSizing,
     pub buf: DiffBufParams,
     pub cols: usize,
-    pub mask_granularity: usize,
+    pub include_wmask: bool,
+    pub wmask_granularity: usize,
 }
 
 pub struct ColPeripherals {
@@ -115,30 +116,49 @@ mod tests {
         lch: 150,
     };
 
+    const COL_WMASK_PARAMS: ColParams = ColParams {
+        pc: PRECHARGE_PARAMS,
+        rmux: READ_MUX_PARAMS,
+        wmux: WRITE_MUX_SIZING,
+        buf: DIFF_BUF_PARAMS,
+        cols: 128,
+        include_wmask: true,
+        wmask_granularity: 8,
+    };
+
     const COL_PARAMS: ColParams = ColParams {
         pc: PRECHARGE_PARAMS,
         rmux: READ_MUX_PARAMS,
         wmux: WRITE_MUX_SIZING,
         buf: DIFF_BUF_PARAMS,
         cols: 128,
-        mask_granularity: 8,
+        include_wmask: false,
+        wmask_granularity: 8,
     };
 
     #[test]
     fn test_col_peripherals() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_col_peripherals");
-        ctx.write_layout::<ColPeripherals>(&COL_PARAMS, out_gds(&work_dir, "layout"))
+        ctx.write_layout::<ColPeripherals>(&COL_WMASK_PARAMS, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
 
         #[cfg(feature = "calibre")]
         {
             let drc_work_dir = work_dir.join("drc");
             let output = ctx
-                .write_drc::<ColPeripherals>(&COL_PARAMS, drc_work_dir)
+                .write_drc::<ColPeripherals>(&COL_WMASK_PARAMS, drc_work_dir)
                 .expect("failed to run DRC");
             assert!(matches!(output.summary, substrate::drc::DrcSummary::Pass));
         }
+    }
+
+    #[test]
+    fn test_column_wmask_4() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_column_wmask_4");
+        ctx.write_layout::<Column>(&COL_WMASK_PARAMS, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
     }
 
     #[test]
@@ -155,8 +175,9 @@ mod tests {
         let work_dir = test_work_dir("test_column_cent_4");
         ctx.write_layout::<ColumnCent>(
             &ColCentParams {
-                col: COL_PARAMS,
+                col: COL_WMASK_PARAMS,
                 end: false,
+                cut_wmask: false,
             },
             out_gds(work_dir, "layout"),
         )
@@ -169,8 +190,9 @@ mod tests {
         let work_dir = test_work_dir("test_column_end_4");
         ctx.write_layout::<ColumnCent>(
             &ColCentParams {
-                col: COL_PARAMS,
+                col: COL_WMASK_PARAMS,
                 end: true,
+                cut_wmask: true,
             },
             out_gds(work_dir, "layout"),
         )

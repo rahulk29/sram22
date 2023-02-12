@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::iter::Extend;
 
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams};
 use substrate::error::Result;
@@ -18,13 +19,15 @@ use substrate::layout::DrawRef;
 
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerKey;
-use substrate::layout::placement::grid::ArrayTiler;
 
+use substrate::layout::placement::align::AlignMode;
+use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::routing::manual::jog::ElbowJog;
 use substrate::layout::routing::tracks::UniformTracks;
 use substrate::script::Script;
 
+use crate::bus_bit;
 use crate::v2::gate::{Gate, GateParams};
 
 use super::{DecoderParams, DecoderStage, DecoderStageParams, Predecoder};
@@ -52,21 +55,23 @@ pub(crate) fn decoder_stage_layout(
     let gate = ctx.instantiate::<DecoderGate>(&decoder_params)?;
     let tap = ctx.instantiate::<DecoderTap>(&decoder_params)?;
 
-    let mut period_tiler = ArrayTiler::new();
-    period_tiler.push_num(gate.clone(), dsn.tap_period);
-    period_tiler.push(tap.clone());
+    let period_tiler = ArrayTiler::builder()
+        .push_num(gate.clone(), dsn.tap_period)
+        .push(tap.clone())
+        .mode(AlignMode::ToTheRight)
+        .alt_mode(AlignMode::CenterVertical)
+        .build();
 
-    let period_grid = period_tiler.into_grid_tiler();
+    let period_group = period_tiler.draw_ref()?;
 
-    let period_group = period_grid.draw_ref()?;
+    let tiler = ArrayTiler::builder()
+        .push(tap)
+        .push_num(period_group, params.num / dsn.tap_period)
+        .mode(AlignMode::ToTheRight)
+        .alt_mode(AlignMode::CenterVertical)
+        .build();
 
-    let mut tiler = ArrayTiler::new();
-    tiler.push(tap.clone());
-    tiler.push_num(period_group.clone(), params.num / dsn.tap_period);
-
-    let grid = tiler.into_grid_tiler();
-
-    ctx.draw_ref(&grid)?;
+    ctx.draw_ref(&tiler)?;
 
     let tracks = UniformTracks::builder()
         .line(dsn.line)
@@ -116,8 +121,8 @@ pub(crate) fn decoder_stage_layout(
     let ports = ["a", "b", "c", "d"];
 
     for n in 0..params.num {
-        let tf = grid.translation(0, n / dsn.tap_period + 1)
-            + period_grid.translation(0, n % dsn.tap_period);
+        let tf = tiler.translation(n / dsn.tap_period + 1)
+            + period_tiler.translation(n % dsn.tap_period);
         let mut gate = gate.clone();
         gate.translate(tf);
         match routing_style {
@@ -161,12 +166,23 @@ pub(crate) fn decoder_stage_layout(
                     dsn.li,
                     Rect::from_spans(port.hspan(), port.vspan().union(via.brect().vspan())),
                 );
+
+                let port = gate
+                    .port(ports[1])?
+                    .into_cell_port()
+                    .named(bus_bit("in", n));
+                ctx.add_port(port);
             }
         };
         ctx.add_port(
             gate.port("y")?
                 .into_cell_port()
                 .named(arcstr::format!("decode_{n}")),
+        );
+        ctx.add_port(
+            gate.port("y_b")?
+                .into_cell_port()
+                .named(arcstr::format!("decode_b_{n}")),
         );
     }
     Ok(())
@@ -217,14 +233,30 @@ impl Predecoder {
         let mut inst = ctx.instantiate::<DecoderStage>(&params)?;
         inst.place(Corner::LowerLeft, Point::zero());
         ctx.add_ports(inst.ports_starting_with("decode"));
+        if node.children.is_empty() {
+            ctx.add_ports(inst.ports_starting_with("predecode"));
+        }
 
         let mut x = 0;
+        let mut next_addr = (0, 0);
         for (i, node) in node.children.iter().enumerate() {
             let mut child = ctx.instantiate::<Predecoder>(&DecoderParams {
                 tree: super::DecoderTree { root: node.clone() },
             })?;
             child.place(Corner::UpperLeft, Point::new(x, 0));
             x += child.brect().width() + dsn.width * dsn.tap_period as i64;
+
+            for port in child
+                .ports_starting_with("predecode")
+                .sorted_unstable_by(|a, b| a.name().cmp(b.name()))
+            {
+                ctx.add_port(port.named(format!("predecode_{}_{}", next_addr.0, next_addr.1)));
+                if next_addr.1 > 0 {
+                    next_addr = (next_addr.0 + 1, 0);
+                } else {
+                    next_addr = (next_addr.0, 1);
+                }
+            }
 
             for j in 0..node.num {
                 let src = child.port(&format!("decode_{j}"))?.largest_rect(dsn.li)?;
@@ -264,17 +296,6 @@ impl Predecoder {
 
         Ok(())
     }
-}
-
-enum PredecoderTracks {
-    /// Forward through any higher predecoders.
-    Forward,
-    /// Backward through any lower predecoders.
-    Backward,
-    /// Hop from one stage to the next.
-    Hop,
-    /// Power rails (ground if odd, power if even).
-    Power,
 }
 
 fn base_indices(mut i: usize, sizes: &[usize]) -> Vec<usize> {

@@ -14,13 +14,12 @@ use substrate::layout::geom::{Rect, Span};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignRect;
 use substrate::layout::placement::grid::GridTiler;
-use substrate::layout::placement::tile::{OptionTile, RectBbox, Tile};
+use substrate::layout::placement::tile::{OptionTile, Pad, Padding, RectBbox, Tile};
 use substrate::layout::routing::tracks::{Boundary, CenteredTrackParams, FixedTracks};
 use substrate::layout::Draw;
 
+use crate::v2::bitcell_array::{DffCol, DffColCent, DffColExtend, SenseAmp, SenseAmpCent};
 use crate::v2::buf::{layout::DiffBufCent, DiffBuf};
-use crate::v2::columns::Column;
-use crate::v2::macros::{DffCol, DffColCent, SenseAmp, SenseAmpCent};
 use crate::v2::precharge::{Precharge, PrechargeCent, PrechargeEnd};
 use crate::v2::rmux::{ReadMux, ReadMuxCent, ReadMuxEnd, ReadMuxParams};
 use crate::v2::wmux::{
@@ -29,29 +28,59 @@ use crate::v2::wmux::{
 
 use super::{ColParams, ColPeripherals};
 
+static DFF_PADDING: Padding = Padding::new(160, 0, 0, 0);
+
 impl ColPeripherals {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> substrate::error::Result<()> {
         let mut pc = ctx.instantiate::<Precharge>(&self.params.pc)?;
         let mut pc_end = ctx.instantiate::<PrechargeEnd>(&self.params.pc)?;
 
-        let col = ctx.instantiate::<Column>(&self.params)?;
+        let col = ctx.instantiate::<Column>(&ColParams {
+            include_wmask: false,
+            ..self.params.clone()
+        })?;
         let bbox = Rect::from_spans(Span::new(0, 4_800), col.brect().vspan());
         let col = RectBbox::new(col, bbox);
+
+        let col_wmask = ctx.instantiate::<Column>(&ColParams {
+            include_wmask: true,
+            ..self.params.clone()
+        })?;
+        let col_wmask = RectBbox::new(col_wmask, bbox);
+
         let cent = ctx.instantiate::<ColumnCent>(&ColCentParams {
             col: self.params.clone(),
             end: false,
+            cut_wmask: false,
+        })?;
+        let cent_cut = ctx.instantiate::<ColumnCent>(&ColCentParams {
+            col: self.params.clone(),
+            end: false,
+            cut_wmask: true,
         })?;
         let end = ctx.instantiate::<ColumnCent>(&ColCentParams {
             col: self.params.clone(),
             end: true,
+            cut_wmask: false,
         })?;
 
         let mut row = vec![end.clone().into()];
-        let groups = self.params.cols / self.params.rmux.mux_ratio;
-        for i in 0..groups {
-            row.push(col.clone().into());
-            if i != groups - 1 {
-                row.push(cent.clone().into());
+        let groups = self.params.cols / self.params.wmux.mux_ratio;
+        let mask_groups = groups / self.params.wmask_granularity;
+        for i in 0..mask_groups {
+            for j in 0..self.params.wmask_granularity {
+                if j == 0 {
+                    row.push(col_wmask.clone().into());
+                } else {
+                    row.push(col.clone().into());
+                }
+                if !(i == mask_groups - 1 && j == self.params.wmask_granularity - 1) {
+                    if j == self.params.wmask_granularity - 1 {
+                        row.push(cent_cut.clone().into());
+                    } else {
+                        row.push(cent.clone().into());
+                    }
+                }
             }
         }
         row.push(end.with_orientation(Named::ReflectHoriz).into());
@@ -73,6 +102,8 @@ impl ColPeripherals {
 
         ctx.draw_ref(&pc)?;
         ctx.draw_ref(&pc_end)?;
+
+        ctx.add_port(pc.port("bl_out")?.into_cell_port().named("rbl"));
 
         pc.orientation_mut().reflect_horiz();
         pc_end.orientation_mut().reflect_horiz();
@@ -167,7 +198,9 @@ impl Column {
         }
         grid.push_row(row);
 
+        // Data dff
         let mut dff = ctx.instantiate::<DffCol>(&NoParams)?;
+        let mut wmask_dff = ctx.instantiate::<DffCol>(&NoParams)?;
         let bbox = Rect::from_spans(
             Span::with_start_and_length((5_840 - 4_800) / 2, pc.brect().width()),
             dff.brect().vspan(),
@@ -182,6 +215,22 @@ impl Column {
             row.push(None.into());
         }
         grid.push_row(row);
+        let mut row = Vec::new();
+        if self.params.include_wmask {
+            row.push(OptionTile::new(Tile::from(Pad::new(
+                RectBbox::new(dff.clone(), bbox),
+                DFF_PADDING,
+            ))));
+            for _ in 0..mux_ratio - 1 {
+                row.push(None.into());
+            }
+        } else {
+            for _ in 0..mux_ratio {
+                let cent = ctx.instantiate::<DffColExtend>(&NoParams)?;
+                row.push(Pad::new(cent, DFF_PADDING).into());
+            }
+        }
+        grid.push_row(row);
 
         let tiler = GridTiler::new(grid);
         pc.translate(tiler.translation(0, 0));
@@ -190,6 +239,9 @@ impl Column {
         sa.translate(tiler.translation(3, 0));
         buf.translate(tiler.translation(4, 0));
         dff.translate(tiler.translation(5, 0));
+        if self.params.include_wmask {
+            wmask_dff.translate(tiler.translation(6, 0));
+        }
         ctx.draw(tiler)?;
 
         let hspan = Span::new(0, 4 * pc.brect().width());
@@ -281,6 +333,10 @@ impl Column {
         connect(&dff, "q", CellTrack::Data)?;
         connect(&dff, "qb", CellTrack::DataB)?;
 
+        if self.params.include_wmask {
+            connect(&wmask_dff, "q", CellTrack::Wmask)?;
+        }
+
         Ok(())
     }
 }
@@ -289,6 +345,7 @@ impl Column {
 pub struct ColCentParams {
     pub col: ColParams,
     pub end: bool,
+    cut_wmask: bool,
 }
 
 pub struct ColumnCent {
@@ -393,7 +450,7 @@ impl Component for ColumnCent {
             let rmux = ctx.instantiate::<ReadMuxCent>(&read_mux_params)?;
             let wmux = ctx.instantiate::<WriteMuxCent>(&WriteMuxCentParams {
                 cut_data: true,
-                cut_wmask: true,
+                cut_wmask: self.params.cut_wmask,
                 sizing: self.params.col.wmux,
             })?;
             (rmux, wmux)
@@ -403,6 +460,7 @@ impl Component for ColumnCent {
         let mut buf = ctx.instantiate::<DiffBufCent>(&self.params.col.buf)?;
         buf.set_orientation(Named::R90Cw);
         let mut dff = ctx.instantiate::<DffColCent>(&NoParams)?;
+        let mut wmask_dff = ctx.instantiate::<DffColCent>(&NoParams)?;
         let mut grid = Grid::new(0, 0);
         grid.push_row(into_vec![pc.clone()]);
         grid.push_row(into_vec![rmux.clone()]);
@@ -410,8 +468,8 @@ impl Component for ColumnCent {
         grid.push_row(into_vec![sa.clone()]);
         grid.push_row(into_vec![buf.clone()]);
         grid.push_row(into_vec![dff.clone()]);
-
-        // TODO: wmask reg cent
+        let wmask_tile = Pad::new(wmask_dff.clone(), DFF_PADDING);
+        grid.push_row(into_vec![wmask_tile]);
 
         let tiler = GridTiler::new(grid);
         pc.translate(tiler.translation(0, 0));
@@ -420,6 +478,7 @@ impl Component for ColumnCent {
         sa.translate(tiler.translation(3, 0));
         buf.translate(tiler.translation(4, 0));
         dff.translate(tiler.translation(5, 0));
+        wmask_dff.translate(tiler.translation(6, 0));
         ctx.draw(tiler)?;
 
         let hspan = Span::new(0, pc.brect().width());
@@ -480,6 +539,8 @@ impl Component for ColumnCent {
         connect(&buf, "vss", TapTrack::Vss)?;
         connect(&dff, "vdd", TapTrack::Vdd)?;
         connect(&dff, "vss", TapTrack::Vss)?;
+        connect(&wmask_dff, "vdd", TapTrack::Vdd)?;
+        connect(&wmask_dff, "vss", TapTrack::Vss)?;
 
         Ok(())
     }
