@@ -10,7 +10,7 @@ use sub_calibre::CalibreDrc;
 use substrate::data::{SubstrateConfig, SubstrateCtx};
 use substrate::pdk::{Pdk, PdkParams};
 use substrate::schematic::netlist::impls::spice::SpiceNetlister;
-use substrate::simulation::{Simulator, SimulatorOpts};
+use substrate::verification::simulation::{Simulator, SimulatorOpts};
 use tera::Tera;
 
 #[cfg(feature = "abstract_lef")]
@@ -74,7 +74,9 @@ pub fn setup_ctx() -> SubstrateCtx {
             ))
             .build()
             .unwrap(),
-    ));
+    )).lvs_tool(Arc::new(
+            CalibreLvs
+    );
     let cfg = builder
         .netlister(Arc::new(SpiceNetlister::new()))
         .simulator(Arc::new(simulator))

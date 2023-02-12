@@ -6,8 +6,8 @@ use substrate::{
 };
 
 use crate::v2::{
-    bitcell_array::{DffCol, SenseAmp},
     buf::DiffBuf,
+    macros::{DffCol, SenseAmp},
     precharge::Precharge,
     rmux::{ReadMux, ReadMuxParams},
     wmux::{WriteMux, WriteMuxParams},

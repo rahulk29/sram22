@@ -4,6 +4,7 @@ pub mod columns;
 pub mod control;
 pub mod decoder;
 pub mod gate;
+pub mod macros;
 pub mod precharge;
 pub mod rmux;
 pub mod sram;
