@@ -15,9 +15,8 @@ use substrate::{into_grid, into_vec};
 
 use crate::tech::external_gds_path;
 use crate::v2::macros::{
-    SpCell, SpCellOpt1a, SpCellOpt1aReplica, SpCellReplica, SpColend, SpColendPCent, SpColenda,
-    SpColendaPCent, SpCorner, SpCornera, SpHorizWlstrapP, SpHstrap, SpRowend, SpRowendHstrap,
-    SpRowendReplica, SpRowenda, SpRowendaReplica, SpWlstrapP, SpWlstrapaP,
+    SpCell, SpCellOpt1a, SpColend, SpColendPCent, SpColenda, SpColendaPCent, SpCorner, SpCornera,
+    SpHorizWlstrapP, SpHstrap, SpRowend, SpRowendHstrap, SpRowenda, SpWlstrapP, SpWlstrapaP,
 };
 
 use super::SpCellArray;
@@ -230,11 +229,11 @@ impl Component for SpCellArrayLeft {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let rowend_replica = ctx.instantiate::<SpRowendReplica>(&NoParams)?;
-        let mut rowenda_replica = ctx.instantiate::<SpRowendaReplica>(&NoParams)?;
+        let rowend_replica = ctx.instantiate::<SpRowend>(&NoParams)?;
+        let mut rowenda_replica = ctx.instantiate::<SpRowenda>(&NoParams)?;
         let mut rowend_hstrap = ctx.instantiate::<SpRowendHstrap>(&NoParams)?;
-        let cell_replica = ctx.instantiate::<SpCellReplica>(&NoParams)?;
-        let mut cell_opt1a_replica = ctx.instantiate::<SpCellOpt1aReplica>(&NoParams)?;
+        let cell_replica = ctx.instantiate::<SpCell>(&NoParams)?;
+        let mut cell_opt1a_replica = ctx.instantiate::<SpCellOpt1a>(&NoParams)?;
         let mut hstrap = ctx.instantiate::<SpHstrap>(&NoParams)?;
         rowenda_replica.set_orientation(Named::ReflectVert);
         cell_opt1a_replica.set_orientation(Named::ReflectVert);
@@ -497,8 +496,8 @@ impl Component for SpCellArrayRight {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let mut rowend = ctx.instantiate::<SpRowendReplica>(&NoParams)?;
-        let mut rowenda = ctx.instantiate::<SpRowendaReplica>(&NoParams)?;
+        let mut rowend = ctx.instantiate::<SpRowend>(&NoParams)?;
+        let mut rowenda = ctx.instantiate::<SpRowenda>(&NoParams)?;
         let mut rowend_hstrap = ctx.instantiate::<SpRowendHstrap>(&NoParams)?;
         let mut cell = ctx.instantiate::<SpCell>(&NoParams)?;
         let mut cell_opt1a = ctx.instantiate::<SpCellOpt1a>(&NoParams)?;
