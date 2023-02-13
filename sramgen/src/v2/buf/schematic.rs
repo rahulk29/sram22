@@ -29,7 +29,7 @@ impl Buf {
         ctx.add_instance(inv1);
 
         let mut inv2 = ctx.instantiate::<Inv>(&inv_params)?;
-        inv2.connect_all([("vdd", &vdd), ("vss", &vss), ("din", &x), ("dout", &dout)]);
+        inv2.connect_all([("vdd", &vdd), ("vss", &vss), ("din", &x), ("din_b", &dout)]);
         inv2.set_name(format!("inv_2"));
         ctx.add_instance(inv2);
 
