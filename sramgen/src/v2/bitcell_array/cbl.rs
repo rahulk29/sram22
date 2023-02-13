@@ -2,12 +2,12 @@
 
 use substrate::component::Component;
 use substrate::schematic::circuit::Direction;
-use substrate::schematic::elements::vdc::Vdc;
 use substrate::schematic::elements::idc::Idc;
+use substrate::schematic::elements::vdc::Vdc;
 use substrate::schematic::signal::Signal;
-use substrate::simulation::testbench::Testbench;
-use substrate::simulation::{Analysis, Save, TranAnalysis};
-use substrate::units::{SiValue, SiPrefix};
+use substrate::units::{SiPrefix, SiValue};
+use substrate::verification::simulation::testbench::Testbench;
+use substrate::verification::simulation::{Analysis, Save, TranAnalysis};
 
 use super::{SpCellArray, SpCellArrayParams};
 use serde::{Deserialize, Serialize};
@@ -47,7 +47,7 @@ impl Component for BitlineCapTb {
 
         let mut bls = vec![vdd; self.params.cols];
         bls[0] = bl;
-        
+
         let mut dut = ctx.instantiate::<SpCellArray>(&self.params)?;
         dut.connect_all([("vdd", vdd), ("vss", vss), ("vnb", vss), ("vpb", vdd)]);
         dut.connect("bl", Signal::new(bls));
@@ -76,7 +76,7 @@ impl Testbench for BitlineCapTb {
 
     fn setup(
         &mut self,
-        ctx: &mut substrate::simulation::context::PreSimCtx,
+        ctx: &mut substrate::verification::simulation::context::PreSimCtx,
     ) -> substrate::error::Result<()> {
         ctx.add_analysis(Analysis::Tran(TranAnalysis {
             stop: 6e-6,
@@ -89,12 +89,24 @@ impl Testbench for BitlineCapTb {
 
     fn measure(
         &mut self,
-        ctx: &substrate::simulation::context::PostSimCtx,
+        ctx: &substrate::verification::simulation::context::PostSimCtx,
     ) -> substrate::error::Result<Self::Output> {
         let data = ctx.output().data[0].tran();
         let sig = &data.data["v(xdut.bl)"];
-        let (idx1, v1) = sig.values.iter().enumerate().filter(|(i, &x)| x > 0.1).next().unwrap();
-        let (idx2, v2) = sig.values.iter().enumerate().filter(|(i, &x)| x > 1.7).next().unwrap();
+        let (idx1, v1) = sig
+            .values
+            .iter()
+            .enumerate()
+            .filter(|(i, &x)| x > 0.1)
+            .next()
+            .unwrap();
+        let (idx2, v2) = sig
+            .values
+            .iter()
+            .enumerate()
+            .filter(|(i, &x)| x > 1.7)
+            .next()
+            .unwrap();
 
         let t1 = data.time.values[idx1];
         let t2 = data.time.values[idx2];
@@ -104,7 +116,7 @@ impl Testbench for BitlineCapTb {
         assert!(t2 > t1);
 
         let cbl = IBL_NANO as f64 * 1e-9 * (t2 - t1) / (v2 - v1);
-        
+
         println!("cbl = {:?}", cbl);
         Ok(BitlineCap { cbl })
     }
@@ -133,7 +145,8 @@ mod tests {
             cols: 8,
             mux_ratio: 4,
         };
-        let cap = ctx.write_simulation::<BitlineCapTb>(&params, &work_dir)
+        let cap = ctx
+            .write_simulation::<BitlineCapTb>(&params, &work_dir)
             .expect("failed to write schematic");
         println!("Cbl = {:?}", cap);
     }

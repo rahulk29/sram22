@@ -440,7 +440,10 @@ mod tests {
             let output = ctx
                 .write_drc::<Predecoder>(&params, work_dir.join("drc"))
                 .expect("failed to run drc");
-            assert!(matches!(output.summary, substrate::drc::DrcSummary::Pass));
+            assert!(matches!(
+                output.summary,
+                substrate::verification::drc::DrcSummary::Pass
+            ));
         }
     }
 
@@ -473,7 +476,10 @@ mod tests {
             let output = ctx
                 .write_drc::<LastBitDecoderStage>(&params, work_dir.join("drc"))
                 .expect("failed to run drc");
-            assert!(matches!(output.summary, substrate::drc::DrcSummary::Pass));
+            assert!(matches!(
+                output.summary,
+                substrate::verification::drc::DrcSummary::Pass
+            ));
         }
     }
 }

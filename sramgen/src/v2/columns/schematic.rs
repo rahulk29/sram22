@@ -1,17 +1,14 @@
-use substrate::{
-    component::NoParams,
-    error::Result,
-    index::IndexOwned,
-    schematic::{circuit::Direction, context::SchematicCtx},
-};
+use substrate::component::NoParams;
+use substrate::error::Result;
+use substrate::index::IndexOwned;
+use substrate::schematic::circuit::Direction;
+use substrate::schematic::context::SchematicCtx;
 
-use crate::v2::{
-    buf::DiffBuf,
-    macros::{DffCol, SenseAmp},
-    precharge::Precharge,
-    rmux::{ReadMux, ReadMuxParams},
-    wmux::{WriteMux, WriteMuxParams},
-};
+use crate::v2::buf::DiffBuf;
+use crate::v2::macros::{DffCol, SenseAmp};
+use crate::v2::precharge::Precharge;
+use crate::v2::rmux::{ReadMux, ReadMuxParams};
+use crate::v2::wmux::{WriteMux, WriteMuxParams};
 
 use super::{ColPeripherals, Column};
 

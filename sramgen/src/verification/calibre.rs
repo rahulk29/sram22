@@ -14,9 +14,7 @@ pub(crate) const SKY130_DRC_RULES_PATH: &str =
 pub(crate) const SKY130_DRC_RUNSET_PATH: &str = "/tools/B/rahulkumar/sky130/priv/drc/runset";
 pub(crate) const SKY130_LVS_RULES_PATH: &str =
     "/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/LVS/Calibre/lvs_s8_opts";
-
-#[cfg(feature = "pex")]
-const SKY130_PEX_RULES_PATH: &str =
+pub(crate) const SKY130_PEX_RULES_PATH: &str =
     "/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/PEX/xRC/xrcControlFile_s8";
 
 fn test_check_filter(check: &RuleCheck) -> bool {
@@ -64,7 +62,7 @@ pub fn run_sram_lvs(
         layout_cell_name: name,
         source_paths: &source_files(&work_dir, name, VerificationTask::Lvs, control_mode),
         source_cell_name: name,
-        lvs_rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
+        rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
     })?
     .status
         != LvsStatus::Correct
@@ -93,7 +91,7 @@ pub fn run_sram_pex(
         layout_cell_name: name,
         source_paths: &source_files(&work_dir, name, VerificationTask::Pex, control_mode),
         source_cell_name: name,
-        pex_rules_path: &PathBuf::from(SKY130_PEX_RULES_PATH),
+        rules_path: &PathBuf::from(SKY130_PEX_RULES_PATH),
         pex_netlist_path,
     })?
     .status

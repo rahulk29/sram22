@@ -8,6 +8,8 @@ use sky130_open_pdk::Sky130Pdk;
 #[cfg(feature = "calibre")]
 use sub_calibre::CalibreDrc;
 #[cfg(feature = "calibre")]
+use sub_calibre::CalibreLvs;
+#[cfg(feature = "calibre")]
 use sub_calibre::CalibrePex;
 use substrate::data::{SubstrateConfig, SubstrateCtx};
 use substrate::pdk::{Pdk, PdkParams};

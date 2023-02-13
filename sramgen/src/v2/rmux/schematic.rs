@@ -1,7 +1,8 @@
-use substrate::{
-    pdk::mos::{query::Query, spec::MosKind, MosParams},
-    schematic::{circuit::Direction, elements::mos::SchematicMos},
-};
+use substrate::pdk::mos::query::Query;
+use substrate::pdk::mos::spec::MosKind;
+use substrate::pdk::mos::MosParams;
+use substrate::schematic::circuit::Direction;
+use substrate::schematic::elements::mos::SchematicMos;
 
 use super::ReadMux;
 

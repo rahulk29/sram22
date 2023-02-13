@@ -18,7 +18,8 @@ use substrate::layout::placement::tile::{OptionTile, Pad, Padding, RectBbox, Til
 use substrate::layout::routing::tracks::{Boundary, CenteredTrackParams, FixedTracks};
 use substrate::layout::Draw;
 
-use crate::v2::buf::{layout::DiffBufCent, DiffBuf};
+use crate::v2::buf::layout::DiffBufCent;
+use crate::v2::buf::DiffBuf;
 use crate::v2::columns::Column;
 use crate::v2::macros::{DffCol, DffColCent, DffColExtend, SenseAmp, SenseAmpCent};
 use crate::v2::precharge::{Precharge, PrechargeCent, PrechargeEnd};
