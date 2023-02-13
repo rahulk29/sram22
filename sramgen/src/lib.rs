@@ -7,10 +7,12 @@ use ngspice::Ngspice;
 use sky130_open_pdk::Sky130Pdk;
 #[cfg(feature = "calibre")]
 use sub_calibre::CalibreDrc;
+#[cfg(feature = "calibre")]
+use sub_calibre::CalibrePex;
 use substrate::data::{SubstrateConfig, SubstrateCtx};
 use substrate::pdk::{Pdk, PdkParams};
 use substrate::schematic::netlist::impls::spice::SpiceNetlister;
-use substrate::simulation::{Simulator, SimulatorOpts};
+use substrate::verification::simulation::{Simulator, SimulatorOpts};
 use tera::Tera;
 
 #[cfg(feature = "abstract_lef")]
@@ -64,17 +66,24 @@ pub fn setup_ctx() -> SubstrateCtx {
     let builder = SubstrateConfig::builder();
 
     #[cfg(feature = "calibre")]
-    let builder = builder.drc_tool(Arc::new(
-        CalibreDrc::builder()
-            .rules_file(PathBuf::from(
-                crate::verification::calibre::SKY130_DRC_RULES_PATH,
-            ))
-            .runset_file(PathBuf::from(
-                crate::verification::calibre::SKY130_DRC_RUNSET_PATH,
-            ))
-            .build()
-            .unwrap(),
-    ));
+    let builder = builder
+        .drc_tool(Arc::new(
+            CalibreDrc::builder()
+                .rules_file(PathBuf::from(
+                    crate::verification::calibre::SKY130_DRC_RULES_PATH,
+                ))
+                .runset_file(PathBuf::from(
+                    crate::verification::calibre::SKY130_DRC_RUNSET_PATH,
+                ))
+                .build()
+                .unwrap(),
+        ))
+        .lvs_tool(Arc::new(CalibreLvs::new(PathBuf::from(
+            crate::verification::calibre::SKY130_LVS_RULES_PATH,
+        ))))
+        .pex_tool(Arc::new(CalibrePex::new(PathBuf::from(
+            crate::verification::calibre::SKY130_PEX_RULES_PATH,
+        ))));
     let cfg = builder
         .netlister(Arc::new(SpiceNetlister::new()))
         .simulator(Arc::new(simulator))

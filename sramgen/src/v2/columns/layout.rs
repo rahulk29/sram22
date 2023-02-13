@@ -1,6 +1,7 @@
 use grid::Grid;
 use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams};
+use substrate::error::Result;
 use substrate::index::IndexOwned;
 use substrate::into_vec;
 use substrate::layout::cell::{Instance, Port};
@@ -17,15 +18,16 @@ use substrate::layout::placement::tile::{OptionTile, Pad, Padding, RectBbox, Til
 use substrate::layout::routing::tracks::{Boundary, CenteredTrackParams, FixedTracks};
 use substrate::layout::Draw;
 
-use crate::v2::bitcell_array::{DffCol, DffColCent, DffColExtend, SenseAmp, SenseAmpCent};
-use crate::v2::buf::{DiffBuf, DiffBufCent};
+use crate::v2::buf::{layout::DiffBufCent, DiffBuf};
+use crate::v2::columns::Column;
+use crate::v2::macros::{DffCol, DffColCent, DffColExtend, SenseAmp, SenseAmpCent};
 use crate::v2::precharge::{Precharge, PrechargeCent, PrechargeEnd};
 use crate::v2::rmux::{ReadMux, ReadMuxCent, ReadMuxEnd, ReadMuxParams};
 use crate::v2::wmux::{
     WriteMux, WriteMuxCent, WriteMuxCentParams, WriteMuxEnd, WriteMuxEndParams, WriteMuxParams,
 };
 
-use super::{ColCentParams, ColParams, ColPeripherals};
+use super::{ColParams, ColPeripherals};
 
 static DFF_PADDING: Padding = Padding::new(160, 0, 0, 0);
 
@@ -118,94 +120,8 @@ impl ColPeripherals {
     }
 }
 
-pub struct Column {
-    params: ColParams,
-}
-pub struct ColumnCent {
-    params: ColCentParams,
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Serialize, Deserialize)]
-pub enum TapTrack {
-    Vdd,
-    Vss,
-}
-
-impl From<usize> for TapTrack {
-    fn from(value: usize) -> Self {
-        use TapTrack::*;
-        match value {
-            0 => Vdd,
-            1 => Vss,
-            _ => panic!("invalid `TapTrack` index"),
-        }
-    }
-}
-
-impl From<TapTrack> for usize {
-    fn from(value: TapTrack) -> usize {
-        use TapTrack::*;
-        match value {
-            Vdd => 0,
-            Vss => 1,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Serialize, Deserialize)]
-pub enum CellTrack {
-    ReadP,
-    ReadN,
-    Vss,
-    Data,
-    DataB,
-    Wmask,
-}
-
-impl From<usize> for CellTrack {
-    fn from(value: usize) -> Self {
-        use CellTrack::*;
-        match value {
-            0 => ReadP,
-            1 => ReadN,
-            2 => Vss,
-            3 => Data,
-            4 => DataB,
-            5 => Wmask,
-            _ => panic!("invalid `CellTrack` index"),
-        }
-    }
-}
-
-impl From<CellTrack> for usize {
-    fn from(value: CellTrack) -> Self {
-        use CellTrack::*;
-        match value {
-            ReadP => 0,
-            ReadN => 1,
-            Vss => 2,
-            Data => 3,
-            DataB => 4,
-            Wmask => 5,
-        }
-    }
-}
-
-impl Component for Column {
-    type Params = ColParams;
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
-    }
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("column")
-    }
-
-    fn layout(&self, ctx: &mut LayoutCtx) -> substrate::error::Result<()> {
+impl Column {
+    pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
         let mux_ratio = self.params.rmux.mux_ratio;
         let mut pc = ctx.instantiate::<Precharge>(&self.params.pc)?;
         let mut rmux = ctx.instantiate::<ReadMux>(&ReadMuxParams {
@@ -423,6 +339,83 @@ impl Component for Column {
         }
 
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ColCentParams {
+    pub col: ColParams,
+    pub end: bool,
+    cut_wmask: bool,
+}
+
+pub struct ColumnCent {
+    params: ColCentParams,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Serialize, Deserialize)]
+pub enum TapTrack {
+    Vdd,
+    Vss,
+}
+
+impl From<usize> for TapTrack {
+    fn from(value: usize) -> Self {
+        use TapTrack::*;
+        match value {
+            0 => Vdd,
+            1 => Vss,
+            _ => panic!("invalid `TapTrack` index"),
+        }
+    }
+}
+
+impl From<TapTrack> for usize {
+    fn from(value: TapTrack) -> usize {
+        use TapTrack::*;
+        match value {
+            Vdd => 0,
+            Vss => 1,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Serialize, Deserialize)]
+pub enum CellTrack {
+    ReadP,
+    ReadN,
+    Vss,
+    Data,
+    DataB,
+    Wmask,
+}
+
+impl From<usize> for CellTrack {
+    fn from(value: usize) -> Self {
+        use CellTrack::*;
+        match value {
+            0 => ReadP,
+            1 => ReadN,
+            2 => Vss,
+            3 => Data,
+            4 => DataB,
+            5 => Wmask,
+            _ => panic!("invalid `CellTrack` index"),
+        }
+    }
+}
+
+impl From<CellTrack> for usize {
+    fn from(value: CellTrack) -> Self {
+        use CellTrack::*;
+        match value {
+            ReadP => 0,
+            ReadN => 1,
+            Vss => 2,
+            Data => 3,
+            DataB => 4,
+            Wmask => 5,
+        }
     }
 }
 

@@ -3,7 +3,8 @@ use substrate::index::IndexOwned;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
-use super::{SpCell, SpCellArray};
+use super::SpCellArray;
+use crate::v2::macros::SpCell;
 
 impl SpCellArray {
     pub(crate) fn schematic(

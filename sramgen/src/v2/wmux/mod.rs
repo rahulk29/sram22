@@ -154,7 +154,7 @@ impl Component for WriteMuxEnd {
 #[cfg(test)]
 mod tests {
 
-    use crate::paths::out_gds;
+    use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -183,8 +183,13 @@ mod tests {
     fn test_write_mux() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_write_mux");
-        ctx.write_layout::<WriteMux>(&WRITE_MUX_PARAMS, out_gds(work_dir, "layout"))
+        ctx.write_layout::<WriteMux>(&WRITE_MUX_PARAMS, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
+        ctx.write_schematic_to_file::<WriteMux>(
+            &WRITE_MUX_PARAMS,
+            out_spice(work_dir, "schematic"),
+        )
+        .expect("failed to write schematic");
     }
 
     #[test]

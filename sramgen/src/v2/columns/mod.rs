@@ -1,6 +1,8 @@
 //! Column peripheral circuitry.
 
 use substrate::component::Component;
+use substrate::layout::context::LayoutCtx;
+use substrate::schematic::context::SchematicCtx;
 
 use super::buf::DiffBufParams;
 use super::precharge::PrechargeParams;
@@ -9,7 +11,7 @@ use super::wmux::WriteMuxSizing;
 use serde::Serialize;
 
 pub mod layout;
-pub mod routing;
+pub mod schematic;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ColParams {
@@ -22,14 +24,11 @@ pub struct ColParams {
     pub wmask_granularity: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ColCentParams {
-    col: ColParams,
-    end: bool,
-    cut_wmask: bool,
+pub struct ColPeripherals {
+    params: ColParams,
 }
 
-pub struct ColPeripherals {
+pub struct Column {
     params: ColParams,
 }
 
@@ -48,10 +47,38 @@ impl Component for ColPeripherals {
         arcstr::literal!("col_peripherals")
     }
 
+    fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
+        self.schematic(ctx)
+    }
+
     fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        self.layout(ctx)
+    }
+}
+
+impl Component for Column {
+    type Params = ColParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("column")
+    }
+
+    fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
+        self.schematic(ctx)
+    }
+
+    fn layout(&self, ctx: &mut LayoutCtx) -> substrate::error::Result<()> {
         self.layout(ctx)
     }
 }
@@ -63,7 +90,7 @@ mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
-    use super::layout::{Column, ColumnCent};
+    use super::layout::{ColCentParams, ColumnCent};
     use super::*;
 
     const WRITE_MUX_SIZING: WriteMuxSizing = WriteMuxSizing {

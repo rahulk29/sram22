@@ -12,80 +12,6 @@ mod layout;
 mod replica;
 mod schematic;
 
-fn path(_ctx: &SubstrateCtx, name: &str, view: View) -> Option<PathBuf> {
-    match view {
-        View::Layout => Some(external_gds_path().join(format!("{name}.gds"))),
-        View::Schematic => Some(external_spice_path().join(format!("{name}.spice"))),
-        _ => None,
-    }
-}
-
-#[hard_macro(
-    name = "sram_sp_cell",
-    pdk = "sky130-open",
-    path_fn = "path",
-    gds_cell_name = "sky130_fd_bd_sram__sram_sp_cell_opt1",
-    spice_subckt_name = "sram_sp_cell"
-)]
-pub struct SpCell;
-
-#[hard_macro(
-    name = "sram_sp_cell_replica",
-    pdk = "sky130-open",
-    path_fn = "path",
-    gds_cell_name = "sky130_fd_bd_sram__openram_sp_cell_opt1_replica",
-    spice_subckt_name = "sky130_fd_bd_sram__sram_sp_cell_opt1"
-)]
-pub struct SpCellReplica;
-
-#[hard_macro(
-    name = "sram_sp_colend",
-    pdk = "sky130-open",
-    path_fn = "path",
-    gds_cell_name = "sky130_fd_bd_sram__sram_sp_colend"
-)]
-pub struct SpColend;
-
-#[hard_macro(
-    name = "sramgen_sp_sense_amp",
-    pdk = "sky130-open",
-    path_fn = "path",
-    gds_cell_name = "sramgen_sp_sense_amp"
-)]
-pub struct SenseAmp;
-
-#[hard_macro(
-    name = "sramgen_sp_sense_amp_cent",
-    pdk = "sky130-open",
-    path_fn = "path",
-    gds_cell_name = "sramgen_sp_sense_amp_cent"
-)]
-pub struct SenseAmpCent;
-
-#[hard_macro(
-    name = "openram_dff_col",
-    pdk = "sky130-open",
-    path_fn = "path",
-    gds_cell_name = "sky130_fd_bd_sram__openram_dff_col"
-)]
-pub struct DffCol;
-
-#[hard_macro(
-    name = "openram_dff_col_cent",
-    pdk = "sky130-open",
-    path_fn = "path",
-    gds_cell_name = "sky130_fd_bd_sram__openram_dff_col_cent"
-)]
-pub struct DffColCent;
-
-#[hard_macro(
-    name = "openram_dff_col_extend",
-    pdk = "sky130-open",
-    path_fn = "path",
-    gds_cell_name = "sky130_fd_bd_sram__openram_dff_col_extend"
-)]
-pub struct DffColExtend;
-
 pub struct SpCellArray {
     params: SpCellArrayParams,
 }
@@ -177,4 +103,8 @@ mod tests {
         ctx.write_layout::<SpCellArrayCenter>(&tap_ratio, out_gds(&work_dir, "center"))
             .expect("failed to write layout");
     }
+
+    #[cfg(feature = "calibre")]
+    #[test]
+    fn test_dff_lvs_pex() {}
 }
