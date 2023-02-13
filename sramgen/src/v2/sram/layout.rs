@@ -153,14 +153,14 @@ impl Sram {
                     layer: m1,
                 },
                 LayerConfig {
-                    line: 340,
-                    space: 340,
+                    line: 170,
+                    space: 170,
                     dir: Dir::Horiz,
                     layer: m2,
                 },
                 LayerConfig {
-                    line: 340,
-                    space: 340,
+                    line: 170,
+                    space: 170,
                     dir: Dir::Vert,
                     layer: m3,
                 },
@@ -198,7 +198,7 @@ impl Sram {
             let dst = decoder
                 .port(&format!("predecode_0_{i}"))?
                 .largest_rect(m1)?;
-            // router.route(ctx, m2, src, m1, dst)?;
+            router.route(ctx, m2, src, m1, dst)?;
         }
         for i in 0..tree.root.children[1].num {
             let src = p2.port(&format!("decode_{i}"))?.largest_rect(m0)?;
