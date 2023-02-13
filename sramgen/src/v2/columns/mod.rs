@@ -149,7 +149,10 @@ mod tests {
             let output = ctx
                 .write_drc::<ColPeripherals>(&COL_WMASK_PARAMS, drc_work_dir)
                 .expect("failed to run DRC");
-            assert!(matches!(output.summary, substrate::drc::DrcSummary::Pass));
+            assert!(matches!(
+                output.summary,
+                substrate::verification::drc::DrcSummary::Pass
+            ));
         }
     }
 
