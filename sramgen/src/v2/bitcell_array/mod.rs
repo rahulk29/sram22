@@ -8,6 +8,7 @@ use substrate::data::SubstrateCtx;
 
 use crate::tech::{external_gds_path, external_spice_path};
 
+mod cbl;
 mod layout;
 mod replica;
 mod schematic;
@@ -58,11 +59,14 @@ impl Component for SpCellArray {
 #[cfg(test)]
 mod tests {
     use substrate::component::NoParams;
+    use substrate::layout::geom::Rect;
+    use substrate::layout::layers::selector::Selector;
 
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::v2::bitcell_array::layout::*;
+    use crate::v2::guard_ring::{GuardRingParams, GuardRingWrapper, WrapperParams};
 
     use super::*;
 
@@ -80,6 +84,32 @@ mod tests {
 
         ctx.write_schematic_to_file::<SpCellArray>(&params, out_spice(&work_dir, "schematic"))
             .expect("failed to write schematic");
+    }
+
+    #[test]
+    fn test_sp_cell_array_with_guard_ring() -> substrate::error::Result<()> {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_sp_cell_array_with_guard_ring");
+
+        let layers = ctx.layers();
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+        let params = WrapperParams {
+            inner: SpCellArrayParams {
+                rows: 32,
+                cols: 32,
+                mux_ratio: 4,
+            },
+            ring: GuardRingParams {
+                enclosure: Rect::default(),
+                h_metal: m2,
+                v_metal: m1,
+                h_width: 1_360,
+                v_width: 1_360,
+            },
+        };
+        ctx.write_layout::<GuardRingWrapper<SpCellArray>>(&params, out_gds(&work_dir, "layout"))?;
+        Ok(())
     }
 
     #[test]

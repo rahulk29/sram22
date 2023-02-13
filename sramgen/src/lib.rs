@@ -89,7 +89,7 @@ pub fn setup_ctx() -> SubstrateCtx {
         .simulator(Arc::new(simulator))
         .pdk(Arc::new(
             Sky130Pdk::new(&PdkParams {
-                pdk_root: PathBuf::from("/path/to/sky130"),
+                pdk_root: PathBuf::from("/Users/rahul/acads/research/sky130/pdk/skywater-pdk"),
             })
             .unwrap(),
         ))
