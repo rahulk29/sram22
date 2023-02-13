@@ -14,7 +14,13 @@ use substrate::layout::placement::tile::{OptionTile, RelativeRectBbox};
 use substrate::{into_grid, into_vec};
 
 use crate::tech::external_gds_path;
-use macros::{SpCell, SpCellArray, SpCellReplica, SpColend};
+use crate::v2::macros::{
+    SpCell, SpCellOpt1a, SpCellOpt1aReplica, SpCellReplica, SpColend, SpColendPCent, SpColenda,
+    SpColendaPCent, SpCorner, SpCornera, SpHorizWlstrapP, SpHstrap, SpRowend, SpRowendHstrap,
+    SpRowendReplica, SpRowenda, SpRowendaReplica, SpWlstrapP, SpWlstrapaP,
+};
+
+use super::SpCellArray;
 
 pub struct SpCellArrayCornerUl;
 
