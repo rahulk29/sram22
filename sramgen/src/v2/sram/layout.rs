@@ -153,14 +153,14 @@ impl Sram {
                     layer: m1,
                 },
                 LayerConfig {
-                    line: 170,
-                    space: 170,
+                    line: 340,
+                    space: 340,
                     dir: Dir::Horiz,
                     layer: m2,
                 },
                 LayerConfig {
-                    line: 170,
-                    space: 170,
+                    line: 340,
+                    space: 340,
                     dir: Dir::Vert,
                     layer: m3,
                 },
@@ -168,13 +168,13 @@ impl Sram {
         });
 
         for inst in [&bitcells, &cols] {
-            // router.block(m2, inst.brect());
-            // router.block(m3, inst.brect());
+            router.block(m2, inst.brect());
+            router.block(m3, inst.brect());
         }
         for inst in [&p1, &p2, &col_dec, &control, &wmux_driver, &dffs] {
             for shape in inst.shapes_on(m2) {
                 let rect = shape.brect();
-                // router.block(m2, rect);
+                router.block(m2, rect);
             }
         }
 
@@ -184,10 +184,10 @@ impl Sram {
             for i in 0..num {
                 let src = dffs.port(&bus_bit("q", ctr))?.largest_rect(m2)?;
                 let dst = inst.port(&format!("predecode_{i}_0"))?.largest_rect(m2)?;
-                // router.route(ctx, m2, src, m2, dst)?;
+                router.route(ctx, m2, src, m2, dst)?;
                 let src = dffs.port(&bus_bit("qn", ctr))?.largest_rect(m2)?;
                 let dst = inst.port(&format!("predecode_{i}_1"))?.largest_rect(m2)?;
-                // router.route(ctx, m2, src, m2, dst)?;
+                router.route(ctx, m2, src, m2, dst)?;
                 ctr += 1;
             }
         }
@@ -195,17 +195,18 @@ impl Sram {
         // Route predecoders to final decoder stage
         for i in 0..tree.root.children[0].num {
             let src = p1.port(&format!("decode_{i}"))?.largest_rect(m0)?;
+            ctx.draw_rect(m1, src);
             let dst = decoder
                 .port(&format!("predecode_0_{i}"))?
                 .largest_rect(m1)?;
-            router.route(ctx, m2, src, m1, dst)?;
+            router.route(ctx, m1, src, m1, dst)?;
         }
         for i in 0..tree.root.children[1].num {
             let src = p2.port(&format!("decode_{i}"))?.largest_rect(m0)?;
             let dst = decoder
                 .port(&format!("predecode_1_{i}"))?
                 .largest_rect(m1)?;
-            router.route(ctx, m2, src, m1, dst)?;
+            router.route(ctx, m1, src, m1, dst)?;
         }
 
         // Route wordline decoder to wordlin driver
