@@ -346,7 +346,7 @@ impl Column {
 pub struct ColCentParams {
     pub col: ColParams,
     pub end: bool,
-    cut_wmask: bool,
+    pub cut_wmask: bool,
 }
 
 pub struct ColumnCent {
