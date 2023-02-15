@@ -19,7 +19,7 @@ impl SpCellArray {
         let vnb = ctx.port("vnb", Direction::InOut);
         let vpb = ctx.port("vpb", Direction::InOut);
 
-        let mut make_cell =
+        let make_cell =
             |ctx: &mut SchematicCtx, wl, bl, br, name| -> substrate::error::Result<()> {
                 let mut cell = ctx.instantiate::<SpCell>(&NoParams)?;
                 cell.connect_all([

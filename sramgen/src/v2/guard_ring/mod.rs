@@ -173,7 +173,7 @@ mod tests {
     use substrate::layout::geom::Point;
     use substrate::layout::layers::selector::Selector;
 
-    use crate::paths::{out_gds, out_spice};
+    use crate::paths::out_gds;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -195,7 +195,7 @@ mod tests {
             h_width: 1_360,
             v_width: 1_360,
         };
-        ctx.write_layout::<GuardRing>(&params, out_gds(&work_dir, "layout"))
+        ctx.write_layout::<GuardRing>(&params, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
         Ok(())
     }

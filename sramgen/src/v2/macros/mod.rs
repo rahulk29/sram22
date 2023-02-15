@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
-use arcstr::ArcStr;
 use codegen::hard_macro;
-use serde::{Deserialize, Serialize};
+
 use substrate::component::{Component, View};
 use substrate::data::SubstrateCtx;
 
@@ -56,6 +55,13 @@ pub struct SpColend;
     gds_cell_name = "sramgen_sp_sense_amp"
 )]
 pub struct SenseAmp;
+
+#[hard_macro(
+    name = "sramgen_sp_sense_amp_offset",
+    pdk = "sky130-open",
+    path_fn = "path",
+)]
+pub struct SenseAmpWithOffset;
 
 #[hard_macro(
     name = "sramgen_sp_sense_amp_cent",

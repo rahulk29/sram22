@@ -1,12 +1,7 @@
-use std::path::PathBuf;
-
 use arcstr::ArcStr;
-use codegen::hard_macro;
-use serde::{Deserialize, Serialize};
-use substrate::component::{Component, View};
-use substrate::data::SubstrateCtx;
 
-use crate::tech::{external_gds_path, external_spice_path};
+use serde::{Deserialize, Serialize};
+use substrate::component::Component;
 
 mod cbl;
 mod layout;
@@ -108,7 +103,7 @@ mod tests {
                 v_width: 1_360,
             },
         };
-        ctx.write_layout::<GuardRingWrapper<SpCellArray>>(&params, out_gds(&work_dir, "layout"))?;
+        ctx.write_layout::<GuardRingWrapper<SpCellArray>>(&params, out_gds(work_dir, "layout"))?;
         Ok(())
     }
 

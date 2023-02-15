@@ -1,11 +1,9 @@
-use std::path::PathBuf;
-
 use arcstr::ArcStr;
-use codegen::hard_macro;
+
 use grid::Grid;
 use serde::{Deserialize, Serialize};
-use substrate::component::{Component, NoParams, View};
-use substrate::data::SubstrateCtx;
+use substrate::component::{Component, NoParams};
+
 use substrate::layout::geom::orientation::Named;
 use substrate::layout::geom::{Point, Rect};
 use substrate::layout::placement::grid::GridTiler;
@@ -13,7 +11,6 @@ use substrate::layout::placement::nine_patch::{NpTiler, Region};
 use substrate::layout::placement::tile::{OptionTile, RelativeRectBbox};
 use substrate::{into_grid, into_vec};
 
-use crate::tech::external_gds_path;
 use crate::v2::macros::{
     SpCell, SpCellOpt1a, SpCellOpt1aReplica, SpCellReplica, SpColend, SpColendPCent, SpColenda,
     SpColendaPCent, SpCorner, SpCornera, SpHorizWlstrapP, SpHstrap, SpRowend, SpRowendHstrap,

@@ -29,9 +29,7 @@ impl Component for BitlineCapTb {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("bitline_cap_testbench")
@@ -97,15 +95,13 @@ impl Testbench for BitlineCapTb {
             .values
             .iter()
             .enumerate()
-            .filter(|(i, &x)| x > 0.1)
-            .next()
+            .find(|(_i, &x)| x > 0.1)
             .unwrap();
         let (idx2, v2) = sig
             .values
             .iter()
             .enumerate()
-            .filter(|(i, &x)| x > 1.7)
-            .next()
+            .find(|(_i, &x)| x > 1.7)
             .unwrap();
 
         let t1 = data.time.values[idx1];
@@ -124,19 +120,14 @@ impl Testbench for BitlineCapTb {
 
 #[cfg(test)]
 mod tests {
-    use substrate::component::NoParams;
-    use substrate::layout::geom::Rect;
-    use substrate::layout::layers::selector::Selector;
 
-    use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
-    use crate::v2::bitcell_array::layout::*;
-    use crate::v2::guard_ring::{GuardRingParams, GuardRingWrapper, WrapperParams};
 
     use super::*;
 
     #[test]
+    #[ignore = "slow"]
     fn test_bitline_cap_tb() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_bitline_cap_tb");

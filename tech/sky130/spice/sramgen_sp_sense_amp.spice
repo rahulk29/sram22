@@ -1,0 +1,24 @@
+* SRAM sense amplifier
+************************************************************************
+* auCdl Netlist:
+* 
+* Library Name:  AAA_Comp_SA
+* Top Cell Name: AAA_Comp_SA_sense
+* View Name:     schematic
+* Netlisted on:  Mar 16 00:39:41 2022
+************************************************************************
+
+.SUBCKT sramgen_sp_sense_amp clk inn inp outn outp VDD VSS
+*.PININFO clk:I inn:I inp:I midn:O midp:O outn:O outp:O VDD:B VSS:B
+XSWOP outp clk VDD VDD sky130_fd_pr__pfet_01v8 m=1 w=1.00 l=0.15 mult=2 sa=0.0 sb=0.0 sd=0.0 
+XSWON outn clk VDD VDD sky130_fd_pr__pfet_01v8 m=1 w=1.00 l=0.15 mult=2 sa=0.0 sb=0.0 sd=0.0 
+XSWMP midp clk VDD VDD sky130_fd_pr__pfet_01v8 m=1 w=1.00 l=0.15 mult=2 sa=0.0 sb=0.0 sd=0.0 
+XSWMN midn clk VDD VDD sky130_fd_pr__pfet_01v8 m=1 w=1.00 l=0.15 mult=2 sa=0.0 sb=0.0 sd=0.0 
+XPFBP outp outn VDD VDD sky130_fd_pr__pfet_01v8 m=2 w=2.00 l=0.15 mult=1 sa=0.0 sb=0.0 sd=0.0 
+XPFBN outn outp VDD VDD sky130_fd_pr__pfet_01v8 m=2 w=2.00 l=0.15 mult=1 sa=0.0 sb=0.0 sd=0.0 
+XTAIL tail clk VSS VSS sky130_fd_pr__nfet_01v8 m=2 w=1.68 l=0.15 mult=2 sa=0.0 sb=0.0 sd=0.0 
+XNFBP outp outn midp VSS sky130_fd_pr__nfet_01v8 m=2 w=1.68 l=0.15 mult=1 sa=0.0 sb=0.0 sd=0.0 
+XNFBN outn outp midn VSS sky130_fd_pr__nfet_01v8 m=2 w=1.68 l=0.15 mult=1 sa=0.0 sb=0.0 sd=0.0 
+XINP midn inp tail VSS sky130_fd_pr__nfet_01v8 m=2 w=1.68 l=0.15 mult=1 sa=0.0 sb=0.0 sd=0.0 
+XINN midp inn tail VSS sky130_fd_pr__nfet_01v8 m=2 w=1.68 l=0.15 mult=1 sa=0.0 sb=0.0 sd=0.0 
+.ENDS

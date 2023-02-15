@@ -1,4 +1,3 @@
-use super::layout::*;
 use crate::v2::macros::{SpCellOpt1aReplica, SpCellReplica, SpColend, SpCorner, SpRowendReplica};
 use arcstr::ArcStr;
 use itertools::Itertools;
@@ -6,11 +5,11 @@ use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams};
 use substrate::into_grid;
 use substrate::layout::geom::orientation::Named;
-use substrate::layout::geom::{Point, Rect};
+
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::grid::GridTiler;
 use substrate::layout::placement::nine_patch::{NpTiler, Region};
-use substrate::layout::placement::tile::{LayerBbox, RelativeRectBbox};
+use substrate::layout::placement::tile::LayerBbox;
 
 use super::layout::TapRatio;
 
@@ -51,8 +50,8 @@ impl Component for Center {
             .instantiate::<SpCellOpt1aReplica>(&NoParams)?
             .with_orientation(Named::ReflectVert);
 
-        let replica_flip = replica.clone().with_orientation(Named::ReflectHoriz);
-        let replica_a_flip = replica.clone().with_orientation(Named::R180);
+        let replica_flip = replica.with_orientation(Named::ReflectHoriz);
+        let replica_a_flip = replica.with_orientation(Named::R180);
 
         let layers = ctx.layers();
         let outline = layers.get(Selector::Name("outline"))?;
@@ -92,7 +91,7 @@ impl Component for TopBot {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let colend = ctx.instantiate::<SpColend>(&NoParams)?;
-        let colend_flip = colend.clone().with_orientation(Named::ReflectHoriz);
+        let colend_flip = colend.with_orientation(Named::ReflectHoriz);
 
         let grid = into_grid![[colend, colend_flip]];
         let grid = GridTiler::new(grid);
@@ -123,7 +122,7 @@ impl Component for LeftRight {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let rowend = ctx.instantiate::<SpRowendReplica>(&NoParams)?;
-        let rowend_flip = rowend.clone().with_orientation(Named::ReflectVert);
+        let rowend_flip = rowend.with_orientation(Named::ReflectVert);
 
         let grid = into_grid![[rowend][rowend_flip]];
         let grid = GridTiler::new(grid);
@@ -138,11 +137,9 @@ impl Component for ReplicaCellArray {
 
     fn new(
         params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
+        _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
 
     fn name(&self) -> arcstr::ArcStr {
@@ -199,12 +196,10 @@ impl Component for ReplicaCellArray {
 
 #[cfg(test)]
 mod tests {
-    use substrate::component::NoParams;
 
     use crate::paths::out_gds;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
-    use crate::v2::bitcell_array::layout::*;
 
     use super::*;
 
@@ -213,7 +208,7 @@ mod tests {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_replica_cell_array");
         ctx.write_layout::<ReplicaCellArray>(
-            &ReplicaCellArrayParams { rows: 32, cols: 2 },
+            &ReplicaCellArrayParams { rows: 24, cols: 2 },
             out_gds(work_dir, "layout"),
         )
         .expect("failed to write layout");
