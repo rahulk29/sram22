@@ -58,7 +58,7 @@ impl Component for SpCellArray {
 
 #[cfg(test)]
 mod tests {
-    use substrate::component::NoParams;
+    use substrate::component::{Component, NoParams};
     use substrate::layout::geom::Rect;
     use substrate::layout::layers::selector::Selector;
 
@@ -69,6 +69,44 @@ mod tests {
     use crate::v2::guard_ring::{GuardRingParams, GuardRingWrapper, WrapperParams};
 
     use super::*;
+
+    pub struct SpCellArrayWithGuardRing {
+        params: SpCellArrayParams,
+    }
+
+    impl Component for SpCellArrayWithGuardRing {
+        type Params = SpCellArrayParams;
+
+        fn new(
+            params: &Self::Params,
+            _ctx: &substrate::data::SubstrateCtx,
+        ) -> substrate::error::Result<Self> {
+            if params.rows % 8 != 0 || params.cols % 8 != 0 || params.rows == 0 || params.cols == 0
+            {
+                return Err(substrate::component::error::Error::InvalidParams.into());
+            }
+            Ok(Self { params: *params })
+        }
+
+        fn name(&self) -> ArcStr {
+            arcstr::literal!("sp_cell_array")
+        }
+
+        fn schematic(
+            &self,
+            ctx: &mut substrate::schematic::context::SchematicCtx,
+        ) -> substrate::error::Result<()> {
+            ctx.instantiate::<SpCellArray>(&self.params)?;
+            Ok(())
+        }
+
+        fn layout(
+            &self,
+            ctx: &mut substrate::layout::context::LayoutCtx,
+        ) -> substrate::error::Result<()> {
+            self.layout(ctx)
+        }
+    }
 
     #[test]
     fn test_sp_cell_array() {
