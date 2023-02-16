@@ -46,8 +46,6 @@ impl DiffBuf {
         let din2 = ctx.port("din2", Direction::Input);
         let dout1 = ctx.port("dout1", Direction::Output);
         let dout2 = ctx.port("dout2", Direction::Output);
-        let _x1 = ctx.signal("x1");
-        let _x2 = ctx.signal("x2");
 
         for (din, dout, suffix) in [(&din1, &dout1, "1"), (&din2, &dout2, "2")] {
             let mut buf = ctx.instantiate::<Buf>(&BufParams {
