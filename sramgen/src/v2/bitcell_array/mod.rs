@@ -71,21 +71,19 @@ mod tests {
     use super::*;
 
     pub struct SpCellArrayWithGuardRing {
-        params: SpCellArrayParams,
+        params: WrapperParams<SpCellArrayParams>,
     }
 
     impl Component for SpCellArrayWithGuardRing {
-        type Params = SpCellArrayParams;
+        type Params = WrapperParams<SpCellArrayParams>;
 
         fn new(
             params: &Self::Params,
             _ctx: &substrate::data::SubstrateCtx,
         ) -> substrate::error::Result<Self> {
-            if params.rows % 8 != 0 || params.cols % 8 != 0 || params.rows == 0 || params.cols == 0
-            {
-                return Err(substrate::component::error::Error::InvalidParams.into());
-            }
-            Ok(Self { params: *params })
+            Ok(Self {
+                params: params.clone(),
+            })
         }
 
         fn name(&self) -> ArcStr {
@@ -96,7 +94,8 @@ mod tests {
             &self,
             ctx: &mut substrate::schematic::context::SchematicCtx,
         ) -> substrate::error::Result<()> {
-            ctx.instantiate::<SpCellArray>(&self.params)?;
+            let array = ctx.instantiate::<SpCellArray>(&self.params.inner)?;
+            ctx.add_instance(array);
             Ok(())
         }
 
@@ -104,6 +103,25 @@ mod tests {
             &self,
             ctx: &mut substrate::layout::context::LayoutCtx,
         ) -> substrate::error::Result<()> {
+            let layers = ctx.layers();
+            let m1 = layers.get(Selector::Metal(1))?;
+            let m2 = layers.get(Selector::Metal(2))?;
+            let params = WrapperParams {
+                inner: SpCellArrayParams {
+                    rows: 32,
+                    cols: 32,
+                    mux_ratio: 4,
+                },
+                ring: GuardRingParams {
+                    enclosure: Rect::default(),
+                    h_metal: m2,
+                    v_metal: m1,
+                    h_width: 1_360,
+                    v_width: 1_360,
+                },
+            };
+            let array = ctx.instantiate::<GuardRingWrapper<SpCellArray>>(&params)?;
+            ctx.draw(array)?;
             self.layout(ctx)
         }
     }
