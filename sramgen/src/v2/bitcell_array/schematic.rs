@@ -16,8 +16,6 @@ impl SpCellArray {
         let bl = ctx.bus_port("bl", self.params.cols, Direction::InOut);
         let br = ctx.bus_port("br", self.params.cols, Direction::InOut);
         let wl = ctx.bus_port("wl", self.params.rows, Direction::Input);
-        let vnb = ctx.port("vnb", Direction::InOut);
-        let vpb = ctx.port("vpb", Direction::InOut);
 
         let make_cell =
             |ctx: &mut SchematicCtx, wl, bl, br, name| -> substrate::error::Result<()> {
@@ -28,8 +26,8 @@ impl SpCellArray {
                     ("VDD", vdd),
                     ("VSS", vss),
                     ("WL", wl),
-                    ("VNB", vnb),
-                    ("VPB", vpb),
+                    ("VNB", vss),
+                    ("VPB", vdd),
                 ]);
                 cell.set_name(name);
                 ctx.add_instance(cell);

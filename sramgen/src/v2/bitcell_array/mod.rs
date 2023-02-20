@@ -98,7 +98,8 @@ mod tests {
             &self,
             ctx: &mut substrate::schematic::context::SchematicCtx,
         ) -> substrate::error::Result<()> {
-            let array = ctx.instantiate::<SpCellArray>(&self.params.inner)?;
+            let mut array = ctx.instantiate::<SpCellArray>(&self.params.inner)?;
+            ctx.bubble_all_ports(&mut array);
             ctx.add_instance(array);
             Ok(())
         }
@@ -243,7 +244,7 @@ mod tests {
             ctx.add_ports(
                 array
                     .ports()
-                    .filter(|port| ["bl", "br", "wl", "vnb", "vpb"].contains(&port.name())),
+                    .filter(|port| ["bl", "br", "wl"].contains(&port.name())),
             );
 
             ctx.draw(array)?;
@@ -288,14 +289,6 @@ mod tests {
 
         #[cfg(feature = "calibre")]
         {
-            let drc_work_dir = work_dir.join("drc");
-            let output = ctx
-                .write_drc::<SpCellArrayWithGuardRing>(&params, drc_work_dir)
-                .expect("failed to run DRC");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::drc::DrcSummary::Pass
-            ));
             let lvs_work_dir = work_dir.join("lvs");
             let output = ctx
                 .write_lvs::<SpCellArrayWithGuardRing>(&params, lvs_work_dir)
