@@ -36,6 +36,7 @@ pub mod verilog;
 
 pub const BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
 pub const LIB_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/lib");
+pub const SKY130_OPEN_PDK_ROOT: &str = env!("SKY130_OPEN_PDK_ROOT");
 
 lazy_static! {
     pub static ref TEMPLATES: Tera =
@@ -91,7 +92,7 @@ pub fn setup_ctx() -> SubstrateCtx {
         .simulator(Arc::new(simulator))
         .pdk(Arc::new(
             Sky130Pdk::new(&PdkParams {
-                pdk_root: PathBuf::from("/Users/rahul/acads/research/sky130/pdk/skywater-pdk"),
+                pdk_root: PathBuf::from(SKY130_OPEN_PDK_ROOT),
             })
             .unwrap(),
         ))

@@ -58,7 +58,7 @@ where
     }
 
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("gurad_ring_wrapper")
+        arcstr::literal!("guard_ring_wrapper")
     }
 
     fn layout(
@@ -87,9 +87,8 @@ where
             v_width,
         };
         let ring = ctx.instantiate::<GuardRing>(&params)?;
+        ctx.add_ports(ring.ports());
         ctx.draw(ring)?;
-
-        ctx.flatten();
 
         Ok(())
     }
@@ -138,9 +137,12 @@ impl Component for GuardRing {
             (self.params.v_metal, self.params.h_metal),
         ];
 
-        for (port_name, ring, implant) in [("vss", vss_ring, psdm), ("vdd", vdd_ring, nsdm)] {
+        for (port_name, ring, implant) in
+            [("ring_vss", vss_ring, psdm), ("ring_vdd", vdd_ring, nsdm)]
+        {
             for rv in ring.vrects() {
                 ctx.draw_rect(self.params.v_metal, rv);
+                ctx.merge_port(CellPort::with_shape(port_name, self.params.v_metal, rv));
                 ctx.draw_rect(implant, rv);
             }
 
@@ -164,7 +166,7 @@ impl Component for GuardRing {
 
             for rh in ring.hrects() {
                 ctx.draw_rect(self.params.h_metal, rh);
-                ctx.add_port(CellPort::with_shape(port_name, self.params.h_metal, rh));
+                ctx.merge_port(CellPort::with_shape(port_name, self.params.h_metal, rh));
                 ctx.draw_rect(implant, rh);
                 for rv in ring.vrects() {
                     let viap = ViaParams::builder()
@@ -197,7 +199,7 @@ mod tests {
     use substrate::layout::geom::Point;
     use substrate::layout::layers::selector::Selector;
 
-    use crate::paths::{out_gds, out_spice};
+    use crate::paths::out_gds;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -219,7 +221,7 @@ mod tests {
             h_width: 1_360,
             v_width: 1_360,
         };
-        ctx.write_layout::<GuardRing>(&params, out_gds(&work_dir, "layout"))
+        ctx.write_layout::<GuardRing>(&params, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
         Ok(())
     }

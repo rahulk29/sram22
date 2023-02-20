@@ -1,12 +1,7 @@
-use std::path::PathBuf;
-
 use arcstr::ArcStr;
-use codegen::hard_macro;
-use serde::{Deserialize, Serialize};
-use substrate::component::{Component, View};
-use substrate::data::SubstrateCtx;
 
-use crate::tech::{external_gds_path, external_spice_path};
+use serde::{Deserialize, Serialize};
+use substrate::component::Component;
 
 mod cbl;
 mod layout;
@@ -59,7 +54,9 @@ impl Component for SpCellArray {
 #[cfg(test)]
 mod tests {
     use substrate::component::{Component, NoParams};
-    use substrate::layout::geom::Rect;
+    use substrate::layout::cell::Port;
+    use substrate::layout::elements::via::{Via, ViaParams};
+    use substrate::layout::geom::{Dir, Rect, Shape, Side, Sides, Span};
     use substrate::layout::layers::selector::Selector;
 
     use crate::paths::{out_gds, out_spice};
@@ -70,12 +67,19 @@ mod tests {
 
     use super::*;
 
+    #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+    pub struct SpCellArrayWithGuardRingParams {
+        inner: SpCellArrayParams,
+        h_width: i64,
+        v_width: i64,
+    }
+
     pub struct SpCellArrayWithGuardRing {
-        params: WrapperParams<SpCellArrayParams>,
+        params: SpCellArrayWithGuardRingParams,
     }
 
     impl Component for SpCellArrayWithGuardRing {
-        type Params = WrapperParams<SpCellArrayParams>;
+        type Params = SpCellArrayWithGuardRingParams;
 
         fn new(
             params: &Self::Params,
@@ -87,7 +91,7 @@ mod tests {
         }
 
         fn name(&self) -> ArcStr {
-            arcstr::literal!("sp_cell_array")
+            arcstr::literal!("sp_cell_array_with_guard_ring")
         }
 
         fn schematic(
@@ -103,7 +107,145 @@ mod tests {
             &self,
             ctx: &mut substrate::layout::context::LayoutCtx,
         ) -> substrate::error::Result<()> {
-            let array = ctx.instantiate::<GuardRingWrapper<SpCellArray>>(&self.params)?;
+            let v_metal = ctx.layers().get(Selector::Metal(1))?;
+            let h_metal = ctx.layers().get(Selector::Metal(2))?;
+            let m3 = ctx.layers().get(Selector::Metal(3))?;
+            let params: WrapperParams<SpCellArrayParams> = WrapperParams {
+                inner: self.params.inner,
+                enclosure: 2_000,
+                h_metal,
+                v_metal,
+                h_width: self.params.h_width,
+                v_width: self.params.v_width,
+            };
+            let array = ctx.instantiate::<GuardRingWrapper<SpCellArray>>(&params)?;
+
+            let top_limit = array
+                .port("ring_vss")?
+                .first_rect(h_metal, Side::Top)?
+                .bottom();
+
+            for (ring_port_name, side, port_names) in [
+                ("ring_vss", Side::Left, vec!["vgnd", "wl_dummy"]),
+                ("ring_vdd", Side::Left, vec!["vpwr"]),
+                ("ring_vss", Side::Top, vec!["vgnd"]),
+                ("ring_vdd", Side::Top, vec!["vpwr", "bl_dummy", "br_dummy"]),
+            ] {
+                for port_name in port_names {
+                    let ring_port = array.port(ring_port_name)?;
+                    let port = array.port(port_name)?;
+                    let dir = side.coord_dir();
+                    let (ring_metal, port_metal) = match dir {
+                        Dir::Horiz => (v_metal, h_metal),
+                        Dir::Vert => (h_metal, v_metal),
+                    };
+
+                    let start = port.first_rect(port_metal, side)?.side(side);
+
+                    for shape in port.shapes(port_metal) {
+                        if let Shape::Rect(r) = shape {
+                            if r.side(side) != start {
+                                continue;
+                            }
+                            let ring_rect = ring_port.first_rect(ring_metal, side)?;
+
+                            match dir {
+                                Dir::Horiz => {
+                                    let rect = Rect::span_builder()
+                                        .with(dir, ring_rect.span(dir).union(r.span(dir)))
+                                        .with(!dir, r.span(!dir))
+                                        .build();
+                                    ctx.draw_rect(port_metal, rect);
+                                    let viap = ViaParams::builder()
+                                        .layers(ring_metal, port_metal)
+                                        .geometry(ring_rect, rect)
+                                        .expand(substrate::layout::elements::via::ViaExpansion::LongerDirection)
+                                        .build();
+                                    let via = ctx.instantiate::<Via>(&viap)?;
+                                    ctx.draw(via)?;
+                                }
+                                Dir::Vert => {
+                                    let (offset, ring_rect) =
+                                        if ["vpwr", "bl_dummy"].contains(&port_name) {
+                                            (
+                                                400,
+                                                Rect::from_spans(
+                                                    ring_rect.span(!dir),
+                                                    Span::new(
+                                                        ring_rect.side(side),
+                                                        ring_rect.center().coord(dir),
+                                                    ),
+                                                ),
+                                            )
+                                        } else {
+                                            (
+                                                1_000,
+                                                Rect::from_spans(
+                                                    ring_rect.span(!dir),
+                                                    Span::new(
+                                                        ring_rect.center().coord(dir),
+                                                        ring_rect.side(!side),
+                                                    ),
+                                                ),
+                                            )
+                                        };
+                                    let overlap = 300;
+                                    let rect1 = Rect::span_builder()
+                                        .with(
+                                            dir,
+                                            r.span(dir).union(Span::new(
+                                                top_limit - offset,
+                                                top_limit - offset - overlap,
+                                            )),
+                                        )
+                                        .with(!dir, r.span(!dir))
+                                        .build();
+                                    ctx.draw_rect(v_metal, rect1);
+                                    let rect2 = Rect::span_builder()
+                                        .with(
+                                            dir,
+                                            ring_rect.span(dir).union(Span::new(
+                                                top_limit,
+                                                top_limit - offset - overlap,
+                                            )),
+                                        )
+                                        .with(!dir, r.span(!dir))
+                                        .build();
+                                    ctx.draw_rect(m3, rect2);
+                                    let viap = ViaParams::builder()
+                                        .layers(port_metal, ring_metal)
+                                        .geometry(rect1, rect2)
+                                        .build();
+                                    let via = ctx.instantiate::<Via>(&viap)?;
+                                    ctx.draw(via)?;
+                                    let viap = ViaParams::builder()
+                                        .layers(ring_metal, m3)
+                                        .geometry(rect1, rect2)
+                                        .build();
+                                    let via = ctx.instantiate::<Via>(&viap)?;
+                                    ctx.draw(via)?;
+                                    let viap = ViaParams::builder()
+                                        .layers(ring_metal, m3)
+                                        .geometry(ring_rect, rect2)
+                                        .build();
+                                    let via = ctx.instantiate::<Via>(&viap)?;
+                                    ctx.draw(via)?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            let vss = array.port("ring_vss")?.into_cell_port().named("vss");
+            let vdd = array.port("ring_vdd")?.into_cell_port().named("vdd");
+            ctx.add_ports([vss, vdd]);
+            ctx.add_ports(
+                array
+                    .ports()
+                    .filter(|port| ["bl", "br", "wl", "vnb", "vpb"].contains(&port.name())),
+            );
+
             ctx.draw(array)?;
             Ok(())
         }
@@ -133,15 +275,12 @@ mod tests {
         let layers = ctx.layers();
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
-        let params = WrapperParams {
+        let params = SpCellArrayWithGuardRingParams {
             inner: SpCellArrayParams {
                 rows: 32,
                 cols: 32,
                 mux_ratio: 4,
             },
-            enclosure: 600,
-            h_metal: m2,
-            v_metal: m1,
             h_width: 1_360,
             v_width: 1_360,
         };

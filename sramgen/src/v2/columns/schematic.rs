@@ -21,18 +21,18 @@ impl ColPeripherals {
         let clk = ctx.port("clk", Direction::Input);
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
-        let bl = ctx.bus_port("bl", cols, Direction::InOut);
-        let br = ctx.bus_port("br", cols, Direction::InOut);
-        let bl_dummy = ctx.bus_port("bl_dummy", 2, Direction::InOut);
-        let br_dummy = ctx.bus_port("br_dummy", 2, Direction::InOut);
-        let pc_b = ctx.port("pc_b", Direction::Input);
-        let sel_b = ctx.bus_port("sel_b", cols, Direction::Input);
-        let we = ctx.port("we", Direction::Input);
-        let wmask = ctx.port("wmask", Direction::Input);
-        let data_in = ctx.bus_port("data", word_length, Direction::Input);
-        let data_out = ctx.bus_port("outp", word_length, Direction::Output);
+        let _bl = ctx.bus_port("bl", cols, Direction::InOut);
+        let _br = ctx.bus_port("br", cols, Direction::InOut);
+        let _bl_dummy = ctx.bus_port("bl_dummy", 2, Direction::InOut);
+        let _br_dummy = ctx.bus_port("br_dummy", 2, Direction::InOut);
+        let _pc_b = ctx.port("pc_b", Direction::Input);
+        let _sel_b = ctx.bus_port("sel_b", cols, Direction::Input);
+        let _we = ctx.port("we", Direction::Input);
+        let _wmask = ctx.port("wmask", Direction::Input);
+        let _data_in = ctx.bus_port("data", word_length, Direction::Input);
+        let _data_out = ctx.bus_port("outp", word_length, Direction::Output);
 
-        for i in 0..word_length {
+        for _i in 0..word_length {
             let mut col = ctx.instantiate::<Column>(&self.params)?;
             col.connect_all([("clk", &clk), ("vdd", &vdd), ("vss", &vss)]);
         }

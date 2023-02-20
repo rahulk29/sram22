@@ -8,5 +8,6 @@ pub mod guard_ring;
 pub mod macros;
 pub mod precharge;
 pub mod rmux;
+pub mod senseamp;
 pub mod sram;
 pub mod wmux;

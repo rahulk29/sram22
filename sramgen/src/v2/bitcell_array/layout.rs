@@ -1,19 +1,19 @@
-use std::path::PathBuf;
-
 use arcstr::ArcStr;
-use codegen::hard_macro;
+
 use grid::Grid;
 use serde::{Deserialize, Serialize};
-use substrate::component::{Component, NoParams, View};
-use substrate::data::SubstrateCtx;
+use substrate::component::{Component, NoParams};
+
+use substrate::layout::cell::{CellPort, PortId};
 use substrate::layout::geom::orientation::Named;
-use substrate::layout::geom::{Point, Rect};
+use substrate::layout::geom::Shape;
+use substrate::layout::layers::selector::Selector;
+use substrate::layout::layers::LayerKey;
 use substrate::layout::placement::grid::{GridTiler, PortConflictStrategy};
 use substrate::layout::placement::nine_patch::{NpTiler, Region};
-use substrate::layout::placement::tile::{OptionTile, RelativeRectBbox};
+use substrate::layout::placement::tile::OptionTile;
 use substrate::{into_grid, into_vec};
 
-use crate::tech::external_gds_path;
 use crate::v2::macros::{
     SpCell, SpCellOpt1a, SpColend, SpColendPCent, SpColenda, SpColendaPCent, SpCorner, SpCornera,
     SpHorizWlstrapP, SpHstrap, SpRowend, SpRowendHstrap, SpRowenda, SpWlstrapP, SpWlstrapaP,
@@ -22,6 +22,40 @@ use crate::v2::macros::{
 use super::SpCellArray;
 
 pub struct SpCellArrayCornerUl;
+
+fn corner_port_map_fn(
+    port: CellPort,
+    i: usize,
+    j: usize,
+    edge_i: usize,
+    edge_j: usize,
+    vmetal: LayerKey,
+    hmetal: LayerKey,
+) -> Option<CellPort> {
+    let mut new_port = CellPort::new(if ["wl", "bl", "br"].contains(&port.name()) {
+        PortId::from(format!("{}_dummy", port.name()))
+    } else {
+        port.id().clone()
+    });
+    if i == edge_i && j == edge_j {
+        return Some(port);
+    } else if j == edge_j {
+        let shapes = port.shapes(hmetal);
+
+        if !shapes.is_empty() {
+            new_port.add_all(hmetal, shapes.into_iter().cloned());
+            return Some(new_port);
+        }
+    } else if i == edge_i {
+        let shapes = port.shapes(vmetal);
+
+        if !shapes.is_empty() {
+            new_port.add_all(vmetal, shapes.into_iter().cloned());
+            return Some(new_port);
+        }
+    }
+    None
+}
 
 impl Component for SpCellArrayCornerUl {
     type Params = NoParams;
@@ -41,12 +75,19 @@ impl Component for SpCellArrayCornerUl {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        let vmetal = ctx.layers().get(Selector::Metal(1))?;
+        let hmetal = ctx.layers().get(Selector::Metal(2))?;
         let colend = ctx.instantiate::<SpColend>(&NoParams)?;
         let corner = ctx.instantiate::<SpCorner>(&NoParams)?;
         let rowend = ctx.instantiate::<SpRowend>(&NoParams)?;
         let cell = ctx.instantiate::<SpCell>(&NoParams)?;
 
-        let grid_tiler = GridTiler::new(into_grid![[corner, colend][rowend, cell]]);
+        let mut grid_tiler = GridTiler::new(into_grid![[corner, colend][rowend, cell]]);
+        grid_tiler.expose_ports(
+            |port: CellPort, i, j| corner_port_map_fn(port, i, j, 0, 0, vmetal, hmetal),
+            PortConflictStrategy::Merge,
+        );
+        ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -73,6 +114,8 @@ impl Component for SpCellArrayCornerUr {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        let vmetal = ctx.layers().get(Selector::Metal(1))?;
+        let hmetal = ctx.layers().get(Selector::Metal(2))?;
         let colend = ctx
             .instantiate::<SpColend>(&NoParams)?
             .with_orientation(Named::ReflectHoriz);
@@ -88,8 +131,13 @@ impl Component for SpCellArrayCornerUr {
             .instantiate::<SpCell>(&NoParams)?
             .with_orientation(Named::ReflectHoriz);
 
-        let grid_tiler =
+        let mut grid_tiler =
             GridTiler::new(into_grid![[colend_p_cent, colend, corner][wlstrap_p, cell, rowend]]);
+        grid_tiler.expose_ports(
+            |port: CellPort, i, j| corner_port_map_fn(port, i, j, 0, 2, vmetal, hmetal),
+            PortConflictStrategy::Merge,
+        );
+        ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -116,6 +164,8 @@ impl Component for SpCellArrayCornerLr {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        let vmetal = ctx.layers().get(Selector::Metal(1))?;
+        let hmetal = ctx.layers().get(Selector::Metal(2))?;
         let colend = ctx
             .instantiate::<SpColend>(&NoParams)?
             .with_orientation(Named::R180);
@@ -140,11 +190,16 @@ impl Component for SpCellArrayCornerLr {
             .instantiate::<SpCell>(&NoParams)?
             .with_orientation(Named::R180);
 
-        let grid_tiler = GridTiler::new(into_grid![
+        let mut grid_tiler = GridTiler::new(into_grid![
                     [horiz_wlstrap_p, hstrap, rowend_hstrap]
                     [wlstrap_p, cell, rowend]
                     [colend_p_cent, colend, corner]
         ]);
+        grid_tiler.expose_ports(
+            |port: CellPort, i, j| corner_port_map_fn(port, i, j, 2, 2, vmetal, hmetal),
+            PortConflictStrategy::Merge,
+        );
+        ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -171,6 +226,8 @@ impl Component for SpCellArrayCornerLl {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        let vmetal = ctx.layers().get(Selector::Metal(1))?;
+        let hmetal = ctx.layers().get(Selector::Metal(2))?;
         let colend = ctx
             .instantiate::<SpColend>(&NoParams)?
             .with_orientation(Named::ReflectVert);
@@ -190,11 +247,16 @@ impl Component for SpCellArrayCornerLl {
             .instantiate::<SpCell>(&NoParams)?
             .with_orientation(Named::ReflectVert);
 
-        let grid_tiler = GridTiler::new(into_grid![
+        let mut grid_tiler = GridTiler::new(into_grid![
                     [rowend_hstrap, hstrap]
                     [rowend, cell]
                     [corner, colend]
         ]);
+        grid_tiler.expose_ports(
+            |port: CellPort, i, j| corner_port_map_fn(port, i, j, 2, 0, vmetal, hmetal),
+            PortConflictStrategy::Merge,
+        );
+        ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -229,24 +291,21 @@ impl Component for SpCellArrayLeft {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        let vmetal = ctx.layers().get(Selector::Metal(1))?;
+        let hmetal = ctx.layers().get(Selector::Metal(2))?;
         let rowend_replica = ctx.instantiate::<SpRowend>(&NoParams)?;
         let mut rowenda_replica = ctx.instantiate::<SpRowenda>(&NoParams)?;
         let mut rowend_hstrap = ctx.instantiate::<SpRowendHstrap>(&NoParams)?;
-        let cell_replica = ctx.instantiate::<SpCell>(&NoParams)?;
-        let mut cell_opt1a_replica = ctx.instantiate::<SpCellOpt1a>(&NoParams)?;
+        let cell = ctx.instantiate::<SpCell>(&NoParams)?;
+        let mut cell_opt1a = ctx.instantiate::<SpCellOpt1a>(&NoParams)?;
         let mut hstrap = ctx.instantiate::<SpHstrap>(&NoParams)?;
         rowenda_replica.set_orientation(Named::ReflectVert);
-        cell_opt1a_replica.set_orientation(Named::ReflectVert);
+        cell_opt1a.set_orientation(Named::ReflectVert);
         rowend_hstrap.set_orientation(Named::ReflectVert);
         hstrap.set_orientation(Named::ReflectHoriz);
 
-        let replica_bbox = Rect::new(Point::new(70, 0), Point::new(1270, 1580));
-
-        let cell_replica_tile = RelativeRectBbox::new(cell_replica, replica_bbox);
-        let cell_opt1a_replica_tile = RelativeRectBbox::new(cell_opt1a_replica, replica_bbox);
-
-        let cell_row: Vec<OptionTile> = into_vec![rowend_replica, cell_replica_tile];
-        let cell_opt1a_row: Vec<OptionTile> = into_vec![rowenda_replica, cell_opt1a_replica_tile];
+        let cell_row: Vec<OptionTile> = into_vec![rowend_replica, cell];
+        let cell_opt1a_row: Vec<OptionTile> = into_vec![rowenda_replica, cell_opt1a];
         let hstrap: Vec<OptionTile> = into_vec![rowend_hstrap, hstrap];
 
         let mut grid = Grid::new(0, 0);
@@ -256,7 +315,27 @@ impl Component for SpCellArrayLeft {
             grid.push_row(cell_row.clone());
         }
 
-        let grid_tiler = GridTiler::new(grid);
+        let mut grid_tiler = GridTiler::new(grid);
+        grid_tiler.expose_ports(
+            |port: CellPort, i, j| {
+                let mut new_port = CellPort::new(if port.name() == "wl" {
+                    PortId::new("wl", i - 1)
+                } else {
+                    port.id().clone()
+                });
+                if j == 0 {
+                    let shapes = port.shapes(hmetal);
+
+                    if !shapes.is_empty() {
+                        new_port.add_all(hmetal, shapes.into_iter().cloned());
+                        return Some(new_port);
+                    }
+                }
+                None
+            },
+            PortConflictStrategy::Merge,
+        );
+        ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -341,7 +420,29 @@ impl Component for SpCellArrayTop {
             grid.push_col(cell_1_col.clone());
         }
 
-        let grid_tiler = GridTiler::new(grid);
+        let mut grid_tiler = GridTiler::new(grid);
+        let vmetal = ctx.layers().get(Selector::Metal(1))?;
+        let hmetal = ctx.layers().get(Selector::Metal(2))?;
+        grid_tiler.expose_ports(
+            |port: CellPort, i, j| {
+                let mut new_port = CellPort::new(if ["bl", "br"].contains(&port.name()) {
+                    PortId::new(port.name(), j - 1)
+                } else {
+                    port.id().clone()
+                });
+                if i == 0 {
+                    let shapes = port.shapes(vmetal);
+
+                    if !shapes.is_empty() {
+                        new_port.add_all(vmetal, shapes.into_iter().cloned());
+                        return Some(new_port);
+                    }
+                }
+                None
+            },
+            PortConflictStrategy::Merge,
+        );
+        ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -409,8 +510,7 @@ impl Component for SpCellArrayCenter {
             grid.push_row(cell_row.clone());
         }
 
-        let grid_tiler = GridTiler::new(grid);
-        grid_tiler.expose_ports(|port, i, j| None, PortConflictStrategy::Merge);
+        let mut grid_tiler = GridTiler::new(grid);
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -468,7 +568,29 @@ impl Component for SpCellArrayBottom {
             grid.push_col(cell_1_col.clone());
         }
 
-        let grid_tiler = GridTiler::new(grid);
+        let mut grid_tiler = GridTiler::new(grid);
+        let vmetal = ctx.layers().get(Selector::Metal(1))?;
+        let hmetal = ctx.layers().get(Selector::Metal(2))?;
+        grid_tiler.expose_ports(
+            |port: CellPort, i, j| {
+                let mut new_port = CellPort::new(if ["bl", "br"].contains(&port.name()) {
+                    PortId::new(port.name(), j - 1)
+                } else {
+                    port.id().clone()
+                });
+                if i == 2 {
+                    let shapes = port.shapes(vmetal);
+
+                    if !shapes.is_empty() {
+                        new_port.add_all(vmetal, shapes.into_iter().cloned());
+                        return Some(new_port);
+                    }
+                }
+                None
+            },
+            PortConflictStrategy::Merge,
+        );
+        ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -537,9 +659,13 @@ impl SpCellArray {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        let hstrap_ratio = 8;
+        let nx = self.params.cols / self.params.mux_ratio;
+        let ny = self.params.rows / hstrap_ratio;
+
         let tap_ratio = TapRatio {
             mux_ratio: self.params.mux_ratio,
-            hstrap_ratio: 8,
+            hstrap_ratio,
         };
         let corner_ul = ctx.instantiate::<SpCellArrayCornerUl>(&NoParams)?;
         let left = ctx.instantiate::<SpCellArrayLeft>(&tap_ratio)?;
@@ -563,11 +689,91 @@ impl SpCellArray {
             .set(Region::CornerUr, &corner_ur)
             .set(Region::Right, &right)
             .set(Region::CornerLr, &corner_lr)
-            .nx(self.params.cols / self.params.mux_ratio)
-            .ny(self.params.rows / 8)
+            .nx(nx)
+            .ny(ny)
             .build();
 
-        ctx.draw(tiler)?;
+        let mut grid_tiler = tiler.into_grid_tiler();
+        let vmetal = ctx.layers().get(Selector::Metal(1))?;
+        let hmetal = ctx.layers().get(Selector::Metal(2))?;
+        grid_tiler.expose_ports(
+            |mut port: CellPort, i, j| {
+                if i == 0 && j == 0 {
+                    return Some(port);
+                }
+                if i == ny + 1 && j == 0 {
+                    if port.name() == "wl_dummy" {
+                        port.set_id(PortId::new("wl_dummy", 1));
+                    }
+                    return Some(port);
+                }
+                if i == ny + 1 && j == nx + 1 {
+                    if ["wl_dummy", "bl_dummy", "br_dummy"].contains(&port.name()) {
+                        port.set_id(PortId::new(port.name(), 1));
+                    }
+                    return Some(port);
+                }
+                let mut new_port = CellPort::new(if ["bl", "br"].contains(&port.name()) {
+                    PortId::new(
+                        port.name(),
+                        self.params.mux_ratio * (j - 1) + port.id().index(),
+                    )
+                } else if port.name() == "wl" {
+                    PortId::new(port.name(), hstrap_ratio * (i - 1) + port.id().index())
+                } else {
+                    port.id().clone()
+                });
+
+                if j == 0 {
+                    let shapes = port.shapes(hmetal);
+
+                    if !shapes.is_empty() {
+                        new_port.add_all(hmetal, shapes.into_iter().cloned());
+                        return Some(new_port);
+                    }
+                } else if i == 0 {
+                    if !["bl", "br"].contains(&port.name()) {
+                        let shapes = port.shapes(vmetal);
+
+                        if !shapes.is_empty() {
+                            new_port.add_all(vmetal, shapes.into_iter().cloned());
+                            return Some(new_port);
+                        }
+                    }
+                } else if i == ny + 1 {
+                    let shapes = port.shapes(vmetal);
+
+                    if !shapes.is_empty() {
+                        new_port.add_all(vmetal, shapes.into_iter().cloned());
+                        return Some(new_port);
+                    }
+                }
+                None
+            },
+            PortConflictStrategy::Merge,
+        );
+        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.draw(grid_tiler)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{paths::out_gds, setup_ctx, tests::test_work_dir};
+
+    use super::{SpCellArrayBottom, TapRatio};
+
+    #[test]
+    #[ignore]
+    fn test_sp_cell_array_bottom() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_sp_cell_array_bottom");
+        let tap_ratio = TapRatio {
+            mux_ratio: 4,
+            hstrap_ratio: 8,
+        };
+        ctx.write_layout::<SpCellArrayBottom>(&tap_ratio, out_gds(&work_dir, "layout"))
+            .expect("failed to write layout");
     }
 }
