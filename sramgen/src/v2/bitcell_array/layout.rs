@@ -8,7 +8,7 @@ use substrate::component::{Component, NoParams, View};
 use substrate::data::SubstrateCtx;
 use substrate::layout::geom::orientation::Named;
 use substrate::layout::geom::{Point, Rect};
-use substrate::layout::placement::grid::GridTiler;
+use substrate::layout::placement::grid::{GridTiler, PortConflictStrategy};
 use substrate::layout::placement::nine_patch::{NpTiler, Region};
 use substrate::layout::placement::tile::{OptionTile, RelativeRectBbox};
 use substrate::{into_grid, into_vec};
@@ -410,6 +410,7 @@ impl Component for SpCellArrayCenter {
         }
 
         let grid_tiler = GridTiler::new(grid);
+        grid_tiler.expose_ports(|port, i, j| None, PortConflictStrategy::Merge);
         ctx.draw(grid_tiler)?;
 
         Ok(())

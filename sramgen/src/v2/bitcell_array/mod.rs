@@ -103,26 +103,9 @@ mod tests {
             &self,
             ctx: &mut substrate::layout::context::LayoutCtx,
         ) -> substrate::error::Result<()> {
-            let layers = ctx.layers();
-            let m1 = layers.get(Selector::Metal(1))?;
-            let m2 = layers.get(Selector::Metal(2))?;
-            let params = WrapperParams {
-                inner: SpCellArrayParams {
-                    rows: 32,
-                    cols: 32,
-                    mux_ratio: 4,
-                },
-                ring: GuardRingParams {
-                    enclosure: Rect::default(),
-                    h_metal: m2,
-                    v_metal: m1,
-                    h_width: 1_360,
-                    v_width: 1_360,
-                },
-            };
-            let array = ctx.instantiate::<GuardRingWrapper<SpCellArray>>(&params)?;
+            let array = ctx.instantiate::<GuardRingWrapper<SpCellArray>>(&self.params)?;
             ctx.draw(array)?;
-            self.layout(ctx)
+            Ok(())
         }
     }
 
@@ -156,15 +139,13 @@ mod tests {
                 cols: 32,
                 mux_ratio: 4,
             },
-            ring: GuardRingParams {
-                enclosure: Rect::default(),
-                h_metal: m2,
-                v_metal: m1,
-                h_width: 1_360,
-                v_width: 1_360,
-            },
+            enclosure: 600,
+            h_metal: m2,
+            v_metal: m1,
+            h_width: 1_360,
+            v_width: 1_360,
         };
-        ctx.write_layout::<GuardRingWrapper<SpCellArray>>(&params, out_gds(&work_dir, "layout"))?;
+        ctx.write_layout::<SpCellArrayWithGuardRing>(&params, out_gds(&work_dir, "layout"))?;
         Ok(())
     }
 
