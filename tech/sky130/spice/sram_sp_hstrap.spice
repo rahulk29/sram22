@@ -1,4 +1,4 @@
 .subckt sram_sp_hstrap BR VDD VSS BL VNB VPB
 X0 BL VNB BL VNB sky130_fd_pr__special_nfet_pass ad=0.0168 pd=0.52 as=0p ps=0u w=0.14 l=0.14
-X0 BL VNB BL VNB sky130_fd_pr__special_nfet_pass ad=0.0168 pd=0.52 as=0p ps=0u w=0.14 l=0.14
+X1 BL VNB BL VNB sky130_fd_pr__special_nfet_pass ad=0.0168 pd=0.52 as=0p ps=0u w=0.14 l=0.14
 .ends
