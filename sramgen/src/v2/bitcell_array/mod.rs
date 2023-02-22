@@ -130,7 +130,11 @@ mod tests {
                 ("ring_vss", Side::Left, vec!["vgnd", "vnb", "wl_dummy"]),
                 ("ring_vdd", Side::Left, vec!["vpwr", "vpb"]),
                 ("ring_vss", Side::Top, vec!["vgnd", "vnb"]),
-                ("ring_vdd", Side::Top, vec!["vpwr", "vpb", "bl_dummy", "br_dummy"]),
+                (
+                    "ring_vdd",
+                    Side::Top,
+                    vec!["vpwr", "vpb", "bl_dummy", "br_dummy"],
+                ),
             ] {
                 for port_name in port_names {
                     let ring_port = array.port(ring_port_name)?;

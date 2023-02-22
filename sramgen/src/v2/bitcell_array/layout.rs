@@ -191,7 +191,7 @@ impl Component for SpCellArrayCornerLr {
             .with_orientation(Named::R180);
 
         let mut grid_tiler = GridTiler::new(into_grid![
-                    [None, hstrap, None]
+                    [horiz_wlstrap_p, hstrap, rowend_hstrap]
                     [wlstrap_p, cell, rowend]
                     [colend_p_cent, colend, corner]
         ]);
@@ -248,7 +248,7 @@ impl Component for SpCellArrayCornerLl {
             .with_orientation(Named::ReflectVert);
 
         let mut grid_tiler = GridTiler::new(into_grid![
-                    [None, hstrap]
+                    [rowend_hstrap, hstrap]
                     [rowend, cell]
                     [corner, colend]
         ]);
@@ -306,7 +306,7 @@ impl Component for SpCellArrayLeft {
 
         let cell_row: Vec<OptionTile> = into_vec![rowend_replica, cell];
         let cell_opt1a_row: Vec<OptionTile> = into_vec![rowenda_replica, cell_opt1a];
-        let hstrap: Vec<OptionTile> = into_vec![None, hstrap];
+        let hstrap: Vec<OptionTile> = into_vec![rowend_hstrap, hstrap];
 
         let mut grid = Grid::new(0, 0);
         grid.push_row(hstrap);
@@ -492,7 +492,7 @@ impl Component for SpCellArrayCenter {
         let mut hstrap_row = Vec::new();
 
         cell_row.push(wlstrap_p.into());
-        hstrap_row.push(None.into());
+        hstrap_row.push(horiz_wlstrap_p.into());
         cell_opt1a_row.push(wlstrapa_p.clone().into());
         for _ in 0..self.params.mux_ratio / 2 {
             cell_row.push(cell_2.clone().into());
@@ -559,7 +559,7 @@ impl Component for SpCellArrayBottom {
 
         let cell_1_col = into_vec![hstrap_1, cell_opt1a_1, colenda_1];
         let cell_2_col = into_vec![hstrap_2, cell_opt1a_2, colenda_2];
-        let wlstrap = into_vec![None, wlstrapa_p, colenda_p_cent];
+        let wlstrap = into_vec![horiz_wlstrap_p, wlstrapa_p, colenda_p_cent];
 
         let mut grid = Grid::new(0, 0);
         grid.push_col(wlstrap);
@@ -638,7 +638,7 @@ impl Component for SpCellArrayRight {
 
         let cell_row: Vec<OptionTile> = into_vec![wlstrap_p, cell, rowend];
         let cell_opt1a_row = into_vec![wlstrapa_p, cell_opt1a, rowenda];
-        let hstrap = into_vec![None, hstrap, None];
+        let hstrap = into_vec![horiz_wlstrap_p, hstrap, rowend_hstrap];
 
         let mut grid = Grid::new(0, 0);
         grid.push_row(hstrap);
@@ -760,7 +760,9 @@ impl SpCellArray {
 
 #[cfg(test)]
 mod tests {
-    use crate::{paths::out_gds, setup_ctx, tests::test_work_dir};
+    use crate::paths::out_gds;
+    use crate::setup_ctx;
+    use crate::tests::test_work_dir;
 
     use super::{SpCellArrayBottom, TapRatio};
 
