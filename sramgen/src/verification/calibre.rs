@@ -30,7 +30,8 @@ pub fn run_sram_drc(work_dir: impl AsRef<Path>, name: &str) -> Result<()> {
         cell_name: name,
         work_dir: &drc_work_dir,
         layout_path: &layout_path,
-        drc_rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+        rules_path: &PathBuf::from(SKY130_DRC_RULES_PATH),
+        runset_path: None,
     })?;
 
     if data
@@ -61,7 +62,7 @@ pub fn run_sram_lvs(
         layout_cell_name: name,
         source_paths: &source_files(&work_dir, name, VerificationTask::Lvs, control_mode),
         source_cell_name: name,
-        lvs_rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
+        rules_path: &PathBuf::from(SKY130_LVS_RULES_PATH),
     })?
     .status
         != LvsStatus::Correct
@@ -90,7 +91,7 @@ pub fn run_sram_pex(
         layout_cell_name: name,
         source_paths: &source_files(&work_dir, name, VerificationTask::Pex, control_mode),
         source_cell_name: name,
-        pex_rules_path: &PathBuf::from(SKY130_PEX_RULES_PATH),
+        rules_path: &PathBuf::from(SKY130_PEX_RULES_PATH),
         pex_netlist_path,
     })?
     .status
