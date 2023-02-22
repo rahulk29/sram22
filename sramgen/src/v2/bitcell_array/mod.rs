@@ -134,7 +134,8 @@ mod tests {
             ] {
                 for port_name in port_names {
                     let ring_port = array.port(ring_port_name)?;
-                    let port = array.port(port_name)?;
+                    let ports = array.ports_starting_with(port_name);
+                    for port in ports {
                     let dir = side.coord_dir();
                     let (ring_metal, port_metal) = match dir {
                         Dir::Horiz => (v_metal, h_metal),
@@ -234,6 +235,7 @@ mod tests {
                                 }
                             }
                         }
+                    }
                     }
                 }
             }
