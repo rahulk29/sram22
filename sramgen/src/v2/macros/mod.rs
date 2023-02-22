@@ -36,7 +36,7 @@ pub struct SpCell;
     pdk = "sky130-open",
     path_fn = "path",
     gds_cell_name = "sky130_fd_bd_sram__openram_sp_cell_opt1_replica",
-    spice_subckt_name = "sky130_fd_bd_sram__sram_sp_cell_opt1"
+    spice_subckt_name = "sram_sp_cell_replica"
 )]
 pub struct SpCellReplica;
 
