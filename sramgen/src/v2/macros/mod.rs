@@ -49,6 +49,14 @@ pub struct SpCellReplica;
 pub struct SpColend;
 
 #[hard_macro(
+    name = "sram_sp_hstrap",
+    pdk = "sky130-open",
+    path_fn = "path",
+    gds_cell_name = "sky130_fd_bd_sram__sram_sp_hstrap"
+)]
+pub struct SpHstrap;
+
+#[hard_macro(
     name = "sramgen_sp_sense_amp",
     pdk = "sky130-open",
     path_fn = "path",
@@ -118,14 +126,6 @@ pub struct SpColendPCent;
     gds_cell_name = "sky130_fd_bd_sram__sram_sp_corner"
 )]
 pub struct SpCorner;
-
-#[hard_macro(
-    name = "sram_sp_hstrap",
-    pdk = "sky130-open",
-    path_fn = "layout_path",
-    gds_cell_name = "sky130_fd_bd_sram__sram_sp_hstrap"
-)]
-pub struct SpHstrap;
 
 #[hard_macro(
     name = "sram_sp_rowend",

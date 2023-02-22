@@ -4,7 +4,7 @@ use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
 use super::SpCellArray;
-use crate::v2::macros::SpCell;
+use crate::v2::macros::{SpCell, SpColend, SpHstrap};
 
 impl SpCellArray {
     pub(crate) fn schematic(
@@ -16,8 +16,6 @@ impl SpCellArray {
         let bl = ctx.bus_port("bl", self.params.cols, Direction::InOut);
         let br = ctx.bus_port("br", self.params.cols, Direction::InOut);
         let wl = ctx.bus_port("wl", self.params.rows, Direction::Input);
-        let vnb = ctx.port("vnb", Direction::InOut);
-        let vpb = ctx.port("vpb", Direction::InOut);
 
         let make_cell =
             |ctx: &mut SchematicCtx, wl, bl, br, name| -> substrate::error::Result<()> {
@@ -28,13 +26,43 @@ impl SpCellArray {
                     ("VDD", vdd),
                     ("VSS", vss),
                     ("WL", wl),
-                    ("VNB", vnb),
-                    ("VPB", vpb),
+                    ("VNB", vss),
+                    ("VPB", vdd),
                 ]);
                 cell.set_name(name);
                 ctx.add_instance(cell);
                 Ok(())
             };
+
+        let make_colend = |ctx: &mut SchematicCtx, bl, br, name| -> substrate::error::Result<()> {
+            let mut cell = ctx.instantiate::<SpColend>(&NoParams)?;
+            cell.connect_all([
+                ("BL", bl),
+                ("BR", br),
+                ("VDD", vdd),
+                ("VSS", vss),
+                ("VNB", vss),
+                ("VPB", vdd),
+            ]);
+            cell.set_name(name);
+            ctx.add_instance(cell);
+            Ok(())
+        };
+
+        let make_hstrap = |ctx: &mut SchematicCtx, bl, br, name| -> substrate::error::Result<()> {
+            let mut cell = ctx.instantiate::<SpHstrap>(&NoParams)?;
+            cell.connect_all([
+                ("BL", bl),
+                ("BR", br),
+                ("VDD", vdd),
+                ("VSS", vss),
+                ("VNB", vss),
+                ("VPB", vdd),
+            ]);
+            cell.set_name(name);
+            ctx.add_instance(cell);
+            Ok(())
+        };
 
         for i in 0..self.params.rows {
             for j in 0..self.params.cols {
@@ -64,6 +92,27 @@ impl SpCellArray {
             let br = br.index(j);
             make_cell(ctx, vss, bl, br, arcstr::format!("dummy_row_top_{j}"))?;
             make_cell(ctx, vss, bl, br, arcstr::format!("dummy_row_bot_{j}"))?;
+        }
+
+        for j in 0..self.params.cols + 2 {
+            let (bl, br) = if j == 0 || j == self.params.cols + 1 {
+                (vdd, vdd)
+            } else {
+                (bl.index(j - 1), br.index(j - 1))
+            };
+            make_colend(ctx, bl, br, arcstr::format!("colend_top_{j}"))?;
+            make_colend(ctx, bl, br, arcstr::format!("colend_bot_{j}"))?;
+            for i in 0..self.params.rows / 8 + 1 {
+                make_hstrap(
+                    ctx,
+                    bl,
+                    br,
+                    arcstr::format!("hstrap_{i}_{j}"),
+                )?;
+            }
+        }
+
+        for j in 0..self.params.cols + 2 {
         }
         Ok(())
     }

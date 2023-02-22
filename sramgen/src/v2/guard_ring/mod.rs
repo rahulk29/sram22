@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use substrate::component::Component;
+use substrate::layout::cell::CellPort;
 use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::geom::bbox::BoundBox;
 use substrate::layout::geom::ring::Ring;
@@ -21,7 +22,11 @@ where
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct WrapperParams<T> {
     pub inner: T,
-    pub ring: GuardRingParams,
+    pub enclosure: i64,
+    pub h_metal: LayerKey,
+    pub v_metal: LayerKey,
+    pub h_width: i64,
+    pub v_width: i64,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -53,21 +58,38 @@ where
     }
 
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("gurad_ring_wrapper")
+        arcstr::literal!("guard_ring_wrapper")
     }
 
     fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        let &WrapperParams {
+            enclosure,
+            h_metal,
+            v_metal,
+            h_width,
+            v_width,
+            ..
+        } = &self.params;
         let inst = ctx.instantiate::<T>(&self.params.inner)?;
         let brect = inst.brect();
+
+        ctx.add_ports(inst.ports());
         ctx.draw(inst)?;
 
-        let mut params = self.params.ring.clone();
-        params.enclosure = brect.expand(400);
+        let params = GuardRingParams {
+            enclosure: brect.expand(enclosure),
+            h_metal,
+            v_metal,
+            h_width,
+            v_width,
+        };
         let ring = ctx.instantiate::<GuardRing>(&params)?;
+        ctx.add_ports(ring.ports());
         ctx.draw(ring)?;
+
         Ok(())
     }
 }
@@ -115,9 +137,12 @@ impl Component for GuardRing {
             (self.params.v_metal, self.params.h_metal),
         ];
 
-        for (ring, implant) in [(vss_ring, psdm), (vdd_ring, nsdm)] {
+        for (port_name, ring, implant) in
+            [("ring_vss", vss_ring, psdm), ("ring_vdd", vdd_ring, nsdm)]
+        {
             for rv in ring.vrects() {
                 ctx.draw_rect(self.params.v_metal, rv);
+                ctx.merge_port(CellPort::with_shape(port_name, self.params.v_metal, rv));
                 ctx.draw_rect(implant, rv);
             }
 
@@ -141,6 +166,7 @@ impl Component for GuardRing {
 
             for rh in ring.hrects() {
                 ctx.draw_rect(self.params.h_metal, rh);
+                ctx.merge_port(CellPort::with_shape(port_name, self.params.h_metal, rh));
                 ctx.draw_rect(implant, rh);
                 for rv in ring.vrects() {
                     let viap = ViaParams::builder()
