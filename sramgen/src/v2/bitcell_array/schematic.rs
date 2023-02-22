@@ -4,7 +4,7 @@ use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
 use super::SpCellArray;
-use crate::v2::macros::SpCell;
+use crate::v2::macros::{SpCell, SpColend};
 
 impl SpCellArray {
     pub(crate) fn schematic(
@@ -26,6 +26,22 @@ impl SpCellArray {
                     ("VDD", vdd),
                     ("VSS", vss),
                     ("WL", wl),
+                    ("VNB", vss),
+                    ("VPB", vdd),
+                ]);
+                cell.set_name(name);
+                ctx.add_instance(cell);
+                Ok(())
+            };
+
+        let make_colend =
+            |ctx: &mut SchematicCtx, bl, br, name| -> substrate::error::Result<()> {
+                let mut cell = ctx.instantiate::<SpColend>(&NoParams)?;
+                cell.connect_all([
+                    ("BL", bl),
+                    ("BR", br),
+                    ("VDD", vdd),
+                    ("VSS", vss),
                     ("VNB", vss),
                     ("VPB", vdd),
                 ]);
@@ -62,6 +78,16 @@ impl SpCellArray {
             let br = br.index(j);
             make_cell(ctx, vss, bl, br, arcstr::format!("dummy_row_top_{j}"))?;
             make_cell(ctx, vss, bl, br, arcstr::format!("dummy_row_bot_{j}"))?;
+        }
+
+        for j in 0..self.params.cols+2 {
+            let (bl, br) = if j == 0 || j == self.params.cols + 1 {
+                (vdd, vdd)
+            } else {
+                (bl.index(j-1), br.index(j-1))
+            };
+            make_colend(ctx, bl, br, arcstr::format!("colend_top_{j}"))?;
+            make_colend(ctx, bl, br, arcstr::format!("colend_bot_{j}"))?;
         }
         Ok(())
     }

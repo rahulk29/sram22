@@ -127,10 +127,10 @@ mod tests {
                 .bottom();
 
             for (ring_port_name, side, port_names) in [
-                ("ring_vss", Side::Left, vec!["vgnd", "wl_dummy"]),
-                ("ring_vdd", Side::Left, vec!["vpwr"]),
-                ("ring_vss", Side::Top, vec!["vgnd"]),
-                ("ring_vdd", Side::Top, vec!["vpwr", "bl_dummy", "br_dummy"]),
+                ("ring_vss", Side::Left, vec!["vgnd", "vnb", "wl_dummy"]),
+                ("ring_vdd", Side::Left, vec!["vpwr", "vpb"]),
+                ("ring_vss", Side::Top, vec!["vgnd", "vnb"]),
+                ("ring_vdd", Side::Top, vec!["vpwr", "vpb", "bl_dummy", "br_dummy"]),
             ] {
                 for port_name in port_names {
                     let ring_port = array.port(ring_port_name)?;
@@ -278,8 +278,8 @@ mod tests {
         let m2 = layers.get(Selector::Metal(2))?;
         let params = SpCellArrayWithGuardRingParams {
             inner: SpCellArrayParams {
-                rows: 32,
-                cols: 32,
+                rows: 8,
+                cols: 8,
                 mux_ratio: 4,
             },
             h_width: 1_360,
