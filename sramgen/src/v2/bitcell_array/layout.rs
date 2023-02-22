@@ -32,7 +32,7 @@ fn corner_port_map_fn(
     vmetal: LayerKey,
     hmetal: LayerKey,
 ) -> Option<CellPort> {
-    let mut new_port = CellPort::new(if ["wl", "bl", "br"].contains(&port.name()) {
+    let mut new_port = CellPort::new(if ["wl", "bl", "br"].contains(&port.name().as_ref()) {
         PortId::from(format!("{}_dummy", port.name()))
     } else {
         port.id().clone()
@@ -86,7 +86,7 @@ impl Component for SpCellArrayCornerUl {
         grid_tiler.expose_ports(
             |port: CellPort, i, j| corner_port_map_fn(port, i, j, 0, 0, vmetal, hmetal),
             PortConflictStrategy::Merge,
-        );
+        )?;
         ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
 
@@ -136,7 +136,7 @@ impl Component for SpCellArrayCornerUr {
         grid_tiler.expose_ports(
             |port: CellPort, i, j| corner_port_map_fn(port, i, j, 0, 2, vmetal, hmetal),
             PortConflictStrategy::Merge,
-        );
+        )?;
         ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
 
@@ -198,7 +198,7 @@ impl Component for SpCellArrayCornerLr {
         grid_tiler.expose_ports(
             |port: CellPort, i, j| corner_port_map_fn(port, i, j, 2, 2, vmetal, hmetal),
             PortConflictStrategy::Merge,
-        );
+        )?;
         ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
 
@@ -255,7 +255,7 @@ impl Component for SpCellArrayCornerLl {
         grid_tiler.expose_ports(
             |port: CellPort, i, j| corner_port_map_fn(port, i, j, 2, 0, vmetal, hmetal),
             PortConflictStrategy::Merge,
-        );
+        )?;
         ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
 
@@ -334,7 +334,7 @@ impl Component for SpCellArrayLeft {
                 None
             },
             PortConflictStrategy::Merge,
-        );
+        )?;
         ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
 
@@ -425,7 +425,7 @@ impl Component for SpCellArrayTop {
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
             |port: CellPort, i, j| {
-                let mut new_port = CellPort::new(if ["bl", "br"].contains(&port.name()) {
+                let mut new_port = CellPort::new(if ["bl", "br"].contains(&port.name().as_ref()) {
                     PortId::new(port.name(), j - 1)
                 } else {
                     port.id().clone()
@@ -441,7 +441,7 @@ impl Component for SpCellArrayTop {
                 None
             },
             PortConflictStrategy::Merge,
-        );
+        )?;
         ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
 
@@ -510,7 +510,7 @@ impl Component for SpCellArrayCenter {
             grid.push_row(cell_row.clone());
         }
 
-        let mut grid_tiler = GridTiler::new(grid);
+        let grid_tiler = GridTiler::new(grid);
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -573,7 +573,7 @@ impl Component for SpCellArrayBottom {
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
             |port: CellPort, i, j| {
-                let mut new_port = CellPort::new(if ["bl", "br"].contains(&port.name()) {
+                let mut new_port = CellPort::new(if ["bl", "br"].contains(&port.name().as_ref()) {
                     PortId::new(port.name(), j - 1)
                 } else {
                     port.id().clone()
@@ -589,7 +589,7 @@ impl Component for SpCellArrayBottom {
                 None
             },
             PortConflictStrategy::Merge,
-        );
+        )?;
         ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
 
@@ -708,12 +708,12 @@ impl SpCellArray {
                     return Some(port);
                 }
                 if i == ny + 1 && j == nx + 1 {
-                    if ["wl_dummy", "bl_dummy", "br_dummy"].contains(&port.name()) {
+                    if ["wl_dummy", "bl_dummy", "br_dummy"].contains(&port.name().as_ref()) {
                         port.set_id(PortId::new(port.name(), 1));
                     }
                     return Some(port);
                 }
-                let mut new_port = CellPort::new(if ["bl", "br"].contains(&port.name()) {
+                let mut new_port = CellPort::new(if ["bl", "br"].contains(&port.name().as_ref()) {
                     PortId::new(
                         port.name(),
                         self.params.mux_ratio * (j - 1) + port.id().index(),
@@ -732,7 +732,7 @@ impl SpCellArray {
                         return Some(new_port);
                     }
                 } else if i == 0 {
-                    if !["bl", "br"].contains(&port.name()) {
+                    if !["bl", "br"].contains(&port.name().as_ref()) {
                         let shapes = port.shapes(vmetal);
 
                         if !shapes.is_empty() {
@@ -751,7 +751,7 @@ impl SpCellArray {
                 None
             },
             PortConflictStrategy::Merge,
-        );
+        )?;
         ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
         Ok(())
