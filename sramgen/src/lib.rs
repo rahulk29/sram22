@@ -4,6 +4,8 @@ use std::sync::Arc;
 pub use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use ngspice::Ngspice;
+#[cfg(feature = "calibre")]
+use sky130_commercial_pdk::Sky130CommercialPdk;
 use sky130_open_pdk::Sky130OpenPdk;
 #[cfg(feature = "calibre")]
 use sub_calibre::CalibreDrc;

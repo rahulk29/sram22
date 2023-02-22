@@ -3,10 +3,10 @@ use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 
-mod cbl;
-mod layout;
-mod replica;
-mod schematic;
+pub mod cbl;
+pub mod layout;
+pub mod replica;
+pub mod schematic;
 
 pub struct SpCellArray {
     params: SpCellArrayParams,
