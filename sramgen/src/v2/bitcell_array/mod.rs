@@ -244,7 +244,7 @@ mod tests {
             ctx.add_ports(
                 array
                     .ports()
-                    .filter(|port| ["bl", "br", "wl"].contains(&port.name())),
+                    .filter(|port| ["bl", "br", "wl"].contains(&port.name().as_ref())),
             );
 
             ctx.draw(array)?;
