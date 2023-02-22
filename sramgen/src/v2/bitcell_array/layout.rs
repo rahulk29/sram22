@@ -40,14 +40,14 @@ fn corner_port_map_fn(
     if i == edge_i && j == edge_j {
         return Some(port);
     } else if j == edge_j {
-        let shapes = port.shapes(hmetal);
+        let shapes: Vec<&Shape> = port.shapes(hmetal).collect();
 
         if !shapes.is_empty() {
             new_port.add_all(hmetal, shapes.into_iter().cloned());
             return Some(new_port);
         }
     } else if i == edge_i {
-        let shapes = port.shapes(vmetal);
+        let shapes: Vec<&Shape> = port.shapes(vmetal).collect();
 
         if !shapes.is_empty() {
             new_port.add_all(vmetal, shapes.into_iter().cloned());
@@ -324,7 +324,7 @@ impl Component for SpCellArrayLeft {
                     port.id().clone()
                 });
                 if j == 0 {
-                    let shapes = port.shapes(hmetal);
+                    let shapes: Vec<&Shape> = port.shapes(hmetal).collect();
 
                     if !shapes.is_empty() {
                         new_port.add_all(hmetal, shapes.into_iter().cloned());
@@ -431,7 +431,7 @@ impl Component for SpCellArrayTop {
                     port.id().clone()
                 });
                 if i == 0 {
-                    let shapes = port.shapes(vmetal);
+                    let shapes: Vec<&Shape> = port.shapes(vmetal).collect();
 
                     if !shapes.is_empty() {
                         new_port.add_all(vmetal, shapes.into_iter().cloned());
@@ -579,7 +579,7 @@ impl Component for SpCellArrayBottom {
                     port.id().clone()
                 });
                 if i == 2 {
-                    let shapes = port.shapes(vmetal);
+                    let shapes: Vec<&Shape> = port.shapes(vmetal).collect();
 
                     if !shapes.is_empty() {
                         new_port.add_all(vmetal, shapes.into_iter().cloned());
@@ -725,7 +725,7 @@ impl SpCellArray {
                 });
 
                 if j == 0 {
-                    let shapes = port.shapes(hmetal);
+                    let shapes: Vec<&Shape> = port.shapes(hmetal).collect();
 
                     if !shapes.is_empty() {
                         new_port.add_all(hmetal, shapes.into_iter().cloned());
@@ -733,7 +733,7 @@ impl SpCellArray {
                     }
                 } else if i == 0 {
                     if !["bl", "br"].contains(&port.name().as_ref()) {
-                        let shapes = port.shapes(vmetal);
+                        let shapes: Vec<&Shape> = port.shapes(vmetal).collect();
 
                         if !shapes.is_empty() {
                             new_port.add_all(vmetal, shapes.into_iter().cloned());
@@ -741,7 +741,7 @@ impl SpCellArray {
                         }
                     }
                 } else if i == ny + 1 {
-                    let shapes = port.shapes(vmetal);
+                    let shapes: Vec<&Shape> = port.shapes(vmetal).collect();
 
                     if !shapes.is_empty() {
                         new_port.add_all(vmetal, shapes.into_iter().cloned());
