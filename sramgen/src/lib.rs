@@ -4,7 +4,7 @@ use std::sync::Arc;
 pub use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use ngspice::Ngspice;
-use sky130_open_pdk::Sky130Pdk;
+use sky130_open_pdk::Sky130OpenPdk;
 #[cfg(feature = "calibre")]
 use sub_calibre::CalibreDrc;
 #[cfg(feature = "calibre")]
@@ -90,7 +90,7 @@ pub fn setup_ctx() -> SubstrateCtx {
         .netlister(Arc::new(SpiceNetlister::new()))
         .simulator(Arc::new(simulator))
         .pdk(Arc::new(
-            Sky130Pdk::new(&PdkParams {
+            Sky130OpenPdk::new(&PdkParams {
                 pdk_root: PathBuf::from("/Users/rahul/acads/research/sky130/pdk/skywater-pdk"),
             })
             .unwrap(),

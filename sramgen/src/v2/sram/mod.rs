@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 
 pub mod layout;
+pub mod schematic;
 
 pub struct Sram {
     params: SramParams,
@@ -48,6 +49,12 @@ impl Component for Sram {
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("sramgen_sram")
     }
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        self.schematic(ctx)
+    }
     fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
@@ -58,7 +65,7 @@ impl Component for Sram {
 
 #[cfg(test)]
 mod tests {
-    use crate::paths::out_gds;
+    use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -95,11 +102,14 @@ mod tests {
     fn test_sram_1() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_sram_1");
+        ctx.write_schematic_to_file::<Sram>(&PARAMS_1, out_spice(&work_dir, "schematic"))
+            .expect("failed to write schematic");
         ctx.write_layout::<Sram>(&PARAMS_1, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 
     #[test]
+    #[ignore = "slow"]
     fn test_sram_2() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_sram_2");

@@ -1,13 +1,16 @@
 use fanout::FanoutAnalyzer;
 use serde::{Deserialize, Serialize};
-use substrate::component::{Component, NoParams};
+use substrate::component::{Component, NoParams, View};
+use substrate::error::ErrorSource;
+use substrate::index::IndexOwned;
+use substrate::schematic::circuit::Direction;
 
 use self::layout::{
     decoder_stage_layout, LastBitDecoderPhysicalDesignScript, PredecoderPhysicalDesignScript,
     RoutingStyle,
 };
 
-use super::gate::{AndParams, GateParams, GateType, PrimitiveGateParams};
+use super::gate::{AndParams, Gate, GateParams, GateType, PrimitiveGateParams};
 
 pub mod layout;
 pub mod schematic;
@@ -75,6 +78,33 @@ impl Component for WlDriver {
         arcstr::literal!("wordline_driver")
     }
 
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        let n = self.params.num;
+        let vdd = ctx.port("vdd", Direction::InOut);
+        let input = ctx.bus_port("in", n, Direction::Input);
+        let en = ctx.port("wl_en", Direction::Input);
+        let y = ctx.bus_port("decode", n, Direction::Output);
+        let yb = ctx.bus_port("decode_b", n, Direction::Output);
+        let vss = ctx.port("vss", Direction::InOut);
+        for i in 0..n {
+            ctx.instantiate::<Gate>(&self.params.gate)?
+                .with_connections([
+                    ("vdd", vdd),
+                    ("a", input.index(i)),
+                    ("b", en),
+                    ("y", y),
+                    ("yb", yb),
+                    ("vss", vss),
+                ])
+                .named(format!("gate_{i}"))
+                .add_to(ctx);
+        }
+        Ok(())
+    }
+
     fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
@@ -103,6 +133,33 @@ impl Component for WmuxDriver {
 
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("wmux_driver")
+    }
+
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        let n = self.params.num;
+        let vdd = ctx.port("vdd", Direction::InOut);
+        let input = ctx.bus_port("in", n, Direction::Input);
+        let en = ctx.port("en", Direction::Input);
+        let y = ctx.bus_port("decode", n, Direction::Output);
+        let yb = ctx.bus_port("decode_b", n, Direction::Output);
+        let vss = ctx.port("vss", Direction::InOut);
+        for i in 0..n {
+            ctx.instantiate::<Gate>(&self.params.gate)?
+                .with_connections([
+                    ("vdd", vdd),
+                    ("a", input.index(i)),
+                    ("b", en),
+                    ("y", y),
+                    ("yb", yb),
+                    ("vss", vss),
+                ])
+                .named(format!("gate_{i}"))
+                .add_to(ctx);
+        }
+        Ok(())
     }
 
     fn layout(

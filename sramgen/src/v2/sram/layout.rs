@@ -11,6 +11,7 @@ use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerCo
 use substrate::layout::routing::manual::jog::SJog;
 
 use crate::bus_bit;
+use crate::v2::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
 use crate::v2::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::v2::buf::DiffBufParams;
 use crate::v2::columns::{ColParams, ColPeripherals};
@@ -32,33 +33,7 @@ impl Sram {
             cols: self.params.cols,
             mux_ratio: self.params.mux_ratio,
         })?;
-        let mut cols = ctx.instantiate::<ColPeripherals>(&ColParams {
-            pc: PrechargeParams {
-                length: 150,
-                pull_up_width: 2_000,
-                equalizer_width: 1_200,
-            },
-            rmux: ReadMuxParams {
-                length: 150,
-                width: 3_000,
-                mux_ratio: self.params.mux_ratio,
-                idx: 0,
-            },
-            wmux: WriteMuxSizing {
-                length: 150,
-                mux_width: 2_400,
-                mux_ratio: self.params.mux_ratio,
-            },
-            buf: DiffBufParams {
-                width: 4_800,
-                nw: 1_200,
-                pw: 2_000,
-                lch: 150,
-            },
-            cols: self.params.cols,
-            wmask_granularity: 8,
-            include_wmask: true,
-        })?;
+        let mut cols = ctx.instantiate::<ColPeripherals>(&self.col_params())?;
         let tree = DecoderTree::new(self.params.row_bits);
         let decoder_params = DecoderStageParams {
             gate: tree.root.gate,
@@ -90,7 +65,7 @@ impl Sram {
         let col_decoder_params = DecoderParams {
             tree: col_tree.clone(),
         };
-        let col_bits = col_tree.root.num.ilog2() as usize;
+        let col_bits = self.params.col_select_bits;
 
         let mut col_dec = ctx.instantiate::<Predecoder>(&col_decoder_params)?;
         let wmux_driver_params = DecoderStageParams {
@@ -106,9 +81,16 @@ impl Sram {
         let num_dffs = self.params.addr_width + 1;
         let mut dffs = ctx.instantiate::<DffArray>(&num_dffs)?;
 
+        let mut rbl = ctx.instantiate::<ReplicaCellArray>(&ReplicaCellArrayParams {
+            rows: (self.params.rows / 12) * 2,
+            cols: 2,
+        })?;
+
         cols.align_beneath(bitcells.bbox(), 1_270);
         cols.align_centers_horizontally_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
-        wl_driver.align_to_the_left_of(bitcells.bbox(), 1_270);
+        rbl.align_to_the_left_of(bitcells.bbox(), 1_270);
+        rbl.align_bottom(bitcells.bbox());
+        wl_driver.align_to_the_left_of(rbl.bbox(), 1_270);
         wl_driver.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
         decoder.align_to_the_left_of(wl_driver.bbox(), 1_270);
         decoder.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
@@ -136,6 +118,7 @@ impl Sram {
         ctx.draw_ref(&col_dec)?;
         ctx.draw_ref(&control)?;
         ctx.draw_ref(&dffs)?;
+        ctx.draw_ref(&rbl)?;
 
         let layers = ctx.layers();
         let m0 = layers.get(Selector::Metal(0))?;
@@ -175,6 +158,10 @@ impl Sram {
             for shape in inst.shapes_on(m2) {
                 let rect = shape.brect();
                 router.block(m2, rect);
+            }
+            for shape in inst.shapes_on(m1) {
+                let rect = shape.brect();
+                router.block(m1, rect);
             }
         }
 

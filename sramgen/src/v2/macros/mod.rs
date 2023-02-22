@@ -59,7 +59,7 @@ pub struct SenseAmp;
 #[hard_macro(
     name = "sramgen_sp_sense_amp_offset",
     pdk = "sky130-open",
-    path_fn = "path",
+    path_fn = "path"
 )]
 pub struct SenseAmpWithOffset;
 
