@@ -120,7 +120,7 @@ pub struct SpColendPCent;
 pub struct SpCorner;
 
 #[hard_macro(
-    name = "sram_sp_hstrap",
+    name = "sram_sp_hstrap2",
     pdk = "sky130-open",
     path_fn = "layout_path",
     gds_cell_name = "sky130_fd_bd_sram__sram_sp_hstrap"
