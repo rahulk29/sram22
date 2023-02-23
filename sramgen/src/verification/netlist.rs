@@ -35,10 +35,10 @@ pub fn generate_netlist(params: TbNetlistParams) -> crate::Result<String> {
     write_spacer(&mut out)?;
 
     for include in tb.includes.iter() {
-        writeln!(&mut out, ".include {include}")?;
+        writeln!(&mut out, ".include {}", include)?;
     }
     for include in tb.source_paths.iter() {
-        writeln!(&mut out, ".include {include:?}")?;
+        writeln!(&mut out, ".include {:?}", include)?;
     }
     write_spacer(&mut out)?;
 
@@ -47,7 +47,7 @@ pub fn generate_netlist(params: TbNetlistParams) -> crate::Result<String> {
     let gnd_net = &tb.gnd_port;
 
     writeln!(&mut out, "Vvdd {} {} {}", tb.pwr_port, gnd_net, tb.vdd)?;
-    writeln!(&mut out, "Vvss {gnd_net} 0 0")?;
+    writeln!(&mut out, "Vvss {} 0 0", gnd_net)?;
     write_spacer(&mut out)?;
     writeln!(&mut out, ".option parhier=local redefinedparams=ignore")?;
     writeln!(&mut out, "simulator lang=spectre")?;
