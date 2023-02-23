@@ -193,6 +193,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "slow"]
     fn test_sa_offset_tb() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_sa_offset_tb");

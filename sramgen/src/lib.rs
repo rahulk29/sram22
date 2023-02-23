@@ -4,7 +4,9 @@ use std::sync::Arc;
 pub use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use ngspice::Ngspice;
-use sky130_open_pdk::Sky130Pdk;
+#[cfg(feature = "calibre")]
+use sky130_commercial_pdk::Sky130CommercialPdk;
+use sky130_open_pdk::Sky130OpenPdk;
 #[cfg(feature = "calibre")]
 use sub_calibre::CalibreDrc;
 #[cfg(feature = "calibre")]
@@ -36,6 +38,9 @@ pub mod verilog;
 
 pub const BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
 pub const LIB_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/lib");
+pub const SKY130_OPEN_PDK_ROOT: &str = env!("SKY130_OPEN_PDK_ROOT");
+#[cfg(feature = "calibre")]
+pub const SKY130_COMMERCIAL_PDK_ROOT: &str = env!("SKY130_COMMERCIAL_PDK_ROOT");
 
 lazy_static! {
     pub static ref TEMPLATES: Tera =
@@ -69,6 +74,12 @@ pub fn setup_ctx() -> SubstrateCtx {
 
     #[cfg(feature = "calibre")]
     let builder = builder
+        .pdk(Arc::new(
+            Sky130CommercialPdk::new(&PdkParams {
+                pdk_root: PathBuf::from(SKY130_COMMERCIAL_PDK_ROOT),
+            })
+            .unwrap(),
+        ))
         .drc_tool(Arc::new(
             CalibreDrc::builder()
                 .rules_file(PathBuf::from(
@@ -86,15 +97,17 @@ pub fn setup_ctx() -> SubstrateCtx {
         .pex_tool(Arc::new(CalibrePex::new(PathBuf::from(
             crate::verification::calibre::SKY130_PEX_RULES_PATH,
         ))));
+    #[cfg(not(feature = "calibre"))]
+    let builder = builder.pdk(Arc::new(
+        Sky130OpenPdk::new(&PdkParams {
+            pdk_root: PathBuf::from(SKY130_OPEN_PDK_ROOT),
+        })
+        .unwrap(),
+    ));
+
     let cfg = builder
         .netlister(Arc::new(SpiceNetlister::new()))
         .simulator(Arc::new(simulator))
-        .pdk(Arc::new(
-            Sky130Pdk::new(&PdkParams {
-                pdk_root: PathBuf::from("/Users/rahul/acads/research/sky130/pdk/skywater-pdk"),
-            })
-            .unwrap(),
-        ))
         .build()
         .unwrap();
     SubstrateCtx::from_config(cfg)
