@@ -174,7 +174,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
             crate::abs::run_sram_abstract(
                 work_dir,
                 name,
-                &crate::paths::out_lef(work_dir, name),
+                crate::paths::out_lef(work_dir, name),
                 &gds_path,
                 &verilog_path
             )?,

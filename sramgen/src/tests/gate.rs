@@ -29,7 +29,7 @@ fn test_inv_dec() -> Result<()> {
 
     let work_dir = test_work_dir(name);
 
-    lib.save_gds(out_gds(&work_dir, name))?;
+    lib.save_gds(out_gds(work_dir, name))?;
 
     Ok(())
 }

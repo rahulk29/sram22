@@ -18,7 +18,7 @@ pub fn draw_write_mask_control(
         name, and_params, ..
     } = params;
 
-    let width = width as usize;
+    let width = width;
     let mut cell = Cell::empty(name);
     let AndParams { nand, inv, .. } = and_params;
 
