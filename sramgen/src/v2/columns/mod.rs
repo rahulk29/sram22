@@ -24,6 +24,20 @@ pub struct ColParams {
     pub wmask_granularity: usize,
 }
 
+impl ColParams {
+    fn mux_ratio(&self) -> usize {
+        self.rmux.mux_ratio
+    }
+
+    fn word_length(&self) -> usize {
+        self.cols / self.mux_ratio()
+    }
+
+    fn wmask_bits(&self) -> usize {
+        self.word_length() / self.wmask_granularity
+    }
+}
+
 pub struct ColPeripherals {
     params: ColParams,
 }
@@ -38,6 +52,11 @@ impl Component for ColPeripherals {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
+        if params.rmux.mux_ratio != params.wmux.mux_ratio {
+            return Err(substrate::error::SubstrateError::Component(
+                substrate::component::error::Error::InvalidParams,
+            ));
+        }
         Ok(Self {
             params: params.clone(),
         })
@@ -86,7 +105,7 @@ impl Component for Column {
 #[cfg(test)]
 mod tests {
 
-    use crate::paths::out_gds;
+    use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -142,6 +161,11 @@ mod tests {
         let work_dir = test_work_dir("test_col_peripherals");
         ctx.write_layout::<ColPeripherals>(&COL_WMASK_PARAMS, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
+        ctx.write_schematic_to_file::<ColPeripherals>(
+            &COL_WMASK_PARAMS,
+            out_spice(&work_dir, "netlist"),
+        )
+        .expect("failed to write schematic");
 
         #[cfg(feature = "calibre")]
         {
@@ -168,7 +192,9 @@ mod tests {
     fn test_column_4() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_column_4");
-        ctx.write_layout::<Column>(&COL_PARAMS, out_gds(work_dir, "layout"))
+        ctx.write_layout::<Column>(&COL_PARAMS, out_gds(&work_dir, "layout"))
+            .expect("failed to write layout");
+        ctx.write_schematic_to_file::<Column>(&COL_PARAMS, out_spice(work_dir, "schematic"))
             .expect("failed to write layout");
     }
 
