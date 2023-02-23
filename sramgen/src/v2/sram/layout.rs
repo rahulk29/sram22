@@ -136,14 +136,14 @@ impl Sram {
                     layer: m1,
                 },
                 LayerConfig {
-                    line: 340,
-                    space: 340,
+                    line: 320,
+                    space: 360,
                     dir: Dir::Horiz,
                     layer: m2,
                 },
                 LayerConfig {
-                    line: 340,
-                    space: 340,
+                    line: 320,
+                    space: 360,
                     dir: Dir::Vert,
                     layer: m3,
                 },
