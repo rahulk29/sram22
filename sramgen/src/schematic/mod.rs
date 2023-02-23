@@ -61,7 +61,7 @@ pub fn simple_ext_module(
 pub fn save_modules(path: impl AsRef<Path>, name: &str, modules: Vec<Module>) -> Result<()> {
     let ext_modules = all_external_modules();
     let pkg = vlsir::circuit::Package {
-        domain: format!("sramgen_{}", name),
+        domain: format!("sramgen_{name}"),
         desc: "Sramgen generated cells".to_string(),
         modules: into_map(modules),
         ext_modules,

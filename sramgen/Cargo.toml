@@ -35,6 +35,13 @@ liberate_mx = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/liberate-
 tera = "1.17.1"
 lazy_static = "1.4.0"
 colored = "2.0.0"
+substrate = { path = "../../substrate/substrate" }
+codegen = { path = "../../substrate/codegen" }
+sky130_open_pdk = { path = "../../substrate/pdks/sky130_open_pdk" }
+sky130_commercial_pdk = { path = "../../substrate/pdks/sky130_commercial_pdk" }
+ngspice = { path = "../../substrate/plugins/ngspice" }
+sub_calibre = { path = "../../substrate/plugins/sub_calibre" }
+
 
 [build-dependencies]
 prost-build = "0.11.3"

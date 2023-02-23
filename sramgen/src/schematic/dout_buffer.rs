@@ -23,7 +23,7 @@ pub fn dout_buf_array(params: &DoutBufArrayParams) -> Vec<Module> {
     m.add_ports_inout(&[&vdd, &vss]);
 
     for i in 0..width {
-        let mut inst = Instance::new(format!("buf_{}", i), local_reference("dout_buf"));
+        let mut inst = Instance::new(format!("buf_{i}"), local_reference("dout_buf"));
         inst.add_conns(&[
             ("vdd", &vdd),
             ("vss", &vss),
@@ -58,7 +58,7 @@ pub fn dout_buf(params: &DoutBufParams) -> Module {
     for (din, x, dout, suffix) in [(&din1, &x1, &dout1, "1"), (&din2, &x2, &dout2, "2")] {
         m.add_instance(
             Mosfet {
-                name: format!("MP1{}", suffix),
+                name: format!("MP1{suffix}"),
                 width: params.pw1,
                 length,
                 drain: x.clone(),
@@ -72,7 +72,7 @@ pub fn dout_buf(params: &DoutBufParams) -> Module {
 
         m.add_instance(
             Mosfet {
-                name: format!("MN1{}", suffix),
+                name: format!("MN1{suffix}"),
                 width: params.nw1,
                 length,
                 drain: x.clone(),
@@ -86,7 +86,7 @@ pub fn dout_buf(params: &DoutBufParams) -> Module {
 
         m.add_instance(
             Mosfet {
-                name: format!("MP2{}", suffix),
+                name: format!("MP2{suffix}"),
                 width: params.pw2,
                 length,
                 drain: dout.clone(),
@@ -100,7 +100,7 @@ pub fn dout_buf(params: &DoutBufParams) -> Module {
 
         m.add_instance(
             Mosfet {
-                name: format!("MN2{}", suffix),
+                name: format!("MN2{suffix}"),
                 width: params.nw2,
                 length,
                 drain: dout.clone(),
