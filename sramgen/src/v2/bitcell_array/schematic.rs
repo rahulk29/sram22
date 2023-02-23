@@ -4,7 +4,7 @@ use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
 use super::SpCellArray;
-use crate::v2::macros::{SpCell, SpColend};
+use crate::v2::macros::{SpCell, SpColend, SpHstrap};
 
 impl SpCellArray {
     pub(crate) fn schematic(
@@ -36,6 +36,21 @@ impl SpCellArray {
 
         let make_colend = |ctx: &mut SchematicCtx, bl, br, name| -> substrate::error::Result<()> {
             let mut cell = ctx.instantiate::<SpColend>(&NoParams)?;
+            cell.connect_all([
+                ("BL", bl),
+                ("BR", br),
+                ("VDD", vdd),
+                ("VSS", vss),
+                ("VNB", vss),
+                ("VPB", vdd),
+            ]);
+            cell.set_name(name);
+            ctx.add_instance(cell);
+            Ok(())
+        };
+
+        let make_hstrap = |ctx: &mut SchematicCtx, bl, br, name| -> substrate::error::Result<()> {
+            let mut cell = ctx.instantiate::<SpHstrap>(&NoParams)?;
             cell.connect_all([
                 ("BL", bl),
                 ("BR", br),
@@ -87,7 +102,16 @@ impl SpCellArray {
             };
             make_colend(ctx, bl, br, arcstr::format!("colend_top_{j}"))?;
             make_colend(ctx, bl, br, arcstr::format!("colend_bot_{j}"))?;
+            for i in 0..self.params.rows / 8 + 1 {
+                make_hstrap(
+                    ctx,
+                    bl,
+                    br,
+                    arcstr::format!("hstrap_{i}_{j}"),
+                )?;
+            }
         }
+
         Ok(())
     }
 }

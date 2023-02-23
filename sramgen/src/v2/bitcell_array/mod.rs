@@ -138,103 +138,105 @@ mod tests {
             ] {
                 for port_name in port_names {
                     let ring_port = array.port(ring_port_name)?;
-                    let port = array.port(port_name)?;
-                    let dir = side.coord_dir();
-                    let (ring_metal, port_metal) = match dir {
-                        Dir::Horiz => (v_metal, h_metal),
-                        Dir::Vert => (h_metal, v_metal),
-                    };
+                    let ports = array.ports_starting_with(port_name);
+                    for port in ports {
+                        let dir = side.coord_dir();
+                        let (ring_metal, port_metal) = match dir {
+                            Dir::Horiz => (v_metal, h_metal),
+                            Dir::Vert => (h_metal, v_metal),
+                        };
 
-                    let start = port.first_rect(port_metal, side)?.side(side);
+                        let start = port.first_rect(port_metal, side)?.side(side);
 
-                    for shape in port.shapes(port_metal) {
-                        if let Shape::Rect(r) = shape {
-                            if r.side(side) != start {
-                                continue;
-                            }
-                            let ring_rect = ring_port.first_rect(ring_metal, side)?;
+                        for shape in port.shapes(port_metal) {
+                            if let Shape::Rect(r) = shape {
+                                if r.side(side) != start {
+                                    continue;
+                                }
+                                let ring_rect = ring_port.first_rect(ring_metal, side)?;
 
-                            match dir {
-                                Dir::Horiz => {
-                                    let rect = Rect::span_builder()
-                                        .with(dir, ring_rect.span(dir).union(r.span(dir)))
-                                        .with(!dir, r.span(!dir))
-                                        .build();
-                                    ctx.draw_rect(port_metal, rect);
-                                    let viap = ViaParams::builder()
+                                match dir {
+                                    Dir::Horiz => {
+                                        let rect = Rect::span_builder()
+                                            .with(dir, ring_rect.span(dir).union(r.span(dir)))
+                                            .with(!dir, r.span(!dir))
+                                            .build();
+                                        ctx.draw_rect(port_metal, rect);
+                                        let viap = ViaParams::builder()
                                         .layers(ring_metal, port_metal)
                                         .geometry(ring_rect, rect)
                                         .expand(substrate::layout::elements::via::ViaExpansion::LongerDirection)
                                         .build();
-                                    let via = ctx.instantiate::<Via>(&viap)?;
-                                    ctx.draw(via)?;
-                                }
-                                Dir::Vert => {
-                                    let (offset, ring_rect) =
-                                        if ["vpwr", "bl_dummy"].contains(&port_name) {
-                                            (
-                                                400,
-                                                Rect::from_spans(
-                                                    ring_rect.span(!dir),
-                                                    Span::new(
-                                                        ring_rect.side(side),
-                                                        ring_rect.center().coord(dir),
+                                        let via = ctx.instantiate::<Via>(&viap)?;
+                                        ctx.draw(via)?;
+                                    }
+                                    Dir::Vert => {
+                                        let (offset, ring_rect) =
+                                            if ["vpwr", "bl_dummy"].contains(&port_name) {
+                                                (
+                                                    400,
+                                                    Rect::from_spans(
+                                                        ring_rect.span(!dir),
+                                                        Span::new(
+                                                            ring_rect.side(side),
+                                                            ring_rect.center().coord(dir),
+                                                        ),
                                                     ),
-                                                ),
-                                            )
-                                        } else {
-                                            (
-                                                1_000,
-                                                Rect::from_spans(
-                                                    ring_rect.span(!dir),
-                                                    Span::new(
-                                                        ring_rect.center().coord(dir),
-                                                        ring_rect.side(!side),
+                                                )
+                                            } else {
+                                                (
+                                                    1_000,
+                                                    Rect::from_spans(
+                                                        ring_rect.span(!dir),
+                                                        Span::new(
+                                                            ring_rect.center().coord(dir),
+                                                            ring_rect.side(!side),
+                                                        ),
                                                     ),
-                                                ),
+                                                )
+                                            };
+                                        let overlap = 300;
+                                        let rect1 = Rect::span_builder()
+                                            .with(
+                                                dir,
+                                                r.span(dir).union(Span::new(
+                                                    top_limit - offset,
+                                                    top_limit - offset - overlap,
+                                                )),
                                             )
-                                        };
-                                    let overlap = 300;
-                                    let rect1 = Rect::span_builder()
-                                        .with(
-                                            dir,
-                                            r.span(dir).union(Span::new(
-                                                top_limit - offset,
-                                                top_limit - offset - overlap,
-                                            )),
-                                        )
-                                        .with(!dir, r.span(!dir))
-                                        .build();
-                                    ctx.draw_rect(v_metal, rect1);
-                                    let rect2 = Rect::span_builder()
-                                        .with(
-                                            dir,
-                                            ring_rect.span(dir).union(Span::new(
-                                                top_limit,
-                                                top_limit - offset - overlap,
-                                            )),
-                                        )
-                                        .with(!dir, r.span(!dir))
-                                        .build();
-                                    ctx.draw_rect(m3, rect2);
-                                    let viap = ViaParams::builder()
-                                        .layers(port_metal, ring_metal)
-                                        .geometry(rect1, rect2)
-                                        .build();
-                                    let via = ctx.instantiate::<Via>(&viap)?;
-                                    ctx.draw(via)?;
-                                    let viap = ViaParams::builder()
-                                        .layers(ring_metal, m3)
-                                        .geometry(rect1, rect2)
-                                        .build();
-                                    let via = ctx.instantiate::<Via>(&viap)?;
-                                    ctx.draw(via)?;
-                                    let viap = ViaParams::builder()
-                                        .layers(ring_metal, m3)
-                                        .geometry(ring_rect, rect2)
-                                        .build();
-                                    let via = ctx.instantiate::<Via>(&viap)?;
-                                    ctx.draw(via)?;
+                                            .with(!dir, r.span(!dir))
+                                            .build();
+                                        ctx.draw_rect(v_metal, rect1);
+                                        let rect2 = Rect::span_builder()
+                                            .with(
+                                                dir,
+                                                ring_rect.span(dir).union(Span::new(
+                                                    top_limit,
+                                                    top_limit - offset - overlap,
+                                                )),
+                                            )
+                                            .with(!dir, r.span(!dir))
+                                            .build();
+                                        ctx.draw_rect(m3, rect2);
+                                        let viap = ViaParams::builder()
+                                            .layers(port_metal, ring_metal)
+                                            .geometry(rect1, rect2)
+                                            .build();
+                                        let via = ctx.instantiate::<Via>(&viap)?;
+                                        ctx.draw(via)?;
+                                        let viap = ViaParams::builder()
+                                            .layers(ring_metal, m3)
+                                            .geometry(rect1, rect2)
+                                            .build();
+                                        let via = ctx.instantiate::<Via>(&viap)?;
+                                        ctx.draw(via)?;
+                                        let viap = ViaParams::builder()
+                                            .layers(ring_metal, m3)
+                                            .geometry(ring_rect, rect2)
+                                            .build();
+                                        let via = ctx.instantiate::<Via>(&viap)?;
+                                        ctx.draw(via)?;
+                                    }
                                 }
                             }
                         }
@@ -290,6 +292,12 @@ mod tests {
             v_width: 1_360,
         };
         ctx.write_layout::<SpCellArrayWithGuardRing>(&params, out_gds(&work_dir, "layout"))?;
+
+        ctx.write_schematic_to_file::<SpCellArrayWithGuardRing>(
+            &params,
+            out_spice(&work_dir, "schematic"),
+        )
+        .expect("failed to write schematic");
 
         #[cfg(feature = "calibre")]
         {
