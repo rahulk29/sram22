@@ -136,10 +136,10 @@ pub struct SpCorner;
 pub struct SpRowend;
 
 #[hard_macro(
-    name = "sram_sp_rowend_hstrap",
+    name = "sram_sp_rowend_hstrap2",
     pdk = "sky130-open",
     path_fn = "layout_path",
-    gds_cell_name = "sky130_fd_bd_sram__sram_sp_rowend"
+    gds_cell_name = "sky130_fd_bd_sram__sram_sp_rowend_hstrap"
 )]
 pub struct SpRowendHstrap;
 
@@ -168,7 +168,7 @@ pub struct SpWlstrap;
 pub struct SpWlstrapP;
 
 #[hard_macro(
-    name = "sram_sp_horiz_wlstrap_p",
+    name = "sram_sp_horiz_wlstrap_p2",
     pdk = "sky130-open",
     path_fn = "layout_path",
     gds_cell_name = "sky130_fd_bd_sram__sram_sp_horiz_wlstrap_p"

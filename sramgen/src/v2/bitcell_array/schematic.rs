@@ -112,8 +112,6 @@ impl SpCellArray {
             }
         }
 
-        for j in 0..self.params.cols + 2 {
-        }
         Ok(())
     }
 }
