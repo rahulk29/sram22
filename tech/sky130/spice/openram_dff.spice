@@ -1,0 +1,41 @@
+* Copyright 2020 The SkyWater PDK Authors
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     https://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*
+* SPDX-License-Identifier: Apache-2.0
+
+
+.subckt openram_dff VDD GND CLK D Q Q_N
+X0 a_547_102# a_28_102# GND GND sky130_fd_pr__nfet_01v8 w=1 l=0.15
+X1 a_239_76# CLK GND GND sky130_fd_pr__nfet_01v8 w=1 l=0.15
+X2 VDD a_47_611# a_28_102# VDD sky130_fd_pr__pfet_01v8 w=3 l=0.15
+X3 GND a_28_102# a_389_102# GND sky130_fd_pr__nfet_01v8 w=1 l=0.15
+X4 GND Q a_739_102# GND sky130_fd_pr__nfet_01v8 w=1 l=0.15
+X5 Q Q_N GND GND sky130_fd_pr__nfet_01v8 w=1 l=0.15
+X6 a_389_712# a_239_76# a_47_611# VDD sky130_fd_pr__pfet_01v8 w=3 l=0.15
+X7 a_47_611# a_239_76# a_197_102# GND sky130_fd_pr__nfet_01v8 w=1 l=0.15
+X8 Q_N CLK a_547_102# GND sky130_fd_pr__nfet_01v8 w=1 l=0.15
+X9 a_739_102# a_239_76# Q_N GND sky130_fd_pr__nfet_01v8 w=1 l=0.15
+X10 a_547_712# a_28_102# VDD VDD sky130_fd_pr__pfet_01v8 w=3 l=0.15
+X11 a_239_76# CLK VDD VDD sky130_fd_pr__pfet_01v8 w=3 l=0.15
+X12 a_197_102# D GND GND sky130_fd_pr__nfet_01v8 w=1 l=0.15
+X13 VDD a_28_102# a_389_712# VDD sky130_fd_pr__pfet_01v8 w=3 l=0.15
+X14 VDD Q a_739_712# VDD sky130_fd_pr__pfet_01v8 w=3 l=0.15
+X15 GND a_47_611# a_28_102# GND sky130_fd_pr__nfet_01v8 w=1 l=0.15
+X16 Q Q_N VDD VDD sky130_fd_pr__pfet_01v8 w=3 l=0.15
+X17 Q_N a_239_76# a_547_712# VDD sky130_fd_pr__pfet_01v8 w=3 l=0.15
+X18 a_47_611# CLK a_197_712# VDD sky130_fd_pr__pfet_01v8 w=3 l=0.15
+X19 a_739_712# CLK Q_N VDD sky130_fd_pr__pfet_01v8 w=3 l=0.15
+X20 a_389_102# CLK a_47_611# GND sky130_fd_pr__nfet_01v8 w=1 l=0.15
+X21 a_197_712# D VDD VDD sky130_fd_pr__pfet_01v8 w=3 l=0.15
+.ends

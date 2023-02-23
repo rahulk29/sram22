@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use codegen::hard_macro;
 
-use substrate::component::{Component, View};
+use substrate::component::View;
 use substrate::data::SubstrateCtx;
 
 use crate::tech::{external_gds_path, external_spice_path};
@@ -80,9 +80,17 @@ pub struct SenseAmpWithOffset;
 pub struct SenseAmpCent;
 
 #[hard_macro(
-    name = "openram_dff_col",
+    name = "openram_dff",
     pdk = "sky130-open",
     path_fn = "path",
+    gds_cell_name = "sky130_fd_bd_sram__openram_dff_col"
+)]
+pub struct Dff;
+
+#[hard_macro(
+    name = "openram_dff_col",
+    pdk = "sky130-open",
+    path_fn = "layout_path",
     gds_cell_name = "sky130_fd_bd_sram__openram_dff_col"
 )]
 pub struct DffCol;
@@ -98,7 +106,7 @@ pub struct DffColCent;
 #[hard_macro(
     name = "openram_dff_col_extend",
     pdk = "sky130-open",
-    path_fn = "path",
+    path_fn = "layout_path",
     gds_cell_name = "sky130_fd_bd_sram__openram_dff_col_extend"
 )]
 pub struct DffColExtend;
