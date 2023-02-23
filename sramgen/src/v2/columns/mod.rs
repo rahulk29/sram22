@@ -53,9 +53,9 @@ impl Component for ColPeripherals {
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         if params.rmux.mux_ratio != params.wmux.mux_ratio {
-            return Err(substrate::error::SubstrateError::Component(
+            return Err(substrate::error::ErrorSource::Component(
                 substrate::component::error::Error::InvalidParams,
-            ));
+            ).into());
         }
         Ok(Self {
             params: params.clone(),
