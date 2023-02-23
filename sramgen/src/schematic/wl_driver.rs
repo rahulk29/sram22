@@ -22,7 +22,7 @@ pub fn wordline_driver_array(params: &WordlineDriverArrayParams) -> Vec<Module> 
 
     for i in 0..params.width {
         let mut inst = Instance::new(
-            format!("wl_driver_{i}"),
+            format!("wl_driver_{}", i),
             local_reference(&params.instance_params.name),
         );
         inst.add_conns(&[

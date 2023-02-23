@@ -173,7 +173,7 @@ pub fn hierarchical_decoder(params: &DecoderParams) -> Vec<Module> {
     m.add_ports_input(&[&addr, &addr_b]);
     m.add_ports_output(&[&bus("decode", out), &bus("decode_b", out)]);
 
-    let mut gen = DecoderGen::new(params, &vdd, &gnd, &addr, &addr_b, in_bits);
+    let mut gen = DecoderGen::new(params, &vdd, &gnd, &addr, &addr_b, in_bits as usize);
     gen.helper(Some(&params.tree.root), 0);
 
     m.add_instances(gen.instances);
@@ -257,7 +257,7 @@ impl<'a> DecoderGen<'a> {
             format!("predecode_{}", self.get_id())
         };
 
-        let out = bus(out_name, node.num);
+        let out = bus(&out_name, node.num);
 
         let nand_name = if let Some(nand_name) = self.nands.get(&(gate_size, node.gate.size)) {
             nand_name.to_string()
@@ -311,7 +311,7 @@ impl<'a> DecoderGen<'a> {
 
             let mut nand = Instance::new(
                 format!("nand_{}", self.get_id()),
-                local_reference(nand_name.clone()),
+                local_reference(&nand_name),
             );
             nand.add_conns(&[("vdd", self.vdd), ("gnd", self.gnd), ("y", &tmp)]);
 
@@ -321,10 +321,8 @@ impl<'a> DecoderGen<'a> {
 
             self.instances.push(nand);
 
-            let mut inv = Instance::new(
-                format!("inv_{}", self.get_id()),
-                local_reference(inv_name.clone()),
-            );
+            let mut inv =
+                Instance::new(format!("inv_{}", self.get_id()), local_reference(&inv_name));
             inv.add_conns(&[
                 ("vdd", self.vdd),
                 ("gnd", self.gnd),
@@ -366,9 +364,9 @@ pub fn decoder_24(params: &Decoder24Params) -> Vec<Module> {
     m.add_port_output(&dout);
 
     for i in 0..4 {
-        let tmp = signal(format!("out_b_{i}"));
+        let tmp = signal(format!("out_b_{}", i));
 
-        let mut nand = Instance::new(format!("nand_{i}"), local_reference(&nand_name));
+        let mut nand = Instance::new(format!("nand_{}", i), local_reference(&nand_name));
         nand.add_conns(&[
             ("vdd", &vdd),
             ("gnd", &gnd),
@@ -385,7 +383,7 @@ pub fn decoder_24(params: &Decoder24Params) -> Vec<Module> {
         ]);
         m.add_instance(nand);
 
-        let mut inv = Instance::new(format!("inv_{i}"), local_reference(&inv_name));
+        let mut inv = Instance::new(format!("inv_{}", i), local_reference(&inv_name));
         inv.add_conns(&[
             ("vdd", &vdd),
             ("gnd", &gnd),

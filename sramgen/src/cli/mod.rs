@@ -33,7 +33,7 @@ pub fn run() -> Result<()> {
 
     let config_path = canonicalize(&args.config)?;
 
-    println!("{BANNER}");
+    println!("{}", BANNER);
     println!("Starting SRAM generation...\n");
 
     let config = parse_sram_config(&config_path)?;

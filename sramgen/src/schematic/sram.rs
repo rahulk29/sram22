@@ -88,7 +88,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
 
     let bitcells = bitcell_array(&BitcellArrayParams {
         name: "bitcell_array".to_string(),
-        rows,
+        rows: rows as usize,
         cols,
         replica_cols,
         dummy_params,
@@ -138,7 +138,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
 
     let mut col_inv = col_inv_array(&ColInvArrayParams {
         name: "col_inv_array".to_string(),
-        width: cols_masked,
+        width: cols_masked as usize,
         mux_ratio,
         instance_params: ColInvParams {
             name: "col_inv".to_string(),
@@ -166,7 +166,7 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
 
     let addr_dff_params = DffGridParams::builder()
         .name("addr_dff_array")
-        .cols(row_bits + col_mask_bits)
+        .cols((row_bits + col_mask_bits) as usize)
         .rows(1)
         .build()
         .unwrap();
@@ -174,13 +174,13 @@ pub fn sram(params: &SramParams) -> Vec<Module> {
 
     let sense_amp_array = sense_amp_array(&SenseAmpArrayParams {
         name: "sense_amp_array".to_string(),
-        width: cols_masked,
+        width: cols_masked as usize,
         spacing: None,
     });
 
     let mut dout_buf_array = dout_buf_array(&DoutBufArrayParams {
         name: "dout_buf_array".to_string(),
-        width: cols_masked,
+        width: cols_masked as usize,
         mux_ratio,
         instance_params: DoutBufParams {
             name: "dout_buf".to_string(),

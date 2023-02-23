@@ -21,7 +21,7 @@ pub fn sense_amp_array(params: &SenseAmpArrayParams) -> Module {
     m.add_ports_output(&[&data, &data_b]);
 
     for i in 0..width {
-        let mut inst = Instance::new(format!("sense_amp_{i}"), sramgen_sp_sense_amp_ref());
+        let mut inst = Instance::new(format!("sense_amp_{}", i), sramgen_sp_sense_amp_ref());
         inst.add_conns(&[
             ("clk", &clk),
             ("inn", &br.get(i)),
