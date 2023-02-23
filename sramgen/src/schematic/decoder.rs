@@ -173,7 +173,7 @@ pub fn hierarchical_decoder(params: &DecoderParams) -> Vec<Module> {
     m.add_ports_input(&[&addr, &addr_b]);
     m.add_ports_output(&[&bus("decode", out), &bus("decode_b", out)]);
 
-    let mut gen = DecoderGen::new(params, &vdd, &gnd, &addr, &addr_b, in_bits as usize);
+    let mut gen = DecoderGen::new(params, &vdd, &gnd, &addr, &addr_b, in_bits);
     gen.helper(Some(&params.tree.root), 0);
 
     m.add_instances(gen.instances);

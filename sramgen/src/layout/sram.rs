@@ -277,7 +277,7 @@ pub fn draw_sram(lib: &mut PdkLib, params: &SramParams) -> Result<PhysicalDesign
         lib,
         &ColInvArrayParams {
             name: "col_inv_array".to_string(),
-            width: cols / mux_ratio as usize,
+            width: cols / mux_ratio,
             mux_ratio,
             instance_params: ColInvParams {
                 name: "col_inv".to_string(),

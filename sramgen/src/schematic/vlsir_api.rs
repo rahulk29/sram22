@@ -169,8 +169,8 @@ struct SignalSlice {
 impl SignalSlice {
     fn width(&self) -> usize {
         assert!(self.end > self.start);
-        let width = self.end - self.start;
-        width as usize
+
+        self.end - self.start
     }
 }
 
