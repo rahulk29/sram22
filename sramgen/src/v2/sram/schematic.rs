@@ -13,7 +13,7 @@ use crate::v2::control::{ControlLogicReplicaV1, DffArray};
 use crate::v2::decoder::{
     Decoder, DecoderParams, DecoderStageParams, DecoderTree, WlDriver, WmuxDriver,
 };
-use crate::v2::precharge::PrechargeParams;
+use crate::v2::precharge::{Precharge, PrechargeParams};
 use crate::v2::rmux::ReadMuxParams;
 use crate::v2::wmux::WriteMuxSizing;
 
@@ -25,17 +25,37 @@ impl Sram {
         let [clk, we] = ctx.ports(["clk", "we"], Direction::Input);
 
         let addr = ctx.bus_port("addr", self.params.addr_width, Direction::Input);
+        let wmask = ctx.bus_port("wmask", self.params.wmask_width, Direction::Input);
+        let din = ctx.bus_port("din", self.params.data_width, Direction::Input);
+        let dout = ctx.bus_port("dout", self.params.data_width, Direction::Output);
+
         let addr_in = ctx.bus("addr_in", self.params.addr_width);
         let addr_in_b = ctx.bus("addr_in_b", self.params.addr_width);
 
         let addr_decode = ctx.bus("addr_decode", self.params.rows);
         let addr_decode_b = ctx.bus("addr_decode_b", self.params.rows);
 
+        let bl = ctx.bus("bl", self.params.cols);
+        let br = ctx.bus("br", self.params.cols);
+        let wl = ctx.bus("wl", self.params.rows);
+        let wl_b = ctx.bus("wl_b", self.params.rows);
+
         let col_sel = ctx.bus("col_sel", self.params.mux_ratio);
         let col_sel_b = ctx.bus("col_sel_b", self.params.mux_ratio);
 
         let wmux_sel = ctx.bus("wmux_sel", self.params.mux_ratio);
         let wmux_sel_b = ctx.bus("wmux_sel_b", self.params.mux_ratio);
+
+        let [we_in, we_in_b, rbl, rbr, pc_b, wl_en, write_driver_en, sense_en] = ctx.signals([
+            "we_in",
+            "we_in_b",
+            "rbl",
+            "rbr",
+            "pc_b",
+            "wl_en",
+            "write_driver_en",
+            "sense_en",
+        ]);
 
         let tree = DecoderTree::new(self.params.row_bits);
 
@@ -47,8 +67,7 @@ impl Sram {
 
         let decoder_params = DecoderParams { tree };
 
-        let decoder = ctx
-            .instantiate::<Decoder>(&decoder_params)?
+        ctx.instantiate::<Decoder>(&decoder_params)?
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
@@ -57,11 +76,20 @@ impl Sram {
                 ("decode", addr_decode),
                 ("decode_b", addr_decode_b),
             ])
-            .named("decoder");
-        ctx.add_instance(decoder);
+            .named("decoder")
+            .add_to(ctx);
 
-        let wl_driver = ctx.instantiate::<WlDriver>(&driver_params)?;
-        ctx.add_instance(wl_driver);
+        ctx.instantiate::<WlDriver>(&driver_params)?
+            .with_connections([
+                ("vdd", vdd),
+                ("vss", vss),
+                ("in", addr_decode),
+                ("wl_en", wl_en),
+                ("decode", wl),
+                ("decode_b", wl_b),
+            ])
+            .named("wl_driver")
+            .add_to(ctx);
 
         let col_tree = DecoderTree::new(self.params.col_select_bits);
         let col_decoder_params = DecoderParams {
@@ -73,19 +101,21 @@ impl Sram {
             child_sizes: vec![],
         };
 
-        let col_dec = ctx
-            .instantiate::<Decoder>(&col_decoder_params)?
+        ctx.instantiate::<Decoder>(&col_decoder_params)?
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
                 ("addr", addr_in.index(0..self.params.col_select_bits)),
                 ("addr_b", addr_in_b.index(0..self.params.col_select_bits)),
+                ("decode", col_sel),
+                ("decode_b", col_sel_b),
             ])
+            .named("column_decoder")
             .add_to(ctx);
-        let mut wmux_driver = ctx
-            .instantiate::<WmuxDriver>(&wmux_driver_params)?
-            .with_connection("a", col_sel)
-            .with_connection("b", Signal::repeat(we, self.params.mux_ratio))
+
+        ctx.instantiate::<WmuxDriver>(&wmux_driver_params)?
+            .with_connection("in", col_sel)
+            .with_connection("en", we)
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
@@ -94,25 +124,82 @@ impl Sram {
             ])
             .named("wmux_driver")
             .add_to(ctx);
-        let mut control = ctx.instantiate::<ControlLogicReplicaV1>(&NoParams)?;
+        ctx.instantiate::<ControlLogicReplicaV1>(&NoParams)?
+            .with_connections([
+                ("clk", clk),
+                ("we", we_in),
+                ("rbl", rbl),
+                ("pc_b", pc_b),
+                ("wl_en", wl_en),
+                ("write_driver_en", write_driver_en),
+                ("sense_en", sense_en),
+                ("vdd", vdd),
+                ("vss", vss),
+            ])
+            .named("control_logic")
+            .add_to(ctx);
 
         let num_dffs = self.params.addr_width + 1;
-        let mut dffs = ctx.instantiate::<DffArray>(&num_dffs)?;
+        ctx.instantiate::<DffArray>(&num_dffs)?
+            .with_connections([("vdd", vdd), ("vss", vss), ("clk", clk)])
+            .with_connection("d", Signal::new(vec![addr, we]))
+            .with_connection("q", Signal::new(vec![addr_in, we_in]))
+            .with_connection("qn", Signal::new(vec![addr_in_b, we_in_b]))
+            .named("addr_we_dffs")
+            .add_to(ctx);
 
-        let bitcells = ctx.instantiate::<SpCellArray>(&SpCellArrayParams {
+        ctx.instantiate::<SpCellArray>(&SpCellArrayParams {
             rows: self.params.rows,
             cols: self.params.cols,
             mux_ratio: self.params.mux_ratio,
-        })?;
+        })?
+        .with_connections([
+            ("vdd", vdd),
+            ("vss", vss),
+            ("bl", bl),
+            ("br", br),
+            ("wl", wl),
+        ])
+        .named("bitcell_array")
+        .add_to(ctx);
 
         let replica_rows = (self.params.rows / 12) * 2;
 
-        let replica = ctx.instantiate::<ReplicaCellArray>(&ReplicaCellArrayParams {
+        ctx.instantiate::<ReplicaCellArray>(&ReplicaCellArrayParams {
             rows: replica_rows,
             cols: 2,
-        })?;
+        })?
+        .with_connections([
+            ("vdd", vdd),
+            ("vss", vss),
+            ("rbl", rbl),
+            ("rbr", rbr),
+            ("rwl", wl_en),
+        ])
+        .named("replica_bitcell_array")
+        .add_to(ctx);
 
-        let mut cols = ctx.instantiate::<ColPeripherals>(&self.col_params())?;
+        ctx.instantiate::<ColPeripherals>(&self.col_params())?
+            .with_connections([
+                ("clk", clk),
+                ("vdd", vdd),
+                ("vss", vss),
+                ("bl", bl),
+                ("br", br),
+                ("pc_b", pc_b),
+                ("sel_b", col_sel_b),
+                ("we", wmux_sel),
+                ("wmask", wmask),
+                ("din", din),
+                ("dout", dout),
+            ])
+            .named("col_circuitry")
+            .add_to(ctx);
+
+        ctx.instantiate::<Precharge>(&self.col_params().pc)?
+            .with_connections([("vdd", vdd), ("bl", rbl), ("br", rbr), ("en_b", pc_b)])
+            .named("replica_precharge")
+            .add_to(ctx);
 
         Ok(())
     }
@@ -142,7 +229,7 @@ impl Sram {
                 lch: 150,
             },
             cols: self.params.cols,
-            wmask_granularity: 8,
+            wmask_granularity: self.params.cols / self.params.mux_ratio / self.params.wmask_width,
             include_wmask: true,
         }
     }

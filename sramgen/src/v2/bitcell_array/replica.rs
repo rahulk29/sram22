@@ -155,7 +155,7 @@ impl Component for ReplicaCellArray {
         let vss = ctx.port("vss", Direction::InOut);
         let bl = ctx.port("rbl", Direction::InOut);
         let br = ctx.port("rbr", Direction::InOut);
-        let wl = ctx.port("rwl", Direction::InOut);
+        let wl = ctx.port("rwl", Direction::Input);
 
         for i in 0..self.params.rows {
             for j in 0..self.params.cols {

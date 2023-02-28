@@ -83,7 +83,7 @@ pub struct SenseAmpCent;
     name = "openram_dff",
     pdk = "sky130-open",
     path_fn = "path",
-    gds_cell_name = "sky130_fd_bd_sram__openram_dff_col"
+    gds_cell_name = "sky130_fd_bd_sram__openram_dff"
 )]
 pub struct Dff;
 

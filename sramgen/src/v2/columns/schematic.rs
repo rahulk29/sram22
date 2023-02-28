@@ -24,8 +24,6 @@ impl ColPeripherals {
         let vss = ctx.port("vss", Direction::InOut);
         let bl = ctx.bus_port("bl", cols, Direction::InOut);
         let br = ctx.bus_port("br", cols, Direction::InOut);
-        let bl_dummy = ctx.bus_port("bl_dummy", 2, Direction::InOut);
-        let br_dummy = ctx.bus_port("br_dummy", 2, Direction::InOut);
         let pc_b = ctx.port("pc_b", Direction::Input);
         let sel_b = ctx.bus_port("sel_b", mux_ratio, Direction::Input);
         let we = ctx.bus_port("we", mux_ratio, Direction::Input);
@@ -34,34 +32,23 @@ impl ColPeripherals {
         let dout = ctx.bus_port("dout", word_length, Direction::Output);
 
         for i in 0..word_length {
-            let mut col = ctx.instantiate::<Column>(&self.params)?;
-            col.connect_all([
-                ("clk", &clk),
-                ("vdd", &vdd),
-                ("vss", &vss),
-                ("bl", &bl.index(i)),
-                ("br", &br.index(i)),
-                ("pc_b", &pc_b),
-                ("sel_b", &sel_b),
-                ("we", &we),
-                ("wmask", &wmask.index(i / self.params.wmask_granularity)),
-                ("din", &din.index(i)),
-                ("dout", &dout.index(i)),
-            ]);
-            ctx.add_instance(col);
-        }
-
-        // Add precharges for dummy rows.
-        for i in 0..2 {
-            let mut pc = ctx.instantiate::<Precharge>(&self.params.pc)?;
-            pc.connect_all([
-                ("vdd", &vdd),
-                ("bl", &bl_dummy.index(i)),
-                ("br", &br_dummy.index(i)),
-                ("en_b", &pc_b),
-            ]);
-            pc.set_name(format!("precharge_dummy_{i}"));
-            ctx.add_instance(pc);
+            let range = i * mux_ratio..(i + 1) * mux_ratio;
+            ctx.instantiate::<Column>(&self.params)?
+                .with_connections([
+                    ("clk", &clk),
+                    ("vdd", &vdd),
+                    ("vss", &vss),
+                    ("bl", &bl.index(range.clone())),
+                    ("br", &br.index(range)),
+                    ("pc_b", &pc_b),
+                    ("sel_b", &sel_b),
+                    ("we", &we),
+                    ("wmask", &wmask.index(i / self.params.wmask_granularity)),
+                    ("din", &din.index(i)),
+                    ("dout", &dout.index(i)),
+                ])
+                .named(arcstr::format!("col_group_{i}"))
+                .add_to(ctx);
         }
 
         Ok(())
@@ -77,7 +64,7 @@ impl Column {
         let br = ctx.bus_port("br", self.params.rmux.mux_ratio, Direction::InOut);
         let pc_b = ctx.port("pc_b", Direction::Input);
         let sel_b = ctx.bus_port("sel_b", self.params.rmux.mux_ratio, Direction::Input);
-        let we = ctx.port("we", Direction::Input);
+        let we = ctx.bus_port("we", self.params.mux_ratio(), Direction::Input);
         let wmask = ctx.port("wmask", Direction::Input);
         let din = ctx.port("din", Direction::Input);
         let dout = ctx.port("dout", Direction::Output);
@@ -122,7 +109,7 @@ impl Column {
                 idx: i,
             })?;
             wmux.connect_all([
-                ("we", &we),
+                ("we", &we.index(i)),
                 ("wmask", &wmask),
                 ("data", &q),
                 ("data_b", &q_b),

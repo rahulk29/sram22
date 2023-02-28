@@ -208,7 +208,7 @@ mod tests {
         };
         let offset = ctx
             .write_simulation::<OffsetTb>(&params, &work_dir)
-            .expect("failed to write schematic");
+            .expect("failed to run simulation");
         println!("SA offset = {:?}", offset);
     }
 }

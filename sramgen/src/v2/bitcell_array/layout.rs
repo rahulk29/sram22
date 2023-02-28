@@ -759,7 +759,9 @@ impl SpCellArray {
 
 #[cfg(test)]
 mod tests {
-    use crate::{paths::out_gds, setup_ctx, tests::test_work_dir};
+    use crate::paths::out_gds;
+    use crate::setup_ctx;
+    use crate::tests::test_work_dir;
 
     use super::{SpCellArrayBottom, TapRatio};
 

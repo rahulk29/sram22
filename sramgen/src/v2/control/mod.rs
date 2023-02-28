@@ -14,6 +14,8 @@ use substrate::schematic::circuit::Direction;
 
 use crate::bus_bit;
 use crate::tech::{external_gds_path, external_spice_path};
+
+use super::macros::Dff;
 fn path(_ctx: &SubstrateCtx, name: &str, view: View) -> Option<PathBuf> {
     match view {
         View::Layout => Some(external_gds_path().join(format!("{name}.gds"))),
@@ -30,15 +32,6 @@ fn path(_ctx: &SubstrateCtx, name: &str, view: View) -> Option<PathBuf> {
     spice_subckt_name = "sramgen_control_logic_replica_v1"
 )]
 pub struct ControlLogicReplicaV1;
-
-#[hard_macro(
-    name = "openram_dff",
-    pdk = "sky130-open",
-    path_fn = "path",
-    gds_cell_name = "sky130_fd_bd_sram__openram_dff",
-    spice_subckt_name = "openram_dff"
-)]
-pub struct Dff;
 
 pub struct DffArray {
     n: usize,
