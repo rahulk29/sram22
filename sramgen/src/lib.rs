@@ -4,6 +4,8 @@ use std::sync::Arc;
 pub use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use ngspice::Ngspice;
+#[cfg(feature = "spectre")]
+use spectre::Spectre;
 #[cfg(feature = "calibre")]
 use sky130_commercial_pdk::Sky130CommercialPdk;
 use sky130_open_pdk::Sky130OpenPdk;
@@ -68,7 +70,11 @@ where
 }
 
 pub fn setup_ctx() -> SubstrateCtx {
+    #[cfg(not(feature = "spectre"))]
     let simulator = Ngspice::new(SimulatorOpts::default()).unwrap();
+
+    #[cfg(feature = "spectre")]
+    let simulator = Spectre::new(SimulatorOpts::default()).unwrap();
 
     let builder = SubstrateConfig::builder();
 
