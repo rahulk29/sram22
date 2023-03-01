@@ -92,6 +92,14 @@ If you do not have access to BWRC servers, most flags will not be available.
 If you have access to proprietary tools (eg. Calibre, Spectre, etc.) and would like access
 to the Sram22 plugins for those tools, please contact us. Contact information is in `sramgen/Cargo.toml`.
 
+The available configuration options are:
+* `num_words`: Must be a power of 2, greater than or equal to 16.
+* `data_width`: Must be a power of 2, greater than or equal to 16. Must be an integer multiple of `write_size`.
+* `mux_ratio`: Must be 2, 4, or 8. A mux ratio of 2 is not recommended, as this option will be deprecated soon.
+* `write_size`: Must be a power of 2, less than or equal to `data_width`.
+* `control`: Must be `"ReplicaV1"`.
+* `pex_level`: Must be `"r"`, `"c"`, `"rc"`, or `"rcc"`. If you do not have commercial plugins enabled, this option will be ignored.
+
 ### Technology Setup
 
 See the `tech/sky130/` directory for an example of how to set up a new process to work with Sram22.
