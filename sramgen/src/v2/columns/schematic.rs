@@ -5,6 +5,7 @@ use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
 use crate::v2::buf::DiffBuf;
+use crate::v2::control::DffArray;
 use crate::v2::macros::{Dff, SenseAmp};
 use crate::v2::precharge::Precharge;
 use crate::v2::rmux::{ReadMux, ReadMuxParams};
@@ -32,6 +33,21 @@ impl ColPeripherals {
         let din = ctx.bus_port("din", word_length, Direction::Input);
         let dout = ctx.bus_port("dout", word_length, Direction::Output);
 
+        let wmask_in = ctx.bus("wmask_in", wmask_bits);
+        let wmask_in_b = ctx.bus("wmask_in_b", wmask_bits);
+
+        ctx.instantiate::<DffArray>(&wmask_bits)?
+            .with_connections([
+                ("vdd", vdd),
+                ("vss", vss),
+                ("clk", clk),
+                ("d", wmask),
+                ("q", wmask_in),
+                ("qn", wmask_in_b),
+            ])
+            .named("wmask_dffs")
+            .add_to(ctx);
+
         for i in 0..word_length {
             let range = i * mux_ratio..(i + 1) * mux_ratio;
             ctx.instantiate::<Column>(&self.params)?
@@ -44,7 +60,7 @@ impl ColPeripherals {
                     ("pc_b", &pc_b),
                     ("sel_b", &sel_b),
                     ("we", &we),
-                    ("wmask", &wmask.index(i / self.params.wmask_granularity)),
+                    ("wmask", &wmask_in.index(i / self.params.wmask_granularity)),
                     ("din", &din.index(i)),
                     ("dout", &dout.index(i)),
                     ("sense_en", &sense_en),

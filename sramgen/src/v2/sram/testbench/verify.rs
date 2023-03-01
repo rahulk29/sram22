@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
+use substrate::verification::simulation::bits::{to_bit, BitSignal};
 use substrate::verification::simulation::TranData;
-use substrate::verification::simulation::bits::{BitSignal, to_bit};
 
-use super::{TbParams, Op};
+use super::{Op, TbParams};
 use anyhow::{anyhow, bail, Result};
 
 pub(crate) fn verify_simulation(data: &TranData, tb: &TbParams) -> Result<()> {
@@ -15,7 +15,6 @@ pub(crate) fn verify_simulation(data: &TranData, tb: &TbParams) -> Result<()> {
     // since nothing happens on the first cycle of our testbench.
     let mut cycle = 1;
 
-
     for op in tb.ops.iter() {
         cycle += 1;
         match op {
@@ -25,7 +24,8 @@ pub(crate) fn verify_simulation(data: &TranData, tb: &TbParams) -> Result<()> {
                     .ok_or_else(|| anyhow!("Attempted to read an uninitialized address."))?;
 
                 let t = cycle as f64 * tb.clk_period;
-                let idx = data.time
+                let idx = data
+                    .time
                     .idx_before_sorted(t)
                     .ok_or_else(|| anyhow!("Time {} was out of simulation range", t))?;
                 for i in 0..tb.sram.data_width {
