@@ -35,5 +35,5 @@ use calibre::pex::PexLevel;
 
 #[cfg(feature = "commercial")]
 pub fn out_pex(work_dir: impl AsRef<Path>, name: &str, level: PexLevel) -> PathBuf {
-    PathBuf::from(work_dir.as_ref()).join(format!("{}.{}.pex.netlist", level, name))
+    PathBuf::from(work_dir.as_ref()).join(format!("{}.{}.pex.netlist", name, level))
 }
