@@ -58,24 +58,19 @@ pub fn run() -> Result<()> {
     println!("\tControl mode: {:?}\n", config.control);
 
     let enabled_tasks = vec![
-        #[cfg(feature = "abstract_lef")]
+        #[cfg(feature = "commercial")]
         (args.lef, TaskKey::GenerateLef),
-        #[cfg(feature = "calibre")]
+        #[cfg(feature = "commercial")]
         (args.drc, TaskKey::RunDrc),
-        #[cfg(feature = "calibre")]
+        #[cfg(feature = "commercial")]
         (args.lvs, TaskKey::RunLvs),
-        #[cfg(all(feature = "calibre", feature = "pex"))]
+        #[cfg(feature = "commercial")]
         (args.pex, TaskKey::RunPex),
-        #[cfg(feature = "liberate_mx")]
+        #[cfg(feature = "commercial")]
         (args.lib, TaskKey::GenerateLib),
-        #[cfg(feature = "spectre")]
+        #[cfg(feature = "commercial")]
         (args.sim, TaskKey::RunSpectre),
-        #[cfg(any(
-            feature = "abstract_lef",
-            feature = "liberate_mx",
-            feature = "calibre",
-            feature = "spectre"
-        ))]
+        #[cfg(feature = "commercial")]
         (args.all, TaskKey::All),
     ]
     .into_iter()
@@ -93,6 +88,8 @@ pub fn run() -> Result<()> {
         plan: &plan,
         tasks: &tasks,
         ctx: Some(&mut ctx),
+        #[cfg(feature = "commercial")]
+        pex_level: config.pex_level,
     });
 
     ctx.check(res)?;

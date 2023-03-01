@@ -2,12 +2,12 @@ pub use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use tera::Tera;
 
-#[cfg(feature = "abstract_lef")]
+#[cfg(feature = "commercial")]
 pub mod abs;
 pub mod cli;
 pub mod config;
 pub mod layout;
-#[cfg(feature = "liberate_mx")]
+#[cfg(feature = "commercial")]
 pub mod liberate;
 pub mod paths;
 pub mod plan;
