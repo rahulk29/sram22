@@ -47,4 +47,4 @@ paste = "1.0"
 [features]
 commercial = ["dep:calibre", "dep:abstract_lef", "dep:liberate_mx"]
 
-default = ["commercial"]
+default = []
