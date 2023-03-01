@@ -11,6 +11,8 @@ pub struct SramConfig {
     pub mux_ratio: i32,
     pub write_size: i32,
     pub control: ControlMode,
+    #[cfg(feature = "commercial")]
+    pub pex_level: Option<calibre::pex::PexLevel>,
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Serialize, Deserialize)]

@@ -217,7 +217,7 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 [[package]]
 name = "calibre"
 version = "0.1.0"
-source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git?branch=master#8b4c40d0c5353fab25d98bc22d7f682e6c5ddc69"
+source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git?branch=master#2f52846078bdf29cfa1bb8f194d229a5dd3caa53"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -1087,7 +1087,7 @@ checksum = "201de327520df007757c1f0adce6e827fe8562fbc28bfd9c15571c66ca1f5f79"
 [[package]]
 name = "liberate_mx"
 version = "0.1.0"
-source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/liberate-mx.git?branch=master#0cb2c1a4168edad9d4aa12bc1df80951be66dac9"
+source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/liberate-mx.git?branch=master#38287bb2f13621c92659168fb1cd1c5a7e463047"
 dependencies = [
  "derive_builder 0.12.0",
  "lazy_static",

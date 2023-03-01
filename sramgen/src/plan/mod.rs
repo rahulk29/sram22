@@ -27,24 +27,19 @@ pub enum TaskKey {
     GenerateNetlist,
     GenerateLayout,
     GenerateVerilog,
-    #[cfg(feature = "abstract_lef")]
+    #[cfg(feature = "commercial")]
     GenerateLef,
-    #[cfg(feature = "calibre")]
+    #[cfg(feature = "commercial")]
     RunDrc,
-    #[cfg(feature = "calibre")]
+    #[cfg(feature = "commercial")]
     RunLvs,
-    #[cfg(all(feature = "calibre", feature = "pex"))]
+    #[cfg(feature = "commercial")]
     RunPex,
-    #[cfg(feature = "liberate_mx")]
+    #[cfg(feature = "commercial")]
     GenerateLib,
-    #[cfg(feature = "spectre")]
+    #[cfg(feature = "commercial")]
     RunSpectre,
-    #[cfg(any(
-        feature = "abstract_lef",
-        feature = "liberate_mx",
-        feature = "calibre",
-        feature = "spectre"
-    ))]
+    #[cfg(feature = "commercial")]
     All,
 }
 
@@ -53,6 +48,8 @@ pub struct ExecutePlanParams<'a> {
     pub plan: &'a SramPlan,
     pub tasks: &'a HashSet<TaskKey>,
     pub ctx: Option<&'a mut StepContext>,
+    #[cfg(feature = "commercial")]
+    pub pex_level: Option<calibre::pex::PexLevel>,
 }
 
 pub fn generate_plan(
@@ -65,6 +62,7 @@ pub fn generate_plan(
         mux_ratio,
         write_size,
         control,
+        ..
     } = config;
 
     if control != ControlMode::Simple && control != ControlMode::ReplicaV1 {
@@ -114,12 +112,7 @@ macro_rules! try_finish_task {
     };
 }
 
-#[cfg(any(
-    feature = "abstract_lef",
-    feature = "liberate_mx",
-    feature = "calibre",
-    feature = "spectre"
-))]
+#[cfg(feature = "commercial")]
 macro_rules! try_execute_task {
     ( $tasks:expr, $task:expr, $body:expr, $ctx:expr) => {
         if $tasks.contains(&$task) || $tasks.contains(&TaskKey::All) {
@@ -166,7 +159,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
 
     try_finish_task!(ctx, TaskKey::GenerateVerilog);
 
-    #[cfg(feature = "abstract_lef")]
+    #[cfg(feature = "commercial")]
     {
         try_execute_task!(
             params.tasks,
@@ -180,13 +173,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
             )?,
             ctx
         );
-    }
 
-    #[cfg(any(all(feature = "calibre", feature = "pex"), feature = "liberate_mx"))]
-    let pex_netlist_path = crate::paths::out_pex(work_dir, name);
-
-    #[cfg(feature = "calibre")]
-    {
         try_execute_task!(
             params.tasks,
             TaskKey::RunDrc,
@@ -199,30 +186,34 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
             crate::verification::calibre::run_sram_lvs(work_dir, name, plan.sram_params.control)?,
             ctx
         );
-        #[cfg(feature = "pex")]
+
+        if params.pex_level.is_none() && params.tasks.contains(&TaskKey::RunPex) {
+            bail!("Must specify a PEX level when running PEX");
+        }
+        let pex_netlist_path = params
+            .pex_level
+            .map(|pex_level| crate::paths::out_pex(work_dir, name, pex_level));
+
         try_execute_task!(
             params.tasks,
             TaskKey::RunPex,
             crate::verification::calibre::run_sram_pex(
                 work_dir,
-                &pex_netlist_path,
+                pex_netlist_path.as_ref().unwrap(),
                 name,
-                plan.sram_params.control
+                plan.sram_params.control,
+                params.pex_level.unwrap(),
             )?,
             ctx
         );
-    }
 
-    #[cfg(feature = "spectre")]
-    try_execute_task!(
-        params.tasks,
-        TaskKey::RunSpectre,
-        crate::verification::spectre::run_sram_spectre(&plan.sram_params, work_dir, name)?,
-        ctx
-    );
+        try_execute_task!(
+            params.tasks,
+            TaskKey::RunSpectre,
+            crate::verification::spectre::run_sram_spectre(&plan.sram_params, work_dir, name)?,
+            ctx
+        );
 
-    #[cfg(feature = "liberate_mx")]
-    {
         try_execute_task!(
             params.tasks,
             TaskKey::GenerateLib,
@@ -230,20 +221,36 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                 use crate::verification::{source_files, VerificationTask};
                 use liberate_mx::LibParams;
 
-                let source_paths = if pex_netlist_path.exists() {
-                    vec![pex_netlist_path]
+                let (source_paths, lib_file) = if let Some(pex_netlist_path) = pex_netlist_path {
+                    if !pex_netlist_path.exists() {
+                        bail!("PEX netlist not found at path `{:?}`", pex_netlist_path);
+                    }
+                    (
+                        vec![pex_netlist_path],
+                        work_dir.join(format!(
+                            "{}_tt_025C_1v80.{}.lib",
+                            params.plan.sram_params.name,
+                            params.pex_level.unwrap()
+                        )),
+                    )
                 } else {
-                    source_files(
-                        work_dir,
-                        &plan.sram_params.name,
-                        VerificationTask::SpectreSim,
-                        plan.sram_params.control,
+                    (
+                        source_files(
+                            work_dir,
+                            &plan.sram_params.name,
+                            VerificationTask::SpectreSim,
+                            plan.sram_params.control,
+                        ),
+                        work_dir.join(format!(
+                            "{}_tt_025C_1v80.schematic.lib",
+                            params.plan.sram_params.name
+                        )),
                     )
                 };
 
                 let params = LibParams::builder()
                     .work_dir(work_dir.join("lib"))
-                    .save_dir(work_dir)
+                    .output_file(lib_file)
                     .corner("tt")
                     .cell_name(&plan.sram_params.name)
                     .num_words(plan.sram_params.num_words)
