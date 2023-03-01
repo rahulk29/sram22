@@ -22,6 +22,7 @@ impl ColPeripherals {
         let clk = ctx.port("clk", Direction::Input);
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
+        let sense_en = ctx.port("sense_en", Direction::Input);
         let bl = ctx.bus_port("bl", cols, Direction::InOut);
         let br = ctx.bus_port("br", cols, Direction::InOut);
         let pc_b = ctx.port("pc_b", Direction::Input);
@@ -46,6 +47,7 @@ impl ColPeripherals {
                     ("wmask", &wmask.index(i / self.params.wmask_granularity)),
                     ("din", &din.index(i)),
                     ("dout", &dout.index(i)),
+                    ("sense_en", &sense_en),
                 ])
                 .named(arcstr::format!("col_group_{i}"))
                 .add_to(ctx);
@@ -68,6 +70,7 @@ impl Column {
         let wmask = ctx.port("wmask", Direction::Input);
         let din = ctx.port("din", Direction::Input);
         let dout = ctx.port("dout", Direction::Output);
+        let sense_en = ctx.port("sense_en", Direction::Input);
 
         let bl_out = ctx.signal("bl_out");
         let br_out = ctx.signal("br_out");
@@ -123,7 +126,7 @@ impl Column {
 
         let mut sa = ctx.instantiate::<SenseAmp>(&NoParams)?;
         sa.connect_all([
-            ("clk", &clk),
+            ("clk", &sense_en),
             ("inn", &br_out),
             ("inp", &bl_out),
             ("outp", &sa_outp),

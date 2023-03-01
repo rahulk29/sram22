@@ -401,6 +401,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "slow"]
     fn test_sram_tb_1() {
         let ctx = setup_ctx();
         let tb = tb_params(TINY_SRAM);

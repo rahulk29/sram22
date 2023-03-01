@@ -192,6 +192,7 @@ impl Sram {
                 ("wmask", wmask),
                 ("din", din),
                 ("dout", dout),
+                ("sense_en", sense_en),
             ])
             .named("col_circuitry")
             .add_to(ctx);
