@@ -88,6 +88,7 @@ pub fn run() -> Result<()> {
         plan: &plan,
         tasks: &tasks,
         ctx: Some(&mut ctx),
+        #[cfg(feature = "commercial")]
         pex_level: config.pex_level,
     });
 

@@ -52,6 +52,7 @@ pub(crate) fn test_sram(config: &SramConfig) -> Result<()> {
         plan: &plan,
         tasks: &HashSet::new(),
         ctx: None,
+        #[cfg(feature = "commercial")]
         pex_level: Some(calibre::pex::PexLevel::Rc),
     })?;
 
