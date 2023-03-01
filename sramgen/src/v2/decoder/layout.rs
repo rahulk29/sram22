@@ -23,7 +23,7 @@ use substrate::layout::layers::LayerKey;
 use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::place_bbox::PlaceBbox;
-use substrate::layout::routing::manual::jog::ElbowJog;
+use substrate::layout::routing::manual::jog::OffsetJog;
 use substrate::layout::routing::tracks::UniformTracks;
 use substrate::script::Script;
 
@@ -265,7 +265,7 @@ impl Predecoder {
                     .largest_rect(dsn.stripe_metal)?;
                 let rect =
                     Rect::from_spans(src.hspan(), Span::new(src.top() - src.width(), src.top()));
-                let jog = ElbowJog::builder()
+                let jog = OffsetJog::builder()
                     .dir(Dir::Horiz)
                     .sign(Sign::Neg)
                     .src(rect)

@@ -3,7 +3,7 @@ use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::geom::bbox::BoundBox;
 use substrate::layout::geom::{Rect, Span};
 use substrate::layout::placement::align::AlignRect;
-use substrate::layout::routing::manual::jog::ElbowJog;
+use substrate::layout::routing::manual::jog::OffsetJog;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 
 use super::{And2, And3, Inv, Nand2, Nand3, Nor2};
@@ -21,7 +21,7 @@ impl And2 {
 
         let m0 = nand.port("y")?.any_layer();
         let dst = inv.port("a")?.largest_rect(m0)?;
-        let jog = ElbowJog::builder()
+        let jog = OffsetJog::builder()
             .dir(substrate::layout::geom::Dir::Horiz)
             .sign(substrate::layout::geom::Sign::Pos)
             .src(nand.port("y")?.largest_rect(m0)?)
@@ -73,7 +73,7 @@ impl And3 {
 
         let m0 = nand.port("y")?.any_layer();
         let dst = inv.port("a")?.largest_rect(m0)?;
-        let jog = ElbowJog::builder()
+        let jog = OffsetJog::builder()
             .dir(substrate::layout::geom::Dir::Horiz)
             .sign(substrate::layout::geom::Sign::Pos)
             .src(nand.port("y")?.largest_rect(m0)?)

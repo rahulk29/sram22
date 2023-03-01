@@ -2260,6 +2260,7 @@ dependencies = [
  "pathfinding",
  "regex",
  "serde",
+ "serde_json",
  "slotmap",
  "state",
  "subspice",

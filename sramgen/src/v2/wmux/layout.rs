@@ -11,7 +11,7 @@ use substrate::layout::layers::selector::Selector;
 
 use substrate::layout::placement::align::AlignRect;
 use substrate::layout::placement::place_bbox::PlaceBbox;
-use substrate::layout::routing::manual::jog::{ElbowJog, SJog};
+use substrate::layout::routing::manual::jog::{OffsetJog, SJog};
 
 use substrate::layout::routing::tracks::{Boundary, FixedTracks};
 use substrate::pdk::mos::query::Query;
@@ -75,7 +75,7 @@ impl WriteMux {
         let mut via = ctx.instantiate::<Via>(&viap)?;
 
         let src = mux1.port("sd_0_0")?.largest_rect(pc.m0)?;
-        let elbow = ElbowJog::builder()
+        let elbow = OffsetJog::builder()
             .dir(Dir::Vert)
             .sign(Sign::Pos)
             .src(src)
@@ -92,7 +92,7 @@ impl WriteMux {
         ctx.draw_ref(&via)?;
 
         let src = mux2.port("sd_0_1")?.largest_rect(pc.m0)?;
-        let elbow = ElbowJog::builder()
+        let elbow = OffsetJog::builder()
             .dir(Dir::Vert)
             .sign(Sign::Pos)
             .src(src)

@@ -103,17 +103,11 @@ impl SpCellArray {
             make_colend(ctx, bl, br, arcstr::format!("colend_top_{j}"))?;
             make_colend(ctx, bl, br, arcstr::format!("colend_bot_{j}"))?;
             for i in 0..self.params.rows / 8 + 1 {
-                make_hstrap(
-                    ctx,
-                    bl,
-                    br,
-                    arcstr::format!("hstrap_{i}_{j}"),
-                )?;
+                make_hstrap(ctx, bl, br, arcstr::format!("hstrap_{i}_{j}"))?;
             }
         }
 
-        for j in 0..self.params.cols + 2 {
-        }
+        for j in 0..self.params.cols + 2 {}
         Ok(())
     }
 }
