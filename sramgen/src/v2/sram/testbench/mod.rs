@@ -372,7 +372,11 @@ impl Testbench for SramTestbench {
                 .build()
                 .unwrap(),
         );
-        ctx.save(Save::All);
+
+        let signals = (0..self.params.sram.data_width)
+            .map(|i| format!("Xdut.dout[{i}]"))
+            .collect();
+        ctx.save(Save::Signals(signals));
         Ok(())
     }
 
