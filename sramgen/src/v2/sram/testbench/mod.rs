@@ -17,6 +17,8 @@ use substrate::verification::simulation::waveform::Waveform;
 
 use super::{Sram, SramParams};
 
+pub mod verify;
+
 #[derive(Debug, Clone, Builder, Serialize, Deserialize)]
 #[builder(derive(Debug))]
 pub struct TbParams {
@@ -384,6 +386,8 @@ impl Testbench for SramTestbench {
         &mut self,
         ctx: &substrate::verification::simulation::context::PostSimCtx,
     ) -> substrate::error::Result<Self::Output> {
+        let data = ctx.output().data[0].tran();
+        verify::verify_simulation(data, &self.params)?;
         Ok(())
     }
 }
