@@ -432,7 +432,6 @@ impl Component for SpCellArrayTop {
                 });
                 if i == 0 {
                     let shapes: Vec<&Shape> = port.shapes(vmetal).collect();
-
                     if !shapes.is_empty() {
                         new_port.add_all(vmetal, shapes.into_iter().cloned());
                         return Some(new_port);

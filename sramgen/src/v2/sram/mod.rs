@@ -3,6 +3,7 @@ use substrate::component::Component;
 
 pub mod layout;
 pub mod schematic;
+pub mod testbench;
 
 pub struct Sram {
     params: SramParams,
@@ -64,14 +65,28 @@ impl Component for Sram {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
     use super::*;
 
-    const PARAMS_1: SramParams = SramParams {
+    pub(crate) const TINY_SRAM: SramParams = SramParams {
+        wmask_width: 2,
+        row_bits: 4,
+        col_bits: 4,
+        col_select_bits: 2,
+        rows: 16,
+        cols: 16,
+        mux_ratio: 4,
+        num_words: 64,
+        data_width: 4,
+        addr_width: 6,
+        control: ControlMode::ReplicaV1,
+    };
+
+    pub(crate) const PARAMS_1: SramParams = SramParams {
         wmask_width: 4,
         row_bits: 6,
         col_bits: 7,
@@ -84,7 +99,8 @@ mod tests {
         addr_width: 8,
         control: ControlMode::ReplicaV1,
     };
-    const PARAMS_2: SramParams = SramParams {
+
+    pub(crate) const PARAMS_2: SramParams = SramParams {
         wmask_width: 8,
         row_bits: 9,
         col_bits: 8,

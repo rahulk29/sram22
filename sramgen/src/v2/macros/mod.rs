@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use codegen::hard_macro;
 
-use substrate::component::{Component, View};
+use substrate::component::View;
 use substrate::data::SubstrateCtx;
 
 use crate::tech::{external_gds_path, external_spice_path};
@@ -36,7 +36,7 @@ pub struct SpCell;
     pdk = "sky130-open",
     path_fn = "path",
     gds_cell_name = "sky130_fd_bd_sram__openram_sp_cell_opt1_replica",
-    spice_subckt_name = "sky130_fd_bd_sram__sram_sp_cell_opt1"
+    spice_subckt_name = "sram_sp_cell_replica"
 )]
 pub struct SpCellReplica;
 
@@ -80,9 +80,17 @@ pub struct SenseAmpWithOffset;
 pub struct SenseAmpCent;
 
 #[hard_macro(
-    name = "openram_dff_col",
+    name = "openram_dff",
     pdk = "sky130-open",
     path_fn = "path",
+    gds_cell_name = "sky130_fd_bd_sram__openram_dff"
+)]
+pub struct Dff;
+
+#[hard_macro(
+    name = "openram_dff_col",
+    pdk = "sky130-open",
+    path_fn = "layout_path",
     gds_cell_name = "sky130_fd_bd_sram__openram_dff_col"
 )]
 pub struct DffCol;
@@ -98,7 +106,7 @@ pub struct DffColCent;
 #[hard_macro(
     name = "openram_dff_col_extend",
     pdk = "sky130-open",
-    path_fn = "path",
+    path_fn = "layout_path",
     gds_cell_name = "sky130_fd_bd_sram__openram_dff_col_extend"
 )]
 pub struct DffColExtend;
@@ -136,10 +144,10 @@ pub struct SpCorner;
 pub struct SpRowend;
 
 #[hard_macro(
-    name = "sram_sp_rowend_hstrap",
+    name = "sram_sp_rowend_hstrap2",
     pdk = "sky130-open",
     path_fn = "layout_path",
-    gds_cell_name = "sky130_fd_bd_sram__sram_sp_rowend"
+    gds_cell_name = "sky130_fd_bd_sram__sram_sp_rowend_hstrap"
 )]
 pub struct SpRowendHstrap;
 
@@ -168,7 +176,7 @@ pub struct SpWlstrap;
 pub struct SpWlstrapP;
 
 #[hard_macro(
-    name = "sram_sp_horiz_wlstrap_p",
+    name = "sram_sp_horiz_wlstrap_p2",
     pdk = "sky130-open",
     path_fn = "layout_path",
     gds_cell_name = "sky130_fd_bd_sram__sram_sp_horiz_wlstrap_p"

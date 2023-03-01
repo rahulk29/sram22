@@ -65,7 +65,7 @@ impl Component for OffsetTb {
 
     fn new(
         params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
+        _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         Ok(Self {
             params: params.clone(),
@@ -208,7 +208,7 @@ mod tests {
         };
         let offset = ctx
             .write_simulation::<OffsetTb>(&params, &work_dir)
-            .expect("failed to write schematic");
+            .expect("failed to run simulation");
         println!("SA offset = {:?}", offset);
     }
 }

@@ -95,8 +95,8 @@ impl Component for WlDriver {
                     ("vdd", vdd),
                     ("a", input.index(i)),
                     ("b", en),
-                    ("y", y),
-                    ("yb", yb),
+                    ("y", y.index(i)),
+                    ("yb", yb.index(i)),
                     ("vss", vss),
                 ])
                 .named(format!("gate_{i}"))
@@ -152,8 +152,8 @@ impl Component for WmuxDriver {
                     ("vdd", vdd),
                     ("a", input.index(i)),
                     ("b", en),
-                    ("y", y),
-                    ("yb", yb),
+                    ("y", y.index(i)),
+                    ("yb", yb.index(i)),
                     ("vss", vss),
                 ])
                 .named(format!("gate_{i}"))

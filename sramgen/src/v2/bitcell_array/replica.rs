@@ -10,6 +10,7 @@ use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::grid::GridTiler;
 use substrate::layout::placement::nine_patch::{NpTiler, Region};
 use substrate::layout::placement::tile::LayerBbox;
+use substrate::schematic::circuit::Direction;
 
 use super::layout::TapRatio;
 
@@ -144,6 +145,37 @@ impl Component for ReplicaCellArray {
 
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("replica_cell_array")
+    }
+
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        let vdd = ctx.port("vdd", Direction::InOut);
+        let vss = ctx.port("vss", Direction::InOut);
+        let bl = ctx.port("rbl", Direction::InOut);
+        let br = ctx.port("rbr", Direction::InOut);
+        let wl = ctx.port("rwl", Direction::Input);
+
+        for i in 0..self.params.rows {
+            for j in 0..self.params.cols {
+                let wl = if i == 0 { wl } else { vss };
+                ctx.instantiate::<SpCellReplica>(&NoParams)?
+                    .with_connections([
+                        ("BL", bl),
+                        ("BR", br),
+                        ("VSS", vss),
+                        ("VDD", vdd),
+                        ("VPB", vdd),
+                        ("VNB", vss),
+                        ("WL", wl),
+                    ])
+                    .named(format!("cell_{i}_{j}"))
+                    .add_to(ctx);
+            }
+        }
+
+        Ok(())
     }
 
     fn layout(

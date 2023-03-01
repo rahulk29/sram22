@@ -40,6 +40,7 @@ codegen = { path = "../../substrate/codegen" }
 sky130_open_pdk = { path = "../../substrate/pdks/sky130_open_pdk" }
 sky130_commercial_pdk = { path = "../../substrate/pdks/sky130_commercial_pdk" }
 ngspice = { path = "../../substrate/plugins/ngspice" }
+spectre = { path = "../../substrate/plugins/spectre", optional = true }
 sub_calibre = { path = "../../substrate/plugins/sub_calibre" }
 
 
@@ -53,7 +54,7 @@ paste = "1.0"
 
 [features]
 calibre = ["dep:calibre"]
-spectre = []
+spectre = ["dep:spectre"]
 pex = ["dep:calibre"]
 abstract_lef = ["dep:abstract_lef"]
 liberate_mx = ["dep:liberate_mx"]
