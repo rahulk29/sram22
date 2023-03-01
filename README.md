@@ -9,7 +9,7 @@ Sram22 is still a work in progress.
 
 #### BWRC
 
-If you have BWRC access, you can install all features of Sram22. Make sure that you have SSH access to [bwrcrepo.eecs.berkeley.edu](https://bwrcrepo.eecs.berkeley.edu) from a BWRC machine by [adding your SSH key to your GitLab account](https://docs.gitlab.com/ee/user/ssh.html#add-an-ssh-key-to-your-gitlab-account). You will then need to add the following lines to your `~/.cargo/config` file:
+If you have BWRC access, you can install all features of Sram22. Make sure that you have SSH access to [bwrcrepo.eecs.berkeley.edu](https://bwrcrepo.eecs.berkeley.edu) from a BWRC machine by [adding your SSH key to your GitLab account](https://docs.gitlab.com/ee/user/ssh.html#add-an-ssh-key-to-your-gitlab-account). You will then need to add the following lines to your `~/.cargo/config.toml` file:
 
 ```
 [net]
@@ -74,6 +74,8 @@ data_width = 32
 mux_ratio = 2
 write_size = 32
 control = "ReplicaV1"
+# The `pex_level` flag is only available with a full installation.
+pex_level = "rcc"
 ```
 
 To generate an SRAM using this configuration, put the above text into a file called
