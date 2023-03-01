@@ -115,7 +115,7 @@ impl Sram {
 
         ctx.instantiate::<WmuxDriver>(&wmux_driver_params)?
             .with_connection("in", col_sel)
-            .with_connection("en", we)
+            .with_connection("en", write_driver_en)
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
