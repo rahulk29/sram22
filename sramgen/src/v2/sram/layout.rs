@@ -4,9 +4,12 @@ use substrate::layout::cell::Port;
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::geom::bbox::BoundBox;
 use substrate::layout::geom::orientation::Named;
-use substrate::layout::geom::{Dir, Side};
+use substrate::layout::geom::{Dir, Rect, Side};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignRect;
+use substrate::layout::routing::auto::grid::{
+    ExpandToGridStrategy, JogToGrid, OffGridBusTranslation,
+};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
 use substrate::layout::routing::manual::jog::SJog;
 
@@ -136,14 +139,14 @@ impl Sram {
                     layer: m1,
                 },
                 LayerConfig {
-                    line: 340,
-                    space: 340,
+                    line: 320,
+                    space: 360,
                     dir: Dir::Horiz,
                     layer: m2,
                 },
                 LayerConfig {
-                    line: 340,
-                    space: 340,
+                    line: 320,
+                    space: 360,
                     dir: Dir::Vert,
                     layer: m3,
                 },
@@ -168,31 +171,96 @@ impl Sram {
         // Route address bits from DFFs to decoders
         let mut ctr = 0;
         for (inst, num) in [(&p1, p1_bits), (&p2, p2_bits), (&col_dec, col_bits)] {
+            let bottom_port = inst
+                .port(&format!("predecode_{}_1", num - 1))?
+                .largest_rect(m2)?;
+            let on_grid_bus = router.register_off_grid_bus_translation(
+                OffGridBusTranslation::builder()
+                    .layer(m2)
+                    .line_and_space(320, 160)
+                    .output(bottom_port.edge(Side::Left))
+                    .start(bottom_port.side(Side::Bot))
+                    .n(2 * num as i64)
+                    .build(),
+            );
+
+            let mut ports: Vec<Rect> = on_grid_bus.ports().collect();
+            ports.reverse();
+
             for i in 0..num {
                 let src = dffs.port(&bus_bit("q", ctr))?.largest_rect(m2)?;
-                let dst = inst.port(&format!("predecode_{i}_0"))?.largest_rect(m2)?;
+                let src = router.expand_to_layer_grid(src, m2, ExpandToGridStrategy::Minimum);
+                let src = router.expand_to_layer_grid(src, m3, ExpandToGridStrategy::Minimum);
+                ctx.draw_rect(m2, src);
+                let dst = ports[2 * i];
                 router.route(ctx, m2, src, m2, dst)?;
                 let src = dffs.port(&bus_bit("qn", ctr))?.largest_rect(m2)?;
-                let dst = inst.port(&format!("predecode_{i}_1"))?.largest_rect(m2)?;
+                let src = router.expand_to_layer_grid(src, m2, ExpandToGridStrategy::Minimum);
+                let src = router.expand_to_layer_grid(src, m3, ExpandToGridStrategy::Minimum);
+                ctx.draw_rect(m2, src);
+                let dst = ports[2 * i + 1];
                 router.route(ctx, m2, src, m2, dst)?;
                 ctr += 1;
             }
         }
 
+        let left_port = decoder
+            .port(&format!("predecode_0_{}", tree.root.children[0].num - 1))?
+            .largest_rect(m1)?;
+        let p0_bus = router.register_off_grid_bus_translation(
+            OffGridBusTranslation::builder()
+                .layer(m1)
+                .line_and_space(320, 160)
+                .output(left_port.edge(Side::Bot))
+                .start(left_port.side(Side::Left))
+                .n(tree.root.children[0].num as i64)
+                .build(),
+        );
+        let mut p0_ports = p0_bus.ports().collect::<Vec<Rect>>();
+        p0_ports.reverse();
+
+        let left_port = decoder
+            .port(&format!("predecode_1_{}", tree.root.children[1].num - 1))?
+            .largest_rect(m1)?;
+        let p1_bus = router.register_off_grid_bus_translation(
+            OffGridBusTranslation::builder()
+                .layer(m1)
+                .line_and_space(320, 160)
+                .output(left_port.edge(Side::Bot))
+                .start(left_port.side(Side::Left))
+                .n(tree.root.children[1].num as i64)
+                .build(),
+        );
+        let mut p1_ports = p1_bus.ports().collect::<Vec<Rect>>();
+        p1_ports.reverse();
+
         // Route predecoders to final decoder stage
         for i in 0..tree.root.children[0].num {
             let src = p1.port(&format!("decode_{i}"))?.largest_rect(m0)?;
-            ctx.draw_rect(m1, src);
-            let dst = decoder
-                .port(&format!("predecode_0_{i}"))?
-                .largest_rect(m1)?;
+            let src = router.register_jog_to_grid(
+                JogToGrid::builder()
+                    .layer(m0)
+                    .rect(src)
+                    .dst_layer(m1)
+                    .width(src.span(Dir::Horiz).length())
+                    .first_dir(Side::Bot)
+                    .build(),
+            );
+            let dst = p0_ports[i];
             router.route(ctx, m1, src, m1, dst)?;
         }
         for i in 0..tree.root.children[1].num {
             let src = p2.port(&format!("decode_{i}"))?.largest_rect(m0)?;
-            let dst = decoder
-                .port(&format!("predecode_1_{i}"))?
-                .largest_rect(m1)?;
+            let src = router.register_jog_to_grid(
+                JogToGrid::builder()
+                    .layer(m0)
+                    .rect(src)
+                    .dst_layer(m1)
+                    .width(src.span(Dir::Horiz).length())
+                    .first_dir(Side::Top)
+                    .build(),
+            );
+            let dst = p1_ports[i];
             router.route(ctx, m1, src, m1, dst)?;
         }
 
