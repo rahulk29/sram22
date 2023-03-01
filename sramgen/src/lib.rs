@@ -21,12 +21,12 @@ use substrate::schematic::netlist::impls::spice::SpiceNetlister;
 use substrate::verification::simulation::{Simulator, SimulatorOpts};
 use tera::Tera;
 
-#[cfg(feature = "abstract_lef")]
+#[cfg(feature = "commercial")]
 pub mod abs;
 pub mod cli;
 pub mod config;
 pub mod layout;
-#[cfg(feature = "liberate_mx")]
+#[cfg(feature = "commercial")]
 pub mod liberate;
 pub mod paths;
 pub mod plan;

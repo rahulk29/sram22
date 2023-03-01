@@ -13,10 +13,10 @@ pub fn draw_write_mask_control(
     lib: &mut PdkLib,
     params: &WriteMaskControlParams,
 ) -> Result<Ptr<Cell>> {
-    let width = params.width;
     let WriteMaskControlParams {
         name, and_params, ..
     } = params;
+    let width = params.width;
 
     let mut cell = Cell::empty(name);
     let AndParams { nand, inv, .. } = and_params;

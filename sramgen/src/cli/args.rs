@@ -21,42 +21,37 @@ pub struct Args {
     pub output_dir: Option<PathBuf>,
 
     /// Generate LEF (used in place and route).
-    #[cfg(feature = "abstract_lef")]
+    #[cfg(feature = "commercial")]
     #[arg(long)]
     pub lef: bool,
 
     /// Generate LIB (setup, hold, and delay timing information).
-    #[cfg(feature = "liberate_mx")]
+    #[cfg(feature = "commercial")]
     #[arg(long)]
     pub lib: bool,
 
     /// Run DRC using Calibre.
-    #[cfg(feature = "calibre")]
+    #[cfg(feature = "commercial")]
     #[arg(long)]
     pub drc: bool,
 
     /// Run LVS using Calibre.
-    #[cfg(feature = "calibre")]
+    #[cfg(feature = "commercial")]
     #[arg(long)]
     pub lvs: bool,
 
     /// Run PEX using Calibre.
-    #[cfg(all(feature = "calibre", feature = "pex"))]
+    #[cfg(feature = "commercial")]
     #[arg(long)]
     pub pex: bool,
 
     /// Run Spectre to verify SRAM functionality.
-    #[cfg(feature = "spectre")]
+    #[cfg(feature = "commercial")]
     #[arg(long)]
     pub sim: bool,
 
     /// Run all available steps.
-    #[cfg(any(
-        feature = "abstract_lef",
-        feature = "liberate_mx",
-        feature = "calibre",
-        feature = "spectre"
-    ))]
+    #[cfg(feature = "commercial")]
     #[arg(short, long)]
     pub all: bool,
 }

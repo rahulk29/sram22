@@ -61,42 +61,42 @@ impl StepContext {
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
             },
-            #[cfg(feature = "abstract_lef")]
+            #[cfg(feature = "commercial")]
             Step {
                 desc: "Generate LEF".to_string(),
                 key: TaskKey::GenerateLef,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::GenerateLef) && !tasks.contains(&TaskKey::All),
             },
-            #[cfg(feature = "calibre")]
+            #[cfg(feature = "commercial")]
             Step {
                 desc: "Run DRC".to_string(),
                 key: TaskKey::RunDrc,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::RunDrc) && !tasks.contains(&TaskKey::All),
             },
-            #[cfg(feature = "calibre")]
+            #[cfg(feature = "commercial")]
             Step {
                 desc: "Run LVS".to_string(),
                 key: TaskKey::RunLvs,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::RunLvs) && !tasks.contains(&TaskKey::All),
             },
-            #[cfg(all(feature = "calibre", feature = "pex"))]
+            #[cfg(all(feature = "commercial"))]
             Step {
                 desc: "Run PEX".to_string(),
                 key: TaskKey::RunPex,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::RunPex) && !tasks.contains(&TaskKey::All),
             },
-            #[cfg(feature = "liberate_mx")]
+            #[cfg(feature = "commercial")]
             Step {
                 desc: "Generate LIB".to_string(),
                 key: TaskKey::GenerateLib,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::GenerateLib) && !tasks.contains(&TaskKey::All),
             },
-            #[cfg(feature = "spectre")]
+            #[cfg(feature = "commercial")]
             Step {
                 desc: "Run Spectre".to_string(),
                 key: TaskKey::RunSpectre,

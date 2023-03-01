@@ -29,11 +29,15 @@ pub fn out_verilog(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
     PathBuf::from(work_dir.as_ref()).join(format!("{name}.v"))
 }
 
-#[cfg(feature = "abstract_lef")]
+#[cfg(feature = "commercial")]
 pub fn out_lef(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
     PathBuf::from(work_dir.as_ref()).join(format!("{name}.lef"))
 }
 
-pub fn out_pex(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
-    PathBuf::from(work_dir.as_ref()).join(format!("{name}.pex.netlist"))
+#[cfg(feature = "commercial")]
+use calibre::pex::PexLevel;
+
+#[cfg(feature = "commercial")]
+pub fn out_pex(work_dir: impl AsRef<Path>, name: &str, level: PexLevel) -> PathBuf {
+    PathBuf::from(work_dir.as_ref()).join(format!("{name}.{level}.pex.netlist"))
 }

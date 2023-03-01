@@ -31,6 +31,8 @@ macro_rules! generate_sram_test {
                     mux_ratio: $mux_ratio,
                     write_size: $write_size,
                     control: crate::config::sram::ControlMode::ReplicaV1,
+                    #[cfg(feature = "commercial")]
+                    pex_level: Some(calibre::pex::PexLevel::Rc),
                 })
             }
         }
@@ -50,6 +52,8 @@ pub(crate) fn test_sram(config: &SramConfig) -> Result<()> {
         plan: &plan,
         tasks: &HashSet::new(),
         ctx: None,
+        #[cfg(feature = "commercial")]
+        pex_level: Some(calibre::pex::PexLevel::Rc),
     })?;
 
     Ok(())
