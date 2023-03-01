@@ -29,7 +29,7 @@ pub(crate) fn verify_simulation(data: &TranData, tb: &TbParams) -> Result<()> {
                     .idx_before_sorted(t)
                     .ok_or_else(|| anyhow!("Time {} was out of simulation range", t))?;
                 for i in 0..tb.sram.data_width {
-                    let name = format!("v({}[{}])", "Xdut.dout", i);
+                    let name = format!("{}[{}]", "Xdut.dout", i);
                     let rx_bit = data
                         .data
                         .get(&name)
