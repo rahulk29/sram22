@@ -2,9 +2,9 @@ use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::layout::cell::Port;
 use substrate::layout::context::LayoutCtx;
-use substrate::layout::geom::bbox::BoundBox;
-use substrate::layout::geom::orientation::Named;
-use substrate::layout::geom::{Dir, Rect, Side};
+use subgeom::bbox::BoundBox;
+use subgeom::orientation::Named;
+use subgeom::{Dir, Rect, Side};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignRect;
 use substrate::layout::routing::auto::grid::{

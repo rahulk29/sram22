@@ -4,7 +4,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams};
 use substrate::into_grid;
-use substrate::layout::geom::orientation::Named;
+use subgeom::orientation::Named;
 
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::grid::GridTiler;
