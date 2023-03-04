@@ -1,14 +1,14 @@
 use derive_builder::Builder;
 
+use subgeom::bbox::BoundBox;
+use subgeom::transform::Transform;
+use subgeom::{Corner, Dims, Dir, ExpandMode, Point, Rect, Span};
 use substrate::component::Component;
 use substrate::layout::cell::{CellPort, Instance, Port};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
-use substrate::layout::geom::bbox::{BoundBox, LayerBoundBox};
-use substrate::layout::geom::transform::Transform;
-use substrate::layout::geom::{Corner, Dims, Dir, ExpandMode, Point, Rect, Span};
-use substrate::layout::layers::selector::Selector;
+use substrate::layout::layers::{selector::Selector, LayerBoundBox};
 use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::routing::manual::jog::SJog;
 use substrate::pdk::mos::query::Query;

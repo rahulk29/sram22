@@ -6,7 +6,7 @@ use codegen::hard_macro;
 use substrate::component::{Component, NoParams, View};
 use substrate::data::SubstrateCtx;
 use substrate::index::IndexOwned;
-use substrate::layout::geom::Corner;
+use subgeom::Corner;
 use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::place_bbox::PlaceBbox;

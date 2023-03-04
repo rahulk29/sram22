@@ -10,10 +10,10 @@ use substrate::index::IndexOwned;
 use substrate::layout::cell::{CellPort, Element, Port};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::via::{Via, ViaParams};
-use substrate::layout::geom::bbox::BoundBox;
-use substrate::layout::geom::orientation::Named;
-use substrate::layout::geom::transform::Translate;
-use substrate::layout::geom::{Corner, Dir, Point, Rect, Sign, Span};
+use subgeom::bbox::BoundBox;
+use subgeom::orientation::Named;
+use subgeom::transform::Translate;
+use subgeom::{Corner, Dir, Point, Rect, Sign, Span};
 use substrate::layout::group::elements::ElementGroup;
 use substrate::layout::DrawRef;
 
