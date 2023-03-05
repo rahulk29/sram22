@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
-use substrate::layout::geom::bbox::BoundBox;
-use substrate::layout::geom::{Dir, ExpandMode, Rect, Span};
+use subgeom::bbox::BoundBox;
+use subgeom::{Dir, ExpandMode, Rect, Span};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::routing::auto::straps::PlacedStraps;
 use substrate::layout::straps::SingleSupplyNet;

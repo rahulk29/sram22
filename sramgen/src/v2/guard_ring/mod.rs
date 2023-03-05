@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 use substrate::layout::cell::CellPort;
 use substrate::layout::elements::via::{Via, ViaParams};
-use substrate::layout::geom::bbox::BoundBox;
-use substrate::layout::geom::ring::Ring;
-use substrate::layout::geom::Rect;
+use subgeom::bbox::BoundBox;
+use subgeom::ring::Ring;
+use subgeom::Rect;
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerKey;
 
@@ -207,7 +207,7 @@ impl Component for GuardRing {
 #[cfg(test)]
 mod tests {
 
-    use substrate::layout::geom::Point;
+    use subgeom::Point;
     use substrate::layout::layers::selector::Selector;
 
     use crate::paths::out_gds;

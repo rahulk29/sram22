@@ -1,7 +1,7 @@
 use substrate::layout::cell::{CellPort, MustConnect, Port};
 use substrate::layout::elements::mos::LayoutMos;
-use substrate::layout::geom::bbox::BoundBox;
-use substrate::layout::geom::{Rect, Span};
+use subgeom::bbox::BoundBox;
+use subgeom::{Rect, Span};
 use substrate::layout::placement::align::AlignRect;
 use substrate::layout::routing::manual::jog::OffsetJog;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
@@ -22,8 +22,8 @@ impl And2 {
         let m0 = nand.port("y")?.any_layer();
         let dst = inv.port("a")?.largest_rect(m0)?;
         let jog = OffsetJog::builder()
-            .dir(substrate::layout::geom::Dir::Horiz)
-            .sign(substrate::layout::geom::Sign::Pos)
+            .dir(subgeom::Dir::Horiz)
+            .sign(subgeom::Sign::Pos)
             .src(nand.port("y")?.largest_rect(m0)?)
             .dst(dst.bottom())
             .layer(m0)
@@ -74,8 +74,8 @@ impl And3 {
         let m0 = nand.port("y")?.any_layer();
         let dst = inv.port("a")?.largest_rect(m0)?;
         let jog = OffsetJog::builder()
-            .dir(substrate::layout::geom::Dir::Horiz)
-            .sign(substrate::layout::geom::Sign::Pos)
+            .dir(subgeom::Dir::Horiz)
+            .sign(subgeom::Sign::Pos)
             .src(nand.port("y")?.largest_rect(m0)?)
             .dst(dst.bottom())
             .layer(m0)

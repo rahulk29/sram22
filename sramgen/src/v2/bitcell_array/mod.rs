@@ -56,7 +56,7 @@ mod tests {
     use substrate::component::{Component, NoParams};
     use substrate::layout::cell::Port;
     use substrate::layout::elements::via::{Via, ViaParams};
-    use substrate::layout::geom::{Dir, Rect, Shape, Side, Sides, Span};
+    use subgeom::{Dir, Rect, Shape, Side, Sides, Span};
     use substrate::layout::layers::selector::Selector;
 
     use crate::paths::{out_gds, out_spice};

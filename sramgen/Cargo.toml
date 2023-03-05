@@ -36,6 +36,7 @@ tera = "1.17.1"
 lazy_static = "1.4.0"
 colored = "2.0.0"
 substrate = { path = "../../substrate/substrate" }
+subgeom = { path = "../../substrate/libs/subgeom" }
 codegen = { path = "../../substrate/codegen" }
 sky130_open_pdk = { path = "../../substrate/pdks/sky130_open_pdk" }
 sky130_commercial_pdk = { path = "../../substrate/pdks/sky130_commercial_pdk" }
