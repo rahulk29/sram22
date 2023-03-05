@@ -38,6 +38,11 @@ pub struct GuardRingParams {
     pub v_width: i64,
 }
 
+pub struct SupplyRings {
+    pub(crate) vdd: Ring,
+    pub(crate) vss: Ring,
+}
+
 pub const WIDTH_MULTIPLIER: i64 = 8;
 pub const DNW_ENCLOSURE: i64 = 440;
 pub const NWELL_HOLE_ENCLOSURE: i64 = 1_080;
@@ -122,6 +127,12 @@ impl Component for GuardRing {
             .heights(self.params.h_width)
             .widths(self.params.v_width)
             .build();
+
+        let rings = SupplyRings {
+            vdd: vdd_ring,
+            vss: vss_ring,
+        };
+        ctx.set_metadata(rings);
 
         let layers = ctx.layers();
         let nwell = layers.get(Selector::Name("nwell"))?;

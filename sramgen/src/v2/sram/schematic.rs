@@ -17,9 +17,9 @@ use crate::v2::precharge::{Precharge, PrechargeParams};
 use crate::v2::rmux::ReadMuxParams;
 use crate::v2::wmux::WriteMuxSizing;
 
-use super::Sram;
+use super::SramInner;
 
-impl Sram {
+impl SramInner {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
         let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
         let [clk, we] = ctx.ports(["clk", "we"], Direction::Input);
@@ -163,7 +163,7 @@ impl Sram {
         .named("bitcell_array")
         .add_to(ctx);
 
-        let replica_rows = (self.params.rows / 12) * 2;
+        let replica_rows = ((self.params.rows / 12) + 1) * 2;
 
         ctx.instantiate::<ReplicaCellArray>(&ReplicaCellArrayParams {
             rows: replica_rows,

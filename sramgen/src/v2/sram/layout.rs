@@ -4,12 +4,13 @@ use substrate::layout::cell::Port;
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::geom::bbox::BoundBox;
 use substrate::layout::geom::orientation::Named;
-use substrate::layout::geom::{Dir, Rect, Side};
+use substrate::layout::geom::{Dir, Rect, Shape, Side};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignRect;
 use substrate::layout::routing::auto::grid::{
     ExpandToGridStrategy, JogToGrid, OffGridBusTranslation,
 };
+use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
 use substrate::layout::routing::manual::jog::SJog;
 
@@ -27,9 +28,9 @@ use crate::v2::precharge::PrechargeParams;
 use crate::v2::rmux::ReadMuxParams;
 use crate::v2::wmux::WriteMuxSizing;
 
-use super::Sram;
+use super::SramInner;
 
-impl Sram {
+impl SramInner {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
         let bitcells = ctx.instantiate::<SpCellArray>(&SpCellArrayParams {
             rows: self.params.rows,
@@ -85,7 +86,7 @@ impl Sram {
         let mut dffs = ctx.instantiate::<DffArray>(&num_dffs)?;
 
         let mut rbl = ctx.instantiate::<ReplicaCellArray>(&ReplicaCellArrayParams {
-            rows: (self.params.rows / 12) * 2,
+            rows: ((self.params.rows / 12) + 1) * 2,
             cols: 2,
         })?;
 
@@ -133,8 +134,8 @@ impl Sram {
             area: ctx.brect().expand(5 * 680).snap_to_grid(680),
             layers: vec![
                 LayerConfig {
-                    line: 170,
-                    space: 170,
+                    line: 320,
+                    space: 360,
                     dir: Dir::Vert,
                     layer: m1,
                 },
@@ -153,7 +154,7 @@ impl Sram {
             ],
         });
 
-        for inst in [&bitcells, &cols] {
+        for inst in [&bitcells, &cols, &rbl] {
             router.block(m2, inst.brect());
             router.block(m3, inst.brect());
         }
@@ -295,6 +296,11 @@ impl Sram {
                 .unwrap();
             ctx.draw(jog)?;
         }
+
+        let mut straps = RoutedStraps::with_router(&router);
+        straps.set_strap_layers([m2, m3]);
+        let straps = straps.fill(ctx)?;
+        ctx.set_metadata(straps);
 
         ctx.draw(router)?;
         Ok(())
