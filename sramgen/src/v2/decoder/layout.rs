@@ -7,13 +7,13 @@ use substrate::component::{Component, NoParams};
 use substrate::error::Result;
 use substrate::index::IndexOwned;
 
-use substrate::layout::cell::{CellPort, Element, Port};
-use substrate::layout::context::LayoutCtx;
-use substrate::layout::elements::via::{Via, ViaParams};
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
 use subgeom::transform::Translate;
 use subgeom::{Corner, Dir, Point, Rect, Sign, Span};
+use substrate::layout::cell::{CellPort, Element, Port};
+use substrate::layout::context::LayoutCtx;
+use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::group::elements::ElementGroup;
 use substrate::layout::DrawRef;
 

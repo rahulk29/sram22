@@ -4,9 +4,9 @@ use grid::Grid;
 use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams};
 
-use substrate::layout::cell::{CellPort, PortId};
 use subgeom::orientation::Named;
 use subgeom::Shape;
+use substrate::layout::cell::{CellPort, PortId};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerKey;
 use substrate::layout::placement::grid::{GridTiler, PortConflictStrategy};

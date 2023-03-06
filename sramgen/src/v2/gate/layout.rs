@@ -1,7 +1,7 @@
-use substrate::layout::cell::{CellPort, MustConnect, Port};
-use substrate::layout::elements::mos::LayoutMos;
 use subgeom::bbox::BoundBox;
 use subgeom::{Rect, Span};
+use substrate::layout::cell::{CellPort, MustConnect, Port};
+use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::placement::align::AlignRect;
 use substrate::layout::routing::manual::jog::OffsetJog;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};

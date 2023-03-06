@@ -7,7 +7,8 @@ use substrate::layout::cell::{CellPort, Port};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
-use substrate::layout::layers::{selector::Selector, LayerBoundBox};
+use substrate::layout::layers::selector::Selector;
+use substrate::layout::layers::LayerBoundBox;
 
 use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::routing::manual::jog::SimpleJog;

@@ -2,9 +2,9 @@ use crate::v2::macros::{SpCellOpt1aReplica, SpCellReplica, SpColend, SpCorner, S
 use arcstr::ArcStr;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use subgeom::orientation::Named;
 use substrate::component::{Component, NoParams};
 use substrate::into_grid;
-use subgeom::orientation::Named;
 
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::grid::GridTiler;

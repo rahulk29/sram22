@@ -1,10 +1,10 @@
+use subgeom::bbox::BoundBox;
+use subgeom::orientation::Named;
+use subgeom::{Dir, Rect, Side};
 use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::layout::cell::Port;
 use substrate::layout::context::LayoutCtx;
-use subgeom::bbox::BoundBox;
-use subgeom::orientation::Named;
-use subgeom::{Dir, Rect, Side};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignRect;
 use substrate::layout::routing::auto::grid::{
