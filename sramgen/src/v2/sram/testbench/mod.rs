@@ -316,27 +316,11 @@ pub fn tb_params(params: SramParams, short: bool) -> TbParams {
     ];
 
     if !short {
-
-    for i in 0..16 {
-        let bits = (i % 2) * bit_pattern2 + (1 - (i % 2)) * bit_pattern1 + i + 1;
-        ops.push(Op::Write {
-            addr: BitSignal::from_u64(i, addr_width),
-            data: BitSignal::from_u64(bits, data_width),
-        });
-    }
-    for i in 0..16 {
-        ops.push(Op::Read {
-            addr: BitSignal::from_u64(i, addr_width),
-        });
-    }
-
-    if wmask_width > 1 {
         for i in 0..16 {
-            let bits = (1 - (i % 2)) * bit_pattern2 + (i % 2) * bit_pattern1 + i + 1;
-            ops.push(Op::WriteMasked {
+            let bits = (i % 2) * bit_pattern2 + (1 - (i % 2)) * bit_pattern1 + i + 1;
+            ops.push(Op::Write {
                 addr: BitSignal::from_u64(i, addr_width),
                 data: BitSignal::from_u64(bits, data_width),
-                mask: BitSignal::from_u64(bit_pattern1, wmask_width),
             });
         }
         for i in 0..16 {
@@ -344,7 +328,22 @@ pub fn tb_params(params: SramParams, short: bool) -> TbParams {
                 addr: BitSignal::from_u64(i, addr_width),
             });
         }
-    }
+
+        if wmask_width > 1 {
+            for i in 0..16 {
+                let bits = (1 - (i % 2)) * bit_pattern2 + (i % 2) * bit_pattern1 + i + 1;
+                ops.push(Op::WriteMasked {
+                    addr: BitSignal::from_u64(i, addr_width),
+                    data: BitSignal::from_u64(bits, data_width),
+                    mask: BitSignal::from_u64(bit_pattern1, wmask_width),
+                });
+            }
+            for i in 0..16 {
+                ops.push(Op::Read {
+                    addr: BitSignal::from_u64(i, addr_width),
+                });
+            }
+        }
     }
 
     let mut tb = TbParams::builder();
