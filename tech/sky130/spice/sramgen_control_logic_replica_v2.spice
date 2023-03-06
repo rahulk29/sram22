@@ -106,20 +106,20 @@ Xinv15 tmp14 dout vdd vss control_logic_inv
 .ends
 
 .subckt control_logic_mux2 A0 A1 S X VPWR VGND
-X0 a_27_368# A0 a_116_368# VPWR sky130_fd_pr__pfet_01v8 w=1e+06u l=150000u
-X1 a_27_368# S VPWR VPWR sky130_fd_pr__pfet_01v8 w=1e+06u l=150000u
-X2 X a_116_368# VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
-X3 VGND a_116_368# X VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
-X4 VGND a_459_48# a_38_74# VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
-X5 a_459_48# S VPWR VPWR sky130_fd_pr__pfet_01v8 w=840000u l=150000u
-X6 X a_116_368# VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12e+06u l=150000u
-X7 a_270_74# S VGND VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
-X8 a_459_48# S VGND VGND sky130_fd_pr__nfet_01v8_lvt w=550000u l=150000u
-X9 a_116_368# A1 a_206_368# VPWR sky130_fd_pr__pfet_01v8 w=1e+06u l=150000u
-X10 VPWR a_116_368# X VPWR sky130_fd_pr__pfet_01v8 w=1.12e+06u l=150000u
-X11 VPWR a_459_48# a_206_368# VPWR sky130_fd_pr__pfet_01v8 w=1e+06u l=150000u
-X12 a_38_74# A0 a_116_368# VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
-X13 a_116_368# A1 a_270_74# VGND sky130_fd_pr__nfet_01v8_lvt w=740000u l=150000u
+X0 a_27_368# A0 a_116_368# VPWR sky130_fd_pr__pfet_01v8 w=1 l=0.15
+X1 a_27_368# S VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.0 l=0.15
+X2 X a_116_368# VGND VGND sky130_fd_pr__nfet_01v8_lvt w=0.74 l=0.15
+X3 VGND a_116_368# X VGND sky130_fd_pr__nfet_01v8_lvt w=0.74 l=0.15
+X4 VGND a_459_48# a_38_74# VGND sky130_fd_pr__nfet_01v8_lvt w=0.74 l=0.15
+X5 a_459_48# S VPWR VPWR sky130_fd_pr__pfet_01v8 w=0.84 l=0.15
+X6 X a_116_368# VPWR VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=0.15
+X7 a_270_74# S VGND VGND sky130_fd_pr__nfet_01v8_lvt w=0.74 l=0.15
+X8 a_459_48# S VGND VGND sky130_fd_pr__nfet_01v8_lvt w=0.55 l=0.15
+X9 a_116_368# A1 a_206_368# VPWR sky130_fd_pr__pfet_01v8 w=1.0 l=0.15
+X10 VPWR a_116_368# X VPWR sky130_fd_pr__pfet_01v8 w=1.12 l=0.15
+X11 VPWR a_459_48# a_206_368# VPWR sky130_fd_pr__pfet_01v8 w=1.0 l=0.15
+X12 a_38_74# A0 a_116_368# VGND sky130_fd_pr__nfet_01v8_lvt w=0.74 l=0.15
+X13 a_116_368# A1 a_270_74# VGND sky130_fd_pr__nfet_01v8_lvt w=0.74 l=0.15
 .ends
 
 .subckt control_logic_bufbuf_16 A X VPWR VGND
