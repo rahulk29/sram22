@@ -1,19 +1,19 @@
 use grid::Grid;
 use serde::{Deserialize, Serialize};
-use substrate::component::{Component, NoParams};
-use substrate::error::Result;
-use substrate::index::IndexOwned;
-use substrate::into_vec;
-use substrate::layout::cell::{Instance, Port};
-use substrate::layout::context::LayoutCtx;
-use substrate::layout::elements::via::{Via, ViaParams};
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
 use subgeom::transform::Translate;
 use subgeom::{Rect, Span};
+use substrate::component::{Component, NoParams};
+use substrate::error::Result;
+use substrate::index::IndexOwned;
+use substrate::into_vec;
+use substrate::layout::cell::{CellPort, Instance, Port};
+use substrate::layout::context::LayoutCtx;
+use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignRect;
-use substrate::layout::placement::grid::GridTiler;
+use substrate::layout::placement::grid::{GridTiler, PortConflictStrategy};
 use substrate::layout::placement::tile::{OptionTile, Pad, Padding, RectBbox, Tile};
 use substrate::layout::routing::tracks::{Boundary, CenteredTrackParams, FixedTracks};
 use substrate::layout::Draw;
@@ -90,7 +90,12 @@ impl ColPeripherals {
         let mut grid = Grid::new(0, 0);
         grid.push_row(row);
 
-        let grid_tiler = GridTiler::new(grid);
+        let mut grid_tiler = GridTiler::new(grid);
+        grid_tiler.expose_ports(
+            |port: CellPort, _, _| Some(port),
+            PortConflictStrategy::Merge,
+        )?;
+        ctx.add_ports(grid_tiler.ports().cloned());
         let group = grid_tiler.draw()?;
 
         let bbox = group.bbox();
@@ -509,7 +514,14 @@ impl Component for ColumnCent {
         for (i, track) in tracks.iter().enumerate() {
             let name = TapTrack::from(i);
             for vspan in track_vspans(name)? {
-                ctx.draw_rect(m3, Rect::from_spans(track, vspan));
+                let rect = Rect::from_spans(track, vspan);
+                let mut port = CellPort::new(match name {
+                    TapTrack::Vdd => "vdd",
+                    TapTrack::Vss => "vss",
+                });
+                port.add(m3, subgeom::Shape::Rect(rect));
+                ctx.add_port(port);
+                ctx.draw_rect(m3, rect);
             }
         }
 
