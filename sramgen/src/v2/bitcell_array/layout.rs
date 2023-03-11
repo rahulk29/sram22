@@ -4,9 +4,9 @@ use grid::Grid;
 use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams};
 
-use substrate::layout::cell::{CellPort, PortId};
 use subgeom::orientation::Named;
 use subgeom::Shape;
+use substrate::layout::cell::{CellPort, PortId};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerKey;
 use substrate::layout::placement::grid::{GridTiler, PortConflictStrategy};
@@ -646,7 +646,28 @@ impl Component for SpCellArrayRight {
             grid.push_row(cell_row.clone());
         }
 
-        let grid_tiler = GridTiler::new(grid);
+        let mut grid_tiler = GridTiler::new(grid);
+        let hmetal = ctx.layers().get(Selector::Metal(2))?;
+        grid_tiler.expose_ports(
+            |port: CellPort, i, j| {
+                let mut new_port = CellPort::new(if port.name() == "wl" {
+                    PortId::new("wl", i - 1)
+                } else {
+                    port.id().clone()
+                });
+                if j == 2 {
+                    let shapes: Vec<&Shape> = port.shapes(hmetal).collect();
+
+                    if !shapes.is_empty() {
+                        new_port.add_all(hmetal, shapes.into_iter().cloned());
+                        return Some(new_port);
+                    }
+                }
+                None
+            },
+            PortConflictStrategy::Merge,
+        )?;
+        ctx.add_ports(grid_tiler.ports().cloned());
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -706,6 +727,12 @@ impl SpCellArray {
                     }
                     return Some(port);
                 }
+                if i == 0 && j == nx + 1 {
+                    if ["bl_dummy", "br_dummy"].contains(&port.name().as_ref()) {
+                        port.set_id(PortId::new(port.name(), 1));
+                    }
+                    return Some(port);
+                }
                 if i == ny + 1 && j == nx + 1 {
                     if ["wl_dummy", "bl_dummy", "br_dummy"].contains(&port.name().as_ref()) {
                         port.set_id(PortId::new(port.name(), 1));
@@ -745,6 +772,15 @@ impl SpCellArray {
                     if !shapes.is_empty() {
                         new_port.add_all(vmetal, shapes.into_iter().cloned());
                         return Some(new_port);
+                    }
+                } else if j == nx + 1 {
+                    if port.name() != "wl" {
+                        let shapes: Vec<&Shape> = port.shapes(hmetal).collect();
+
+                        if !shapes.is_empty() {
+                            new_port.add_all(hmetal, shapes.into_iter().cloned());
+                            return Some(new_port);
+                        }
                     }
                 }
                 None

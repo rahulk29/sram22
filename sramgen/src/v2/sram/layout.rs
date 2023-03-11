@@ -1,18 +1,22 @@
-use substrate::component::NoParams;
-use substrate::error::Result;
-use substrate::layout::cell::Port;
-use substrate::layout::context::LayoutCtx;
+use std::collections::HashMap;
+
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
-use subgeom::{Dir, Rect, Side};
+use subgeom::{Dir, Rect, Shape, Side, Sign, Span};
+use substrate::component::NoParams;
+use substrate::error::Result;
+use substrate::layout::cell::{Port, PortId};
+use substrate::layout::context::LayoutCtx;
+use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::layers::selector::Selector;
-use substrate::layout::placement::align::AlignRect;
+use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::routing::auto::grid::{
     ExpandToGridStrategy, JogToGrid, OffGridBusTranslation,
 };
 use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
 use substrate::layout::routing::manual::jog::SJog;
+use substrate::layout::straps::SingleSupplyNet;
 
 use crate::bus_bit;
 use crate::v2::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
@@ -90,19 +94,19 @@ impl SramInner {
             cols: 2,
         })?;
 
-        cols.align_beneath(bitcells.bbox(), 1_270);
+        cols.align_beneath(bitcells.bbox(), 4_310);
         cols.align_centers_horizontally_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
-        rbl.align_to_the_left_of(bitcells.bbox(), 1_270);
-        rbl.align_bottom(bitcells.bbox());
-        wl_driver.align_to_the_left_of(rbl.bbox(), 1_270);
+        wl_driver.align_to_the_left_of(bitcells.bbox(), 6_350);
         wl_driver.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
+        rbl.align_right(wl_driver.bbox());
+        rbl.align_beneath(wl_driver.bbox(), 5_080);
         decoder.align_to_the_left_of(wl_driver.bbox(), 1_270);
         decoder.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
-        decoder.align_side_to_grid(Side::Left, 640);
+        decoder.align_side_to_grid(Side::Left, 680);
         p1.align_beneath(wl_driver.bbox(), 1_270);
-        p1.align_right(wl_driver.bbox());
+        p1.align(AlignMode::Left, decoder.bbox(), 5_080);
         p2.align_beneath(p1.bbox(), 1_270);
-        p2.align_right(wl_driver.bbox());
+        p2.align(AlignMode::Left, decoder.bbox(), 5_080);
         wmux_driver.align_beneath(p2.bbox(), 1_270);
         wmux_driver.align_right(wl_driver.bbox());
         col_dec.align_beneath(wmux_driver.bbox(), 1_270);
@@ -131,7 +135,11 @@ impl SramInner {
         let m3 = layers.get(Selector::Metal(3))?;
 
         let mut router = GreedyRouter::with_config(GreedyRouterConfig {
-            area: ctx.brect().expand(5 * 680).snap_to_grid(680),
+            area: ctx
+                .brect()
+                .expand(4 * 680)
+                .expand_side(Side::Right, 4 * 680)
+                .snap_to_grid(680),
             layers: vec![
                 LayerConfig {
                     line: 320,
@@ -154,7 +162,7 @@ impl SramInner {
             ],
         });
 
-        for inst in [&bitcells, &cols, &rbl] {
+        for inst in [&cols, &rbl] {
             router.block(m2, inst.brect());
             router.block(m3, inst.brect());
         }
@@ -168,6 +176,9 @@ impl SramInner {
                 router.block(m1, rect);
             }
         }
+
+        router.block(m2, bitcells.brect().expand_dir(Dir::Horiz, 5_080));
+        router.block(m3, bitcells.brect());
 
         // Route address bits from DFFs to decoders
         let mut ctr = 0;
@@ -243,12 +254,19 @@ impl SramInner {
                     .layer(m0)
                     .rect(src)
                     .dst_layer(m1)
-                    .width(src.span(Dir::Horiz).length())
+                    .width(320)
                     .first_dir(Side::Bot)
                     .build(),
             );
             let dst = p0_ports[i];
             router.route(ctx, m1, src, m1, dst)?;
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m0, m1)
+                    .geometry(src, src)
+                    .build(),
+            )?;
+            ctx.draw(via)?;
         }
         for i in 0..tree.root.children[1].num {
             let src = p2.port(&format!("decode_{i}"))?.largest_rect(m0)?;
@@ -257,12 +275,20 @@ impl SramInner {
                     .layer(m0)
                     .rect(src)
                     .dst_layer(m1)
-                    .width(src.span(Dir::Horiz).length())
-                    .first_dir(Side::Top)
+                    .width(320)
+                    .first_dir(Side::Left)
+                    .second_dir(Side::Bot)
                     .build(),
             );
             let dst = p1_ports[i];
             router.route(ctx, m1, src, m1, dst)?;
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m0, m1)
+                    .geometry(src, src)
+                    .build(),
+            )?;
+            ctx.draw(via)?;
         }
 
         // Route wordline decoder to wordlin driver
@@ -299,6 +325,104 @@ impl SramInner {
 
         let mut straps = RoutedStraps::with_router(&router);
         straps.set_strap_layers([m2, m3]);
+
+        // Connect bitcell array to straps
+        let target_brect = bitcells
+            .brect()
+            .expand_dir(Dir::Horiz, 5_720)
+            .expand_dir(Dir::Vert, 3_500);
+        let mut port_ids: Vec<(PortId, SingleSupplyNet)> = ["vpwr", "vgnd", "vpb", "vnb"]
+            .into_iter()
+            .map(|x| {
+                (
+                    x.into(),
+                    match x {
+                        "vpwr" | "vpb" => SingleSupplyNet::Vdd,
+                        "vgnd" | "vnb" => SingleSupplyNet::Vss,
+                        _ => unreachable!(),
+                    },
+                )
+            })
+            .collect();
+        for port_name in ["wl_dummy", "bl_dummy", "br_dummy"] {
+            for i in 0..2 {
+                port_ids.push((
+                    PortId::new(port_name, i),
+                    match port_name {
+                        "wl_dummy" => SingleSupplyNet::Vss,
+                        "bl_dummy" | "br_dummy" => SingleSupplyNet::Vdd,
+                        _ => unreachable!(),
+                    },
+                ));
+            }
+        }
+        for (dir, layer, extension) in [(Dir::Vert, m1, 3_300), (Dir::Horiz, m2, 5_520)] {
+            let mut to_merge: HashMap<(Sign, SingleSupplyNet), Vec<Rect>> = HashMap::new();
+            for sign in [Sign::Neg, Sign::Pos] {
+                for net in [SingleSupplyNet::Vdd, SingleSupplyNet::Vss] {
+                    to_merge.insert((sign, net), Vec::new());
+                }
+            }
+            for (port_id, net) in port_ids.iter() {
+                for port in bitcells.port(port_id.clone())?.shapes(layer) {
+                    let bitcell_center = bitcells.bbox().center().coord(dir);
+                    if let Shape::Rect(rect) = port {
+                        let sign = if rect.center().coord(dir) < bitcell_center {
+                            Sign::Neg
+                        } else {
+                            Sign::Pos
+                        };
+                        let rect = rect.with_span(
+                            rect.span(dir).add_point(target_brect.span(dir).point(sign)),
+                            dir,
+                        );
+                        ctx.draw_rect(layer, rect);
+                        to_merge.get_mut(&(sign, *net)).unwrap().push(rect);
+                    }
+                }
+            }
+            for sign in [Sign::Neg, Sign::Pos] {
+                for net in [SingleSupplyNet::Vdd, SingleSupplyNet::Vss] {
+                    let rects = to_merge.get_mut(&(sign, net)).unwrap();
+                    rects.sort_by_key(|rect| rect.span(!dir).center());
+                    let mut curr_rect: Option<Rect> = None;
+                    for rect in rects {
+                        if let Some(curr) = curr_rect {
+                            if curr.span(!dir).center() + 420 > rect.span(!dir).center() {
+                                curr_rect = Some(curr.bbox().union(rect.bbox()).into_rect());
+                            } else {
+                                let curr = curr.with_span(
+                                    Span::with_point_and_length(
+                                        sign,
+                                        target_brect.span(dir).point(sign),
+                                        extension,
+                                    ),
+                                    dir,
+                                );
+                                ctx.draw_rect(layer, curr);
+                                straps.add_target(layer, Target::new(net, curr));
+                                curr_rect = Some(*rect);
+                            }
+                        } else {
+                            curr_rect = Some(*rect);
+                        }
+                    }
+                    if let Some(curr) = curr_rect {
+                        let rect = curr.with_span(
+                            Span::with_point_and_length(
+                                sign,
+                                target_brect.span(dir).point(sign),
+                                extension,
+                            ),
+                            dir,
+                        );
+                        ctx.draw_rect(layer, rect);
+                        straps.add_target(layer, Target::new(net, rect));
+                    }
+                }
+            }
+        }
+
         let straps = straps.fill(ctx)?;
         ctx.set_metadata(straps);
 
