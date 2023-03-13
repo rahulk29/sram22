@@ -9,7 +9,7 @@ use crate::v2::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams
 use crate::v2::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::v2::buf::DiffBufParams;
 use crate::v2::columns::{ColParams, ColPeripherals};
-use crate::v2::control::{ControlLogicReplicaV1, ControlLogicReplicaV2, DffArray};
+use crate::v2::control::{ControlLogicReplicaV2, DffArray};
 use crate::v2::decoder::{
     Decoder, DecoderParams, DecoderStageParams, DecoderTree, WlDriver, WmuxDriver,
 };

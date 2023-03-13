@@ -203,7 +203,7 @@ impl Component for SramTestbench {
     type Params = TbParams;
     fn new(
         params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
+        _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         Ok(Self {
             params: params.clone(),

@@ -1,7 +1,6 @@
 use fanout::FanoutAnalyzer;
 use serde::{Deserialize, Serialize};
-use substrate::component::{Component, NoParams, View};
-use substrate::error::ErrorSource;
+use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
 use substrate::schematic::circuit::Direction;
 

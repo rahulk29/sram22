@@ -10,23 +10,19 @@ use substrate::layout::placement::align::AlignRect;
 use substrate::layout::routing::auto::grid::{
     ExpandToGridStrategy, JogToGrid, OffGridBusTranslation,
 };
-use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
+use substrate::layout::routing::auto::straps::RoutedStraps;
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
 use substrate::layout::routing::manual::jog::SJog;
 
 use crate::bus_bit;
 use crate::v2::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
 use crate::v2::bitcell_array::{SpCellArray, SpCellArrayParams};
-use crate::v2::buf::DiffBufParams;
-use crate::v2::columns::{ColParams, ColPeripherals};
+use crate::v2::columns::ColPeripherals;
 use crate::v2::control::{ControlLogicReplicaV1, DffArray};
 use crate::v2::decoder::layout::LastBitDecoderStage;
 use crate::v2::decoder::{
     DecoderParams, DecoderStageParams, DecoderTree, Predecoder, WlDriver, WmuxDriver,
 };
-use crate::v2::precharge::PrechargeParams;
-use crate::v2::rmux::ReadMuxParams;
-use crate::v2::wmux::WriteMuxSizing;
 
 use super::SramInner;
 

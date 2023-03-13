@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 use subgeom::bbox::BoundBox;
-use subgeom::{Dir, ExpandMode, Rect, Span};
+use subgeom::{Dir, Rect, Span};
 use substrate::component::Component;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::routing::auto::straps::PlacedStraps;
 use substrate::layout::straps::SingleSupplyNet;
 
-use super::guard_ring::{GuardRing, GuardRingParams, GuardRingWrapper, SupplyRings, WrapperParams};
+use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
 
 pub mod layout;
 pub mod schematic;

@@ -291,7 +291,6 @@ impl Component for SpCellArrayLeft {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let vmetal = ctx.layers().get(Selector::Metal(1))?;
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         let rowend_replica = ctx.instantiate::<SpRowend>(&NoParams)?;
         let mut rowenda_replica = ctx.instantiate::<SpRowenda>(&NoParams)?;
@@ -422,7 +421,6 @@ impl Component for SpCellArrayTop {
 
         let mut grid_tiler = GridTiler::new(grid);
         let vmetal = ctx.layers().get(Selector::Metal(1))?;
-        let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
             |port: CellPort, i, j| {
                 let mut new_port = CellPort::new(if ["bl", "br"].contains(&port.name().as_ref()) {
@@ -569,7 +567,6 @@ impl Component for SpCellArrayBottom {
 
         let mut grid_tiler = GridTiler::new(grid);
         let vmetal = ctx.layers().get(Selector::Metal(1))?;
-        let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
             |port: CellPort, i, j| {
                 let mut new_port = CellPort::new(if ["bl", "br"].contains(&port.name().as_ref()) {
@@ -774,7 +771,7 @@ mod tests {
             mux_ratio: 4,
             hstrap_ratio: 8,
         };
-        ctx.write_layout::<SpCellArrayBottom>(&tap_ratio, out_gds(&work_dir, "layout"))
+        ctx.write_layout::<SpCellArrayBottom>(&tap_ratio, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 }
