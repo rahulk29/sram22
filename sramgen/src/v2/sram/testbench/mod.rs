@@ -412,7 +412,7 @@ mod tests {
         for corner in corners.corners() {
             println!("Testing corner {}", corner.name());
             let work_dir = test_work_dir(&format!("test_sram_tb_1/{}", corner.name()));
-            ctx.write_simulation::<SramTestbench>(&tb, &work_dir)
+            ctx.write_simulation_with_corner::<SramTestbench>(&tb, &work_dir, corner.clone())
                 .expect("failed to run simulation");
         }
     }
