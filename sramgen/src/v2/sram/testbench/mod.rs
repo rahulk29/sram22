@@ -407,8 +407,13 @@ mod tests {
     fn test_sram_tb_1() {
         let ctx = setup_ctx();
         let tb = tb_params(TINY_SRAM, true);
-        let work_dir = test_work_dir("test_sram_tb_1");
-        ctx.write_simulation::<SramTestbench>(&tb, &work_dir)
-            .expect("failed to run simulation");
+        let corners = ctx.corner_db();
+
+        for corner in corners.corners() {
+            println!("Testing corner {}", corner.name());
+            let work_dir = test_work_dir(&format!("test_sram_tb_1/{}", corner.name()));
+            ctx.write_simulation::<SramTestbench>(&tb, &work_dir)
+                .expect("failed to run simulation");
+        }
     }
 }
