@@ -399,23 +399,39 @@ mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
-    use super::super::tests::TINY_SRAM;
+    use super::super::tests::*;
     use super::*;
 
-    #[test]
-    #[ignore = "slow"]
-    fn test_sram_tb_1() {
+    fn test_sram(name: &str, params: SramParams) {
         let ctx = setup_ctx();
         let corners = ctx.corner_db();
 
         for vdd in [1.5, 1.8, 2.0] {
-            let tb = tb_params(TINY_SRAM, vdd, true);
+            let tb = tb_params(params.clone(), vdd, true);
             for corner in corners.corners() {
                 println!("Testing corner {} with Vdd = {}", corner.name(), vdd);
-                let work_dir = test_work_dir(&format!("test_sram_tb_1/{}", corner.name()));
+                let work_dir = test_work_dir(&format!("{}/{}_{:.2}", name, corner.name(), vdd));
                 ctx.write_simulation_with_corner::<SramTestbench>(&tb, &work_dir, corner.clone())
                     .expect("failed to run simulation");
             }
         }
+    }
+
+    #[test]
+    #[ignore = "slow"]
+    fn test_sram_tb_tiny() {
+        test_sram("test_sram_tb_tiny", TINY_SRAM);
+    }
+
+    #[test]
+    #[ignore = "slow"]
+    fn test_sram_tb_1() {
+        test_sram("test_sram_tb_1", PARAMS_1);
+    }
+
+    #[test]
+    #[ignore = "slow"]
+    fn test_sram_tb_2() {
+        test_sram("test_sram_tb_2", PARAMS_2);
     }
 }
