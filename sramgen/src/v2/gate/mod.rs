@@ -70,6 +70,25 @@ pub struct PrimitiveGateParams {
     pub length: i64,
 }
 
+impl PrimitiveGateParams {
+    pub fn scale(&self, factor: i64) -> Self {
+        Self {
+            nwidth: self.nwidth * factor,
+            pwidth: self.pwidth * factor,
+            length: self.length,
+        }
+    }
+}
+
+impl AndParams {
+    pub fn scale(&self, factor: i64) -> Self {
+        Self {
+            nand: self.nand.scale(factor),
+            inv: self.inv.scale(factor),
+        }
+    }
+}
+
 impl GateType {
     pub fn as_fanout_gates(&self) -> Vec<fanout::GateType> {
         match self {
@@ -120,6 +139,17 @@ impl GateParams {
             GateParams::And2(_) => vec![fanout::GateType::NAND2, fanout::GateType::INV],
             GateParams::And3(_) => vec![fanout::GateType::NAND3, fanout::GateType::INV],
             _ => panic!("unsupported gate type for fanout calculations"),
+        }
+    }
+
+    pub fn scale(&self, factor: i64) -> Self {
+        match self {
+            GateParams::And2(x) => Self::And2(x.scale(factor)),
+            GateParams::And3(x) => Self::And3(x.scale(factor)),
+            GateParams::Inv(x) => Self::Inv(x.scale(factor)),
+            GateParams::Nand2(x) => Self::Nand2(x.scale(factor)),
+            GateParams::Nand3(x) => Self::Nand3(x.scale(factor)),
+            GateParams::Nor2(x) => Self::Nor2(x.scale(factor)),
         }
     }
 }

@@ -61,7 +61,7 @@ impl SramInner {
                 "sense_en",
             ]);
 
-        let tree = DecoderTree::new(self.params.row_bits);
+        let tree = DecoderTree::with_scale(self.params.row_bits, 4);
 
         let driver_params = DecoderStageParams {
             gate: tree.root.gate,
@@ -95,7 +95,7 @@ impl SramInner {
             .named("wl_driver")
             .add_to(ctx);
 
-        let col_tree = DecoderTree::new(self.params.col_select_bits);
+        let col_tree = DecoderTree::with_scale(self.params.col_select_bits, 4);
         let col_decoder_params = DecoderParams {
             tree: col_tree.clone(),
         };

@@ -173,6 +173,12 @@ impl Component for WmuxDriver {
 }
 
 impl DecoderTree {
+    pub fn with_scale(bits: usize, top_scale: i64) -> Self {
+        let mut tree = Self::new(bits);
+        tree.root.gate = tree.root.gate.scale(top_scale);
+        tree
+    }
+
     pub fn new(bits: usize) -> Self {
         let plan = plan_decoder(bits, true);
         let root = size_decoder(&plan);
