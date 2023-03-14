@@ -355,11 +355,11 @@ pub fn tb_params(params: SramParams, vdd: f64, short: bool) -> TbParams {
     let tb = tb
         .ops(ops)
         .clk_period(20e-9)
-        .tr(50e-12)
-        .tf(50e-12)
+        .tr(40e-12)
+        .tf(40e-12)
         .vdd(vdd)
         .c_load(5e-15)
-        .t_hold(200e-12)
+        .t_hold(400e-12)
         .sram(params)
         .build()
         .unwrap();
