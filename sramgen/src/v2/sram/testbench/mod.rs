@@ -35,6 +35,10 @@ pub struct TbParams {
     pub vdd: f64,
     /// Capacitance on output pins.
     pub c_load: f64,
+    /// Hold time in seconds.
+    ///
+    /// Specifies how long data should be held after the clock edge.
+    pub t_hold: f64,
 
     /// SRAM configuration to test.
     pub sram: SramParams,
@@ -129,6 +133,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
 
     for op in params.ops.iter() {
         t_end = t + period;
+        let t_data = t_end + params.t_hold;
         // Toggle the clock
         clk.push_high(t + (period / 2.0), vdd, tr);
         clk.push_low(t + period, vdd, tf);
@@ -136,23 +141,23 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
         match op {
             Op::Read { addr: addrv } => {
                 // Set write enable low
-                we.push_low(t_end, vdd, tf);
+                we.push_low(t_data, vdd, tf);
 
                 assert_eq!(addrv.width(), params.sram.addr_width);
-                push_bus(&mut addr, &addrv, t_end, vdd, tr, tf);
+                push_bus(&mut addr, &addrv, t_data, vdd, tr, tf);
             }
             Op::Write { addr: addrv, data } => {
                 // Set write enable high
-                we.push_high(t_end, vdd, tr);
+                we.push_high(t_data, vdd, tr);
 
                 assert_eq!(addrv.width(), params.sram.addr_width);
-                push_bus(&mut addr, addrv, t_end, vdd, tr, tf);
+                push_bus(&mut addr, addrv, t_data, vdd, tr, tf);
 
                 assert_eq!(data.width(), params.sram.data_width);
-                push_bus(&mut din, data, t_end, vdd, tr, tf);
+                push_bus(&mut din, data, t_data, vdd, tr, tf);
 
                 if params.sram.wmask_width > 1 {
-                    push_bus(&mut wmask, &wmask_all, t_end, vdd, tr, tf);
+                    push_bus(&mut wmask, &wmask_all, t_data, vdd, tr, tf);
                 }
             }
 
@@ -162,17 +167,17 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 mask,
             } => {
                 // Set write enable high
-                we.push_high(t_end, vdd, tr);
+                we.push_high(t_data, vdd, tr);
 
                 assert_eq!(addrv.width(), params.sram.addr_width);
-                push_bus(&mut addr, addrv, t_end, vdd, tr, tf);
+                push_bus(&mut addr, addrv, t_data, vdd, tr, tf);
 
                 assert_eq!(data.width(), params.sram.data_width);
-                push_bus(&mut din, data, t_end, vdd, tr, tf);
+                push_bus(&mut din, data, t_data, vdd, tr, tf);
 
                 assert!(params.sram.wmask_width > 1);
                 assert_eq!(mask.width(), params.sram.wmask_width);
-                push_bus(&mut wmask, mask, t_end, vdd, tr, tf);
+                push_bus(&mut wmask, mask, t_data, vdd, tr, tf);
             }
         }
 
@@ -180,7 +185,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
     }
 
     t_end = t + period;
-    let t_final = t + 2.0 * period;
+    let t_final = t + 2.0 * period + params.t_hold;
 
     // One more clock cycle
     clk.push_high(t + period / 2.0, vdd, tr);
@@ -354,6 +359,7 @@ pub fn tb_params(params: SramParams, vdd: f64, short: bool) -> TbParams {
         .tf(50e-12)
         .vdd(vdd)
         .c_load(5e-15)
+        .t_hold(200e-12)
         .sram(params)
         .build()
         .unwrap();
