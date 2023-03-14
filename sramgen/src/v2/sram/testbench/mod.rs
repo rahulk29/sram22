@@ -285,7 +285,7 @@ impl Component for SramTestbench {
     }
 }
 
-pub fn tb_params(params: SramParams, short: bool) -> TbParams {
+pub fn tb_params(params: SramParams, vdd: f64, short: bool) -> TbParams {
     let wmask_width = params.wmask_width;
     let data_width = params.data_width;
     let addr_width = params.addr_width;
@@ -352,7 +352,7 @@ pub fn tb_params(params: SramParams, short: bool) -> TbParams {
         .clk_period(20e-9)
         .tr(50e-12)
         .tf(50e-12)
-        .vdd(1.8)
+        .vdd(vdd)
         .c_load(5e-15)
         .sram(params)
         .build()
@@ -406,14 +406,16 @@ mod tests {
     #[ignore = "slow"]
     fn test_sram_tb_1() {
         let ctx = setup_ctx();
-        let tb = tb_params(TINY_SRAM, true);
         let corners = ctx.corner_db();
 
-        for corner in corners.corners() {
-            println!("Testing corner {}", corner.name());
-            let work_dir = test_work_dir(&format!("test_sram_tb_1/{}", corner.name()));
-            ctx.write_simulation_with_corner::<SramTestbench>(&tb, &work_dir, corner.clone())
-                .expect("failed to run simulation");
+        for vdd in [1.5, 1.8, 2.0] {
+            let tb = tb_params(TINY_SRAM, vdd, true);
+            for corner in corners.corners() {
+                println!("Testing corner {} with Vdd = {}", corner.name(), vdd);
+                let work_dir = test_work_dir(&format!("test_sram_tb_1/{}", corner.name()));
+                ctx.write_simulation_with_corner::<SramTestbench>(&tb, &work_dir, corner.clone())
+                    .expect("failed to run simulation");
+            }
         }
     }
 }

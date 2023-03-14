@@ -85,9 +85,7 @@ mod tests {
             params: &Self::Params,
             _ctx: &substrate::data::SubstrateCtx,
         ) -> substrate::error::Result<Self> {
-            Ok(Self {
-                params: *params,
-            })
+            Ok(Self { params: *params })
         }
 
         fn name(&self) -> ArcStr {
