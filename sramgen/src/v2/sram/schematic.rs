@@ -182,7 +182,7 @@ impl SramInner {
             ("vss", vss),
             ("rbl", rbl),
             ("rbr", rbr),
-            ("rwl", wl_en0),
+            ("rwl", wl_en),
         ])
         .named("replica_bitcell_array")
         .add_to(ctx);
