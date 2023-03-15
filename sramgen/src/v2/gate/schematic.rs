@@ -243,7 +243,7 @@ impl Nand3 {
             nf: 1,
             id: nmos_id,
         })?;
-        n3.connect_all([("d", &y), ("g", &b), ("s", &x2), ("b", &vss)]);
+        n3.connect_all([("d", &y), ("g", &c), ("s", &x2), ("b", &vss)]);
         n3.set_name("n3");
         ctx.add_instance(n3);
 
