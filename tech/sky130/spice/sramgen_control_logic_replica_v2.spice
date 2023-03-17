@@ -224,17 +224,21 @@ Xmux_wl_en_rst rbl_b wl_en_write_rst we wl_en_rst_muxed vdd vss control_logic_mu
 Xmux_pc_set pc_read_set pc_write_set we pc_set vdd vss control_logic_mux2
 Xsae_set we_b rbl_b sae_set vdd vss control_logic_and2
 
-Xwr_drv_set clkp we wr_drv_set vdd vss control_logic_and2
+Xwr_drv_set clkp we wr_drv_set_undelayed vdd vss control_logic_and2
+Xwr_drv_set_decoder_delay_replica wr_drv_set_undelayed wr_drv_set vdd vss control_logic_delay_chain8
 Xinv_dummy_bl dummy_bl dummy_bl_b vdd vss control_logic_inv
 Xwl_en_write_rst_buf dummy_bl_b wl_en_write_rst vdd vss control_logic_delay_chain4
 Xpc_write_set_buf wl_en_write_rst pc_write_set vdd vss control_logic_delay_chain4
 
 Xwl_en_buf wl_en0 wl_en vdd vss control_logic_bufbuf_16
 Xwl_en_buf2 wl_en0 wl_en vdd vss control_logic_bufbuf_16
+Xwl_en_buf3 wl_en0 wl_en vdd vss control_logic_bufbuf_16
+Xwl_en_buf4 wl_en0 wl_en vdd vss control_logic_bufbuf_16
 Xsae_buf sense_en0 sense_en vdd vss control_logic_bufbuf_16
 Xpc_b_buf pc_b0 pc_b vdd vss control_logic_bufbuf_16
 Xwr_drv_buf write_driver_en0 write_driver_en vdd vss control_logic_bufbuf_16
 
-Xdummy_bl_pulldown dummy_bl wl_en vss vss sky130_fd_pr__nfet_01v8 w=0.420 l=0.15
+Xwbl_pulldown_en wl_en write_driver_en wbl_pulldown_en vdd vss control_logic_and2
+Xdummy_bl_pulldown dummy_bl wbl_pulldown_en vss vss sky130_fd_pr__nfet_01v8 w=0.420 l=0.15
 .ends
 

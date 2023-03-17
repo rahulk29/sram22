@@ -412,11 +412,14 @@ mod tests {
         let ctx = setup_ctx();
         let corners = ctx.corner_db();
 
+        let short = false;
+        let short_str = if short { "short" } else { "long" };
+
         for vdd in [1.5, 1.8, 2.0] {
-            let tb = tb_params(params.clone(), vdd, true);
+            let tb = tb_params(params.clone(), vdd, short);
             for corner in corners.corners() {
-                println!("Testing corner {} with Vdd = {}", corner.name(), vdd);
-                let work_dir = test_work_dir(&format!("{}/{}_{:.2}", name, corner.name(), vdd));
+                println!("Testing corner {} with Vdd = {}, short = {}", corner.name(), vdd, short);
+                let work_dir = test_work_dir(&format!("{}/{}_{:.2}_{}", name, corner.name(), vdd, short_str));
                 ctx.write_simulation_with_corner::<SramTestbench>(&tb, &work_dir, corner.clone())
                     .expect("failed to run simulation");
             }
