@@ -6,10 +6,10 @@ use substrate::component::{Component, NoParams};
 
 use subgeom::orientation::Named;
 use subgeom::Shape;
-use substrate::layout::cell::{CellPort, PortId};
+use substrate::layout::cell::{CellPort, PortConflictStrategy, PortId};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerKey;
-use substrate::layout::placement::grid::{GridTiler, PortConflictStrategy};
+use substrate::layout::placement::grid::GridTiler;
 use substrate::layout::placement::nine_patch::{NpTiler, Region};
 use substrate::layout::placement::tile::OptionTile;
 use substrate::{into_grid, into_vec};
@@ -84,7 +84,7 @@ impl Component for SpCellArrayCornerUl {
 
         let mut grid_tiler = GridTiler::new(into_grid![[corner, colend][rowend, cell]]);
         grid_tiler.expose_ports(
-            |port: CellPort, i, j| corner_port_map_fn(port, i, j, 0, 0, vmetal, hmetal),
+            |port: CellPort, (i, j)| corner_port_map_fn(port, i, j, 0, 0, vmetal, hmetal),
             PortConflictStrategy::Merge,
         )?;
         ctx.add_ports(grid_tiler.ports().cloned());
@@ -134,7 +134,7 @@ impl Component for SpCellArrayCornerUr {
         let mut grid_tiler =
             GridTiler::new(into_grid![[colend_p_cent, colend, corner][wlstrap_p, cell, rowend]]);
         grid_tiler.expose_ports(
-            |port: CellPort, i, j| corner_port_map_fn(port, i, j, 0, 2, vmetal, hmetal),
+            |port: CellPort, (i, j)| corner_port_map_fn(port, i, j, 0, 2, vmetal, hmetal),
             PortConflictStrategy::Merge,
         )?;
         ctx.add_ports(grid_tiler.ports().cloned());
@@ -196,7 +196,7 @@ impl Component for SpCellArrayCornerLr {
                     [colend_p_cent, colend, corner]
         ]);
         grid_tiler.expose_ports(
-            |port: CellPort, i, j| corner_port_map_fn(port, i, j, 2, 2, vmetal, hmetal),
+            |port: CellPort, (i, j)| corner_port_map_fn(port, i, j, 2, 2, vmetal, hmetal),
             PortConflictStrategy::Merge,
         )?;
         ctx.add_ports(grid_tiler.ports().cloned());
@@ -253,7 +253,7 @@ impl Component for SpCellArrayCornerLl {
                     [corner, colend]
         ]);
         grid_tiler.expose_ports(
-            |port: CellPort, i, j| corner_port_map_fn(port, i, j, 2, 0, vmetal, hmetal),
+            |port: CellPort, (i, j)| corner_port_map_fn(port, i, j, 2, 0, vmetal, hmetal),
             PortConflictStrategy::Merge,
         )?;
         ctx.add_ports(grid_tiler.ports().cloned());
@@ -291,7 +291,6 @@ impl Component for SpCellArrayLeft {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let vmetal = ctx.layers().get(Selector::Metal(1))?;
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         let rowend_replica = ctx.instantiate::<SpRowend>(&NoParams)?;
         let mut rowenda_replica = ctx.instantiate::<SpRowenda>(&NoParams)?;
@@ -317,7 +316,7 @@ impl Component for SpCellArrayLeft {
 
         let mut grid_tiler = GridTiler::new(grid);
         grid_tiler.expose_ports(
-            |port: CellPort, i, j| {
+            |port: CellPort, (i, j)| {
                 let mut new_port = CellPort::new(if port.name() == "wl" {
                     PortId::new("wl", i - 1)
                 } else {
@@ -424,7 +423,7 @@ impl Component for SpCellArrayTop {
         let vmetal = ctx.layers().get(Selector::Metal(1))?;
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
-            |port: CellPort, i, j| {
+            |port: CellPort, (i, j)| {
                 let mut new_port = CellPort::new(if ["bl", "br"].contains(&port.name().as_ref()) {
                     PortId::new(port.name(), j - 1)
                 } else {
@@ -571,7 +570,7 @@ impl Component for SpCellArrayBottom {
         let vmetal = ctx.layers().get(Selector::Metal(1))?;
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
-            |port: CellPort, i, j| {
+            |port: CellPort, (i, j)| {
                 let mut new_port = CellPort::new(if ["bl", "br"].contains(&port.name().as_ref()) {
                     PortId::new(port.name(), j - 1)
                 } else {
@@ -649,7 +648,7 @@ impl Component for SpCellArrayRight {
         let mut grid_tiler = GridTiler::new(grid);
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
-            |port: CellPort, i, j| {
+            |port: CellPort, (i, j)| {
                 let mut new_port = CellPort::new(if port.name() == "wl" {
                     PortId::new("wl", i - 1)
                 } else {
@@ -717,7 +716,7 @@ impl SpCellArray {
         let vmetal = ctx.layers().get(Selector::Metal(1))?;
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
-            |mut port: CellPort, i, j| {
+            |mut port: CellPort, (i, j)| {
                 if i == 0 && j == 0 {
                     return Some(port);
                 }

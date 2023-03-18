@@ -93,6 +93,9 @@ impl Component for Sram {
         &self,
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
+        let mut inner = ctx.instantiate::<SramInner>(&self.params)?;
+        ctx.bubble_all_ports(&mut inner);
+        ctx.add_instance(inner);
         Ok(())
     }
     fn layout(

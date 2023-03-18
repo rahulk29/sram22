@@ -2,10 +2,12 @@ use crate::v2::macros::{SpCellOpt1aReplica, SpCellReplica, SpColend, SpCorner, S
 use arcstr::ArcStr;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use subgeom::orientation::Named;
+use subgeom::Shape;
 use substrate::component::{Component, NoParams};
 use substrate::into_grid;
-use subgeom::orientation::Named;
 
+use substrate::layout::cell::{CellPort, PortConflictStrategy, PortId};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::grid::GridTiler;
 use substrate::layout::placement::nine_patch::{NpTiler, Region};
@@ -95,8 +97,27 @@ impl Component for TopBot {
         let colend_flip = colend.with_orientation(Named::ReflectHoriz);
 
         let grid = into_grid![[colend, colend_flip]];
-        let grid = GridTiler::new(grid);
-        ctx.draw(grid)?;
+        let mut grid_tiler = GridTiler::new(grid);
+        let vmetal = ctx.layers().get(Selector::Metal(1))?;
+        grid_tiler.expose_ports(
+            |port: CellPort, (i, j)| {
+                let mut new_port = CellPort::new(if port.name() == "wl" {
+                    PortId::new("wl", i)
+                } else {
+                    port.id().clone()
+                });
+                let shapes: Vec<&Shape> = port.shapes(vmetal).collect();
+
+                if !shapes.is_empty() {
+                    new_port.add_all(vmetal, shapes.into_iter().cloned());
+                    return Some(new_port);
+                }
+                None
+            },
+            PortConflictStrategy::Merge,
+        )?;
+        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.draw(grid_tiler)?;
 
         Ok(())
     }
@@ -126,8 +147,27 @@ impl Component for LeftRight {
         let rowend_flip = rowend.with_orientation(Named::ReflectVert);
 
         let grid = into_grid![[rowend][rowend_flip]];
-        let grid = GridTiler::new(grid);
-        ctx.draw(grid)?;
+        let mut grid_tiler = GridTiler::new(grid);
+        let hmetal = ctx.layers().get(Selector::Metal(2))?;
+        grid_tiler.expose_ports(
+            |port: CellPort, (i, j)| {
+                let mut new_port = CellPort::new(if port.name() == "wl" {
+                    PortId::new("wl", i)
+                } else {
+                    port.id().clone()
+                });
+                let shapes: Vec<&Shape> = port.shapes(hmetal).collect();
+
+                if !shapes.is_empty() {
+                    new_port.add_all(hmetal, shapes.into_iter().cloned());
+                    return Some(new_port);
+                }
+                None
+            },
+            PortConflictStrategy::Merge,
+        )?;
+        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.draw(grid_tiler)?;
 
         Ok(())
     }
@@ -206,6 +246,9 @@ impl Component for ReplicaCellArray {
             .with_orientation(Named::ReflectHoriz);
         let corner_lr = corner_ul.clone().with_orientation(Named::R180);
 
+        let nx = self.params.cols / 2;
+        let ny = self.params.rows / 2;
+
         let tiler = NpTiler::builder()
             .set(Region::CornerUl, &corner_ul)
             .set(Region::Left, &left)
@@ -216,11 +259,64 @@ impl Component for ReplicaCellArray {
             .set(Region::CornerUr, &corner_ur)
             .set(Region::Right, &right)
             .set(Region::CornerLr, &corner_lr)
-            .nx(self.params.cols / 2)
-            .ny(self.params.rows / 2)
+            .nx(nx)
+            .ny(ny)
             .build();
 
-        ctx.draw(tiler)?;
+        let mut grid_tiler = tiler.into_grid_tiler();
+        let vmetal = ctx.layers().get(Selector::Metal(1))?;
+        let hmetal = ctx.layers().get(Selector::Metal(2))?;
+        grid_tiler.expose_ports(
+            |port: CellPort, (i, j)| {
+                if (i == 0 || i == ny + 1) && (j == 0 || j == nx + 1) {
+                    return Some(port);
+                }
+                let mut new_port = CellPort::new(if ["bl", "br"].contains(&port.name().as_ref()) {
+                    PortId::new(port.name(), 2 * (j - 1) + port.id().index())
+                } else if port.name() == "wl" {
+                    PortId::new(port.name(), 2 * (i - 1) + port.id().index())
+                } else {
+                    port.id().clone()
+                });
+                if j == 0 {
+                    let shapes: Vec<&Shape> = port.shapes(hmetal).collect();
+
+                    if !shapes.is_empty() {
+                        new_port.add_all(hmetal, shapes.into_iter().cloned());
+                        return Some(new_port);
+                    }
+                } else if i == 0 {
+                    if !["bl", "br"].contains(&port.name().as_ref()) {
+                        let shapes: Vec<&Shape> = port.shapes(vmetal).collect();
+
+                        if !shapes.is_empty() {
+                            new_port.add_all(vmetal, shapes.into_iter().cloned());
+                            return Some(new_port);
+                        }
+                    }
+                } else if i == ny + 1 {
+                    let shapes: Vec<&Shape> = port.shapes(vmetal).collect();
+
+                    if !shapes.is_empty() {
+                        new_port.add_all(vmetal, shapes.into_iter().cloned());
+                        return Some(new_port);
+                    }
+                } else if j == nx + 1 {
+                    if port.name() != "wl" {
+                        let shapes: Vec<&Shape> = port.shapes(hmetal).collect();
+
+                        if !shapes.is_empty() {
+                            new_port.add_all(hmetal, shapes.into_iter().cloned());
+                            return Some(new_port);
+                        }
+                    }
+                }
+                None
+            },
+            PortConflictStrategy::Merge,
+        )?;
+        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.draw(grid_tiler)?;
 
         Ok(())
     }

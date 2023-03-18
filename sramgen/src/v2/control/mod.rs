@@ -3,10 +3,10 @@ use std::path::PathBuf;
 use arcstr::ArcStr;
 use codegen::hard_macro;
 
+use subgeom::Corner;
 use substrate::component::{Component, NoParams, View};
 use substrate::data::SubstrateCtx;
 use substrate::index::IndexOwned;
-use subgeom::Corner;
 use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::place_bbox::PlaceBbox;
@@ -32,6 +32,13 @@ fn path(_ctx: &SubstrateCtx, name: &str, view: View) -> Option<PathBuf> {
     spice_subckt_name = "sramgen_control_logic_replica_v1"
 )]
 pub struct ControlLogicReplicaV1;
+
+#[hard_macro(
+    name = "sramgen_control_logic_replica_v2",
+    pdk = "sky130-open",
+    path_fn = "path"
+)]
+pub struct ControlLogicReplicaV2;
 
 pub struct DffArray {
     n: usize,

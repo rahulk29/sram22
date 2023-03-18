@@ -4,16 +4,16 @@ use std::sync::Arc;
 pub use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use ngspice::Ngspice;
-#[cfg(feature = "calibre")]
+#[cfg(feature = "commercial")]
 use sky130_commercial_pdk::Sky130CommercialPdk;
 use sky130_open_pdk::Sky130OpenPdk;
-#[cfg(feature = "spectre")]
+#[cfg(feature = "commercial")]
 use spectre::Spectre;
-#[cfg(feature = "calibre")]
+#[cfg(feature = "commercial")]
 use sub_calibre::CalibreDrc;
-#[cfg(feature = "calibre")]
+#[cfg(feature = "commercial")]
 use sub_calibre::CalibreLvs;
-#[cfg(feature = "calibre")]
+#[cfg(feature = "commercial")]
 use sub_calibre::CalibrePex;
 use substrate::data::{SubstrateConfig, SubstrateCtx};
 use substrate::pdk::{Pdk, PdkParams};
@@ -41,7 +41,7 @@ pub mod verilog;
 pub const BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
 pub const LIB_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/lib");
 pub const SKY130_OPEN_PDK_ROOT: &str = env!("SKY130_OPEN_PDK_ROOT");
-#[cfg(feature = "calibre")]
+#[cfg(feature = "commercial")]
 pub const SKY130_COMMERCIAL_PDK_ROOT: &str = env!("SKY130_COMMERCIAL_PDK_ROOT");
 
 lazy_static! {
@@ -70,15 +70,15 @@ where
 }
 
 pub fn setup_ctx() -> SubstrateCtx {
-    #[cfg(not(feature = "spectre"))]
+    #[cfg(not(feature = "commercial"))]
     let simulator = Ngspice::new(SimulatorOpts::default()).unwrap();
 
-    #[cfg(feature = "spectre")]
+    #[cfg(feature = "commercial")]
     let simulator = Spectre::new(SimulatorOpts::default()).unwrap();
 
     let builder = SubstrateConfig::builder();
 
-    #[cfg(feature = "calibre")]
+    #[cfg(feature = "commercial")]
     let builder = builder
         .pdk(Arc::new(
             Sky130CommercialPdk::new(&PdkParams {
@@ -103,7 +103,7 @@ pub fn setup_ctx() -> SubstrateCtx {
         .pex_tool(Arc::new(CalibrePex::new(PathBuf::from(
             crate::verification::calibre::SKY130_PEX_RULES_PATH,
         ))));
-    #[cfg(not(feature = "calibre"))]
+    #[cfg(not(feature = "commercial"))]
     let builder = builder.pdk(Arc::new(
         Sky130OpenPdk::new(&PdkParams {
             pdk_root: PathBuf::from(SKY130_OPEN_PDK_ROOT),

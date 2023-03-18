@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
-use substrate::component::Component;
-use substrate::layout::cell::CellPort;
-use substrate::layout::elements::via::{Via, ViaParams};
 use subgeom::bbox::BoundBox;
 use subgeom::ring::Ring;
 use subgeom::Rect;
+use substrate::component::Component;
+use substrate::layout::cell::CellPort;
+use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerKey;
 

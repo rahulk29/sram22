@@ -7,13 +7,13 @@ use substrate::component::{Component, NoParams};
 use substrate::error::Result;
 use substrate::index::IndexOwned;
 
-use substrate::layout::cell::{CellPort, Element, Port};
-use substrate::layout::context::LayoutCtx;
-use substrate::layout::elements::via::{Via, ViaParams};
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
 use subgeom::transform::Translate;
 use subgeom::{Corner, Dir, Point, Rect, Sign, Span};
+use substrate::layout::cell::{CellPort, Element, Port, PortConflictStrategy};
+use substrate::layout::context::LayoutCtx;
+use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::group::elements::ElementGroup;
 use substrate::layout::DrawRef;
 
@@ -64,12 +64,15 @@ pub(crate) fn decoder_stage_layout(
 
     let period_group = period_tiler.draw_ref()?;
 
-    let tiler = ArrayTiler::builder()
+    let mut tiler = ArrayTiler::builder()
         .push(tap)
         .push_num(period_group, params.num / dsn.tap_period)
         .mode(AlignMode::ToTheRight)
         .alt_mode(AlignMode::CenterVertical)
         .build();
+
+    tiler.expose_ports(|port, _| Some(port), PortConflictStrategy::Merge)?;
+    ctx.add_ports(tiler.ports().cloned());
 
     ctx.draw_ref(&tiler)?;
 
@@ -236,6 +239,8 @@ impl Predecoder {
         if node.children.is_empty() {
             ctx.add_ports(inst.ports_starting_with("predecode"));
         }
+        ctx.add_port(inst.port("vdd")?);
+        ctx.add_port(inst.port("vss")?);
 
         let mut x = 0;
         let mut next_addr = (0, 0);
@@ -334,8 +339,9 @@ pub struct DecoderGate {
 pub struct DecoderGateSpans {
     /// Span of layers that need to be abutted between adjacent cells.
     abutted_layers: HashMap<LayerKey, Vec<Span>>,
-    /// Mapping of routing span to span of enclosing diffusion layer.
-    met_to_diff: HashMap<Span, Span>,
+    /// Mapping of routing span to the name of its corresponding port and the
+    /// span of enclosing diffusion layer.
+    met_to_diff: HashMap<Span, (String, Span)>,
 }
 
 impl Component for DecoderGate {
@@ -369,7 +375,7 @@ impl Component for DecoderGate {
         gate.set_orientation(Named::R90);
         gate.place_center_x(dsn.width / 2);
         ctx.add_ports(gate.ports());
-        ctx.draw(gate)?;
+        ctx.draw_ref(&gate)?;
 
         ctx.flatten();
 
@@ -388,26 +394,45 @@ impl Component for DecoderGate {
             }
         }
 
-        let rects: Vec<Rect> = abutted_layers[&nsdm]
+        let spans: Vec<(Span, &str)> = abutted_layers[&nsdm]
             .iter()
-            .chain(abutted_layers[&psdm].iter())
-            .map(|span| {
-                let vspan = Span::from_center_span_gridded(
-                    span.center(),
-                    dsn.rail_width,
-                    ctx.pdk().layout_grid(),
-                );
-                met_to_diff.insert(vspan, *span);
-                Rect::from_spans(hspan, vspan)
-            })
+            .map(|span| (*span, "vss"))
+            .chain(abutted_layers[&psdm].iter().map(|span| (*span, "vdd")))
             .collect();
 
-        for rect in rects {
+        let mut via_metals = Vec::new();
+        via_metals.push(dsn.li);
+        via_metals.extend(dsn.via_metals.clone());
+        via_metals.push(dsn.stripe_metal);
+
+        for (span, port_name) in spans {
+            let vspan = Span::from_center_span_gridded(
+                span.center(),
+                dsn.rail_width,
+                ctx.pdk().layout_grid(),
+            );
+            met_to_diff.insert(vspan, (port_name.to_string(), span));
+            let rect = Rect::from_spans(hspan, vspan);
             ctx.draw_rect(dsn.stripe_metal, rect);
+            ctx.merge_port(CellPort::with_shape(port_name, dsn.stripe_metal, rect));
             abutted_layers
                 .entry(dsn.stripe_metal)
                 .or_insert(Vec::new())
                 .push(rect.vspan());
+            for port_rect in gate
+                .port(port_name)?
+                .shapes(dsn.li)
+                .filter_map(|shape| shape.as_rect())
+            {
+                let intersection = rect.intersection(port_rect.bbox());
+                if !intersection.is_empty() {
+                    let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
+                        rect: intersection.into_rect(),
+                        via_metals: via_metals.clone(),
+                    })?;
+                    ctx.draw(via)?;
+                }
+            }
         }
 
         ctx.draw(group)?;
@@ -469,7 +494,12 @@ impl Component for DecoderTap {
                 continue;
             }
             for vspan in spans {
-                ctx.draw_rect(*layer, Rect::from_spans(hspan, *vspan));
+                let rect = Rect::from_spans(hspan, *vspan);
+                ctx.draw_rect(*layer, rect);
+                if *layer == dsn.stripe_metal {
+                    let (port_name, _) = &gate_spans.met_to_diff[vspan];
+                    ctx.merge_port(CellPort::with_shape(port_name, *layer, rect));
+                }
             }
         }
 
@@ -495,8 +525,9 @@ impl Component for DecoderTap {
         via_metals.push(dsn.stripe_metal);
         if let Some(spans) = gate_spans.abutted_layers.get(&dsn.stripe_metal) {
             for vspan in spans {
+                let (_, vspan_diff) = gate_spans.met_to_diff[vspan];
                 let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
-                    rect: Rect::from_spans(hspan, gate_spans.met_to_diff[vspan].shrink_all(290)),
+                    rect: Rect::from_spans(hspan, vspan_diff.shrink_all(290)),
                     via_metals: vec![tap, dsn.li],
                 })?;
                 ctx.draw(via)?;

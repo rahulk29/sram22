@@ -9,7 +9,7 @@ use crate::v2::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams
 use crate::v2::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::v2::buf::DiffBufParams;
 use crate::v2::columns::{ColParams, ColPeripherals};
-use crate::v2::control::{ControlLogicReplicaV1, DffArray};
+use crate::v2::control::{ControlLogicReplicaV1, ControlLogicReplicaV2, DffArray};
 use crate::v2::decoder::{
     Decoder, DecoderParams, DecoderStageParams, DecoderTree, WlDriver, WmuxDriver,
 };
@@ -46,16 +46,20 @@ impl SramInner {
         let wmux_sel = ctx.bus("wmux_sel", self.params.mux_ratio);
         let wmux_sel_b = ctx.bus("wmux_sel_b", self.params.mux_ratio);
 
-        let [we_in, we_in_b, rbl, rbr, pc_b, wl_en, write_driver_en, sense_en] = ctx.signals([
-            "we_in",
-            "we_in_b",
-            "rbl",
-            "rbr",
-            "pc_b",
-            "wl_en",
-            "write_driver_en",
-            "sense_en",
-        ]);
+        let [we_in, we_in_b, dummy_bl, dummy_br, rbl, rbr, pc_b, wl_en0, wl_en, write_driver_en, sense_en] =
+            ctx.signals([
+                "we_in",
+                "we_in_b",
+                "dummy_bl",
+                "dummy_br",
+                "rbl",
+                "rbr",
+                "pc_b",
+                "wl_en0",
+                "wl_en",
+                "write_driver_en",
+                "sense_en",
+            ]);
 
         let tree = DecoderTree::new(self.params.row_bits);
 
@@ -124,12 +128,14 @@ impl SramInner {
             ])
             .named("wmux_driver")
             .add_to(ctx);
-        ctx.instantiate::<ControlLogicReplicaV1>(&NoParams)?
+        ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?
             .with_connections([
                 ("clk", clk),
                 ("we", we_in),
                 ("rbl", rbl),
+                ("dummy_bl", dummy_bl),
                 ("pc_b", pc_b),
+                ("wl_en0", wl_en0),
                 ("wl_en", wl_en),
                 ("write_driver_en", write_driver_en),
                 ("sense_en", sense_en),
@@ -156,6 +162,8 @@ impl SramInner {
         .with_connections([
             ("vdd", vdd),
             ("vss", vss),
+            ("dummy_bl", dummy_bl),
+            ("dummy_br", dummy_br),
             ("bl", bl),
             ("br", br),
             ("wl", wl),
@@ -174,7 +182,7 @@ impl SramInner {
             ("vss", vss),
             ("rbl", rbl),
             ("rbr", rbr),
-            ("rwl", wl_en),
+            ("rwl", wl_en0),
         ])
         .named("replica_bitcell_array")
         .add_to(ctx);
@@ -200,6 +208,16 @@ impl SramInner {
         ctx.instantiate::<Precharge>(&self.col_params().pc)?
             .with_connections([("vdd", vdd), ("bl", rbl), ("br", rbr), ("en_b", pc_b)])
             .named("replica_precharge")
+            .add_to(ctx);
+
+        ctx.instantiate::<Precharge>(&self.col_params().pc)?
+            .with_connections([
+                ("vdd", vdd),
+                ("bl", dummy_bl),
+                ("br", dummy_br),
+                ("en_b", pc_b),
+            ])
+            .named("dummy_precharge")
             .add_to(ctx);
 
         Ok(())

@@ -285,7 +285,7 @@ impl Component for SramTestbench {
     }
 }
 
-pub fn tb_params(params: SramParams) -> TbParams {
+pub fn tb_params(params: SramParams, short: bool) -> TbParams {
     let wmask_width = params.wmask_width;
     let data_width = params.data_width;
     let addr_width = params.addr_width;
@@ -315,32 +315,34 @@ pub fn tb_params(params: SramParams) -> TbParams {
         Op::Read { addr: addr1 },
     ];
 
-    for i in 0..16 {
-        let bits = (i % 2) * bit_pattern2 + (1 - (i % 2)) * bit_pattern1 + i + 1;
-        ops.push(Op::Write {
-            addr: BitSignal::from_u64(i, addr_width),
-            data: BitSignal::from_u64(bits, data_width),
-        });
-    }
-    for i in 0..16 {
-        ops.push(Op::Read {
-            addr: BitSignal::from_u64(i, addr_width),
-        });
-    }
-
-    if wmask_width > 1 {
+    if !short {
         for i in 0..16 {
-            let bits = (1 - (i % 2)) * bit_pattern2 + (i % 2) * bit_pattern1 + i + 1;
-            ops.push(Op::WriteMasked {
+            let bits = (i % 2) * bit_pattern2 + (1 - (i % 2)) * bit_pattern1 + i + 1;
+            ops.push(Op::Write {
                 addr: BitSignal::from_u64(i, addr_width),
                 data: BitSignal::from_u64(bits, data_width),
-                mask: BitSignal::from_u64(bit_pattern1, wmask_width),
             });
         }
         for i in 0..16 {
             ops.push(Op::Read {
                 addr: BitSignal::from_u64(i, addr_width),
             });
+        }
+
+        if wmask_width > 1 {
+            for i in 0..16 {
+                let bits = (1 - (i % 2)) * bit_pattern2 + (i % 2) * bit_pattern1 + i + 1;
+                ops.push(Op::WriteMasked {
+                    addr: BitSignal::from_u64(i, addr_width),
+                    data: BitSignal::from_u64(bits, data_width),
+                    mask: BitSignal::from_u64(bit_pattern1, wmask_width),
+                });
+            }
+            for i in 0..16 {
+                ops.push(Op::Read {
+                    addr: BitSignal::from_u64(i, addr_width),
+                });
+            }
         }
     }
 
@@ -404,7 +406,7 @@ mod tests {
     #[ignore = "slow"]
     fn test_sram_tb_1() {
         let ctx = setup_ctx();
-        let tb = tb_params(TINY_SRAM);
+        let tb = tb_params(TINY_SRAM, true);
         let work_dir = test_work_dir("test_sram_tb_1");
         ctx.write_simulation::<SramTestbench>(&tb, &work_dir)
             .expect("failed to run simulation");

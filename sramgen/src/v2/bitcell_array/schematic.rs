@@ -13,6 +13,8 @@ impl SpCellArray {
     ) -> substrate::error::Result<()> {
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
+        let dummy_bl = ctx.port("dummy_bl", Direction::InOut);
+        let dummy_br = ctx.port("dummy_br", Direction::InOut);
         let bl = ctx.bus_port("bl", self.params.cols, Direction::InOut);
         let br = ctx.bus_port("br", self.params.cols, Direction::InOut);
         let wl = ctx.bus_port("wl", self.params.rows, Direction::Input);
@@ -83,7 +85,13 @@ impl SpCellArray {
             } else {
                 wl.index(i - 1)
             };
-            make_cell(ctx, wl, vdd, vdd, arcstr::format!("dummy_col_left_{i}"))?;
+            make_cell(
+                ctx,
+                wl,
+                dummy_bl,
+                dummy_br,
+                arcstr::format!("dummy_col_left_{i}"),
+            )?;
             make_cell(ctx, wl, vdd, vdd, arcstr::format!("dummy_col_right_{i}"))?;
         }
 
