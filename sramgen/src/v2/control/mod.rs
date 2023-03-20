@@ -7,6 +7,7 @@ use subgeom::Corner;
 use substrate::component::{Component, NoParams, View};
 use substrate::data::SubstrateCtx;
 use substrate::index::IndexOwned;
+use substrate::layout::cell::CellPort;
 use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::place_bbox::PlaceBbox;
@@ -84,17 +85,25 @@ impl Component for DffArray {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let mut dff = ctx.instantiate::<Dff>(&NoParams)?;
-        let tiler = ArrayTiler::builder()
+        let mut tiler = ArrayTiler::builder()
             .mode(AlignMode::ToTheRight)
             .push_num(dff.clone(), self.n)
             .build();
 
-        for i in 0..self.n {
-            dff.place(Corner::LowerLeft, tiler.cell(i).corner(Corner::LowerLeft));
-            for port in ["q", "qn", "clk", "d"] {
-                ctx.add_port(dff.port(port)?.into_cell_port().named(bus_bit(port, i)));
-            }
-        }
+        tiler.expose_ports(
+            |port: CellPort, i| {
+                if ["vdd", "vss"].contains(&port.name().as_ref()) {
+                    Some(port)
+                } else {
+                    let port = port.with_index(i);
+                    println!("{port:?}");
+                    Some(port)
+                }
+            },
+            substrate::layout::cell::PortConflictStrategy::Merge,
+        );
+        ctx.add_ports(tiler.ports().cloned());
+
         ctx.draw(tiler)?;
         Ok(())
     }

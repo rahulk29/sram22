@@ -101,7 +101,7 @@ impl Component for TopBot {
         let mut grid_tiler = GridTiler::new(grid);
         let vmetal = ctx.layers().get(Selector::Metal(1))?;
         grid_tiler.expose_ports(
-            |port: CellPort, (i, j)| {
+            |port: CellPort, (i, _j)| {
                 let mut new_port = CellPort::new(if port.name() == "wl" {
                     PortId::new("wl", i)
                 } else {
@@ -151,7 +151,7 @@ impl Component for LeftRight {
         let mut grid_tiler = GridTiler::new(grid);
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
-            |port: CellPort, (i, j)| {
+            |port: CellPort, (i, _j)| {
                 let mut new_port = CellPort::new(if port.name() == "wl" {
                     PortId::new("wl", i)
                 } else {
@@ -303,13 +303,11 @@ impl Component for ReplicaCellArray {
                         return Some(new_port);
                     }
                 } else if j == nx + 1 {
-                    if port.name() != "wl" {
-                        let shapes: Vec<&Shape> = port.shapes(hmetal).collect();
+                    let shapes: Vec<&Shape> = port.shapes(hmetal).collect();
 
-                        if !shapes.is_empty() {
-                            new_port.add_all(hmetal, shapes.into_iter().cloned());
-                            return Some(new_port);
-                        }
+                    if !shapes.is_empty() {
+                        new_port.add_all(hmetal, shapes.into_iter().cloned());
+                        return Some(new_port);
                     }
                 }
                 None

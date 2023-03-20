@@ -13,7 +13,7 @@ use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::routing::auto::grid::{
     ExpandToGridStrategy, JogToGrid, OffGridBusTranslation,
 };
-use substrate::layout::routing::auto::straps::RoutedStraps;
+use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
 use substrate::layout::routing::manual::jog::SJog;
 use substrate::layout::straps::SingleSupplyNet;
@@ -200,13 +200,13 @@ impl SramInner {
             ports.reverse();
 
             for i in 0..num {
-                let src = dffs.port(&bus_bit("q", ctr))?.largest_rect(m2)?;
+                let src = dffs.port(PortId::new("q", ctr))?.largest_rect(m2)?;
                 let src = router.expand_to_layer_grid(src, m2, ExpandToGridStrategy::Minimum);
                 let src = router.expand_to_layer_grid(src, m3, ExpandToGridStrategy::Minimum);
                 ctx.draw_rect(m2, src);
                 let dst = ports[2 * i];
                 router.route(ctx, m2, src, m2, dst)?;
-                let src = dffs.port(&bus_bit("qn", ctr))?.largest_rect(m2)?;
+                let src = dffs.port(PortId::new("qn", ctr))?.largest_rect(m2)?;
                 let src = router.expand_to_layer_grid(src, m2, ExpandToGridStrategy::Minimum);
                 let src = router.expand_to_layer_grid(src, m3, ExpandToGridStrategy::Minimum);
                 ctx.draw_rect(m2, src);
@@ -449,6 +449,35 @@ impl SramInner {
                             ),
                         );
                         ctx.draw_rect(layer, rect);
+                    }
+                }
+            }
+        }
+
+        // Connect decoders and DFFs to power straps.
+        for (inst, layer) in [
+            (decoder, m1),
+            (wl_driver, m1),
+            (p1, m2),
+            (p2, m2),
+            (col_dec, m2),
+            (wmux_driver, m2),
+            (dffs, m2),
+        ] {
+            for port_name in ["vdd", "vss"] {
+                for port in inst.port(port_name)?.shapes(layer) {
+                    if let Shape::Rect(rect) = port {
+                        straps.add_target(
+                            layer,
+                            Target::new(
+                                match port_name {
+                                    "vdd" => SingleSupplyNet::Vdd,
+                                    "vss" => SingleSupplyNet::Vss,
+                                    _ => unreachable!(),
+                                },
+                                rect,
+                            ),
+                        );
                     }
                 }
             }
