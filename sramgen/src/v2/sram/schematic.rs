@@ -9,7 +9,7 @@ use crate::v2::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams
 use crate::v2::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::v2::buf::DiffBufParams;
 use crate::v2::columns::{ColParams, ColPeripherals};
-use crate::v2::control::{ControlLogicReplicaV1, ControlLogicReplicaV2, DffArray};
+use crate::v2::control::{ControlLogicReplicaV2, DffArray};
 use crate::v2::decoder::{
     Decoder, DecoderParams, DecoderStageParams, DecoderTree, WlDriver, WmuxDriver,
 };
@@ -61,10 +61,10 @@ impl SramInner {
                 "sense_en",
             ]);
 
-        let tree = DecoderTree::new(self.params.row_bits);
+        let tree = DecoderTree::with_scale(self.params.row_bits, 1);
 
         let driver_params = DecoderStageParams {
-            gate: tree.root.gate,
+            gate: tree.root.gate.scale(2),
             num: tree.root.num,
             child_sizes: tree.root.children.iter().map(|n| n.num).collect(),
         };
@@ -95,7 +95,7 @@ impl SramInner {
             .named("wl_driver")
             .add_to(ctx);
 
-        let col_tree = DecoderTree::new(self.params.col_select_bits);
+        let col_tree = DecoderTree::with_scale(self.params.col_select_bits, 2);
         let col_decoder_params = DecoderParams {
             tree: col_tree.clone(),
         };

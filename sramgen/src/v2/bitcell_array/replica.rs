@@ -26,6 +26,7 @@ pub struct ReplicaCellArrayParams {
     pub cols: usize,
 }
 
+#[allow(unused)]
 pub struct Center {
     params: TapRatio,
 }

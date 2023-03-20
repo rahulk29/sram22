@@ -35,6 +35,10 @@ pub struct TbParams {
     pub vdd: f64,
     /// Capacitance on output pins.
     pub c_load: f64,
+    /// Hold time in seconds.
+    ///
+    /// Specifies how long data should be held after the clock edge.
+    pub t_hold: f64,
 
     /// SRAM configuration to test.
     pub sram: SramParams,
@@ -129,6 +133,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
 
     for op in params.ops.iter() {
         t_end = t + period;
+        let t_data = t_end + params.t_hold;
         // Toggle the clock
         clk.push_high(t + (period / 2.0), vdd, tr);
         clk.push_low(t + period, vdd, tf);
@@ -136,23 +141,23 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
         match op {
             Op::Read { addr: addrv } => {
                 // Set write enable low
-                we.push_low(t_end, vdd, tf);
+                we.push_low(t_data, vdd, tf);
 
                 assert_eq!(addrv.width(), params.sram.addr_width);
-                push_bus(&mut addr, &addrv, t_end, vdd, tr, tf);
+                push_bus(&mut addr, &addrv, t_data, vdd, tr, tf);
             }
             Op::Write { addr: addrv, data } => {
                 // Set write enable high
-                we.push_high(t_end, vdd, tr);
+                we.push_high(t_data, vdd, tr);
 
                 assert_eq!(addrv.width(), params.sram.addr_width);
-                push_bus(&mut addr, addrv, t_end, vdd, tr, tf);
+                push_bus(&mut addr, addrv, t_data, vdd, tr, tf);
 
                 assert_eq!(data.width(), params.sram.data_width);
-                push_bus(&mut din, data, t_end, vdd, tr, tf);
+                push_bus(&mut din, data, t_data, vdd, tr, tf);
 
                 if params.sram.wmask_width > 1 {
-                    push_bus(&mut wmask, &wmask_all, t_end, vdd, tr, tf);
+                    push_bus(&mut wmask, &wmask_all, t_data, vdd, tr, tf);
                 }
             }
 
@@ -162,17 +167,17 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 mask,
             } => {
                 // Set write enable high
-                we.push_high(t_end, vdd, tr);
+                we.push_high(t_data, vdd, tr);
 
                 assert_eq!(addrv.width(), params.sram.addr_width);
-                push_bus(&mut addr, addrv, t_end, vdd, tr, tf);
+                push_bus(&mut addr, addrv, t_data, vdd, tr, tf);
 
                 assert_eq!(data.width(), params.sram.data_width);
-                push_bus(&mut din, data, t_end, vdd, tr, tf);
+                push_bus(&mut din, data, t_data, vdd, tr, tf);
 
                 assert!(params.sram.wmask_width > 1);
                 assert_eq!(mask.width(), params.sram.wmask_width);
-                push_bus(&mut wmask, mask, t_end, vdd, tr, tf);
+                push_bus(&mut wmask, mask, t_data, vdd, tr, tf);
             }
         }
 
@@ -180,7 +185,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
     }
 
     t_end = t + period;
-    let t_final = t + 2.0 * period;
+    let t_final = t + 2.0 * period + params.t_hold;
 
     // One more clock cycle
     clk.push_high(t + period / 2.0, vdd, tr);
@@ -203,7 +208,7 @@ impl Component for SramTestbench {
     type Params = TbParams;
     fn new(
         params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
+        _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         Ok(Self {
             params: params.clone(),
@@ -285,7 +290,7 @@ impl Component for SramTestbench {
     }
 }
 
-pub fn tb_params(params: SramParams, short: bool) -> TbParams {
+pub fn tb_params(params: SramParams, vdd: f64, short: bool) -> TbParams {
     let wmask_width = params.wmask_width;
     let data_width = params.data_width;
     let addr_width = params.addr_width;
@@ -350,10 +355,11 @@ pub fn tb_params(params: SramParams, short: bool) -> TbParams {
     let tb = tb
         .ops(ops)
         .clk_period(20e-9)
-        .tr(50e-12)
-        .tf(50e-12)
-        .vdd(1.8)
+        .tr(40e-12)
+        .tf(40e-12)
+        .vdd(vdd)
         .c_load(5e-15)
+        .t_hold(400e-12)
         .sram(params)
         .build()
         .unwrap();
@@ -399,16 +405,42 @@ mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
-    use super::super::tests::TINY_SRAM;
+    use super::super::tests::*;
     use super::*;
+
+    fn test_sram(name: &str, params: SramParams) {
+        let ctx = setup_ctx();
+        let corners = ctx.corner_db();
+
+        let short = false;
+        let short_str = if short { "short" } else { "long" };
+
+        for vdd in [1.5, 1.8, 2.0] {
+            let tb = tb_params(params.clone(), vdd, short);
+            for corner in corners.corners() {
+                println!("Testing corner {} with Vdd = {}, short = {}", corner.name(), vdd, short);
+                let work_dir = test_work_dir(&format!("{}/{}_{:.2}_{}", name, corner.name(), vdd, short_str));
+                ctx.write_simulation_with_corner::<SramTestbench>(&tb, &work_dir, corner.clone())
+                    .expect("failed to run simulation");
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "slow"]
+    fn test_sram_tb_tiny() {
+        test_sram("test_sram_tb_tiny", TINY_SRAM);
+    }
 
     #[test]
     #[ignore = "slow"]
     fn test_sram_tb_1() {
-        let ctx = setup_ctx();
-        let tb = tb_params(TINY_SRAM, true);
-        let work_dir = test_work_dir("test_sram_tb_1");
-        ctx.write_simulation::<SramTestbench>(&tb, &work_dir)
-            .expect("failed to run simulation");
+        test_sram("test_sram_tb_1", PARAMS_1);
+    }
+
+    #[test]
+    #[ignore = "slow"]
+    fn test_sram_tb_2() {
+        test_sram("test_sram_tb_2", PARAMS_2);
     }
 }

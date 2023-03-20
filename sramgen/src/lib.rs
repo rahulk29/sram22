@@ -1,11 +1,12 @@
 use std::path::PathBuf;
-use std::sync::Arc;
 
 pub use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
+#[cfg(not(feature = "commercial"))]
 use ngspice::Ngspice;
 #[cfg(feature = "commercial")]
 use sky130_commercial_pdk::Sky130CommercialPdk;
+#[cfg(not(feature = "commercial"))]
 use sky130_open_pdk::Sky130OpenPdk;
 #[cfg(feature = "commercial")]
 use spectre::Spectre;
@@ -76,17 +77,17 @@ pub fn setup_ctx() -> SubstrateCtx {
     #[cfg(feature = "commercial")]
     let simulator = Spectre::new(SimulatorOpts::default()).unwrap();
 
-    let builder = SubstrateConfig::builder();
+    let mut builder = SubstrateConfig::builder();
 
     #[cfg(feature = "commercial")]
     let builder = builder
-        .pdk(Arc::new(
+        .pdk(
             Sky130CommercialPdk::new(&PdkParams {
                 pdk_root: PathBuf::from(SKY130_COMMERCIAL_PDK_ROOT),
             })
             .unwrap(),
-        ))
-        .drc_tool(Arc::new(
+        )
+        .drc_tool(
             CalibreDrc::builder()
                 .rules_file(PathBuf::from(
                     crate::verification::calibre::SKY130_DRC_RULES_PATH,
@@ -96,25 +97,24 @@ pub fn setup_ctx() -> SubstrateCtx {
                 ))
                 .build()
                 .unwrap(),
-        ))
-        .lvs_tool(Arc::new(CalibreLvs::new(PathBuf::from(
+        )
+        .lvs_tool(CalibreLvs::new(PathBuf::from(
             crate::verification::calibre::SKY130_LVS_RULES_PATH,
-        ))))
-        .pex_tool(Arc::new(CalibrePex::new(PathBuf::from(
+        )))
+        .pex_tool(CalibrePex::new(PathBuf::from(
             crate::verification::calibre::SKY130_PEX_RULES_PATH,
-        ))));
+        )));
     #[cfg(not(feature = "commercial"))]
-    let builder = builder.pdk(Arc::new(
+    let builder = builder.pdk(
         Sky130OpenPdk::new(&PdkParams {
             pdk_root: PathBuf::from(SKY130_OPEN_PDK_ROOT),
         })
         .unwrap(),
-    ));
+    );
 
     let cfg = builder
-        .netlister(Arc::new(SpiceNetlister::new()))
-        .simulator(Arc::new(simulator))
-        .build()
-        .unwrap();
-    SubstrateCtx::from_config(cfg)
+        .netlister(SpiceNetlister::new())
+        .simulator(simulator)
+        .build();
+    SubstrateCtx::from_config(cfg).unwrap()
 }

@@ -53,7 +53,7 @@ impl Component for SpCellArray {
 
 #[cfg(test)]
 mod tests {
-    use subgeom::{Dir, Rect, Shape, Side, Sides, Span};
+    use subgeom::{Dir, Rect, Shape, Side, Span};
     use substrate::component::{Component, NoParams};
     use substrate::layout::cell::Port;
     use substrate::layout::elements::via::{Via, ViaParams};
@@ -63,7 +63,7 @@ mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::v2::bitcell_array::layout::*;
-    use crate::v2::guard_ring::{GuardRingParams, GuardRingWrapper, WrapperParams};
+    use crate::v2::guard_ring::{GuardRingWrapper, WrapperParams};
 
     use super::*;
 
@@ -85,9 +85,7 @@ mod tests {
             params: &Self::Params,
             _ctx: &substrate::data::SubstrateCtx,
         ) -> substrate::error::Result<Self> {
-            Ok(Self {
-                params: params.clone(),
-            })
+            Ok(Self { params: *params })
         }
 
         fn name(&self) -> ArcStr {
@@ -279,9 +277,6 @@ mod tests {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_sp_cell_array_with_guard_ring");
 
-        let layers = ctx.layers();
-        let m1 = layers.get(Selector::Metal(1))?;
-        let m2 = layers.get(Selector::Metal(2))?;
         let params = SpCellArrayWithGuardRingParams {
             inner: SpCellArrayParams {
                 rows: 8,

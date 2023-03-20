@@ -42,8 +42,8 @@ pub(crate) fn verify_simulation(data: &TranData, tb: &TbParams) -> Result<()> {
                     let ex_bit = expected.bit(i);
                     if rx_bit != ex_bit {
                         bail!(
-                            "Expected bit {} to be {}; got {} at clock cycle {} (time {}, index {})",
-                            i, ex_bit, rx_bit, cycle-1, t, idx
+                            "reading addr {}: expected bit {} to be {}; got {} at clock cycle {} (time {}, index {})",
+                            addr, i, ex_bit, rx_bit, cycle-1, t, idx
                         );
                     }
                 }
