@@ -53,10 +53,17 @@ pub(crate) fn decoder_stage_layout(
         dsn: (*dsn).clone(),
     };
     let gate = ctx.instantiate::<DecoderGate>(&decoder_params)?;
+    let mut flipped_gate = ctx.instantiate::<DecoderGate>(&decoder_params)?;
+    flipped_gate.set_orientation(Named::ReflectHoriz);
     let tap = ctx.instantiate::<DecoderTap>(&decoder_params)?;
 
-    let period_tiler = ArrayTiler::builder()
-        .push_num(gate.clone(), dsn.tap_period)
+    let mut period_tiler = ArrayTiler::builder();
+
+    for _ in 0..dsn.tap_period / 2 {
+        period_tiler.push(gate.clone()).push(flipped_gate.clone());
+    }
+
+    let period_tiler = period_tiler
         .push(tap.clone())
         .mode(AlignMode::ToTheRight)
         .alt_mode(AlignMode::CenterVertical)
@@ -71,7 +78,7 @@ pub(crate) fn decoder_stage_layout(
         .alt_mode(AlignMode::CenterVertical)
         .build();
 
-    tiler.expose_ports(|port, _| Some(port), PortConflictStrategy::Merge)?;
+    // tiler.expose_ports(|port, _| Some(port), PortConflictStrategy::Merge)?;
     ctx.add_ports(tiler.ports().cloned());
 
     ctx.draw_ref(&tiler)?;
@@ -671,7 +678,7 @@ impl Script for LastBitDecoderPhysicalDesignScript {
         let nsdm = layers.get(Selector::Name("nsdm"))?;
         Ok(Self::Output {
             width: 1_580,
-            tap_width: 790,
+            tap_width: 1_580,
             tap_period: 8,
             stripe_metal,
             wire_metal,
