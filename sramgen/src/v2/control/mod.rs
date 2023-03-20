@@ -3,17 +3,14 @@ use std::path::PathBuf;
 use arcstr::ArcStr;
 use codegen::hard_macro;
 
-use subgeom::Corner;
 use substrate::component::{Component, NoParams, View};
 use substrate::data::SubstrateCtx;
 use substrate::index::IndexOwned;
 use substrate::layout::cell::CellPort;
 use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::ArrayTiler;
-use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::schematic::circuit::Direction;
 
-use crate::bus_bit;
 use crate::tech::{external_gds_path, external_spice_path};
 
 use super::macros::Dff;
@@ -84,10 +81,10 @@ impl Component for DffArray {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let mut dff = ctx.instantiate::<Dff>(&NoParams)?;
+        let dff = ctx.instantiate::<Dff>(&NoParams)?;
         let mut tiler = ArrayTiler::builder()
             .mode(AlignMode::ToTheRight)
-            .push_num(dff.clone(), self.n)
+            .push_num(dff, self.n)
             .build();
 
         tiler.expose_ports(
@@ -101,7 +98,7 @@ impl Component for DffArray {
                 }
             },
             substrate::layout::cell::PortConflictStrategy::Merge,
-        );
+        )?;
         ctx.add_ports(tiler.ports().cloned());
 
         ctx.draw(tiler)?;

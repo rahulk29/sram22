@@ -9,7 +9,7 @@ use substrate::layout::cell::{Instance, Port, PortId};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::layers::selector::Selector;
-use substrate::layout::placement::align::{AlignMode, AlignRect};
+use substrate::layout::placement::align::AlignRect;
 use substrate::layout::routing::auto::grid::{
     ExpandToGridStrategy, JogToGrid, OffGridBusTranslation,
 };
@@ -160,10 +160,9 @@ impl SramInner {
             ],
         });
 
-        for inst in [&cols] {
-            router.block(m2, inst.brect());
-            router.block(m3, inst.brect());
-        }
+        router.block(m2, cols.brect());
+        router.block(m3, cols.brect());
+
         for inst in [&p1, &p2, &col_dec, &control, &wmux_driver, &dffs] {
             for shape in inst.shapes_on(m2) {
                 let rect = shape.brect();
@@ -247,7 +246,7 @@ impl SramInner {
         p1_ports.reverse();
 
         // Route predecoders to final decoder stage
-        for i in 0..tree.root.children[0].num {
+        for (i, &dst) in p0_ports.iter().enumerate().take(tree.root.children[0].num) {
             let src = p1.port(&format!("decode_{i}"))?.largest_rect(m0)?;
             let src = router.register_jog_to_grid(
                 JogToGrid::builder()
@@ -259,7 +258,6 @@ impl SramInner {
                     .second_dir(Side::Left)
                     .build(),
             );
-            let dst = p0_ports[i];
             router.route(ctx, m1, src, m1, dst)?;
             let via = ctx.instantiate::<Via>(
                 &ViaParams::builder()
@@ -269,7 +267,7 @@ impl SramInner {
             )?;
             ctx.draw(via)?;
         }
-        for i in 0..tree.root.children[1].num {
+        for (i, &dst) in p1_ports.iter().enumerate().take(tree.root.children[1].num) {
             let src = p2.port(&format!("decode_{i}"))?.largest_rect(m0)?;
             let src = router.register_jog_to_grid(
                 JogToGrid::builder()
@@ -281,7 +279,6 @@ impl SramInner {
                     .second_dir(Side::Left)
                     .build(),
             );
-            let dst = p1_ports[i];
             router.route(ctx, m1, src, m1, dst)?;
             let via = ctx.instantiate::<Via>(
                 &ViaParams::builder()

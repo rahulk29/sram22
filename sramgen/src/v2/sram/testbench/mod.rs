@@ -144,7 +144,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 we.push_low(t_data, vdd, tf);
 
                 assert_eq!(addrv.width(), params.sram.addr_width);
-                push_bus(&mut addr, &addrv, t_data, vdd, tr, tf);
+                push_bus(&mut addr, addrv, t_data, vdd, tr, tf);
             }
             Op::Write { addr: addrv, data } => {
                 // Set write enable high

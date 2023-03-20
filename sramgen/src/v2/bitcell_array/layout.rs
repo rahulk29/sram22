@@ -770,14 +770,12 @@ impl SpCellArray {
                         new_port.add_all(vmetal, shapes.into_iter().cloned());
                         return Some(new_port);
                     }
-                } else if j == nx + 1 {
-                    if port.name() != "wl" {
-                        let shapes: Vec<&Shape> = port.shapes(hmetal).collect();
+                } else if j == nx + 1 && port.name() != "wl" {
+                    let shapes: Vec<&Shape> = port.shapes(hmetal).collect();
 
-                        if !shapes.is_empty() {
-                            new_port.add_all(hmetal, shapes.into_iter().cloned());
-                            return Some(new_port);
-                        }
+                    if !shapes.is_empty() {
+                        new_port.add_all(hmetal, shapes.into_iter().cloned());
+                        return Some(new_port);
                     }
                 }
                 None
