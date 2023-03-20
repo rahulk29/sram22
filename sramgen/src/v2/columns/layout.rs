@@ -8,7 +8,7 @@ use substrate::component::{Component, NoParams};
 use substrate::error::Result;
 use substrate::index::IndexOwned;
 use substrate::into_vec;
-use substrate::layout::cell::{Instance, Port};
+use substrate::layout::cell::{CellPort, Instance, Port, PortConflictStrategy};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::layers::selector::Selector;
@@ -90,7 +90,9 @@ impl ColPeripherals {
         let mut grid = Grid::new(0, 0);
         grid.push_row(row);
 
-        let grid_tiler = GridTiler::new(grid);
+        let mut grid_tiler = GridTiler::new(grid);
+        grid_tiler.expose_ports(|port: CellPort, _| Some(port), PortConflictStrategy::Merge)?;
+        ctx.add_ports(grid_tiler.ports().cloned());
         let group = grid_tiler.draw()?;
 
         let bbox = group.bbox();
@@ -287,7 +289,15 @@ impl Column {
 
         for (i, track) in tracks.iter().enumerate() {
             let name = CellTrack::from(i);
+            let port = CellPort::new(match name {
+                CellTrack::Vss => "vss",
+                _ => continue,
+            });
             for vspan in track_vspans(name)? {
+                let rect = Rect::from_spans(track, vspan);
+                let mut port = port.clone();
+                port.add(m3, subgeom::Shape::Rect(rect));
+                ctx.add_port(port);
                 ctx.draw_rect(m3, Rect::from_spans(track, vspan));
             }
         }
@@ -509,7 +519,14 @@ impl Component for ColumnCent {
         for (i, track) in tracks.iter().enumerate() {
             let name = TapTrack::from(i);
             for vspan in track_vspans(name)? {
-                ctx.draw_rect(m3, Rect::from_spans(track, vspan));
+                let rect = Rect::from_spans(track, vspan);
+                let mut port = CellPort::new(match name {
+                    TapTrack::Vdd => "vdd",
+                    TapTrack::Vss => "vss",
+                });
+                port.add(m3, subgeom::Shape::Rect(rect));
+                ctx.add_port(port);
+                ctx.draw_rect(m3, rect);
             }
         }
 

@@ -144,7 +144,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 we.push_low(t_data, vdd, tf);
 
                 assert_eq!(addrv.width(), params.sram.addr_width);
-                push_bus(&mut addr, &addrv, t_data, vdd, tr, tf);
+                push_bus(&mut addr, addrv, t_data, vdd, tr, tf);
             }
             Op::Write { addr: addrv, data } => {
                 // Set write enable high
@@ -418,8 +418,19 @@ mod tests {
         for vdd in [1.5, 1.8, 2.0] {
             let tb = tb_params(params.clone(), vdd, short);
             for corner in corners.corners() {
-                println!("Testing corner {} with Vdd = {}, short = {}", corner.name(), vdd, short);
-                let work_dir = test_work_dir(&format!("{}/{}_{:.2}_{}", name, corner.name(), vdd, short_str));
+                println!(
+                    "Testing corner {} with Vdd = {}, short = {}",
+                    corner.name(),
+                    vdd,
+                    short
+                );
+                let work_dir = test_work_dir(&format!(
+                    "{}/{}_{:.2}_{}",
+                    name,
+                    corner.name(),
+                    vdd,
+                    short_str
+                ));
                 ctx.write_simulation_with_corner::<SramTestbench>(&tb, &work_dir, corner.clone())
                     .expect("failed to run simulation");
             }
