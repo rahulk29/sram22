@@ -121,24 +121,35 @@ impl DecoderCriticalPathTb {
         let params = &self.params;
         let n = params.bits;
 
-        let mut addr = vec![Waveform::with_initial_value(0.0); n];
-        let mut addr_b = vec![Waveform::with_initial_value(0.0); n];
+        let mut out = Waveforms {
+            addr: Vec::with_capacity(n),
+            addr_b: Vec::with_capacity(n),
+        };
 
         let t_stop = self.t_stop();
         for i in 0..n {
+            let mut addr = Waveform::with_initial_value(0.0);
+            let mut addr_b = Waveform::with_initial_value(params.vdd);
+
             let t_start = params.period / 4.0 + i as f64 * params.period;
             let t_end = t_start + params.period / 2.0;
-            addr[i].push_low(t_start, params.vdd, params.tf);
-            addr[i].push_high(t_end, params.vdd, params.tr);
-            addr[i].push_low(t_stop, params.vdd, params.tf);
 
-            addr_b[i].push_low(t_stop, params.vdd, params.tf);
+            addr.push_low(t_start, params.vdd, params.tf);
+            addr.push_high(t_end, params.vdd, params.tr);
+            addr.push_low(t_stop, params.vdd, params.tf);
+
+            addr_b.push_high(t_start, params.vdd, params.tr);
+            addr_b.push_low(t_end, params.vdd, params.tf);
+            addr_b.push_high(t_stop, params.vdd, params.tr);
+
+            out.addr.push(Arc::new(addr));
+            out.addr_b.push(Arc::new(addr_b));
         }
 
-        Waveforms {
-            addr_b: addr_b.into_iter().map(|x| Arc::new(x)).collect_vec(),
-            addr: addr.into_iter().map(|x| Arc::new(x)).collect_vec(),
-        }
+        assert_eq!(out.addr.len(), n);
+        assert_eq!(out.addr_b.len(), n);
+
+        out
     }
 
     #[inline]

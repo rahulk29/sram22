@@ -117,7 +117,8 @@ pub fn setup_ctx() -> SubstrateCtx {
 
     let cfg = builder
         .netlister(SpiceNetlister::new())
-        .simulator(simulator).build();
+        .simulator(simulator)
+        .build();
 
     SubstrateCtx::from_config(cfg).unwrap()
 }
