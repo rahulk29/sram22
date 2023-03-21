@@ -290,13 +290,13 @@ fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64]) -> TreeNode {
             x.gate,
             AndParams {
                 nand: PrimitiveGateParams {
-                    nwidth: 3_200,
-                    pwidth: 2_400,
+                    nwidth: 3_400,
+                    pwidth: 2_600,
                     length: 150,
                 },
                 inv: PrimitiveGateParams {
-                    nwidth: 2_000,
-                    pwidth: 2_000,
+                    nwidth: 1_000,
+                    pwidth: 2_400,
                     length: 150,
                 },
             },
