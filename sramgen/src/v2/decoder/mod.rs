@@ -149,10 +149,14 @@ impl Component for AddrGate {
         let n = self.params.num;
         let vdd = ctx.port("vdd", Direction::InOut);
         let addr = ctx.bus_port("addr", n, Direction::Input);
+        let addr_b = ctx.bus_port("addr_b", n, Direction::Input);
         let en = ctx.port("en", Direction::Input);
         let y = ctx.bus_port("addr_gated", n, Direction::Output);
-        let yb = ctx.bus_port("addr_gated_b", n, Direction::Output);
+        let yb = ctx.bus_port("addr_b_gated", n, Direction::Output);
         let vss = ctx.port("vss", Direction::InOut);
+
+        let [int1, int2] = ctx.buses(["int1", "int2"], n);
+
         for i in 0..n {
             ctx.instantiate::<Gate>(&self.params.gate)?
                 .with_connections([
@@ -160,10 +164,21 @@ impl Component for AddrGate {
                     ("a", addr.index(i)),
                     ("b", en),
                     ("y", y.index(i)),
-                    ("yb", yb.index(i)),
+                    ("yb", int1.index(i)),
                     ("vss", vss),
                 ])
-                .named(format!("gate_{i}"))
+                .named(format!("addr_gate_{i}"))
+                .add_to(ctx);
+            ctx.instantiate::<Gate>(&self.params.gate)?
+                .with_connections([
+                    ("vdd", vdd),
+                    ("a", addr_b.index(i)),
+                    ("b", en),
+                    ("y", yb.index(i)),
+                    ("yb", int2.index(i)),
+                    ("vss", vss),
+                ])
+                .named(format!("addr_b_gate_{i}"))
                 .add_to(ctx);
         }
         Ok(())

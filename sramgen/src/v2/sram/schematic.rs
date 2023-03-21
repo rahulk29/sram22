@@ -11,8 +11,7 @@ use crate::v2::buf::DiffBufParams;
 use crate::v2::columns::{ColParams, ColPeripherals};
 use crate::v2::control::{ControlLogicReplicaV2, DffArray};
 use crate::v2::decoder::{
-    AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderStageParams, DecoderTree,
-    WmuxDriver,
+    AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderStageParams, DecoderTree, WmuxDriver,
 };
 use crate::v2::precharge::{Precharge, PrechargeParams};
 use crate::v2::rmux::ReadMuxParams;
@@ -32,8 +31,8 @@ impl SramInner {
 
         let [addr_in, addr_in_b] = ctx.buses(["addr_in", "addr_in_b"], self.params.addr_width);
 
-        let [addr_gated, addr_gated_b] =
-            ctx.buses(["addr_gated", "addr_gated_b"], self.params.row_bits);
+        let [addr_gated, addr_b_gated] =
+            ctx.buses(["addr_gated", "addr_b_gated"], self.params.row_bits);
 
         let bl = ctx.bus("bl", self.params.cols);
         let br = ctx.bus("br", self.params.cols);
@@ -71,8 +70,9 @@ impl SramInner {
             ("vdd", vdd),
             ("vss", vss),
             ("addr", addr_in.index(self.params.col_select_bits..)),
+            ("addr_b", addr_in_b.index(self.params.col_select_bits..)),
             ("addr_gated", addr_gated),
-            ("addr_gated_b", addr_gated_b),
+            ("addr_b_gated", addr_b_gated),
             ("en", wl_en),
         ])
         .named("addr_gate")
@@ -85,7 +85,7 @@ impl SramInner {
                 ("vdd", vdd),
                 ("vss", vss),
                 ("addr", addr_gated),
-                ("addr_b", addr_gated_b),
+                ("addr_b", addr_b_gated),
                 ("decode", wl),
                 ("decode_b", wl_b),
             ])
