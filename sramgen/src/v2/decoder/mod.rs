@@ -13,6 +13,7 @@ use super::gate::{AndParams, Gate, GateParams, GateType, PrimitiveGateParams};
 
 pub mod layout;
 pub mod schematic;
+pub mod sim;
 
 pub struct Decoder {
     params: DecoderParams,
