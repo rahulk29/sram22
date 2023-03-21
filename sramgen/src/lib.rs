@@ -112,9 +112,12 @@ pub fn setup_ctx() -> SubstrateCtx {
         .unwrap(),
     );
 
+    #[cfg(feature = "commercial")]
+    builder.simulation_bashrc("/tools/B/rahulkumar/sky130/priv/drc/.bashrc");
+
     let cfg = builder
         .netlister(SpiceNetlister::new())
-        .simulator(simulator)
-        .build();
+        .simulator(simulator).build();
+
     SubstrateCtx::from_config(cfg).unwrap()
 }
