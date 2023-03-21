@@ -63,6 +63,17 @@ pub struct WlDriver {
     params: DecoderStageParams,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct AddrGateParams {
+    pub gate: GateParams,
+    pub num: usize,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct AddrGate {
+    params: AddrGateParams,
+}
+
 impl Component for WlDriver {
     type Params = DecoderStageParams;
     fn new(
@@ -116,6 +127,48 @@ impl Component for WlDriver {
     }
 }
 
+impl Component for AddrGate {
+    type Params = AddrGateParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("addr_gate")
+    }
+
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        let n = self.params.num;
+        let vdd = ctx.port("vdd", Direction::InOut);
+        let addr = ctx.bus_port("addr", n, Direction::Input);
+        let en = ctx.port("en", Direction::Input);
+        let y = ctx.bus_port("addr_gated", n, Direction::Output);
+        let yb = ctx.bus_port("addr_gated_b", n, Direction::Output);
+        let vss = ctx.port("vss", Direction::InOut);
+        for i in 0..n {
+            ctx.instantiate::<Gate>(&self.params.gate)?
+                .with_connections([
+                    ("vdd", vdd),
+                    ("a", addr.index(i)),
+                    ("b", en),
+                    ("y", y.index(i)),
+                    ("yb", yb.index(i)),
+                    ("vss", vss),
+                ])
+                .named(format!("gate_{i}"))
+                .add_to(ctx);
+        }
+        Ok(())
+    }
+}
 pub struct WmuxDriver {
     params: DecoderStageParams,
 }

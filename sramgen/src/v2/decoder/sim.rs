@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 use substrate::index::IndexOwned;
@@ -32,7 +31,7 @@ impl Component for DecoderCriticalPathTb {
     type Params = DecoderCriticalPathTbParams;
     fn new(
         params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
+        _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         Ok(Self { params: *params })
     }
@@ -105,7 +104,7 @@ impl Testbench for DecoderCriticalPathTb {
 
     fn measure(
         &mut self,
-        ctx: &substrate::verification::simulation::context::PostSimCtx,
+        _ctx: &substrate::verification::simulation::context::PostSimCtx,
     ) -> substrate::error::Result<Self::Output> {
         Ok(())
     }
@@ -167,6 +166,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "slow"]
     fn test_decoder_critical_path_5bit() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_decoder_critical_path_5bit");

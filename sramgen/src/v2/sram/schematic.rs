@@ -11,7 +11,8 @@ use crate::v2::buf::DiffBufParams;
 use crate::v2::columns::{ColParams, ColPeripherals};
 use crate::v2::control::{ControlLogicReplicaV2, DffArray};
 use crate::v2::decoder::{
-    Decoder, DecoderParams, DecoderStageParams, DecoderTree, WlDriver, WmuxDriver,
+    AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderStageParams, DecoderTree,
+    WmuxDriver,
 };
 use crate::v2::precharge::{Precharge, PrechargeParams};
 use crate::v2::rmux::ReadMuxParams;
@@ -29,11 +30,10 @@ impl SramInner {
         let din = ctx.bus_port("din", self.params.data_width, Direction::Input);
         let dout = ctx.bus_port("dout", self.params.data_width, Direction::Output);
 
-        let addr_in = ctx.bus("addr_in", self.params.addr_width);
-        let addr_in_b = ctx.bus("addr_in_b", self.params.addr_width);
+        let [addr_in, addr_in_b] = ctx.buses(["addr_in", "addr_in_b"], self.params.addr_width);
 
-        let addr_decode = ctx.bus("addr_decode", self.params.rows);
-        let addr_decode_b = ctx.bus("addr_decode_b", self.params.rows);
+        let [addr_gated, addr_gated_b] =
+            ctx.buses(["addr_gated", "addr_gated_b"], self.params.row_bits);
 
         let bl = ctx.bus("bl", self.params.cols);
         let br = ctx.bus("br", self.params.cols);
@@ -61,13 +61,22 @@ impl SramInner {
                 "sense_en",
             ]);
 
-        let tree = DecoderTree::with_scale(self.params.row_bits, 1);
+        let tree = DecoderTree::with_scale(self.params.row_bits, 2);
 
-        let driver_params = DecoderStageParams {
-            gate: tree.root.gate.scale(2),
-            num: tree.root.num,
-            child_sizes: tree.root.children.iter().map(|n| n.num).collect(),
-        };
+        ctx.instantiate::<AddrGate>(&AddrGateParams {
+            gate: tree.root.gate,
+            num: self.params.row_bits,
+        })?
+        .with_connections([
+            ("vdd", vdd),
+            ("vss", vss),
+            ("addr", addr_in.index(self.params.col_select_bits..)),
+            ("addr_gated", addr_gated),
+            ("addr_gated_b", addr_gated_b),
+            ("en", wl_en),
+        ])
+        .named("addr_gate")
+        .add_to(ctx);
 
         let decoder_params = DecoderParams { tree };
 
@@ -75,24 +84,12 @@ impl SramInner {
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
-                ("addr", addr_in.index(self.params.col_select_bits..)),
-                ("addr_b", addr_in_b.index(self.params.col_select_bits..)),
-                ("decode", addr_decode),
-                ("decode_b", addr_decode_b),
-            ])
-            .named("decoder")
-            .add_to(ctx);
-
-        ctx.instantiate::<WlDriver>(&driver_params)?
-            .with_connections([
-                ("vdd", vdd),
-                ("vss", vss),
-                ("in", addr_decode),
-                ("wl_en", wl_en),
+                ("addr", addr_gated),
+                ("addr_b", addr_gated_b),
                 ("decode", wl),
                 ("decode_b", wl_b),
             ])
-            .named("wl_driver")
+            .named("decoder")
             .add_to(ctx);
 
         let col_tree = DecoderTree::with_scale(self.params.col_select_bits, 2);
