@@ -117,7 +117,7 @@ impl Component for TopBot {
             },
             PortConflictStrategy::Merge,
         )?;
-        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -167,7 +167,7 @@ impl Component for LeftRight {
             },
             PortConflictStrategy::Merge,
         )?;
-        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -314,7 +314,7 @@ impl Component for ReplicaCellArray {
             },
             PortConflictStrategy::Merge,
         )?;
-        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
         ctx.draw(grid_tiler)?;
 
         Ok(())

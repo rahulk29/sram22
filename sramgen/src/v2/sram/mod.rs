@@ -104,7 +104,7 @@ impl Component for Sram {
     ) -> substrate::error::Result<()> {
         let sram = ctx.instantiate::<SramInner>(&self.params)?;
         let brect = sram.brect();
-        ctx.add_ports(sram.ports());
+        ctx.add_ports(sram.ports()).unwrap();
         ctx.draw_ref(&sram)?;
 
         let m1 = ctx.layers().get(Selector::Metal(1))?;

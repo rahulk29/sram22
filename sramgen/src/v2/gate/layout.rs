@@ -39,17 +39,20 @@ impl And2 {
                 .into_cell_port()
                 .merged_with(inv.port("vdd")?)
                 .with_must_connect(MustConnect::Yes),
-        );
+        )
+        .unwrap();
         ctx.add_port(
             nand.port("vss")?
                 .into_cell_port()
                 .merged_with(inv.port("vss")?)
                 .with_must_connect(MustConnect::Yes),
-        );
-        ctx.add_port(nand.port("a")?);
-        ctx.add_port(nand.port("b")?);
-        ctx.add_port(nand.port("y")?.into_cell_port().named("y_b"));
-        ctx.add_port(inv.port("y")?);
+        )
+        .unwrap();
+        ctx.add_port(nand.port("a")?).unwrap();
+        ctx.add_port(nand.port("b")?).unwrap();
+        ctx.add_port(nand.port("y")?.into_cell_port().named("y_b"))
+            .unwrap();
+        ctx.add_port(inv.port("y")?).unwrap();
 
         ctx.draw_ref(&nand)?;
         ctx.draw_ref(&inv)?;
@@ -91,18 +94,21 @@ impl And3 {
                 .into_cell_port()
                 .merged_with(inv.port("vdd")?)
                 .with_must_connect(MustConnect::Yes),
-        );
+        )
+        .unwrap();
         ctx.add_port(
             nand.port("vss")?
                 .into_cell_port()
                 .merged_with(inv.port("vss")?)
                 .with_must_connect(MustConnect::Yes),
-        );
-        ctx.add_port(nand.port("a")?);
-        ctx.add_port(nand.port("b")?);
-        ctx.add_port(nand.port("c")?);
-        ctx.add_port(nand.port("y")?.into_cell_port().named("y_b"));
-        ctx.add_port(inv.port("y")?);
+        )
+        .unwrap();
+        ctx.add_port(nand.port("a")?).unwrap();
+        ctx.add_port(nand.port("b")?).unwrap();
+        ctx.add_port(nand.port("c")?).unwrap();
+        ctx.add_port(nand.port("y")?.into_cell_port().named("y_b"))
+            .unwrap();
+        ctx.add_port(inv.port("y")?).unwrap();
 
         ctx.draw_ref(&nand)?;
         ctx.draw_ref(&inv)?;
@@ -156,10 +162,13 @@ impl Inv {
             .into_rect();
         ctx.draw_rect(m0, short);
 
-        ctx.add_port(mos.port("gate_0")?.into_cell_port().named("a"));
-        ctx.add_port(mos.port("sd_0_0")?.into_cell_port().named("vss"));
-        ctx.add_port(mos.port("sd_1_0")?.into_cell_port().named("vdd"));
-        ctx.add_port(CellPort::with_shape("y", m0, short));
+        ctx.add_port(mos.port("gate_0")?.into_cell_port().named("a"))
+            .unwrap();
+        ctx.add_port(mos.port("sd_0_0")?.into_cell_port().named("vss"))
+            .unwrap();
+        ctx.add_port(mos.port("sd_1_0")?.into_cell_port().named("vdd"))
+            .unwrap();
+        ctx.add_port(CellPort::with_shape("y", m0, short)).unwrap();
 
         ctx.flatten();
         Ok(())
@@ -206,7 +215,7 @@ impl Nand2 {
         let c = mos.port("sd_1_0")?.largest_rect(m0)?;
 
         let out = a.bbox().union(b.bbox()).into_rect();
-        ctx.add_port(CellPort::with_shape("y", m0, out));
+        ctx.add_port(CellPort::with_shape("y", m0, out)).unwrap();
         ctx.draw_rect(m0, out);
 
         let space = Span::new(a.right(), c.left());
@@ -219,10 +228,14 @@ impl Nand2 {
             Rect::from_spans(Span::new(hspan.start(), c.right()), c.vspan()),
         );
 
-        ctx.add_port(mos.port("gate_0")?.into_cell_port().named("a"));
-        ctx.add_port(mos.port("gate_1")?.into_cell_port().named("b"));
-        ctx.add_port(mos.port("sd_0_0")?.into_cell_port().named("vss"));
-        ctx.add_port(mos.port("sd_1_1")?.into_cell_port().named("vdd"));
+        ctx.add_port(mos.port("gate_0")?.into_cell_port().named("a"))
+            .unwrap();
+        ctx.add_port(mos.port("gate_1")?.into_cell_port().named("b"))
+            .unwrap();
+        ctx.add_port(mos.port("sd_0_0")?.into_cell_port().named("vss"))
+            .unwrap();
+        ctx.add_port(mos.port("sd_1_1")?.into_cell_port().named("vdd"))
+            .unwrap();
 
         ctx.flatten();
 
@@ -270,7 +283,7 @@ impl Nand3 {
         let c = mos.port("sd_1_1")?.largest_rect(m0)?;
 
         let out = a.bbox().union(b.bbox()).into_rect();
-        ctx.add_port(CellPort::with_shape("y", m0, out));
+        ctx.add_port(CellPort::with_shape("y", m0, out)).unwrap();
         ctx.draw_rect(m0, out);
 
         let space = Span::new(a.right(), c.left());
@@ -283,13 +296,17 @@ impl Nand3 {
             Rect::from_spans(Span::new(hspan.start(), c.right()), c.vspan()),
         );
 
-        ctx.add_port(mos.port("gate_0")?.into_cell_port().named("a"));
-        ctx.add_port(mos.port("gate_1")?.into_cell_port().named("b"));
-        ctx.add_port(mos.port("gate_2")?.into_cell_port().named("c"));
-        ctx.add_port(mos.port("sd_0_0")?.into_cell_port().named("vss"));
+        ctx.add_port(mos.port("gate_0")?.into_cell_port().named("a"))
+            .unwrap();
+        ctx.add_port(mos.port("gate_1")?.into_cell_port().named("b"))
+            .unwrap();
+        ctx.add_port(mos.port("gate_2")?.into_cell_port().named("c"))
+            .unwrap();
+        ctx.add_port(mos.port("sd_0_0")?.into_cell_port().named("vss"))
+            .unwrap();
         let mut vdd_port = mos.port("sd_1_0")?.into_cell_port().named("vdd");
         vdd_port.merge(mos.port("sd_1_2")?);
-        ctx.add_port(vdd_port);
+        ctx.add_port(vdd_port).unwrap();
 
         ctx.flatten();
 

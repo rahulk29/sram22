@@ -92,7 +92,7 @@ impl ColPeripherals {
 
         let mut grid_tiler = GridTiler::new(grid);
         grid_tiler.expose_ports(|port: CellPort, _| Some(port), PortConflictStrategy::Merge)?;
-        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
         let group = grid_tiler.draw()?;
 
         let bbox = group.bbox();
@@ -107,7 +107,8 @@ impl ColPeripherals {
         ctx.draw_ref(&pc)?;
         ctx.draw_ref(&pc_end)?;
 
-        ctx.add_port(pc.port("bl_out")?.into_cell_port().named("rbl"));
+        ctx.add_port(pc.port("bl_out")?.into_cell_port().named("rbl"))
+            .unwrap();
 
         pc.orientation_mut().reflect_horiz();
         pc_end.orientation_mut().reflect_horiz();
@@ -297,7 +298,7 @@ impl Column {
                 let rect = Rect::from_spans(track, vspan);
                 let mut port = port.clone();
                 port.add(m3, subgeom::Shape::Rect(rect));
-                ctx.add_port(port);
+                ctx.add_port(port).unwrap();
                 ctx.draw_rect(m3, Rect::from_spans(track, vspan));
             }
         }
@@ -525,7 +526,7 @@ impl Component for ColumnCent {
                     TapTrack::Vss => "vss",
                 });
                 port.add(m3, subgeom::Shape::Rect(rect));
-                ctx.add_port(port);
+                ctx.add_port(port).unwrap();
                 ctx.draw_rect(m3, rect);
             }
         }

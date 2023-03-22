@@ -81,7 +81,7 @@ where
         let inst = ctx.instantiate::<T>(&self.params.inner)?;
         let brect = inst.brect();
 
-        ctx.add_ports(inst.ports());
+        ctx.add_ports(inst.ports()).unwrap();
         ctx.draw(inst)?;
 
         let params = GuardRingParams {
@@ -92,7 +92,7 @@ where
             v_width,
         };
         let ring = ctx.instantiate::<GuardRing>(&params)?;
-        ctx.add_ports(ring.ports());
+        ctx.add_ports(ring.ports()).unwrap();
         ctx.draw(ring)?;
 
         Ok(())

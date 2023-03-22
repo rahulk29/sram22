@@ -244,12 +244,13 @@ mod tests {
 
             let vss = array.port("ring_vss")?.into_cell_port().named("vss");
             let vdd = array.port("ring_vdd")?.into_cell_port().named("vdd");
-            ctx.add_ports([vss, vdd]);
+            ctx.add_ports([vss, vdd]).unwrap();
             ctx.add_ports(
                 array
                     .ports()
                     .filter(|port| ["bl", "br", "wl"].contains(&port.name().as_ref())),
-            );
+            )
+            .unwrap();
 
             ctx.draw(array)?;
             Ok(())
