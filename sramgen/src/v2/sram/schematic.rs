@@ -130,7 +130,7 @@ impl SramInner {
                 ("clk", clk),
                 ("we", we_in),
                 ("rbl", rbl),
-                ("dummy_bl", dummy_bl),
+                ("dummy_bl", rbr),
                 ("pc_b", pc_b),
                 ("wl_en0", wl_en0),
                 ("wl_en", wl_en),
