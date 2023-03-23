@@ -235,6 +235,7 @@ Xwl_en_buf3 wl_en0 wl_en vdd vss control_logic_bufbuf_16
 Xwl_en_buf4 wl_en0 wl_en vdd vss control_logic_bufbuf_16
 Xsae_buf sense_en0 sense_en vdd vss control_logic_bufbuf_16
 Xpc_b_buf pc_b0 pc_b vdd vss control_logic_bufbuf_16
+Xpc_b_buf2 pc_b0 pc_b vdd vss control_logic_bufbuf_16
 Xwr_drv_buf write_driver_en0 write_driver_en vdd vss control_logic_bufbuf_16
 
 Xwbl_pulldown_en wl_en write_driver_en wbl_pulldown_en vdd vss control_logic_and2
