@@ -211,7 +211,7 @@ Xinv_we we we_b vdd vss control_logic_inv
 * Turn them off when replica bitline drops low enough
 * to flip an inverter.
 Xinv_rbl rbl rbl_b vdd vss control_logic_inv
-Xpc_read_set_buf rbl_b pc_read_set vdd vss control_logic_delay_chain16
+Xpc_read_set_buf rbl_b pc_read_set vdd vss control_logic_delay_chain48
 Xand_sense_en we_b rbl_b sense_en_set vdd vss control_logic_and2
 
 Xwl_ctl wl_en_set wl_en_rst wl_en0 wl_en0_b vdd vss control_logic_sr_latch
