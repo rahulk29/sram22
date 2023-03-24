@@ -26,7 +26,7 @@ pub fn draw_sr_latch(lib: &mut PdkLib, params: &SrLatchParams) -> Result<Ptr<Cel
     nor2.align_beneath(nor1_bbox, 200);
     let nor2_bbox = nor2.bbox();
 
-    let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());
+    let mut router = Router::new(format!("{name}_route"), lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);

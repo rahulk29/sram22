@@ -107,7 +107,7 @@ impl StepContext {
         let mp = MultiProgress::new();
         let num_steps = steps.iter().filter(|step| !step.disabled).count();
         let mut counter = 0;
-        let width = format!("{}", num_steps).len();
+        let width = format!("{num_steps}").len();
         for (i, step) in steps.iter_mut().enumerate() {
             mp.insert(i + 1, step.progress_bar.clone());
             if step.disabled {
@@ -196,9 +196,9 @@ impl StepContext {
 
 fn format_template(spinner: bool, status: impl Display) -> String {
     if spinner {
-        format!("{{spinner:.green}} {:16} {{msg}}", status)
+        format!("{{spinner:.green}} {status:16} {{msg}}")
     } else {
-        format!("  {:16} {{msg}}", status)
+        format!("  {status:16} {{msg}}")
     }
 }
 

@@ -30,7 +30,7 @@ pub fn edge_detector(params: &EdgeDetectorParams) -> Vec<Module> {
     m.add_port_output(&dout);
     m.add_ports_inout(&[&vdd, &vss]);
 
-    let inv_chain_name = format!("{}_invs", name);
+    let inv_chain_name = format!("{name}_invs");
     let chain = inv_chain_grid(&InvChainGridParams {
         name: inv_chain_name.clone(),
         rows: 1,

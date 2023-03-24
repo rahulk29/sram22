@@ -30,7 +30,7 @@ pub fn read_mux_array(params: &ReadMuxArrayParams) -> Vec<Module> {
     for i in 0..cols {
         let output_idx = i / mux_ratio;
         let sel_idx = i % mux_ratio;
-        let mut inst = Instance::new(format!("mux_{}", i), local_reference(&mux_params.name));
+        let mut inst = Instance::new(format!("mux_{i}"), local_reference(&mux_params.name));
         inst.add_conns(&[
             ("vdd", &vdd),
             ("bl", &bl.get(i)),

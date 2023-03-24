@@ -198,14 +198,14 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
         };
 
         row.push(Instance {
-            inst_name: format!("colend_cent_top_{}", i),
+            inst_name: format!("colend_cent_top_{i}"),
             cell: colend_cent_i,
             loc: Point::new(0, 0),
             reflect_vert: false,
             angle: None,
         });
         row.push(Instance {
-            inst_name: format!("colend_top_{}", i),
+            inst_name: format!("colend_top_{i}"),
             cell: colend.clone(),
             loc: Point::new(0, 0),
             reflect_vert: i % 2 != 0,
@@ -251,7 +251,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
             };
 
         row.push(Instance {
-            inst_name: format!("rowend_l_{}", r),
+            inst_name: format!("rowend_l_{r}"),
             cell: if is_replica_row {
                 rowend_replica_r.clone()
             } else {
@@ -263,7 +263,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
         });
 
         row.push(Instance {
-            inst_name: format!("cell_{}_0", r),
+            inst_name: format!("cell_{r}_0"),
             cell: if is_replica_row {
                 bitcell_replica_r.clone()
             } else {
@@ -281,7 +281,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
                 wlstrap_p_r.clone()
             };
             row.push(Instance {
-                inst_name: format!("wlstrap_{}_{}", r, c),
+                inst_name: format!("wlstrap_{r}_{c}"),
                 cell: strap,
                 loc: Point::new(0, 0),
                 reflect_vert: r % 2 == 0,
@@ -302,7 +302,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
                 bitcell_r.clone()
             };
             row.push(Instance {
-                inst_name: format!("cell_{}_{}", r, c),
+                inst_name: format!("cell_{r}_{c}"),
                 cell,
                 loc: Point::new(0, 0),
                 reflect_vert,
@@ -311,7 +311,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
         }
 
         row.push(Instance {
-            inst_name: format!("rowend_r_{}", r),
+            inst_name: format!("rowend_r_{r}"),
             cell: rowend_r.clone(),
             loc: Point::new(0, 0),
             reflect_vert: r % 2 == 0,
@@ -352,7 +352,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
         };
 
         row.push(Instance {
-            inst_name: format!("colend_cent_bot_{}", i),
+            inst_name: format!("colend_cent_bot_{i}"),
             cell: colend_cent_i,
             loc: Point::new(0, 0),
             reflect_vert: true,
@@ -360,7 +360,7 @@ pub fn draw_bitcell_array(lib: &mut PdkLib, params: &BitcellArrayParams) -> Resu
         });
 
         row.push(Instance {
-            inst_name: format!("colend_bot_{}", i),
+            inst_name: format!("colend_bot_{i}"),
             cell: colend_bot.clone(),
             loc: Point::new(0, 0),
             reflect_vert: i % 2 == 0,
@@ -495,17 +495,17 @@ pub fn draw_power_connector(lib: &mut PdkLib, array: &Instance) -> Result<Ptr<Ce
                 };
                 if port.net.starts_with("bl") {
                     vert_ports_to_coalesce
-                        .entry(format!("vpb_dummy_bl{}", top_str))
+                        .entry(format!("vpb_dummy_bl{top_str}"))
                         .or_default()
                         .push(trace.rect());
                 } else if port.net.starts_with("vgnd") || port.net.starts_with("vnb") {
                     vert_ports_to_coalesce
-                        .entry(format!("vgnd{}", top_str))
+                        .entry(format!("vgnd{top_str}"))
                         .or_default()
                         .push(trace.rect());
                 } else if port.net.starts_with("vpwr") || port.net.starts_with("vpb") {
                     vert_ports_to_coalesce
-                        .entry(format!("vpwr{}", top_str))
+                        .entry(format!("vpwr{top_str}"))
                         .or_default()
                         .push(trace.rect());
                 } else {
