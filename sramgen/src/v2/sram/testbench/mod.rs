@@ -384,9 +384,19 @@ impl Testbench for SramTestbench {
         );
 
         let signals = (0..self.params.sram.data_width)
-            .map(|i| format!("Xdut.dout[{i}]"))
+            .map(|i| format!("dout[{i}]"))
             .collect();
         ctx.save(Save::Signals(signals));
+
+        for i in 0..self.params.sram.rows {
+            ctx.set_ic(format!("Xdut.wl[i]"), SiValue::zero());
+            for j in 0..self.params.sram.cols {
+                ctx.set_ic(
+                    format!("Xdut.Xbitcell_array.Xcell_{i}_{j}.X0.Q"),
+                    SiValue::zero(),
+                );
+            }
+        }
         Ok(())
     }
 
