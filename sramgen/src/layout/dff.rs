@@ -45,7 +45,7 @@ pub fn draw_dff_grid(lib: &mut PdkLib, params: &DffGridParams) -> Result<Ptr<Cel
     for j in 0..rows {
         let mut row_dffs = Vec::with_capacity(cols);
         for i in 0..cols {
-            let mut inst = Instance::new(format!("dff_{i}_{j}"), dff.clone());
+            let mut inst = Instance::new(format!("dff_{}_{}", i, j), dff.clone());
             inst.loc.x = (i as isize) * horiz_pitch;
             let ji = j as isize;
             inst.loc.y = -((ji / 2) * 2 * y_offset + (ji % 2) * y_offset_flip);

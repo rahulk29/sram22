@@ -18,7 +18,7 @@ pub fn write_mask_control(params: &WriteMaskControlParams) -> Vec<Module> {
 
     for i in 0..params.width {
         let mut inst = Instance::new(
-            format!("and2_{i}"),
+            format!("and2_{}", i),
             local_reference(&params.and_params.name),
         );
         inst.add_conns(&[
