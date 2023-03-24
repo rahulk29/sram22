@@ -33,7 +33,7 @@ pub fn draw_col_inv_array(lib: &mut PdkLib, params: &ColInvArrayParams) -> Resul
     let array = draw_cell_array(
         lib,
         &ArrayCellParams {
-            name: format!("{name}_array_inst"),
+            name: format!("{}_array_inst", name),
             num: width,
             cell,
             spacing: Some(COLUMN_WIDTH * mux_ratio),
@@ -46,7 +46,7 @@ pub fn draw_col_inv_array(lib: &mut PdkLib, params: &ColInvArrayParams) -> Resul
     let ntaps = draw_cell_array(
         lib,
         &ArrayCellParams {
-            name: format!("{name}_ntap_array"),
+            name: format!("{}_ntap_array", name),
             num: width + 1,
             cell: ntap,
             spacing: Some(COLUMN_WIDTH * mux_ratio),
@@ -59,7 +59,7 @@ pub fn draw_col_inv_array(lib: &mut PdkLib, params: &ColInvArrayParams) -> Resul
     let ptaps = draw_cell_array(
         lib,
         &ArrayCellParams {
-            name: format!("{name}_ptap_array"),
+            name: format!("{}_ptap_array", name),
             num: width + 1,
             cell: ptap,
             spacing: Some(COLUMN_WIDTH * mux_ratio),
@@ -98,7 +98,7 @@ pub fn draw_col_inv_array(lib: &mut PdkLib, params: &ColInvArrayParams) -> Resul
         .element();
     cell.layout_mut().add(elt);
 
-    let mut router = Router::new(format!("{name}_route"), lib.pdk.clone());
+    let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m2 = cfg.layerkey(2);

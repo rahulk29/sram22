@@ -48,7 +48,7 @@ pub fn write_mux_array(params: &WriteMuxArrayParams) -> Vec<Module> {
         let sel_idx = i % mux_ratio;
         let group_idx = i / mux_ratio;
         let wmask_idx = i / bpmask;
-        let mut inst = Instance::new(format!("mux_{i}"), local_reference(&mux_params.name));
+        let mut inst = Instance::new(format!("mux_{}", i), local_reference(&mux_params.name));
         inst.add_conns(&[
             ("we", &we.get(sel_idx)),
             ("data", &data.get(group_idx)),

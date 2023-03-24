@@ -51,7 +51,7 @@ impl RouterConfig {
             1 => "viali",
             2 => "via1",
             3 => "via2",
-            _ => panic!("No stack for layer index {layer}"),
+            _ => panic!("No stack for layer index {}", layer),
         }
     }
 }

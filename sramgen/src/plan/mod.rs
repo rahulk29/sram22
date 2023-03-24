@@ -3,8 +3,8 @@ use crate::config::sram::{ControlMode, SramConfig, SramParams};
 use crate::layout::sram::draw_sram;
 use crate::paths::{out_bin, out_gds, out_sram, out_verilog};
 use crate::plan::extract::ExtractionResult;
-use crate::schematic::save_modules;
 use crate::schematic::sram::sram;
+use crate::schematic::{generate_netlist, save_modules};
 use crate::verilog::save_1rw_verilog;
 use crate::{clog2, Result};
 use anyhow::{bail, Context};
@@ -137,10 +137,10 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
     let name = &plan.sram_params.name;
 
     let bin_path = out_bin(work_dir, name);
-    save_modules(bin_path, name, modules).with_context(|| "Error saving netlist binaries")?;
+    save_modules(&bin_path, name, modules).with_context(|| "Error saving netlist binaries")?;
 
-    // generate_netlist(&bin_path, work_dir)
-    //     .with_context(|| "Error converting netlists to SPICE format")?;
+    generate_netlist(&bin_path, work_dir)
+        .with_context(|| "Error converting netlists to SPICE format")?;
 
     try_finish_task!(ctx, TaskKey::GenerateNetlist);
 

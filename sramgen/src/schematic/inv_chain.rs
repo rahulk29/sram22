@@ -24,7 +24,7 @@ pub fn inv_chain_grid(params: &InvChainGridParams) -> Module {
             int.get(i)
         };
 
-        let mut inst = Instance::new(format!("inv_{i}"), control_logic_inv_ref());
+        let mut inst = Instance::new(format!("inv_{}", i), control_logic_inv_ref());
         inst.add_conns(&[
             ("din", &input),
             ("din_b", &output),

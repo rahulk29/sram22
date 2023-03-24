@@ -14,24 +14,20 @@ pub fn out_sram(config: &SramConfig) -> String {
 }
 
 pub fn out_bin(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
-    PathBuf::from(work_dir.as_ref()).join(format!("{name}.pb.bin"))
-}
-
-pub fn out_spice(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
-    PathBuf::from(work_dir.as_ref()).join(format!("{name}.spice"))
+    PathBuf::from(work_dir.as_ref()).join(format!("{}.pb.bin", name))
 }
 
 pub fn out_gds(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
-    PathBuf::from(work_dir.as_ref()).join(format!("{name}.gds"))
+    PathBuf::from(work_dir.as_ref()).join(format!("{}.gds", name))
 }
 
 pub fn out_verilog(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
-    PathBuf::from(work_dir.as_ref()).join(format!("{name}.v"))
+    PathBuf::from(work_dir.as_ref()).join(format!("{}.v", name))
 }
 
 #[cfg(feature = "commercial")]
 pub fn out_lef(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
-    PathBuf::from(work_dir.as_ref()).join(format!("{name}.lef"))
+    PathBuf::from(work_dir.as_ref()).join(format!("{}.lef", name))
 }
 
 #[cfg(feature = "commercial")]
@@ -39,5 +35,5 @@ use calibre::pex::PexLevel;
 
 #[cfg(feature = "commercial")]
 pub fn out_pex(work_dir: impl AsRef<Path>, name: &str, level: PexLevel) -> PathBuf {
-    PathBuf::from(work_dir.as_ref()).join(format!("{name}.{level}.pex.netlist"))
+    PathBuf::from(work_dir.as_ref()).join(format!("{}.{}.pex.netlist", name, level))
 }
