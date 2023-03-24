@@ -87,7 +87,7 @@ impl Component for SpCellArrayCornerUl {
             |port: CellPort, (i, j)| corner_port_map_fn(port, i, j, 0, 0, vmetal, hmetal),
             PortConflictStrategy::Merge,
         )?;
-        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -137,7 +137,7 @@ impl Component for SpCellArrayCornerUr {
             |port: CellPort, (i, j)| corner_port_map_fn(port, i, j, 0, 2, vmetal, hmetal),
             PortConflictStrategy::Merge,
         )?;
-        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -199,7 +199,7 @@ impl Component for SpCellArrayCornerLr {
             |port: CellPort, (i, j)| corner_port_map_fn(port, i, j, 2, 2, vmetal, hmetal),
             PortConflictStrategy::Merge,
         )?;
-        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -256,7 +256,7 @@ impl Component for SpCellArrayCornerLl {
             |port: CellPort, (i, j)| corner_port_map_fn(port, i, j, 2, 0, vmetal, hmetal),
             PortConflictStrategy::Merge,
         )?;
-        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -334,7 +334,7 @@ impl Component for SpCellArrayLeft {
             },
             PortConflictStrategy::Merge,
         )?;
-        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -439,7 +439,7 @@ impl Component for SpCellArrayTop {
             },
             PortConflictStrategy::Merge,
         )?;
-        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -586,7 +586,7 @@ impl Component for SpCellArrayBottom {
             },
             PortConflictStrategy::Merge,
         )?;
-        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -664,7 +664,7 @@ impl Component for SpCellArrayRight {
             },
             PortConflictStrategy::Merge,
         )?;
-        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
         ctx.draw(grid_tiler)?;
 
         Ok(())
@@ -782,7 +782,7 @@ impl SpCellArray {
             },
             PortConflictStrategy::Merge,
         )?;
-        ctx.add_ports(grid_tiler.ports().cloned());
+        ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
         ctx.draw(grid_tiler)?;
         Ok(())
     }

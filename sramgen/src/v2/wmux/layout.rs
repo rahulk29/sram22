@@ -174,7 +174,8 @@ impl WriteMux {
 
         let power_stripe = Rect::from_spans(stripe_span, power_span);
         ctx.draw_rect(pc.h_metal, power_stripe);
-        ctx.add_port(CellPort::with_shape("vss", pc.h_metal, power_stripe));
+        ctx.add_port(CellPort::with_shape("vss", pc.h_metal, power_stripe))
+            .unwrap();
         let viap = ViaParams::builder()
             .layers(pc.m0, pc.v_metal)
             .geometry(target, target)
@@ -201,7 +202,8 @@ impl WriteMux {
             ctx.draw_rect(pc.h_metal, rect);
             gate_stripes.push((target.vspan(), span));
 
-            ctx.add_port(CellPort::with_shape(port, pc.h_metal, rect));
+            ctx.add_port(CellPort::with_shape(port, pc.h_metal, rect))
+                .unwrap();
 
             if std::ptr::eq(inst, &wmask) {
                 via.place_center(Point::new(cx + 220, target.center().y));
@@ -386,7 +388,8 @@ fn write_mux_tap_layout(
 
     let power_stripe = Rect::from_spans(stripe_span, meta.power_stripe);
     ctx.draw_rect(pc.h_metal, power_stripe);
-    ctx.add_port(CellPort::with_shape("vss", pc.h_metal, power_stripe));
+    ctx.add_port(CellPort::with_shape("vss", pc.h_metal, power_stripe))
+        .unwrap();
 
     let viap = ViaParams::builder()
         .layers(pc.v_metal, pc.h_metal)

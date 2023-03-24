@@ -157,7 +157,8 @@ impl DiffBuf {
                     } else {
                         arcstr::literal!("outp")
                     };
-                    ctx.add_port(CellPort::with_shape(name, m2, stripe));
+                    ctx.add_port(CellPort::with_shape(name, m2, stripe))
+                        .unwrap();
 
                     let viap = ViaParams::builder()
                         .layers(m0, m1)
@@ -190,7 +191,8 @@ impl DiffBuf {
                     } else {
                         arcstr::literal!("inp")
                     };
-                    ctx.add_port(CellPort::with_shape(name, m2, stripe));
+                    ctx.add_port(CellPort::with_shape(name, m2, stripe))
+                        .unwrap();
 
                     let viap = ViaParams::builder()
                         .layers(m0, m1)

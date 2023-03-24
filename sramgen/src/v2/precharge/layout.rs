@@ -81,10 +81,12 @@ impl Precharge {
             ctx.draw_rect(dsn.v_metal, rect);
             orects.push(rect);
             if i == 0 {
-                ctx.add_port(CellPort::with_shape("bl_out", dsn.v_metal, rect));
+                ctx.add_port(CellPort::with_shape("bl_out", dsn.v_metal, rect))
+                    .unwrap();
             }
             if i == 2 {
-                ctx.add_port(CellPort::with_shape("br_out", dsn.v_metal, rect));
+                ctx.add_port(CellPort::with_shape("br_out", dsn.v_metal, rect))
+                    .unwrap();
             }
         }
 
@@ -154,7 +156,8 @@ impl Precharge {
 
         let stripe = Rect::from_spans(stripe_span, dsn.power_stripe);
         ctx.draw_rect(dsn.h_metal, stripe);
-        ctx.add_port(CellPort::with_shape("vdd", dsn.h_metal, stripe));
+        ctx.add_port(CellPort::with_shape("vdd", dsn.h_metal, stripe))
+            .unwrap();
 
         let mut via1 = ViaParams::builder()
             .layers(dsn.v_metal, dsn.h_metal)
@@ -277,7 +280,8 @@ impl PrechargeCent {
 
         let power_stripe = Rect::from_spans(stripe_span, dsn.power_stripe);
         ctx.draw_rect(dsn.h_metal, power_stripe);
-        ctx.add_port(CellPort::with_shape("vdd", dsn.h_metal, power_stripe));
+        ctx.add_port(CellPort::with_shape("vdd", dsn.h_metal, power_stripe))
+            .unwrap();
 
         let viap = ViaParams::builder()
             .layers(dsn.m0, dsn.v_metal)
@@ -361,7 +365,8 @@ impl PrechargeEnd {
         ctx.draw_rect(dsn.h_metal, Rect::from_spans(stripe_span, dsn.gate_stripe));
         let power_stripe = Rect::from_spans(stripe_span, dsn.power_stripe);
         ctx.draw_rect(dsn.h_metal, power_stripe);
-        ctx.add_port(CellPort::with_shape("vdd", dsn.h_metal, power_stripe));
+        ctx.add_port(CellPort::with_shape("vdd", dsn.h_metal, power_stripe))
+            .unwrap();
 
         let viap = ViaParams::builder()
             .layers(dsn.m0, dsn.v_metal)

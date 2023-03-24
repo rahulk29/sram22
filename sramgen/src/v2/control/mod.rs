@@ -99,7 +99,7 @@ impl Component for DffArray {
             },
             substrate::layout::cell::PortConflictStrategy::Merge,
         )?;
-        ctx.add_ports(tiler.ports().cloned());
+        ctx.add_ports(tiler.ports().cloned()).unwrap();
 
         ctx.draw(tiler)?;
         Ok(())

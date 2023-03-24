@@ -18,7 +18,6 @@ use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerCo
 use substrate::layout::routing::manual::jog::SJog;
 use substrate::layout::straps::SingleSupplyNet;
 
-use crate::bus_bit;
 use crate::v2::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
 use crate::v2::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::v2::columns::ColPeripherals;
@@ -247,7 +246,7 @@ impl SramInner {
 
         // Route predecoders to final decoder stage
         for (i, &dst) in p0_ports.iter().enumerate().take(tree.root.children[0].num) {
-            let src = p1.port(&format!("decode_{i}"))?.largest_rect(m0)?;
+            let src = p1.port(PortId::new("decode", i))?.largest_rect(m0)?;
             let src = router.register_jog_to_grid(
                 JogToGrid::builder()
                     .layer(m0)
@@ -268,7 +267,7 @@ impl SramInner {
             ctx.draw(via)?;
         }
         for (i, &dst) in p1_ports.iter().enumerate().take(tree.root.children[1].num) {
-            let src = p2.port(&format!("decode_{i}"))?.largest_rect(m0)?;
+            let src = p2.port(PortId::new("decode", i))?.largest_rect(m0)?;
             let src = router.register_jog_to_grid(
                 JogToGrid::builder()
                     .layer(m0)
@@ -291,8 +290,8 @@ impl SramInner {
 
         // Route wordline decoder to wordline driver
         for i in 0..tree.root.num {
-            let src = decoder.port(&format!("decode_{i}"))?.largest_rect(m0)?;
-            let dst = wl_driver.port(&bus_bit("in", i))?.largest_rect(m0)?;
+            let src = decoder.port(PortId::new("decode", i))?.largest_rect(m0)?;
+            let dst = wl_driver.port(PortId::new("in", i))?.largest_rect(m0)?;
             let jog = SJog::builder()
                 .src(src)
                 .dst(dst)
@@ -307,8 +306,8 @@ impl SramInner {
 
         // Route column decoder to wmux driver
         for i in 0..col_tree.root.num {
-            let src = col_dec.port(&format!("decode_{i}"))?.largest_rect(m0)?;
-            let dst = wmux_driver.port(&bus_bit("in", i))?.largest_rect(m0)?;
+            let src = col_dec.port(PortId::new("decode", i))?.largest_rect(m0)?;
+            let dst = wmux_driver.port(PortId::new("in", i))?.largest_rect(m0)?;
             let jog = SJog::builder()
                 .src(src)
                 .dst(dst)

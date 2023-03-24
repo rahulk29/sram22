@@ -172,7 +172,8 @@ impl ReadMux {
             ctx.draw_ref(&via)?;
 
             ctx.draw_rect(pc.h_metal, stripe);
-            ctx.add_port(CellPort::with_shape(name, pc.h_metal, stripe));
+            ctx.add_port(CellPort::with_shape(name, pc.h_metal, stripe))
+                .unwrap();
         }
 
         metadata.split_track(tracks[0]);
@@ -310,7 +311,8 @@ fn read_mux_tap_layout(
 
     let power_stripe = Rect::from_spans(stripe_hspan, POWER_VSPAN);
     ctx.draw_rect(pc.h_metal, power_stripe);
-    ctx.add_port(CellPort::with_shape("vdd", pc.h_metal, power_stripe));
+    ctx.add_port(CellPort::with_shape("vdd", pc.h_metal, power_stripe))
+        .unwrap();
 
     let bounds = Rect::from_spans(Span::new(0, width), mux.brect().vspan());
     ctx.flatten();

@@ -11,7 +11,7 @@ use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
 use subgeom::transform::Translate;
 use subgeom::{Corner, Dir, Point, Rect, Sign, Span};
-use substrate::layout::cell::{CellPort, Element, Port, PortConflictStrategy};
+use substrate::layout::cell::{CellPort, Element, Port, PortConflictStrategy, PortId};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::group::elements::ElementGroup;
@@ -27,7 +27,6 @@ use substrate::layout::routing::manual::jog::OffsetJog;
 use substrate::layout::routing::tracks::UniformTracks;
 use substrate::script::Script;
 
-use crate::bus_bit;
 use crate::v2::gate::{Gate, GateParams};
 
 use super::{DecoderParams, DecoderStage, DecoderStageParams, Predecoder};
@@ -53,14 +52,32 @@ pub(crate) fn decoder_stage_layout(
         dsn: (*dsn).clone(),
     };
     let gate = ctx.instantiate::<DecoderGate>(&decoder_params)?;
+    let mut flipped_gate = ctx.instantiate::<DecoderGate>(&decoder_params)?;
+    flipped_gate.set_orientation(Named::ReflectHoriz);
     let tap = ctx.instantiate::<DecoderTap>(&decoder_params)?;
 
-    let period_tiler = ArrayTiler::builder()
-        .push_num(gate.clone(), dsn.tap_period)
+    let mut period_tiler = ArrayTiler::builder();
+
+    for _ in 0..dsn.tap_period / 2 {
+        period_tiler.push(flipped_gate.clone()).push(gate.clone());
+    }
+
+    let mut period_tiler = period_tiler
         .push(tap.clone())
         .mode(AlignMode::ToTheRight)
         .alt_mode(AlignMode::CenterVertical)
         .build();
+
+    period_tiler.expose_ports(
+        |port: CellPort, i| match port.id().name().as_ref() {
+            "vdd" | "vss" => Some(port),
+            "y" => Some(port.named("decode").with_index(i)),
+            "y_b" => Some(port.named("decode_b").with_index(i)),
+            "b" => Some(port.named("in").with_index(i)),
+            _ => None,
+        },
+        PortConflictStrategy::Merge,
+    )?;
 
     let period_group = period_tiler.draw_ref()?;
 
@@ -71,8 +88,20 @@ pub(crate) fn decoder_stage_layout(
         .alt_mode(AlignMode::CenterVertical)
         .build();
 
-    tiler.expose_ports(|port, _| Some(port), PortConflictStrategy::Merge)?;
-    ctx.add_ports(tiler.ports().cloned());
+    tiler.expose_ports(
+        |port: CellPort, i| {
+            let index = if i > 0 { dsn.tap_period * (i - 1) } else { 0 } + port.id().index();
+            match port.id().name().as_ref() {
+                "vdd" | "vss" => Some(port),
+                "decode" => Some(port.with_index(index)),
+                "decode_b" => Some(port.with_index(index)),
+                "in" => Some(port.with_index(index)),
+                _ => None,
+            }
+        },
+        PortConflictStrategy::Merge,
+    )?;
+    ctx.add_ports(tiler.ports().cloned()).unwrap();
 
     ctx.draw_ref(&tiler)?;
 
@@ -98,7 +127,8 @@ pub(crate) fn decoder_stage_layout(
                         arcstr::format!("predecode_{i}_{j}"),
                         dsn.stripe_metal,
                         rect,
-                    ));
+                    ))
+                    .unwrap();
                     idx += 1;
                     child_tracks[i].push(rect);
                 }
@@ -113,7 +143,8 @@ pub(crate) fn decoder_stage_layout(
                 arcstr::literal!("wl_en"),
                 dsn.stripe_metal,
                 rect,
-            ));
+            ))
+            .unwrap();
         }
     }
 
@@ -169,24 +200,8 @@ pub(crate) fn decoder_stage_layout(
                     dsn.li,
                     Rect::from_spans(port.hspan(), port.vspan().union(via.brect().vspan())),
                 );
-
-                let port = gate
-                    .port(ports[1])?
-                    .into_cell_port()
-                    .named(bus_bit("in", n));
-                ctx.add_port(port);
             }
         };
-        ctx.add_port(
-            gate.port("y")?
-                .into_cell_port()
-                .named(arcstr::format!("decode_{n}")),
-        );
-        ctx.add_port(
-            gate.port("y_b")?
-                .into_cell_port()
-                .named(arcstr::format!("decode_b_{n}")),
-        );
     }
     Ok(())
 }
@@ -235,12 +250,13 @@ impl Predecoder {
         };
         let mut inst = ctx.instantiate::<DecoderStage>(&params)?;
         inst.place(Corner::LowerLeft, Point::zero());
-        ctx.add_ports(inst.ports_starting_with("decode"));
+        ctx.add_ports(inst.ports_starting_with("decode")).unwrap();
         if node.children.is_empty() {
-            ctx.add_ports(inst.ports_starting_with("predecode"));
+            ctx.add_ports(inst.ports_starting_with("predecode"))
+                .unwrap();
         }
-        ctx.add_port(inst.port("vdd")?);
-        ctx.add_port(inst.port("vss")?);
+        ctx.add_port(inst.port("vdd")?).unwrap();
+        ctx.add_port(inst.port("vss")?).unwrap();
 
         let mut x = 0;
         let mut next_addr = (0, 0);
@@ -255,7 +271,8 @@ impl Predecoder {
                 .ports_starting_with("predecode")
                 .sorted_unstable_by(|a, b| a.name().cmp(b.name()))
             {
-                ctx.add_port(port.named(format!("predecode_{}_{}", next_addr.0, next_addr.1)));
+                ctx.add_port(port.named(format!("predecode_{}_{}", next_addr.0, next_addr.1)))
+                    .unwrap();
                 if next_addr.1 > 0 {
                     next_addr = (next_addr.0 + 1, 0);
                 } else {
@@ -264,7 +281,7 @@ impl Predecoder {
             }
 
             for j in 0..node.num {
-                let src = child.port(&format!("decode_{j}"))?.largest_rect(dsn.li)?;
+                let src = child.port(PortId::new("decode", j))?.largest_rect(dsn.li)?;
                 let dst = inst
                     .port(&format!("predecode_{i}_{j}"))?
                     .largest_rect(dsn.stripe_metal)?;
@@ -374,7 +391,7 @@ impl Component for DecoderGate {
         let mut gate = ctx.instantiate::<Gate>(&self.params.gate)?;
         gate.set_orientation(Named::R90);
         gate.place_center_x(dsn.width / 2);
-        ctx.add_ports(gate.ports());
+        ctx.add_ports(gate.ports()).unwrap();
         ctx.draw_ref(&gate)?;
 
         ctx.flatten();
@@ -671,7 +688,7 @@ impl Script for LastBitDecoderPhysicalDesignScript {
         let nsdm = layers.get(Selector::Name("nsdm"))?;
         Ok(Self::Output {
             width: 1_580,
-            tap_width: 790,
+            tap_width: 1_580,
             tap_period: 8,
             stripe_metal,
             wire_metal,
