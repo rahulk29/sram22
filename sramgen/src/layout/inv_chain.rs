@@ -28,7 +28,7 @@ pub fn draw_inv_chain(lib: &mut PdkLib, params: &InvChainParams) -> Result<Ptr<C
     let mut x = tap_outline.p1.x;
     let mut prev: Option<Instance> = None;
     for i in 0..params.num {
-        let mut inv = Instance::new(format!("inv_{i}"), inv.clone());
+        let mut inv = Instance::new(format!("inv_{}", i), inv.clone());
         inv.loc.x = x;
         x += inv_outline.width();
         if let Some(prev) = prev {
@@ -108,7 +108,7 @@ pub fn draw_inv_chain_grid(lib: &mut PdkLib, params: &InvChainGridParams) -> Res
 
     assert_eq!(tap_outline.height(), inv_outline.height());
 
-    let mut router = Router::new(format!("{name}_route"), lib.pdk.clone());
+    let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());
     let cfg = router.cfg();
     let m0 = cfg.layerkey(0);
     let m1 = cfg.layerkey(1);

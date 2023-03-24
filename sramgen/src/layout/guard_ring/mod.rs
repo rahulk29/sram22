@@ -34,7 +34,7 @@ pub fn draw_guard_ring(lib: &mut PdkLib, params: &GuardRingParams) -> crate::Res
 
     let nwell_width = DNW_ENCLOSURE + NWELL_HOLE_ENCLOSURE;
 
-    let mut router = Router::new(format!("{name}_route"), lib.pdk.clone());
+    let mut router = Router::new(format!("{}_route", name), lib.pdk.clone());
     let cfg = router.cfg();
 
     let vss_ring = RingParams::builder()

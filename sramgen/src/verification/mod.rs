@@ -339,12 +339,12 @@ pub fn source_files(
 ) -> Vec<PathBuf> {
     let source_path_main = match task {
         VerificationTask::SpectreSim => {
-            PathBuf::from(work_dir.as_ref()).join(format!("{sram_name}.spectre.spice"))
+            PathBuf::from(work_dir.as_ref()).join(format!("{}.spectre.spice", sram_name))
         }
         VerificationTask::NgspiceSim => {
-            PathBuf::from(work_dir.as_ref()).join(format!("{sram_name}.ngspice.spice"))
+            PathBuf::from(work_dir.as_ref()).join(format!("{}.ngspice.spice", sram_name))
         }
-        _ => PathBuf::from(work_dir.as_ref()).join(format!("{sram_name}.spice")),
+        _ => PathBuf::from(work_dir.as_ref()).join(format!("{}.spice", sram_name)),
     };
     let source_path_dff = PathBuf::from(LIB_PATH).join("openram_dff/openram_dff.spice");
     let source_path_sp_cell = match task {
