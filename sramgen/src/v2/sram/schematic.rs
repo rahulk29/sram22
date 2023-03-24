@@ -60,7 +60,7 @@ impl SramInner {
                 "sense_en",
             ]);
 
-        let tree = DecoderTree::with_scale(self.params.row_bits, 2);
+        let tree = DecoderTree::with_scale_and_skew(self.params.row_bits, 2, true);
 
         ctx.instantiate::<AddrGate>(&AddrGateParams {
             gate: tree.root.gate,

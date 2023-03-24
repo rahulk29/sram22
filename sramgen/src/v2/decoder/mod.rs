@@ -57,6 +57,7 @@ struct PlanTreeNode {
     gate: GateType,
     num: usize,
     children: Vec<PlanTreeNode>,
+    skew_rising: bool,
 }
 
 pub struct WlDriver {
@@ -242,16 +243,26 @@ impl Component for WmuxDriver {
 }
 
 impl DecoderTree {
-    pub fn with_scale(bits: usize, top_scale: i64) -> Self {
-        let mut tree = Self::new(bits);
-        tree.root.gate = tree.root.gate.scale(top_scale);
-        tree
+    pub fn with_scale_and_skew(bits: usize, top_scale: i64, skew_rising: bool) -> Self {
+        let plan = plan_decoder(bits, true, skew_rising);
+        let mut root = size_decoder(&plan);
+        root.gate = root.gate.scale(top_scale);
+        DecoderTree { root }
     }
 
+    #[inline]
+    pub fn with_scale(bits: usize, top_scale: i64) -> Self {
+        Self::with_scale_and_skew(bits, top_scale, false)
+    }
+
+    #[inline]
+    pub fn with_skew(bits: usize, skew_rising: bool) -> Self {
+        Self::with_scale_and_skew(bits, 1, skew_rising)
+    }
+
+    #[inline]
     pub fn new(bits: usize) -> Self {
-        let plan = plan_decoder(bits, true);
-        let root = size_decoder(&plan);
-        DecoderTree { root }
+        Self::with_scale_and_skew(bits, 1, false)
     }
 }
 
@@ -280,14 +291,11 @@ fn size_decoder(tree: &PlanTreeNode) -> TreeNode {
 
     sizes.reverse();
 
-    size_helper_tmp(tree, &sizes)
+    size_helper_tmp(tree, &sizes, tree.skew_rising)
 }
 
-fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64]) -> TreeNode {
-    // TODO size decoder
-    TreeNode {
-        gate: GateParams::new_and(
-            x.gate,
+fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64], skew_rising: bool) -> TreeNode {
+    let gate_params = if skew_rising {
             AndParams {
                 nand: PrimitiveGateParams {
                     nwidth: 4_000,
@@ -299,30 +307,52 @@ fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64]) -> TreeNode {
                     pwidth: 2_800,
                     length: 150,
                 },
-            },
+            }
+
+    } else {
+            AndParams {
+                nand: PrimitiveGateParams {
+                    nwidth: 2_000,
+                    pwidth: 2_000,
+                    length: 150,
+                },
+                inv: PrimitiveGateParams {
+                    nwidth: 1_000,
+                    pwidth: 2_000,
+                    length: 150,
+                },
+            }
+    };
+    // TODO size decoder
+    TreeNode {
+        gate: GateParams::new_and(
+            x.gate,
+            gate_params
         ),
         num: x.num,
         children: x
             .children
             .iter()
-            .map(|n| size_helper_tmp(n, _sizes))
+            .map(|n| size_helper_tmp(n, _sizes, skew_rising))
             .collect::<Vec<_>>(),
     }
 }
 
-fn plan_decoder(bits: usize, top: bool) -> PlanTreeNode {
+fn plan_decoder(bits: usize, top: bool, skew_rising: bool) -> PlanTreeNode {
     assert!(bits > 1);
     if bits == 2 {
         PlanTreeNode {
             gate: GateType::And2,
             num: 4,
             children: vec![],
+            skew_rising,
         }
     } else if bits == 3 {
         PlanTreeNode {
             gate: GateType::And3,
             num: 8,
             children: vec![],
+            skew_rising,
         }
     } else {
         let split = partition_bits(bits, top);
@@ -334,12 +364,13 @@ fn plan_decoder(bits: usize, top: bool) -> PlanTreeNode {
 
         let children = split
             .into_iter()
-            .map(|x| plan_decoder(x, false))
+            .map(|x| plan_decoder(x, false, skew_rising))
             .collect::<Vec<_>>();
         PlanTreeNode {
             gate,
             num: 2usize.pow(bits as u32),
             children,
+            skew_rising,
         }
     }
 }
