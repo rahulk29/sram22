@@ -296,39 +296,35 @@ fn size_decoder(tree: &PlanTreeNode) -> TreeNode {
 
 fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64], skew_rising: bool) -> TreeNode {
     let gate_params = if skew_rising {
-            AndParams {
-                nand: PrimitiveGateParams {
-                    nwidth: 4_000,
-                    pwidth: 1_000,
-                    length: 150,
-                },
-                inv: PrimitiveGateParams {
-                    nwidth: 600,
-                    pwidth: 2_800,
-                    length: 150,
-                },
-            }
-
+        AndParams {
+            nand: PrimitiveGateParams {
+                nwidth: 4_000,
+                pwidth: 1_000,
+                length: 150,
+            },
+            inv: PrimitiveGateParams {
+                nwidth: 600,
+                pwidth: 2_800,
+                length: 150,
+            },
+        }
     } else {
-            AndParams {
-                nand: PrimitiveGateParams {
-                    nwidth: 2_000,
-                    pwidth: 2_000,
-                    length: 150,
-                },
-                inv: PrimitiveGateParams {
-                    nwidth: 1_000,
-                    pwidth: 2_000,
-                    length: 150,
-                },
-            }
+        AndParams {
+            nand: PrimitiveGateParams {
+                nwidth: 2_000,
+                pwidth: 2_000,
+                length: 150,
+            },
+            inv: PrimitiveGateParams {
+                nwidth: 1_000,
+                pwidth: 2_000,
+                length: 150,
+            },
+        }
     };
     // TODO size decoder
     TreeNode {
-        gate: GateParams::new_and(
-            x.gate,
-            gate_params
-        ),
+        gate: GateParams::new_and(x.gate, gate_params),
         num: x.num,
         children: x
             .children
