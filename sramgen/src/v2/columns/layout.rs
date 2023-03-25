@@ -97,17 +97,19 @@ impl ColPeripherals {
         let mut grid_tiler = GridTiler::new(grid);
         grid_tiler.expose_ports(
             |port: CellPort, (_, j)| {
-                if ["bl", "br"].contains(&port.name().as_ref()) {
+                let port_name = port.name().as_ref();
+                if ["bl", "br"].contains(&port_name) {
                     Some(port.map_index(|index| {
                         col_indices.get(&j).unwrap() * self.params.wmux.mux_ratio + index
                     }))
-                } else if [
-                    "read_bl", "read_br", "inp", "inn", "outp", "outn", "wmask", "data", "data_b",
-                    "q", "q_b",
-                ]
-                .contains(&port.name().as_ref())
-                {
+                } else if ["dout", "din"].contains(&port_name) {
                     Some(port.with_index(*col_indices.get(&j).unwrap()))
+                } else if "wmask" == port_name {
+                    Some(
+                        port.with_index(
+                            *col_indices.get(&j).unwrap() / self.params.wmask_granularity,
+                        ),
+                    )
                 } else {
                     Some(port)
                 }
@@ -305,41 +307,100 @@ impl Column {
             use CellTrack::*;
             let pad = 40;
             Ok(match track {
-                ReadP | ReadN => vec![
+                ReadP => vec![
                     Span::new(
                         sa.port("inp")?.largest_rect(m2)?.bottom() - pad,
-                        rmux.brect().top(),
+                        rmux.port("read_bl")?.largest_rect(m2)?.top() + pad,
                     ),
                     Span::new(
                         buf.port("inp")?.largest_rect(m2)?.bottom() - pad,
-                        sa.port("outn")?.largest_rect(m2)?.top() + pad,
+                        sa.port("outp")?.largest_rect(m2)?.top() + pad,
                     ),
                     Span::new(
                         vspan.start(),
-                        buf.port("outn")?.largest_rect(m2)?.top() + pad,
+                        buf.port("outp")?.largest_rect(m2)?.top() + pad,
                     ),
                 ],
-                Vss => vec![vspan],
-                Data | DataB | Wmask => vec![Span::new(vspan.start(), wmux.brect().top())],
+                ReadN => vec![
+                    Span::new(
+                        sa.port("inn")?.largest_rect(m2)?.bottom() - pad,
+                        rmux.port("read_br")?.largest_rect(m2)?.top() + pad,
+                    ),
+                    Span::new(
+                        buf.port("inn")?.largest_rect(m2)?.bottom() - pad,
+                        sa.port("outn")?.largest_rect(m2)?.top() + pad,
+                    ),
+                ],
+                DataIn => vec![Span::new(
+                    vspan.start(),
+                    dff.port("d")?.largest_rect(m2)?.top() + pad,
+                )],
+                Data => {
+                    if self.params.include_wmask {
+                        vec![
+                            Span::new(
+                                dff.port("q")?.largest_rect(m2)?.bottom() - pad,
+                                wmux.brect().top(),
+                            ),
+                            Span::new(
+                                vspan.start(),
+                                wmask_dff.port("d")?.largest_rect(m2)?.top() + pad,
+                            ),
+                        ]
+                    } else {
+                        vec![Span::new(
+                            dff.port("q")?.largest_rect(m2)?.bottom() - pad,
+                            wmux.brect().top(),
+                        )]
+                    }
+                }
+                DataB => vec![Span::new(
+                    dff.port("qb")?.largest_rect(m2)?.bottom() - pad,
+                    wmux.brect().top(),
+                )],
+                Wmask => {
+                    if self.params.include_wmask {
+                        vec![Span::new(
+                            wmask_dff.port("q")?.largest_rect(m2)?.bottom() - pad,
+                            wmux.brect().top(),
+                        )]
+                    } else {
+                        vec![]
+                    }
+                }
             })
         };
 
         for (i, track) in tracks.iter().enumerate() {
             let name = CellTrack::from(i);
-            let port = CellPort::new(match name {
-                CellTrack::Vss => "vss",
-                _ => continue,
-            });
-            for vspan in track_vspans(name)? {
-                let rect = Rect::from_spans(track, vspan);
-                let mut port = port.clone();
-                port.add(m3, subgeom::Shape::Rect(rect));
-                ctx.add_port(port).unwrap();
-                ctx.draw_rect(m3, Rect::from_spans(track, vspan));
+            let vspans = track_vspans(name)?;
+            for vspan in vspans.iter() {
+                let rect = Rect::from_spans(track, *vspan);
+                ctx.draw_rect(m3, rect);
+            }
+
+            if let Some(vspan) = vspans.last() {
+                ctx.add_port(
+                    CellPort::builder()
+                        .id(match name {
+                            CellTrack::ReadP => "dout",
+                            CellTrack::DataIn => "din",
+                            CellTrack::Data => {
+                                if self.params.include_wmask {
+                                    "wmask"
+                                } else {
+                                    continue;
+                                }
+                            }
+                            _ => continue,
+                        })
+                        .add(m3, Rect::from_spans(track, *vspan))
+                        .build(),
+                )?;
             }
         }
 
-        let mut connect =
+        let mut draw_vias =
             |inst: &Instance, port: &str, track: CellTrack| -> substrate::error::Result<()> {
                 let idx = track.into();
                 let port = inst.port(port)?;
@@ -353,44 +414,36 @@ impl Column {
                         )
                         .build();
                     let via = ctx.instantiate::<Via>(&viap)?;
-                    ctx.add_port_with_strategy(
-                        CellPort::builder()
-                            .add(m3, via.bbox().into_rect().with_hspan(tracks.index(idx)))
-                            .id(port.id().clone())
-                            .build(),
-                        PortConflictStrategy::Merge,
-                    )?;
                     ctx.draw(via)?;
                 }
                 Ok(())
             };
 
-        connect(&rmux, "read_bl", CellTrack::ReadP)?;
-        connect(&rmux, "read_br", CellTrack::ReadN)?;
+        draw_vias(&rmux, "read_bl", CellTrack::ReadP)?;
+        draw_vias(&rmux, "read_br", CellTrack::ReadN)?;
 
-        connect(&sa, "inp", CellTrack::ReadP)?;
-        connect(&sa, "inn", CellTrack::ReadN)?;
-        connect(&sa, "outp", CellTrack::ReadP)?;
-        connect(&sa, "outn", CellTrack::ReadN)?;
-        connect(&sa, "vss", CellTrack::Vss)?;
+        draw_vias(&sa, "inp", CellTrack::ReadP)?;
+        draw_vias(&sa, "inn", CellTrack::ReadN)?;
+        draw_vias(&sa, "outp", CellTrack::ReadP)?;
+        draw_vias(&sa, "outn", CellTrack::ReadN)?;
 
-        connect(&wmux, "wmask", CellTrack::Wmask)?;
-        connect(&wmux, "data", CellTrack::Data)?;
-        connect(&wmux, "data_b", CellTrack::DataB)?;
-        connect(&wmux, "vss", CellTrack::Vss)?;
+        draw_vias(&wmux, "wmask", CellTrack::Wmask)?;
+        draw_vias(&wmux, "data", CellTrack::Data)?;
+        draw_vias(&wmux, "data_b", CellTrack::DataB)?;
 
-        connect(&buf, "inp", CellTrack::ReadP)?;
-        connect(&buf, "inn", CellTrack::ReadN)?;
-        connect(&buf, "outp", CellTrack::ReadP)?;
-        connect(&buf, "outn", CellTrack::ReadN)?;
-        connect(&buf, "vss", CellTrack::Vss)?;
+        draw_vias(&buf, "inp", CellTrack::ReadP)?;
+        draw_vias(&buf, "inn", CellTrack::ReadN)?;
+        draw_vias(&buf, "outp", CellTrack::ReadP)?;
+        draw_vias(&buf, "outn", CellTrack::ReadN)?;
 
-        connect(&dff, "vss", CellTrack::Vss)?;
-        connect(&dff, "q", CellTrack::Data)?;
-        connect(&dff, "qb", CellTrack::DataB)?;
+        draw_vias(&dff, "d", CellTrack::DataIn)?;
+        draw_vias(&dff, "q", CellTrack::Data)?;
+        draw_vias(&dff, "qb", CellTrack::DataB)?;
 
         if self.params.include_wmask {
-            connect(&wmask_dff, "q", CellTrack::Wmask)?;
+            // Co-opt the Data track for the wmask input signal
+            draw_vias(&wmask_dff, "d", CellTrack::Data)?;
+            draw_vias(&wmask_dff, "q", CellTrack::Wmask)?;
         }
 
         Ok(())
@@ -439,7 +492,7 @@ impl From<TapTrack> for usize {
 pub enum CellTrack {
     ReadP,
     ReadN,
-    Vss,
+    DataIn,
     Data,
     DataB,
     Wmask,
@@ -451,7 +504,7 @@ impl From<usize> for CellTrack {
         match value {
             0 => ReadP,
             1 => ReadN,
-            2 => Vss,
+            2 => DataIn,
             3 => Data,
             4 => DataB,
             5 => Wmask,
@@ -466,7 +519,7 @@ impl From<CellTrack> for usize {
         match value {
             ReadP => 0,
             ReadN => 1,
-            Vss => 2,
+            DataIn => 2,
             Data => 3,
             DataB => 4,
             Wmask => 5,

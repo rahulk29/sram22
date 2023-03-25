@@ -5,7 +5,8 @@ use subgeom::orientation::Named;
 use subgeom::{Dir, Rect, Shape, Side, Sign, Span};
 use substrate::component::NoParams;
 use substrate::error::Result;
-use substrate::layout::cell::{Instance, Port, PortId};
+use substrate::index::IndexOwned;
+use substrate::layout::cell::{CellPort, Instance, Port, PortId};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::layers::selector::Selector;
@@ -16,6 +17,7 @@ use substrate::layout::routing::auto::grid::{
 use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
 use substrate::layout::routing::manual::jog::SJog;
+use substrate::layout::routing::tracks::TrackLocator;
 use substrate::layout::straps::SingleSupplyNet;
 use substrate::layout::Draw;
 
@@ -111,7 +113,7 @@ impl SramInner {
         col_dec.align_right(wl_driver.bbox());
         control.align_beneath(col_dec.bbox(), 1_270);
         control.align_right(wl_driver.bbox());
-        dffs.align_beneath(control.bbox(), 1_270);
+        dffs.align_beneath(control.bbox(), 3_000);
         dffs.align_right(wl_driver.bbox());
 
         ctx.draw_ref(&bitcells)?;
@@ -132,12 +134,14 @@ impl SramInner {
         let m2 = layers.get(Selector::Metal(2))?;
         let m3 = layers.get(Selector::Metal(3))?;
 
+        let router_bbox = ctx
+            .brect()
+            .expand(4 * 680)
+            .expand_side(Side::Right, 4 * 680)
+            .snap_to_grid(680);
+
         let mut router = GreedyRouter::with_config(GreedyRouterConfig {
-            area: ctx
-                .brect()
-                .expand(4 * 680)
-                .expand_side(Side::Right, 4 * 680)
-                .snap_to_grid(680),
+            area: router_bbox,
             layers: vec![
                 LayerConfig {
                     line: 320,
@@ -175,8 +179,41 @@ impl SramInner {
         }
 
         for inst in [&bitcells, &rbl] {
-            router.block(m2, inst.brect().expand_dir(Dir::Horiz, 5_080));
+            router.block(m2, inst.brect().expand_dir(Dir::Horiz, 6_000));
             router.block(m3, inst.brect());
+        }
+
+        // Route DFF input signals to pins on bounding box of SRAM
+        for i in 0..num_dffs {
+            let src = dffs.port(PortId::new("d", i))?.largest_rect(m2)?;
+            let src = router.expand_to_layer_grid(src, m2, ExpandToGridStrategy::Minimum);
+            let src = router.expand_to_layer_grid(src, m3, ExpandToGridStrategy::Minimum);
+            ctx.draw_rect(m2, src);
+            let tracks = router.track_info(m3).tracks();
+            let track_span =
+                tracks.index(tracks.track_with_loc(TrackLocator::EndsBefore, src.right()));
+            let rect = src
+                .with_hspan(track_span)
+                .with_vspan(src.vspan().add_point(router_bbox.bottom()));
+            ctx.draw_rect(m3, rect);
+            ctx.add_port(
+                CellPort::builder()
+                    .id(if i == num_dffs - 1 {
+                        "we".into()
+                    } else {
+                        PortId::new("addr", i)
+                    })
+                    .add(m3, rect)
+                    .build(),
+            )?;
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m2, m3)
+                    .geometry(src, rect)
+                    .build(),
+            )?;
+            ctx.draw(via)?;
+            router.block(m3, rect);
         }
 
         // Route address bits from DFFs to decoders
@@ -496,13 +533,13 @@ impl SramInner {
 
         // Connect decoders and DFFs to power straps.
         for (inst, layer) in [
-            (decoder, m1),
-            (wl_driver, m1),
-            (p1, m2),
-            (p2, m2),
-            (col_dec, m2),
-            (wmux_driver, m2),
-            (dffs, m2),
+            (&decoder, m1),
+            (&wl_driver, m1),
+            (&p1, m2),
+            (&p2, m2),
+            (&col_dec, m2),
+            (&wmux_driver, m2),
+            (&dffs, m2),
         ] {
             for port_name in ["vdd", "vss"] {
                 for port in inst.port(port_name)?.shapes(layer) {
@@ -520,6 +557,23 @@ impl SramInner {
                         );
                     }
                 }
+            }
+        }
+
+        // Route column peripheral outputs to pins on bounding box of SRAM
+        let groups = self.params.cols / self.params.mux_ratio;
+        for (port, width) in [
+            ("dout", groups),
+            ("din", groups),
+            ("wmask", self.params.wmask_width),
+        ] {
+            for i in 0..width {
+                let port_id = PortId::new(port, i);
+                let rect = cols.port(port_id.clone())?.largest_rect(m3)?;
+                let rect = rect.with_vspan(rect.vspan().add_point(router_bbox.bottom()));
+                ctx.draw_rect(m3, rect);
+                ctx.add_port(CellPort::builder().id(port_id).add(m3, rect).build())?;
+                router.block(m3, rect);
             }
         }
 

@@ -93,7 +93,6 @@ impl Component for DffArray {
                     Some(port)
                 } else {
                     let port = port.with_index(i);
-                    println!("{port:?}");
                     Some(port)
                 }
             },
