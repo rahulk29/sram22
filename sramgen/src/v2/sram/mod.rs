@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use subgeom::bbox::BoundBox;
 use subgeom::{Dir, Rect, Span};
 use substrate::component::Component;
+use substrate::layout::cell::{CellPort, Port, PortId};
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::routing::auto::straps::PlacedStraps;
@@ -104,7 +105,6 @@ impl Component for Sram {
     ) -> substrate::error::Result<()> {
         let sram = ctx.instantiate::<SramInner>(&self.params)?;
         let brect = sram.brect();
-        ctx.add_ports(sram.ports()).unwrap();
         ctx.draw_ref(&sram)?;
 
         let m1 = ctx.layers().get(Selector::Metal(1))?;
@@ -169,6 +169,27 @@ impl Component for Sram {
         }
 
         ctx.draw(ring)?;
+
+        // Route pins to edge of guard ring
+        let groups = self.params.cols / self.params.mux_ratio;
+        for (pin, width) in [
+            ("dout", groups),
+            ("din", groups),
+            ("wmask", self.params.wmask_width),
+            ("addr", self.params.addr_width),
+            ("we", 1),
+        ] {
+            for i in 0..width {
+                let port_id = PortId::new(pin, i);
+                let rect = sram.port(port_id.clone())?.largest_rect(m3)?;
+                let rect = rect.with_vspan(
+                    rect.vspan()
+                        .add_point(ctx.bbox().into_rect().side(subgeom::Side::Bot)),
+                );
+                ctx.draw_rect(m3, rect);
+                ctx.add_port(CellPort::builder().id(port_id).add(m3, rect).build())?;
+            }
+        }
 
         Ok(())
     }

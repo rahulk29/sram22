@@ -113,7 +113,6 @@ impl Testbench for BitlineCapTb {
 
         let cbl = IBL_NANO as f64 * 1e-9 * (t2 - t1) / (v2 - v1);
 
-        println!("cbl = {:?}", cbl);
         Ok(BitlineCap { cbl })
     }
 }
