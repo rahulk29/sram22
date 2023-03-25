@@ -388,13 +388,16 @@ impl Testbench for SramTestbench {
             .collect();
         ctx.save(Save::Signals(signals));
 
+        let vdd = SiValue::with_precision(self.params.vdd, SiPrefix::Nano);
+
         for i in 0..self.params.sram.rows {
-            ctx.set_ic(format!("Xdut.wl[{i}]"), SiValue::zero());
+            ctx.set_ic(format!("Xdut.X0.wl[{i}]"), SiValue::zero());
             for j in 0..self.params.sram.cols {
                 ctx.set_ic(
-                    format!("Xdut.Xbitcell_array.Xcell_{i}_{j}.X0.Q"),
+                    format!("Xdut.X0.Xbitcell_array.Xcell_{i}_{j}.X0.Q"),
                     SiValue::zero(),
                 );
+                ctx.set_ic(format!("Xdut.X0.Xbitcell_array.Xcell_{i}_{j}.X0.QB"), vdd);
             }
         }
         Ok(())
