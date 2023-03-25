@@ -81,11 +81,11 @@ impl Precharge {
             ctx.draw_rect(dsn.v_metal, rect);
             orects.push(rect);
             if i == 0 {
-                ctx.add_port(CellPort::with_shape("bl_out", dsn.v_metal, rect))
+                ctx.add_port(CellPort::with_shape("br_out", dsn.v_metal, rect))
                     .unwrap();
             }
             if i == 2 {
-                ctx.add_port(CellPort::with_shape("br_out", dsn.v_metal, rect))
+                ctx.add_port(CellPort::with_shape("bl_out", dsn.v_metal, rect))
                     .unwrap();
             }
         }
@@ -109,6 +109,14 @@ impl Precharge {
             );
             rects.push(rect);
             ctx.draw_rect(dsn.v_metal, rect);
+            if i == 1 {
+                ctx.add_port(CellPort::with_shape("br_in", dsn.v_metal, rect))
+                    .unwrap();
+            }
+            if i == 2 {
+                ctx.add_port(CellPort::with_shape("bl_in", dsn.v_metal, rect))
+                    .unwrap();
+            }
         }
 
         ctx.draw(jog)?;

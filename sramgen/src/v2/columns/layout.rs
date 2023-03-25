@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use grid::Grid;
 use serde::{Deserialize, Serialize};
 use subgeom::bbox::BoundBox;
@@ -69,8 +71,10 @@ impl ColPeripherals {
         let mut row = vec![end.clone().into()];
         let groups = self.params.cols / self.params.wmux.mux_ratio;
         let mask_groups = groups / self.params.wmask_granularity;
+        let mut col_indices = HashMap::new();
         for i in 0..mask_groups {
             for j in 0..self.params.wmask_granularity {
+                col_indices.insert(row.len(), self.params.wmask_granularity * i + j);
                 if j == 0 {
                     row.push(col_wmask.clone().into());
                 } else {
@@ -91,7 +95,18 @@ impl ColPeripherals {
         grid.push_row(row);
 
         let mut grid_tiler = GridTiler::new(grid);
-        grid_tiler.expose_ports(|port: CellPort, _| Some(port), PortConflictStrategy::Merge)?;
+        grid_tiler.expose_ports(
+            |port: CellPort, (_, j)| {
+                if ["bl", "br"].contains(&port.name().as_ref()) {
+                    Some(port.map_index(|index| {
+                        col_indices.get(&j).unwrap() * self.params.wmux.mux_ratio + index
+                    }))
+                } else {
+                    Some(port)
+                }
+            },
+            PortConflictStrategy::Merge,
+        )?;
         ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
         let group = grid_tiler.draw()?;
 
@@ -237,7 +252,7 @@ impl Column {
         }
         grid.push_row(row);
 
-        let tiler = GridTiler::new(grid);
+        let mut tiler = GridTiler::new(grid);
         pc.translate(tiler.translation(0, 0));
         rmux.translate(tiler.translation(1, 0));
         wmux.translate(tiler.translation(2, 0));
@@ -247,6 +262,20 @@ impl Column {
         if self.params.include_wmask {
             wmask_dff.translate(tiler.translation(6, 0));
         }
+        tiler.expose_ports(
+            |port: CellPort, (i, j)| {
+                if i == 0 {
+                    return match port.name().as_ref() {
+                        "bl_in" => Some(port.named("bl").with_index(j)),
+                        "br_in" => Some(port.named("br").with_index(j)),
+                        _ => None,
+                    };
+                }
+                None
+            },
+            PortConflictStrategy::Error,
+        )?;
+        ctx.add_ports(tiler.ports().cloned()).unwrap();
         ctx.draw(tiler)?;
 
         let hspan = Span::new(0, 4 * pc.brect().width());

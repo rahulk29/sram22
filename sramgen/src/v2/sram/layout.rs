@@ -17,6 +17,7 @@ use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
 use substrate::layout::routing::manual::jog::SJog;
 use substrate::layout::straps::SingleSupplyNet;
+use substrate::layout::Draw;
 
 use crate::v2::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
 use crate::v2::bitcell_array::{SpCellArray, SpCellArrayParams};
@@ -304,6 +305,40 @@ impl SramInner {
             ctx.draw(jog)?;
         }
 
+        // Route wordline driver to bitcell array
+        for i in 0..tree.root.num {
+            let src = wl_driver.port(PortId::new("decode", i))?.largest_rect(m0)?;
+            let src = src.with_hspan(Span::with_stop_and_length(src.right(), 170));
+            let dst = bitcells.port(PortId::new("wl", i))?.largest_rect(m2)?;
+            let jog = SJog::builder()
+                .src(src)
+                .dst(dst)
+                .dir(Dir::Horiz)
+                .layer(m2)
+                .width(170)
+                .l1(0)
+                .grid(ctx.pdk().layout_grid())
+                .build()
+                .unwrap();
+            let jog_group = jog.draw()?;
+            router.block(m2, jog_group.bbox().into_rect());
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m0, m1)
+                    .geometry(src, src)
+                    .build(),
+            )?;
+            ctx.draw(via)?;
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m1, m2)
+                    .geometry(src, src)
+                    .build(),
+            )?;
+            ctx.draw(via)?;
+            ctx.draw(jog_group)?;
+        }
+
         // Route column decoder to wmux driver
         for i in 0..col_tree.root.num {
             let src = col_dec.port(PortId::new("decode", i))?.largest_rect(m0)?;
@@ -318,6 +353,15 @@ impl SramInner {
                 .build()
                 .unwrap();
             ctx.draw(jog)?;
+        }
+
+        // Route precharges to bitcell array
+        for i in 0..self.params.cols {
+            for port_name in ["bl", "br"] {
+                let src = cols.port(PortId::new(port_name, i))?.largest_rect(m1)?;
+                let dst = bitcells.port(PortId::new(port_name, i))?.largest_rect(m1)?;
+                ctx.draw_rect(m1, src.union(dst.bbox()).into_rect());
+            }
         }
 
         let mut straps = RoutedStraps::new();
