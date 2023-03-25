@@ -101,6 +101,13 @@ impl ColPeripherals {
                     Some(port.map_index(|index| {
                         col_indices.get(&j).unwrap() * self.params.wmux.mux_ratio + index
                     }))
+                } else if [
+                    "read_bl", "read_br", "inp", "inn", "outp", "outn", "wmask", "data", "data_b",
+                    "q", "q_b",
+                ]
+                .contains(&port.name().as_ref())
+                {
+                    Some(port.with_index(*col_indices.get(&j).unwrap()))
                 } else {
                     Some(port)
                 }
@@ -346,6 +353,13 @@ impl Column {
                         )
                         .build();
                     let via = ctx.instantiate::<Via>(&viap)?;
+                    ctx.add_port_with_strategy(
+                        CellPort::builder()
+                            .add(m3, via.bbox().into_rect().with_hspan(tracks.index(idx)))
+                            .id(port.id().clone())
+                            .build(),
+                        PortConflictStrategy::Merge,
+                    )?;
                     ctx.draw(via)?;
                 }
                 Ok(())
