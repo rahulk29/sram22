@@ -9,7 +9,7 @@ use substrate::schematic::elements::vpwl::Vpwl;
 use substrate::units::{SiPrefix, SiValue};
 use substrate::verification::simulation::bits::is_logical_low;
 use substrate::verification::simulation::testbench::Testbench;
-use substrate::verification::simulation::waveform::Waveform;
+use substrate::verification::simulation::waveform::{Waveform, TimeWaveform};
 use substrate::verification::simulation::TranAnalysis;
 
 use super::macros::SenseAmp;

@@ -13,7 +13,7 @@ use substrate::verification::simulation::{Save, TranAnalysis};
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use substrate::verification::simulation::testbench::Testbench;
-use substrate::verification::simulation::waveform::Waveform;
+use substrate::verification::simulation::waveform::{Waveform, TimeWaveform};
 
 use super::{Sram, SramParams};
 
