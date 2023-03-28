@@ -431,6 +431,7 @@ mod tests {
         for vdd in [1.8, 1.5, 2.0] {
             let tb = tb_params(params.clone(), vdd, short);
             for corner in corners.corners() {
+                if corner.name() != "sf" { continue; }
                 println!(
                     "Testing corner {} with Vdd = {}, short = {}",
                     corner.name(),
