@@ -304,7 +304,7 @@ fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64], skew_rising: bool) -> TreeN
             },
             inv: PrimitiveGateParams {
                 nwidth: 600,
-                pwidth: 2_800,
+                pwidth: 6_800,
                 length: 150,
             },
         }
