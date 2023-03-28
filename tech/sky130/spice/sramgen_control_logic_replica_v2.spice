@@ -212,6 +212,7 @@ Xinv_we we we_b vdd vss control_logic_inv
 * to flip an inverter.
 Xinv_rbl rbl rbl_b vdd vss control_logic_inv
 Xpc_read_set_buf rbl_b pc_read_set vdd vss control_logic_delay_chain48
+Xrbl_b_delay rbl_b rbl_b_delayed vdd vss control_logic_delay_chain16
 Xand_sense_en we_b rbl_b sense_en_set0 vdd vss control_logic_and2
 Xsense_en_delay sense_en_set0 sense_en_set vdd vss control_logic_delay_chain48
 
@@ -220,7 +221,7 @@ Xsae_ctl sense_en_set clkp sense_en0 sense_en_b vdd vss control_logic_sr_latch
 Xpc_ctl pc_set clkp pc pc_b0 vdd vss control_logic_sr_latch
 Xwr_drv_ctl wr_drv_set wl_en_write_rst write_driver_en0 write_driver_en_b vdd vss control_logic_sr_latch
 
-Xmux_wl_en_rst rbl_b wl_en_write_rst we wl_en_rst vdd vss control_logic_mux2
+Xmux_wl_en_rst rbl_b_delayed wl_en_write_rst we wl_en_rst vdd vss control_logic_mux2
 Xmux_pc_set pc_read_set pc_write_set we pc_set vdd vss control_logic_mux2
 Xsae_set we_b rbl_b sae_set vdd vss control_logic_and2
 
