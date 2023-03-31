@@ -289,9 +289,9 @@ impl SramInner {
                     .layer(m0)
                     .rect(src)
                     .dst_layer(m1)
-                    .width(320)
+                    .width(170)
                     .first_dir(Side::Bot)
-                    .second_dir(Side::Left)
+                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
                     .build(),
             );
             router.route(ctx, m1, src, m1, dst)?;
@@ -310,9 +310,9 @@ impl SramInner {
                     .layer(m0)
                     .rect(src)
                     .dst_layer(m1)
-                    .width(320)
+                    .width(170)
                     .first_dir(Side::Bot)
-                    .second_dir(Side::Left)
+                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
                     .build(),
             );
             router.route(ctx, m1, src, m1, dst)?;
