@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
-use subgeom::{Dir, Rect, Shape, Side, Sign, Span};
+use subgeom::{Corner, Dir, Point, Rect, Shape, Side, Sign, Span};
 use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
@@ -24,7 +24,8 @@ use substrate::layout::Draw;
 use crate::v2::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
 use crate::v2::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::v2::columns::ColPeripherals;
-use crate::v2::control::{ControlLogicReplicaV1, DffArray};
+use crate::v2::control::layout::ControlLogicReplicaV2Layout;
+use crate::v2::control::DffArray;
 use crate::v2::decoder::layout::LastBitDecoderStage;
 use crate::v2::decoder::{
     DecoderParams, DecoderStageParams, DecoderTree, Predecoder, WlDriver, WmuxDriver,
@@ -80,9 +81,7 @@ impl SramInner {
             child_sizes: vec![],
         };
         let mut wmux_driver = ctx.instantiate::<WmuxDriver>(&wmux_driver_params)?;
-        let mut control = ctx
-            .instantiate::<ControlLogicReplicaV1>(&NoParams)?
-            .with_orientation(Named::R90);
+        let mut control = ctx.instantiate::<ControlLogicReplicaV2Layout>(&NoParams)?;
 
         let num_dffs = self.params.addr_width + 1;
         let mut dffs = ctx.instantiate::<DffArray>(&num_dffs)?;

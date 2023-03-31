@@ -14,6 +14,9 @@ use substrate::schematic::circuit::Direction;
 use crate::tech::{external_gds_path, external_spice_path};
 
 use super::macros::Dff;
+
+pub mod layout;
+
 fn path(_ctx: &SubstrateCtx, name: &str, view: View) -> Option<PathBuf> {
     match view {
         View::Layout => Some(external_gds_path().join(format!("{name}.gds"))),
