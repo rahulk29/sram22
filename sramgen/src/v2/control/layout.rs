@@ -1,32 +1,18 @@
-use substrate::component::{Component, NoParams};
-use substrate::layout::cell::{CellPort, Port, PortConflictStrategy, PortId};
+use substrate::layout::cell::{CellPort, PortConflictStrategy, PortId};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::{ArrayTiler, ArrayTilerBuilder};
 use substrate::layout::placement::tile::LayerBbox;
-use substrate::layout::routing::auto::grid::JogToGrid;
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
 use substrate::pdk::stdcell::StdCell;
 
-use subgeom::{Dir, Rect, Side, Span};
+use subgeom::Dir;
 
-pub struct ControlLogicReplicaV2Layout;
+use super::ControlLogicReplicaV2;
 
-impl Component for ControlLogicReplicaV2Layout {
-    type Params = NoParams;
-    fn new(
-        params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        Ok(Self)
-    }
-
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("control_logic_replica_v2")
-    }
-
-    fn layout(
+impl ControlLogicReplicaV2 {
+    pub(crate) fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
@@ -36,7 +22,7 @@ impl Component for ControlLogicReplicaV2Layout {
         let inv = ctx.instantiate::<StdCell>(&inv.id())?;
 
         let layers = ctx.layers();
-        let m0 = layers.get(Selector::Metal(0))?;
+        let _m0 = layers.get(Selector::Metal(0))?;
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
         let m3 = layers.get(Selector::Metal(3))?;
@@ -81,7 +67,7 @@ impl Component for ControlLogicReplicaV2Layout {
         ctx.draw(rows.build())?;
         let bbox = ctx.bbox();
 
-        let mut router = GreedyRouter::with_config(GreedyRouterConfig {
+        let router = GreedyRouter::with_config(GreedyRouterConfig {
             area: bbox.into_rect(),
             layers: vec![
                 LayerConfig {
@@ -110,10 +96,11 @@ impl Component for ControlLogicReplicaV2Layout {
     }
 }
 
-fn draw_row<'a, 'b>(
-    ctx: &'a mut LayoutCtx,
-    row: &'b mut ArrayTilerBuilder,
-) -> substrate::error::Result<ArrayTiler<'b>> {
+#[allow(unused)]
+fn draw_row<'a>(
+    _ctx: &mut LayoutCtx,
+    row: &'a mut ArrayTilerBuilder,
+) -> substrate::error::Result<ArrayTiler<'a>> {
     let mut tiler = row.build();
     tiler.expose_ports(
         |mut port: CellPort, i| {
