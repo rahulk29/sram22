@@ -16,6 +16,7 @@ use crate::tech::{external_gds_path, external_spice_path};
 use super::macros::Dff;
 
 pub mod layout;
+pub mod schematic;
 
 fn path(_ctx: &SubstrateCtx, name: &str, view: View) -> Option<PathBuf> {
     match view {
@@ -34,12 +35,97 @@ fn path(_ctx: &SubstrateCtx, name: &str, view: View) -> Option<PathBuf> {
 )]
 pub struct ControlLogicReplicaV1;
 
-#[hard_macro(
-    name = "sramgen_control_logic_replica_v2",
-    pdk = "sky130-open",
-    path_fn = "path"
-)]
 pub struct ControlLogicReplicaV2;
+
+impl Component for ControlLogicReplicaV2 {
+    type Params = NoParams;
+    fn new(
+        _params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self)
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("control_logic_replica_v2")
+    }
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        self.schematic(ctx)
+    }
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        self.layout(ctx)
+    }
+}
+
+pub struct SrLatch;
+
+impl Component for SrLatch {
+    type Params = NoParams;
+    fn new(
+        _params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self)
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("sr_latch")
+    }
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        self.schematic(ctx)
+    }
+}
+
+pub struct InvChain {
+    n: usize,
+}
+
+impl Component for InvChain {
+    type Params = usize;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self { n: *params })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        ArcStr::from(format!("inv_chain_{}", self.n))
+    }
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        self.schematic(ctx)
+    }
+}
+
+pub struct EdgeDetector;
+
+impl Component for EdgeDetector {
+    type Params = NoParams;
+    fn new(
+        _params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self)
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("edge_detector")
+    }
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        self.schematic(ctx)
+    }
+}
 
 pub struct DffArray {
     n: usize,
@@ -105,5 +191,28 @@ impl Component for DffArray {
 
         ctx.draw(tiler)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+pub mod test {
+    use substrate::component::NoParams;
+
+    use crate::paths::out_spice;
+    use crate::setup_ctx;
+    use crate::tests::test_work_dir;
+
+    use super::ControlLogicReplicaV2;
+
+    #[test]
+    fn test_control_logic_replica_v2() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_control_logic_replica_v2");
+
+        ctx.write_schematic_to_file::<ControlLogicReplicaV2>(
+            &NoParams,
+            out_spice(work_dir, "netlist"),
+        )
+        .expect("failed to write schematic");
     }
 }

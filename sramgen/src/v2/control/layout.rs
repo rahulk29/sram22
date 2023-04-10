@@ -1,4 +1,3 @@
-use substrate::component::{Component, NoParams};
 use substrate::layout::cell::{CellPort, PortConflictStrategy, PortId};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignMode;
@@ -9,22 +8,10 @@ use substrate::pdk::stdcell::StdCell;
 
 use subgeom::Dir;
 
-pub struct ControlLogicReplicaV2Layout;
+use super::ControlLogicReplicaV2;
 
-impl Component for ControlLogicReplicaV2Layout {
-    type Params = NoParams;
-    fn new(
-        params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        Ok(Self)
-    }
-
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("control_logic_replica_v2")
-    }
-
-    fn layout(
+impl ControlLogicReplicaV2 {
+    pub(crate) fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
@@ -57,7 +44,7 @@ impl Component for ControlLogicReplicaV2Layout {
         let m2 = layers.get(Selector::Metal(2))?;
         let m3 = layers.get(Selector::Metal(3))?;
 
-        let mut router = GreedyRouter::with_config(GreedyRouterConfig {
+        let _router = GreedyRouter::with_config(GreedyRouterConfig {
             area: bbox.into_rect(),
             layers: vec![
                 LayerConfig {
@@ -81,8 +68,8 @@ impl Component for ControlLogicReplicaV2Layout {
             ],
         });
         for i in 0..23 {
-            let y = tiler.port_map().port(PortId::new("Y", i))?;
-            let a = tiler.port_map().port(PortId::new("A", i + 1))?;
+            let _y = tiler.port_map().port(PortId::new("Y", i))?;
+            let _a = tiler.port_map().port(PortId::new("A", i + 1))?;
         }
         Ok(())
     }
