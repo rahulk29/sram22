@@ -1,13 +1,15 @@
 use substrate::component::{Component, NoParams};
-use substrate::layout::cell::{CellPort, PortConflictStrategy, PortId};
+use substrate::layout::cell::{CellPort, Port, PortConflictStrategy, PortId};
+use substrate::layout::context::LayoutCtx;
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignMode;
-use substrate::layout::placement::array::ArrayTilerBuilder;
+use substrate::layout::placement::array::{ArrayTiler, ArrayTilerBuilder};
 use substrate::layout::placement::tile::LayerBbox;
+use substrate::layout::routing::auto::grid::JogToGrid;
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
 use substrate::pdk::stdcell::StdCell;
 
-use subgeom::Dir;
+use subgeom::{Dir, Rect, Side, Span};
 
 pub struct ControlLogicReplicaV2Layout;
 
@@ -33,29 +35,51 @@ impl Component for ControlLogicReplicaV2Layout {
         let inv = lib.try_cell_named("sky130_fd_sc_hd__inv_2")?;
         let inv = ctx.instantiate::<StdCell>(&inv.id())?;
 
-        let layers = ctx.inner().layers();
-        let sc_outline = layers.get(Selector::Name("outline"))?;
-
-        let mut row = ArrayTilerBuilder::new();
-        row.mode(AlignMode::ToTheRight).alt_mode(AlignMode::Top);
-        row.push_num(LayerBbox::new(inv, sc_outline), 24);
-
-        let mut tiler = row.build();
-        tiler.expose_ports(
-            |mut port: CellPort, i| {
-                port.set_id(PortId::new(port.name(), i));
-                Some(port)
-            },
-            PortConflictStrategy::Error,
-        )?;
-        ctx.draw(row.build())?;
-
-        let bbox = ctx.bbox();
-
         let layers = ctx.layers();
+        let m0 = layers.get(Selector::Metal(0))?;
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
         let m3 = layers.get(Selector::Metal(3))?;
+
+        let layers = ctx.inner().layers();
+        let outline = layers.get(Selector::Name("outline"))?;
+        let inv = LayerBbox::new(inv, outline);
+
+        let new_row = || {
+            let mut row = ArrayTilerBuilder::new();
+            row.mode(AlignMode::ToTheRight).alt_mode(AlignMode::Top);
+            row
+        };
+
+        let mut rows = ArrayTilerBuilder::new();
+        rows.mode(AlignMode::Left).alt_mode(AlignMode::Beneath);
+
+        let mut row0 = new_row();
+        row0.push_num(inv.clone(), 24);
+
+        let mut row1 = new_row();
+        row1.push_num(inv, 2);
+
+        rows.push(LayerBbox::new(row0.build().generate()?, outline));
+
+        let mut row1 = row1.build().generate()?;
+        row1.reflect_vert_anchored();
+        rows.push(LayerBbox::new(row1, outline));
+        /* for i in 0..23 {
+            let y = row0
+                .port_map()
+                .port(PortId::new("y", i))?
+                .largest_rect(m0)?;
+            let a = row0
+                .port_map()
+                .port(PortId::new("a", i + 1))?
+                .largest_rect(m0)?;
+            let r = Rect::from_spans(Span::new(y.left(), a.right()), a.vspan());
+            ctx.draw_rect(m0, r);
+        } */
+
+        ctx.draw(rows.build())?;
+        let bbox = ctx.bbox();
 
         let mut router = GreedyRouter::with_config(GreedyRouterConfig {
             area: bbox.into_rect(),
@@ -80,10 +104,23 @@ impl Component for ControlLogicReplicaV2Layout {
                 },
             ],
         });
-        for i in 0..23 {
-            let y = tiler.port_map().port(PortId::new("Y", i))?;
-            let a = tiler.port_map().port(PortId::new("A", i + 1))?;
-        }
+
+        ctx.draw(router)?;
         Ok(())
     }
+}
+
+fn draw_row<'a, 'b>(
+    ctx: &'a mut LayoutCtx,
+    row: &'b mut ArrayTilerBuilder,
+) -> substrate::error::Result<ArrayTiler<'b>> {
+    let mut tiler = row.build();
+    tiler.expose_ports(
+        |mut port: CellPort, i| {
+            port.set_id(PortId::new(port.name(), i));
+            Some(port)
+        },
+        PortConflictStrategy::Error,
+    )?;
+    Ok(tiler)
 }
