@@ -79,12 +79,13 @@ pub fn setup_ctx() -> SubstrateCtx {
 
     let mut builder = SubstrateConfig::builder();
 
-    #[cfg(feature = "commercial")]
+    #[cfg(not(feature = "commercial"))]
     let builder = builder
         .pdk(
-            Sky130CommercialPdk::new(&PdkParams {
-                pdk_root: PathBuf::from(SKY130_COMMERCIAL_PDK_ROOT),
-            })
+            Sky130CommercialPdk::new(
+                PathBuf::from(SKY130_COMMERCIAL_PDK_ROOT),
+                PathBuf::from(SKY130_OPEN_PDK_ROOT),
+            )
             .unwrap(),
         )
         .drc_tool(

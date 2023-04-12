@@ -168,8 +168,8 @@ mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
+    use super::tb::{TdcTb, TdcTbParams};
     use super::*;
-    use super::tb::{TdcTbParams, TdcTb};
 
     const INV_SIZING: PrimitiveGateParams = PrimitiveGateParams {
         length: 150,
@@ -196,6 +196,7 @@ mod tests {
         let work_dir = test_work_dir("test_tdc");
         ctx.write_schematic_to_file::<Tdc>(&TDC_PARAMS, out_spice(&work_dir, "schematic"))
             .expect("failed to write schematic");
-        ctx.write_simulation::<TdcTb>(&TDC_TB_PARAMS, work_dir).expect("failed to run simulation");
+        ctx.write_simulation::<TdcTb>(&TDC_TB_PARAMS, work_dir)
+            .expect("failed to run simulation");
     }
 }
