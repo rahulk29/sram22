@@ -56,6 +56,7 @@ impl Component for Tdc {
         let n = self.params.stages;
 
         let stage1 = ctx.bus("stage1", n);
+        let int1 = ctx.bus("int1", n);
         let stage2 = ctx.bus("stage2", 2 * n - 1);
         let stage3 = ctx.bus("stage3", 2 * n - 1);
         let stage4 = ctx.bus("stage4", bits_out);
@@ -68,9 +69,18 @@ impl Component for Tdc {
                     ("vdd", vdd),
                     ("vss", vss),
                     ("din", sin),
+                    ("din_b", int1.index(i)),
+                ])
+                .named(arcstr::format!("s1buf_{i}_0"))
+                .add_to(ctx);
+            inv.clone()
+                .with_connections([
+                    ("vdd", vdd),
+                    ("vss", vss),
+                    ("din", int1.index(i)),
                     ("din_b", stage1.index(i)),
                 ])
-                .named(arcstr::format!("s1_{i}"))
+                .named(arcstr::format!("s1buf_{i}_1"))
                 .add_to(ctx);
         }
 
