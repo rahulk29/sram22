@@ -79,7 +79,7 @@ pub fn setup_ctx() -> SubstrateCtx {
 
     let mut builder = SubstrateConfig::builder();
 
-    #[cfg(not(feature = "commercial"))]
+    #[cfg(feature = "commercial")]
     let builder = builder
         .pdk(
             Sky130CommercialPdk::new(
