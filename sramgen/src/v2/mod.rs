@@ -10,4 +10,5 @@ pub mod precharge;
 pub mod rmux;
 pub mod senseamp;
 pub mod sram;
+pub mod tdc;
 pub mod wmux;
