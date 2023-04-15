@@ -12,7 +12,14 @@ module counter_tb;
     clk = 0;
   end
 
-  counter #(.WIDTH(WIDTH)) dut (.clk, .en, .rst, .value);
+  counter #(
+      .WIDTH(WIDTH)
+  ) dut (
+      .clk,
+      .en,
+      .rst,
+      .value
+  );
 
   initial begin
     $dumpfile("counter_tb.vcd");

@@ -16,6 +16,7 @@ SVSRC = $(wildcard $(SVDIR)/*.sv)
 TBDIR = tb
 TBSRC = $(wildcard $(TBDIR)/*.sv)
 TOP = top
+VERIBLE_VERILOG_FORMAT_FLAGS = --inplace
 
 clean:
 	rm -rf obj_dir
@@ -32,6 +33,6 @@ lint: $(SVSRC)
 	verilator --lint-only $^
 
 format: $(SVSRC) $(TBSRC)
-	verible-verilog-format $^
+	verible-verilog-format $(VERIBLE_VERILOG_FORMAT_FLAGS) $^
 
 .PHONY: clean lint format
