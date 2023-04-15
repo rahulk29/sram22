@@ -1,5 +1,5 @@
 
-module tb;
+module counter_tb;
   localparam WIDTH = 12;
 
   bit clk;
@@ -9,12 +9,14 @@ module tb;
 
   always #10 clk = ~clk;
   initial begin
-    clk <= 0;
+    clk = 0;
   end
 
   counter #(.WIDTH(WIDTH)) dut (.clk, .en, .rst, .value);
 
   initial begin
+    $dumpfile("counter_tb.vcd");
+    $dumpvars;
     repeat (16) @(posedge clk);
     rst = 0;
     repeat (16) @(posedge clk);
