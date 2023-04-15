@@ -1,24 +1,3 @@
-// An interface for deterministic, open loop pattern generators.
-interface det_patgen_if #(
-    parameter MAX_ADDR,
-    parameter ADDR_WIDTH = $clog2(MAX_ADDR),
-    parameter DATA_WIDTH,
-    parameter MASK_WIDTH
-) (
-    input clk
-);
-  logic en;
-  logic [ADDR_WIDTH-1:0] addr;
-  logic [DATA_WIDTH-1:0] data;
-  logic [DATA_WIDTH-1:0] check;
-  logic [MASK_WIDTH-1:0] wmask;
-  logic we, re, rst, done;
-  modport slave(input clk, en, rst, output addr, data, check, wmask, we, re, done);
-
-  assert property (@(posedge clk) disable iff (rst) (!(re && we)));
-  assert property (@(posedge clk) disable iff (rst || en) (addr == $past(addr, 1)));
-endinterface
-
 typedef enum logic [2:0] {
   WRITE0,
   READ0,
@@ -55,23 +34,6 @@ module zero_one_patgen (
     intf.we = (state == WRITE0) || (state == WRITE1);
     intf.re = (state == READ0) || (state == READ1);
     intf.done = (state == DONE);
-  end
-endmodule
-
-module counter #(
-    parameter WIDTH = 8
-) (
-    input clk,
-    en,
-    rst,
-    output logic [WIDTH-1:0] value
-);
-  always_ff @(posedge clk) begin
-    if (rst) begin
-      value <= 0;
-    end else if (en) begin
-      value <= value + 1;
-    end
   end
 endmodule
 

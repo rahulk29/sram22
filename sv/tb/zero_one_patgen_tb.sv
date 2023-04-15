@@ -1,5 +1,5 @@
 
-module zero_one_tb;
+module zero_one_patgen_tb;
   bit clk;
   always #10 clk = ~clk;
   initial begin
@@ -16,7 +16,7 @@ module zero_one_tb;
   zero_one_patgen dut (.intf(if0.slave));
 
   initial begin
-    $dumpfile("zero_one_tb.vcd");
+    $dumpfile("zero_one_patgen_tb.vcd");
     $dumpvars;
     if0.rst = 1;
     repeat (16) @(posedge if0.clk);

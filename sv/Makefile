@@ -30,6 +30,7 @@ clean:
 	@echo "-- Done"
 
 lint: $(SVSRC)
+	verible-verilog-lint $^ $(TBSRC)
 	verilator --lint-only $^
 
 format: $(SVSRC) $(TBSRC)

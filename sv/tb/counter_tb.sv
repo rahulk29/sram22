@@ -1,6 +1,6 @@
 
 module counter_tb;
-  localparam WIDTH = 12;
+  localparam int WIDTH = 12;
 
   bit clk;
   reg rst = 1;
