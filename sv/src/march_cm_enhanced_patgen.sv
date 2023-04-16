@@ -94,11 +94,7 @@ module march_cm_enhanced_patgen #(
     intf.check = {intf.DATA_WIDTH{d0 ^ op_ctr[1]}};
     if (state == S6) intf.check = {intf.DATA_WIDTH{1'b0}};
 
-    intf.done = (state == DONE);
-  end
-
-  always_comb begin
-    // TODO
+    intf.done  = (state == DONE);
     intf.wmask = {intf.MASK_WIDTH{1'b1}};
   end
 endmodule
