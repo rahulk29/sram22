@@ -322,7 +322,7 @@ pub mod test {
         {
             let drc_work_dir = work_dir.join("drc");
             let output = ctx
-                .write_drc::<ControlLogicReplicaV2>(&params, drc_work_dir)
+                .write_drc::<ControlLogicReplicaV2>(&NoParams, drc_work_dir)
                 .expect("failed to run DRC");
             assert!(matches!(
                 output.summary,
