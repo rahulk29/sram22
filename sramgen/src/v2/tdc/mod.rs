@@ -29,7 +29,7 @@ impl Component for Tdc {
 
     fn new(
         params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
+        _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         assert!(params.stages >= 3);
         Ok(Self {
