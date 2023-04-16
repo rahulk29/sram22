@@ -421,8 +421,8 @@ impl SrLatch {
 
         nor_reset.connect_all([
             ("A", r),
-            ("B", q),
-            ("Y", qb),
+            ("B", qb),
+            ("Y", q),
             ("VPWR", vdd),
             ("VPB", vdd),
             ("VGND", vss),
