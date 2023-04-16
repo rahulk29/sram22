@@ -81,6 +81,12 @@ impl Component for SrLatch {
     ) -> substrate::error::Result<()> {
         self.schematic(ctx)
     }
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        self.layout(ctx)
+    }
 }
 
 pub struct InvChain {
@@ -104,6 +110,12 @@ impl Component for InvChain {
     ) -> substrate::error::Result<()> {
         self.schematic(ctx)
     }
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        self.layout(ctx)
+    }
 }
 
 pub struct EdgeDetector;
@@ -124,6 +136,12 @@ impl Component for EdgeDetector {
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
         self.schematic(ctx)
+    }
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        self.layout(ctx)
     }
 }
 
@@ -198,11 +216,11 @@ impl Component for DffArray {
 pub mod test {
     use substrate::component::NoParams;
 
-    use crate::paths::out_spice;
+    use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
-    use super::ControlLogicReplicaV2;
+    use super::{ControlLogicReplicaV2, EdgeDetector, SrLatch};
 
     #[test]
     fn test_control_logic_replica_v2() {
@@ -211,8 +229,29 @@ pub mod test {
 
         ctx.write_schematic_to_file::<ControlLogicReplicaV2>(
             &NoParams,
-            out_spice(work_dir, "netlist"),
+            out_spice(work_dir.clone(), "netlist"),
         )
         .expect("failed to write schematic");
+
+        ctx.write_layout::<ControlLogicReplicaV2>(&NoParams, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
+    }
+
+    #[test]
+    fn test_sr_latch() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_sr_latch");
+
+        ctx.write_layout::<SrLatch>(&NoParams, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
+    }
+
+    #[test]
+    fn test_edge_detector() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_edge_detector");
+
+        ctx.write_layout::<EdgeDetector>(&NoParams, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
     }
 }
