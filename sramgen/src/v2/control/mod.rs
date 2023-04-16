@@ -311,11 +311,11 @@ pub mod test {
 
         ctx.write_schematic_to_file::<ControlLogicReplicaV2>(
             &NoParams,
-            out_spice(work_dir.clone(), "netlist"),
+            out_spice(&work_dir, "netlist"),
         )
         .expect("failed to write schematic");
 
-        ctx.write_layout::<ControlLogicReplicaV2>(&NoParams, out_gds(work_dir, "layout"))
+        ctx.write_layout::<ControlLogicReplicaV2>(&NoParams, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
 
         #[cfg(feature = "commercial")]
@@ -338,11 +338,11 @@ pub mod test {
 
         ctx.write_schematic_to_file::<ControlLogicReplicaV2Lvs>(
             &NoParams,
-            out_spice(work_dir.clone(), "netlist"),
+            out_spice(&work_dir, "netlist"),
         )
         .expect("failed to write schematic");
 
-        ctx.write_layout::<ControlLogicReplicaV2Lvs>(&NoParams, out_gds(work_dir, "layout"))
+        ctx.write_layout::<ControlLogicReplicaV2Lvs>(&NoParams, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
 
         #[cfg(feature = "commercial")]
