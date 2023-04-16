@@ -315,7 +315,7 @@ impl ControlLogicReplicaV2 {
 
         router.block(
             m2,
-            Rect::from_spans(vtrack.expand(true, 500), group.brect().vspan()),
+            Rect::from_spans(vtrack.expand(true, 2000), group.brect().vspan()),
         );
 
         let clk_pin = input_rects[0];
@@ -517,6 +517,17 @@ impl ControlLogicReplicaV2 {
         ctx.draw(rbl_b_in_3_via)?;
         ctx.draw_rect(m1, rbl_b_in_3);
         router.occupy(m1, rbl_b_in_3, "rbl_b")?;
+
+        let rbl_b_in_4 = group.port_map().port("sae_set_b")?.largest_rect(m0)?;
+        let mut rbl_b_in_4_via = via01.with_orientation(Named::R90);
+        rbl_b_in_4_via.align_centers_gridded(rbl_b_in_4.bbox(), grid);
+        let rbl_b_in_4 = router.expand_to_grid(
+            rbl_b_in_4_via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Minimum,
+        );
+        ctx.draw(rbl_b_in_4_via)?;
+        ctx.draw_rect(m1, rbl_b_in_4);
+        router.occupy(m1, rbl_b_in_4, "rbl_b")?;
 
         // pc_read_set_buf -> mux_pc_set
         let pc_read_set_out = group
@@ -1034,7 +1045,7 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m2, wl_en0_out);
         router.occupy(m2, wl_en0_out, "wl_en0")?;
 
-        // wl_en_buf -> wl_en_pin
+        // wl_en_buf -> wl_en_pin/wbl_pulldown_en
         let wl_en_out = group.port_map().port("wl_en_buf_x")?.largest_rect(m0)?;
         let mut wl_en_out_via = via01.clone();
         wl_en_out_via.align_centers_gridded(wl_en_out.bbox(), grid);
@@ -1046,7 +1057,22 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, wl_en_out);
         router.occupy(m1, wl_en_out, "wl_en")?;
 
-        // wr_drv_buf -> write_driver_en_pin
+        let wl_en_in = group
+            .port_map()
+            .port("wbl_pulldown_en_a")?
+            .largest_rect(m0)?;
+        let mut wl_en_in_via = via01.with_orientation(Named::R90);
+        wl_en_in_via.align_centers_gridded(wl_en_in.bbox(), grid);
+        wl_en_in_via.align_top(wl_en_in.bbox());
+        let wl_en_in = router.expand_to_grid(
+            wl_en_in_via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Side(Side::Top),
+        );
+        ctx.draw(wl_en_in_via)?;
+        ctx.draw_rect(m1, wl_en_in);
+        router.occupy(m1, wl_en_in, "wl_en")?;
+
+        // wr_drv_buf -> write_driver_en_pin/wbl_pulldown_en
         let write_driver_en_out = group.port_map().port("wr_drv_buf_x")?.largest_rect(m0)?;
         let mut write_driver_en_out_via = via01.clone();
         write_driver_en_out_via.align_centers_gridded(write_driver_en_out.bbox(), grid);
@@ -1058,13 +1084,27 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, write_driver_en_out);
         router.occupy(m1, write_driver_en_out, "write_driver_en")?;
 
+        let write_driver_en_in = group
+            .port_map()
+            .port("wbl_pulldown_en_b")?
+            .largest_rect(m0)?;
+        let mut write_driver_en_in_via = via01.with_orientation(Named::R90);
+        write_driver_en_in_via.align_centers_gridded(write_driver_en_in.bbox(), grid);
+        let write_driver_en_in = router.expand_to_grid(
+            write_driver_en_in_via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Minimum,
+        );
+        ctx.draw(write_driver_en_in_via)?;
+        ctx.draw_rect(m1, write_driver_en_in);
+        router.occupy(m1, write_driver_en_in, "write_driver_en")?;
+
         // sae_buf/sae_buf2 -> sense_en_pin
         let sense_en_out_1 = group.port_map().port("sae_buf_x")?.largest_rect(m0)?;
         let mut sense_en_out_1_via = via01.clone();
         sense_en_out_1_via.align_centers_gridded(sense_en_out_1.bbox(), grid);
         let sense_en_out_1 = router.expand_to_grid(
             sense_en_out_1_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Side(Side::Top),
         );
         ctx.draw(sense_en_out_1_via)?;
         ctx.draw_rect(m1, sense_en_out_1);
@@ -1175,6 +1215,7 @@ impl ControlLogicReplicaV2 {
         router.route_with_net(ctx, m1, we_b_out, m1, we_b_in_2, "we_b")?;
         router.route_with_net(ctx, m1, rbl_b_out, m1, rbl_b_in_2, "rbl_b")?;
         router.route_with_net(ctx, m1, rbl_b_out, m1, rbl_b_in_3, "rbl_b")?;
+        router.route_with_net(ctx, m1, rbl_b_out, m1, rbl_b_in_4, "rbl_b")?;
         router.route_with_net(ctx, m1, pc_read_set_out, m1, pc_read_set_in, "pc_read_set")?;
         router.route_with_net(
             ctx,
@@ -1256,6 +1297,8 @@ impl ControlLogicReplicaV2 {
             write_driver_en0_in,
             "write_driver_en0",
         )?;
+        router.route_with_net(ctx, m1, sense_en_out_1, m1, sense_en_pin, "sense_en")?;
+        router.route_with_net(ctx, m1, sense_en_out_2, m1, sense_en_pin, "sense_en")?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in_1, "we")?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in_2, "we")?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in_3, "we")?;
@@ -1263,7 +1306,16 @@ impl ControlLogicReplicaV2 {
         router.route_with_net(ctx, m1, pc_b_out_1, m1, pc_b_pin, "pc_b")?;
         router.route_with_net(ctx, m1, pc_b_out_2, m1, pc_b_pin, "pc_b")?;
         router.route_with_net(ctx, m2, wl_en0_out, m1, wl_en0_pin, "wl_en0")?;
+        router.route_with_net(ctx, m1, wl_en_out, m1, wl_en_in, "wl_en")?;
         router.route_with_net(ctx, m1, wl_en_out, m1, wl_en_pin, "wl_en")?;
+        router.route_with_net(
+            ctx,
+            m1,
+            write_driver_en_out,
+            m1,
+            write_driver_en_in,
+            "write_driver_en",
+        )?;
         router.route_with_net(
             ctx,
             m1,
@@ -1272,8 +1324,6 @@ impl ControlLogicReplicaV2 {
             write_driver_en_pin,
             "write_driver_en",
         )?;
-        router.route_with_net(ctx, m1, sense_en_out_1, m1, sense_en_pin, "sense_en")?;
-        router.route_with_net(ctx, m1, sense_en_out_2, m1, sense_en_pin, "sense_en")?;
         router.route_with_net(ctx, m1, rbl_in, m1, rbl_pin, "rbl")?;
         router.route_with_net(
             ctx,
