@@ -22,7 +22,7 @@ use substrate::layout::Draw;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 use substrate::pdk::stdcell::StdCell;
 
-use subgeom::{Dir, Point, Rect, Side, Span};
+use subgeom::{Corner, Dir, Point, Rect, Side, Span};
 
 use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch};
 
@@ -84,10 +84,22 @@ impl ControlLogicReplicaV2 {
                     } else {
                         return None;
                     };
+                    if ["vpwr", "vgnd", "vdd", "vss"].contains(&port.name().as_str()) {
+                        return None;
+                    }
                     let port_name = format!("{}_{}", name, port.name());
                     Some(port.named(port_name))
                 },
                 PortConflictStrategy::Error,
+            )?;
+            row.expose_ports(
+                |port: CellPort, _| match port.name().as_str() {
+                    "vpwr" => Some(port.named("vdd")),
+                    "vgnd" => Some(port.named("vss")),
+                    "vdd" | "vss" => Some(port),
+                    _ => None,
+                },
+                PortConflictStrategy::Merge,
             )?;
 
             Ok(row.generate()?)
@@ -160,7 +172,26 @@ impl ControlLogicReplicaV2 {
         rows.push(LayerBbox::new(inv_chains, outline));
 
         let mut rows = rows.build();
-        rows.expose_ports(|port: CellPort, _| Some(port), PortConflictStrategy::Error)?;
+        rows.expose_ports(
+            |port: CellPort, _| {
+                if ["vdd", "vss"].contains(&port.name().as_str()) {
+                    None
+                } else {
+                    Some(port)
+                }
+            },
+            PortConflictStrategy::Error,
+        )?;
+        rows.expose_ports(
+            |port: CellPort, _| {
+                if ["vdd", "vss"].contains(&port.name().as_str()) {
+                    Some(port)
+                } else {
+                    None
+                }
+            },
+            PortConflictStrategy::Merge,
+        )?;
         let mut group = rows.generate()?;
 
         dummy_bl_pulldown.align_top(group.brect());
@@ -176,10 +207,16 @@ impl ControlLogicReplicaV2 {
             PortConflictStrategy::Error,
         )?;
         group.add_ports(pulldown_group.ports())?;
+        // TODO: Route source
         group.add_group(pulldown_group);
 
         self.route(ctx, &group)?;
 
+        ctx.add_ports(
+            group
+                .ports()
+                .filter(|port| ["vdd", "vss"].contains(&port.name().as_str())),
+        )?;
         ctx.draw(group)?;
         Ok(())
     }
@@ -235,6 +272,13 @@ impl ControlLogicReplicaV2 {
             ],
         });
 
+        let vss = group.port_map().port("vss")?.first_rect(m1, Side::Top)?;
+        let mut vss_rect = Rect::from_spans(Span::until(200), vss.brect().vspan());
+        vss_rect.align_right(vss);
+        vss_rect = router.expand_to_grid(vss_rect, ExpandToGridStrategy::Minimum);
+        router.occupy(m1, vss_rect, "vss");
+        ctx.draw_rect(m1, vss_rect);
+
         for layer in [m1, m2] {
             for shape in group.shapes_on(layer) {
                 router.block(layer, shape.brect());
@@ -267,6 +311,11 @@ impl ControlLogicReplicaV2 {
             output_rects.push(Rect::from_spans(vtrack, htrack));
             ctx.draw_rect(m1, output_rects[i]);
         }
+
+        router.block(
+            m2,
+            Rect::from_spans(vtrack.expand(true, 500), group.brect().vspan()),
+        );
 
         let clk_pin = input_rects[0];
         router.occupy(m1, clk_pin, "clk");
@@ -445,7 +494,7 @@ impl ControlLogicReplicaV2 {
 
         let rbl_b_in_2 = group
             .port_map()
-            .port("pc_read_set_buf_in")?
+            .port("pc_read_set_buf_din")?
             .largest_rect(m0)?;
         let mut rbl_b_in_2_via = via01.with_orientation(Named::R90);
         rbl_b_in_2_via.align_centers(rbl_b_in_2.bbox());
@@ -457,7 +506,7 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, rbl_b_in_2);
         router.occupy(m1, rbl_b_in_2, "rbl_b");
 
-        let rbl_b_in_3 = group.port_map().port("rbl_b_delay_in")?.largest_rect(m0)?;
+        let rbl_b_in_3 = group.port_map().port("rbl_b_delay_din")?.largest_rect(m0)?;
         let mut rbl_b_in_3_via = via01.with_orientation(Named::R90);
         rbl_b_in_3_via.align_centers(rbl_b_in_3.bbox());
         let rbl_b_in_3 = router.expand_to_grid(
@@ -471,7 +520,7 @@ impl ControlLogicReplicaV2 {
         // pc_read_set_buf -> mux_pc_set
         let pc_read_set_out = group
             .port_map()
-            .port("pc_read_set_buf_out")?
+            .port("pc_read_set_buf_dout")?
             .largest_rect(m0)?;
         let mut pc_read_set_out_via = via01.clone();
         pc_read_set_out_via.align_centers(pc_read_set_out.bbox());
@@ -496,7 +545,10 @@ impl ControlLogicReplicaV2 {
         router.occupy(m1, pc_read_set_in, "pc_read_set");
 
         // rbl_b_delay -> mux_wl_en_rst
-        let rbl_b_delayed_out = group.port_map().port("rbl_b_delay_out")?.largest_rect(m0)?;
+        let rbl_b_delayed_out = group
+            .port_map()
+            .port("rbl_b_delay_dout")?
+            .largest_rect(m0)?;
         let mut rbl_b_delayed_out_via = via01.clone();
         rbl_b_delayed_out_via.align_centers(rbl_b_delayed_out.bbox());
         let rbl_b_delayed_out = router.expand_to_grid(
@@ -537,7 +589,7 @@ impl ControlLogicReplicaV2 {
 
         let sense_en_set0_in = group
             .port_map()
-            .port("sense_en_delay_in")?
+            .port("sense_en_delay_din")?
             .largest_rect(m0)?;
         let mut sense_en_set0_in_via = via01.clone();
         sense_en_set0_in_via.align_centers(sense_en_set0_in.bbox());
@@ -552,7 +604,7 @@ impl ControlLogicReplicaV2 {
         // sense_en_delay -> sae_ctl
         let sense_en_set_out = group
             .port_map()
-            .port("sense_en_delay_out")?
+            .port("sense_en_delay_dout")?
             .largest_rect(m0)?;
         let mut sense_en_set_out_via = via01.clone();
         sense_en_set_out_via.align_centers(sense_en_set_out.bbox());
@@ -686,7 +738,7 @@ impl ControlLogicReplicaV2 {
         // pc_write_set_buf -> mux_pc_set
         let pc_write_set_out = group
             .port_map()
-            .port("pc_write_set_buf_out")?
+            .port("pc_write_set_buf_dout")?
             .largest_rect(m0)?;
         let mut pc_write_set_out_via = via01.clone();
         pc_write_set_out_via.align_centers(pc_write_set_out.bbox());
@@ -711,20 +763,17 @@ impl ControlLogicReplicaV2 {
         router.occupy(m1, pc_write_set_in, "pc_write_set");
 
         // pc_ctl -> pc_b_buf/pc_b_buf2
-        let pc_b0_out = router.expand_to_grid(
-            group.port_map().port("pc_ctl_q_b")?.largest_rect(m0)?,
-            ExpandToGridStrategy::All,
-        );
-        let mut pc_b0_out_via = via01.clone();
+        let pc_b0_out = group.port_map().port("pc_ctl_q_b")?.largest_rect(m0)?;
+        let mut pc_b0_out_via = via12.with_orientation(Named::R90);
         pc_b0_out_via.align_centers(pc_b0_out.bbox());
-        pc_b0_out_via.align_top(pc_b0_out.bbox());
+        pc_b0_out_via.align_bottom(pc_b0_out.bbox());
         let pc_b0_out = router.expand_to_grid(
-            pc_b0_out_via.layer_bbox(m1).into_rect(),
+            pc_b0_out_via.layer_bbox(m2).into_rect(),
             ExpandToGridStrategy::Minimum,
         );
         ctx.draw(pc_b0_out_via)?;
-        ctx.draw_rect(m1, pc_b0_out);
-        router.occupy(m1, pc_b0_out, "pc_b0");
+        ctx.draw_rect(m2, pc_b0_out);
+        router.occupy(m2, pc_b0_out, "pc_b0");
 
         let pc_b0_in_1 = group.port_map().port("pc_b_buf_a")?.largest_rect(m0)?;
         let mut pc_b0_in_1_via = via01.with_orientation(Named::R90);
@@ -751,7 +800,7 @@ impl ControlLogicReplicaV2 {
         // wr_drv_set_decoder_delay_replica -> wr_drv_ctl
         let wr_drv_set_out = group
             .port_map()
-            .port("wr_drv_set_decoder_delay_replica_out")?
+            .port("wr_drv_set_decoder_delay_replica_dout")?
             .largest_rect(m0)?;
         let mut wr_drv_set_out_via = via01.clone();
         wr_drv_set_out_via.align_centers(wr_drv_set_out.bbox());
@@ -789,7 +838,7 @@ impl ControlLogicReplicaV2 {
 
         let wr_drv_set_undelayed_in = group
             .port_map()
-            .port("wr_drv_set_decoder_delay_replica_in")?
+            .port("wr_drv_set_decoder_delay_replica_din")?
             .largest_rect(m0)?;
         let mut wr_drv_set_undelayed_in_via = via01.with_orientation(Named::R90);
         wr_drv_set_undelayed_in_via.align_centers(wr_drv_set_undelayed_in.bbox());
@@ -818,7 +867,7 @@ impl ControlLogicReplicaV2 {
 
         let wl_en_write_rst_in_1 = group
             .port_map()
-            .port("pc_write_set_buf_in")?
+            .port("pc_write_set_buf_din")?
             .largest_rect(m0)?;
         let mut wl_en_write_rst_in_1_via = via01.with_orientation(Named::R90);
         wl_en_write_rst_in_1_via.align_centers(wl_en_write_rst_in_1.bbox());
@@ -1101,6 +1150,21 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, dummy_bl_out);
         router.occupy(m1, dummy_bl_out, "dummy_bl");
 
+        // dummy_bl_pulldown -> vss
+        let dummy_bl_vss = group
+            .port_map()
+            .port("dummy_bl_pulldown_sd_0_1")?
+            .largest_rect(m0)?;
+        let mut dummy_bl_vss_via = via01.with_orientation(Named::R90);
+        dummy_bl_vss_via.align_centers(dummy_bl_vss.bbox());
+        let dummy_bl_vss = router.expand_to_grid(
+            dummy_bl_vss_via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Side(Side::Top),
+        );
+        ctx.draw(dummy_bl_vss_via)?;
+        ctx.draw_rect(m1, dummy_bl_vss);
+        router.occupy(m1, dummy_bl_vss, "vss");
+
         router.route_with_net(ctx, m1, clkp_out, m1, clkp_in_1, "clkp")?;
         router.route_with_net(ctx, m1, clkp_out, m1, clkp_in_2, "clkp")?;
         router.route_with_net(ctx, m1, clkp_out, m1, clkp_in_3, "clkp")?;
@@ -1147,7 +1211,7 @@ impl ControlLogicReplicaV2 {
             pc_write_set_in,
             "pc_write_set",
         )?;
-        router.route_with_net(ctx, m1, pc_b0_out, m1, pc_b0_in_1, "pc_b0")?;
+        router.route_with_net(ctx, m2, pc_b0_out, m1, pc_b0_in_1, "pc_b0")?;
         router.route_with_net(ctx, m2, pc_b0_out, m1, pc_b0_in_2, "pc_b0")?;
         router.route_with_net(ctx, m1, wr_drv_set_out, m1, wr_drv_set_in, "wr_drv_set")?;
         router.route_with_net(
@@ -1219,8 +1283,23 @@ impl ControlLogicReplicaV2 {
         )?;
         router.route_with_net(ctx, m1, dummy_bl_in, m1, dummy_bl_pin, "dummy_bl")?;
         router.route_with_net(ctx, m1, dummy_bl_out, m1, dummy_bl_pin, "dummy_bl")?;
+        router.route_with_net(ctx, m1, vss_rect, m1, dummy_bl_vss, "vss")?;
 
         ctx.draw(router)?;
+
+        ctx.add_port(CellPort::with_shape("clk", m1, clk_pin))?;
+        ctx.add_port(CellPort::with_shape("we", m1, we_pin))?;
+        ctx.add_port(CellPort::with_shape("pc_b", m1, pc_b_pin))?;
+        ctx.add_port(CellPort::with_shape("wl_en0", m1, wl_en0_pin))?;
+        ctx.add_port(CellPort::with_shape("wl_en", m1, wl_en_pin))?;
+        ctx.add_port(CellPort::with_shape(
+            "write_driver_en",
+            m1,
+            write_driver_en_pin,
+        ))?;
+        ctx.add_port(CellPort::with_shape("sense_en", m1, sense_en_pin))?;
+        ctx.add_port(CellPort::with_shape("rbl", m1, rbl_pin))?;
+        ctx.add_port(CellPort::with_shape("dummy_bl", m1, dummy_bl_pin))?;
 
         Ok(())
     }
@@ -1301,8 +1380,12 @@ impl Component for InvChains {
             row.push(LayerBbox::new(row_tap, outline));
             let mut row = row.build();
             row.expose_ports(
-                |port: CellPort, i| if i == 1 { Some(port) } else { None },
-                PortConflictStrategy::Error,
+                |port: CellPort, _| match port.name().as_str() {
+                    "vpwr" => Some(port.named("vdd")),
+                    "vgnd" => Some(port.named("vss")),
+                    _ => Some(port),
+                },
+                PortConflictStrategy::Merge,
             )?;
             inv_current.push(LayerBbox::new(row.generate()?, outline));
             flipped = !flipped;
@@ -1312,14 +1395,14 @@ impl Component for InvChains {
                 inv_current.expose_ports(
                     |port: CellPort, _| {
                         if port.name().as_str() == "din" {
-                            Some(port.with_id(format!("{}_in", name)))
+                            Some(port.with_id(format!("{}_din", name)))
                         } else if port.name().as_str() == "dout" {
-                            Some(port.with_id(format!("{}_out", name)))
+                            Some(port.with_id(format!("{}_dout", name)))
                         } else {
-                            None
+                            Some(port)
                         }
                     },
-                    PortConflictStrategy::Error,
+                    PortConflictStrategy::Merge,
                 )?;
                 invs.push(LayerBbox::new(inv_current.generate()?, outline));
                 continue;
@@ -1341,8 +1424,12 @@ impl Component for InvChains {
             row.push(LayerBbox::new(row_tap, outline));
             let mut row = row.build();
             row.expose_ports(
-                |port: CellPort, i| if i == 1 { Some(port) } else { None },
-                PortConflictStrategy::Error,
+                |port: CellPort, _| match port.name().as_str() {
+                    "vpwr" => Some(port.named("vdd")),
+                    "vgnd" => Some(port.named("vss")),
+                    _ => Some(port),
+                },
+                PortConflictStrategy::Merge,
             )?;
             inv_current.push(LayerBbox::new(row.generate()?, outline));
             flipped = !flipped;
@@ -1375,14 +1462,16 @@ impl Component for InvChains {
             inv_current.expose_ports(
                 |port: CellPort, i| {
                     if i == 0 && port.name().as_str() == "din" {
-                        Some(port.with_id(format!("{}_in", name)))
+                        Some(port.with_id(format!("{}_din", name)))
                     } else if i == 1 && port.name().as_str() == "dout" {
-                        Some(port.with_id(format!("{}_out", name)))
-                    } else {
+                        Some(port.with_id(format!("{}_dout", name)))
+                    } else if ["din", "dout"].contains(&port.name().as_str()) {
                         Some(port.named("tmp").with_index(i))
+                    } else {
+                        Some(port)
                     }
                 },
-                PortConflictStrategy::Error,
+                PortConflictStrategy::Merge,
             )?;
             let mut inv_group = inv_current.generate()?;
             let out_port = inv_group
@@ -1426,7 +1515,7 @@ impl Component for InvChains {
                     None
                 }
             },
-            PortConflictStrategy::Error,
+            PortConflictStrategy::Merge,
         )?;
 
         ctx.add_ports(invs.ports().cloned())?;
@@ -1526,6 +1615,15 @@ impl SrLatch {
         ctx.add_port(a1.clone().with_id("s"))?;
         ctx.add_port(y1.clone().with_id("q_b"))?;
 
+        let vpwr0 = row.port_map().port(PortId::new("vpwr", 0))?;
+        let vgnd0 = row.port_map().port(PortId::new("vgnd", 0))?;
+        let vpwr1 = row.port_map().port(PortId::new("vpwr", 1))?;
+        let vgnd1 = row.port_map().port(PortId::new("vgnd", 1))?;
+        ctx.merge_port(vpwr0.clone().with_id("vdd"));
+        ctx.merge_port(vgnd0.clone().with_id("vss"));
+        ctx.merge_port(vpwr1.clone().with_id("vdd"));
+        ctx.merge_port(vgnd1.clone().with_id("vss"));
+
         ctx.draw(row)?;
 
         Ok(())
@@ -1574,6 +1672,20 @@ impl InvChain {
                 .clone()
                 .with_id("dout"),
         )?;
+        for i in 0..self.n {
+            ctx.merge_port(
+                row.port_map()
+                    .port(PortId::new("vpwr", i))?
+                    .clone()
+                    .with_id("vdd"),
+            );
+            ctx.merge_port(
+                row.port_map()
+                    .port(PortId::new("vgnd", i))?
+                    .clone()
+                    .with_id("vss"),
+            );
+        }
 
         ctx.draw(row)?;
         Ok(())
@@ -1669,6 +1781,15 @@ impl EdgeDetector {
                 .clone()
                 .with_id("dout"),
         )?;
+
+        let vdd0 = row.port_map().port(PortId::new("vdd", 0))?;
+        let vss0 = row.port_map().port(PortId::new("vss", 0))?;
+        let vpwr1 = row.port_map().port(PortId::new("vpwr", 1))?;
+        let vgnd1 = row.port_map().port(PortId::new("vgnd", 1))?;
+        ctx.merge_port(vdd0.clone());
+        ctx.merge_port(vss0.clone());
+        ctx.merge_port(vpwr1.clone().with_id("vdd"));
+        ctx.merge_port(vgnd1.clone().with_id("vss"));
 
         ctx.draw(row)?;
         Ok(())
