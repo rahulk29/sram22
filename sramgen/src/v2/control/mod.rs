@@ -318,7 +318,7 @@ pub mod test {
         ctx.write_layout::<ControlLogicReplicaV2>(&NoParams, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
 
-        #[cfg(feature = "calibre")]
+        #[cfg(feature = "commercial")]
         {
             let drc_work_dir = work_dir.join("drc");
             let output = ctx
@@ -345,7 +345,7 @@ pub mod test {
         ctx.write_layout::<ControlLogicReplicaV2Lvs>(&NoParams, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
 
-        #[cfg(feature = "calibre")]
+        #[cfg(feature = "commercial")]
         {
             let lvs_work_dir = work_dir.join("lvs");
             let output = ctx
