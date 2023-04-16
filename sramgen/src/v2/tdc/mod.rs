@@ -32,9 +32,7 @@ impl Component for Tdc {
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         assert!(params.stages >= 3);
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
 
     fn name(&self) -> arcstr::ArcStr {
@@ -174,7 +172,7 @@ impl Component for Tdc {
 #[cfg(test)]
 mod tests {
 
-    use crate::paths::{out_gds, out_spice};
+    use crate::paths::out_spice;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 

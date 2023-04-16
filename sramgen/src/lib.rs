@@ -17,6 +17,7 @@ use sub_calibre::CalibreLvs;
 #[cfg(feature = "commercial")]
 use sub_calibre::CalibrePex;
 use substrate::data::{SubstrateConfig, SubstrateCtx};
+#[cfg(not(feature = "commercial"))]
 use substrate::pdk::PdkParams;
 use substrate::schematic::netlist::impls::spice::SpiceNetlister;
 use substrate::verification::simulation::{Simulator, SimulatorOpts};
