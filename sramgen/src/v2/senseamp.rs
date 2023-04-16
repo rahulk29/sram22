@@ -143,11 +143,14 @@ impl Testbench for OffsetTb {
         &mut self,
         ctx: &mut substrate::verification::simulation::context::PreSimCtx,
     ) -> substrate::error::Result<()> {
-        ctx.add_analysis(TranAnalysis {
-            start: 0.0,
-            stop: self.params.period * (self.params.n_incr + 1) as f64,
-            step: self.params.period / 40.0,
-        })
+        ctx.add_analysis(
+            TranAnalysis::builder()
+                .start(0.0)
+                .stop(self.params.period * (self.params.n_incr + 1) as f64)
+                .step(self.params.period / 40.0)
+                .build()
+                .unwrap(),
+        )
         .save(substrate::verification::simulation::Save::All);
         Ok(())
     }
