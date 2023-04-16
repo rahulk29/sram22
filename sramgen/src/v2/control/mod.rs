@@ -214,13 +214,95 @@ impl Component for DffArray {
 
 #[cfg(test)]
 pub mod test {
-    use substrate::component::NoParams;
+    use arcstr::ArcStr;
+    use subgeom::bbox::{Bbox, BoundBox};
+    use subgeom::{Dir, Point, Rect};
+    use substrate::component::{Component, NoParams};
+    use substrate::layout::cell::Port;
+    use substrate::layout::elements::via::{Via, ViaParams};
+    use substrate::layout::layers::selector::Selector;
+    use substrate::layout::layers::LayerBoundBox;
+    use substrate::layout::placement::align::{AlignMode, AlignRect};
 
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
     use super::{ControlLogicReplicaV2, EdgeDetector, SrLatch};
+
+    struct ControlLogicReplicaV2Lvs;
+
+    impl Component for ControlLogicReplicaV2Lvs {
+        type Params = NoParams;
+
+        fn new(
+            _params: &Self::Params,
+            _ctx: &substrate::data::SubstrateCtx,
+        ) -> substrate::error::Result<Self> {
+            Ok(Self)
+        }
+
+        fn name(&self) -> ArcStr {
+            arcstr::literal!("control_logic_replica_v2_lvs")
+        }
+
+        fn schematic(
+            &self,
+            ctx: &mut substrate::schematic::context::SchematicCtx,
+        ) -> substrate::error::Result<()> {
+            let mut array = ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?;
+            ctx.bubble_all_ports(&mut array);
+            ctx.add_instance(array);
+            Ok(())
+        }
+
+        fn layout(
+            &self,
+            ctx: &mut substrate::layout::context::LayoutCtx,
+        ) -> substrate::error::Result<()> {
+            let layers = ctx.layers();
+            let m1 = layers.get(Selector::Metal(1))?;
+            let m2 = layers.get(Selector::Metal(2))?;
+
+            let control = ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?;
+
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m1, m2)
+                    .geometry(
+                        Rect::from_point(Point::zero()),
+                        Rect::from_point(Point::zero()),
+                    )
+                    .bot_extension(Dir::Vert)
+                    .top_extension(Dir::Vert)
+                    .build(),
+            )?;
+
+            let mut rect = Bbox::empty();
+            for shape in control.port("vdd")?.shapes(m1) {
+                let mut via = via.clone();
+                via.align_centers(shape.brect());
+                via.align_left(shape.brect());
+                rect = rect.union(via.layer_bbox(m2));
+                ctx.draw(via)?;
+            }
+            ctx.draw_rect(m2, rect.into_rect());
+
+            let mut rect = Bbox::empty();
+            for shape in control.port("vss")?.shapes(m1) {
+                let mut via = via.clone();
+                via.align_centers(shape.brect());
+                via.align(AlignMode::Left, shape.brect(), 400);
+                rect = rect.union(via.layer_bbox(m2));
+                ctx.draw(via)?;
+            }
+            ctx.draw_rect(m2, rect.into_rect());
+
+            ctx.draw(control)?;
+
+            Ok(())
+        }
+    }
 
     #[test]
     fn test_control_logic_replica_v2() {
@@ -235,6 +317,45 @@ pub mod test {
 
         ctx.write_layout::<ControlLogicReplicaV2>(&NoParams, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
+
+        #[cfg(feature = "calibre")]
+        {
+            let drc_work_dir = work_dir.join("drc");
+            let output = ctx
+                .write_drc::<ControlLogicReplicaV2>(&params, drc_work_dir)
+                .expect("failed to run DRC");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::drc::DrcSummary::Pass
+            ));
+        }
+    }
+
+    #[test]
+    fn test_control_logic_replica_v2_lvs() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_control_logic_replica_v2_lvs");
+
+        ctx.write_schematic_to_file::<ControlLogicReplicaV2Lvs>(
+            &NoParams,
+            out_spice(work_dir.clone(), "netlist"),
+        )
+        .expect("failed to write schematic");
+
+        ctx.write_layout::<ControlLogicReplicaV2Lvs>(&NoParams, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
+
+        #[cfg(feature = "calibre")]
+        {
+            let lvs_work_dir = work_dir.join("lvs");
+            let output = ctx
+                .write_lvs::<ControlLogicReplicaV2Lvs>(&NoParams, lvs_work_dir)
+                .expect("failed to run LVS");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::lvs::LvsSummary::Pass
+            ));
+        }
     }
 
     #[test]
