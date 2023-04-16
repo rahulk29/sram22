@@ -298,6 +298,7 @@ pub mod test {
             }
             ctx.draw_rect(m2, rect.into_rect());
 
+            ctx.add_ports(control.ports())?;
             ctx.draw(control)?;
 
             Ok(())
