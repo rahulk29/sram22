@@ -76,11 +76,14 @@ impl Testbench for BitlineCapTb {
         &mut self,
         ctx: &mut substrate::verification::simulation::context::PreSimCtx,
     ) -> substrate::error::Result<()> {
-        ctx.add_analysis(Analysis::Tran(TranAnalysis {
-            stop: 6e-6,
-            start: 0.0,
-            step: 1e-9,
-        }))
+        ctx.add_analysis(Analysis::Tran(
+            TranAnalysis::builder()
+                .stop(6e-6)
+                .start(0.0)
+                .step(1e-9)
+                .build()
+                .unwrap(),
+        ))
         .save(Save::All);
         Ok(())
     }
