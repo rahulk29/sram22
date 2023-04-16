@@ -84,7 +84,7 @@ impl ControlLogicReplicaV2 {
                     } else {
                         return None;
                     };
-                    if ["vpwr", "vgnd", "vdd", "vss"].contains(&port.name().as_str()) {
+                    if let "vpwr" | "vgnd" | "vdd" | "vss" = port.name().as_str() {
                         return None;
                     }
                     let port_name = format!("{}_{}", name, port.name());
@@ -174,7 +174,7 @@ impl ControlLogicReplicaV2 {
         let mut rows = rows.build();
         rows.expose_ports(
             |port: CellPort, _| {
-                if ["vdd", "vss"].contains(&port.name().as_str()) {
+                if let "vdd" | "vss" = port.name().as_str() {
                     None
                 } else {
                     Some(port)
@@ -184,7 +184,7 @@ impl ControlLogicReplicaV2 {
         )?;
         rows.expose_ports(
             |port: CellPort, _| {
-                if ["vdd", "vss"].contains(&port.name().as_str()) {
+                if let "vdd" | "vss" = port.name().as_str() {
                     Some(port)
                 } else {
                     None
@@ -214,7 +214,7 @@ impl ControlLogicReplicaV2 {
         ctx.add_ports(
             group
                 .ports()
-                .filter(|port| ["vdd", "vss"].contains(&port.name().as_str())),
+                .filter(|port| matches!(port.name().as_str(), "vdd" | "vss")),
         )?;
         ctx.draw(group)?;
         Ok(())
@@ -1459,16 +1459,11 @@ impl Component for InvChains {
 
             let mut inv_current = inv_current.build();
             inv_current.expose_ports(
-                |port: CellPort, i| {
-                    if i == 0 && port.name().as_str() == "din" {
-                        Some(port.with_id(format!("{}_din", name)))
-                    } else if i == 1 && port.name().as_str() == "dout" {
-                        Some(port.with_id(format!("{}_dout", name)))
-                    } else if ["din", "dout"].contains(&port.name().as_str()) {
-                        Some(port.named("tmp").with_index(i))
-                    } else {
-                        Some(port)
-                    }
+                |port: CellPort, i| match (i, port.name().as_str()) {
+                    (0, "din") => Some(port.with_id(format!("{}_din", name))),
+                    (1, "dout") => Some(port.with_id(format!("{}_dout", name))),
+                    (_, "din" | "dout") => Some(port.named("tmp").with_index(i)),
+                    _ => Some(port),
                 },
                 PortConflictStrategy::Merge,
             )?;
