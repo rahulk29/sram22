@@ -20,6 +20,7 @@ VERIBLE_VERILOG_FORMAT_FLAGS = --inplace
 
 clean:
 	rm -rf obj_dir
+	rm -f verible.filelist
 
 %: tb/%.sv $(SVSRC)
 	@echo "-- Running $@"
@@ -35,5 +36,8 @@ lint: $(SVSRC)
 
 format: $(SVSRC) $(TBSRC)
 	verible-verilog-format $(VERIBLE_VERILOG_FORMAT_FLAGS) $^
+
+verible.filelist: $(SVSRC) $(TBSRC)
+	echo "$^" | tr ' ' '\n' > $@
 
 .PHONY: clean lint format
