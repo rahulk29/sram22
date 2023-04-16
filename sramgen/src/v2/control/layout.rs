@@ -1104,7 +1104,7 @@ impl ControlLogicReplicaV2 {
         sense_en_out_1_via.align_centers_gridded(sense_en_out_1.bbox(), grid);
         let sense_en_out_1 = router.expand_to_grid(
             sense_en_out_1_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Side(Side::Top),
+            ExpandToGridStrategy::Side(Side::Left),
         );
         ctx.draw(sense_en_out_1_via)?;
         ctx.draw_rect(m1, sense_en_out_1);
