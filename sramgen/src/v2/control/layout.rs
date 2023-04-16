@@ -271,6 +271,8 @@ impl ControlLogicReplicaV2 {
             ],
         });
 
+        let grid = ctx.pdk().layout_grid();
+
         let vss = group.port_map().port("vss")?.first_rect(m1, Side::Top)?;
         let mut vss_rect = Rect::from_spans(Span::until(200), vss.brect().vspan());
         vss_rect.align_right(vss);
@@ -360,7 +362,7 @@ impl ControlLogicReplicaV2 {
 
         // clk_pulse -> sae_ctl/pc_ctl/wr_drv_set
         let mut clkp_out_via = via01.clone();
-        clkp_out_via.align_centers(clkp_out.brect());
+        clkp_out_via.align_centers_gridded(clkp_out.brect(), grid);
         let clkp_out = router.expand_to_grid(
             clkp_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -371,7 +373,7 @@ impl ControlLogicReplicaV2 {
 
         let clkp_in_1 = group.port_map().port("sae_ctl_r")?.largest_rect(m0)?;
         let mut clkp_in_1_via = via01.clone();
-        clkp_in_1_via.align_centers(clkp_in_1.bbox());
+        clkp_in_1_via.align_centers_gridded(clkp_in_1.bbox(), grid);
         clkp_in_1_via.align_left(clkp_in_1.bbox());
         let clkp_in_1 = router.expand_to_grid(
             clkp_in_1_via.layer_bbox(m1).into_rect(),
@@ -383,7 +385,7 @@ impl ControlLogicReplicaV2 {
 
         let clkp_in_2 = group.port_map().port("pc_ctl_r")?.largest_rect(m0)?;
         let mut clkp_in_2_via = via01.clone();
-        clkp_in_2_via.align_centers(clkp_in_2.bbox());
+        clkp_in_2_via.align_centers_gridded(clkp_in_2.bbox(), grid);
         clkp_in_2_via.align_left(clkp_in_2.bbox());
         let clkp_in_2 = router.expand_to_grid(
             clkp_in_2_via.layer_bbox(m1).into_rect(),
@@ -395,7 +397,7 @@ impl ControlLogicReplicaV2 {
 
         let clkp_in_3 = group.port_map().port("wr_drv_set_a")?.largest_rect(m0)?;
         let mut clkp_in_3_via = via01.with_orientation(Named::R90);
-        clkp_in_3_via.align_centers(clkp_in_3.bbox());
+        clkp_in_3_via.align_centers_gridded(clkp_in_3.bbox(), grid);
         clkp_in_3_via.align_top(clkp_in_3.bbox());
         let clkp_in_3 = router.expand_to_grid(
             clkp_in_3_via.layer_bbox(m1).into_rect(),
@@ -411,7 +413,7 @@ impl ControlLogicReplicaV2 {
             .port("decoder_replica_dout")?
             .largest_rect(m0)?;
         let mut wl_en_set_out_via = via01.clone();
-        wl_en_set_out_via.align_centers(wl_en_set_out.bbox());
+        wl_en_set_out_via.align_centers_gridded(wl_en_set_out.bbox(), grid);
         let wl_en_set_out = router.expand_to_grid(
             wl_en_set_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -422,7 +424,7 @@ impl ControlLogicReplicaV2 {
 
         let wl_en_set_in = group.port_map().port("wl_ctl_s")?.largest_rect(m0)?;
         let mut wl_en_set_in_via = via01.with_orientation(Named::R90);
-        wl_en_set_in_via.align_centers(wl_en_set_in.bbox());
+        wl_en_set_in_via.align_centers_gridded(wl_en_set_in.bbox(), grid);
         wl_en_set_in_via.align_left(wl_en_set_in.bbox());
         let wl_en_set_in = router.expand_to_grid(
             wl_en_set_in_via.layer_bbox(m1).into_rect(),
@@ -437,8 +439,8 @@ impl ControlLogicReplicaV2 {
         let we_b_in_1 = group.port_map().port("and_sense_en_b")?.largest_rect(m0)?;
 
         let mut we_b_out_via = via01.clone();
-        we_b_out_via.align_centers(we_b_out.bbox());
-        we_b_out_via.align_centers_vertically(we_b_in_1.bbox());
+        we_b_out_via.align_centers_gridded(we_b_out.bbox(), grid);
+        we_b_out_via.align_centers_vertically_gridded(we_b_in_1.bbox(), grid);
         let we_b_out = router.expand_to_grid(
             we_b_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Side(Side::Top),
@@ -448,7 +450,7 @@ impl ControlLogicReplicaV2 {
         router.occupy(m1, we_b_out, "we_b")?;
 
         let mut we_b_in_1_via = via01.with_orientation(Named::R90);
-        we_b_in_1_via.align_centers(we_b_in_1.bbox());
+        we_b_in_1_via.align_centers_gridded(we_b_in_1.bbox(), grid);
         let we_b_in_1 = router.expand_to_grid(
             we_b_in_1_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -459,7 +461,7 @@ impl ControlLogicReplicaV2 {
 
         let we_b_in_2 = group.port_map().port("sae_set_a")?.largest_rect(m0)?;
         let mut we_b_in_2_via = via01.with_orientation(Named::R90);
-        we_b_in_2_via.align_centers(we_b_in_2.bbox());
+        we_b_in_2_via.align_centers_gridded(we_b_in_2.bbox(), grid);
         we_b_in_2_via.align_top(we_b_in_2.bbox());
         let we_b_in_2 = router.expand_to_grid(
             we_b_in_2_via.layer_bbox(m1).into_rect(),
@@ -482,7 +484,7 @@ impl ControlLogicReplicaV2 {
 
         // inv_rbl -> pc_read_set_buf/rbl_b_delay
         let mut rbl_b_out_via = via01.clone();
-        rbl_b_out_via.align_centers(rbl_b_out.bbox());
+        rbl_b_out_via.align_centers_gridded(rbl_b_out.bbox(), grid);
         let rbl_b_out = router.expand_to_grid(
             rbl_b_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -496,7 +498,7 @@ impl ControlLogicReplicaV2 {
             .port("pc_read_set_buf_din")?
             .largest_rect(m0)?;
         let mut rbl_b_in_2_via = via01.with_orientation(Named::R90);
-        rbl_b_in_2_via.align_centers(rbl_b_in_2.bbox());
+        rbl_b_in_2_via.align_centers_gridded(rbl_b_in_2.bbox(), grid);
         let rbl_b_in_2 = router.expand_to_grid(
             rbl_b_in_2_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -507,7 +509,7 @@ impl ControlLogicReplicaV2 {
 
         let rbl_b_in_3 = group.port_map().port("rbl_b_delay_din")?.largest_rect(m0)?;
         let mut rbl_b_in_3_via = via01.with_orientation(Named::R90);
-        rbl_b_in_3_via.align_centers(rbl_b_in_3.bbox());
+        rbl_b_in_3_via.align_centers_gridded(rbl_b_in_3.bbox(), grid);
         let rbl_b_in_3 = router.expand_to_grid(
             rbl_b_in_3_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -522,7 +524,7 @@ impl ControlLogicReplicaV2 {
             .port("pc_read_set_buf_dout")?
             .largest_rect(m0)?;
         let mut pc_read_set_out_via = via01.clone();
-        pc_read_set_out_via.align_centers(pc_read_set_out.bbox());
+        pc_read_set_out_via.align_centers_gridded(pc_read_set_out.bbox(), grid);
         let pc_read_set_out = router.expand_to_grid(
             pc_read_set_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -533,7 +535,7 @@ impl ControlLogicReplicaV2 {
 
         let pc_read_set_in = group.port_map().port("mux_pc_set_a0")?.largest_rect(m0)?;
         let mut pc_read_set_in_via = via01.clone();
-        pc_read_set_in_via.align_centers(pc_read_set_in.bbox());
+        pc_read_set_in_via.align_centers_gridded(pc_read_set_in.bbox(), grid);
         pc_read_set_in_via.align_left(pc_read_set_in.bbox());
         let pc_read_set_in = router.expand_to_grid(
             pc_read_set_in_via.layer_bbox(m1).into_rect(),
@@ -549,7 +551,7 @@ impl ControlLogicReplicaV2 {
             .port("rbl_b_delay_dout")?
             .largest_rect(m0)?;
         let mut rbl_b_delayed_out_via = via01.clone();
-        rbl_b_delayed_out_via.align_centers(rbl_b_delayed_out.bbox());
+        rbl_b_delayed_out_via.align_centers_gridded(rbl_b_delayed_out.bbox(), grid);
         let rbl_b_delayed_out = router.expand_to_grid(
             rbl_b_delayed_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -563,7 +565,7 @@ impl ControlLogicReplicaV2 {
             .port("mux_wl_en_rst_a0")?
             .largest_rect(m0)?;
         let mut rbl_b_delayed_in_via = via01.clone();
-        rbl_b_delayed_in_via.align_centers(rbl_b_delayed_in.bbox());
+        rbl_b_delayed_in_via.align_centers_gridded(rbl_b_delayed_in.bbox(), grid);
         rbl_b_delayed_in_via.align_left(rbl_b_delayed_in.bbox());
         let rbl_b_delayed_in = router.expand_to_grid(
             rbl_b_delayed_in_via.layer_bbox(m1).into_rect(),
@@ -576,7 +578,7 @@ impl ControlLogicReplicaV2 {
         // and_sense_en -> sense_en_delay
         let sense_en_set0_out = group.port_map().port("and_sense_en_x")?.largest_rect(m0)?;
         let mut sense_en_set0_out_via = via01.clone();
-        sense_en_set0_out_via.align_centers(sense_en_set0_out);
+        sense_en_set0_out_via.align_centers_gridded(sense_en_set0_out, grid);
         sense_en_set0_out_via.align(AlignMode::Bottom, sense_en_set0_out, 200);
         let sense_en_set0_out = router.expand_to_grid(
             sense_en_set0_out_via.layer_bbox(m1).into_rect(),
@@ -591,7 +593,7 @@ impl ControlLogicReplicaV2 {
             .port("sense_en_delay_din")?
             .largest_rect(m0)?;
         let mut sense_en_set0_in_via = via01.clone();
-        sense_en_set0_in_via.align_centers(sense_en_set0_in.bbox());
+        sense_en_set0_in_via.align_centers_gridded(sense_en_set0_in.bbox(), grid);
         let sense_en_set0_in = router.expand_to_grid(
             sense_en_set0_in_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -606,7 +608,7 @@ impl ControlLogicReplicaV2 {
             .port("sense_en_delay_dout")?
             .largest_rect(m0)?;
         let mut sense_en_set_out_via = via01.clone();
-        sense_en_set_out_via.align_centers(sense_en_set_out.bbox());
+        sense_en_set_out_via.align_centers_gridded(sense_en_set_out.bbox(), grid);
         let sense_en_set_out = router.expand_to_grid(
             sense_en_set_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -617,7 +619,7 @@ impl ControlLogicReplicaV2 {
 
         let sense_en_set_in = group.port_map().port("sae_ctl_s")?.largest_rect(m0)?;
         let mut sense_en_set_in_via = via01.with_orientation(Named::R90);
-        sense_en_set_in_via.align_centers(sense_en_set_in.bbox());
+        sense_en_set_in_via.align_centers_gridded(sense_en_set_in.bbox(), grid);
         sense_en_set_in_via.align_left(sense_en_set_in.bbox());
         let sense_en_set_in = router.expand_to_grid(
             sense_en_set_in_via.layer_bbox(m1).into_rect(),
@@ -630,7 +632,7 @@ impl ControlLogicReplicaV2 {
         // mux_wl_en_rst -> wl_ctl
         let wl_en_rst_out = group.port_map().port("mux_wl_en_rst_x")?.largest_rect(m0)?;
         let mut wl_en_rst_out_via = via01.clone();
-        wl_en_rst_out_via.align_centers(wl_en_rst_out.bbox());
+        wl_en_rst_out_via.align_centers_gridded(wl_en_rst_out.bbox(), grid);
         let wl_en_rst_out = router.expand_to_grid(
             wl_en_rst_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -641,7 +643,7 @@ impl ControlLogicReplicaV2 {
 
         let wl_en_rst_in = group.port_map().port("wl_ctl_r")?.largest_rect(m0)?;
         let mut wl_en_rst_in_via = via01.with_orientation(Named::R90);
-        wl_en_rst_in_via.align_centers(wl_en_rst_in.bbox());
+        wl_en_rst_in_via.align_centers_gridded(wl_en_rst_in.bbox(), grid);
         wl_en_rst_in_via.align_left(wl_en_rst_in.bbox());
         let wl_en_rst_in = router.expand_to_grid(
             wl_en_rst_in_via.layer_bbox(m1).into_rect(),
@@ -654,7 +656,7 @@ impl ControlLogicReplicaV2 {
         // wl_ctl -> wl_en_buf
         let wl_en0_out = group.port_map().port("wl_ctl_q")?.largest_rect(m0)?;
         let mut wl_en0_out_via = via12.with_orientation(Named::R90);
-        wl_en0_out_via.align_centers(wl_en0_out.bbox());
+        wl_en0_out_via.align_centers_gridded(wl_en0_out.bbox(), grid);
         wl_en0_out_via.align_top(wl_en0_out.bbox());
         let wl_en0_out = router.expand_to_grid(
             wl_en0_out_via.layer_bbox(m2).into_rect(),
@@ -666,7 +668,7 @@ impl ControlLogicReplicaV2 {
 
         let wl_en0_in = group.port_map().port("wl_en_buf_a")?.largest_rect(m0)?;
         let mut wl_en0_in_via = via01.with_orientation(Named::R90);
-        wl_en0_in_via.align_centers(wl_en0_in.bbox());
+        wl_en0_in_via.align_centers_gridded(wl_en0_in.bbox(), grid);
         let wl_en0_in = router.expand_to_grid(
             wl_en0_in_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -678,7 +680,7 @@ impl ControlLogicReplicaV2 {
         // sae_ctl -> sae_buf/sae_buf2
         let sense_en0_out = group.port_map().port("sae_ctl_q")?.largest_rect(m0)?;
         let mut sense_en0_out_via = via12.with_orientation(Named::R90);
-        sense_en0_out_via.align_centers(sense_en0_out.bbox());
+        sense_en0_out_via.align_centers_gridded(sense_en0_out.bbox(), grid);
         sense_en0_out_via.align_top(sense_en0_out.bbox());
         let sense_en0_out = router.expand_to_grid(
             sense_en0_out_via.layer_bbox(m2).into_rect(),
@@ -690,7 +692,7 @@ impl ControlLogicReplicaV2 {
 
         let sense_en0_in_1 = group.port_map().port("sae_buf_a")?.largest_rect(m0)?;
         let mut sense_en0_in_1_via = via01.with_orientation(Named::R90);
-        sense_en0_in_1_via.align_centers(sense_en0_in_1.bbox());
+        sense_en0_in_1_via.align_centers_gridded(sense_en0_in_1.bbox(), grid);
         let sense_en0_in_1 = router.expand_to_grid(
             sense_en0_in_1_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -701,7 +703,7 @@ impl ControlLogicReplicaV2 {
 
         let sense_en0_in_2 = group.port_map().port("sae_buf2_a")?.largest_rect(m0)?;
         let mut sense_en0_in_2_via = via01.with_orientation(Named::R90);
-        sense_en0_in_2_via.align_centers(sense_en0_in_2.bbox());
+        sense_en0_in_2_via.align_centers_gridded(sense_en0_in_2.bbox(), grid);
         let sense_en0_in_2 = router.expand_to_grid(
             sense_en0_in_2_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -713,7 +715,7 @@ impl ControlLogicReplicaV2 {
         // mux_pc_set -> pc_ctl
         let pc_set_out = group.port_map().port("mux_pc_set_x")?.largest_rect(m0)?;
         let mut pc_set_out_via = via01.clone();
-        pc_set_out_via.align_centers(pc_set_out.bbox());
+        pc_set_out_via.align_centers_gridded(pc_set_out.bbox(), grid);
         let pc_set_out = router.expand_to_grid(
             pc_set_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -724,7 +726,7 @@ impl ControlLogicReplicaV2 {
 
         let pc_set_in = group.port_map().port("pc_ctl_s")?.largest_rect(m0)?;
         let mut pc_set_in_via = via01.with_orientation(Named::R90);
-        pc_set_in_via.align_centers(pc_set_in.bbox());
+        pc_set_in_via.align_centers_gridded(pc_set_in.bbox(), grid);
         pc_set_in_via.align_left(pc_set_in.bbox());
         let pc_set_in = router.expand_to_grid(
             pc_set_in_via.layer_bbox(m1).into_rect(),
@@ -740,7 +742,7 @@ impl ControlLogicReplicaV2 {
             .port("pc_write_set_buf_dout")?
             .largest_rect(m0)?;
         let mut pc_write_set_out_via = via01.clone();
-        pc_write_set_out_via.align_centers(pc_write_set_out.bbox());
+        pc_write_set_out_via.align_centers_gridded(pc_write_set_out.bbox(), grid);
         let pc_write_set_out = router.expand_to_grid(
             pc_write_set_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -751,7 +753,7 @@ impl ControlLogicReplicaV2 {
 
         let pc_write_set_in = group.port_map().port("mux_pc_set_a1")?.largest_rect(m0)?;
         let mut pc_write_set_in_via = via01.clone();
-        pc_write_set_in_via.align_centers(pc_write_set_in.bbox());
+        pc_write_set_in_via.align_centers_gridded(pc_write_set_in.bbox(), grid);
         pc_write_set_in_via.align_top(pc_write_set_in.bbox());
         let pc_write_set_in = router.expand_to_grid(
             pc_write_set_in_via.layer_bbox(m1).into_rect(),
@@ -764,7 +766,7 @@ impl ControlLogicReplicaV2 {
         // pc_ctl -> pc_b_buf/pc_b_buf2
         let pc_b0_out = group.port_map().port("pc_ctl_q_b")?.largest_rect(m0)?;
         let mut pc_b0_out_via = via12.with_orientation(Named::R90);
-        pc_b0_out_via.align_centers(pc_b0_out.bbox());
+        pc_b0_out_via.align_centers_gridded(pc_b0_out.bbox(), grid);
         pc_b0_out_via.align_bottom(pc_b0_out.bbox());
         let pc_b0_out = router.expand_to_grid(
             pc_b0_out_via.layer_bbox(m2).into_rect(),
@@ -776,7 +778,7 @@ impl ControlLogicReplicaV2 {
 
         let pc_b0_in_1 = group.port_map().port("pc_b_buf_a")?.largest_rect(m0)?;
         let mut pc_b0_in_1_via = via01.with_orientation(Named::R90);
-        pc_b0_in_1_via.align_centers(pc_b0_in_1.bbox());
+        pc_b0_in_1_via.align_centers_gridded(pc_b0_in_1.bbox(), grid);
         let pc_b0_in_1 = router.expand_to_grid(
             pc_b0_in_1_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -787,7 +789,7 @@ impl ControlLogicReplicaV2 {
 
         let pc_b0_in_2 = group.port_map().port("pc_b_buf2_a")?.largest_rect(m0)?;
         let mut pc_b0_in_2_via = via01.with_orientation(Named::R90);
-        pc_b0_in_2_via.align_centers(pc_b0_in_2.bbox());
+        pc_b0_in_2_via.align_centers_gridded(pc_b0_in_2.bbox(), grid);
         let pc_b0_in_2 = router.expand_to_grid(
             pc_b0_in_2_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -802,7 +804,7 @@ impl ControlLogicReplicaV2 {
             .port("wr_drv_set_decoder_delay_replica_dout")?
             .largest_rect(m0)?;
         let mut wr_drv_set_out_via = via01.clone();
-        wr_drv_set_out_via.align_centers(wr_drv_set_out.bbox());
+        wr_drv_set_out_via.align_centers_gridded(wr_drv_set_out.bbox(), grid);
         let wr_drv_set_out = router.expand_to_grid(
             wr_drv_set_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -813,7 +815,7 @@ impl ControlLogicReplicaV2 {
 
         let wr_drv_set_in = group.port_map().port("wr_drv_ctl_s")?.largest_rect(m0)?;
         let mut wr_drv_set_in_via = via01.with_orientation(Named::R90);
-        wr_drv_set_in_via.align_centers(wr_drv_set_in.bbox());
+        wr_drv_set_in_via.align_centers_gridded(wr_drv_set_in.bbox(), grid);
         wr_drv_set_in_via.align_left(wr_drv_set_in.bbox());
         let wr_drv_set_in = router.expand_to_grid(
             wr_drv_set_in_via.layer_bbox(m1).into_rect(),
@@ -826,7 +828,7 @@ impl ControlLogicReplicaV2 {
         // wr_drv_set -> wr_drv_set_decoder_delay_replica
         let wr_drv_set_undelayed_out = group.port_map().port("wr_drv_set_x")?.largest_rect(m0)?;
         let mut wr_drv_set_undelayed_out_via = via01.clone();
-        wr_drv_set_undelayed_out_via.align_centers(wr_drv_set_undelayed_out.bbox());
+        wr_drv_set_undelayed_out_via.align_centers_gridded(wr_drv_set_undelayed_out.bbox(), grid);
         let wr_drv_set_undelayed_out = router.expand_to_grid(
             wr_drv_set_undelayed_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -840,7 +842,7 @@ impl ControlLogicReplicaV2 {
             .port("wr_drv_set_decoder_delay_replica_din")?
             .largest_rect(m0)?;
         let mut wr_drv_set_undelayed_in_via = via01.with_orientation(Named::R90);
-        wr_drv_set_undelayed_in_via.align_centers(wr_drv_set_undelayed_in.bbox());
+        wr_drv_set_undelayed_in_via.align_centers_gridded(wr_drv_set_undelayed_in.bbox(), grid);
         let wr_drv_set_undelayed_in = router.expand_to_grid(
             wr_drv_set_undelayed_in_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -855,7 +857,7 @@ impl ControlLogicReplicaV2 {
             .port("wl_en_write_rst_buf_dout")?
             .largest_rect(m0)?;
         let mut wl_en_write_rst_out_via = via01.clone();
-        wl_en_write_rst_out_via.align_centers(wl_en_write_rst_out.bbox());
+        wl_en_write_rst_out_via.align_centers_gridded(wl_en_write_rst_out.bbox(), grid);
         let wl_en_write_rst_out = router.expand_to_grid(
             wl_en_write_rst_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -869,7 +871,7 @@ impl ControlLogicReplicaV2 {
             .port("pc_write_set_buf_din")?
             .largest_rect(m0)?;
         let mut wl_en_write_rst_in_1_via = via01.with_orientation(Named::R90);
-        wl_en_write_rst_in_1_via.align_centers(wl_en_write_rst_in_1.bbox());
+        wl_en_write_rst_in_1_via.align_centers_gridded(wl_en_write_rst_in_1.bbox(), grid);
         let wl_en_write_rst_in_1 = router.expand_to_grid(
             wl_en_write_rst_in_1_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -883,7 +885,7 @@ impl ControlLogicReplicaV2 {
             .port("mux_wl_en_rst_a1")?
             .largest_rect(m0)?;
         let mut wl_en_write_rst_in_2_via = via01.clone();
-        wl_en_write_rst_in_2_via.align_centers(wl_en_write_rst_in_2.bbox());
+        wl_en_write_rst_in_2_via.align_centers_gridded(wl_en_write_rst_in_2.bbox(), grid);
         wl_en_write_rst_in_2_via.align_top(wl_en_write_rst_in_2.bbox());
         let wl_en_write_rst_in_2 = router.expand_to_grid(
             wl_en_write_rst_in_2_via.layer_bbox(m1).into_rect(),
@@ -895,7 +897,7 @@ impl ControlLogicReplicaV2 {
 
         let wl_en_write_rst_in_3 = group.port_map().port("wr_drv_ctl_r")?.largest_rect(m0)?;
         let mut wl_en_write_rst_in_3_via = via01.with_orientation(Named::R90);
-        wl_en_write_rst_in_3_via.align_centers(wl_en_write_rst_in_3.bbox());
+        wl_en_write_rst_in_3_via.align_centers_gridded(wl_en_write_rst_in_3.bbox(), grid);
         wl_en_write_rst_in_3_via.align_left(wl_en_write_rst_in_3.bbox());
         let wl_en_write_rst_in_3 = router.expand_to_grid(
             wl_en_write_rst_in_3_via.layer_bbox(m1).into_rect(),
@@ -908,7 +910,7 @@ impl ControlLogicReplicaV2 {
         // wr_drv_ctl -> wr_drv_buf
         let write_driver_en0_out = group.port_map().port("wr_drv_ctl_q")?.largest_rect(m0)?;
         let mut write_driver_en0_out_via = via12.with_orientation(Named::R90);
-        write_driver_en0_out_via.align_centers(write_driver_en0_out.bbox());
+        write_driver_en0_out_via.align_centers_gridded(write_driver_en0_out.bbox(), grid);
         write_driver_en0_out_via.align_top(write_driver_en0_out.bbox());
         let write_driver_en0_out = router.expand_to_grid(
             write_driver_en0_out_via.layer_bbox(m2).into_rect(),
@@ -920,7 +922,7 @@ impl ControlLogicReplicaV2 {
 
         let write_driver_en0_in = group.port_map().port("wr_drv_buf_a")?.largest_rect(m0)?;
         let mut write_driver_en0_in_via = via01.with_orientation(Named::R90);
-        write_driver_en0_in_via.align_centers(write_driver_en0_in.bbox());
+        write_driver_en0_in_via.align_centers_gridded(write_driver_en0_in.bbox(), grid);
         let write_driver_en0_in = router.expand_to_grid(
             write_driver_en0_in_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -946,13 +948,13 @@ impl ControlLogicReplicaV2 {
         )?;
 
         let mut clk_pin_via = via01.with_orientation(Named::R90);
-        clk_pin_via.align_centers(clk_pin);
+        clk_pin_via.align_centers_gridded(clk_pin, grid);
         ctx.draw(clk_pin_via)?;
 
         // we_pin -> inv_we/mux_wl_en_rst/mux_pc_set/wr_drv_set
         let we_in_1 = group.port_map().port("inv_we_a")?.largest_rect(m0)?;
         let mut we_in_1_via = via01.with_orientation(Named::R90);
-        we_in_1_via.align_centers(we_in_1.bbox());
+        we_in_1_via.align_centers_gridded(we_in_1.bbox(), grid);
         let we_in_1 = router.expand_to_grid(
             we_in_1_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -963,7 +965,7 @@ impl ControlLogicReplicaV2 {
 
         let we_in_2 = group.port_map().port("mux_wl_en_rst_s")?.largest_rect(m0)?;
         let mut we_in_2_via = via01.clone();
-        we_in_2_via.align_centers(we_in_2.bbox());
+        we_in_2_via.align_centers_gridded(we_in_2.bbox(), grid);
         we_in_2_via.align_bottom(we_in_2.bbox());
         let we_in_2 = router.expand_to_grid(
             we_in_2_via.layer_bbox(m1).into_rect(),
@@ -975,7 +977,7 @@ impl ControlLogicReplicaV2 {
 
         let we_in_3 = group.port_map().port("mux_pc_set_s")?.largest_rect(m0)?;
         let mut we_in_3_via = via01.clone();
-        we_in_3_via.align_centers(we_in_3.bbox());
+        we_in_3_via.align_centers_gridded(we_in_3.bbox(), grid);
         we_in_3_via.align_bottom(we_in_3.bbox());
         let we_in_3 = router.expand_to_grid(
             we_in_3_via.layer_bbox(m1).into_rect(),
@@ -987,7 +989,7 @@ impl ControlLogicReplicaV2 {
 
         let we_in_4 = group.port_map().port("wr_drv_set_b")?.largest_rect(m0)?;
         let mut we_in_4_via = via01.with_orientation(Named::R90);
-        we_in_4_via.align_centers(we_in_4.bbox());
+        we_in_4_via.align_centers_gridded(we_in_4.bbox(), grid);
         let we_in_4 = router.expand_to_grid(
             we_in_4_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -999,7 +1001,7 @@ impl ControlLogicReplicaV2 {
         // pc_b_buf/pc_b_buf2 -> pc_b_pin
         let pc_b_out_1 = group.port_map().port("pc_b_buf_x")?.largest_rect(m0)?;
         let mut pc_b_out_1_via = via01.clone();
-        pc_b_out_1_via.align_centers(pc_b_out_1.bbox());
+        pc_b_out_1_via.align_centers_gridded(pc_b_out_1.bbox(), grid);
         let pc_b_out_1 = router.expand_to_grid(
             pc_b_out_1_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -1010,7 +1012,7 @@ impl ControlLogicReplicaV2 {
 
         let pc_b_out_2 = group.port_map().port("pc_b_buf2_x")?.largest_rect(m0)?;
         let mut pc_b_out_2_via = via01.clone();
-        pc_b_out_2_via.align_centers(pc_b_out_2.bbox());
+        pc_b_out_2_via.align_centers_gridded(pc_b_out_2.bbox(), grid);
         let pc_b_out_2 = router.expand_to_grid(
             pc_b_out_2_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -1022,7 +1024,7 @@ impl ControlLogicReplicaV2 {
         // wl_ctl -> wl_en0_pin
         let wl_en0_out = group.port_map().port("wl_ctl_q")?.largest_rect(m0)?;
         let mut wl_en0_out_via = via12.with_orientation(Named::R90);
-        wl_en0_out_via.align_centers(wl_en0_out.bbox());
+        wl_en0_out_via.align_centers_gridded(wl_en0_out.bbox(), grid);
         wl_en0_out_via.align_top(wl_en0_out.bbox());
         let wl_en0_out = router.expand_to_grid(
             wl_en0_out_via.layer_bbox(m2).into_rect(),
@@ -1035,7 +1037,7 @@ impl ControlLogicReplicaV2 {
         // wl_en_buf -> wl_en_pin
         let wl_en_out = group.port_map().port("wl_en_buf_x")?.largest_rect(m0)?;
         let mut wl_en_out_via = via01.clone();
-        wl_en_out_via.align_centers(wl_en_out.bbox());
+        wl_en_out_via.align_centers_gridded(wl_en_out.bbox(), grid);
         let wl_en_out = router.expand_to_grid(
             wl_en_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -1047,7 +1049,7 @@ impl ControlLogicReplicaV2 {
         // wr_drv_buf -> write_driver_en_pin
         let write_driver_en_out = group.port_map().port("wr_drv_buf_x")?.largest_rect(m0)?;
         let mut write_driver_en_out_via = via01.clone();
-        write_driver_en_out_via.align_centers(write_driver_en_out.bbox());
+        write_driver_en_out_via.align_centers_gridded(write_driver_en_out.bbox(), grid);
         let write_driver_en_out = router.expand_to_grid(
             write_driver_en_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -1059,7 +1061,7 @@ impl ControlLogicReplicaV2 {
         // sae_buf/sae_buf2 -> sense_en_pin
         let sense_en_out_1 = group.port_map().port("sae_buf_x")?.largest_rect(m0)?;
         let mut sense_en_out_1_via = via01.clone();
-        sense_en_out_1_via.align_centers(sense_en_out_1.bbox());
+        sense_en_out_1_via.align_centers_gridded(sense_en_out_1.bbox(), grid);
         let sense_en_out_1 = router.expand_to_grid(
             sense_en_out_1_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -1070,7 +1072,7 @@ impl ControlLogicReplicaV2 {
 
         let sense_en_out_2 = group.port_map().port("sae_buf2_x")?.largest_rect(m0)?;
         let mut sense_en_out_2_via = via01.clone();
-        sense_en_out_2_via.align_centers(sense_en_out_2.bbox());
+        sense_en_out_2_via.align_centers_gridded(sense_en_out_2.bbox(), grid);
         let sense_en_out_2 = router.expand_to_grid(
             sense_en_out_2_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Side(Side::Top),
@@ -1082,7 +1084,7 @@ impl ControlLogicReplicaV2 {
         // rbl_pin -> inv_rbl
         let rbl_in = group.port_map().port("inv_rbl_a")?.largest_rect(m0)?;
         let mut rbl_in_via = via01.with_orientation(Named::R90);
-        rbl_in_via.align_centers(rbl_in.bbox());
+        rbl_in_via.align_centers_gridded(rbl_in.bbox(), grid);
         let rbl_in = router.expand_to_grid(
             rbl_in_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -1097,7 +1099,7 @@ impl ControlLogicReplicaV2 {
             .port("wl_en_write_rst_buf_din")?
             .largest_rect(m0)?;
         let mut dummy_bl_in_via = via01.with_orientation(Named::R90);
-        dummy_bl_in_via.align_centers(dummy_bl_in.bbox());
+        dummy_bl_in_via.align_centers_gridded(dummy_bl_in.bbox(), grid);
         let dummy_bl_in = router.expand_to_grid(
             dummy_bl_in_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -1112,7 +1114,7 @@ impl ControlLogicReplicaV2 {
             .port("wbl_pulldown_en_x")?
             .largest_rect(m0)?;
         let mut wbl_pulldown_en_out_via = via01.clone();
-        wbl_pulldown_en_out_via.align_centers(wbl_pulldown_en_out.bbox());
+        wbl_pulldown_en_out_via.align_centers_gridded(wbl_pulldown_en_out.bbox(), grid);
         let wbl_pulldown_en_out = router.expand_to_grid(
             wbl_pulldown_en_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -1126,7 +1128,7 @@ impl ControlLogicReplicaV2 {
             .port("dummy_bl_pulldown_gate_0")?
             .largest_rect(m0)?;
         let mut wbl_pulldown_en_in_via = via01.with_orientation(Named::R90);
-        wbl_pulldown_en_in_via.align_centers(wbl_pulldown_en_in.bbox());
+        wbl_pulldown_en_in_via.align_centers_gridded(wbl_pulldown_en_in.bbox(), grid);
         let wbl_pulldown_en_in = router.expand_to_grid(
             wbl_pulldown_en_in_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -1141,7 +1143,7 @@ impl ControlLogicReplicaV2 {
             .port("dummy_bl_pulldown_sd_0_0")?
             .largest_rect(m0)?;
         let mut dummy_bl_out_via = via01.with_orientation(Named::R90);
-        dummy_bl_out_via.align_centers(dummy_bl_out.bbox());
+        dummy_bl_out_via.align_centers_gridded(dummy_bl_out.bbox(), grid);
         let dummy_bl_out = router.expand_to_grid(
             dummy_bl_out_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -1156,7 +1158,7 @@ impl ControlLogicReplicaV2 {
             .port("dummy_bl_pulldown_sd_0_1")?
             .largest_rect(m0)?;
         let mut dummy_bl_vss_via = via01.with_orientation(Named::R90);
-        dummy_bl_vss_via.align_centers(dummy_bl_vss.bbox());
+        dummy_bl_vss_via.align_centers_gridded(dummy_bl_vss.bbox(), grid);
         let dummy_bl_vss = router.expand_to_grid(
             dummy_bl_vss_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Side(Side::Top),
@@ -1346,6 +1348,7 @@ impl Component for InvChains {
         let m0 = layers.get(Selector::Metal(0))?;
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
+        let grid = ctx.pdk().layout_grid();
 
         let mut invs = ArrayTiler::builder();
         invs.mode(AlignMode::Left).alt_mode(AlignMode::Beneath);
@@ -1478,14 +1481,14 @@ impl Component for InvChains {
                 .port(PortId::new("tmp", 1))?
                 .largest_rect(m0)?;
 
-            via01.align_centers(out_port.bbox());
-            via12.align_centers(out_port.bbox());
+            via01.align_centers_gridded(out_port.bbox(), grid);
+            via12.align_centers_gridded(out_port.bbox(), grid);
             let out_via = via12.clone();
             inv_group.add(via01.clone());
             inv_group.add(out_via.clone());
 
-            via01.align_centers(in_port.bbox());
-            via12.align_centers(in_port.bbox());
+            via01.align_centers_gridded(in_port.bbox(), grid);
+            via12.align_centers_gridded(in_port.bbox(), grid);
             let in_via = via12.with_orientation(Named::R90);
             inv_group.add(via01.with_orientation(Named::R90));
             inv_group.add(in_via.clone());
@@ -1535,6 +1538,7 @@ impl SrLatch {
         let outline = layers.get(Selector::Name("outline"))?;
         let m0 = layers.get(Selector::Metal(0))?;
         let m1 = layers.get(Selector::Metal(1))?;
+        let grid = ctx.pdk().layout_grid();
 
         let nor = LayerBbox::new(nor, outline);
         let nor_hflip = LayerBbox::new(nor_hflip, outline);
@@ -1566,19 +1570,19 @@ impl SrLatch {
         let b1 = row.port_map().port(PortId::new("b", 1))?;
         let y1 = row.port_map().port(PortId::new("y", 1))?;
 
-        via.align_centers(b0.largest_rect(m0)?);
+        via.align_centers_gridded(b0.largest_rect(m0)?, grid);
         via.align_left(b0.largest_rect(m0)?);
         let b0_via = via.clone();
 
-        via.align_centers(y0.largest_rect(m0)?);
+        via.align_centers_gridded(y0.largest_rect(m0)?, grid);
         via.align_bottom(y0.largest_rect(m0)?);
         let y0_via = via.clone();
 
-        via.align_centers(b1.largest_rect(m0)?);
+        via.align_centers_gridded(b1.largest_rect(m0)?, grid);
         via.align_left(b1.largest_rect(m0)?);
         let b1_via = via.clone();
 
-        via.align_centers(y1.largest_rect(m0)?);
+        via.align_centers_gridded(y1.largest_rect(m0)?, grid);
         via.align_top(y1.largest_rect(m0)?);
         let y1_via = via.clone();
 
@@ -1701,6 +1705,7 @@ impl EdgeDetector {
         let outline = layers.get(Selector::Name("outline"))?;
         let m0 = layers.get(Selector::Metal(0))?;
         let m1 = layers.get(Selector::Metal(1))?;
+        let grid = ctx.pdk().layout_grid();
 
         let inv_chain = ctx.instantiate::<InvChain>(&7)?;
 
@@ -1728,25 +1733,25 @@ impl EdgeDetector {
         )?;
         let din = row.port_map().port("din")?.largest_rect(m0)?;
         let mut din_via = via.with_orientation(Named::R90);
-        din_via.align_centers(din.bbox());
+        din_via.align_centers_gridded(din.bbox(), grid);
         row.add(din_via.clone());
 
         let a = row.port_map().port(PortId::new("a", 1))?.largest_rect(m0)?;
         let mut a_via = via.with_orientation(Named::R90);
-        a_via.align_centers(a.bbox());
+        a_via.align_centers_gridded(a.bbox(), grid);
         a_via.align_top(a.bbox());
         row.add(a_via.clone());
 
         let b = row.port_map().port(PortId::new("b", 1))?.largest_rect(m0)?;
         let mut b_via = via.with_orientation(Named::R90);
-        b_via.align_centers(b.bbox());
+        b_via.align_centers_gridded(b.bbox(), grid);
         b_via.align_top(b.bbox());
         row.add(b_via.clone());
 
         let dout = row.port_map().port("dout")?.largest_rect(m0)?;
         let mut dout_via = via;
-        dout_via.align_centers(dout.bbox());
-        dout_via.align_centers_vertically(b_via.bbox());
+        dout_via.align_centers_gridded(dout.bbox(), grid);
+        dout_via.align_centers_vertically_gridded(b_via.bbox(), grid);
         row.add(dout_via.clone());
 
         row.add_group(
