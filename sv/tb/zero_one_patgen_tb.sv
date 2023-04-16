@@ -29,7 +29,7 @@ module zero_one_patgen_tb;
 
     // Write 0
     for (int i = 0; i <= MaxAddr; i++) begin
-      @(posedge if0.clk);
+      @(negedge clk);
       assert (if0.addr == AddrWidth'(i))
       else $error("Wrong address: expected %d, got %d at time %0t", i, if0.addr, $time);
       assert (if0.data == {DataWidth{1'b0}});
@@ -39,7 +39,7 @@ module zero_one_patgen_tb;
 
     // Read 0
     for (int i = 0; i <= MaxAddr; i++) begin
-      @(posedge if0.clk);
+      @(negedge clk);
       assert (if0.addr == AddrWidth'(i));
       assert (if0.check == {DataWidth{1'b0}});
       assert (!if0.we);
@@ -48,7 +48,7 @@ module zero_one_patgen_tb;
 
     // Write 1
     for (int i = 0; i <= MaxAddr; i++) begin
-      @(posedge if0.clk);
+      @(negedge clk);
       assert (if0.addr == AddrWidth'(i));
       assert (if0.data == {DataWidth{1'b1}});
       assert (if0.we);
@@ -57,7 +57,7 @@ module zero_one_patgen_tb;
 
     // Read 1
     for (int i = 0; i <= MaxAddr; i++) begin
-      @(posedge if0.clk);
+      @(negedge clk);
       assert (if0.addr == AddrWidth'(i));
       assert (if0.check == {DataWidth{1'b1}});
       assert (!if0.we);
@@ -65,7 +65,7 @@ module zero_one_patgen_tb;
     end
 
 
-    repeat (532) @(posedge if0.clk);
+    repeat (5) @(negedge clk);
     assert (if0.done);
     $display("Test passed.");
     $finish;

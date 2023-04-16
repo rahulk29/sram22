@@ -10,7 +10,7 @@ export VERILATOR_ROOT
 VERILATOR = $(VERILATOR_ROOT)/bin/verilator
 endif
 
-VERILATOR_FLAGS = --binary -j 0 --trace --assert -O3
+VERILATOR_FLAGS = --binary -j 0 --trace --assert -sv
 SVDIR = src
 SVSRC = $(wildcard $(SVDIR)/*.sv)
 TBDIR = tb
