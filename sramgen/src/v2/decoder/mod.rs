@@ -593,7 +593,7 @@ mod tests {
 
         ctx.write_layout::<Predecoder>(&params, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
-        #[cfg(feature = "calibre")]
+        #[cfg(feature = "commercial")]
         {
             let output = ctx
                 .write_drc::<Predecoder>(&params, work_dir.join("drc"))
@@ -629,7 +629,7 @@ mod tests {
 
         ctx.write_layout::<LastBitDecoderStage>(&params, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
-        #[cfg(feature = "calibre")]
+        #[cfg(feature = "commercial")]
         {
             let output = ctx
                 .write_drc::<LastBitDecoderStage>(&params, work_dir.join("drc"))

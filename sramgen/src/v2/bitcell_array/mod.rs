@@ -295,7 +295,7 @@ mod tests {
         )
         .expect("failed to write schematic");
 
-        #[cfg(feature = "calibre")]
+        #[cfg(feature = "commercial")]
         {
             let lvs_work_dir = work_dir.join("lvs");
             let output = ctx
@@ -330,8 +330,4 @@ mod tests {
         ctx.write_layout::<SpCellArrayCenter>(&tap_ratio, out_gds(&work_dir, "center"))
             .expect("failed to write layout");
     }
-
-    #[cfg(feature = "calibre")]
-    #[test]
-    fn test_dff_lvs_pex() {}
 }

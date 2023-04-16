@@ -168,7 +168,7 @@ mod tests {
         )
         .expect("failed to write schematic");
 
-        #[cfg(feature = "calibre")]
+        #[cfg(feature = "commercial")]
         {
             let drc_work_dir = work_dir.join("drc");
             let output = ctx

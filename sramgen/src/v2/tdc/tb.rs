@@ -26,11 +26,9 @@ impl Component for TdcTb {
     type Params = TdcTbParams;
     fn new(
         params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
+        _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
 
     fn name(&self) -> arcstr::ArcStr {
@@ -117,7 +115,7 @@ impl Testbench for TdcTb {
 
     fn measure(
         &mut self,
-        ctx: &substrate::verification::simulation::context::PostSimCtx,
+        _ctx: &substrate::verification::simulation::context::PostSimCtx,
     ) -> substrate::error::Result<Self::Output> {
         Ok(())
     }
