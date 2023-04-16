@@ -374,11 +374,12 @@ impl Testbench for SramTestbench {
         ctx: &mut substrate::verification::simulation::context::PreSimCtx,
     ) -> substrate::error::Result<()> {
         let wav = generate_waveforms(&self.params);
+        let step = self.params.clk_period / 8.0;
         ctx.add_analysis(
             TranAnalysis::builder()
-                .start(0.0)
                 .stop(wav.clk.last_t().unwrap())
-                .step(1e-12)
+                .step(step)
+                .strobe_period(step)
                 .build()
                 .unwrap(),
         );
