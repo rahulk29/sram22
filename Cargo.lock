@@ -2249,6 +2249,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "lazy_static",
+ "log",
  "psf_ascii",
  "serde",
  "spice_rawfile",
