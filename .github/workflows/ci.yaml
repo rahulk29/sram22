@@ -1,6 +1,7 @@
 name: CI
 
-on: ~
+on:
+  pull_request:
 
 jobs:
   check-workspace:
