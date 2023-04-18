@@ -1,15 +1,11 @@
 name: CI
 
-on:
-  push:
-    branches:
-      - 'master'
-  pull_request:
+on: ~
 
 jobs:
   check-workspace:
     name: Build, lint, and test
-    runs-on: [self-hosted]
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v2
         with:
