@@ -55,14 +55,14 @@ jobs:
         with:
           key: ${{ steps.toolchain.outputs.cachekey }}
       - name: Check formatting
-        working-directory: sram22
         run: |
           cargo +nightly fmt --check
+        working-directory: sram22
       - name: Lint
+        run: cargo clippy --all-targets -- -D warnings
         working-directory: sram22
-        run: make lint
       - name: Test
-        working-directory: sram22
         run: make test
+        working-directory: sram22
         env:
           SKY130_OPEN_PDK_ROOT: ${{ github.workspace }}/skywater-pdk
