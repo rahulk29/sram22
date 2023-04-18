@@ -17,15 +17,21 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
+          path: sram22
       - name: Install native dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y ngspice
-      - name: Clone external dependencies
+      - name: Clone Skywater PDK
         uses: actions/checkout@v2
         with:
           repository: substrate-labs/skywater-pdk
           path: skywater-pdk
+      - name: Clone Substrate
+        uses: actions/checkout@v2
+        with:
+          repository: substrate-labs/substrate
+          path: substrate
       - name: Update submodules
         working-directory: skywater-pdk
         run: |
@@ -45,16 +51,18 @@ jobs:
           components: clippy
       - name: Cache workspace
         uses: Swatinem/rust-cache@v2
+        working-directory: sram22
         with:
           key: ${{ steps.toolchain.outputs.cachekey }}
       - name: Check formatting
+        working-directory: sram22
         run: |
           cargo +nightly fmt --check
       - name: Lint
-        shell: bash
+        working-directory: sram22
         run: make lint
       - name: Test
-        shell: bash
+        working-directory: sram22
         run: make test
         env:
           SKY130_OPEN_PDK_ROOT: ${{ github.workspace }}/skywater-pdk
