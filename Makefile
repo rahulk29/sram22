@@ -12,10 +12,10 @@ format:
 	black sramgen/scripts/
 
 test:
-	cargo test --release
+	cargo test v2
 
 alltest:
-	cargo test --release --all-features
+	cargo test --all-features
 
 check:
 	cargo check --all-features --all-targets

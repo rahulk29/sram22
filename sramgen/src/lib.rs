@@ -42,9 +42,6 @@ pub mod verilog;
 
 pub const BUILD_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/build");
 pub const LIB_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/lib");
-pub const SKY130_OPEN_PDK_ROOT: &str = env!("SKY130_OPEN_PDK_ROOT");
-#[cfg(feature = "commercial")]
-pub const SKY130_COMMERCIAL_PDK_ROOT: &str = env!("SKY130_COMMERCIAL_PDK_ROOT");
 
 lazy_static! {
     pub static ref TEMPLATES: Tera =
@@ -80,12 +77,16 @@ pub fn setup_ctx() -> SubstrateCtx {
 
     let mut builder = SubstrateConfig::builder();
 
+    let sky130_open_pdk_root = std::env::var("SKY130_OPEN_PDK_ROOT").expect("the SKY130_OPEN_PDK_ROOT environment variable should be set to the root of the skywater-pdk repository");
+    #[cfg(feature = "commercial")]
+    let sky130_commercial_pdk_root = std::env::var("SKY130_COMMERCIAL_PDK_ROOT").expect("the SKY130_COMMERCIAL_PDK_ROOT environment variable should be set to the root of the appropriately versioned skywater-nda folder");
+
     #[cfg(feature = "commercial")]
     let builder = builder
         .pdk(
             Sky130CommercialPdk::new(
-                PathBuf::from(SKY130_COMMERCIAL_PDK_ROOT),
-                PathBuf::from(SKY130_OPEN_PDK_ROOT),
+                PathBuf::from(sky130_commercial_pdk_root),
+                PathBuf::from(sky130_open_pdk_root),
             )
             .unwrap(),
         )
@@ -109,7 +110,7 @@ pub fn setup_ctx() -> SubstrateCtx {
     #[cfg(not(feature = "commercial"))]
     let builder = builder.pdk(
         Sky130OpenPdk::new(&PdkParams {
-            pdk_root: PathBuf::from(SKY130_OPEN_PDK_ROOT),
+            pdk_root: PathBuf::from(sky130_open_pdk_root),
         })
         .unwrap(),
     );

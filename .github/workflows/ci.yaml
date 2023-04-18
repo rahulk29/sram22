@@ -3,24 +3,58 @@ name: CI
 on:
   push:
     branches:
-      - 'master'
+      - 'substrate-port'
   pull_request:
+
+env:
+    CARGO_TERM_COLOR: always
 
 jobs:
   check-workspace:
     name: Build, lint, and test
-    runs-on: [self-hosted]
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ngspice
+      - name: Clone external dependencies
+        uses: actions/checkout@v2
+        with:
+          repository: substrate-labs/skywater-pdk
+          path: skywater-pdk
+      - name: Update submodules
+        working-directory: skywater-pdk
+        run: |
+          git submodule update --init ./libraries/sky130_fd_pr/latest
+          git submodule update --init ./libraries/sky130_fd_sc_hd/latest
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        id: toolchain-nightly
+        with:
+          toolchain: nightly
+          components: rustfmt
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        id: toolchain
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Cache workspace
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ steps.toolchain.outputs.cachekey }}
       - name: Check formatting
         run: |
           cargo +nightly fmt --check
-          black sramgen/scripts/ --check
       - name: Lint
+        shell: bash
         run: make lint
       - name: Test
         shell: bash
-        run: |
-          make test
+        run: make test
+        env:
+          SKY130_OPEN_PDK_ROOT: ${{ github.workspace }}/skywater-pdk

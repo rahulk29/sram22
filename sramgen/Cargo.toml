@@ -42,7 +42,7 @@ sky130_open_pdk = { path = "../../substrate/pdks/sky130_open_pdk" }
 sky130_commercial_pdk = { path = "../../substrate/pdks/sky130_commercial_pdk" }
 ngspice = { path = "../../substrate/plugins/ngspice" }
 spectre = { path = "../../substrate/plugins/spectre", optional = true }
-sub_calibre = { path = "../../substrate/plugins/sub_calibre" }
+sub_calibre = { path = "../../substrate_mentor_plugins/sub_calibre", optional = true }
 
 
 [build-dependencies]
@@ -54,6 +54,6 @@ approx = "0.5.1"
 paste = "1.0"
 
 [features]
-commercial = ["dep:calibre", "dep:abstract_lef", "dep:liberate_mx", "dep:spectre"]
+commercial = ["dep:calibre", "dep:abstract_lef", "dep:liberate_mx", "dep:spectre", "dep:sub_calibre"]
 
 default = []
