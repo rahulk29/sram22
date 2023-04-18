@@ -51,18 +51,18 @@ jobs:
           components: clippy
       - name: Cache workspace
         uses: Swatinem/rust-cache@v2
-        working-directory: sram22
         with:
           key: ${{ steps.toolchain.outputs.cachekey }}
+          workspaces: "sram22 -> target"
       - name: Check formatting
+        working-directory: sram22
         run: |
           cargo +nightly fmt --check
-        working-directory: sram22
       - name: Lint
+        working-directory: sram22
         run: cargo clippy --all-targets -- -D warnings
-        working-directory: sram22
       - name: Test
-        run: make test
         working-directory: sram22
+        run: make test
         env:
           SKY130_OPEN_PDK_ROOT: ${{ github.workspace }}/skywater-pdk

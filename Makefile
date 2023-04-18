@@ -12,7 +12,7 @@ format:
 	black sramgen/scripts/
 
 test:
-	cargo test
+	cargo test v2
 
 alltest:
 	cargo test --all-features
