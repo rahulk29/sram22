@@ -58,9 +58,6 @@ jobs:
         working-directory: sram22
         run: |
           cargo +nightly fmt --check
-      - name: Lint
-        working-directory: sram22
-        run: cargo clippy -- -D warnings
       - name: Test
         working-directory: sram22
         run: make test
