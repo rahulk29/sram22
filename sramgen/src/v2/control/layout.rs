@@ -287,24 +287,26 @@ impl ControlLogicReplicaV2 {
         }
 
         // Pins
-
         let num_input_pins = 2usize;
         let num_output_pins = 7usize;
         let mut input_rects = Vec::new();
         let mut output_rects = Vec::new();
         let top_offset = 2;
 
-        let vtracks = router.track_info(m2).tracks();
         let htracks = router.track_info(m1).tracks();
+        let htrack_start = htracks.track_with_loc(TrackLocator::EndsBefore, group.brect().top());
+        let vtracks = router.track_info(m2).tracks();
+
+        // Input pins
         let vtrack =
             vtracks.index(vtracks.track_with_loc(TrackLocator::EndsBefore, group.brect().left()));
-        let htrack_start = htracks.track_with_loc(TrackLocator::EndsBefore, group.brect().top());
         for i in 0..num_input_pins {
             let htrack = htracks.index(htrack_start - 2 * (i as i64) - top_offset);
             input_rects.push(Rect::from_spans(vtrack, htrack));
             ctx.draw_rect(m1, input_rects[i]);
         }
 
+        // Output pins
         let vtrack =
             vtracks.index(vtracks.track_with_loc(TrackLocator::StartsAfter, group.brect().right()));
         for i in 0..num_output_pins {
@@ -1748,7 +1750,7 @@ impl EdgeDetector {
     ) -> substrate::error::Result<()> {
         let stdcells = ctx.inner().std_cell_db();
         let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
-        let and = lib.try_cell_named("sky130_fd_sc_hd__and2_2")?;
+        let and = lib.try_cell_named("sky130_fd_sc_hd__and2_4")?;
         let and = ctx.instantiate::<StdCell>(&and.id())?;
 
         let layers = ctx.layers();
