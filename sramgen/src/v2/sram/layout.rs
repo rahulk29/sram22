@@ -80,7 +80,7 @@ impl SramInner {
             child_sizes: vec![],
         };
         let mut wmux_driver = ctx.instantiate::<WmuxDriver>(&wmux_driver_params)?;
-        let _control = ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?;
+        let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?;
 
         let num_dffs = self.params.addr_width + 1;
         let mut dffs = ctx.instantiate::<DffArray>(&num_dffs)?;
@@ -109,9 +109,9 @@ impl SramInner {
         wmux_driver.align_right(wl_driver.bbox());
         col_dec.align_beneath(wmux_driver.bbox(), 1_270);
         col_dec.align_right(wl_driver.bbox());
-        // control.align_beneath(col_dec.bbox(), 1_270);
-        // control.align_right(wl_driver.bbox());
-        dffs.align_beneath(col_dec.bbox(), 3_000);
+        control.align_beneath(col_dec.bbox(), 1_270);
+        control.align_right(wl_driver.bbox());
+        dffs.align_beneath(control.bbox(), 3_000);
         dffs.align_right(wl_driver.bbox());
 
         ctx.draw_ref(&bitcells)?;
@@ -122,7 +122,7 @@ impl SramInner {
         ctx.draw_ref(&p1)?;
         ctx.draw_ref(&p2)?;
         ctx.draw_ref(&col_dec)?;
-        // ctx.draw_ref(&control)?;
+        ctx.draw_ref(&control)?;
         ctx.draw_ref(&dffs)?;
         ctx.draw_ref(&rbl)?;
 

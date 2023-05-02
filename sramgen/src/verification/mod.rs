@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, bail};
 use bit_signal::BitSignal;
 use derive_builder::Builder;
-use psf_ascii::parser::transient::TransientData;
+use psfparser::analysis::transient::TransientData;
 use serde::{Deserialize, Serialize};
 use waveform::Waveform;
 
