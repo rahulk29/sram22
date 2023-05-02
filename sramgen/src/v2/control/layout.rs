@@ -1784,7 +1784,7 @@ impl EdgeDetector {
                 .build(),
         )?;
         let din = row.port_map().port("din")?.largest_rect(m0)?;
-        let mut din_via = via.with_orientation(Named::R90);
+        let mut din_via = via.clone();
         din_via.align_centers_gridded(din.bbox(), grid);
         row.add(din_via.clone());
 
