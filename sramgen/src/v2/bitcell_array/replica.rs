@@ -101,11 +101,11 @@ impl Component for TopBot {
         let mut grid_tiler = GridTiler::new(grid);
         let vmetal = ctx.layers().get(Selector::Metal(1))?;
         grid_tiler.expose_ports(
-            |port: CellPort, (i, _j)| {
-                let mut new_port = CellPort::new(if port.name() == "wl" {
-                    PortId::new("wl", i)
-                } else {
-                    port.id().clone()
+            |port: CellPort, (i, j)| {
+                let mut new_port = CellPort::new(match port.name().as_str() {
+                    "wl" => PortId::new("wl", i),
+                    "bl" | "br" => PortId::new(port.name(), j),
+                    _ => port.id().clone(),
                 });
                 let shapes: Vec<&Shape> = port.shapes(vmetal).collect();
 
@@ -270,11 +270,10 @@ impl Component for ReplicaCellArray {
         grid_tiler.expose_ports(
             |port: CellPort, (i, j)| {
                 if (i == 0 || i == ny + 1) && (j == 0 || j == nx + 1) {
+                    println!("{}", port.name());
                     return Some(port);
                 }
-                let mut new_port = CellPort::new(if ["bl", "br"].contains(&port.name().as_ref()) {
-                    PortId::new(port.name(), 2 * (j - 1) + port.id().index())
-                } else if port.name() == "wl" {
+                let mut new_port = CellPort::new(if port.name() == "wl" {
                     PortId::new(port.name(), 2 * (i - 1) + port.id().index())
                 } else {
                     port.id().clone()

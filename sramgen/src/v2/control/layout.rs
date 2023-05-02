@@ -216,6 +216,7 @@ impl ControlLogicReplicaV2 {
                 .ports()
                 .filter(|port| matches!(port.name().as_str(), "vdd" | "vss")),
         )?;
+
         ctx.draw(group)?;
         Ok(())
     }

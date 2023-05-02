@@ -1,14 +1,16 @@
+use serde::Serialize;
 use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
 use subgeom::{Dir, Point, Rect, Side, Span};
-use substrate::component::NoParams;
+use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
-use substrate::layout::cell::{CellPort, Port};
+use substrate::layout::cell::{CellPort, Port, PortConflictStrategy};
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::{LayerBoundBox, LayerKey};
-use substrate::layout::placement::align::AlignRect;
+use substrate::layout::placement::align::{AlignMode, AlignRect};
+use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::routing::manual::jog::SimpleJog;
 use substrate::layout::routing::tracks::{Boundary, CenteredTrackParams, FixedTracks};
@@ -17,7 +19,28 @@ use substrate::pdk::mos::spec::MosKind;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 use substrate::script::Script;
 
-use super::{Precharge, PrechargeCent, PrechargeEnd};
+use super::{Precharge, PrechargeParams};
+
+/// Precharge taps.
+pub struct PrechargeCent {
+    params: PrechargeParams,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PrechargeEndParams {
+    pub via_top: bool,
+    pub inner: PrechargeParams,
+}
+
+/// Precharge end cap.
+pub struct PrechargeEnd {
+    params: PrechargeEndParams,
+}
+
+/// Single replica precharge with taps.
+pub struct ReplicaPrecharge {
+    params: PrechargeParams,
+}
 
 impl Precharge {
     pub(crate) fn layout(
@@ -61,6 +84,8 @@ impl Precharge {
         let stripe_span = Span::new(-dsn.width, 2 * dsn.width);
         let gate_stripe = Rect::from_spans(stripe_span, dsn.gate_stripe);
         ctx.draw_rect(dsn.h_metal, gate_stripe);
+        ctx.add_port(CellPort::with_shape("en_b", dsn.h_metal, gate_stripe))
+            .unwrap();
 
         let mut mos = ctx.instantiate::<LayoutMos>(&params)?;
         mos.set_orientation(Named::R90);
@@ -78,7 +103,9 @@ impl Precharge {
         for i in 0..dsn.out_tracks.len() {
             let top = if i == 1 { gate.top() } else { cut };
             let rect = Rect::from_spans(dsn.out_tracks.index(i), Span::new(0, top));
-            ctx.draw_rect(dsn.v_metal, rect);
+            if i != 1 {
+                ctx.draw_rect(dsn.v_metal, rect);
+            }
             orects.push(rect);
             if i == 0 {
                 ctx.add_port(CellPort::with_shape("br_out", dsn.v_metal, rect))
@@ -219,8 +246,28 @@ struct Metadata {
     m2_via: ViaParams,
 }
 
-impl PrechargeCent {
-    pub(crate) fn layout(
+impl Component for PrechargeCent {
+    type Params = PrechargeParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("precharge_cent")
+    }
+
+    fn schematic(
+        &self,
+        _ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        Ok(())
+    }
+
+    fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
@@ -284,7 +331,10 @@ impl PrechargeCent {
         ctx.draw_rect(dsn.v_metal, half_tr);
 
         let stripe_span = Span::new(-dsn.tap_width, 2 * dsn.tap_width);
-        ctx.draw_rect(dsn.h_metal, Rect::from_spans(stripe_span, dsn.gate_stripe));
+        let gate_stripe = Rect::from_spans(stripe_span, dsn.gate_stripe);
+        ctx.draw_rect(dsn.h_metal, gate_stripe);
+        ctx.add_port(CellPort::with_shape("en_b", dsn.h_metal, gate_stripe))
+            .unwrap();
 
         let power_stripe = Rect::from_spans(stripe_span, dsn.power_stripe);
         ctx.draw_rect(dsn.h_metal, power_stripe);
@@ -318,12 +368,32 @@ impl PrechargeCent {
     }
 }
 
-impl PrechargeEnd {
-    pub(crate) fn layout(
+impl Component for PrechargeEnd {
+    type Params = PrechargeEndParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("precharge_end")
+    }
+
+    fn schematic(
+        &self,
+        _ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        Ok(())
+    }
+
+    fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let pc = ctx.instantiate::<Precharge>(&self.params)?;
+        let pc = ctx.instantiate::<Precharge>(&self.params.inner)?;
         let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&NoParams)?;
         let meta = pc.cell().get_metadata::<Metadata>();
         let layers = ctx.layers();
@@ -352,7 +422,11 @@ impl PrechargeEnd {
 
         let y = dsn.cut + 2 * dsn.v_line + dsn.v_space;
 
-        let mut via = ctx.instantiate::<Via>(&meta.m1_via_bot)?;
+        let mut via = ctx.instantiate::<Via>(if self.params.via_top {
+            &meta.m1_via_top
+        } else {
+            &meta.m1_via_bot
+        })?;
         via.place_center(Point::new(dsn.tap_width, via.brect().center().y));
         ctx.draw(via.clone())?;
         ctx.draw_rect(
@@ -370,7 +444,11 @@ impl PrechargeEnd {
         ctx.draw_rect(dsn.v_metal, half_tr);
 
         let stripe_span = Span::new(-dsn.tap_width, 2 * dsn.tap_width);
-        ctx.draw_rect(dsn.h_metal, Rect::from_spans(stripe_span, dsn.gate_stripe));
+        let gate_stripe = Rect::from_spans(stripe_span, dsn.gate_stripe);
+        ctx.draw_rect(dsn.h_metal, gate_stripe);
+        ctx.add_port(CellPort::with_shape("en_b", dsn.h_metal, gate_stripe))
+            .unwrap();
+
         let power_stripe = Rect::from_spans(stripe_span, dsn.power_stripe);
         ctx.draw_rect(dsn.h_metal, power_stripe);
         ctx.add_port(CellPort::with_shape("vdd", dsn.h_metal, power_stripe))
@@ -396,6 +474,59 @@ impl PrechargeEnd {
 
         ctx.flatten();
         ctx.trim(&brect);
+
+        Ok(())
+    }
+}
+
+impl Component for ReplicaPrecharge {
+    type Params = PrechargeParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("precharge_end")
+    }
+
+    fn schematic(
+        &self,
+        _ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        Ok(())
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let pc = ctx.instantiate::<Precharge>(&self.params)?;
+        let mut pc_end_top = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
+            via_top: true,
+            inner: self.params.clone(),
+        })?;
+        pc_end_top.set_orientation(Named::ReflectHoriz);
+        let pc_end_bot = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
+            via_top: false,
+            inner: self.params.clone(),
+        })?;
+
+        let mut tiler = ArrayTiler::builder()
+            .push(pc_end_bot)
+            .push(pc)
+            .push(pc_end_top)
+            .mode(AlignMode::ToTheRight)
+            .alt_mode(AlignMode::CenterVertical)
+            .build();
+
+        tiler.expose_ports(|port: CellPort, _| Some(port), PortConflictStrategy::Merge)?;
+
+        ctx.add_ports(tiler.ports().cloned())?;
+        ctx.draw(tiler)?;
 
         Ok(())
     }
