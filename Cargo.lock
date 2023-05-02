@@ -418,6 +418,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "codegen"
+version = "0.1.0"
+source = "git+https://github.com/substrate-labs/substrate.git?branch=main#43e8f6484c122944d9beaa561ce194255b4238ee"
+dependencies = [
+ "darling 0.14.4",
+ "itertools",
+ "paste",
+ "proc-macro-crate 1.3.1",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "codespan-reporting"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -930,6 +944,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "gds21"
+version = "0.2.1"
+source = "git+https://github.com/substrate-labs/substrate.git?branch=main#43e8f6484c122944d9beaa561ce194255b4238ee"
+dependencies = [
+ "arcstr",
+ "byteorder",
+ "chrono",
+ "derive_builder 0.9.0",
+ "derive_more",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "serde_yaml",
+ "textwrap",
+ "toml 0.7.3",
+]
+
+[[package]]
 name = "generator"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1393,10 +1427,11 @@ checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
 name = "ngspice"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "lazy_static",
  "serde",
  "spice_rawfile",
- "substrate",
+ "substrate 0.1.0",
  "tera",
 ]
 
@@ -1830,6 +1865,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "psfparser"
+version = "0.1.0"
+source = "git+https://github.com/rahulk29/psfparser.git?branch=master#9c9c48076c5e2763d64fc326de7746b0f46c49cd"
+dependencies = [
+ "anyhow",
+ "pest",
+ "pest_derive",
+]
+
+[[package]]
 name = "ptr_meta"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2191,7 +2236,7 @@ version = "0.1.0"
 dependencies = [
  "arcstr",
  "sky130_common_pdk",
- "substrate",
+ "substrate 0.1.0",
 ]
 
 [[package]]
@@ -2199,8 +2244,8 @@ name = "sky130_common_pdk"
 version = "0.1.0"
 dependencies = [
  "arcstr",
- "subgeom",
- "substrate",
+ "subgeom 0.1.0",
+ "substrate 0.1.0",
 ]
 
 [[package]]
@@ -2209,7 +2254,7 @@ version = "0.1.0"
 dependencies = [
  "arcstr",
  "sky130_common_pdk",
- "substrate",
+ "substrate 0.1.0",
 ]
 
 [[package]]
@@ -2250,10 +2295,10 @@ dependencies = [
  "anyhow",
  "lazy_static",
  "log",
- "psf_ascii",
+ "psfparser",
  "serde",
  "spice_rawfile",
- "substrate",
+ "substrate 0.1.0",
  "tera",
 ]
 
@@ -2267,6 +2312,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "splines"
+version = "4.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "345f11dca845086e60f1076569dedb4c2026e8dfe420d2900de8683142480bcf"
+
+[[package]]
 name = "sramgen"
 version = "0.1.0"
 dependencies = [
@@ -2277,7 +2328,7 @@ dependencies = [
  "bytes",
  "calibre",
  "clap",
- "codegen",
+ "codegen 0.1.0",
  "colored",
  "derive_builder 0.12.0",
  "env_logger",
@@ -2303,8 +2354,8 @@ dependencies = [
  "sky130_open_pdk",
  "spectre",
  "sub_calibre",
- "subgeom",
- "substrate",
+ "subgeom 0.1.0",
+ "substrate 0.1.0",
  "tempfile",
  "tera",
  "thiserror",
@@ -2340,7 +2391,7 @@ dependencies = [
  "arcstr",
  "calibre",
  "derive_builder 0.12.0",
- "substrate",
+ "substrate 0.1.0 (git+https://github.com/substrate-labs/substrate.git?branch=main)",
 ]
 
 [[package]]
@@ -2355,8 +2406,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "subgeom"
+version = "0.1.0"
+source = "git+https://github.com/substrate-labs/substrate.git?branch=main#43e8f6484c122944d9beaa561ce194255b4238ee"
+dependencies = [
+ "array_map",
+ "enum_dispatch",
+ "gds21 0.2.1 (git+https://github.com/substrate-labs/substrate.git?branch=main)",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "sublut"
+version = "0.1.0"
+dependencies = [
+ "derive_builder 0.12.0",
+ "serde",
+ "splines",
+]
+
+[[package]]
+name = "sublut"
+version = "0.1.0"
+source = "git+https://github.com/substrate-labs/substrate.git?branch=main#43e8f6484c122944d9beaa561ce194255b4238ee"
+dependencies = [
+ "derive_builder 0.12.0",
+ "serde",
+ "splines",
+]
+
+[[package]]
 name = "subspice"
 version = "0.0.2"
+dependencies = [
+ "anyhow",
+ "nom",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "subspice"
+version = "0.0.2"
+source = "git+https://github.com/substrate-labs/substrate.git?branch=main#43e8f6484c122944d9beaa561ce194255b4238ee"
 dependencies = [
  "anyhow",
  "nom",
@@ -2372,7 +2465,7 @@ dependencies = [
  "arcstr",
  "array_map",
  "bitvec",
- "codegen",
+ "codegen 0.1.0",
  "csv",
  "derivative",
  "derive_builder 0.12.0",
@@ -2389,8 +2482,43 @@ dependencies = [
  "serde_json",
  "slotmap",
  "state",
- "subgeom",
- "subspice",
+ "subgeom 0.1.0",
+ "sublut 0.1.0",
+ "subspice 0.0.2",
+ "tempdir",
+ "thiserror",
+ "toml 0.7.3",
+]
+
+[[package]]
+name = "substrate"
+version = "0.1.0"
+source = "git+https://github.com/substrate-labs/substrate.git?branch=main#43e8f6484c122944d9beaa561ce194255b4238ee"
+dependencies = [
+ "anyhow",
+ "arcstr",
+ "array_map",
+ "bitvec",
+ "codegen 0.1.0 (git+https://github.com/substrate-labs/substrate.git?branch=main)",
+ "csv",
+ "derivative",
+ "derive_builder 0.12.0",
+ "enum_dispatch",
+ "flexbuffers",
+ "gds21 0.2.1 (git+https://github.com/substrate-labs/substrate.git?branch=main)",
+ "grid",
+ "itertools",
+ "lazy_static",
+ "log",
+ "pathfinding",
+ "regex",
+ "serde",
+ "serde_json",
+ "slotmap",
+ "state",
+ "subgeom 0.1.0 (git+https://github.com/substrate-labs/substrate.git?branch=main)",
+ "sublut 0.1.0 (git+https://github.com/substrate-labs/substrate.git?branch=main)",
+ "subspice 0.0.2 (git+https://github.com/substrate-labs/substrate.git?branch=main)",
  "tempdir",
  "thiserror",
  "toml 0.7.3",
