@@ -470,14 +470,14 @@ impl EdgeDetector {
         let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
         let delayed = ctx.signal("delayed");
 
-        ctx.instantiate::<InvChain>(&7)?
+        ctx.instantiate::<InvChain>(&9)?
             .with_connections([("din", din), ("dout", delayed), ("vdd", vdd), ("vss", vss)])
             .named("delay_chain")
             .add_to(ctx);
 
         let stdcells = ctx.inner().std_cell_db();
         let lib = stdcells.try_default_lib()?;
-        let and2 = lib.try_cell_named("sky130_fd_sc_hd__and2_2")?;
+        let and2 = lib.try_cell_named("sky130_fd_sc_hd__and2_4")?;
 
         ctx.instantiate::<StdCell>(&and2.id())?
             .with_connections([
