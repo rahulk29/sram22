@@ -42,7 +42,7 @@ sky130_open_pdk = { path = "../../substrate/pdks/sky130_open_pdk" }
 sky130_commercial_pdk = { path = "../../substrate/pdks/sky130_commercial_pdk" }
 ngspice = { path = "../../substrate/plugins/ngspice" }
 spectre = { path = "../../substrate/plugins/spectre", optional = true }
-sub_calibre = { path = "../../substrate_mentor_plugins/sub_calibre", optional = true }
+sub_calibre = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rohankumar/substrate_mentor_plugins.git", branch = "main", optional = true }
 
 
 [build-dependencies]
