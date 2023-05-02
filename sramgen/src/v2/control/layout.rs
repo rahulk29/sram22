@@ -287,24 +287,26 @@ impl ControlLogicReplicaV2 {
         }
 
         // Pins
-
         let num_input_pins = 2usize;
         let num_output_pins = 7usize;
         let mut input_rects = Vec::new();
         let mut output_rects = Vec::new();
         let top_offset = 2;
 
-        let vtracks = router.track_info(m2).tracks();
         let htracks = router.track_info(m1).tracks();
+        let htrack_start = htracks.track_with_loc(TrackLocator::EndsBefore, group.brect().top());
+        let vtracks = router.track_info(m2).tracks();
+
+        // Input pins
         let vtrack =
             vtracks.index(vtracks.track_with_loc(TrackLocator::EndsBefore, group.brect().left()));
-        let htrack_start = htracks.track_with_loc(TrackLocator::EndsBefore, group.brect().top());
         for i in 0..num_input_pins {
             let htrack = htracks.index(htrack_start - 2 * (i as i64) - top_offset);
             input_rects.push(Rect::from_spans(vtrack, htrack));
             ctx.draw_rect(m1, input_rects[i]);
         }
 
+        // Output pins
         let vtrack =
             vtracks.index(vtracks.track_with_loc(TrackLocator::StartsAfter, group.brect().right()));
         for i in 0..num_output_pins {
@@ -1748,7 +1750,7 @@ impl EdgeDetector {
     ) -> substrate::error::Result<()> {
         let stdcells = ctx.inner().std_cell_db();
         let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
-        let and = lib.try_cell_named("sky130_fd_sc_hd__and2_2")?;
+        let and = lib.try_cell_named("sky130_fd_sc_hd__and2_4")?;
         let and = ctx.instantiate::<StdCell>(&and.id())?;
 
         let layers = ctx.layers();
@@ -1757,7 +1759,7 @@ impl EdgeDetector {
         let m1 = layers.get(Selector::Metal(1))?;
         let grid = ctx.pdk().layout_grid();
 
-        let inv_chain = ctx.instantiate::<InvChain>(&7)?;
+        let inv_chain = ctx.instantiate::<InvChain>(&9)?;
 
         let mut row = new_row();
         row.push(LayerBbox::new(inv_chain, outline));
@@ -1782,7 +1784,7 @@ impl EdgeDetector {
                 .build(),
         )?;
         let din = row.port_map().port("din")?.largest_rect(m0)?;
-        let mut din_via = via.with_orientation(Named::R90);
+        let mut din_via = via.clone();
         din_via.align_centers_gridded(din.bbox(), grid);
         row.add(din_via.clone());
 
@@ -1795,11 +1797,11 @@ impl EdgeDetector {
         let b = row.port_map().port(PortId::new("b", 1))?.largest_rect(m0)?;
         let mut b_via = via.with_orientation(Named::R90);
         b_via.align_centers_gridded(b.bbox(), grid);
-        b_via.align_top(b.bbox());
+        b_via.align_bottom(b.bbox());
         row.add(b_via.clone());
 
         let dout = row.port_map().port("dout")?.largest_rect(m0)?;
-        let mut dout_via = via;
+        let mut dout_via = via.with_orientation(Named::R90);
         dout_via.align_centers_gridded(dout.bbox(), grid);
         dout_via.align_centers_vertically_gridded(b_via.bbox(), grid);
         row.add(dout_via.clone());
@@ -1814,15 +1816,7 @@ impl EdgeDetector {
                 .draw()?,
         );
 
-        row.add_group(
-            ElbowJog::builder()
-                .src(dout_via.layer_bbox(m1).into_rect().edge(Side::Bot))
-                .dst(b_via.brect().center())
-                .layer(m1)
-                .build()
-                .unwrap()
-                .draw()?,
-        );
+        row.add_rect(m1, dout_via.bbox().union(b_via.bbox()).into_rect());
 
         ctx.add_port(row.port_map().port("din")?.clone())?;
         ctx.add_port(
