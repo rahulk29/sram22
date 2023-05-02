@@ -1759,7 +1759,7 @@ impl EdgeDetector {
         let m1 = layers.get(Selector::Metal(1))?;
         let grid = ctx.pdk().layout_grid();
 
-        let inv_chain = ctx.instantiate::<InvChain>(&7)?;
+        let inv_chain = ctx.instantiate::<InvChain>(&9)?;
 
         let mut row = new_row();
         row.push(LayerBbox::new(inv_chain, outline));
