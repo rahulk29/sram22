@@ -287,6 +287,10 @@ impl Column {
                     "en_b" => Some(port),
                     _ => None,
                 },
+                3 => match port.name().as_ref() {
+                    "clk" => Some(port.named("sense_en")),
+                    _ => None,
+                },
                 5 | 6 => match port.name().as_ref() {
                     "clk" => Some(port.with_index(i - 5)),
                     _ => None,
@@ -600,8 +604,15 @@ impl Component for ColumnCent {
         dff.translate(tiler.translation(5, 0));
         wmask_dff.translate(tiler.translation(6, 0));
         tiler.expose_ports(
-            |port: CellPort, _| match port.name().as_str() {
+            |port: CellPort, (i, _)| match port.name().as_str() {
                 "en_b" => Some(port),
+                "clk" => {
+                    if i == 3 {
+                        Some(port.named("sense_en"))
+                    } else {
+                        Some(port)
+                    }
+                }
                 _ => None,
             },
             PortConflictStrategy::Merge,

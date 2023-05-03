@@ -270,7 +270,6 @@ impl Component for ReplicaCellArray {
         grid_tiler.expose_ports(
             |port: CellPort, (i, j)| {
                 if (i == 0 || i == ny + 1) && (j == 0 || j == nx + 1) {
-                    println!("{}", port.name());
                     return Some(port);
                 }
                 let mut new_port = CellPort::new(if port.name() == "wl" {
