@@ -344,6 +344,79 @@ impl SramInner {
             ctx.draw(via)?;
         }
 
+        // Route write mux driver to write muxes.
+        let bottom_port = cols
+            .port(PortId::new("we", self.params.mux_ratio - 1))?
+            .largest_rect(m2)?;
+        let on_grid_bus = router.register_off_grid_bus_translation(
+            OffGridBusTranslation::builder()
+                .layer(m2)
+                .line_and_space(340, 160)
+                .output(bottom_port.edge(Side::Left))
+                .start(bottom_port.side(Side::Bot))
+                .n(self.params.mux_ratio as i64)
+                .build(),
+        );
+        for (i, dst) in on_grid_bus.ports().enumerate() {
+            let src = wmux_driver
+                .port(PortId::new("decode", i))?
+                .largest_rect(m0)?;
+            let src = router.register_jog_to_grid(
+                JogToGrid::builder()
+                    .layer(m0)
+                    .rect(src)
+                    .dst_layer(m1)
+                    .width(170)
+                    .first_dir(Side::Bot)
+                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
+                    .build(),
+            );
+            router.route(ctx, m1, src, m2, dst)?;
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m0, m1)
+                    .geometry(src, src)
+                    .build(),
+            )?;
+            ctx.draw(via)?;
+        }
+
+        // Route column decoder to read muxes.
+        let bottom_port = cols
+            .port(PortId::new("sel_b", self.params.mux_ratio - 1))?
+            .largest_rect(m2)?;
+        let on_grid_bus = router.register_off_grid_bus_translation(
+            OffGridBusTranslation::builder()
+                .layer(m2)
+                .line_and_space(340, 160)
+                .output(bottom_port.edge(Side::Left))
+                .start(bottom_port.side(Side::Bot))
+                .n(self.params.mux_ratio as i64)
+                .shift(-1)
+                .build(),
+        );
+        for (i, dst) in on_grid_bus.ports().enumerate() {
+            let src = col_dec.port(PortId::new("decode_b", i))?.largest_rect(m0)?;
+            let src = router.register_jog_to_grid(
+                JogToGrid::builder()
+                    .layer(m0)
+                    .rect(src)
+                    .dst_layer(m1)
+                    .width(170)
+                    .first_dir(Side::Bot)
+                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
+                    .build(),
+            );
+            router.route(ctx, m1, src, m2, dst)?;
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m0, m1)
+                    .geometry(src, src)
+                    .build(),
+            )?;
+            ctx.draw(via)?;
+        }
+
         // Route wordline decoder to wordline driver
         for i in 0..tree.root.num {
             let src = decoder.port(PortId::new("decode", i))?.largest_rect(m0)?;
@@ -503,6 +576,20 @@ impl SramInner {
         ctx.draw_rect(m1, dst);
 
         router.route_with_net(ctx, m2, src, m1, dst, "sense_en")?;
+
+        let write_driver_en_rect = wmux_driver.port("wl_en")?.largest_rect(m2)?;
+        let expanded_all = router.expand_to_grid(write_driver_en_rect, ExpandToGridStrategy::All);
+        let src = write_driver_en_rect
+            .with_hspan(Span::new(expanded_all.left(), write_driver_en_rect.left()));
+        let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::LowerLeft));
+        ctx.draw_rect(m2, src);
+        router.occupy(m2, src, "write_driver_en")?;
+
+        let dst = control.port("write_driver_en")?.largest_rect(m1)?;
+        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
+        ctx.draw_rect(m1, dst);
+
+        router.route_with_net(ctx, m2, src, m1, dst, "write_driver_en")?;
 
         // Route replica cell array to replica precharge
         for i in 0..2 {

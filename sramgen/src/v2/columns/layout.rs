@@ -281,17 +281,17 @@ impl Column {
         }
         tiler.expose_ports(
             |port: CellPort, (i, j)| match i {
-                0 => match port.name().as_ref() {
+                0..=2 => match port.name().as_str() {
                     "bl_in" => Some(port.named("bl").with_index(j)),
                     "br_in" => Some(port.named("br").with_index(j)),
-                    "en_b" => Some(port),
+                    "en_b" | "we" | "sel_b" => Some(port),
                     _ => None,
                 },
-                3 => match port.name().as_ref() {
+                3 => match port.name().as_str() {
                     "clk" => Some(port.named("sense_en")),
                     _ => None,
                 },
-                5 | 6 => match port.name().as_ref() {
+                5 | 6 => match port.name().as_str() {
                     "clk" => Some(port.with_index(i - 5)),
                     _ => None,
                 },
@@ -605,7 +605,7 @@ impl Component for ColumnCent {
         wmask_dff.translate(tiler.translation(6, 0));
         tiler.expose_ports(
             |port: CellPort, (i, _)| match port.name().as_str() {
-                "en_b" => Some(port),
+                "en_b" | "we" | "sel_b" => Some(port),
                 "clk" => {
                     if i == 3 {
                         Some(port.named("sense_en"))
