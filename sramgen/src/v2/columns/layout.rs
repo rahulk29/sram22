@@ -442,14 +442,15 @@ impl Column {
         draw_vias(&sa, "outp", CellTrack::ReadP)?;
         draw_vias(&sa, "outn", CellTrack::ReadN)?;
 
-        draw_vias(&wmux, "wmask", CellTrack::Wmask)?;
+        if self.params.include_wmask {
+            draw_vias(&wmux, "wmask", CellTrack::Wmask)?;
+        }
         draw_vias(&wmux, "data", CellTrack::Data)?;
         draw_vias(&wmux, "data_b", CellTrack::DataB)?;
 
         draw_vias(&buf, "inp", CellTrack::ReadP)?;
         draw_vias(&buf, "inn", CellTrack::ReadN)?;
         draw_vias(&buf, "outp", CellTrack::ReadP)?;
-        draw_vias(&buf, "outn", CellTrack::ReadN)?;
 
         draw_vias(&dff, "d", CellTrack::DataIn)?;
         draw_vias(&dff, "q", CellTrack::Data)?;
