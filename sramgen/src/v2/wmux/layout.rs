@@ -1,6 +1,6 @@
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
-use subgeom::{Dir, Point, Rect, Sign, Span};
+use subgeom::{Dir, Point, Rect, Side, Sign, Span};
 use substrate::component::NoParams;
 use substrate::index::IndexOwned;
 use substrate::layout::cell::{CellPort, Port, PortId};
@@ -341,7 +341,7 @@ fn write_mux_tap_layout(
 
             let bot = Rect::from_spans(hspan, bot_span);
             let top = Rect::from_spans(hspan, top_span);
-            ctx.draw_rect(pc.m0, bot);
+            ctx.draw_rect(pc.m0, bot.expand_side(Side::Right, -80));
             ctx.draw_rect(pc.h_metal, top);
             ctx.draw_rect(pc.v_metal, Rect::from_spans(hspan.shrink_all(20), top_span));
             let viap = ViaParams::builder()
