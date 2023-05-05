@@ -170,7 +170,16 @@ impl SramInner {
             ],
         });
 
-        for inst in [&p1, &p2, &col_dec, &wmux_driver, &dffs, &control, &cols] {
+        for inst in [
+            &p1,
+            &p2,
+            &col_dec,
+            &wmux_driver,
+            &dffs,
+            &control,
+            &cols,
+            &replica_pc,
+        ] {
             for layer in [m1, m2, m3] {
                 for shape in inst.shapes_on(layer) {
                     let rect = shape.brect();
@@ -531,6 +540,7 @@ impl SramInner {
             let src = dffs.port(PortId::new("clk", i))?.largest_rect(m2)?;
             let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::LowerRight));
             ctx.draw_rect(m2, src);
+            router.occupy(m2, src, "clk")?;
             router.route_with_net(ctx, m2, src, m3, clk_pin, "clk")?;
         }
 

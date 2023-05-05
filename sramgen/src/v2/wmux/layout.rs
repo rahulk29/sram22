@@ -341,7 +341,10 @@ fn write_mux_tap_layout(
 
             let bot = Rect::from_spans(hspan, bot_span);
             let top = Rect::from_spans(hspan, top_span);
-            ctx.draw_rect(pc.m0, bot.expand_side(Side::Right, -80));
+            ctx.draw_rect(
+                pc.m0,
+                bot.expand_side(if j == 0 { Side::Right } else { Side::Left }, -80),
+            );
             ctx.draw_rect(pc.h_metal, top);
             ctx.draw_rect(pc.v_metal, Rect::from_spans(hspan.shrink_all(20), top_span));
             let viap = ViaParams::builder()
