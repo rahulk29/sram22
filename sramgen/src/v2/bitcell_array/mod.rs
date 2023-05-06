@@ -338,8 +338,8 @@ mod tests {
 
         let params = SpCellArrayWithGuardRingParams {
             inner: SpCellArrayParams {
-                rows: 8,
-                cols: 8,
+                rows: 16,
+                cols: 16,
                 mux_ratio: 4,
             },
             h_width: 1_360,
