@@ -196,6 +196,13 @@ mod tests {
                                             .with(!dir, r.span(!dir))
                                             .build();
                                         ctx.draw_rect(port_metal, rect);
+                                        let viap = ViaParams::builder()
+                                        .layers(ring_metal, port_metal)
+                                        .geometry(ring_rect, rect)
+                                        .expand(substrate::layout::elements::via::ViaExpansion::LongerDirection)
+                                        .build();
+                                        let via = ctx.instantiate::<Via>(&viap)?;
+                                        ctx.draw(via)?;
                                     }
                                     Dir::Vert => match ring_port_name {
                                         "ring_vss" => {
