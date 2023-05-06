@@ -53,6 +53,8 @@ impl Component for SpCellArray {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use subgeom::{Dir, Rect, Shape, Side, Sign, Span};
     use substrate::component::{Component, NoParams};
     use substrate::layout::cell::Port;
@@ -144,6 +146,8 @@ mod tests {
                 let ring_rect = ring_port.first_rect(ring_metal, side)?;
                 // Specifically for routing vertical straps to VDD via M3.
                 let mut via_rects = Vec::new();
+                // Specifically for merging horizontal straps on same net.
+                let mut to_merge = Vec::new();
 
                 for port_name in port_names {
                     let ports = array.ports_starting_with(port_name);
@@ -202,6 +206,7 @@ mod tests {
                                         .expand(substrate::layout::elements::via::ViaExpansion::LongerDirection)
                                         .build();
                                         let via = ctx.instantiate::<Via>(&viap)?;
+                                        to_merge.push(via.layer_bbox(port_metal).into_rect());
                                         ctx.draw(via)?;
                                     }
                                     Dir::Vert => match ring_port_name {
@@ -264,6 +269,25 @@ mod tests {
                         .build();
                     let via = ctx.instantiate::<Via>(&viap)?;
                     ctx.draw(via)?;
+                }
+
+                // Only applicable for metal 2 horizontal connections.
+                if let Some(hspan) = to_merge
+                    .iter()
+                    .map(|rect| rect.span(dir))
+                    .reduce(|acc, e| acc.union(e))
+                {
+                    let merged_spans = Span::merge_adjacent(
+                        to_merge.iter().map(|rect| rect.span(!dir)),
+                        |a, b| a.min_distance(b) < 400,
+                    );
+                    for span in merged_spans {
+                        let curr = Rect::span_builder()
+                            .with(dir, hspan)
+                            .with(!dir, span)
+                            .build();
+                        ctx.draw_rect(port_metal, curr);
+                    }
                 }
             }
 
