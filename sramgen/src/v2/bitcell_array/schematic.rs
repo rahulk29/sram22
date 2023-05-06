@@ -103,7 +103,9 @@ impl SpCellArray {
         }
 
         for j in 0..self.params.cols + 2 {
-            let (bl, br) = if j == 0 || j == self.params.cols + 1 {
+            let (bl, br) = if j == 0 {
+                (dummy_bl, dummy_br)
+            } else if j == self.params.cols + 1 {
                 (vdd, vdd)
             } else {
                 (bl.index(j - 1), br.index(j - 1))
