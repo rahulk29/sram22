@@ -57,7 +57,7 @@ mod tests {
 
     use subgeom::{Dir, Rect, Shape, Side, Sign, Span};
     use substrate::component::{Component, NoParams};
-    use substrate::layout::cell::Port;
+    use substrate::layout::cell::{Port, PortId};
     use substrate::layout::elements::via::{Via, ViaParams};
     use substrate::layout::layers::selector::Selector;
     use substrate::layout::layers::LayerBoundBox;
@@ -152,6 +152,11 @@ mod tests {
                 for port_name in port_names {
                     let ports = array.ports_starting_with(port_name);
                     for port in ports {
+                        if port.id() == &PortId::new("bl_dummy", 0)
+                            || port.id() == &PortId::new("br_dummy", 0)
+                        {
+                            continue;
+                        }
                         let start = port.first_rect(port_metal, side)?.side(side);
                         let extremes = Side::with_dir(side.edge_dir())
                             .map(|s| port.first_rect(port_metal, s).unwrap().side(s))
@@ -300,6 +305,10 @@ mod tests {
                     .filter(|port| ["bl", "br", "wl"].contains(&port.name().as_ref())),
             )
             .unwrap();
+            ctx.add_port(array.port("bl_dummy")?.into_cell_port())
+                .unwrap();
+            ctx.add_port(array.port("br_dummy")?.into_cell_port())
+                .unwrap();
 
             ctx.draw(array)?;
             Ok(())
