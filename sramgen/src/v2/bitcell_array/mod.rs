@@ -305,9 +305,9 @@ mod tests {
                     .filter(|port| ["bl", "br", "wl"].contains(&port.name().as_ref())),
             )
             .unwrap();
-            ctx.add_port(array.port("bl_dummy")?.into_cell_port())
+            ctx.add_port(array.port("bl_dummy")?.into_cell_port().named("dummy_bl"))
                 .unwrap();
-            ctx.add_port(array.port("br_dummy")?.into_cell_port())
+            ctx.add_port(array.port("br_dummy")?.into_cell_port().named("dummy_br"))
                 .unwrap();
 
             ctx.draw(array)?;
