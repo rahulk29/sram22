@@ -249,7 +249,7 @@ pub(crate) mod tests {
     fn test_sram_tiny() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_sram_tiny");
-        ctx.write_schematic_to_file::<SramInner>(&TINY_SRAM, out_spice(&work_dir, "schematic"))
+        ctx.write_schematic_to_file::<Sram>(&TINY_SRAM, out_spice(&work_dir, "schematic"))
             .expect("failed to write schematic");
         ctx.write_layout::<Sram>(&TINY_SRAM, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
@@ -258,7 +258,7 @@ pub(crate) mod tests {
         {
             let drc_work_dir = work_dir.join("drc");
             let output = ctx
-                .write_drc::<SramInner>(&TINY_SRAM, drc_work_dir)
+                .write_drc::<Sram>(&TINY_SRAM, drc_work_dir)
                 .expect("failed to run DRC");
             assert!(matches!(
                 output.summary,
@@ -266,7 +266,7 @@ pub(crate) mod tests {
             ));
             let lvs_work_dir = work_dir.join("lvs");
             let output = ctx
-                .write_lvs::<SramInner>(&TINY_SRAM, lvs_work_dir)
+                .write_lvs::<Sram>(&TINY_SRAM, lvs_work_dir)
                 .expect("failed to run LVS");
             assert!(matches!(
                 output.summary,
