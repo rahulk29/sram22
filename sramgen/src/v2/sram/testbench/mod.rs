@@ -379,7 +379,6 @@ impl Testbench for SramTestbench {
             TranAnalysis::builder()
                 .stop(wav.clk.last_t().unwrap())
                 .step(step)
-                .strobe_period(step)
                 .build()
                 .unwrap(),
         );
@@ -426,7 +425,7 @@ mod tests {
         let ctx = setup_ctx();
         let corners = ctx.corner_db();
 
-        let short = false;
+        let short = true;
         let short_str = if short { "short" } else { "long" };
 
         for vdd in [1.8, 1.5, 2.0] {
