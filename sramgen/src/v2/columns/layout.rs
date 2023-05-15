@@ -24,7 +24,8 @@ use crate::v2::buf::layout::DiffBufCent;
 use crate::v2::buf::DiffBuf;
 use crate::v2::columns::Column;
 use crate::v2::macros::{DffCol, DffColCent, DffColExtend, SenseAmp, SenseAmpCent};
-use crate::v2::precharge::{Precharge, PrechargeCent, PrechargeEnd};
+use crate::v2::precharge::layout::{PrechargeCent, PrechargeEnd, PrechargeEndParams};
+use crate::v2::precharge::Precharge;
 use crate::v2::rmux::{ReadMux, ReadMuxCent, ReadMuxEnd, ReadMuxParams};
 use crate::v2::wmux::{
     WriteMux, WriteMuxCent, WriteMuxCentParams, WriteMuxEnd, WriteMuxEndParams, WriteMuxParams,
@@ -37,7 +38,10 @@ static DFF_PADDING: Padding = Padding::new(160, 0, 0, 0);
 impl ColPeripherals {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> substrate::error::Result<()> {
         let mut pc = ctx.instantiate::<Precharge>(&self.params.pc)?;
-        let mut pc_end = ctx.instantiate::<PrechargeEnd>(&self.params.pc)?;
+        let mut pc_end = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
+            via_top: false,
+            inner: self.params.pc.clone(),
+        })?;
 
         let col = ctx.instantiate::<Column>(&ColParams {
             include_wmask: false,
@@ -98,24 +102,24 @@ impl ColPeripherals {
         grid_tiler.expose_ports(
             |port: CellPort, (_, j)| {
                 let port_name = port.name().as_ref();
-                if ["bl", "br"].contains(&port_name) {
-                    Some(port.map_index(|index| {
+
+                match port_name {
+                    "bl" | "br" => Some(port.map_index(|index| {
                         col_indices.get(&j).unwrap() * self.params.wmux.mux_ratio + index
-                    }))
-                } else if ["dout", "din"].contains(&port_name) {
-                    Some(port.with_index(*col_indices.get(&j).unwrap()))
-                } else if "wmask" == port_name {
-                    Some(
-                        port.with_index(
+                    })),
+                    "dout" | "din" => Some(port.with_index(*col_indices.get(&j).unwrap())),
+                    "wmask" => {
+                        Some(port.with_index(
                             *col_indices.get(&j).unwrap() / self.params.wmask_granularity,
-                        ),
-                    )
-                } else {
-                    Some(port)
+                        ))
+                    }
+                    "en_b" => Some(port.named("pc_b")),
+                    _ => Some(port),
                 }
             },
             PortConflictStrategy::Merge,
         )?;
+
         ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
         let group = grid_tiler.draw()?;
 
@@ -130,9 +134,10 @@ impl ColPeripherals {
 
         ctx.draw_ref(&pc)?;
         ctx.draw_ref(&pc_end)?;
-
-        ctx.add_port(pc.port("bl_out")?.into_cell_port().named("rbl"))
-            .unwrap();
+        ctx.merge_port(pc.port("en_b")?.into_cell_port().named("pc_b"));
+        ctx.merge_port(pc_end.port("en_b")?.into_cell_port().named("pc_b"));
+        ctx.add_port(pc.port("bl_in")?.into_cell_port().named("bl_dummy"))?;
+        ctx.add_port(pc.port("br_in")?.into_cell_port().named("br_dummy"))?;
 
         pc.orientation_mut().reflect_horiz();
         pc_end.orientation_mut().reflect_horiz();
@@ -144,6 +149,9 @@ impl ColPeripherals {
 
         ctx.draw_ref(&pc)?;
         ctx.draw_ref(&pc_end)?;
+        ctx.merge_port(pc.port("en_b")?.into_cell_port().named("pc_b"));
+        ctx.merge_port(pc_end.port("en_b")?.into_cell_port().named("pc_b"));
+
         Ok(())
     }
 }
@@ -272,17 +280,24 @@ impl Column {
             wmask_dff.translate(tiler.translation(6, 0));
         }
         tiler.expose_ports(
-            |port: CellPort, (i, j)| {
-                if i == 0 {
-                    return match port.name().as_ref() {
-                        "bl_in" => Some(port.named("bl").with_index(j)),
-                        "br_in" => Some(port.named("br").with_index(j)),
-                        _ => None,
-                    };
-                }
-                None
+            |port: CellPort, (i, j)| match i {
+                0..=2 => match port.name().as_str() {
+                    "bl_in" => Some(port.named("bl").with_index(j)),
+                    "br_in" => Some(port.named("br").with_index(j)),
+                    "en_b" | "we" | "sel_b" => Some(port),
+                    _ => None,
+                },
+                3 => match port.name().as_str() {
+                    "clk" => Some(port.named("sense_en")),
+                    _ => None,
+                },
+                5 | 6 => match port.name().as_str() {
+                    "clk" => Some(port.with_index(i - 5)),
+                    _ => None,
+                },
+                _ => None,
             },
-            PortConflictStrategy::Error,
+            PortConflictStrategy::Merge,
         )?;
         ctx.add_ports(tiler.ports().cloned()).unwrap();
         ctx.draw(tiler)?;
@@ -427,14 +442,15 @@ impl Column {
         draw_vias(&sa, "outp", CellTrack::ReadP)?;
         draw_vias(&sa, "outn", CellTrack::ReadN)?;
 
-        draw_vias(&wmux, "wmask", CellTrack::Wmask)?;
+        if self.params.include_wmask {
+            draw_vias(&wmux, "wmask", CellTrack::Wmask)?;
+        }
         draw_vias(&wmux, "data", CellTrack::Data)?;
         draw_vias(&wmux, "data_b", CellTrack::DataB)?;
 
         draw_vias(&buf, "inp", CellTrack::ReadP)?;
         draw_vias(&buf, "inn", CellTrack::ReadN)?;
         draw_vias(&buf, "outp", CellTrack::ReadP)?;
-        draw_vias(&buf, "outn", CellTrack::ReadN)?;
 
         draw_vias(&dff, "d", CellTrack::DataIn)?;
         draw_vias(&dff, "q", CellTrack::Data)?;
@@ -580,7 +596,7 @@ impl Component for ColumnCent {
         let wmask_tile = Pad::new(wmask_dff.clone(), DFF_PADDING);
         grid.push_row(into_vec![wmask_tile]);
 
-        let tiler = GridTiler::new(grid);
+        let mut tiler = GridTiler::new(grid);
         pc.translate(tiler.translation(0, 0));
         rmux.translate(tiler.translation(1, 0));
         wmux.translate(tiler.translation(2, 0));
@@ -588,6 +604,21 @@ impl Component for ColumnCent {
         buf.translate(tiler.translation(4, 0));
         dff.translate(tiler.translation(5, 0));
         wmask_dff.translate(tiler.translation(6, 0));
+        tiler.expose_ports(
+            |port: CellPort, (i, _)| match port.name().as_str() {
+                "en_b" | "we" | "sel_b" => Some(port),
+                "clk" => {
+                    if i == 3 {
+                        Some(port.named("sense_en"))
+                    } else {
+                        Some(port)
+                    }
+                }
+                _ => None,
+            },
+            PortConflictStrategy::Merge,
+        )?;
+        ctx.add_ports(tiler.ports().cloned())?;
         ctx.draw(tiler)?;
 
         let hspan = Span::new(0, pc.brect().width());
