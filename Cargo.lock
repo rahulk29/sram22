@@ -862,6 +862,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "float_eq"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28a80e3145d8ad11ba0995949bbcf48b9df2be62772b3d351ef017dff6ecb853"
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1832,9 +1838,10 @@ dependencies = [
 [[package]]
 name = "psfparser"
 version = "0.1.0"
-source = "git+https://github.com/rahulk29/psfparser.git?branch=master#9c9c48076c5e2763d64fc326de7746b0f46c49cd"
+source = "git+https://github.com/rahulk29/psfparser.git?branch=master#b9e8ed0ff824e8013dc29185a12e24b38f4def8e"
 dependencies = [
  "anyhow",
+ "float_eq",
  "pest",
  "pest_derive",
 ]
