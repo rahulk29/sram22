@@ -53,7 +53,7 @@ impl Component for TdcTb {
         let ta = SiValue::with_precision(t0, SiPrefix::Femto);
         let tb = SiValue::with_precision(self.params.delta_t + t0, SiPrefix::Femto);
         let tr = SiValue::with_precision(self.params.tr, SiPrefix::Femto);
-        let treset = SiValue::with_precision(t0/2.0, SiPrefix::Femto);
+        let treset = SiValue::with_precision(t0 / 2.0, SiPrefix::Femto);
 
         ctx.instantiate::<Vpulse>(&Vpulse {
             v1: SiValue::zero(),
