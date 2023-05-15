@@ -375,10 +375,17 @@ impl Testbench for SramTestbench {
     ) -> substrate::error::Result<()> {
         let wav = generate_waveforms(&self.params);
         let step = self.params.clk_period / 8.0;
+        use std::collections::HashMap;
+        let opts = HashMap::from_iter([
+            ("write".to_string(), "initial.ic".to_string()),
+            ("readns".to_string(), "initial.ic".to_string()),
+        ]);
         ctx.add_analysis(
             TranAnalysis::builder()
                 .stop(wav.clk.last_t().unwrap())
                 .step(step)
+                .strobe_period(step)
+                .opts(opts)
                 .build()
                 .unwrap(),
         );
@@ -425,7 +432,7 @@ mod tests {
         let ctx = setup_ctx();
         let corners = ctx.corner_db();
 
-        let short = true;
+        let short = false;
         let short_str = if short { "short" } else { "long" };
 
         for vdd in [1.8, 1.5, 2.0] {
