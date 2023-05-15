@@ -46,7 +46,7 @@ impl Component for Tdc {
         let bits_out = self.params.bits_out();
 
         let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
-        let [a, b] = ctx.ports(["a", "b"], Direction::Input);
+        let [a, b, reset_b] = ctx.ports(["a", "b", "reset_b"], Direction::Input);
         let dout = ctx.bus_port("dout", bits_out, Direction::Output);
 
         let inv = ctx.instantiate::<Inv>(&self.params.inv)?;
@@ -145,7 +145,7 @@ impl Component for Tdc {
         let lib = stdcells
             .default_lib()
             .expect("no default standard cell library");
-        let ff = lib.try_cell_named("sky130_fd_sc_hd__dfxtp_2")?;
+        let ff = lib.try_cell_named("sky130_fd_sc_hd__dfrtp_2")?;
         let ff = ctx.instantiate::<StdCell>(&ff.id())?;
 
         for i in 0..stage4.width() {
@@ -185,6 +185,7 @@ impl Component for Tdc {
                     ("VPB", vdd),
                     ("VPWR", vdd),
                     ("CLK", b),
+                    ("RESET_B", reset_b),
                     ("D", stage5.index(i)),
                     ("Q", dout.index(i)),
                 ])
