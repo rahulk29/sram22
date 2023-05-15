@@ -46,7 +46,7 @@ impl Component for Tdc {
         let bits_out = self.params.bits_out();
 
         let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
-        let [a, b] = ctx.ports(["a", "b"], Direction::Input);
+        let [a, b, reset_b] = ctx.ports(["a", "b", "reset_b"], Direction::Input);
         let dout = ctx.bus_port("dout", bits_out, Direction::Output);
 
         let inv = ctx.instantiate::<Inv>(&self.params.inv)?;
@@ -114,11 +114,38 @@ impl Component for Tdc {
                 .add_to(ctx);
         }
 
+        let tmp0 = ctx.signal("tmp0");
+        let tmp1 = ctx.signal("tmp1");
+        let tmp2 = ctx.signal("tmp2");
+
+        inv.clone()
+            .with_connections([
+                ("vdd", vdd),
+                ("vss", vss),
+                ("din", stage1.index(stage1.width() - 1)),
+                ("din_b", tmp0),
+            ])
+            .named(arcstr::format!("s2_dummy"))
+            .add_to(ctx);
+
+        for i in 0..3 {
+            let sout = if i < 2 { tmp1 } else { tmp2 };
+            inv.clone()
+                .with_connections([
+                    ("vdd", vdd),
+                    ("vss", vss),
+                    ("din", stage3.index(stage3.width() - 1)),
+                    ("din_b", sout),
+                ])
+                .named(arcstr::format!("s4_dummy_{i}"))
+                .add_to(ctx);
+        }
+
         let stdcells = ctx.inner().std_cell_db();
         let lib = stdcells
             .default_lib()
             .expect("no default standard cell library");
-        let ff = lib.try_cell_named("sky130_fd_sc_hd__dfxtp_2")?;
+        let ff = lib.try_cell_named("sky130_fd_sc_hd__dfrtp_2")?;
         let ff = ctx.instantiate::<StdCell>(&ff.id())?;
 
         for i in 0..stage4.width() {
@@ -158,6 +185,7 @@ impl Component for Tdc {
                     ("VPB", vdd),
                     ("VPWR", vdd),
                     ("CLK", b),
+                    ("RESET_B", reset_b),
                     ("D", stage5.index(i)),
                     ("Q", dout.index(i)),
                 ])
@@ -186,7 +214,7 @@ mod tests {
     };
 
     const TDC_PARAMS: TdcParams = TdcParams {
-        stages: 4,
+        stages: 16,
         inv: INV_SIZING,
     };
 
@@ -195,7 +223,7 @@ mod tests {
         vdd: 1.8,
         delta_t: 1e-9,
         tr: 20e-12,
-        t_stop: 20e-9,
+        t_stop: 5e-9,
     };
 
     #[test]
