@@ -9,7 +9,7 @@ package zero_one_state;
 endpackage
 
 module zero_one_patgen (
-    det_patgen_if.slave intf
+    bist_if.patgen intf
 );
 
   logic [intf.ADDR_WIDTH-1:0] counter;
