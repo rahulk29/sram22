@@ -114,15 +114,27 @@ impl Component for Tdc {
                 .add_to(ctx);
         }
 
+        let tmp0 = ctx.signal("tmp0");
         let tmp1 = ctx.signal("tmp1");
         let tmp2 = ctx.signal("tmp2");
+
+        inv.clone()
+            .with_connections([
+                ("vdd", vdd),
+                ("vss", vss),
+                ("din", stage1.index(stage1.width() - 1)),
+                ("din_b", tmp0),
+            ])
+            .named(arcstr::format!("s2_dummy"))
+            .add_to(ctx);
+
         for i in 0..3 {
             let sout = if i < 2 { tmp1 } else { tmp2 };
             inv.clone()
                 .with_connections([
                     ("vdd", vdd),
                     ("vss", vss),
-                    ("din", stage3.index(stage3.width()-1)),
+                    ("din", stage3.index(stage3.width() - 1)),
                     ("din_b", sout),
                 ])
                 .named(arcstr::format!("s4_dummy_{i}"))
