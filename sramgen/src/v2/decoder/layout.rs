@@ -9,7 +9,6 @@ use substrate::index::IndexOwned;
 
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
-use subgeom::transform::Translate;
 use subgeom::{Corner, Dir, Point, Rect, Sign, Span};
 use substrate::layout::cell::{CellPort, Element, Port, PortConflictStrategy, PortId};
 use substrate::layout::context::LayoutCtx;
@@ -73,8 +72,7 @@ pub(crate) fn decoder_stage_layout(
             "vdd" | "vss" => Some(port),
             "y" => Some(port.named("decode").with_index(i)),
             "y_b" => Some(port.named("decode_b").with_index(i)),
-            "b" => Some(port.named("in").with_index(i)),
-            _ => None,
+            _ => Some(port.with_index(i)),
         },
         PortConflictStrategy::Merge,
     )?;
@@ -91,17 +89,26 @@ pub(crate) fn decoder_stage_layout(
     tiler.expose_ports(
         |port: CellPort, i| {
             let index = if i > 0 { dsn.tap_period * (i - 1) } else { 0 } + port.id().index();
-            match port.id().name().as_ref() {
+            match port.name().as_ref() {
                 "vdd" | "vss" => Some(port),
                 "decode" => Some(port.with_index(index)),
                 "decode_b" => Some(port.with_index(index)),
-                "in" => Some(port.with_index(index)),
-                _ => None,
+                _ => Some(port.with_index(index)),
             }
         },
         PortConflictStrategy::Merge,
     )?;
-    ctx.add_ports(tiler.ports().cloned()).unwrap();
+    ctx.add_ports(
+        tiler
+            .ports()
+            .cloned()
+            .filter_map(|port| match port.name().as_str() {
+                "vdd" | "vss" | "decode" | "decode_b" => Some(port),
+                "b" => Some(port.named("in")),
+                _ => None,
+            }),
+    )
+    .unwrap();
 
     ctx.draw_ref(&tiler)?;
 
@@ -155,16 +162,15 @@ pub(crate) fn decoder_stage_layout(
     let ports = ["a", "b", "c", "d"];
 
     for n in 0..params.num {
-        let tf = tiler.translation(n / dsn.tap_period + 1)
-            + period_tiler.translation(n % dsn.tap_period);
-        let mut gate = gate.clone();
-        gate.translate(tf);
         match routing_style {
             RoutingStyle::Decoder => {
                 let idxs = base_indices(n, &params.child_sizes);
                 for (i, j) in idxs.into_iter().enumerate() {
                     // connect to child_tracks[i][j].
-                    let port = gate.port(ports[i])?.largest_rect(dsn.li)?;
+                    let port = tiler
+                        .port_map()
+                        .port(PortId::new(ports[i], n))?
+                        .largest_rect(dsn.li)?;
                     let track = child_tracks[i][j];
 
                     let bot = Rect::from_spans(port.hspan(), track.vspan());
@@ -184,7 +190,10 @@ pub(crate) fn decoder_stage_layout(
             }
             RoutingStyle::Driver => {
                 // connect to child_tracks[0][0].
-                let port = gate.port(ports[0])?.largest_rect(dsn.li)?;
+                let port = tiler
+                    .port_map()
+                    .port(PortId::new(ports[0], n))?
+                    .largest_rect(dsn.li)?;
                 let track = child_tracks[0][0];
 
                 let bot = Rect::from_spans(port.hspan(), track.vspan());

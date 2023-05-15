@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use subgeom::bbox::BoundBox;
+use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
-use subgeom::{Dir, Rect, Shape, Side, Sign, Span};
+use subgeom::{Corner, Dir, Rect, Shape, Side, Sign, Span};
 use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
@@ -29,17 +29,19 @@ use crate::v2::decoder::layout::LastBitDecoderStage;
 use crate::v2::decoder::{
     DecoderParams, DecoderStageParams, DecoderTree, Predecoder, WlDriver, WmuxDriver,
 };
+use crate::v2::precharge::layout::ReplicaPrecharge;
 
 use super::SramInner;
 
 impl SramInner {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
+        let col_params = self.col_params();
         let bitcells = ctx.instantiate::<SpCellArray>(&SpCellArrayParams {
             rows: self.params.rows,
             cols: self.params.cols,
             mux_ratio: self.params.mux_ratio,
         })?;
-        let mut cols = ctx.instantiate::<ColPeripherals>(&self.col_params())?;
+        let mut cols = ctx.instantiate::<ColPeripherals>(&col_params)?;
         let tree = DecoderTree::new(self.params.row_bits);
         let decoder_params = DecoderStageParams {
             gate: tree.root.gate,
@@ -80,16 +82,18 @@ impl SramInner {
             child_sizes: vec![],
         };
         let mut wmux_driver = ctx.instantiate::<WmuxDriver>(&wmux_driver_params)?;
-        let _control = ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?;
+        let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?;
 
         let num_dffs = self.params.addr_width + 1;
         let mut dffs = ctx.instantiate::<DffArray>(&num_dffs)?;
 
         let rbl_rows = ((self.params.rows / 12) + 1) * 2;
+        let rbl_wl_index = rbl_rows / 2;
         let mut rbl = ctx.instantiate::<ReplicaCellArray>(&ReplicaCellArrayParams {
             rows: rbl_rows,
             cols: 2,
         })?;
+        let mut replica_pc = ctx.instantiate::<ReplicaPrecharge>(&col_params.pc)?;
 
         cols.align_beneath(bitcells.bbox(), 4_310);
         cols.align_centers_horizontally_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
@@ -101,6 +105,8 @@ impl SramInner {
         rbl.align_to_the_left_of(decoder.bbox(), 4_310);
         rbl.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
         rbl.align_side_to_grid(Side::Left, 680);
+        replica_pc.align_beneath(rbl.bbox(), 5_080);
+        replica_pc.align_centers_horizontally_gridded(rbl.bbox(), ctx.pdk().layout_grid());
         p1.align_beneath(wl_driver.bbox(), 1_270);
         p1.align_right(wl_driver.bbox());
         p2.align_beneath(p1.bbox(), 1_270);
@@ -109,9 +115,10 @@ impl SramInner {
         wmux_driver.align_right(wl_driver.bbox());
         col_dec.align_beneath(wmux_driver.bbox(), 1_270);
         col_dec.align_right(wl_driver.bbox());
-        // control.align_beneath(col_dec.bbox(), 1_270);
-        // control.align_right(wl_driver.bbox());
-        dffs.align_beneath(col_dec.bbox(), 3_000);
+        control.set_orientation(Named::FlipYx);
+        control.align_beneath(col_dec.bbox(), 3_000);
+        control.align_right(wl_driver.bbox());
+        dffs.align_beneath(control.bbox(), 1_270);
         dffs.align_right(wl_driver.bbox());
 
         ctx.draw_ref(&bitcells)?;
@@ -122,9 +129,10 @@ impl SramInner {
         ctx.draw_ref(&p1)?;
         ctx.draw_ref(&p2)?;
         ctx.draw_ref(&col_dec)?;
-        // ctx.draw_ref(&control)?;
+        ctx.draw_ref(&control)?;
         ctx.draw_ref(&dffs)?;
         ctx.draw_ref(&rbl)?;
+        ctx.draw_ref(&replica_pc)?;
 
         let layers = ctx.layers();
         let m0 = layers.get(Selector::Metal(0))?;
@@ -162,22 +170,26 @@ impl SramInner {
             ],
         });
 
-        router.block(m2, cols.brect());
-        router.block(m3, cols.brect());
-
-        // TODO: add back &control
-        for inst in [&p1, &p2, &col_dec, &wmux_driver, &dffs] {
-            for shape in inst.shapes_on(m2) {
-                let rect = shape.brect();
-                router.block(m2, rect);
-            }
-            for shape in inst.shapes_on(m1) {
-                let rect = shape.brect();
-                router.block(m1, rect);
+        for inst in [
+            &p1,
+            &p2,
+            &col_dec,
+            &wmux_driver,
+            &dffs,
+            &control,
+            &cols,
+            &replica_pc,
+        ] {
+            for layer in [m1, m2, m3] {
+                for shape in inst.shapes_on(layer) {
+                    let rect = shape.brect();
+                    router.block(layer, rect);
+                }
             }
         }
 
         for inst in [&bitcells, &rbl] {
+            router.block(m1, inst.brect());
             router.block(m2, inst.brect().expand_dir(Dir::Horiz, 6_000));
             router.block(m3, inst.brect());
         }
@@ -236,14 +248,30 @@ impl SramInner {
 
             for i in 0..num {
                 let src = dffs.port(PortId::new("q", ctr))?.largest_rect(m2)?;
-                let src = router.expand_to_layer_grid(src, m2, ExpandToGridStrategy::Minimum);
-                let src = router.expand_to_layer_grid(src, m3, ExpandToGridStrategy::Minimum);
+                let src = router.expand_to_layer_grid(
+                    src,
+                    m2,
+                    ExpandToGridStrategy::Corner(Corner::UpperRight),
+                );
+                let src = router.expand_to_layer_grid(
+                    src,
+                    m3,
+                    ExpandToGridStrategy::Corner(Corner::UpperRight),
+                );
                 ctx.draw_rect(m2, src);
                 let dst = ports[2 * i];
                 router.route(ctx, m2, src, m2, dst)?;
                 let src = dffs.port(PortId::new("qn", ctr))?.largest_rect(m2)?;
-                let src = router.expand_to_layer_grid(src, m2, ExpandToGridStrategy::Minimum);
-                let src = router.expand_to_layer_grid(src, m3, ExpandToGridStrategy::Minimum);
+                let src = router.expand_to_layer_grid(
+                    src,
+                    m2,
+                    ExpandToGridStrategy::Corner(Corner::LowerLeft),
+                );
+                let src = router.expand_to_layer_grid(
+                    src,
+                    m3,
+                    ExpandToGridStrategy::Corner(Corner::LowerLeft),
+                );
                 ctx.draw_rect(m2, src);
                 let dst = ports[2 * i + 1];
                 router.route(ctx, m2, src, m2, dst)?;
@@ -316,6 +344,79 @@ impl SramInner {
                     .build(),
             );
             router.route(ctx, m1, src, m1, dst)?;
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m0, m1)
+                    .geometry(src, src)
+                    .build(),
+            )?;
+            ctx.draw(via)?;
+        }
+
+        // Route write mux driver to write muxes.
+        let bottom_port = cols
+            .port(PortId::new("we", self.params.mux_ratio - 1))?
+            .largest_rect(m2)?;
+        let on_grid_bus = router.register_off_grid_bus_translation(
+            OffGridBusTranslation::builder()
+                .layer(m2)
+                .line_and_space(340, 160)
+                .output(bottom_port.edge(Side::Left))
+                .start(bottom_port.side(Side::Bot))
+                .n(self.params.mux_ratio as i64)
+                .build(),
+        );
+        for (i, dst) in on_grid_bus.ports().enumerate() {
+            let src = wmux_driver
+                .port(PortId::new("decode", i))?
+                .largest_rect(m0)?;
+            let src = router.register_jog_to_grid(
+                JogToGrid::builder()
+                    .layer(m0)
+                    .rect(src)
+                    .dst_layer(m1)
+                    .width(170)
+                    .first_dir(Side::Bot)
+                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
+                    .build(),
+            );
+            router.route(ctx, m1, src, m2, dst)?;
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m0, m1)
+                    .geometry(src, src)
+                    .build(),
+            )?;
+            ctx.draw(via)?;
+        }
+
+        // Route column decoder to read muxes.
+        let bottom_port = cols
+            .port(PortId::new("sel_b", self.params.mux_ratio - 1))?
+            .largest_rect(m2)?;
+        let on_grid_bus = router.register_off_grid_bus_translation(
+            OffGridBusTranslation::builder()
+                .layer(m2)
+                .line_and_space(340, 160)
+                .output(bottom_port.edge(Side::Left))
+                .start(bottom_port.side(Side::Bot))
+                .n(self.params.mux_ratio as i64)
+                .shift(-1)
+                .build(),
+        );
+        for (i, dst) in on_grid_bus.ports().enumerate() {
+            let src = col_dec.port(PortId::new("decode_b", i))?.largest_rect(m0)?;
+            let src = router.register_jog_to_grid(
+                JogToGrid::builder()
+                    .layer(m0)
+                    .rect(src)
+                    .dst_layer(m1)
+                    .width(170)
+                    .first_dir(Side::Bot)
+                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
+                    .build(),
+            );
+            router.route(ctx, m1, src, m2, dst)?;
             let via = ctx.instantiate::<Via>(
                 &ViaParams::builder()
                     .layers(m0, m1)
@@ -400,8 +501,132 @@ impl SramInner {
             }
         }
 
+        for port_name in ["bl_dummy", "br_dummy"] {
+            let src = cols.port(port_name)?.largest_rect(m1)?;
+            let dst = bitcells.port(port_name)?.largest_rect(m1)?;
+            ctx.draw_rect(m1, src.union(dst.bbox()).into_rect());
+        }
+
+        // Route control logic inputs.
+        let src = control.port("we")?.largest_rect(m1)?;
+        let src = router.expand_to_grid(src, ExpandToGridStrategy::Minimum);
+        ctx.draw_rect(m1, src);
+
+        let dst = dffs
+            .port(PortId::new("q", num_dffs - 1))?
+            .largest_rect(m2)?;
+        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Minimum);
+        ctx.draw_rect(m2, dst);
+
+        router.route(ctx, m1, src, m2, dst)?;
+
+        // Route clock signal
+        let tracks = router.track_info(m3).tracks();
+        let track_span =
+            tracks.index(tracks.track_with_loc(TrackLocator::StartsAfter, dffs.brect().right()));
+        let clk_pin = Rect::from_spans(
+            track_span,
+            Span::with_start_and_length(router_bbox.bottom(), 1000),
+        );
+        ctx.draw_rect(m3, clk_pin);
+        router.occupy(m3, clk_pin, "clk")?;
+
+        let src = control.port("clk")?.largest_rect(m1)?;
+        let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Right));
+        ctx.draw_rect(m1, src);
+        router.route_with_net(ctx, m1, src, m3, clk_pin, "clk")?;
+
+        for i in 0..num_dffs {
+            let src = dffs.port(PortId::new("clk", i))?.largest_rect(m2)?;
+            let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::LowerRight));
+            ctx.draw_rect(m2, src);
+            router.occupy(m2, src, "clk")?;
+            router.route_with_net(ctx, m2, src, m3, clk_pin, "clk")?;
+        }
+
+        for i in (0..2).rev() {
+            let mut clk_bbox = Bbox::empty();
+            for shape in cols.port(PortId::new("clk", i))?.shapes(m2) {
+                clk_bbox = clk_bbox.union(shape.bbox());
+            }
+            let clk_rect = clk_bbox.into_rect();
+            ctx.draw_rect(m2, clk_rect);
+
+            let expanded_all = router.expand_to_grid(clk_rect, ExpandToGridStrategy::All);
+            let src = clk_rect.with_hspan(Span::new(expanded_all.left(), clk_rect.left()));
+            let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::UpperLeft));
+            ctx.draw_rect(m2, src);
+            router.occupy(m2, src, "clk")?;
+            router.route_with_net(ctx, m2, src, m3, clk_pin, "clk")?;
+        }
+
+        // Route control logic outputs
+        let pc_b_rect = cols.port("pc_b")?.largest_rect(m2)?;
+        let expanded_all = router.expand_to_grid(pc_b_rect, ExpandToGridStrategy::All);
+        let src = pc_b_rect.with_hspan(Span::new(expanded_all.left(), pc_b_rect.left()));
+        let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::UpperLeft));
+        ctx.draw_rect(m2, src);
+        router.occupy(m2, src, "pc_b")?;
+
+        let dst = control.port("pc_b")?.largest_rect(m1)?;
+        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Corner(Corner::UpperRight));
+        ctx.draw_rect(m1, dst);
+
+        router.route_with_net(ctx, m2, src, m1, dst, "pc_b")?;
+
+        let sense_en_rect = cols.port("sense_en")?.largest_rect(m2)?;
+        let expanded_all = router.expand_to_grid(sense_en_rect, ExpandToGridStrategy::All);
+        let src = sense_en_rect.with_hspan(Span::new(expanded_all.left(), sense_en_rect.left()));
+        let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::LowerLeft));
+        ctx.draw_rect(m2, src);
+        router.occupy(m2, src, "sense_en")?;
+
+        let dst = control.port("sense_en")?.largest_rect(m1)?;
+        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
+        ctx.draw_rect(m1, dst);
+
+        router.route_with_net(ctx, m2, src, m1, dst, "sense_en")?;
+
+        let write_driver_en_rect = wmux_driver.port("wl_en")?.largest_rect(m2)?;
+        let expanded_all = router.expand_to_grid(write_driver_en_rect, ExpandToGridStrategy::All);
+        let src = write_driver_en_rect
+            .with_hspan(Span::new(expanded_all.left(), write_driver_en_rect.left()));
+        let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::LowerLeft));
+        ctx.draw_rect(m2, src);
+        router.occupy(m2, src, "write_driver_en")?;
+
+        let dst = control.port("write_driver_en")?.largest_rect(m1)?;
+        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
+        ctx.draw_rect(m1, dst);
+
+        router.route_with_net(ctx, m2, src, m1, dst, "write_driver_en")?;
+
+        // Route replica cell array to replica precharge
+        for i in 0..2 {
+            for port_name in ["bl", "br"] {
+                let src = rbl.port(PortId::new(port_name, i))?.largest_rect(m1)?;
+                let dst = replica_pc
+                    .port(&format!("{}_in", port_name))?
+                    .largest_rect(m1)?;
+                let jog = SJog::builder()
+                    .src(src)
+                    .dst(dst)
+                    .dir(Dir::Vert)
+                    .layer(m1)
+                    .width(170)
+                    .l1(if port_name == "br" { 6_500 } else { 5_500 })
+                    .grid(ctx.pdk().layout_grid())
+                    .build()
+                    .unwrap();
+                ctx.draw(jog)?;
+            }
+        }
+
         let mut straps = RoutedStraps::new();
         straps.set_strap_layers([m2, m3]);
+
+        router.block(m2, cols.brect());
+        router.block(m3, cols.brect());
 
         // Helper function for connecting bitcell ports to power straps.
         let mut connect_bitcells_to_straps = |inst: &Instance,
@@ -435,7 +660,7 @@ impl SramInner {
                     }
                 }
                 for ((sign, net), spans) in to_merge.into_iter() {
-                    let merged_spans = Span::merge_adjacent(spans, |a, b| a.min_distance(b) < 200);
+                    let merged_spans = Span::merge_adjacent(spans, |a, b| a.min_distance(b) < 400);
 
                     for span in merged_spans {
                         let curr = Rect::span_builder()
@@ -471,18 +696,13 @@ impl SramInner {
                 )
             })
             .collect();
-        for port_name in ["wl_dummy", "bl_dummy", "br_dummy"] {
-            for i in 0..2 {
-                port_ids.push((
-                    PortId::new(port_name, i),
-                    match port_name {
-                        "wl_dummy" => SingleSupplyNet::Vss,
-                        "bl_dummy" | "br_dummy" => SingleSupplyNet::Vdd,
-                        _ => unreachable!(),
-                    },
-                ));
-            }
+        for i in 0..2 {
+            port_ids.push((PortId::new("wl_dummy", i), SingleSupplyNet::Vss));
         }
+        for port_name in ["bl_dummy", "br_dummy"] {
+            port_ids.push((PortId::new(port_name, 1), SingleSupplyNet::Vdd));
+        }
+
         connect_bitcells_to_straps(&bitcells, port_ids)?;
 
         // Connect replica bitcell array to power straps.
@@ -500,11 +720,30 @@ impl SramInner {
             })
             .collect();
         for i in 0..rbl_rows {
-            if i != rbl_rows / 2 {
+            if i != rbl_wl_index {
                 port_ids.push((PortId::new("wl", i), SingleSupplyNet::Vss));
             }
         }
         connect_bitcells_to_straps(&rbl, port_ids)?;
+
+        // Connect replica bitcell wordline to control logic.
+        let wl_en0_rect = rbl
+            .port(PortId::new("wl", rbl_wl_index))?
+            .first_rect(m2, Side::Right)?;
+        let initial_right = wl_en0_rect.right();
+
+        let wl_en0_rect = wl_en0_rect.expand_side(Side::Right, 1_000);
+        let expanded_all = router.expand_to_grid(wl_en0_rect, ExpandToGridStrategy::All);
+        let src = wl_en0_rect.with_hspan(Span::new(initial_right, expanded_all.right()));
+        let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::UpperRight));
+        ctx.draw_rect(m2, src);
+        router.occupy(m2, src, "wl_en0")?;
+
+        let dst = control.port("wl_en0")?.largest_rect(m1)?;
+        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
+        ctx.draw_rect(m1, dst);
+
+        router.route_with_net(ctx, m2, src, m1, dst, "wl_en0")?;
 
         // Connect column circuitry to power straps.
         for (dir, layer, expand) in [(Dir::Vert, m3, 3_800), (Dir::Horiz, m2, 3_800)] {
@@ -539,6 +778,7 @@ impl SramInner {
             (&col_dec, m2),
             (&wmux_driver, m2),
             (&dffs, m2),
+            (&control, m1),
         ] {
             for port_name in ["vdd", "vss"] {
                 for port in inst.port(port_name)?.shapes(layer) {
