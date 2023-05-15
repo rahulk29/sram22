@@ -375,11 +375,16 @@ impl Testbench for SramTestbench {
     ) -> substrate::error::Result<()> {
         let wav = generate_waveforms(&self.params);
         let step = self.params.clk_period / 8.0;
+        let opts = HashMap::from_iter([
+            ("write".to_string(), "initial.ic".to_string()),
+            ("readns".to_string(), "initial.ic".to_string()),
+        ]);
         ctx.add_analysis(
             TranAnalysis::builder()
                 .stop(wav.clk.last_t().unwrap())
                 .step(step)
                 .strobe_period(step)
+                .opts(opts)
                 .build()
                 .unwrap(),
         );
