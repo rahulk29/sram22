@@ -53,9 +53,7 @@ impl Component for SpCellArray {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use subgeom::{Dir, Rect, Shape, Side, Sign, Span};
+    use subgeom::{Dir, Rect, Shape, Side, Span};
     use substrate::component::{Component, NoParams};
     use substrate::layout::cell::{Port, PortId};
     use substrate::layout::elements::via::{Via, ViaParams};
@@ -121,11 +119,6 @@ mod tests {
                 v_width: self.params.v_width,
             };
             let array = ctx.instantiate::<GuardRingWrapper<SpCellArray>>(&params)?;
-
-            let top_limit = array
-                .port("ring_vss")?
-                .first_rect(h_metal, Side::Top)?
-                .bottom();
 
             for (ring_port_name, side, port_names) in [
                 ("ring_vss", Side::Left, vec!["vgnd", "vnb", "wl_dummy"]),

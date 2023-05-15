@@ -9,7 +9,6 @@ use substrate::index::IndexOwned;
 
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
-use subgeom::transform::Translate;
 use subgeom::{Corner, Dir, Point, Rect, Sign, Span};
 use substrate::layout::cell::{CellPort, Element, Port, PortConflictStrategy, PortId};
 use substrate::layout::context::LayoutCtx;
