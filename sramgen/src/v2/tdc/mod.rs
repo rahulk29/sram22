@@ -114,6 +114,21 @@ impl Component for Tdc {
                 .add_to(ctx);
         }
 
+        let tmp1 = ctx.signal("tmp1");
+        let tmp2 = ctx.signal("tmp2");
+        for i in 0..3 {
+            let sout = if i < 2 { tmp1 } else { tmp2 };
+            inv.clone()
+                .with_connections([
+                    ("vdd", vdd),
+                    ("vss", vss),
+                    ("din", stage2.index(stage2.width()-1)),
+                    ("din_b", sout),
+                ])
+                .named(arcstr::format!("s4_dummy_{i}"))
+                .add_to(ctx);
+        }
+
         let stdcells = ctx.inner().std_cell_db();
         let lib = stdcells
             .default_lib()
