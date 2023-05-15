@@ -1,5 +1,5 @@
 use anyhow::{bail, Context};
-use psf_ascii::parser::transient::TransientData;
+use psfparser::analysis::transient::TransientData;
 use serde::Serialize;
 use std::fs::File;
 use std::os::unix::prelude::PermissionsExt;
@@ -63,8 +63,8 @@ pub fn run_spectre(params: &SpectreParams) -> Result<TransientData> {
     // Spectre chooses this file name by default
     let psf_path = paths.raw_output_dir.join("timeSweep.tran.tran");
     let psf = std::fs::read_to_string(psf_path)?;
-    let ast = psf_ascii::parser::frontend::parse(&psf)?;
-    let data = TransientData::from_ast(&ast);
+    let ast = psfparser::ascii::parse(&psf)?;
+    let data = TransientData::from_ascii(&ast);
 
     Ok(data)
 }
