@@ -10,12 +10,12 @@ export VERILATOR_ROOT
 VERILATOR = $(VERILATOR_ROOT)/bin/verilator
 endif
 
-VERILATOR_FLAGS = --binary -j 0 --trace --assert -sv
 SVDIR = src
 SVSRC = $(wildcard $(SVDIR)/*.sv)
 TBDIR = tb
 TBSRC = $(wildcard $(TBDIR)/*.sv)
 TOP = top
+VERILATOR_FLAGS = --binary -j 0 --trace --assert -sv -I$(SVDIR) -I$(TBDIR)
 VERIBLE_VERILOG_FORMAT_FLAGS = --inplace
 
 clean:

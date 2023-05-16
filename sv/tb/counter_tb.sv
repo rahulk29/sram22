@@ -1,4 +1,3 @@
-
 module counter_tb;
   localparam int WIDTH = 12;
 

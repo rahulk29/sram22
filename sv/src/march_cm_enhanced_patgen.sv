@@ -16,7 +16,7 @@ module march_cm_enhanced_patgen #(
     parameter int MUX_RATIO = 4,
     parameter int MUX_BITS  = $clog2(MUX_RATIO)
 ) (
-    det_patgen_if.slave intf
+    bist_if.patgen intf
 );
   import march_cm_enhanced_state::*;
 

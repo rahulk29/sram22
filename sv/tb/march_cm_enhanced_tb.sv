@@ -13,14 +13,14 @@ module march_cm_enhanced_tb;
     clk = 0;
   end
 
-  det_patgen_if #(
+  bist_if #(
       .MAX_ADDR  (MaxAddr),
       .DATA_WIDTH(DataWidth),
       .MASK_WIDTH(2)
   ) if0 (
       .clk
   );
-  march_cm_enhanced_patgen #(.MUX_RATIO(MuxRatio)) dut (.intf(if0.slave));
+  march_cm_enhanced_patgen #(.MUX_RATIO(MuxRatio)) dut (.intf(if0.patgen));
 
   initial begin
     $dumpfile("march_cm_enhanced_tb.vcd");
