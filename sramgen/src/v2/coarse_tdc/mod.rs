@@ -170,7 +170,7 @@ mod tests {
     #[test]
     fn test_coarse_tdc() {
         let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_tdc");
+        let work_dir = test_work_dir("test_coarse_tdc");
         ctx.write_schematic_to_file::<CoarseTdc>(&TDC_PARAMS, out_spice(&work_dir, "schematic"))
             .expect("failed to write schematic");
         ctx.write_simulation::<CoarseTdcTb>(&TDC_TB_PARAMS, work_dir)
