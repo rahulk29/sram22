@@ -28,11 +28,11 @@ module bist_tb;
   bist #(.MUX_RATIO(MuxRatio)) dut (.intf(if0.bist));
 
   always_ff @(posedge if0.clk) begin
-    prev_check <= success ? if0.check : if0.check + 1'b1;
+    next_dout <= success ? if0.check : if0.check + 1'b1;
   end
 
   always_comb begin
-    if0.dout = prev_check;
+    if0.dout = next_dout;
   end
 
   initial begin
@@ -65,7 +65,7 @@ module bist_tb;
     @(posedge if0.fail);
 
     @(negedge clk);
-    assert (~if0.done && if0.fail);
+    assert (if0.done && if0.fail);
 
     $display("BIST correctly failed on invalid behavior. Testing reset to specific pattern...");
     success = 1'b0;
@@ -79,8 +79,8 @@ module bist_tb;
     @(posedge if0.fail);
 
     @(negedge clk);
-    assert(if0.test_pattern == bist_pattern_sel::MARCH_CM_ENHANCED);
-    assert (~if0.done && if0.fail);
+    assert (if0.test_pattern == bist_pattern_sel::MARCH_CM_ENHANCED);
+    assert (if0.done && if0.fail);
 
     $display("Test passed.");
     $finish;

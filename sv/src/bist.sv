@@ -3,16 +3,16 @@
 package bist_state;
   typedef enum logic [3:0] {
     TEST,
-    DONE,
+    SUCCESS,
     FAILED
   } bist_state_t;
 endpackage
 
 module bist #(
-  parameter int MUX_RATIO = 4,
-  parameter int MUX_BITS = $clog2(MUX_RATIO)
+    parameter int MUX_RATIO = 4,
+    parameter int MUX_BITS  = $clog2(MUX_RATIO)
 ) (
-  bist_if.bist intf
+    bist_if.bist intf
 );
   import bist_pattern_sel::*;
 
@@ -38,27 +38,23 @@ module bist #(
       .clk(intf.clk)
   );
 
-  zero_one_patgen zero_one_patgen0(
-    zero_one_patgen_if.patgen
-  );
+  zero_one_patgen zero_one_patgen0 (zero_one_patgen_if.patgen);
 
-  march_cm_enhanced_patgen march_cm_enhanced_patgen0(
-    march_cm_enhanced_patgen_if.patgen
-  );
+  march_cm_enhanced_patgen march_cm_enhanced_patgen0 (march_cm_enhanced_patgen_if.patgen);
 
   always_ff @(posedge intf.clk) begin
     prev_re <= intf.re;
     prev_check <= intf.check;
     if (intf.rst) begin
       state <= bist_state::TEST;
-      test_pattern <=  intf.pattern_sel;
+      test_pattern <= intf.pattern_sel;
     end else if (state == bist_state::TEST && intf.en) begin
       if (prev_re && intf.dout != prev_check) begin
-          state <= bist_state::FAILED;
+        state <= bist_state::FAILED;
       end
       if (test_pattern_done) begin
         if (test_pattern == test_pattern.last()) begin
-          state <= bist_state::DONE;
+          state <= bist_state::SUCCESS;
         end else begin
           test_pattern <= test_pattern.next();
         end
@@ -67,7 +63,7 @@ module bist #(
   end
 
   always_comb begin
-    intf.done = state == bist_state::DONE;
+    intf.done = state == bist_state::SUCCESS || state == bist_state::FAILED;
     intf.fail = state == bist_state::FAILED;
     intf.test_pattern = test_pattern;
 

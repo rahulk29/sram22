@@ -26,14 +26,17 @@ interface bist_if #(
   logic [MASK_WIDTH-1:0] wmask;
   bist_pattern_sel_t pattern_sel;
   bist_pattern_sel_t test_pattern;
-  
+
   logic we, re, rst, done, fail;
 
   // Pattern generator modport.
   modport patgen(input clk, en, rst, output addr, data, wmask, we, re, check, done);
 
   // BIST modport.
-  modport bist(input clk, en, rst, dout, pattern_sel, output addr, data, wmask, we, re, check, test_pattern, done, fail);
+  modport bist(
+      input clk, en, rst, dout, pattern_sel,
+      output addr, data, wmask, we, re, check, test_pattern, done, fail
+  );
 
   // Single port memories cannot read and write simultaneously.
   assert property (@(posedge clk) disable iff (rst) (!(re && we)));
