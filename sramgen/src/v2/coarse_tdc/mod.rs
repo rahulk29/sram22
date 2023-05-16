@@ -168,7 +168,7 @@ mod tests {
     };
 
     #[test]
-    fn test_tdc() {
+    fn test_coarse_tdc() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_tdc");
         ctx.write_schematic_to_file::<CoarseTdc>(&TDC_PARAMS, out_spice(&work_dir, "schematic"))
