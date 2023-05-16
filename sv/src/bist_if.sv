@@ -1,7 +1,9 @@
+`ifndef BIST_IF_DONE
+`define BIST_IF_DONE
 package bist_pattern_sel;
   typedef enum logic [3:0] {
-    MARCH_CM_ENHANCED,
-    ZERO_ONE
+    ZERO_ONE,
+    MARCH_CM_ENHANCED
   } bist_pattern_sel_t;
 endpackage
 
@@ -23,14 +25,15 @@ interface bist_if #(
   logic [DATA_WIDTH-1:0] dout;
   logic [MASK_WIDTH-1:0] wmask;
   bist_pattern_sel_t pattern_sel;
+  bist_pattern_sel_t test_pattern;
   
   logic we, re, rst, done, fail;
 
   // Pattern generator modport.
-  modport patgen(input clk, en, rst, output addr, data, check, wmask, we, re, done);
+  modport patgen(input clk, en, rst, output addr, data, wmask, we, re, check, done);
 
   // BIST modport.
-  modport bist(input clk, en, rst, pattern_sel, output addr, data, wmask, we, re, check, dout, done, fail);
+  modport bist(input clk, en, rst, dout, pattern_sel, output addr, data, wmask, we, re, check, test_pattern, done, fail);
 
   // Single port memories cannot read and write simultaneously.
   assert property (@(posedge clk) disable iff (rst) (!(re && we)));
@@ -39,4 +42,4 @@ interface bist_if #(
   assert property (@(posedge clk) disable iff (rst || en) (addr == $past(addr, 1)));
   assert property (@(posedge clk) disable iff (rst || en) (data == $past(data, 1)));
 endinterface
-
+`endif
