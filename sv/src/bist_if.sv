@@ -1,10 +1,10 @@
 `ifndef BIST_IF_DONE
 `define BIST_IF_DONE
-package bist_pattern_sel;
+package bist_pattern;
   typedef enum logic [3:0] {
     ZERO_ONE,
     MARCH_CM_ENHANCED
-  } bist_pattern_sel_t;
+  } bist_pattern_t;
 endpackage
 
 // An interface for BIST components.
@@ -12,30 +12,29 @@ interface bist_if #(
     parameter int MAX_ADDR,
     parameter int ADDR_WIDTH = $clog2(MAX_ADDR),
     parameter int DATA_WIDTH,
-    parameter int MASK_WIDTH
+    parameter int MASK_WIDTH,
+    parameter int CYCLE_WIDTH = 64
 ) (
     input clk
 );
-  import bist_pattern_sel::*;
+  import bist_pattern::*;
 
   logic en;
-  logic [ADDR_WIDTH-1:0] addr;
-  logic [DATA_WIDTH-1:0] data;
-  logic [DATA_WIDTH-1:0] check;
-  logic [DATA_WIDTH-1:0] dout;
+  logic [ADDR_WIDTH-1:0] addr, fail_addr;
+  logic [DATA_WIDTH-1:0] data, expected, dout, actual, fail_expected, fail_actual;
   logic [MASK_WIDTH-1:0] wmask;
-  bist_pattern_sel_t pattern_sel;
-  bist_pattern_sel_t test_pattern;
+  logic [CYCLE_WIDTH-1:0] fail_cycle;
+  bist_pattern_t pattern_sel, fail_pattern;
 
   logic we, re, rst, done, fail;
 
   // Pattern generator modport.
-  modport patgen(input clk, en, rst, output addr, data, wmask, we, re, check, done);
+  modport patgen(input clk, en, rst, output addr, data, wmask, we, re, expected, done);
 
   // BIST modport.
   modport bist(
       input clk, en, rst, dout, pattern_sel,
-      output addr, data, wmask, we, re, check, test_pattern, done, fail
+      output addr, data, wmask, we, re, fail_addr, fail_expected, fail_actual, fail_pattern, fail_cycle, done, fail
   );
 
   // Single port memories cannot read and write simultaneously.

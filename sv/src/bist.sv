@@ -14,13 +14,14 @@ module bist #(
 ) (
     bist_if.bist intf
 );
-  import bist_pattern_sel::*;
+  import bist_pattern::*;
 
   bist_state::bist_state_t state;
-  bist_pattern_sel_t test_pattern;
+  bist_pattern_t test_pattern;
   logic test_pattern_done;
   logic prev_re;
   logic [intf.DATA_WIDTH-1:0] prev_check;
+  logic [intf.DATA_WIDTH-1:0] saved_dout;
 
   bist_if #(
       .MAX_ADDR  (intf.MAX_ADDR),
@@ -50,6 +51,7 @@ module bist #(
       test_pattern <= intf.pattern_sel;
     end else if (state == bist_state::TEST && intf.en) begin
       if (prev_re && intf.dout != prev_check) begin
+        saved_dout <= intf.dout;
         state <= bist_state::FAILED;
       end
       if (test_pattern_done) begin
@@ -63,6 +65,7 @@ module bist #(
   end
 
   always_comb begin
+    intf.actual = saved_dout;
     intf.done = state == bist_state::SUCCESS || state == bist_state::FAILED;
     intf.fail = state == bist_state::FAILED;
     intf.test_pattern = test_pattern;
