@@ -18,12 +18,7 @@ package sae_src;
   } sae_src_t;
 endpackage
 
-interface sram_test_unit_if #(
-  parameter int MAX_ADDR,
-  parameter int ADDR_WIDTH = $clog2(MAX_ADDR),
-  parameter int DATA_WIDTH,
-  parameter int CYCLE_WIDTH = 64
-) (
+interface sram_test_unit_if (
     input clk,
     scan_clk
 );
@@ -38,9 +33,6 @@ interface sram_test_unit_if #(
   logic bist_en, bist_rst;
   bist_pattern::bist_pattern_t bist_pattern_sel, bist_test_pattern;
   logic bist_done, bist_fail;
-  logic [ADDR_WIDTH-1:0] bist_fail_addr;
-  logic [DATA_WIDTH-1:0] bist_fail_expected, bist_fail_actual, bist_fail_pattern, bist_fail_cycle;
-  logic [CYCLE_WIDTH-1:0] bist_fail_cycle;
 
   modport sram_test_unit(
       input clk, scan_clk, sram_ctl_sel, sae_sel, sae_ctl, sram_ctl_scan_en, sram_ctl_scan_rstb, sram_ctl_scan_in, dout_scan_en, bist_en, bist_rst, bist_pattern_sel,
@@ -49,6 +41,9 @@ interface sram_test_unit_if #(
 endinterface
 
 module sram_test_unit #(
+  parameter int MAX_ADDR,
+  parameter int ADDR_WIDTH = $clog2(MAX_ADDR),
+  parameter int DATA_WIDTH,
   parameter int MASK_WIDTH,
   parameter int MUX_RATIO
 ) (

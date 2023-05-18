@@ -32,7 +32,7 @@ module zero_one_patgen (
   always_comb begin
     intf.addr = counter;
     intf.data = state == zero_one_state::WRITE1 ? {intf.DATA_WIDTH{1'b1}} : {intf.DATA_WIDTH{1'b0}};
-    intf.check = state == zero_one_state::READ1 ? {intf.DATA_WIDTH{1'b1}} : {intf.DATA_WIDTH{1'b0}};
+    intf.expected = state == zero_one_state::READ1 ? {intf.DATA_WIDTH{1'b1}} : {intf.DATA_WIDTH{1'b0}};
     intf.wmask = {intf.MASK_WIDTH{1'b1}};
     intf.we = (state == zero_one_state::WRITE0) || (state == zero_one_state::WRITE1);
     intf.re = (state == zero_one_state::READ0) || (state == zero_one_state::READ1);

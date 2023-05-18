@@ -8,31 +8,37 @@ module bist_tb;
   localparam int Rows = (MaxAddr + 1) / MuxRatio;
   localparam int RowWidth = $clog2(Rows);
   localparam int ColWidth = $clog2(MuxRatio);
+  localparam int MaskWidth = 2;
+  localparam int BlockWidth = DataWidth / MaskWidth;
 
   bit clk;
   always #5 clk = ~clk;
   initial begin
-    clk = 0;
-  end
+    clk = 0; end
 
-  logic [DataWidth-1:0] next_dout; // Stores the previous check value in order to successfully simulate desired SRAM behavior, or stores an invalid value to simulate a failure mode.
+  logic [DataWidth-1:0] sram_sim[MaxAddr:0]; // Simulated SRAM.
   logic success; // Denotes whether the data input to the BIST (what should be the output of the SRAM) should be correct.
 
   bist_if #(
       .MAX_ADDR  (MaxAddr),
       .DATA_WIDTH(DataWidth),
-      .MASK_WIDTH(2)
+      .MASK_WIDTH(MaskWidth)
   ) if0 (
       .clk
   );
   bist #(.MUX_RATIO(MuxRatio)) dut (.intf(if0.bist));
 
   always_ff @(posedge if0.clk) begin
-    next_dout <= success ? if0.check : if0.check + 1'b1;
-  end
-
-  always_comb begin
-    if0.dout = next_dout;
+    if (if0.we) begin
+      for (int i = 0; i < MaskWidth; i++) begin
+        if (if0.wmask[i]) begin
+          sram_sim[if0.addr][BlockWidth * i +: BlockWidth] <= if0.data[BlockWidth * i +: BlockWidth];
+        end
+      end
+    end
+    if (if0.re) begin
+      if0.dout <= success ? sram_sim[if0.addr] : sram_sim[if0.addr] + 1;
+    end
   end
 
   initial begin
@@ -62,7 +68,7 @@ module bist_tb;
     if0.rst = 0;
     if0.en  = 1;
 
-    @(posedge if0.fail);
+    @(posedge if0.done);
 
     @(negedge clk);
     assert (if0.done && if0.fail);
@@ -76,10 +82,10 @@ module bist_tb;
     if0.rst = 0;
     if0.en  = 1;
 
-    @(posedge if0.fail);
+    @(posedge if0.done);
 
     @(negedge clk);
-    assert (if0.test_pattern == bist_pattern::MARCH_CM_ENHANCED);
+    assert (if0.fail_pattern == bist_pattern::MARCH_CM_ENHANCED);
     assert (if0.done && if0.fail);
 
     $display("Test passed.");
