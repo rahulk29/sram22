@@ -9,14 +9,14 @@ module zero_one_patgen_tb;
     clk = 0;
   end
 
-  det_patgen_if #(
+  bist_if #(
       .MAX_ADDR  (MaxAddr),
       .DATA_WIDTH(DataWidth),
       .MASK_WIDTH(2)
   ) if0 (
       .clk
   );
-  zero_one_patgen dut (.intf(if0.slave));
+  zero_one_patgen dut (.intf(if0.patgen));
 
   initial begin
     $dumpfile("zero_one_patgen_tb.vcd");

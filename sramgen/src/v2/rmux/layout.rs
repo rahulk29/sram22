@@ -3,7 +3,7 @@ use subgeom::orientation::Named;
 use subgeom::{Dir, Point, Rect, Side, Span};
 use substrate::component::NoParams;
 use substrate::index::IndexOwned;
-use substrate::layout::cell::{CellPort, Port};
+use substrate::layout::cell::{CellPort, Port, PortId};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
@@ -186,6 +186,11 @@ impl ReadMux {
             let vspan = Span::with_stop_and_length(-(GATE_LINE + GATE_SPACE) * i as i64, GATE_LINE);
             let rect = Rect::from_spans(stripe_hspan, vspan);
             ctx.draw_rect(pc.h_metal, rect);
+            ctx.add_port(CellPort::with_shape(
+                PortId::new("sel_b", i),
+                pc.h_metal,
+                rect,
+            ))?;
 
             if i == self.params.idx {
                 let target = mos.port("gate_0")?.largest_rect(pc.m0)?;
@@ -307,6 +312,11 @@ fn read_mux_tap_layout(
         let vspan = Span::with_stop_and_length(-(GATE_LINE + GATE_SPACE) * i as i64, GATE_LINE);
         let rect = Rect::from_spans(stripe_hspan, vspan);
         ctx.draw_rect(pc.h_metal, rect);
+        ctx.add_port(CellPort::with_shape(
+            PortId::new("sel_b", i),
+            pc.h_metal,
+            rect,
+        ))?;
     }
 
     let power_stripe = Rect::from_spans(stripe_hspan, POWER_VSPAN);

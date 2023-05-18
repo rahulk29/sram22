@@ -554,12 +554,12 @@ mod tests {
         let params = DecoderGateParams {
             gate: GateParams::And2(AndParams {
                 nand: PrimitiveGateParams {
-                    nwidth: 3_000,
-                    pwidth: 1_200,
+                    nwidth: 2_000,
+                    pwidth: 2_000,
                     length: 150,
                 },
                 inv: PrimitiveGateParams {
-                    nwidth: 2_000,
+                    nwidth: 1_000,
                     pwidth: 2_000,
                     length: 150,
                 },

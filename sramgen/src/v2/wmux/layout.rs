@@ -1,9 +1,9 @@
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
-use subgeom::{Dir, Point, Rect, Sign, Span};
+use subgeom::{Dir, Point, Rect, Side, Sign, Span};
 use substrate::component::NoParams;
 use substrate::index::IndexOwned;
-use substrate::layout::cell::{CellPort, Port};
+use substrate::layout::cell::{CellPort, Port, PortId};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
@@ -254,6 +254,7 @@ impl WriteMux {
         for (i, track) in tracks.iter().enumerate() {
             let rect = Rect::from_spans(stripe_span, track);
             ctx.draw_rect(pc.h_metal, rect);
+            ctx.add_port(CellPort::with_shape(PortId::new("we", i), pc.h_metal, rect))?;
 
             if i == self.params.idx {
                 let target = npd.port("gate_0")?.largest_rect(pc.m0)?;
@@ -340,7 +341,10 @@ fn write_mux_tap_layout(
 
             let bot = Rect::from_spans(hspan, bot_span);
             let top = Rect::from_spans(hspan, top_span);
-            ctx.draw_rect(pc.m0, bot);
+            ctx.draw_rect(
+                pc.m0,
+                bot.expand_side(if j == 0 { Side::Right } else { Side::Left }, -80),
+            );
             ctx.draw_rect(pc.h_metal, top);
             ctx.draw_rect(pc.v_metal, Rect::from_spans(hspan.shrink_all(20), top_span));
             let viap = ViaParams::builder()
@@ -399,9 +403,10 @@ fn write_mux_tap_layout(
     let via = ctx.instantiate::<Via>(&viap)?;
     ctx.draw_ref(&via)?;
 
-    for track in meta.ctrl_tracks.iter() {
+    for (i, track) in meta.ctrl_tracks.iter().enumerate() {
         let rect = Rect::from_spans(hspan, track);
         ctx.draw_rect(pc.h_metal, rect);
+        ctx.add_port(CellPort::with_shape(PortId::new("we", i), pc.h_metal, rect))?;
     }
 
     let bounds = Rect::from_spans(hspan, mux.brect().vspan());
