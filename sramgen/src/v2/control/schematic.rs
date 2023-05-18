@@ -36,7 +36,7 @@ impl ControlLogicReplicaV2 {
         ]);
         let [wr_drv_set, wr_drv_set_undelayed] =
             ctx.signals(["wr_drv_set", "wr_drv_set_undelayed"]);
-        let [rbl_b, rbl_b_delayed] = ctx.signals(["rbl_b", "rbl_b_delayed"]);
+        let [rbl_b] = ctx.signals(["rbl_b"]);
         let [write_driver_en0, write_driver_en_b] =
             ctx.signals(["write_driver_en0", "write_driver_en_b"]);
         let [we_b, dummy_bl_b, wbl_pulldown_en] =
@@ -127,15 +127,6 @@ impl ControlLogicReplicaV2 {
             ])
             .named("pc_read_set_buf")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&16)?
-            .with_connections([
-                ("din", rbl_b),
-                ("dout", rbl_b_delayed),
-                ("vdd", vdd),
-                ("vss", vss),
-            ])
-            .named("rbl_b_delay")
-            .add_to(ctx);
         ctx.instantiate::<StdCell>(&and2.id())?
             .with_connections([
                 ("A", we_b),
@@ -206,7 +197,7 @@ impl ControlLogicReplicaV2 {
 
         ctx.instantiate::<StdCell>(&mux2.id())?
             .with_connections([
-                ("A0", rbl_b_delayed),
+                ("A0", rbl_b),
                 ("A1", wl_en_write_rst),
                 ("S", we),
                 ("X", wl_en_rst),
@@ -255,7 +246,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("wr_drv_set")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&32)?
+        ctx.instantiate::<InvChain>(&8)?
             .with_connections([
                 ("din", wr_drv_set_undelayed),
                 ("dout", wr_drv_set),
