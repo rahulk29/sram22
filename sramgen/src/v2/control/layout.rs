@@ -154,9 +154,8 @@ impl ControlLogicReplicaV2 {
 
         let inv_chain_data: Vec<(String, usize)> = [
             ("pc_read_set_buf", 48),
-            ("rbl_b_delay", 16),
             ("sense_en_delay", 48),
-            ("wr_drv_set_decoder_delay_replica", 32),
+            ("wr_drv_set_decoder_delay_replica", 8),
             ("pc_write_set_buf", 16),
         ]
         .into_iter()
@@ -255,7 +254,7 @@ impl ControlLogicReplicaV2 {
         )?;
 
         let mut router = GreedyRouter::with_config(GreedyRouterConfig {
-            area: group.brect().expand(1840),
+            area: group.brect().expand(1_840),
             layers: vec![
                 LayerConfig {
                     line: 320,
@@ -485,7 +484,7 @@ impl ControlLogicReplicaV2 {
             ),
         );
 
-        // inv_rbl -> pc_read_set_buf/rbl_b_delay
+        // inv_rbl -> pc_read_set_buf/mux_wl_en_rst
         let mut rbl_b_out_via = via01.clone();
         rbl_b_out_via.align_centers_gridded(rbl_b_out.bbox(), grid);
         let rbl_b_out = router.expand_to_grid(
@@ -510,9 +509,13 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, rbl_b_in_2);
         router.occupy(m1, rbl_b_in_2, "rbl_b")?;
 
-        let rbl_b_in_3 = group.port_map().port("rbl_b_delay_din")?.largest_rect(m0)?;
-        let mut rbl_b_in_3_via = via01.with_orientation(Named::R90);
+        let rbl_b_in_3 = group
+            .port_map()
+            .port("mux_wl_en_rst_a0")?
+            .largest_rect(m0)?;
+        let mut rbl_b_in_3_via = via01.clone();
         rbl_b_in_3_via.align_centers_gridded(rbl_b_in_3.bbox(), grid);
+        rbl_b_in_3_via.align_left(rbl_b_in_3.bbox());
         let rbl_b_in_3 = router.expand_to_grid(
             rbl_b_in_3_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Minimum,
@@ -558,36 +561,6 @@ impl ControlLogicReplicaV2 {
         ctx.draw(pc_read_set_in_via)?;
         ctx.draw_rect(m1, pc_read_set_in);
         router.occupy(m1, pc_read_set_in, "pc_read_set")?;
-
-        // rbl_b_delay -> mux_wl_en_rst
-        let rbl_b_delayed_out = group
-            .port_map()
-            .port("rbl_b_delay_dout")?
-            .largest_rect(m0)?;
-        let mut rbl_b_delayed_out_via = via01.clone();
-        rbl_b_delayed_out_via.align_centers_gridded(rbl_b_delayed_out.bbox(), grid);
-        let rbl_b_delayed_out = router.expand_to_grid(
-            rbl_b_delayed_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(rbl_b_delayed_out_via)?;
-        ctx.draw_rect(m1, rbl_b_delayed_out);
-        router.occupy(m1, rbl_b_delayed_out, "rbl_b_delayed")?;
-
-        let rbl_b_delayed_in = group
-            .port_map()
-            .port("mux_wl_en_rst_a0")?
-            .largest_rect(m0)?;
-        let mut rbl_b_delayed_in_via = via01.clone();
-        rbl_b_delayed_in_via.align_centers_gridded(rbl_b_delayed_in.bbox(), grid);
-        rbl_b_delayed_in_via.align_left(rbl_b_delayed_in.bbox());
-        let rbl_b_delayed_in = router.expand_to_grid(
-            rbl_b_delayed_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(rbl_b_delayed_in_via)?;
-        ctx.draw_rect(m1, rbl_b_delayed_in);
-        router.occupy(m1, rbl_b_delayed_in, "rbl_b_delayed")?;
 
         // and_sense_en -> sense_en_delay
         let sense_en_set0_out = group.port_map().port("and_sense_en_x")?.largest_rect(m0)?;
@@ -1223,14 +1196,6 @@ impl ControlLogicReplicaV2 {
         router.route_with_net(
             ctx,
             m1,
-            rbl_b_delayed_out,
-            m1,
-            rbl_b_delayed_in,
-            "rbl_b_delayed",
-        )?;
-        router.route_with_net(
-            ctx,
-            m1,
             sense_en_set0_out,
             m1,
             sense_en_set0_in,
@@ -1327,7 +1292,6 @@ impl ControlLogicReplicaV2 {
             write_driver_en_pin,
             "write_driver_en",
         )?;
-        router.route_with_net(ctx, m1, rbl_in, m1, rbl_pin, "rbl")?;
         router.route_with_net(
             ctx,
             m1,
@@ -1339,6 +1303,7 @@ impl ControlLogicReplicaV2 {
         router.route_with_net(ctx, m1, dummy_bl_in, m1, dummy_bl_pin, "dummy_bl")?;
         router.route_with_net(ctx, m1, dummy_bl_out, m1, dummy_bl_pin, "dummy_bl")?;
         router.route_with_net(ctx, m1, vss_rect, m1, dummy_bl_vss, "vss")?;
+        router.route_with_net(ctx, m1, rbl_in, m1, rbl_pin, "rbl")?;
 
         ctx.draw(router)?;
 

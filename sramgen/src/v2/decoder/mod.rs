@@ -184,6 +184,21 @@ impl Component for AddrGate {
         }
         Ok(())
     }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let dsn = ctx
+            .inner()
+            .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
+        let params = DecoderStageParams {
+            gate: self.params.gate.clone(),
+            num: self.params.num,
+            child_sizes: vec![],
+        };
+        decoder_stage_layout(ctx, &params, &dsn, RoutingStyle::Driver)
+    }
 }
 pub struct WmuxDriver {
     params: DecoderStageParams,

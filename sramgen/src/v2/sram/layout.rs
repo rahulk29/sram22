@@ -27,7 +27,8 @@ use crate::v2::columns::ColPeripherals;
 use crate::v2::control::{ControlLogicReplicaV2, DffArray};
 use crate::v2::decoder::layout::LastBitDecoderStage;
 use crate::v2::decoder::{
-    DecoderParams, DecoderStageParams, DecoderTree, Predecoder, WlDriver, WmuxDriver,
+    AddrGate, AddrGateParams, DecoderParams, DecoderStageParams, DecoderTree, Predecoder, WlDriver,
+    WmuxDriver,
 };
 use crate::v2::precharge::layout::ReplicaPrecharge;
 
@@ -51,23 +52,23 @@ impl SramInner {
         let mut decoder = ctx
             .instantiate::<LastBitDecoderStage>(&decoder_params)?
             .with_orientation(Named::R90Cw);
-        let mut wl_driver = ctx
-            .instantiate::<WlDriver>(&decoder_params)?
-            .with_orientation(Named::R90Cw);
+        let mut addr_gate = ctx.instantiate::<AddrGate>(&AddrGateParams {
+            gate: tree.root.gate,
+            num: 2 * self.params.row_bits,
+        })?;
 
         let mut p1 = ctx.instantiate::<Predecoder>(&DecoderParams {
             tree: DecoderTree {
                 root: tree.root.children[0].clone(),
             },
         })?;
-        let p1_bits = tree.root.children[0].num.ilog2() as usize;
-        let p2_bits = tree.root.children[1].num.ilog2() as usize;
-
         let mut p2 = ctx.instantiate::<Predecoder>(&DecoderParams {
             tree: DecoderTree {
                 root: tree.root.children[1].clone(),
             },
         })?;
+        let p1_bits = tree.root.children[0].num.ilog2() as usize;
+        let p2_bits = tree.root.children[1].num.ilog2() as usize;
 
         let col_tree = DecoderTree::new(self.params.col_select_bits);
         let col_decoder_params = DecoderParams {
@@ -97,9 +98,7 @@ impl SramInner {
 
         cols.align_beneath(bitcells.bbox(), 4_310);
         cols.align_centers_horizontally_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
-        wl_driver.align_to_the_left_of(bitcells.bbox(), 6_350);
-        wl_driver.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
-        decoder.align_to_the_left_of(wl_driver.bbox(), 1_270);
+        decoder.align_to_the_left_of(bitcells.bbox(), 6_350);
         decoder.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
         decoder.align_side_to_grid(Side::Left, 680);
         rbl.align_to_the_left_of(decoder.bbox(), 4_310);
@@ -107,24 +106,26 @@ impl SramInner {
         rbl.align_side_to_grid(Side::Left, 680);
         replica_pc.align_beneath(rbl.bbox(), 5_080);
         replica_pc.align_centers_horizontally_gridded(rbl.bbox(), ctx.pdk().layout_grid());
-        p1.align_beneath(wl_driver.bbox(), 1_270);
-        p1.align_right(wl_driver.bbox());
+        p1.align_beneath(decoder.bbox(), 5_080);
+        p1.align_right(decoder.bbox());
         p2.align_beneath(p1.bbox(), 1_270);
-        p2.align_right(wl_driver.bbox());
+        p2.align_right(decoder.bbox());
         wmux_driver.align_beneath(p2.bbox(), 1_270);
-        wmux_driver.align_right(wl_driver.bbox());
+        wmux_driver.align_right(decoder.bbox());
         col_dec.align_beneath(wmux_driver.bbox(), 1_270);
-        col_dec.align_right(wl_driver.bbox());
+        col_dec.align_right(decoder.bbox());
+        addr_gate.align_beneath(p2.bbox(), 1_270);
+        addr_gate.align_to_the_left_of(p2.bbox(), 3_000);
         control.set_orientation(Named::FlipYx);
-        control.align_beneath(col_dec.bbox(), 3_000);
-        control.align_right(wl_driver.bbox());
+        control.align_beneath(col_dec.bbox(), 5_000);
+        control.align_right(decoder.bbox());
         dffs.align_beneath(control.bbox(), 1_270);
-        dffs.align_right(wl_driver.bbox());
+        dffs.align_right(decoder.bbox());
 
         ctx.draw_ref(&bitcells)?;
         ctx.draw_ref(&cols)?;
         ctx.draw_ref(&decoder)?;
-        ctx.draw_ref(&wl_driver)?;
+        ctx.draw_ref(&addr_gate)?;
         ctx.draw_ref(&wmux_driver)?;
         ctx.draw_ref(&p1)?;
         ctx.draw_ref(&p2)?;
@@ -173,6 +174,7 @@ impl SramInner {
         for inst in [
             &p1,
             &p2,
+            &addr_gate,
             &col_dec,
             &wmux_driver,
             &dffs,
@@ -227,6 +229,33 @@ impl SramInner {
             router.block(m3, rect);
         }
 
+        for i in 0..2 * self.params.row_bits {
+            let src = dffs
+                .port(PortId::new(if i % 2 == 0 { "q" } else { "qn" }, i / 2))?
+                .largest_rect(m2)?;
+            let src = router.expand_to_grid(
+                src,
+                ExpandToGridStrategy::Corner(if i % 2 == 0 {
+                    Corner::UpperRight
+                } else {
+                    Corner::LowerLeft
+                }),
+            );
+            ctx.draw_rect(m2, src);
+            let dst = addr_gate.port(PortId::new("in", i))?.largest_rect(m0)?;
+            let dst = router.register_jog_to_grid(
+                JogToGrid::builder()
+                    .layer(m0)
+                    .rect(dst)
+                    .dst_layer(m1)
+                    .width(170)
+                    .first_dir(Side::Bot)
+                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
+                    .build(),
+            );
+            router.route(ctx, m2, src, m1, dst)?;
+        }
+
         // Route address bits from DFFs to decoders
         let mut ctr = 0;
         for (inst, num) in [(&p1, p1_bits), (&p2, p2_bits), (&col_dec, col_bits)] {
@@ -247,67 +276,62 @@ impl SramInner {
             ports.reverse();
 
             for i in 0..num {
-                let src = dffs.port(PortId::new("q", ctr))?.largest_rect(m2)?;
-                let src = router.expand_to_layer_grid(
-                    src,
-                    m2,
-                    ExpandToGridStrategy::Corner(Corner::UpperRight),
-                );
-                let src = router.expand_to_layer_grid(
-                    src,
-                    m3,
-                    ExpandToGridStrategy::Corner(Corner::UpperRight),
-                );
-                ctx.draw_rect(m2, src);
-                let dst = ports[2 * i];
-                router.route(ctx, m2, src, m2, dst)?;
-                let src = dffs.port(PortId::new("qn", ctr))?.largest_rect(m2)?;
-                let src = router.expand_to_layer_grid(
-                    src,
-                    m2,
-                    ExpandToGridStrategy::Corner(Corner::LowerLeft),
-                );
-                let src = router.expand_to_layer_grid(
-                    src,
-                    m3,
-                    ExpandToGridStrategy::Corner(Corner::LowerLeft),
-                );
-                ctx.draw_rect(m2, src);
-                let dst = ports[2 * i + 1];
-                router.route(ctx, m2, src, m2, dst)?;
+                for j in 0..2 {
+                    let (layer, src) = if ctr < p1_bits + p2_bits {
+                        let src = addr_gate
+                            .port(PortId::new("decode", 2 * ctr + j))?
+                            .largest_rect(m0)?;
+                        (
+                            m1,
+                            router.register_jog_to_grid(
+                                JogToGrid::builder()
+                                    .layer(m0)
+                                    .rect(src)
+                                    .dst_layer(m1)
+                                    .width(170)
+                                    .first_dir(Side::Top)
+                                    .second_dir(if j == 0 { Side::Right } else { Side::Left })
+                                    .build(),
+                            ),
+                        )
+                    } else {
+                        let src = dffs
+                            .port(PortId::new(if j == 0 { "q" } else { "qn" }, ctr))?
+                            .largest_rect(m2)?;
+                        let src = router.expand_to_grid(
+                            src,
+                            ExpandToGridStrategy::Corner(if j == 0 {
+                                Corner::UpperRight
+                            } else {
+                                Corner::LowerLeft
+                            }),
+                        );
+                        ctx.draw_rect(m2, src);
+                        (m2, src)
+                    };
+                    let dst = ports[2 * i + j];
+                    router.route(ctx, layer, src, m2, dst)?;
+                }
                 ctr += 1;
             }
         }
 
         let left_port = decoder
-            .port(&format!("predecode_0_{}", tree.root.children[0].num - 1))?
-            .largest_rect(m1)?;
-        let p0_bus = router.register_off_grid_bus_translation(
-            OffGridBusTranslation::builder()
-                .layer(m1)
-                .line_and_space(320, 160)
-                .output(left_port.edge(Side::Bot))
-                .start(left_port.side(Side::Left))
-                .n(tree.root.children[0].num as i64)
-                .build(),
-        );
-        let mut p0_ports = p0_bus.ports().collect::<Vec<Rect>>();
-        p0_ports.reverse();
-
-        let left_port = decoder
             .port(&format!("predecode_1_{}", tree.root.children[1].num - 1))?
             .largest_rect(m1)?;
-        let p1_bus = router.register_off_grid_bus_translation(
+        let decoder_bus = router.register_off_grid_bus_translation(
             OffGridBusTranslation::builder()
                 .layer(m1)
                 .line_and_space(320, 160)
                 .output(left_port.edge(Side::Bot))
                 .start(left_port.side(Side::Left))
-                .n(tree.root.children[1].num as i64)
+                .n((tree.root.children[0].num + tree.root.children[1].num) as i64)
                 .build(),
         );
-        let mut p1_ports = p1_bus.ports().collect::<Vec<Rect>>();
-        p1_ports.reverse();
+        let mut decoder_ports = decoder_bus.ports().collect::<Vec<Rect>>();
+        decoder_ports.reverse();
+
+        let (p0_ports, p1_ports) = decoder_ports.split_at(tree.root.children[0].num);
 
         // Route predecoders to final decoder stage
         for (i, &dst) in p0_ports.iter().enumerate().take(tree.root.children[0].num) {
@@ -427,24 +451,24 @@ impl SramInner {
         }
 
         // Route wordline decoder to wordline driver
-        for i in 0..tree.root.num {
-            let src = decoder.port(PortId::new("decode", i))?.largest_rect(m0)?;
-            let dst = wl_driver.port(PortId::new("in", i))?.largest_rect(m0)?;
-            let jog = SJog::builder()
-                .src(src)
-                .dst(dst)
-                .dir(Dir::Horiz)
-                .layer(m0)
-                .width(170)
-                .grid(ctx.pdk().layout_grid())
-                .build()
-                .unwrap();
-            ctx.draw(jog)?;
-        }
+        // for i in 0..tree.root.num {
+        //     let src = decoder.port(PortId::new("decode", i))?.largest_rect(m0)?;
+        //     let dst = wl_driver.port(PortId::new("in", i))?.largest_rect(m0)?;
+        //     let jog = SJog::builder()
+        //         .src(src)
+        //         .dst(dst)
+        //         .dir(Dir::Horiz)
+        //         .layer(m0)
+        //         .width(170)
+        //         .grid(ctx.pdk().layout_grid())
+        //         .build()
+        //         .unwrap();
+        //     ctx.draw(jog)?;
+        // }
 
         // Route wordline driver to bitcell array
         for i in 0..tree.root.num {
-            let src = wl_driver.port(PortId::new("decode", i))?.largest_rect(m0)?;
+            let src = decoder.port(PortId::new("decode", i))?.largest_rect(m0)?;
             let src = src.with_hspan(Span::with_stop_and_length(src.right(), 170));
             let dst = bitcells.port(PortId::new("wl", i))?.largest_rect(m2)?;
             let jog = SJog::builder()
@@ -587,6 +611,20 @@ impl SramInner {
 
         router.route_with_net(ctx, m2, src, m1, dst, "sense_en")?;
 
+        let wl_en_rect = addr_gate.port("wl_en")?.largest_rect(m2)?;
+        let expanded_all = router.expand_to_grid(wl_en_rect, ExpandToGridStrategy::All);
+        let src = wl_en_rect.with_hspan(Span::new(expanded_all.left(), wl_en_rect.left()));
+        let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::LowerLeft));
+        ctx.draw_rect(m2, src);
+        router.occupy(m2, src, "wl_en")?;
+        router.block(m2, expanded_all);
+
+        let dst = control.port("wl_en")?.largest_rect(m1)?;
+        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
+        ctx.draw_rect(m1, dst);
+
+        router.route_with_net(ctx, m2, src, m1, dst, "wl_en")?;
+
         let write_driver_en_rect = wmux_driver.port("wl_en")?.largest_rect(m2)?;
         let expanded_all = router.expand_to_grid(write_driver_en_rect, ExpandToGridStrategy::All);
         let src = write_driver_en_rect
@@ -594,6 +632,7 @@ impl SramInner {
         let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::LowerLeft));
         ctx.draw_rect(m2, src);
         router.occupy(m2, src, "write_driver_en")?;
+        router.block(m2, expanded_all);
 
         let dst = control.port("write_driver_en")?.largest_rect(m1)?;
         let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
@@ -772,7 +811,7 @@ impl SramInner {
         // Connect decoders and DFFs to power straps.
         for (inst, layer) in [
             (&decoder, m1),
-            (&wl_driver, m1),
+            (&addr_gate, m2),
             (&p1, m2),
             (&p2, m2),
             (&col_dec, m2),
