@@ -14,9 +14,10 @@ module bist_tb;
   bit clk;
   always #5 clk = ~clk;
   initial begin
-    clk = 0; end
+    clk = 0;
+  end
 
-  logic [DataWidth-1:0] sram_sim[MaxAddr:0]; // Simulated SRAM.
+  logic [DataWidth-1:0] sram_sim[MaxAddr:0];  // Simulated SRAM.
   logic success; // Denotes whether the data input to the BIST (what should be the output of the SRAM) should be correct.
 
   bist_if #(
@@ -32,7 +33,7 @@ module bist_tb;
     if (if0.we) begin
       for (int i = 0; i < MaskWidth; i++) begin
         if (if0.wmask[i]) begin
-          sram_sim[if0.addr][BlockWidth * i +: BlockWidth] <= if0.data[BlockWidth * i +: BlockWidth];
+          sram_sim[if0.addr][BlockWidth*i+:BlockWidth] <= if0.data[BlockWidth*i+:BlockWidth];
         end
       end
     end

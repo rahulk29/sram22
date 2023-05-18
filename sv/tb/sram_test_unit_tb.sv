@@ -20,11 +20,13 @@ module sram_test_unit_tb;
       .scan_clk
   );
   sram_test_unit #(
-    .MAX_ADDR(MaxAddr),
-    .DATA_WIDTH(DataWidth),
-    .MASK_WIDTH(MaskWidth),
-    .MUX_RATIO(MuxRatio)
-  ) dut (.intf(if0.sram_test_unit));
+      .MAX_ADDR  (MaxAddr),
+      .DATA_WIDTH(DataWidth),
+      .MASK_WIDTH(MaskWidth),
+      .MUX_RATIO (MuxRatio)
+  ) dut (
+      .intf(if0.sram_test_unit)
+  );
 
   initial begin
     $dumpfile("bist_tb.vcd");
@@ -40,7 +42,7 @@ module sram_test_unit_tb;
     repeat (16) @(posedge if0.clk);
     #1;
     if0.bist_rst = 0;
-    if0.bist_en  = 1;
+    if0.bist_en = 1;
     if0.sram_ctl_scan_rstb = 1;
     assert (~if0.bist_done);
 

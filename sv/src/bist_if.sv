@@ -10,7 +10,7 @@ endpackage
 // An interface for BIST components.
 interface bist_if #(
     parameter int MAX_ADDR,
-    parameter int ADDR_WIDTH = $clog2(MAX_ADDR),
+    parameter int ADDR_WIDTH  = $clog2(MAX_ADDR),
     parameter int DATA_WIDTH,
     parameter int MASK_WIDTH,
     parameter int CYCLE_WIDTH = 64
@@ -22,7 +22,7 @@ interface bist_if #(
   logic en;
   logic [ADDR_WIDTH-1:0] addr, fail_addr;
   logic [DATA_WIDTH-1:0] data, expected, dout, actual, fail_expected, fail_actual;
-  logic [MASK_WIDTH-1:0] wmask;
+  logic [ MASK_WIDTH-1:0] wmask;
   logic [CYCLE_WIDTH-1:0] fail_cycle;
   bist_pattern_t pattern_sel, fail_pattern;
 

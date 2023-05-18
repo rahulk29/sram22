@@ -41,13 +41,13 @@ interface sram_test_unit_if (
 endinterface
 
 module sram_test_unit #(
-  parameter int MAX_ADDR,
-  parameter int ADDR_WIDTH = $clog2(MAX_ADDR),
-  parameter int DATA_WIDTH,
-  parameter int MASK_WIDTH,
-  parameter int MUX_RATIO
+    parameter int MAX_ADDR,
+    parameter int ADDR_WIDTH = $clog2(MAX_ADDR),
+    parameter int DATA_WIDTH,
+    parameter int MASK_WIDTH,
+    parameter int MUX_RATIO
 ) (
-  sram_test_unit_if.sram_test_unit intf
+    sram_test_unit_if.sram_test_unit intf
 );
   localparam int CtlWidth = ADDR_WIDTH + DATA_WIDTH + 1 + MASK_WIDTH;
   localparam int AddrOffset = DATA_WIDTH + 1 + MASK_WIDTH;
@@ -64,28 +64,38 @@ module sram_test_unit #(
       .DATA_WIDTH,
       .MASK_WIDTH
   ) bist_if0 (
-      .clk (intf.clk)
+      .clk(intf.clk)
   );
 
   bist #(.MUX_RATIO) bist0 (.intf(bist_if0.bist));
 
-  scan_chain_if #(.N(CtlWidth)) sram_ctl_scan_if (.scan_clk(intf.scan_clk)); // addr + data + we + wmask
+  scan_chain_if #(
+      .N(CtlWidth)
+  ) sram_ctl_scan_if (
+      .scan_clk(intf.scan_clk)
+  );  // addr + data + we + wmask
   scan_chain sram_ctl_scan (.intf(sram_ctl_scan_if.scan_chain));
 
-  scan_chain_if #(.N(DATA_WIDTH)) dout_scan_if (.scan_clk(intf.scan_clk)); // addr + data + we + wmask
+  scan_chain_if #(
+      .N(DATA_WIDTH)
+  ) dout_scan_if (
+      .scan_clk(intf.scan_clk)
+  );  // addr + data + we + wmask
   scan_chain dout_scan (.intf(sram_ctl_scan_if.scan_chain));
 
   if (ADDR_WIDTH == 5 && DATA_WIDTH == 32 && MASK_WIDTH == 4 && MUX_RATIO == 2) begin
     sramgen_sram_32x32m2w8_replica_v1 sram (
-      .clk (intf.clk),
-      .addr,
-      .din (data),
-      .we,
-      .wmask,
-      .dout
+        .clk(intf.clk),
+        .addr,
+        .din(data),
+        .we,
+        .wmask,
+        .dout
     );
   end else begin
-    $error("Provided parameters do not correspond to a valid SRAM macro.");
+    $error(
+        "Provided parameters do not correspond to a valid SRAM macro."
+    );
   end
 
   always_comb begin
@@ -104,7 +114,7 @@ module sram_test_unit #(
     bist_if0.rst = intf.bist_rst;
     bist_if0.pattern_sel = intf.bist_pattern_sel;
     bist_if0.dout = dout;
-    intf.bist_test_pattern = bist_if0.test_pattern;
+    intf.bist_test_pattern = bist_if0.fail_pattern;
     intf.bist_done = bist_if0.done;
     intf.bist_fail = bist_if0.fail;
 
