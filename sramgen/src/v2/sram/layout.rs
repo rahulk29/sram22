@@ -291,19 +291,24 @@ impl SramInner {
                         let src = addr_gate
                             .port(PortId::new("decode", 2 * ctr + j))?
                             .largest_rect(m0)?;
-                        (
-                            m1,
-                            router.register_jog_to_grid(
-                                JogToGrid::builder()
-                                    .layer(m0)
-                                    .rect(src)
-                                    .dst_layer(m1)
-                                    .width(170)
-                                    .first_dir(Side::Top)
-                                    .second_dir(if j == 0 { Side::Right } else { Side::Left })
-                                    .build(),
-                            ),
-                        )
+                        let src = router.register_jog_to_grid(
+                            JogToGrid::builder()
+                                .layer(m0)
+                                .rect(src)
+                                .dst_layer(m1)
+                                .width(170)
+                                .first_dir(Side::Top)
+                                .second_dir(if j == 0 { Side::Right } else { Side::Left })
+                                .build(),
+                        );
+                        let via = ctx.instantiate::<Via>(
+                            &ViaParams::builder()
+                                .layers(m0, m1)
+                                .geometry(src, src)
+                                .build(),
+                        )?;
+                        ctx.draw(via)?;
+                        (m1, src)
                     } else {
                         let src = dffs
                             .port(PortId::new(if j == 0 { "q" } else { "qn" }, ctr))?
@@ -319,13 +324,6 @@ impl SramInner {
                         ctx.draw_rect(m2, src);
                         (m2, src)
                     };
-                    let via = ctx.instantiate::<Via>(
-                        &ViaParams::builder()
-                            .layers(m0, m1)
-                            .geometry(src, src)
-                            .build(),
-                    )?;
-                    ctx.draw(via)?;
                     let dst = ports[2 * i + j];
                     router.route(ctx, layer, src, m2, dst)?;
                 }
