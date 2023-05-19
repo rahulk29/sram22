@@ -217,7 +217,7 @@ impl SramInner {
                     .id(if i == num_dffs - 1 {
                         "we".into()
                     } else {
-                        PortId::new("addr", i)
+                        PortId::new("addr", self.params.addr_width - i - 1)
                     })
                     .add(m3, rect)
                     .build(),
