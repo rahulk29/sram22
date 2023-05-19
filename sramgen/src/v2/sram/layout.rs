@@ -256,6 +256,13 @@ impl SramInner {
                     .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
                     .build(),
             );
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m0, m1)
+                    .geometry(dst, dst)
+                    .build(),
+            )?;
+            ctx.draw(via)?;
             router.route(ctx, m2, src, m1, dst)?;
         }
 
@@ -312,6 +319,13 @@ impl SramInner {
                         ctx.draw_rect(m2, src);
                         (m2, src)
                     };
+                    let via = ctx.instantiate::<Via>(
+                        &ViaParams::builder()
+                            .layers(m0, m1)
+                            .geometry(src, src)
+                            .build(),
+                    )?;
+                    ctx.draw(via)?;
                     let dst = ports[2 * i + j];
                     router.route(ctx, layer, src, m2, dst)?;
                 }
