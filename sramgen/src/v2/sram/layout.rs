@@ -451,7 +451,7 @@ impl SramInner {
                     .rect(src)
                     .dst_layer(m1)
                     .width(170)
-                    .first_dir(Side::Bot)
+                    .first_dir(if i % 2 == 0 { Side::Top } else { Side::Bot })
                     .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
                     .build(),
             );
