@@ -193,7 +193,7 @@ impl Component for AddrGate {
             .inner()
             .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
         let params = DecoderStageParams {
-            gate: self.params.gate.clone(),
+            gate: self.params.gate,
             num: self.params.num,
             child_sizes: vec![],
         };

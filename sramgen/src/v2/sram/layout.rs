@@ -27,7 +27,7 @@ use crate::v2::columns::ColPeripherals;
 use crate::v2::control::{ControlLogicReplicaV2, DffArray};
 use crate::v2::decoder::layout::LastBitDecoderStage;
 use crate::v2::decoder::{
-    AddrGate, AddrGateParams, DecoderParams, DecoderStageParams, DecoderTree, Predecoder, WlDriver,
+    AddrGate, AddrGateParams, DecoderParams, DecoderStageParams, DecoderTree, Predecoder,
     WmuxDriver,
 };
 use crate::v2::precharge::layout::{ReplicaPrecharge, ReplicaPrechargeParams};
@@ -558,6 +558,7 @@ impl SramInner {
             Span::with_start_and_length(router_bbox.bottom(), 1000),
         );
         ctx.draw_rect(m3, clk_pin);
+        ctx.add_port(CellPort::with_shape("clk", m3, clk_pin))?;
         router.occupy(m3, clk_pin, "clk")?;
 
         let src = control.port("clk")?.largest_rect(m1)?;

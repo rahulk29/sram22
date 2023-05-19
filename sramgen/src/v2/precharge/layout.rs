@@ -1,4 +1,3 @@
-use arcstr::ArcStr;
 use serde::Serialize;
 use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
