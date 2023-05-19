@@ -136,8 +136,10 @@ impl ColPeripherals {
         ctx.draw_ref(&pc_end)?;
         ctx.merge_port(pc.port("en_b")?.into_cell_port().named("pc_b"));
         ctx.merge_port(pc_end.port("en_b")?.into_cell_port().named("pc_b"));
-        ctx.add_port(pc.port("bl_in")?.into_cell_port().named("bl_dummy"))?;
-        ctx.add_port(pc.port("br_in")?.into_cell_port().named("br_dummy"))?;
+        ctx.add_port(pc.port("bl_in")?.into_cell_port().named("dummy_bl_in"))?;
+        ctx.add_port(pc.port("br_in")?.into_cell_port().named("dummy_br_in"))?;
+        ctx.add_port(pc.port("bl_out")?.into_cell_port().named("dummy_bl"))?;
+        ctx.add_port(pc.port("br_out")?.into_cell_port().named("dummy_br"))?;
 
         pc.orientation_mut().reflect_horiz();
         pc_end.orientation_mut().reflect_horiz();

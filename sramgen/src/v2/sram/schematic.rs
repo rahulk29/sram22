@@ -45,12 +45,14 @@ impl SramInner {
         let wmux_sel = ctx.bus("wmux_sel", self.params.mux_ratio);
         let wmux_sel_b = ctx.bus("wmux_sel_b", self.params.mux_ratio);
 
-        let [we_in, we_in_b, dummy_bl, dummy_br, rbl, rbr, pc_b, wl_en0, wl_en, write_driver_en, sense_en] =
+        let [we_in, we_in_b, dummy_bl, dummy_br, dummy_bl_noconn, dummy_br_noconn, rbl, rbr, pc_b, wl_en0, wl_en, write_driver_en, sense_en] =
             ctx.signals([
                 "we_in",
                 "we_in_b",
                 "dummy_bl",
                 "dummy_br",
+                "dummy_bl_noconn",
+                "dummy_br_noconn",
                 "rbl",
                 "rbr",
                 "pc_b",
@@ -202,10 +204,12 @@ impl SramInner {
             .named("col_circuitry")
             .add_to(ctx);
 
-        ctx.instantiate::<Precharge>(&self.col_params().pc)?
-            .with_connections([("vdd", vdd), ("bl", rbl), ("br", rbr), ("en_b", pc_b)])
-            .named("replica_precharge")
-            .add_to(ctx);
+        for i in 0..2 {
+            ctx.instantiate::<Precharge>(&self.col_params().pc)?
+                .with_connections([("vdd", vdd), ("bl", rbl), ("br", rbr), ("en_b", pc_b)])
+                .named(format!("replica_precharge_{i}"))
+                .add_to(ctx);
+        }
 
         ctx.instantiate::<Precharge>(&self.col_params().pc)?
             .with_connections([
@@ -215,6 +219,16 @@ impl SramInner {
                 ("en_b", pc_b),
             ])
             .named("dummy_precharge")
+            .add_to(ctx);
+
+        ctx.instantiate::<Precharge>(&self.col_params().pc)?
+            .with_connections([
+                ("vdd", vdd),
+                ("bl", dummy_bl_noconn),
+                ("br", dummy_br_noconn),
+                ("en_b", pc_b),
+            ])
+            .named("dummy_precharge_noconn")
             .add_to(ctx);
 
         Ok(())

@@ -1,10 +1,11 @@
+use arcstr::ArcStr;
 use serde::Serialize;
 use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
-use subgeom::{Dir, Point, Rect, Side, Span};
+use subgeom::{Dir, Point, Rect, Side, Sign, Span};
 use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
-use substrate::layout::cell::{CellPort, Port, PortConflictStrategy};
+use substrate::layout::cell::{CellPort, Port, PortConflictStrategy, PortId};
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
@@ -13,7 +14,9 @@ use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::routing::manual::jog::SimpleJog;
-use substrate::layout::routing::tracks::{Boundary, CenteredTrackParams, FixedTracks};
+use substrate::layout::routing::tracks::{
+    Boundary, CenteredTrackParams, FixedTracks, UniformTracks,
+};
 use substrate::pdk::mos::query::Query;
 use substrate::pdk::mos::spec::MosKind;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
@@ -510,6 +513,23 @@ impl Component for ReplicaPrecharge {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+        let grid = ctx.pdk().layout_grid();
+
+        let via12 = ctx.instantiate::<Via>(
+            &ViaParams::builder()
+                .layers(m1, m2)
+                .geometry(
+                    Rect::from_point(Point::zero()),
+                    Rect::from_point(Point::zero()),
+                )
+                .bot_extension(Dir::Vert)
+                .top_extension(Dir::Vert)
+                .build(),
+        )?;
+
         let pc = ctx.instantiate::<Precharge>(&self.params.inner)?;
         let mut pc_end_top = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
             via_top: true,
@@ -521,15 +541,68 @@ impl Component for ReplicaPrecharge {
             inner: self.params.inner.clone(),
         })?;
 
-        let mut tiler = ArrayTiler::builder()
-            .push(pc_end_bot)
-            .push(pc)
-            .push(pc_end_top)
+        let mut tiler = ArrayTiler::builder();
+
+        tiler.push(pc_end_bot.clone());
+
+        for i in 0..self.params.cols {
+            if i % 2 == 0 {
+                tiler.push(pc.clone());
+            } else {
+                tiler.push(pc.with_orientation(Named::ReflectHoriz));
+            }
+        }
+
+        let mut tiler = tiler
+            .push(if self.params.cols % 2 == 0 {
+                pc_end_bot.with_orientation(Named::ReflectHoriz)
+            } else {
+                pc_end_top
+            })
             .mode(AlignMode::ToTheRight)
             .alt_mode(AlignMode::CenterVertical)
             .build();
 
-        tiler.expose_ports(|port: CellPort, _| Some(port), PortConflictStrategy::Merge)?;
+        tiler.expose_ports(
+            |port: CellPort, i| match port.name().as_str() {
+                "bl_in" | "br_in" | "bl_out" | "br_out" => Some(port.with_index(i - 1)),
+                _ => Some(port),
+            },
+            PortConflictStrategy::Merge,
+        )?;
+
+        let en_b_rect = tiler.port_map().port("en_b")?.largest_rect(m2)?;
+        let tracks = UniformTracks::builder()
+            .line(en_b_rect.height())
+            .space(140)
+            .start(en_b_rect.top())
+            .sign(Sign::Neg)
+            .build()
+            .unwrap();
+
+        for (i, (port_name, out_port)) in [("bl_out", "rbl"), ("br_out", "rbr")].iter().enumerate()
+        {
+            let track_span = tracks.index(i + 1);
+            ctx.draw_rect(m2, Rect::from_spans(en_b_rect.hspan(), track_span));
+            ctx.merge_port(CellPort::with_shape(
+                *out_port,
+                m2,
+                Rect::from_spans(en_b_rect.hspan(), track_span),
+            ));
+            for j in 0..2 {
+                let port_rect = tiler
+                    .port_map()
+                    .port(PortId::new(*port_name, j))?
+                    .largest_rect(m1)?;
+                ctx.draw_rect(
+                    m1,
+                    port_rect.with_vspan(port_rect.vspan().union(track_span)),
+                );
+                let mut via = via12.clone();
+                via.align_centers_gridded(Rect::from_spans(port_rect.hspan(), track_span), grid);
+                ctx.draw(via)?;
+            }
+        }
 
         ctx.add_ports(tiler.ports().cloned())?;
         ctx.draw(tiler)?;

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
-use subgeom::{Corner, Dir, Rect, Shape, Side, Sign, Span};
+use subgeom::{Corner, Dir, Point, Rect, Shape, Side, Sign, Span};
 use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
@@ -16,7 +16,7 @@ use substrate::layout::routing::auto::grid::{
 };
 use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
-use substrate::layout::routing::manual::jog::SJog;
+use substrate::layout::routing::manual::jog::{ElbowJog, SJog};
 use substrate::layout::routing::tracks::TrackLocator;
 use substrate::layout::straps::SingleSupplyNet;
 use substrate::layout::Draw;
@@ -528,9 +528,11 @@ impl SramInner {
             }
         }
 
-        for port_name in ["bl_dummy", "br_dummy"] {
-            let src = cols.port(port_name)?.largest_rect(m1)?;
-            let dst = bitcells.port(port_name)?.largest_rect(m1)?;
+        for (cols_port_name, bitcell_port_name) in
+            [("dummy_bl_in", "bl_dummy"), ("dummy_br_in", "br_dummy")]
+        {
+            let src = cols.port(cols_port_name)?.largest_rect(m1)?;
+            let dst = bitcells.port(bitcell_port_name)?.largest_rect(m1)?;
             ctx.draw_rect(m1, src.union(dst.bbox()).into_rect());
         }
 
@@ -587,6 +589,25 @@ impl SramInner {
             router.route_with_net(ctx, m2, src, m3, clk_pin, "clk")?;
         }
 
+        // Route replica precharge to control logic.
+        let bottom_port = replica_pc.port("rbr")?.largest_rect(m2)?;
+        let ports = router
+            .register_off_grid_bus_translation(
+                OffGridBusTranslation::builder()
+                    .layer(m2)
+                    .line_and_space(360, 140)
+                    .output(bottom_port.edge(Side::Left))
+                    .start(bottom_port.side(Side::Bot))
+                    .n(3)
+                    .shift(-1)
+                    .build(),
+            )
+            .ports()
+            .collect::<Vec<Rect>>();
+
+        let replica_pc_en_b_rect = ports[2];
+        let rbl_rect = ports[1];
+
         // Route control logic outputs
         let pc_b_rect = cols.port("pc_b")?.largest_rect(m2)?;
         let expanded_all = router.expand_to_grid(pc_b_rect, ExpandToGridStrategy::All);
@@ -600,6 +621,13 @@ impl SramInner {
         ctx.draw_rect(m1, dst);
 
         router.route_with_net(ctx, m2, src, m1, dst, "pc_b")?;
+        router.route_with_net(ctx, m2, replica_pc_en_b_rect, m1, dst, "pc_b")?;
+
+        let dst = control.port("rbl")?.largest_rect(m1)?;
+        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
+        ctx.draw_rect(m1, dst);
+
+        router.route_with_net(ctx, m2, rbl_rect, m1, dst, "rbl")?;
 
         let sense_en_rect = cols.port("sense_en")?.largest_rect(m2)?;
         let expanded_all = router.expand_to_grid(sense_en_rect, ExpandToGridStrategy::All);
@@ -643,24 +671,36 @@ impl SramInner {
 
         router.route_with_net(ctx, m2, src, m1, dst, "write_driver_en")?;
 
+        let dummy_bl_rect = cols.port("dummy_bl")?.largest_rect(m1)?;
+        let src_point = Point::new(cols.brect().left(), dummy_bl_rect.bottom() - 500);
+        let src = router.expand_to_grid(Rect::from_point(src_point), ExpandToGridStrategy::Minimum);
+        ctx.draw_rect(m1, src);
+        ctx.draw(
+            ElbowJog::builder()
+                .src(dummy_bl_rect.edge(Side::Bot))
+                .width2(320)
+                .dst(src.center())
+                .layer(m1)
+                .build()
+                .unwrap(),
+        )?;
+
+        let dst = control.port("dummy_bl")?.largest_rect(m1)?;
+        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Corner(Corner::UpperLeft));
+        ctx.draw_rect(m1, dst);
+
+        router.route_with_net(ctx, m1, src, m1, dst, "dummy_bl")?;
+
+        // router.route_with_net(ctx, m1, src, m1, dst, "dummy_bl")?;
+
         // Route replica cell array to replica precharge
         for i in 0..2 {
             for port_name in ["bl", "br"] {
                 let src = rbl.port(PortId::new(port_name, i))?.largest_rect(m1)?;
                 let dst = replica_pc
-                    .port(&format!("{}_in", port_name))?
+                    .port(PortId::new(&format!("{}_in", port_name), i))?
                     .largest_rect(m1)?;
-                let jog = SJog::builder()
-                    .src(src)
-                    .dst(dst)
-                    .dir(Dir::Vert)
-                    .layer(m1)
-                    .width(170)
-                    .l1(if port_name == "br" { 6_500 } else { 5_500 })
-                    .grid(ctx.pdk().layout_grid())
-                    .build()
-                    .unwrap();
-                ctx.draw(jog)?;
+                ctx.draw_rect(m1, src.bbox().union(dst.bbox()).into_rect());
             }
         }
 
