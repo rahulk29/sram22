@@ -39,7 +39,13 @@ pub struct PrechargeEnd {
 
 /// Single replica precharge with taps.
 pub struct ReplicaPrecharge {
-    params: PrechargeParams,
+    params: ReplicaPrechargeParams,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ReplicaPrechargeParams {
+    pub cols: usize,
+    pub inner: PrechargeParams,
 }
 
 impl Precharge {
@@ -480,7 +486,7 @@ impl Component for PrechargeEnd {
 }
 
 impl Component for ReplicaPrecharge {
-    type Params = PrechargeParams;
+    type Params = ReplicaPrechargeParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
@@ -504,15 +510,15 @@ impl Component for ReplicaPrecharge {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let pc = ctx.instantiate::<Precharge>(&self.params)?;
+        let pc = ctx.instantiate::<Precharge>(&self.params.inner)?;
         let mut pc_end_top = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
             via_top: true,
-            inner: self.params.clone(),
+            inner: self.params.inner.clone(),
         })?;
         pc_end_top.set_orientation(Named::ReflectHoriz);
         let pc_end_bot = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
             via_top: false,
-            inner: self.params.clone(),
+            inner: self.params.inner.clone(),
         })?;
 
         let mut tiler = ArrayTiler::builder()

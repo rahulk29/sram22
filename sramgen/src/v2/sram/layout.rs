@@ -30,7 +30,7 @@ use crate::v2::decoder::{
     AddrGate, AddrGateParams, DecoderParams, DecoderStageParams, DecoderTree, Predecoder, WlDriver,
     WmuxDriver,
 };
-use crate::v2::precharge::layout::ReplicaPrecharge;
+use crate::v2::precharge::layout::{ReplicaPrecharge, ReplicaPrechargeParams};
 
 use super::SramInner;
 
@@ -94,7 +94,10 @@ impl SramInner {
             rows: rbl_rows,
             cols: 2,
         })?;
-        let mut replica_pc = ctx.instantiate::<ReplicaPrecharge>(&col_params.pc)?;
+        let mut replica_pc = ctx.instantiate::<ReplicaPrecharge>(&ReplicaPrechargeParams {
+            cols: 2,
+            inner: col_params.pc,
+        })?;
 
         cols.align_beneath(bitcells.bbox(), 4_310);
         cols.align_centers_horizontally_gridded(bitcells.bbox(), ctx.pdk().layout_grid());

@@ -22,7 +22,7 @@ use substrate::layout::Draw;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 use substrate::pdk::stdcell::StdCell;
 
-use subgeom::{Dir, Point, Rect, Side, Span};
+use subgeom::{Corner, Dir, Point, Rect, Side, Span};
 
 use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch};
 
@@ -379,7 +379,7 @@ impl ControlLogicReplicaV2 {
         clkp_in_1_via.align_left(clkp_in_1.bbox());
         let clkp_in_1 = router.expand_to_grid(
             clkp_in_1_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
         ctx.draw(clkp_in_1_via)?;
         ctx.draw_rect(m1, clkp_in_1);
@@ -391,7 +391,7 @@ impl ControlLogicReplicaV2 {
         clkp_in_2_via.align_left(clkp_in_2.bbox());
         let clkp_in_2 = router.expand_to_grid(
             clkp_in_2_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
         ctx.draw(clkp_in_2_via)?;
         ctx.draw_rect(m1, clkp_in_2);
@@ -1118,7 +1118,7 @@ impl ControlLogicReplicaV2 {
         dummy_bl_in_via.align_centers_gridded(dummy_bl_in.bbox(), grid);
         let dummy_bl_in = router.expand_to_grid(
             dummy_bl_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
         ctx.draw(dummy_bl_in_via)?;
         ctx.draw_rect(m1, dummy_bl_in);
@@ -1162,7 +1162,7 @@ impl ControlLogicReplicaV2 {
         dummy_bl_out_via.align_centers_gridded(dummy_bl_out.bbox(), grid);
         let dummy_bl_out = router.expand_to_grid(
             dummy_bl_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Side(Side::Bot),
         );
         ctx.draw(dummy_bl_out_via)?;
         ctx.draw_rect(m1, dummy_bl_out);
