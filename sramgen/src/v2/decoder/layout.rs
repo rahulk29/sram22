@@ -529,7 +529,7 @@ impl Component for DecoderTap {
             }
         }
 
-        let hspan = hspan.shrink_all(130);
+        let hspan = hspan.shrink_all(65);
 
         if let Some(spans) = gate_spans.abutted_layers.get(&nsdm) {
             for vspan in spans {
