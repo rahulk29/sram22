@@ -120,19 +120,19 @@ mod tests {
 
     const WRITE_MUX_SIZING: WriteMuxSizing = WriteMuxSizing {
         length: 150,
-        mux_width: 2_000,
+        mux_width: 2_400,
         mux_ratio: 4,
     };
     const READ_MUX_PARAMS: ReadMuxParams = ReadMuxParams {
         length: 150,
-        width: 2_000,
+        width: 3_000,
         mux_ratio: 4,
         idx: 2,
     };
     const PRECHARGE_PARAMS: PrechargeParams = PrechargeParams {
         length: 150,
-        pull_up_width: 1_600,
-        equalizer_width: 1_000,
+        pull_up_width: 2_000,
+        equalizer_width: 1_200,
     };
     const DIFF_BUF_PARAMS: DiffBufParams = DiffBufParams {
         width: 4_800,
