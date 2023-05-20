@@ -580,7 +580,7 @@ impl SramInner {
 
         for i in 0..num_dffs {
             let src = dffs.port(PortId::new("clk", i))?.largest_rect(m2)?;
-            let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::LowerRight));
+            let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::UpperLeft));
             ctx.draw_rect(m2, src);
             router.occupy(m2, src, "clk")?;
             router.route_with_net(ctx, m2, src, m3, clk_pin, "clk")?;
