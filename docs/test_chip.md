@@ -4,7 +4,8 @@ High-level information:
 * Submitting to Efabless ChipIgnite 2306Q
 * Tapeout deadline: June 5, 2023
 * Chips (supposedly) delivered: October 27, 2023
-* Package: QFN, ~66 pins
+* Package: QFN, 64 pins
+* [I/O map](https://docs.google.com/spreadsheets/d/1pwuNWhKo4AzVCC_3EHxcBpiF1-V-zbCteOw8ayxvDU0/edit#gid=2022539742) (WIP)
 
 # Organization
 
@@ -79,7 +80,7 @@ register (from mmio) -> mux
 
 Clock should be held low when not in use.
 
-### BIST
+### Memory Faults
 
 BIST patterns are meant to identify common classes of faults:
 * Stuck-at faults (SAFs): A cell's value is always 0 or 1; it cannot be changed.
@@ -106,6 +107,136 @@ BIST patterns are meant to identify common classes of faults:
     A test to detect all CFids must read each victim cell after performing transitions on potential aggressor cells.
     The potential CFids triggered should not mask each other.
   * State coupling faults (CFsts): The values in one or more aggressor cells force a victim cell to a certain value.
+* Address decoder faults (AFs):
+  * An address does not access any cells
+  * A cell is not accessed by any address
+  * A single address accesses multiple cells
+  * A cell can be accessed by multiple addresses
+
+A few BIST patterns are described below.
+
+#### MATS+
+
+Pattern:
+
+| Element | Operations | Address direction |
+| --- | --- | --- |
+| 1 | w0 | up/down |
+| 2 | r0, w1 | up |
+| 3 | r1, w0 | down |
+
+Test length: `5n`
+
+Faults detected: All SAFs and AFs.
+
+#### March C-
+
+Pattern:
+
+| Element | Operations | Address direction |
+| --- | --- | --- |
+| 1 | w0 | up/down |
+| 2 | r0, w1 | up |
+| 3 | r1, w0 | up |
+| 4 | r0, w1 | down |
+| 5 | r1, w0 | down |
+| 6 | r0 | up/down |
+
+Test length: `10n`
+
+Faults detected: Unlinked CFids, AFs, SAFs, CFsts, TFs, CFins not linked with CFids.
+
+#### March A
+
+Pattern:
+
+| Element | Operations | Address direction |
+| --- | --- | --- |
+| 1 | w0 | up/down |
+| 2 | r0, w1, w0, w1 | up |
+| 3 | r1, w0, w1 | up |
+| 4 | r1, w0, w1, w0 | down |
+| 5 | r0, w1, w0 | down |
+
+Test length: `15n`
+
+Faults detected: Linked CFids, AFs, SAFs, TFs not linked with CFids, some CFins linked with CFids.
+
+#### March B
+
+Pattern:
+
+| Element | Operations | Address direction |
+| --- | --- | --- |
+| 1 | w0 | up/down |
+| 2 | r0, w1, r1, w0, r0, w1 | up |
+| 3 | r1, w0, w1 | up |
+| 4 | r1, w0, w1, w0 | down |
+| 5 | r0, w1, w0 | down |
+
+Test length: `17n`
+
+Faults detected: All faults detected by March A, as well as TFs linked with CFins or CFids.
+
+
+### Programmable BIST
+
+The goal of the programmable BIST engine is to enable at-speed (1 cycle per op) testing for patterns
+that we anticipate will expose faults. It only supports common memory test patterns. For fully
+general pattern generation, the Rocket should be used.
+
+The BIST requires the following run-time configuration:
+* `MAX_ROW_ADDR`: The maximum row address (inclusive).
+* `MAX_COL_ADDR`: The maximum col address (inclusive).
+* `INNER_DIM`: Set to `ROWS` or `COLS`; determines whether row or column addresses, respectively,
+  are in the inner loop of all march sequences.
+
+The BIST also stores (in flip flops) a data background pattern table (DBPT).
+This table can be programmed by the scan chain or by the Rocket.
+Although the table is shown for 4 bit data, the true data size is
+determined by the maximum SRAM width being tested.
+
+| Address | Data |
+| --- | --- |
+| 0 | 0000 |
+| 1 | 1111 |
+| 2 | 0101 |
+| 3 | 1010 |
+| 4 | 0101 |
+| 5 | 0011 |
+| 6 | 1100 |
+
+The BIST supports three types of instructions:
+* `RESET seed`: Resets signature registers and seeds the pseudo-random number generator.
+* `WAIT n`: Waits for `N` clock cycles.
+* `MARCH e0 [, e1, ...] { UP | DOWN }`: marches up or down the address space,
+  performing the march elements `e0`, `e1`, ...
+  The possible march elements are `{READ | WRITE} pattern_address [ FLIP ]`.
+  For example, the march element `READ 5 FLIP` checks that each read operation returns the bit
+  sequence `1100`, which is the bitwise complement of pattern 5 in the table above.
+* `RAND re0 [, re1, ...] { RA N | UP | DOWN }`: Runs a pseudo-random test.
+  If `UP` or `DOWN` is specified, marches up or down (respectively) the address space,
+  performing the random elements `RE0`, `RE1`, ...
+  If `RA` is specified, a pseudo-random address is used. The integer `N` specifies how many
+  addresses to pick. For example, `RAND OP WRITE 0, READ RA 3` picks three (not necessarily distinct)
+  addresses, and for each address, writes the pattern stored in address 0 of the DBPT and then reads it back.
+  Each random element has the following structure: `OP { READ | WRITE | RAND } [ DATA { pattern_address | RAND } MASK {pattern_address | 1 | RAND } ]`.
+  * `OP`: can be `READ`, `WRITE`, or `RAND`. If `RAND`, an operation (read/write) will be selected pseudo-randomly.
+  * `DATA`: can be a pattern address, or `X`. If `X`, data will be selected pseudo-randomly. If a pattern address is given,
+    the data to write will be pulled from the data background pattern table.
+  * `MASK`: can be a pattern address, `1`, or `RAND`. If `1`, the write mask will be all 1s. If `X`, the mask
+    will be selected pseudo-randomly. If a pattern address, the mask pattern will be pulled from the DBPT.
+  The `DATA` and `MASK` fields are required for `WRITE` and `RAND` operations; they must be left blank for `READ` operations.
+
+All pseudo-random data is drawn from an LFSR.
+
+The BIST continuously outputs a signature. This signature can be compared to an expected signature
+to determine where a test has failed. On every read operation, the value read from memory
+is hashed into the signature.
+
+For march instructions, if the memory produces an incorrect
+value upon read, the BIST will provide the failing instruction, the address at which the failure
+occurred, the data read, and the data expected.
 
 
 ### Scan Chain
