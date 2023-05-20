@@ -178,6 +178,14 @@ mod tests {
                 output.summary,
                 substrate::verification::drc::DrcSummary::Pass
             ));
+            let lvs_work_dir = work_dir.join("lvs");
+            let output = ctx
+                .write_lvs::<ColPeripherals>(&COL_WMASK_PARAMS, lvs_work_dir)
+                .expect("failed to run LVS");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::lvs::LvsSummary::Pass
+            ));
         }
     }
 
