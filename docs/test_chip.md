@@ -45,6 +45,14 @@ The SRAM test area uses the following pins:
    When high, SRAMs are enabled by `SRAM_EN`.
    When low, SRAMs are enabled by the SRAM enable Rocket MMIO register.
 
+There are three modes of test operation:
+* Built-in self-test (BIST). Performs at-speed (1 op per cycle) testing of predefined memory patterns.
+* Rocket-controlled testing over memory-mapped I/O (MMIO).
+  Programmable test pattern, but limited speed due to needing to fetch instructions from memory
+  and synchronize TDC output. Roughly 5-10 cycles per operation.
+* Testing via scan chain. Can scan inputs into registers, then scan out SRAM output.
+  Slow (~1k cycles per op), but does not rely on Rocket or BIST working.
+
 Note that there are no dual-clock scan chain FFs in the open-source SKY130 PDK.
 (Dual-clock FFs have a scan clock port and an independent system clock port.)
 
@@ -70,6 +78,35 @@ scan chain -> mux -> sram
 register (from mmio) -> mux
 
 Clock should be held low when not in use.
+
+### BIST
+
+BIST patterns are meant to identify common classes of faults:
+* Stuck-at faults (SAFs): A cell's value is always 0 or 1; it cannot be changed.
+  A test that reads a 0 and a 1 from every cell detects all SAFs.
+* Stuck-open faults (SOpFs): A cell cannot be accessed (eg. due to an open wordline).
+  Attempting to read a cell with a SOpF results in either a 0 or 1, depending on
+  the offset voltage of the sense amplifier in that cell's column. The read value
+  is, to first order, independent of the value in the cell.
+  It is also repeatable: if one read of a SOpF cell produces a 0, subsequent reads
+  should also produce a 0.
+* Transition faults (TFs): A cell cannot be set to 0, cannot be set to 1, or both.
+  To detect all TFs, a test must transition each cell from 0 to 1
+  and from 1 to 0, and the correct cell value must be read after each transition.
+  (Note that writing a 1 is not exactly the same as causing a transition to 1. A transition
+  to 1 only occurs when the cell stores a 0 and is written with a 1.)
+* Data retention faults (DRFs): A cell loses its value after some amount of time.
+  These faults can be caused by faulty pull-up transistors.
+* Coupling faults (CFs): Transitions or patterns in aggressor cells cause a fault in a victim cell.
+  There are a few types of CFs:
+  * Inversion coupling faults (CFins): A transition in an aggressor cell flips the contents of the victim cell.
+    A test to detect all CFins must read each victim cell after performing an odd number of transitions
+    on potential aggressor cells.
+  * Idempotent coupling faults (CFids): A transition in an aggressor cell sets the contents of the victim cell to 0 or 1.
+    A test to detect all CFids must read each victim cell after performing transitions on potential aggressor cells.
+    The potential CFids triggered should not mask each other.
+  * State coupling faults (CFsts): The values in one or more aggressor cells force a victim cell to a certain value.
+
 
 ### Scan Chain
 
@@ -100,9 +137,13 @@ The table below describes the MMIO registers for a
 | `tdc`    | TBD   | RO            | TDC output code     |
 | `ex`     | 1     | WO            | Set high for one cycle to begin a mem op |
 | `done`   | 1     | RO            | High when a mem op completes |
+| `rst`    | 1     | WO            | Reset MMIO registers |
 
-Each SRAM operation will take approximately 5 cycles to complete.
-Roughly 1 cycle to set up SRAM inputs, 1 cycle for operation, and 3 cycles for TDC synchronization.
+Each SRAM operation will take approximately 5 cycles to complete:
+1 cycle to set up SRAM inputs, 1 cycle for operation, and 3 cycles for TDC synchronization.
+Upon completion of the operation, the `done` flag is raised. It is
+set back to low when another memory operation begins (via writing to the `ex` register),
+or upon writing to the `rst` register.
 
 There are also MMIO registers for the BIST.
 
