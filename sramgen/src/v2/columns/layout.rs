@@ -613,7 +613,7 @@ impl Component for ColumnCent {
                     if i == 3 {
                         Some(port.named("sense_en"))
                     } else {
-                        Some(port)
+                        Some(port.with_index(0))
                     }
                 }
                 _ => None,
