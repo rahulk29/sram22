@@ -146,9 +146,9 @@ mod tests {
         rmux: READ_MUX_PARAMS,
         wmux: WRITE_MUX_SIZING,
         buf: DIFF_BUF_PARAMS,
-        cols: 128,
+        cols: 16,
         include_wmask: true,
-        wmask_granularity: 8,
+        wmask_granularity: 2,
     };
 
     const COL_PARAMS: ColParams = ColParams {
