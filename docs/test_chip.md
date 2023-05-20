@@ -35,9 +35,9 @@ The SRAM test area uses the following pins:
 * `clk`: The global clock
 * `SRAM_SCAN_IN`: SRAM scan chain input
 * `SRAM_SCAN_OUT`: SRAM scan chain output
-* `SRAM_SCAN_RST`: Resets the SRAM scan chain to all 0s
+* `SRAM_SCAN_RSTB`: Resets the SRAM scan chain to all 0s
 * `SRAM_SCAN_EN`: Enables scan chain mode
-* `SRAM_SAE_CLK`: The used to drive the SRAM sense amplifiers
+* `SRAM_SAE_CLK`: The clock used to drive the SRAM sense amplifiers
 * `SRAM_RSTB`:  An active-low reset for all SRAM test circuitry, except the scan chain.
 * `TDC_EN`: Enables all TDCs. When low, TDCs holds their values.
 * `SRAM_EN`: A global chip enable for all SRAM blocks. When setting up SRAM inputs (via scan chain or MMIO), should be held low; once the inputs are ready and stable, this should be set high (usually for one cycle).
@@ -206,7 +206,7 @@ determined by the maximum SRAM width being tested.
 | 5 | 0011 |
 | 6 | 1100 |
 
-The BIST supports three types of instructions:
+The BIST supports the following instructions:
 * `RESET seed`: Resets signature registers and seeds the pseudo-random number generator.
 * `WAIT n`: Waits for `N` clock cycles.
 * `MARCH e0 [, e1, ...] { UP | DOWN }`: marches up or down the address space,
