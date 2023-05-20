@@ -108,7 +108,7 @@ mod tests {
 
     use arcstr::ArcStr;
     use subgeom::bbox::{Bbox, BoundBox};
-    use substrate::layout::cell::{Port, PortConflictStrategy, PortId};
+    use substrate::layout::cell::{CellPort, Port, PortConflictStrategy, PortId};
     use substrate::layout::layers::selector::Selector;
 
     use crate::paths::{out_gds, out_spice};
@@ -207,14 +207,12 @@ mod tests {
                 }
 
                 ctx.draw_rect(m2, clk0_brect.into_rect());
+                ctx.merge_port(CellPort::with_shape("clk", m2, clk0_brect.into_rect()));
             }
-            ctx.add_ports_with_strategy(
-                cols.ports().filter_map(|port| match port.name().as_str() {
-                    "clk" => Some(port.with_index(0)),
-                    _ => Some(port),
-                }),
-                PortConflictStrategy::Merge,
-            )?;
+            ctx.add_ports(cols.ports().filter_map(|port| match port.name().as_str() {
+                "clk" => None,
+                _ => Some(port),
+            }))?;
             ctx.draw(cols)?;
 
             Ok(())
