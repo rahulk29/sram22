@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
@@ -74,7 +74,6 @@ impl SramInner {
         let col_decoder_params = DecoderParams {
             tree: col_tree.clone(),
         };
-        let col_bits = self.params.col_select_bits;
 
         let mut col_dec = ctx.instantiate::<Predecoder>(&col_decoder_params)?;
         let wmux_driver_params = DecoderStageParams {
@@ -274,26 +273,49 @@ impl SramInner {
 
         // Route address bits from DFFs to decoders
         let mut ctr = 0;
-        for (inst, num) in [(&p1, p1_bits), (&p2, p2_bits), (&col_dec, col_bits)] {
-            let bottom_port = inst
-                .port(&format!("predecode_{}_1", num - 1))?
-                .largest_rect(m2)?;
-            let on_grid_bus = router.register_off_grid_bus_translation(
-                ctx,
-                OffGridBusTranslation::builder()
-                    .strategy(OffGridBusTranslationStrategy::Perpendicular(m3))
-                    .layer(m2)
-                    .line_and_space(320, 160)
-                    .output(bottom_port.edge(Side::Bot))
-                    .start(bottom_port.side(Side::Bot))
-                    .n(2 * num as i64)
-                    .build(),
-            )?;
+        for (inst, subtree) in [
+            (&p1, &tree.root.children[0]),
+            (&p2, &tree.root.children[1]),
+            (&col_dec, &col_tree.root),
+        ] {
+            let bits = subtree.num.ilog2() as usize;
+            let mut all_ports = Vec::new();
 
-            let mut ports: Vec<Rect> = on_grid_bus.ports().collect();
-            ports.reverse();
+            let mut queue = VecDeque::new();
+            queue.push_front(subtree);
+            let mut total = 0;
+            while let Some(node) = queue.pop_front() {
+                if node.children.is_empty() {
+                    println!("total: {total}");
+                    let curr_bits = node.num.ilog2();
+                    total += curr_bits;
+                    println!("total: {total}");
+                    let bottom_port = inst
+                        .port(&format!("predecode_{}_1", total - 1))?
+                        .largest_rect(m2)?;
+                    let on_grid_bus = router.register_off_grid_bus_translation(
+                        ctx,
+                        OffGridBusTranslation::builder()
+                            .strategy(OffGridBusTranslationStrategy::Perpendicular(m3))
+                            .layer(m2)
+                            .line_and_space(320, 160)
+                            .output(bottom_port.edge(Side::Bot))
+                            .start(bottom_port.side(Side::Bot))
+                            .n(2 * curr_bits as i64)
+                            .build(),
+                    )?;
 
-            for i in 0..num {
+                    let mut ports: Vec<Rect> = on_grid_bus.ports().collect();
+                    ports.reverse();
+                    all_ports.extend(ports);
+                } else {
+                    for child in node.children.iter() {
+                        queue.push_front(child);
+                    }
+                }
+            }
+
+            for i in 0..bits {
                 for j in 0..2 {
                     let (layer, src) = if ctr < p1_bits + p2_bits {
                         let src = addr_gate
@@ -332,7 +354,7 @@ impl SramInner {
                         ctx.draw_rect(m2, src);
                         (m2, src)
                     };
-                    let dst = ports[2 * i + j];
+                    let dst = all_ports[2 * i + j];
                     to_route.push((layer, src, m3, dst, None));
                 }
                 ctr += 1;
