@@ -199,6 +199,8 @@ impl SramInner {
             router.block(m3, inst.brect());
         }
 
+        let mut to_route = Vec::new();
+
         // Route DFF input signals to pins on bounding box of SRAM
         for i in 0..num_dffs {
             let src = dffs.port(PortId::new("d", i))?.largest_rect(m2)?;
@@ -263,7 +265,7 @@ impl SramInner {
                     .build(),
             )?;
             ctx.draw(via)?;
-            router.route(ctx, m2, src, m1, dst)?;
+            to_route.push((m2, src, m1, dst, None));
         }
 
         // Route address bits from DFFs to decoders
@@ -325,7 +327,7 @@ impl SramInner {
                         (m2, src)
                     };
                     let dst = ports[2 * i + j];
-                    router.route(ctx, layer, src, m2, dst)?;
+                    to_route.push((layer, src, m2, dst, None));
                 }
                 ctr += 1;
             }
@@ -361,7 +363,7 @@ impl SramInner {
                     .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
                     .build(),
             );
-            router.route(ctx, m1, src, m1, dst)?;
+            to_route.push((m1, src, m1, dst, None));
             let via = ctx.instantiate::<Via>(
                 &ViaParams::builder()
                     .layers(m0, m1)
@@ -382,7 +384,7 @@ impl SramInner {
                     .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
                     .build(),
             );
-            router.route(ctx, m1, src, m1, dst)?;
+            to_route.push((m1, src, m1, dst, None));
             let via = ctx.instantiate::<Via>(
                 &ViaParams::builder()
                     .layers(m0, m1)
@@ -419,7 +421,7 @@ impl SramInner {
                     .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
                     .build(),
             );
-            router.route(ctx, m1, src, m2, dst)?;
+            to_route.push((m1, src, m2, dst, None));
             let via = ctx.instantiate::<Via>(
                 &ViaParams::builder()
                     .layers(m0, m1)
@@ -455,7 +457,7 @@ impl SramInner {
                     .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
                     .build(),
             );
-            router.route(ctx, m1, src, m2, dst)?;
+            to_route.push((m1, src, m2, dst, None));
             let via = ctx.instantiate::<Via>(
                 &ViaParams::builder()
                     .layers(m0, m1)
@@ -559,7 +561,7 @@ impl SramInner {
         let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Minimum);
         ctx.draw_rect(m2, dst);
 
-        router.route(ctx, m1, src, m2, dst)?;
+        to_route.push((m1, src, m2, dst, Some("we")));
 
         // Route clock signal
         let tracks = router.track_info(m3).tracks();
@@ -576,14 +578,14 @@ impl SramInner {
         let src = control.port("clk")?.largest_rect(m1)?;
         let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Right));
         ctx.draw_rect(m1, src);
-        router.route_with_net(ctx, m1, src, m3, clk_pin, "clk")?;
+        to_route.push((m1, src, m3, clk_pin, Some("clk")));
 
         for i in 0..num_dffs {
             let src = dffs.port(PortId::new("clk", i))?.largest_rect(m2)?;
             let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::UpperLeft));
             ctx.draw_rect(m2, src);
             router.occupy(m2, src, "clk")?;
-            router.route_with_net(ctx, m2, src, m3, clk_pin, "clk")?;
+            to_route.push((m2, src, m3, clk_pin, Some("clk")));
         }
 
         for i in (0..2).rev() {
@@ -599,7 +601,7 @@ impl SramInner {
             let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::UpperLeft));
             ctx.draw_rect(m2, src);
             router.occupy(m2, src, "clk")?;
-            router.route_with_net(ctx, m2, src, m3, clk_pin, "clk")?;
+            to_route.push((m2, src, m3, clk_pin, Some("clk")));
         }
 
         // Route replica precharge to control logic.
@@ -633,14 +635,14 @@ impl SramInner {
         let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Corner(Corner::UpperRight));
         ctx.draw_rect(m1, dst);
 
-        router.route_with_net(ctx, m2, src, m1, dst, "pc_b")?;
-        router.route_with_net(ctx, m2, replica_pc_en_b_rect, m1, dst, "pc_b")?;
+        to_route.push((m2, src, m1, dst, Some("pc_b")));
+        to_route.push((m2, replica_pc_en_b_rect, m1, dst, Some("pc_b")));
 
         let dst = control.port("rbl")?.largest_rect(m1)?;
         let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
         ctx.draw_rect(m1, dst);
 
-        router.route_with_net(ctx, m2, rbl_rect, m1, dst, "rbl")?;
+        to_route.push((m2, rbl_rect, m1, dst, Some("rbl")));
 
         let sense_en_rect = cols.port("sense_en")?.largest_rect(m2)?;
         let expanded_all = router.expand_to_grid(sense_en_rect, ExpandToGridStrategy::All);
@@ -653,7 +655,7 @@ impl SramInner {
         let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
         ctx.draw_rect(m1, dst);
 
-        router.route_with_net(ctx, m2, src, m1, dst, "sense_en")?;
+        to_route.push((m2, src, m1, dst, Some("sense_en")));
 
         let wl_en_rect = addr_gate.port("wl_en")?.largest_rect(m2)?;
         let expanded_all = router.expand_to_grid(wl_en_rect, ExpandToGridStrategy::All);
@@ -667,7 +669,7 @@ impl SramInner {
         let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
         ctx.draw_rect(m1, dst);
 
-        router.route_with_net(ctx, m2, src, m1, dst, "wl_en")?;
+        to_route.push((m2, src, m1, dst, Some("wl_en")));
 
         let write_driver_en_rect = wmux_driver.port("wl_en")?.largest_rect(m2)?;
         let expanded_all = router.expand_to_grid(write_driver_en_rect, ExpandToGridStrategy::All);
@@ -682,7 +684,7 @@ impl SramInner {
         let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
         ctx.draw_rect(m1, dst);
 
-        router.route_with_net(ctx, m2, src, m1, dst, "write_driver_en")?;
+        to_route.push((m2, src, m1, dst, Some("write_driver_en")));
 
         let dummy_bl_rect = cols.port("dummy_bl")?.largest_rect(m1)?;
         let src_point = Point::new(cols.brect().left(), dummy_bl_rect.bottom() - 500);
@@ -702,7 +704,7 @@ impl SramInner {
         let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Corner(Corner::UpperLeft));
         ctx.draw_rect(m1, dst);
 
-        router.route_with_net(ctx, m1, src, m1, dst, "dummy_bl")?;
+        to_route.push((m1, src, m1, dst, Some("dummy_bl")));
 
         // Route replica cell array to replica precharge
         for i in 0..2 {
@@ -717,9 +719,6 @@ impl SramInner {
 
         let mut straps = RoutedStraps::new();
         straps.set_strap_layers([m2, m3]);
-
-        router.block(m2, cols.brect());
-        router.block(m3, cols.brect());
 
         // Helper function for connecting bitcell ports to power straps.
         let mut connect_bitcells_to_straps = |inst: &Instance,
@@ -836,7 +835,18 @@ impl SramInner {
         let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
         ctx.draw_rect(m1, dst);
 
-        router.route_with_net(ctx, m2, src, m1, dst, "wl_en0")?;
+        to_route.push((m2, src, m1, dst, Some("wl_en0")));
+
+        for (lsrc, src, ldst, dst, net) in to_route {
+            if let Some(net) = net {
+                router.route_with_net(ctx, lsrc, src, ldst, dst, net)?;
+            } else {
+                router.route(ctx, lsrc, src, ldst, dst)?;
+            }
+        }
+
+        router.block(m2, cols.brect());
+        router.block(m3, cols.brect());
 
         // Connect column circuitry to power straps.
         for (dir, layer, expand) in [(Dir::Vert, m3, 3_800), (Dir::Horiz, m2, 3_800)] {
