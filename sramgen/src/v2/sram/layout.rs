@@ -17,7 +17,7 @@ use substrate::layout::routing::auto::grid::{
 use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
 use substrate::layout::routing::manual::jog::{ElbowJog, SJog};
-use substrate::layout::routing::tracks::TrackLocator;
+use substrate::layout::routing::tracks::{TrackLocator, UniformTracks};
 use substrate::layout::straps::SingleSupplyNet;
 use substrate::layout::Draw;
 
@@ -364,17 +364,35 @@ impl SramInner {
         let left_port = decoder
             .port(&format!("predecode_1_{}", tree.root.children[1].num - 1))?
             .largest_rect(m1)?;
+
+        let decoder_tracks = UniformTracks::builder()
+            .line(320)
+            .space(160)
+            .start(left_port.side(Side::Left))
+            .sign(Sign::Pos)
+            .build()
+            .unwrap();
+        for i in 0..(tree.root.children[0].num + tree.root.children[1].num) {
+            ctx.draw_rect(
+                m1,
+                Rect::from_spans(
+                    decoder_tracks.index(i),
+                    Span::with_stop_and_length(left_port.side(Side::Bot), 140),
+                ),
+            );
+        }
         let decoder_bus = router.register_off_grid_bus_translation(
             ctx,
             OffGridBusTranslation::builder()
                 .strategy(OffGridBusTranslationStrategy::Parallel)
                 .layer(m1)
                 .line_and_space(320, 160)
-                .output(left_port.edge(Side::Bot))
+                .output(left_port.edge(Side::Bot).offset(140))
                 .start(left_port.side(Side::Left))
                 .n((tree.root.children[0].num + tree.root.children[1].num) as i64)
                 .build(),
         )?;
+
         let mut decoder_ports = decoder_bus.ports().collect::<Vec<Rect>>();
         decoder_ports.reverse();
 
