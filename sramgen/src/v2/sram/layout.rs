@@ -116,7 +116,7 @@ impl SramInner {
         p1.align_right(decoder.bbox());
         p2.align_beneath(p1.bbox(), 1_270);
         p2.align_right(decoder.bbox());
-        wmux_driver.align_beneath(p2.bbox(), 1_270);
+        wmux_driver.align_beneath(p2.bbox(), 5_080);
         wmux_driver.align_right(decoder.bbox());
         col_dec.align_beneath(wmux_driver.bbox(), 1_270);
         col_dec.align_right(decoder.bbox());
@@ -442,7 +442,7 @@ impl SramInner {
         let on_grid_bus = router.register_off_grid_bus_translation(
             OffGridBusTranslation::builder()
                 .layer(m2)
-                .line_and_space(340, 160)
+                .line_and_space(320, 160)
                 .output(bottom_port.edge(Side::Left))
                 .start(bottom_port.side(Side::Bot))
                 .n(self.params.mux_ratio as i64)
