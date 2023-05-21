@@ -289,7 +289,7 @@ pub(crate) mod tests {
         let work_dir = test_work_dir("test_sram_1");
         ctx.write_schematic_to_file::<SramInner>(&PARAMS_1, out_spice(&work_dir, "schematic"))
             .expect("failed to write schematic");
-        ctx.write_layout::<Sram>(&PARAMS_1, out_gds(work_dir, "layout"))
+        ctx.write_layout::<Sram>(&PARAMS_1, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
 
         #[cfg(feature = "commercial")]
@@ -320,7 +320,7 @@ pub(crate) mod tests {
         let work_dir = test_work_dir("test_sram_2");
         ctx.write_schematic_to_file::<SramInner>(&PARAMS_2, out_spice(&work_dir, "schematic"))
             .expect("failed to write schematic");
-        ctx.write_layout::<Sram>(&PARAMS_2, out_gds(work_dir, "layout"))
+        ctx.write_layout::<Sram>(&PARAMS_2, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
 
         #[cfg(feature = "commercial")]
