@@ -100,7 +100,7 @@ impl SramInner {
 
         cols.align_beneath(bitcells.bbox(), 4_310);
         cols.align_centers_horizontally_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
-        decoder.align_to_the_left_of(bitcells.bbox(), 6_350);
+        decoder.align_to_the_left_of(bitcells.bbox(), 10_000);
         decoder.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
         decoder.align_side_to_grid(Side::Left, 680);
         rbl.align_to_the_left_of(decoder.bbox(), 4_310);
@@ -110,14 +110,14 @@ impl SramInner {
         replica_pc.align_centers_horizontally_gridded(rbl.bbox(), ctx.pdk().layout_grid());
         p1.align_beneath(
             decoder.bbox(),
-            3_680 * (tree.root.children[0].num + tree.root.children[1].num) as i64 / 16 + 3_000,
+            5_080 * (tree.root.children[0].num + tree.root.children[1].num) as i64 / 16 + 3_000,
         );
         p1.align_right(decoder.bbox());
-        p2.align_beneath(p1.bbox(), 1_270);
+        p2.align_beneath(p1.bbox(), 5_080);
         p2.align_right(decoder.bbox());
         wmux_driver.align_beneath(p2.bbox(), 5_080);
         wmux_driver.align_right(decoder.bbox());
-        col_dec.align_beneath(wmux_driver.bbox(), 1_270);
+        col_dec.align_beneath(wmux_driver.bbox(), 5_080);
         col_dec.align_right(decoder.bbox());
         addr_gate.align_bottom(col_dec.bbox());
         addr_gate.align_to_the_left_of(col_dec.bbox(), 6_350);
@@ -242,11 +242,7 @@ impl SramInner {
                 .largest_rect(m2)?;
             let src = router.expand_to_grid(
                 src,
-                ExpandToGridStrategy::Corner(if i % 2 == 0 {
-                    Corner::UpperRight
-                } else {
-                    Corner::LowerLeft
-                }),
+                ExpandToGridStrategy::Side(if i % 2 == 0 { Side::Top } else { Side::Bot }),
             );
             ctx.draw_rect(m2, src);
             router.block(m2, src);
@@ -327,7 +323,7 @@ impl SramInner {
                                 .rect(src)
                                 .dst_layer(m1)
                                 .width(170)
-                                .first_dir(Side::Top)
+                                .first_dir(Side::Bot)
                                 .second_dir(if j == 0 { Side::Right } else { Side::Left })
                                 .build(),
                         );
@@ -403,7 +399,7 @@ impl SramInner {
                     .rect(src)
                     .dst_layer(m1)
                     .width(170)
-                    .first_dir(Side::Bot)
+                    .first_dir(Side::Top)
                     .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
                     .build(),
             );
@@ -424,7 +420,7 @@ impl SramInner {
                     .rect(src)
                     .dst_layer(m1)
                     .width(170)
-                    .first_dir(Side::Bot)
+                    .first_dir(Side::Top)
                     .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
                     .build(),
             );
@@ -463,7 +459,7 @@ impl SramInner {
                     .rect(src)
                     .dst_layer(m1)
                     .width(170)
-                    .first_dir(Side::Bot)
+                    .first_dir(Side::Top)
                     .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
                     .build(),
             );
@@ -630,7 +626,7 @@ impl SramInner {
 
         for i in 0..num_dffs {
             let src = dffs.port(PortId::new("clk", i))?.largest_rect(m2)?;
-            let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::UpperLeft));
+            let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Top));
             ctx.draw_rect(m2, src);
             router.occupy(m2, src, "clk")?;
             to_route.push((m2, src, m3, clk_pin, Some("clk")));
@@ -916,12 +912,12 @@ impl SramInner {
         router.block(m3, cols.brect());
 
         // Connect column circuitry to power straps.
-        for (dir, layer, expand) in [(Dir::Vert, m3, 3_800), (Dir::Horiz, m2, 3_800)] {
+        for (dir, layer, expand) in [(Dir::Vert, m3, 3_800)] {
             for port_name in ["vdd", "vss"] {
                 for port in cols.port(port_name)?.shapes(layer) {
                     if let Shape::Rect(rect) = port {
                         let rect = rect.with_span(rect.span(dir).expand_all(expand), dir);
-                        router.block(m3, rect);
+                        router.block(layer, rect);
                         straps.add_target(
                             layer,
                             Target::new(

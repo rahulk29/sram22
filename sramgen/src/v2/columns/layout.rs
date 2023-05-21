@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use grid::Grid;
 use serde::{Deserialize, Serialize};
-use subgeom::bbox::BoundBox;
+use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
 use subgeom::transform::Translate;
 use subgeom::{Rect, Span};
@@ -37,6 +37,9 @@ static DFF_PADDING: Padding = Padding::new(160, 0, 0, 0);
 
 impl ColPeripherals {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+        let m2 = layers.get(Selector::Metal(2))?;
+
         let mut pc = ctx.instantiate::<Precharge>(&self.params.pc)?;
         let mut pc_end = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
             via_top: false,
@@ -124,6 +127,21 @@ impl ColPeripherals {
         )?;
 
         ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
+
+        for port_name in ["vdd", "vss", "sense_en"] {
+            let bboxes = grid_tiler.port_map().port(port_name)?.shapes(m2).fold(
+                HashMap::new(),
+                |mut acc, shape| {
+                    let entry = acc.entry(shape.brect().vspan()).or_insert(Bbox::empty());
+                    *entry = entry.union(shape.bbox());
+                    acc
+                },
+            );
+            for bbox in bboxes.values() {
+                ctx.merge_port(CellPort::with_shape(port_name, m2, bbox.into_rect()));
+            }
+        }
+
         let group = grid_tiler.draw()?;
 
         let bbox = group.bbox();
@@ -619,6 +637,13 @@ impl Component for ColumnCent {
                         Some(port.with_index(0))
                     }
                 }
+                "vdd" | "vss" => {
+                    if i >= 3 {
+                        Some(port)
+                    } else {
+                        None
+                    }
+                }
                 _ => None,
             },
             PortConflictStrategy::Merge,
@@ -658,7 +683,7 @@ impl Component for ColumnCent {
                     TapTrack::Vss => "vss",
                 });
                 port.add(m3, subgeom::Shape::Rect(rect));
-                ctx.add_port(port).unwrap();
+                ctx.merge_port(port);
                 ctx.draw_rect(m3, rect);
             }
         }
