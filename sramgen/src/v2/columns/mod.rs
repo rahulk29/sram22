@@ -108,7 +108,7 @@ mod tests {
 
     use arcstr::ArcStr;
     use subgeom::bbox::{Bbox, BoundBox};
-    use substrate::layout::cell::{CellPort, Port, PortConflictStrategy, PortId};
+    use substrate::layout::cell::{CellPort, Port, PortId};
     use substrate::layout::layers::selector::Selector;
 
     use crate::paths::{out_gds, out_spice};
