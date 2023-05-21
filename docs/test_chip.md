@@ -224,9 +224,9 @@ The BIST supports the following instructions:
   addresses, and for each address, writes the pattern stored in address 0 of the DBPT and then reads it back.
   Each random element has the following structure: `OP { READ | WRITE | RAND } [ DATA { pattern_address | RAND } MASK {pattern_address | 1 | RAND } ]`.
   * `OP`: can be `READ`, `WRITE`, or `RAND`. If `RAND`, an operation (read/write) will be selected pseudo-randomly.
-  * `DATA`: can be a pattern address, or `X`. If `X`, data will be selected pseudo-randomly. If a pattern address is given,
+  * `DATA`: can be a pattern address, or `RAND`. If `RAND`, data will be selected pseudo-randomly. If a pattern address is given,
     the data to write will be pulled from the data background pattern table.
-  * `MASK`: can be a pattern address, `1`, or `RAND`. If `1`, the write mask will be all 1s. If `X`, the mask
+  * `MASK`: can be a pattern address, `1`, or `RAND`. If `1`, the write mask will be all 1s. If `RAND`, the mask
     will be selected pseudo-randomly. If a pattern address, the mask pattern will be pulled from the DBPT.
   The `DATA` and `MASK` fields are required for `WRITE` and `RAND` operations; they must be left blank for `READ` operations.
 
