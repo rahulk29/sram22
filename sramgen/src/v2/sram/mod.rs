@@ -44,6 +44,30 @@ pub struct SramParams {
     pub control: ControlMode,
 }
 
+impl SramParams {
+    const fn new(
+        wmask_granularity: usize,
+        mux_ratio: usize,
+        num_words: usize,
+        data_width: usize,
+        control: ControlMode,
+    ) -> Self {
+        Self {
+            wmask_width: data_width / wmask_granularity,
+            row_bits: (num_words / mux_ratio).ilog2() as usize,
+            col_bits: (data_width * mux_ratio).ilog2() as usize,
+            col_select_bits: mux_ratio.ilog2() as usize,
+            rows: num_words / mux_ratio,
+            cols: data_width * mux_ratio,
+            mux_ratio,
+            num_words,
+            data_width,
+            addr_width: num_words.ilog2() as usize,
+            control,
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Serialize, Deserialize)]
 pub enum ControlMode {
     Simple,
@@ -168,13 +192,6 @@ impl Component for Sram {
             }
         }
 
-        for port in ["vdd", "vss"] {
-            ctx.add_port(
-                ring.port(format!("ring_{port}"))?
-                    .into_cell_port()
-                    .named(port),
-            )?;
-        }
         ctx.draw(ring)?;
 
         // Route pins to edge of guard ring
@@ -185,7 +202,6 @@ impl Component for Sram {
             ("wmask", self.params.wmask_width),
             ("addr", self.params.addr_width),
             ("we", 1),
-            ("clk", 1),
         ] {
             for i in 0..width {
                 let port_id = PortId::new(pin, i);
@@ -211,47 +227,67 @@ pub(crate) mod tests {
 
     use super::*;
 
-    pub(crate) const TINY_SRAM: SramParams = SramParams {
-        wmask_width: 2,
-        row_bits: 4,
-        col_bits: 4,
-        col_select_bits: 2,
-        rows: 16,
-        cols: 16,
-        mux_ratio: 4,
-        num_words: 64,
-        data_width: 4,
-        addr_width: 6,
-        control: ControlMode::ReplicaV1,
-    };
+    pub(crate) const TINY_SRAM: SramParams = SramParams::new(2, 4, 64, 4, ControlMode::ReplicaV1);
 
-    pub(crate) const PARAMS_1: SramParams = SramParams {
-        wmask_width: 4,
-        row_bits: 6,
-        col_bits: 7,
-        col_select_bits: 2,
-        rows: 64,
-        cols: 128,
-        mux_ratio: 4,
-        num_words: 256,
-        data_width: 32,
-        addr_width: 8,
-        control: ControlMode::ReplicaV1,
-    };
+    pub(crate) const PARAMS_1: SramParams = SramParams::new(8, 4, 256, 32, ControlMode::ReplicaV1);
 
-    pub(crate) const PARAMS_2: SramParams = SramParams {
-        wmask_width: 8,
-        row_bits: 9,
-        col_bits: 8,
-        col_select_bits: 2,
-        rows: 512,
-        cols: 256,
-        mux_ratio: 4,
-        num_words: 2048,
-        data_width: 64,
-        addr_width: 11,
-        control: ControlMode::ReplicaV1,
-    };
+    pub(crate) const PARAMS_2: SramParams = SramParams::new(8, 4, 2048, 64, ControlMode::ReplicaV1);
+
+    pub(crate) const PARAMS_3: SramParams = SramParams::new(8, 2, 32, 32, ControlMode::ReplicaV1);
+
+    pub(crate) const PARAMS_4: SramParams = SramParams::new(32, 4, 64, 32, ControlMode::ReplicaV1);
+
+    pub(crate) const PARAMS_5: SramParams = SramParams::new(8, 4, 512, 32, ControlMode::ReplicaV1);
+
+    pub(crate) const PARAMS_6: SramParams =
+        SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV1);
+
+    pub(crate) const PARAMS_7: SramParams = SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV1);
+
+    pub(crate) const PARAMS_8: SramParams =
+        SramParams::new(32, 8, 1024, 64, ControlMode::ReplicaV1);
+
+    pub(crate) const PARAMS_9: SramParams = SramParams::new(8, 8, 2048, 32, ControlMode::ReplicaV1);
+
+    pub(crate) const PARAMS_10: SramParams =
+        SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV1);
+
+    pub(crate) const PARAMS_11: SramParams = SramParams::new(8, 8, 4096, 8, ControlMode::ReplicaV1);
+
+    macro_rules! test_sram {
+        ($name: ident, $params: ident) => {
+            #[test]
+            #[ignore = "slow"]
+            fn $name() {
+                let ctx = setup_ctx();
+                let work_dir = test_work_dir(stringify!($name));
+                ctx.write_schematic_to_file::<Sram>(&$params, out_spice(&work_dir, "schematic"))
+                    .expect("failed to write schematic");
+                ctx.write_layout::<Sram>(&$params, out_gds(&work_dir, "layout"))
+                    .expect("failed to write layout");
+
+                #[cfg(feature = "commercial")]
+                {
+                    let drc_work_dir = work_dir.join("drc");
+                    let output = ctx
+                        .write_drc::<Sram>(&$params, drc_work_dir)
+                        .expect("failed to run DRC");
+                    assert!(matches!(
+                        output.summary,
+                        substrate::verification::drc::DrcSummary::Pass
+                    ));
+                    let lvs_work_dir = work_dir.join("lvs");
+                    let output = ctx
+                        .write_lvs::<Sram>(&$params, lvs_work_dir)
+                        .expect("failed to run LVS");
+                    assert!(matches!(
+                        output.summary,
+                        substrate::verification::lvs::LvsSummary::Pass
+                    ));
+                }
+            }
+        };
+    }
 
     #[test]
     fn test_sram_tiny() {
@@ -287,7 +323,7 @@ pub(crate) mod tests {
     fn test_sram_1() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_sram_1");
-        ctx.write_schematic_to_file::<SramInner>(&PARAMS_1, out_spice(&work_dir, "schematic"))
+        ctx.write_schematic_to_file::<Sram>(&PARAMS_1, out_spice(&work_dir, "schematic"))
             .expect("failed to write schematic");
         ctx.write_layout::<Sram>(&PARAMS_1, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
@@ -318,7 +354,7 @@ pub(crate) mod tests {
     fn test_sram_2() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_sram_2");
-        ctx.write_schematic_to_file::<SramInner>(&PARAMS_2, out_spice(&work_dir, "schematic"))
+        ctx.write_schematic_to_file::<Sram>(&PARAMS_2, out_spice(&work_dir, "schematic"))
             .expect("failed to write schematic");
         ctx.write_layout::<Sram>(&PARAMS_2, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
@@ -343,4 +379,14 @@ pub(crate) mod tests {
             ));
         }
     }
+
+    test_sram!(test_sram_3, PARAMS_3);
+    test_sram!(test_sram_4, PARAMS_4);
+    test_sram!(test_sram_5, PARAMS_5);
+    test_sram!(test_sram_6, PARAMS_6);
+    test_sram!(test_sram_7, PARAMS_7);
+    test_sram!(test_sram_8, PARAMS_8);
+    test_sram!(test_sram_9, PARAMS_9);
+    test_sram!(test_sram_10, PARAMS_10);
+    test_sram!(test_sram_11, PARAMS_11);
 }
