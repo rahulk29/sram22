@@ -247,6 +247,7 @@ impl SramInner {
                 }),
             );
             ctx.draw_rect(m2, src);
+            router.block(m2, src);
             let dst = addr_gate.port(PortId::new("in", i))?.largest_rect(m0)?;
             let dst = router.register_jog_to_grid(
                 JogToGrid::builder()
