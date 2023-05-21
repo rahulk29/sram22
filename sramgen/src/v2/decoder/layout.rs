@@ -298,7 +298,7 @@ impl Predecoder {
                     Rect::from_spans(src.hspan(), Span::new(src.top() - src.width(), src.top()));
                 let jog = OffsetJog::builder()
                     .dir(Dir::Horiz)
-                    .sign(Sign::Neg)
+                    .sign(if j % 2 == 0 { Sign::Pos } else { Sign::Neg })
                     .src(rect)
                     .space(335)
                     .dst(dst.top())
