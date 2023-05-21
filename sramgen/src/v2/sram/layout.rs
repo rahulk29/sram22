@@ -111,7 +111,7 @@ impl SramInner {
         replica_pc.align_centers_horizontally_gridded(rbl.bbox(), ctx.pdk().layout_grid());
         p1.align_beneath(
             decoder.bbox(),
-            3_680 * (tree.root.children[0].num + tree.root.children[1].num) as i64 / 16 + 1_400,
+            3_680 * (tree.root.children[0].num + tree.root.children[1].num) as i64 / 16 + 3_000,
         );
         p1.align_right(decoder.bbox());
         p2.align_beneath(p1.bbox(), 1_270);
@@ -121,7 +121,7 @@ impl SramInner {
         col_dec.align_beneath(wmux_driver.bbox(), 1_270);
         col_dec.align_right(decoder.bbox());
         addr_gate.align_bottom(col_dec.bbox());
-        addr_gate.align_to_the_left_of(col_dec.bbox(), 5_080);
+        addr_gate.align_to_the_left_of(col_dec.bbox(), 6_350);
         control.set_orientation(Named::FlipYx);
         control.align_beneath(col_dec.bbox(), 5_000);
         control.align_right(decoder.bbox());
@@ -841,13 +841,13 @@ impl SramInner {
 
         to_route.push((m2, src, m1, dst, Some("wl_en0")));
 
-        // for (lsrc, src, ldst, dst, net) in to_route {
-        //     if let Some(net) = net {
-        //         router.route_with_net(ctx, lsrc, src, ldst, dst, net)?;
-        //     } else {
-        //         router.route(ctx, lsrc, src, ldst, dst)?;
-        //     }
-        // }
+        for (lsrc, src, ldst, dst, net) in to_route {
+            if let Some(net) = net {
+                router.route_with_net(ctx, lsrc, src, ldst, dst, net)?;
+            } else {
+                router.route(ctx, lsrc, src, ldst, dst)?;
+            }
+        }
 
         router.block(m2, cols.brect());
         router.block(m3, cols.brect());
