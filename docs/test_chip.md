@@ -185,6 +185,8 @@ The goal of the programmable BIST engine is to enable at-speed (1 cycle per op) 
 that we anticipate will expose faults. It only supports common memory test patterns. For fully
 general pattern generation, the Rocket should be used.
 
+There will be one programmable BIST engine shared across all SRAM test macros.
+
 The BIST requires the following run-time configuration:
 * `MAX_ROW_ADDR`: The maximum row address (inclusive).
 * `MAX_COL_ADDR`: The maximum col address (inclusive).
