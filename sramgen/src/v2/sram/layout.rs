@@ -442,7 +442,7 @@ impl SramInner {
         let on_grid_bus = router.register_off_grid_bus_translation(
             OffGridBusTranslation::builder()
                 .layer(m2)
-                .line_and_space(320, 160)
+                .line_and_space(320, 180)
                 .output(bottom_port.edge(Side::Left))
                 .start(bottom_port.side(Side::Bot))
                 .n(self.params.mux_ratio as i64)
