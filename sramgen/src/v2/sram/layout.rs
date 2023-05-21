@@ -12,7 +12,7 @@ use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignRect;
 use substrate::layout::routing::auto::grid::{
-    ExpandToGridStrategy, JogToGrid, OffGridBusTranslation,
+    ExpandToGridStrategy, JogToGrid, OffGridBusTranslation, OffGridBusTranslationStrategy,
 };
 use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
@@ -279,14 +279,16 @@ impl SramInner {
                 .port(&format!("predecode_{}_1", num - 1))?
                 .largest_rect(m2)?;
             let on_grid_bus = router.register_off_grid_bus_translation(
+                ctx,
                 OffGridBusTranslation::builder()
+                    .strategy(OffGridBusTranslationStrategy::Perpendicular(m3))
                     .layer(m2)
                     .line_and_space(320, 160)
-                    .output(bottom_port.edge(Side::Left))
+                    .output(bottom_port.edge(Side::Bot))
                     .start(bottom_port.side(Side::Bot))
                     .n(2 * num as i64)
                     .build(),
-            );
+            )?;
 
             let mut ports: Vec<Rect> = on_grid_bus.ports().collect();
             ports.reverse();
@@ -331,7 +333,7 @@ impl SramInner {
                         (m2, src)
                     };
                     let dst = ports[2 * i + j];
-                    to_route.push((layer, src, m2, dst, None));
+                    to_route.push((layer, src, m3, dst, None));
                 }
                 ctr += 1;
             }
@@ -341,14 +343,16 @@ impl SramInner {
             .port(&format!("predecode_1_{}", tree.root.children[1].num - 1))?
             .largest_rect(m1)?;
         let decoder_bus = router.register_off_grid_bus_translation(
+            ctx,
             OffGridBusTranslation::builder()
+                .strategy(OffGridBusTranslationStrategy::Parallel)
                 .layer(m1)
                 .line_and_space(320, 160)
                 .output(left_port.edge(Side::Bot))
                 .start(left_port.side(Side::Left))
                 .n((tree.root.children[0].num + tree.root.children[1].num) as i64)
                 .build(),
-        );
+        )?;
         let mut decoder_ports = decoder_bus.ports().collect::<Vec<Rect>>();
         decoder_ports.reverse();
 
@@ -403,14 +407,16 @@ impl SramInner {
             .port(PortId::new("we", self.params.mux_ratio - 1))?
             .largest_rect(m2)?;
         let on_grid_bus = router.register_off_grid_bus_translation(
+            ctx,
             OffGridBusTranslation::builder()
+                .strategy(OffGridBusTranslationStrategy::Parallel)
                 .layer(m2)
                 .line_and_space(340, 160)
                 .output(bottom_port.edge(Side::Left))
                 .start(bottom_port.side(Side::Bot))
                 .n(self.params.mux_ratio as i64)
                 .build(),
-        );
+        )?;
         for (i, dst) in on_grid_bus.ports().enumerate() {
             let src = wmux_driver
                 .port(PortId::new("decode", i))?
@@ -440,7 +446,9 @@ impl SramInner {
             .port(PortId::new("sel_b", self.params.mux_ratio - 1))?
             .largest_rect(m2)?;
         let on_grid_bus = router.register_off_grid_bus_translation(
+            ctx,
             OffGridBusTranslation::builder()
+                .strategy(OffGridBusTranslationStrategy::Parallel)
                 .layer(m2)
                 .line_and_space(320, 180)
                 .output(bottom_port.edge(Side::Left))
@@ -448,7 +456,7 @@ impl SramInner {
                 .n(self.params.mux_ratio as i64)
                 .shift(-1)
                 .build(),
-        );
+        )?;
         for (i, dst) in on_grid_bus.ports().enumerate() {
             let src = col_dec.port(PortId::new("decode_b", i))?.largest_rect(m0)?;
             let src = router.register_jog_to_grid(
@@ -612,7 +620,9 @@ impl SramInner {
         let bottom_port = replica_pc.port("rbr")?.largest_rect(m2)?;
         let ports = router
             .register_off_grid_bus_translation(
+                ctx,
                 OffGridBusTranslation::builder()
+                    .strategy(OffGridBusTranslationStrategy::Parallel)
                     .layer(m2)
                     .line_and_space(360, 140)
                     .output(bottom_port.edge(Side::Left))
@@ -620,7 +630,7 @@ impl SramInner {
                     .n(3)
                     .shift(-1)
                     .build(),
-            )
+            )?
             .ports()
             .collect::<Vec<Rect>>();
 
