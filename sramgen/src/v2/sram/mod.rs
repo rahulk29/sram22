@@ -291,6 +291,26 @@ pub(crate) mod tests {
             .expect("failed to write schematic");
         ctx.write_layout::<Sram>(&PARAMS_1, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
+
+        #[cfg(feature = "commercial")]
+        {
+            let drc_work_dir = work_dir.join("drc");
+            let output = ctx
+                .write_drc::<Sram>(&PARAMS_1, drc_work_dir)
+                .expect("failed to run DRC");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::drc::DrcSummary::Pass
+            ));
+            let lvs_work_dir = work_dir.join("lvs");
+            let output = ctx
+                .write_lvs::<Sram>(&PARAMS_1, lvs_work_dir)
+                .expect("failed to run LVS");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::lvs::LvsSummary::Pass
+            ));
+        }
     }
 
     #[test]
@@ -302,5 +322,25 @@ pub(crate) mod tests {
             .expect("failed to write schematic");
         ctx.write_layout::<Sram>(&PARAMS_2, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
+
+        #[cfg(feature = "commercial")]
+        {
+            let drc_work_dir = work_dir.join("drc");
+            let output = ctx
+                .write_drc::<Sram>(&PARAMS_2, drc_work_dir)
+                .expect("failed to run DRC");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::drc::DrcSummary::Pass
+            ));
+            let lvs_work_dir = work_dir.join("lvs");
+            let output = ctx
+                .write_lvs::<Sram>(&PARAMS_2, lvs_work_dir)
+                .expect("failed to run LVS");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::lvs::LvsSummary::Pass
+            ));
+        }
     }
 }
