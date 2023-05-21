@@ -665,7 +665,7 @@ impl Script for PredecoderPhysicalDesignScript {
         Ok(Self::Output {
             width: 2_000,
             tap_width: 790,
-            tap_period: 4,
+            tap_period: 2,
             stripe_metal,
             wire_metal,
             via_metals,
