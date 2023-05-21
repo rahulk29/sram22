@@ -309,7 +309,7 @@ impl SramInner {
                     ports.reverse();
                     all_ports.extend(ports);
                 } else {
-                    for child in node.children.iter() {
+                    for child in node.children.iter().rev() {
                         queue.push_front(child);
                     }
                 }
