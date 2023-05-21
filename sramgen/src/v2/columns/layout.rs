@@ -47,7 +47,10 @@ impl ColPeripherals {
             include_wmask: false,
             ..self.params.clone()
         })?;
-        let bbox = Rect::from_spans(Span::new(0, 4_800), col.brect().vspan());
+        let bbox = Rect::from_spans(
+            Span::new(0, 1_200 * self.params.wmux.mux_ratio as i64),
+            col.brect().vspan(),
+        );
         let col = RectBbox::new(col, bbox);
 
         let col_wmask = ctx.instantiate::<Column>(&ColParams {

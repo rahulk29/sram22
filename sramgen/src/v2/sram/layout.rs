@@ -124,7 +124,7 @@ impl SramInner {
         control.set_orientation(Named::FlipYx);
         control.align_beneath(col_dec.bbox(), 5_000);
         control.align_right(decoder.bbox());
-        dffs.align_beneath(control.bbox(), 1_270);
+        dffs.align_beneath(control.bbox(), 10_000);
         dffs.align_right(decoder.bbox());
 
         ctx.draw_ref(&bitcells)?;
@@ -345,11 +345,7 @@ impl SramInner {
                             .largest_rect(m2)?;
                         let src = router.expand_to_grid(
                             src,
-                            ExpandToGridStrategy::Corner(if j == 0 {
-                                Corner::UpperRight
-                            } else {
-                                Corner::LowerLeft
-                            }),
+                            ExpandToGridStrategy::Side(if j == 0 { Side::Top } else { Side::Bot }),
                         );
                         ctx.draw_rect(m2, src);
                         (m2, src)

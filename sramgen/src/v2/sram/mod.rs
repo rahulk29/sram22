@@ -233,7 +233,7 @@ pub(crate) mod tests {
 
     pub(crate) const PARAMS_2: SramParams = SramParams::new(8, 4, 2048, 64, ControlMode::ReplicaV1);
 
-    pub(crate) const PARAMS_3: SramParams = SramParams::new(8, 2, 32, 32, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_3: SramParams = SramParams::new(8, 4, 64, 32, ControlMode::ReplicaV1);
 
     pub(crate) const PARAMS_4: SramParams = SramParams::new(32, 4, 64, 32, ControlMode::ReplicaV1);
 
