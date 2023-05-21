@@ -122,7 +122,7 @@ impl SramInner {
         addr_gate.align_bottom(col_dec.bbox());
         addr_gate.align_to_the_left_of(col_dec.bbox(), 6_350);
         control.set_orientation(Named::FlipYx);
-        control.align_beneath(col_dec.bbox(), 5_000);
+        control.align_beneath(col_dec.bbox(), 10_000);
         control.align_right(decoder.bbox());
         dffs.align_beneath(control.bbox(), 10_000);
         dffs.align_right(decoder.bbox());
