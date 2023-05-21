@@ -214,7 +214,7 @@ mod tests {
     };
 
     const TDC_PARAMS: TdcParams = TdcParams {
-        stages: 16,
+        stages: 64,
         inv: INV_SIZING,
     };
 

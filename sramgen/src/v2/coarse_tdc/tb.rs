@@ -1,4 +1,3 @@
-use crate::v2::gate::{Inv, PrimitiveGateParams};
 use substrate::schematic::elements::vdc::Vdc;
 use substrate::schematic::elements::vpulse::Vpulse;
 use substrate::units::{SiPrefix, SiValue};
@@ -7,13 +6,13 @@ use substrate::verification::simulation::{OutputFormat, TranAnalysis};
 
 use super::*;
 
-pub struct TdcTb {
-    params: TdcTbParams,
+pub struct CoarseTdcTb {
+    params: CoarseTdcTbParams,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TdcTbParams {
-    pub inner: TdcParams,
+pub struct CoarseTdcTbParams {
+    pub inner: CoarseTdcParams,
     pub vdd: f64,
     /// Difference between input waveform rising edges.
     pub delta_t: f64,
@@ -23,8 +22,8 @@ pub struct TdcTbParams {
     pub t_stop: f64,
 }
 
-impl Component for TdcTb {
-    type Params = TdcTbParams;
+impl Component for CoarseTdcTb {
+    type Params = CoarseTdcTbParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
@@ -33,7 +32,7 @@ impl Component for TdcTb {
     }
 
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("tdc_testbench")
+        arcstr::literal!("coarse_tdc_testbench")
     }
 
     fn schematic(
@@ -41,7 +40,7 @@ impl Component for TdcTb {
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
         let vss = ctx.port("vss", Direction::InOut);
-        let [vdd, a, b, b0, reset_b] = ctx.signals(["vdd", "a", "b", "b0", "reset_b"]);
+        let [vdd, a, b, reset_b] = ctx.signals(["vdd", "a", "b", "reset_b"]);
         let dout = ctx.bus("dout", self.params.inner.bits_out());
 
         let vmax = SiValue::with_precision(self.params.vdd, SiPrefix::Nano);
@@ -83,30 +82,19 @@ impl Component for TdcTb {
         .add_to(ctx);
 
         ctx.instantiate::<Vpulse>(&Vpulse {
-            v1: vmax,
-            v2: SiValue::zero(),
+            v1: SiValue::zero(),
+            v2: vmax,
             td: tb,
             tr,
             tf: tr,
             pw: SiValue::new(1000, SiPrefix::None),
             period: SiValue::new(2000, SiPrefix::None),
         })?
-        .with_connections([("p", b0), ("n", vss)])
+        .with_connections([("p", b), ("n", vss)])
         .named("Vb")
         .add_to(ctx);
 
-        let inv_params = PrimitiveGateParams {
-            nwidth: 3_000,
-            pwidth: 12_000,
-            length: 150,
-        };
-
-        ctx.instantiate::<Inv>(&inv_params)?
-            .with_connections([("vdd", vdd), ("vss", vss), ("din", b0), ("din_b", b)])
-            .named("Xbbuf")
-            .add_to(ctx);
-
-        ctx.instantiate::<Tdc>(&self.params.inner)?
+        ctx.instantiate::<CoarseTdc>(&self.params.inner)?
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
@@ -122,7 +110,7 @@ impl Component for TdcTb {
     }
 }
 
-impl Testbench for TdcTb {
+impl Testbench for CoarseTdcTb {
     type Output = ();
     fn setup(
         &mut self,
