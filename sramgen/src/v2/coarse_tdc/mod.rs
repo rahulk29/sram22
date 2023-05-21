@@ -1,6 +1,14 @@
 use serde::{Deserialize, Serialize};
-use substrate::component::Component;
+use subgeom::Point;
+use subgeom::bbox::BoundBox;
+use subgeom::transform::Translate;
+use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
+use substrate::layout::cell::PortConflictStrategy;
+use substrate::layout::layers::selector::Selector;
+use substrate::layout::placement::align::{AlignRect, AlignMode};
+use substrate::layout::placement::array::ArrayTiler;
+use substrate::layout::placement::tile::LayerBbox;
 use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 
@@ -84,6 +92,88 @@ impl Component for CoarseTdcCell {
 
         Ok(())
     }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let vspace = 400;
+        let hspace = 400;
+        let inv = ctx.instantiate::<Inv>(&self.params)?;
+        ctx.draw(inv.clone())?;
+
+        let mut inv2 = inv.clone();
+        inv2.align_to_the_right_of(inv.bbox(), hspace);
+        ctx.draw_ref(&inv2)?;
+
+        let mut ff = ctx.instantiate::<TappedRegister>(&NoParams)?;
+        ff.align_beneath(inv.bbox(), vspace);
+        ctx.draw_ref(&ff)?;
+
+        let mut inv3 = inv.clone();
+        inv3.align_beneath(ff.bbox(), vspace);
+        ctx.draw_ref(&inv3)?;
+
+        let mut inv4 = inv.clone();
+        inv4.align_beneath(inv3.bbox(), vspace);
+        ctx.draw_ref(&inv4)?;
+
+        let mut inv6 = inv.clone();
+        inv6.align_to_the_right_of(inv.bbox(), hspace);
+        inv6.align_beneath(ff.bbox(), vspace);
+        ctx.draw_ref(&inv6)?;
+
+        let mut inv5 = inv.clone();
+        inv5.align_to_the_right_of(inv.bbox(), hspace);
+        inv5.align_beneath(inv6.bbox(), vspace);
+        ctx.draw_ref(&inv5)?;
+
+        Ok(())
+    }
+}
+
+pub struct TappedRegister;
+
+impl Component for TappedRegister {
+    type Params = NoParams;
+
+    fn new(params: &Self::Params, ctx: &substrate::data::SubstrateCtx) -> substrate::error::Result<Self> {
+        Ok(Self)
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("tapped_register")
+    }
+
+    fn layout(&self, ctx: &mut substrate::layout::context::LayoutCtx) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+        let outline = layers.get(Selector::Name("outline"))?;
+
+        let stdcells = ctx.inner().std_cell_db();
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
+
+        let tap = lib.try_cell_named("sky130_fd_sc_hd__tap_2")?;
+        let tap = ctx.instantiate::<StdCell>(&tap.id())?;
+        let tap = LayerBbox::new(tap, outline);
+        let ff = lib.try_cell_named("sky130_fd_sc_hd__dfrtp_2")?;
+        let ff = ctx.instantiate::<StdCell>(&ff.id())?;
+        let ff = LayerBbox::new(ff, outline);
+
+        let mut row = ArrayTiler::builder();
+        row.mode(AlignMode::ToTheRight).alt_mode(AlignMode::Top);
+        row.push(tap.clone());
+        row.push(ff);
+        row.push(tap);
+        let mut row = row.build();
+        row.expose_ports(|port, i| {
+            if i == 1 { Some(port) } else { None }
+        }, PortConflictStrategy::Error)?;
+        let group = row.generate()?;
+        ctx.add_ports(group.ports())?;
+        ctx.draw(group)?;
+
+        Ok(())
+    }
 }
 
 impl Component for CoarseTdc {
@@ -141,7 +231,7 @@ impl Component for CoarseTdc {
 #[cfg(test)]
 mod tests {
 
-    use crate::paths::out_spice;
+    use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -166,6 +256,21 @@ mod tests {
         tr: 20e-12,
         t_stop: 5e-9,
     };
+
+    #[test]
+    fn test_coarse_tdc_cell() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_coarse_tdc_cell");
+        ctx.write_schematic_to_file::<CoarseTdcCell>(
+            &TDC_PARAMS.inv,
+            out_spice(&work_dir, "schematic"),
+        )
+        .expect("failed to write schematic");
+        ctx.write_layout::<CoarseTdcCell>(&TDC_PARAMS.inv, out_gds(&work_dir, "layout"))
+            .expect("failed to write layout");
+        ctx.write_layout::<TappedRegister>(&NoParams, out_gds(work_dir, "register"))
+            .expect("failed to write layout");
+    }
 
     #[test]
     fn test_coarse_tdc() {
