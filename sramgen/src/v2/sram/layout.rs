@@ -863,15 +863,32 @@ impl SramInner {
         let wl_en0_rect = wl_en0_rect.expand_side(Side::Right, 1_000);
         let expanded_all = router.expand_to_grid(wl_en0_rect, ExpandToGridStrategy::All);
         let src = wl_en0_rect.with_hspan(Span::new(initial_right, expanded_all.right()));
-        let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::UpperRight));
+        let src = src.expand_side(
+            if rbl_wl_index % 2 == 0 {
+                Side::Top
+            } else {
+                Side::Bot
+            },
+            420,
+        );
+        let via = ctx.instantiate::<Via>(
+            &ViaParams::builder()
+                .layers(m2, m3)
+                .geometry(src, src)
+                .build(),
+        )?;
+        let m3_src = router.expand_to_grid(src, ExpandToGridStrategy::Minimum);
+        ctx.draw(via)?;
         ctx.draw_rect(m2, src);
         router.occupy(m2, src, "wl_en0")?;
+        ctx.draw_rect(m3, m3_src);
+        router.occupy(m3, m3_src, "wl_en0")?;
 
         let dst = control.port("wl_en0")?.largest_rect(m1)?;
         let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
         ctx.draw_rect(m1, dst);
 
-        to_route.push((m2, src, m1, dst, Some("wl_en0")));
+        to_route.push((m3, m3_src, m1, dst, Some("wl_en0")));
 
         for (lsrc, src, ldst, dst, net) in to_route {
             if let Some(net) = net {
