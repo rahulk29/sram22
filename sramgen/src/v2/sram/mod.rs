@@ -191,6 +191,13 @@ impl Component for Sram {
                 ctx.draw_rect(layer, r);
             }
         }
+        for port in ["vdd", "vss"] {
+            ctx.add_port(
+                ring.port(format!("ring_{port}"))?
+                    .into_cell_port()
+                    .named(port),
+            )?;
+        }
 
         ctx.draw(ring)?;
 
@@ -202,6 +209,7 @@ impl Component for Sram {
             ("wmask", self.params.wmask_width),
             ("addr", self.params.addr_width),
             ("we", 1),
+            ("clk", 1),
         ] {
             for i in 0..width {
                 let port_id = PortId::new(pin, i);
