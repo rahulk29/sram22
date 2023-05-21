@@ -155,7 +155,7 @@ mod tests {
     };
 
     const TDC_PARAMS: CoarseTdcParams = CoarseTdcParams {
-        stages: 16,
+        stages: 64,
         inv: INV_SIZING,
     };
 
