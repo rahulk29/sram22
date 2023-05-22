@@ -135,7 +135,7 @@ impl Component for AddrGate {
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         let gate = match params.gate {
-            GateParams::And2(params) => GateParams::And2(params),
+            params @ GateParams::And2(_) => params,
             GateParams::And3(params) => GateParams::And2(params),
             _ => panic!("Unsupported wmux driver gate"),
         };
@@ -219,7 +219,7 @@ impl Component for WmuxDriver {
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         let gate = match params.gate {
-            GateParams::And2(params) => GateParams::And2(params),
+            params @ GateParams::And2(_) => params,
             GateParams::And3(params) => GateParams::And2(params),
             _ => panic!("Unsupported wmux driver gate"),
         };

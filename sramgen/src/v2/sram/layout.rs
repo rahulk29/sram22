@@ -525,22 +525,6 @@ impl SramInner {
             ctx.draw(via)?;
         }
 
-        // Route wordline decoder to wordline driver
-        // for i in 0..tree.root.num {
-        //     let src = decoder.port(PortId::new("decode", i))?.largest_rect(m0)?;
-        //     let dst = wl_driver.port(PortId::new("in", i))?.largest_rect(m0)?;
-        //     let jog = SJog::builder()
-        //         .src(src)
-        //         .dst(dst)
-        //         .dir(Dir::Horiz)
-        //         .layer(m0)
-        //         .width(170)
-        //         .grid(ctx.pdk().layout_grid())
-        //         .build()
-        //         .unwrap();
-        //     ctx.draw(jog)?;
-        // }
-
         // Route wordline driver to bitcell array
         for i in 0..tree.root.num {
             let src = decoder.port(PortId::new("decode", i))?.largest_rect(m0)?;

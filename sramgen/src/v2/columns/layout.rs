@@ -632,19 +632,12 @@ impl Component for ColumnCent {
         wmask_dff.translate(tiler.translation(6, 0));
         tiler.expose_ports(
             |port: CellPort, (i, _)| match port.name().as_str() {
-                "en_b" | "we" | "sel_b" => Some(port),
+                "en_b" | "we" | "sel_b" | "vdd" | "vss" => Some(port),
                 "clk" => {
                     if i == 3 {
                         Some(port.named("sense_en"))
                     } else {
                         Some(port.with_index(0))
-                    }
-                }
-                "vdd" | "vss" => {
-                    if i >= 3 {
-                        Some(port)
-                    } else {
-                        None
                     }
                 }
                 _ => None,

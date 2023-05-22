@@ -263,9 +263,9 @@ pub(crate) mod tests {
     pub(crate) const PARAMS_11: SramParams = SramParams::new(8, 8, 4096, 8, ControlMode::ReplicaV1);
 
     macro_rules! test_sram {
-        ($name: ident, $params: ident) => {
+        ($name: ident, $params: ident $(, $attr: meta)*) => {
             #[test]
-            #[ignore = "slow"]
+            $(#[$attr])*
             fn $name() {
                 let ctx = setup_ctx();
                 let work_dir = test_work_dir(stringify!($name));
@@ -297,104 +297,16 @@ pub(crate) mod tests {
         };
     }
 
-    #[test]
-    fn test_sram_tiny() {
-        let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_sram_tiny");
-        ctx.write_schematic_to_file::<Sram>(&TINY_SRAM, out_spice(&work_dir, "schematic"))
-            .expect("failed to write schematic");
-        ctx.write_layout::<Sram>(&TINY_SRAM, out_gds(&work_dir, "layout"))
-            .expect("failed to write layout");
-
-        #[cfg(feature = "commercial")]
-        {
-            let drc_work_dir = work_dir.join("drc");
-            let output = ctx
-                .write_drc::<Sram>(&TINY_SRAM, drc_work_dir)
-                .expect("failed to run DRC");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::drc::DrcSummary::Pass
-            ));
-            let lvs_work_dir = work_dir.join("lvs");
-            let output = ctx
-                .write_lvs::<Sram>(&TINY_SRAM, lvs_work_dir)
-                .expect("failed to run LVS");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::lvs::LvsSummary::Pass
-            ));
-        }
-    }
-
-    #[test]
-    fn test_sram_1() {
-        let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_sram_1");
-        ctx.write_schematic_to_file::<Sram>(&PARAMS_1, out_spice(&work_dir, "schematic"))
-            .expect("failed to write schematic");
-        ctx.write_layout::<Sram>(&PARAMS_1, out_gds(&work_dir, "layout"))
-            .expect("failed to write layout");
-
-        #[cfg(feature = "commercial")]
-        {
-            let drc_work_dir = work_dir.join("drc");
-            let output = ctx
-                .write_drc::<Sram>(&PARAMS_1, drc_work_dir)
-                .expect("failed to run DRC");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::drc::DrcSummary::Pass
-            ));
-            let lvs_work_dir = work_dir.join("lvs");
-            let output = ctx
-                .write_lvs::<Sram>(&PARAMS_1, lvs_work_dir)
-                .expect("failed to run LVS");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::lvs::LvsSummary::Pass
-            ));
-        }
-    }
-
-    #[test]
-    #[ignore = "slow"]
-    fn test_sram_2() {
-        let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_sram_2");
-        ctx.write_schematic_to_file::<Sram>(&PARAMS_2, out_spice(&work_dir, "schematic"))
-            .expect("failed to write schematic");
-        ctx.write_layout::<Sram>(&PARAMS_2, out_gds(&work_dir, "layout"))
-            .expect("failed to write layout");
-
-        #[cfg(feature = "commercial")]
-        {
-            let drc_work_dir = work_dir.join("drc");
-            let output = ctx
-                .write_drc::<Sram>(&PARAMS_2, drc_work_dir)
-                .expect("failed to run DRC");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::drc::DrcSummary::Pass
-            ));
-            let lvs_work_dir = work_dir.join("lvs");
-            let output = ctx
-                .write_lvs::<Sram>(&PARAMS_2, lvs_work_dir)
-                .expect("failed to run LVS");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::lvs::LvsSummary::Pass
-            ));
-        }
-    }
-
-    test_sram!(test_sram_3, PARAMS_3);
-    test_sram!(test_sram_4, PARAMS_4);
-    test_sram!(test_sram_5, PARAMS_5);
-    test_sram!(test_sram_6, PARAMS_6);
-    test_sram!(test_sram_7, PARAMS_7);
-    test_sram!(test_sram_8, PARAMS_8);
-    test_sram!(test_sram_9, PARAMS_9);
-    test_sram!(test_sram_10, PARAMS_10);
-    test_sram!(test_sram_11, PARAMS_11);
+    test_sram!(test_sram_tiny, TINY_SRAM);
+    test_sram!(test_sram_1, PARAMS_1);
+    test_sram!(test_sram_2, PARAMS_2, ignore = "slow");
+    test_sram!(test_sram_3, PARAMS_3, ignore = "slow");
+    test_sram!(test_sram_4, PARAMS_4, ignore = "slow");
+    test_sram!(test_sram_5, PARAMS_5, ignore = "slow");
+    test_sram!(test_sram_6, PARAMS_6, ignore = "slow");
+    test_sram!(test_sram_7, PARAMS_7, ignore = "slow");
+    test_sram!(test_sram_8, PARAMS_8, ignore = "slow");
+    test_sram!(test_sram_9, PARAMS_9, ignore = "slow");
+    test_sram!(test_sram_10, PARAMS_10, ignore = "slow");
+    test_sram!(test_sram_11, PARAMS_11, ignore = "slow");
 }
