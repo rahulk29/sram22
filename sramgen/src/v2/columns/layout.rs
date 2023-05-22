@@ -282,7 +282,8 @@ impl Column {
                 DFF_PADDING,
             ))));
             for _ in 0..mux_ratio - 1 {
-                row.push(None.into());
+                let cent = ctx.instantiate::<DffColExtend>(&NoParams)?;
+                row.push(Pad::new(cent, DFF_PADDING).into());
             }
         } else {
             for _ in 0..mux_ratio {

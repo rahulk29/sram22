@@ -519,7 +519,7 @@ impl SramInner {
                     })
                     .build(),
             );
-            to_route.push((m1, src, m2, dst, None));
+            to_route.push((m2, dst, m1, src, None));
             let via = ctx.instantiate::<Via>(
                 &ViaParams::builder()
                     .layers(m0, m1)
