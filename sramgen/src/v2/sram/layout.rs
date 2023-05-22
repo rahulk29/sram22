@@ -491,11 +491,7 @@ impl SramInner {
                 .shift(-1)
                 .build(),
         )?;
-        let and3_dec = if let GateParams::And3(_) = col_tree.root.gate {
-            true
-        } else {
-            false
-        };
+        let and3_dec = matches!(col_tree.root.gate, GateParams::And3(_));
         for (i, dst) in on_grid_bus.ports().enumerate() {
             let src = col_dec.port(PortId::new("decode_b", i))?.largest_rect(m0)?;
             let src = router.register_jog_to_grid(

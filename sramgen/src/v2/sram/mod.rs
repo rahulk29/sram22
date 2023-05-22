@@ -45,7 +45,7 @@ pub struct SramParams {
 }
 
 impl SramParams {
-    const fn new(
+    pub const fn new(
         wmask_granularity: usize,
         mux_ratio: usize,
         num_words: usize,
