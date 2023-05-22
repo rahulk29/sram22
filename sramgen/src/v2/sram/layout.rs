@@ -30,6 +30,7 @@ use crate::v2::decoder::{
     AddrGate, AddrGateParams, DecoderParams, DecoderStageParams, DecoderTree, Predecoder,
     WmuxDriver,
 };
+use crate::v2::gate::GateParams;
 use crate::v2::precharge::layout::{ReplicaPrecharge, ReplicaPrechargeParams};
 
 use super::SramInner;
@@ -323,7 +324,7 @@ impl SramInner {
                                 .rect(src)
                                 .dst_layer(m1)
                                 .width(170)
-                                .first_dir(Side::Bot)
+                                .first_dir(Side::Top)
                                 .second_dir(if j == 0 { Side::Right } else { Side::Left })
                                 .build(),
                         );
@@ -344,6 +345,7 @@ impl SramInner {
                             ExpandToGridStrategy::Side(if j == 0 { Side::Top } else { Side::Bot }),
                         );
                         ctx.draw_rect(m2, src);
+                        router.block(m2, src);
                         (m2, src)
                     };
                     let dst = all_ports[2 * i + j];
@@ -489,6 +491,11 @@ impl SramInner {
                 .shift(-1)
                 .build(),
         )?;
+        let and3_dec = if let GateParams::And3(_) = col_tree.root.gate {
+            true
+        } else {
+            false
+        };
         for (i, dst) in on_grid_bus.ports().enumerate() {
             let src = col_dec.port(PortId::new("decode_b", i))?.largest_rect(m0)?;
             let src = router.register_jog_to_grid(
@@ -497,8 +504,19 @@ impl SramInner {
                     .rect(src)
                     .dst_layer(m1)
                     .width(170)
-                    .first_dir(if i % 2 == 0 { Side::Top } else { Side::Bot })
-                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
+                    .first_dir(if !and3_dec && i % 2 == 0 {
+                        Side::Top
+                    } else {
+                        Side::Bot
+                    })
+                    .second_dir({
+                        let side = if i % 2 == 0 { Side::Right } else { Side::Left };
+                        if and3_dec {
+                            !side
+                        } else {
+                            side
+                        }
+                    })
                     .build(),
             );
             to_route.push((m1, src, m2, dst, None));
@@ -596,7 +614,7 @@ impl SramInner {
 
         // Route control logic inputs.
         let src = control.port("we")?.largest_rect(m1)?;
-        let src = router.expand_to_grid(src, ExpandToGridStrategy::Minimum);
+        let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Bot));
         ctx.draw_rect(m1, src);
 
         let dst = dffs
