@@ -267,12 +267,13 @@ impl Column {
         );
 
         let mut row = Vec::new();
-        row.push(OptionTile::new(Tile::from(RectBbox::new(
-            dff.clone(),
-            bbox,
+        row.push(OptionTile::new(Tile::from(Pad::new(
+            RectBbox::new(dff.clone(), bbox),
+            DFF_PADDING,
         ))));
         for _ in 0..mux_ratio - 1 {
-            row.push(None.into());
+            let cent = ctx.instantiate::<DffColExtend>(&NoParams)?;
+            row.push(Pad::new(cent, DFF_PADDING).into());
         }
         grid.push_row(row);
         let mut row = Vec::new();
@@ -616,7 +617,7 @@ impl Component for ColumnCent {
         grid.push_row(into_vec![wmux.clone()]);
         grid.push_row(into_vec![sa.clone()]);
         grid.push_row(into_vec![buf.clone()]);
-        grid.push_row(into_vec![dff.clone()]);
+        grid.push_row(into_vec![Pad::new(dff.clone(), DFF_PADDING)]);
         let wmask_tile = Pad::new(wmask_dff.clone(), DFF_PADDING);
         grid.push_row(into_vec![wmask_tile]);
 
