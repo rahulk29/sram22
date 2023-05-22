@@ -1,10 +1,18 @@
 use serde::{Deserialize, Serialize};
-use substrate::component::Component;
+use subgeom::bbox::BoundBox;
+use subgeom::orientation::Named;
+use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
+use substrate::layout::cell::PortConflictStrategy;
+use substrate::layout::layers::selector::Selector;
+use substrate::layout::placement::align::{AlignMode, AlignRect};
+use substrate::layout::placement::array::ArrayTiler;
+use substrate::layout::placement::tile::LayerBbox;
 use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 
-use super::gate::{Inv, PrimitiveGateParams};
+use super::decoder::layout::{DecoderGateParams, DecoderTap, PredecoderPhysicalDesignScript};
+use super::gate::{GateParams, Inv, PrimitiveGateParams};
 
 pub mod tb;
 
@@ -197,10 +205,206 @@ impl Component for Tdc {
     }
 }
 
+pub struct TdcCell {
+    params: PrimitiveGateParams,
+}
+
+impl Component for TdcCell {
+    type Params = PrimitiveGateParams;
+    fn new(
+        params: &Self::Params,
+        ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self { params: *params })
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("tdc_cell")
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let inv = ctx.instantiate::<Inv>(&self.params)?;
+        let mut ffs = ctx.instantiate::<TappedRegister4>(&NoParams)?;
+
+        let inv0 = inv.clone().with_orientation(Named::R90Cw);
+        ctx.draw_ref(&inv0)?;
+
+        let hspace = 400;
+        let vspace = 400;
+        let mut inv1 = inv0.clone().with_orientation(Named::R90Cw);
+        inv1.align_to_the_right_of(inv0.bbox(), hspace);
+        inv1.align_top(inv0.bbox());
+        ctx.draw_ref(&inv1)?;
+
+        let cx = inv1.bbox().into_rect().right();
+
+        let mut s11 = inv1.clone().with_orientation(Named::R90Cw);
+        s11.align_to_the_right_of(inv1.bbox(), hspace);
+        s11.align_top(inv1.bbox());
+        ctx.draw_ref(&s11)?;
+
+        let mut s12 = s11.clone();
+        s12.align_to_the_right_of(s11.bbox(), hspace);
+        ctx.draw_ref(&s12)?;
+        let mut s13 = s11.clone();
+        s13.align_to_the_right_of(s12.bbox(), hspace);
+        ctx.draw_ref(&s13)?;
+        let mut s14 = s11.clone();
+        s14.align_to_the_right_of(s13.bbox(), hspace);
+        ctx.draw_ref(&s14)?;
+
+        let mut s21 = s11.clone();
+        s21.align_beneath(s11.bbox(), vspace);
+        ctx.draw_ref(&s21)?;
+
+        let mut s22 = s13.clone();
+        s22.align_beneath(s13.bbox(), vspace);
+        ctx.draw_ref(&s22)?;
+
+        let mut s31 = inv0.clone();
+        s31.align_beneath(s21.bbox(), vspace);
+        ctx.draw_ref(&s31)?;
+
+        let mut prev = s31.clone();
+
+        let [s32, s33, s34, s35, s36, s37, s38] = [1, 2, 3, 4, 5, 6, 7].map(|_| {
+            let mut s3i = prev.clone();
+            s3i.align_to_the_right_of(prev.bbox(), hspace);
+            ctx.draw_ref(&s3i).expect("failed to draw instance");
+            prev = s3i.clone();
+            s3i
+        });
+
+        let mut s41 = s32.clone();
+        s41.align_beneath(s32.bbox(), vspace);
+        ctx.draw_ref(&s41)?;
+        let mut s42 = s34.clone();
+        s42.align_beneath(s32.bbox(), vspace);
+        ctx.draw_ref(&s42)?;
+        let mut s43 = s36.clone();
+        s43.align_beneath(s32.bbox(), vspace);
+        ctx.draw_ref(&s43)?;
+        let mut s44 = s38.clone();
+        s44.align_beneath(s32.bbox(), vspace);
+        ctx.draw_ref(&s44)?;
+
+        let dsn = ctx
+            .inner()
+            .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?
+            .as_ref()
+            .clone();
+        let decoder_gate = DecoderGateParams {
+            gate: GateParams::Inv(self.params),
+            dsn,
+        };
+
+        let mut tap = ctx.instantiate::<DecoderTap>(&decoder_gate)?;
+        tap.orientation_mut().reflect_vert();
+
+        let mut tap1l = tap.clone();
+        tap1l.align_top(inv0.bbox());
+        tap1l.align_to_the_left_of(inv0.bbox(), hspace);
+        ctx.draw(tap1l)?;
+        let mut tap1r = tap.clone();
+        tap1r.align_to_the_right_of(s14.bbox(), hspace);
+        ctx.draw(tap1r)?;
+
+        let mut tap2l = tap.clone();
+        tap2l.align_top(s21.bbox());
+        tap2l.align_to_the_left_of(s21.bbox(), hspace);
+        ctx.draw_ref(&tap2l)?;
+        let mut tap2r = tap2l.clone();
+        tap2r.align_to_the_right_of(s22.bbox(), hspace);
+        ctx.draw(tap2r)?;
+
+        let mut tap3l = tap.clone();
+        tap3l.align_top(s31.bbox());
+        tap3l.align_to_the_left_of(s31.bbox(), hspace);
+        ctx.draw_ref(&tap3l)?;
+        let mut tap3r = tap3l.clone();
+        tap3r.align_to_the_right_of(s38.bbox(), hspace);
+        ctx.draw(tap3r)?;
+
+        let mut tap4l = tap.clone();
+        tap4l.align_top(s41.bbox());
+        tap4l.align_to_the_left_of(s41.bbox(), hspace);
+        ctx.draw_ref(&tap4l)?;
+        let mut tap4r = tap4l.clone();
+        tap4r.align_to_the_right_of(s44.bbox(), hspace);
+        ctx.draw(tap4r)?;
+
+        ffs.align_beneath(s41.bbox(), vspace);
+        ctx.draw(ffs)?;
+        Ok(())
+    }
+}
+
+pub struct TappedRegister4;
+
+impl Component for TappedRegister4 {
+    type Params = NoParams;
+
+    fn new(
+        params: &Self::Params,
+        ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self)
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("tapped_register_4")
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+        let outline = layers.get(Selector::Name("outline"))?;
+
+        let stdcells = ctx.inner().std_cell_db();
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
+
+        let tap = lib.try_cell_named("sky130_fd_sc_hd__tap_2")?;
+        let tap = ctx.instantiate::<StdCell>(&tap.id())?;
+        let tap = LayerBbox::new(tap, outline);
+        let ff = lib.try_cell_named("sky130_fd_sc_hd__dfrtp_2")?;
+        let ff = ctx.instantiate::<StdCell>(&ff.id())?;
+        let ff = LayerBbox::new(ff, outline);
+
+        let mut row = ArrayTiler::builder();
+        row.mode(AlignMode::ToTheRight).alt_mode(AlignMode::Top);
+        row.push(tap.clone());
+        for i in 0..4 {
+            row.push(ff.clone());
+        }
+        row.push(tap);
+        let mut row = row.build();
+        row.expose_ports(
+            |port, i| {
+                if i == 1 {
+                    Some(port)
+                } else {
+                    None
+                }
+            },
+            PortConflictStrategy::Error,
+        )?;
+        let group = row.generate()?;
+        ctx.add_ports(group.ports())?;
+        ctx.draw(group)?;
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
-    use crate::paths::out_spice;
+    use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -225,6 +429,14 @@ mod tests {
         tr: 20e-12,
         t_stop: 5e-9,
     };
+
+    #[test]
+    fn test_tdc_cell() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_tdc_cell");
+        ctx.write_layout::<TdcCell>(&INV_SIZING, out_gds(&work_dir, "layout"))
+            .expect("failed to write layout");
+    }
 
     #[test]
     fn test_tdc() {
