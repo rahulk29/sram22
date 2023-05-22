@@ -189,6 +189,8 @@ impl SramInner {
                 ("clk", clk),
                 ("vdd", vdd),
                 ("vss", vss),
+                ("dummy_bl", dummy_bl),
+                ("dummy_br", dummy_br),
                 ("bl", bl),
                 ("br", br),
                 ("pc_b", pc_b),
@@ -202,20 +204,12 @@ impl SramInner {
             .named("col_circuitry")
             .add_to(ctx);
 
-        ctx.instantiate::<Precharge>(&self.col_params().pc)?
-            .with_connections([("vdd", vdd), ("bl", rbl), ("br", rbr), ("en_b", pc_b)])
-            .named("replica_precharge")
-            .add_to(ctx);
-
-        ctx.instantiate::<Precharge>(&self.col_params().pc)?
-            .with_connections([
-                ("vdd", vdd),
-                ("bl", dummy_bl),
-                ("br", dummy_br),
-                ("en_b", pc_b),
-            ])
-            .named("dummy_precharge")
-            .add_to(ctx);
+        for i in 0..2 {
+            ctx.instantiate::<Precharge>(&self.col_params().pc)?
+                .with_connections([("vdd", vdd), ("bl", rbl), ("br", rbr), ("en_b", pc_b)])
+                .named(format!("replica_precharge_{i}"))
+                .add_to(ctx);
+        }
 
         Ok(())
     }

@@ -134,8 +134,16 @@ impl Component for AddrGate {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
+        let gate = match params.gate {
+            params @ GateParams::And2(_) => params,
+            GateParams::And3(params) => GateParams::And2(params),
+            _ => panic!("Unsupported wmux driver gate"),
+        };
         Ok(Self {
-            params: params.clone(),
+            params: AddrGateParams {
+                gate,
+                num: params.num,
+            },
         })
     }
 
@@ -184,6 +192,21 @@ impl Component for AddrGate {
         }
         Ok(())
     }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let dsn = ctx
+            .inner()
+            .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
+        let params = DecoderStageParams {
+            gate: self.params.gate,
+            num: self.params.num,
+            child_sizes: vec![],
+        };
+        decoder_stage_layout(ctx, &params, &dsn, RoutingStyle::Driver)
+    }
 }
 pub struct WmuxDriver {
     params: DecoderStageParams,
@@ -195,8 +218,17 @@ impl Component for WmuxDriver {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
+        let gate = match params.gate {
+            params @ GateParams::And2(_) => params,
+            GateParams::And3(params) => GateParams::And2(params),
+            _ => panic!("Unsupported wmux driver gate"),
+        };
         Ok(Self {
-            params: params.clone(),
+            params: DecoderStageParams {
+                gate,
+                num: params.num,
+                child_sizes: params.child_sizes.clone(),
+            },
         })
     }
 

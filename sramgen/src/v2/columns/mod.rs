@@ -106,6 +106,11 @@ impl Component for Column {
 #[cfg(test)]
 mod tests {
 
+    use arcstr::ArcStr;
+    use subgeom::bbox::{Bbox, BoundBox};
+    use substrate::layout::cell::{CellPort, Port, PortId};
+    use substrate::layout::layers::selector::Selector;
+
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
@@ -115,19 +120,19 @@ mod tests {
 
     const WRITE_MUX_SIZING: WriteMuxSizing = WriteMuxSizing {
         length: 150,
-        mux_width: 2_000,
+        mux_width: 2_400,
         mux_ratio: 4,
     };
     const READ_MUX_PARAMS: ReadMuxParams = ReadMuxParams {
         length: 150,
-        width: 2_000,
+        width: 3_000,
         mux_ratio: 4,
         idx: 2,
     };
     const PRECHARGE_PARAMS: PrechargeParams = PrechargeParams {
         length: 150,
-        pull_up_width: 1_600,
-        equalizer_width: 1_000,
+        pull_up_width: 2_000,
+        equalizer_width: 1_200,
     };
     const DIFF_BUF_PARAMS: DiffBufParams = DiffBufParams {
         width: 4_800,
@@ -141,9 +146,9 @@ mod tests {
         rmux: READ_MUX_PARAMS,
         wmux: WRITE_MUX_SIZING,
         buf: DIFF_BUF_PARAMS,
-        cols: 128,
+        cols: 16,
         include_wmask: true,
-        wmask_granularity: 8,
+        wmask_granularity: 2,
     };
 
     const COL_PARAMS: ColParams = ColParams {
@@ -155,6 +160,64 @@ mod tests {
         include_wmask: false,
         wmask_granularity: 8,
     };
+
+    struct ColPeripheralsLvs {
+        params: ColParams,
+    }
+
+    impl Component for ColPeripheralsLvs {
+        type Params = ColParams;
+
+        fn new(
+            params: &Self::Params,
+            _ctx: &substrate::data::SubstrateCtx,
+        ) -> substrate::error::Result<Self> {
+            Ok(Self {
+                params: params.clone(),
+            })
+        }
+
+        fn name(&self) -> ArcStr {
+            arcstr::literal!("col_peripherals_lvs")
+        }
+
+        fn schematic(
+            &self,
+            ctx: &mut substrate::schematic::context::SchematicCtx,
+        ) -> substrate::error::Result<()> {
+            let mut cols = ctx.instantiate::<ColPeripherals>(&self.params)?;
+            ctx.bubble_all_ports(&mut cols);
+            ctx.add_instance(cols);
+            Ok(())
+        }
+
+        fn layout(
+            &self,
+            ctx: &mut substrate::layout::context::LayoutCtx,
+        ) -> substrate::error::Result<()> {
+            let m2 = ctx.layers().get(Selector::Metal(2))?;
+            let cols = ctx.instantiate::<ColPeripherals>(&self.params)?;
+
+            for i in 0..2 {
+                let clk0 = cols.port(PortId::new("clk", i))?;
+
+                let mut clk0_brect = Bbox::empty();
+                for shape in clk0.shapes(m2) {
+                    clk0_brect = clk0_brect.union(shape.bbox());
+                }
+
+                ctx.draw_rect(m2, clk0_brect.into_rect());
+                ctx.merge_port(CellPort::with_shape("clk", m2, clk0_brect.into_rect()));
+            }
+            ctx.add_ports(cols.ports().filter_map(|port| match port.name().as_str() {
+                "clk" => None,
+                _ => Some(port),
+            }))?;
+            ctx.draw(cols)?;
+
+            Ok(())
+        }
+    }
 
     #[test]
     fn test_col_peripherals() {
@@ -177,6 +240,31 @@ mod tests {
             assert!(matches!(
                 output.summary,
                 substrate::verification::drc::DrcSummary::Pass
+            ));
+        }
+    }
+
+    #[test]
+    fn test_col_peripherals_lvs() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_col_peripherals_lvs");
+        ctx.write_layout::<ColPeripheralsLvs>(&COL_WMASK_PARAMS, out_gds(&work_dir, "layout"))
+            .expect("failed to write layout");
+        ctx.write_schematic_to_file::<ColPeripheralsLvs>(
+            &COL_WMASK_PARAMS,
+            out_spice(&work_dir, "netlist"),
+        )
+        .expect("failed to write schematic");
+
+        #[cfg(feature = "commercial")]
+        {
+            let lvs_work_dir = work_dir.join("lvs");
+            let output = ctx
+                .write_lvs::<ColPeripheralsLvs>(&COL_WMASK_PARAMS, lvs_work_dir)
+                .expect("failed to run LVS");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::lvs::LvsSummary::Pass
             ));
         }
     }

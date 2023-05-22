@@ -134,8 +134,8 @@ impl ReadMux {
         }
 
         for (port, idx, x, side, name) in [
-            ("sd_1_0", 3, pc.width, Side::Right, "read_br"),
-            ("sd_0_1", 0, 0, Side::Left, "read_bl"),
+            ("sd_1_0", 3, pc.width, Side::Right, "read_bl"),
+            ("sd_0_1", 0, 0, Side::Left, "read_br"),
         ] {
             let target = mos.port(port)?.largest_rect(pc.m0)?;
             let viap = ViaParams::builder()

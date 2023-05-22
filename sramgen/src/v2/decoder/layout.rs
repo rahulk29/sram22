@@ -298,7 +298,7 @@ impl Predecoder {
                     Rect::from_spans(src.hspan(), Span::new(src.top() - src.width(), src.top()));
                 let jog = OffsetJog::builder()
                     .dir(Dir::Horiz)
-                    .sign(Sign::Neg)
+                    .sign(if j % 2 == 0 { Sign::Pos } else { Sign::Neg })
                     .src(rect)
                     .space(335)
                     .dst(dst.top())
@@ -529,7 +529,7 @@ impl Component for DecoderTap {
             }
         }
 
-        let hspan = hspan.shrink_all(130);
+        let hspan = hspan.shrink_all(65);
 
         if let Some(spans) = gate_spans.abutted_layers.get(&nsdm) {
             for vspan in spans {
@@ -665,7 +665,7 @@ impl Script for PredecoderPhysicalDesignScript {
         Ok(Self::Output {
             width: 2_000,
             tap_width: 790,
-            tap_period: 4,
+            tap_period: 2,
             stripe_metal,
             wire_metal,
             via_metals,
