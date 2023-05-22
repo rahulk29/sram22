@@ -261,19 +261,19 @@ impl Column {
         // Data dff
         let mut dff = ctx.instantiate::<DffCol>(&NoParams)?;
         let mut wmask_dff = ctx.instantiate::<DffCol>(&NoParams)?;
+        let cent = ctx.instantiate::<DffColExtend>(&NoParams)?;
         let bbox = Rect::from_spans(
             Span::with_start_and_length((5_840 - 4_800) / 2, pc.brect().width()),
             dff.brect().vspan(),
         );
 
         let mut row = Vec::new();
-        row.push(OptionTile::new(Tile::from(Pad::new(
-            RectBbox::new(dff.clone(), bbox),
-            DFF_PADDING,
+        row.push(OptionTile::new(Tile::from(RectBbox::new(
+            dff.clone(),
+            bbox,
         ))));
         for _ in 0..mux_ratio - 1 {
-            let cent = ctx.instantiate::<DffColExtend>(&NoParams)?;
-            row.push(Pad::new(cent, DFF_PADDING).into());
+            row.push(cent.clone().into());
         }
         grid.push_row(row);
         let mut row = Vec::new();
@@ -282,15 +282,11 @@ impl Column {
                 RectBbox::new(dff.clone(), bbox),
                 DFF_PADDING,
             ))));
-            for _ in 0..mux_ratio - 1 {
-                let cent = ctx.instantiate::<DffColExtend>(&NoParams)?;
-                row.push(Pad::new(cent, DFF_PADDING).into());
-            }
         } else {
-            for _ in 0..mux_ratio {
-                let cent = ctx.instantiate::<DffColExtend>(&NoParams)?;
-                row.push(Pad::new(cent, DFF_PADDING).into());
-            }
+            row.push(Pad::new(cent.clone(), DFF_PADDING).into());
+        }
+        for _ in 0..mux_ratio - 1 {
+            row.push(Pad::new(cent.clone(), DFF_PADDING).into());
         }
         grid.push_row(row);
 
@@ -339,6 +335,7 @@ impl Column {
         });
 
         let layers = ctx.layers();
+        let nwell = layers.get(Selector::Name("nwell"))?;
         let m2 = layers.get(Selector::Metal(2))?;
         let m3 = layers.get(Selector::Metal(3))?;
         let vspan = ctx.brect().vspan();
@@ -439,6 +436,13 @@ impl Column {
                 )?;
             }
         }
+
+        let vspan = sa
+            .shapes_on(nwell)
+            .map(|x| x.brect().vspan())
+            .reduce(|a, b| a.union(b))
+            .unwrap();
+        ctx.draw_rect(nwell, Rect::from_spans(ctx.brect().hspan(), vspan));
 
         let mut draw_vias =
             |inst: &Instance, port: &str, track: CellTrack| -> substrate::error::Result<()> {
@@ -617,7 +621,7 @@ impl Component for ColumnCent {
         grid.push_row(into_vec![wmux.clone()]);
         grid.push_row(into_vec![sa.clone()]);
         grid.push_row(into_vec![buf.clone()]);
-        grid.push_row(into_vec![Pad::new(dff.clone(), DFF_PADDING)]);
+        grid.push_row(into_vec![dff.clone()]);
         let wmask_tile = Pad::new(wmask_dff.clone(), DFF_PADDING);
         grid.push_row(into_vec![wmask_tile]);
 
