@@ -437,12 +437,18 @@ impl Column {
             }
         }
 
+<<<<<<< HEAD
         let vspan = sa
             .shapes_on(nwell)
             .map(|x| x.brect().vspan())
             .reduce(|a, b| a.union(b))
             .unwrap();
         ctx.draw_rect(nwell, Rect::from_spans(ctx.brect().hspan(), vspan));
+=======
+        for shape in sa.shapes_on(nwell) {
+            ctx.draw_rect(nwell, shape.brect().with_hspan(ctx.brect().hspan()));
+        }
+>>>>>>> c57de8957c5d3e8902e6bc224c2c3564b76c563e
 
         let mut draw_vias =
             |inst: &Instance, port: &str, track: CellTrack| -> substrate::error::Result<()> {
