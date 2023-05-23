@@ -24,6 +24,8 @@ impl ColPeripherals {
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
         let sense_en = ctx.port("sense_en", Direction::Input);
+        let dummy_bl = ctx.port("dummy_bl", Direction::InOut);
+        let dummy_br = ctx.port("dummy_br", Direction::InOut);
         let bl = ctx.bus_port("bl", cols, Direction::InOut);
         let br = ctx.bus_port("br", cols, Direction::InOut);
         let pc_b = ctx.port("pc_b", Direction::Input);
@@ -35,6 +37,8 @@ impl ColPeripherals {
 
         let wmask_in = ctx.bus("wmask_in", wmask_bits);
         let wmask_in_b = ctx.bus("wmask_in_b", wmask_bits);
+        let [dummy_bl_noconn, dummy_br_noconn] =
+            ctx.signals(["dummy_bl_noconn", "dummy_br_noconn"]);
 
         ctx.instantiate::<DffArray>(&wmask_bits)?
             .with_connections([
@@ -68,6 +72,26 @@ impl ColPeripherals {
                 .named(arcstr::format!("col_group_{i}"))
                 .add_to(ctx);
         }
+
+        ctx.instantiate::<Precharge>(&self.params.pc)?
+            .with_connections([
+                ("vdd", vdd),
+                ("bl", dummy_bl),
+                ("br", dummy_br),
+                ("en_b", pc_b),
+            ])
+            .named("dummy_precharge")
+            .add_to(ctx);
+
+        ctx.instantiate::<Precharge>(&self.params.pc)?
+            .with_connections([
+                ("vdd", vdd),
+                ("bl", dummy_bl_noconn),
+                ("br", dummy_br_noconn),
+                ("en_b", pc_b),
+            ])
+            .named("dummy_precharge_noconn")
+            .add_to(ctx);
 
         Ok(())
     }

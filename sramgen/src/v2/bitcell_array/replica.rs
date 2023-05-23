@@ -216,6 +216,22 @@ impl Component for ReplicaCellArray {
             }
         }
 
+        for j in 0..self.params.cols {
+            for i in 0..2 {
+                ctx.instantiate::<SpColend>(&NoParams)?
+                    .with_connections([
+                        ("BL", bl),
+                        ("BR", br),
+                        ("VSS", vss),
+                        ("VDD", vdd),
+                        ("VPB", vdd),
+                        ("VNB", vss),
+                    ])
+                    .named(format!("colend_{i}_{j}"))
+                    .add_to(ctx);
+            }
+        }
+
         Ok(())
     }
 

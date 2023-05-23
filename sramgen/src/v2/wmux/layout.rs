@@ -192,7 +192,7 @@ impl WriteMux {
         ctx.draw(v)?;
 
         let mut gate_stripes = Vec::with_capacity(3);
-        for (inst, port) in [(&mux1, "data"), (&mux2, "data_b"), (&wmask, "wmask")] {
+        for (inst, port) in [(&mux1, "data_b"), (&mux2, "data"), (&wmask, "wmask")] {
             let target = inst.port("gate_0")?.largest_rect(pc.m0)?;
             let rect = Rect::from_spans(stripe_span, target.vspan());
             ctx.draw_rect(pc.m0, rect);

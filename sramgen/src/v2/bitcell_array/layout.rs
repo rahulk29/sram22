@@ -167,27 +167,27 @@ impl Component for SpCellArrayCornerLr {
         let vmetal = ctx.layers().get(Selector::Metal(1))?;
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         let colend = ctx
-            .instantiate::<SpColend>(&NoParams)?
+            .instantiate::<SpColenda>(&NoParams)?
             .with_orientation(Named::R180);
         let corner = ctx
-            .instantiate::<SpCorner>(&NoParams)?
+            .instantiate::<SpCornera>(&NoParams)?
             .with_orientation(Named::R180);
         let rowend = ctx
-            .instantiate::<SpRowend>(&NoParams)?
+            .instantiate::<SpRowenda>(&NoParams)?
             .with_orientation(Named::R180);
         let horiz_wlstrap_p = ctx.instantiate::<SpHorizWlstrapP>(&NoParams)?;
         let colend_p_cent = ctx
-            .instantiate::<SpColendPCent>(&NoParams)?
+            .instantiate::<SpColendaPCent>(&NoParams)?
             .with_orientation(Named::ReflectVert);
         let wlstrap_p = ctx
-            .instantiate::<SpWlstrapP>(&NoParams)?
+            .instantiate::<SpWlstrapaP>(&NoParams)?
             .with_orientation(Named::ReflectVert);
         let hstrap = ctx.instantiate::<SpHstrap>(&NoParams)?;
         let rowend_hstrap = ctx
             .instantiate::<SpRowendHstrap>(&NoParams)?
             .with_orientation(Named::R180);
         let cell = ctx
-            .instantiate::<SpCell>(&NoParams)?
+            .instantiate::<SpCellOpt1a>(&NoParams)?
             .with_orientation(Named::R180);
 
         let mut grid_tiler = GridTiler::new(into_grid![
@@ -228,14 +228,14 @@ impl Component for SpCellArrayCornerLl {
     ) -> substrate::error::Result<()> {
         let vmetal = ctx.layers().get(Selector::Metal(1))?;
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
-        let colend = ctx
-            .instantiate::<SpColend>(&NoParams)?
+        let colenda = ctx
+            .instantiate::<SpColenda>(&NoParams)?
             .with_orientation(Named::ReflectVert);
-        let corner = ctx
-            .instantiate::<SpCorner>(&NoParams)?
+        let cornera = ctx
+            .instantiate::<SpCornera>(&NoParams)?
             .with_orientation(Named::ReflectVert);
-        let rowend = ctx
-            .instantiate::<SpRowend>(&NoParams)?
+        let rowenda = ctx
+            .instantiate::<SpRowenda>(&NoParams)?
             .with_orientation(Named::ReflectVert);
         let hstrap = ctx
             .instantiate::<SpHstrap>(&NoParams)?
@@ -244,13 +244,13 @@ impl Component for SpCellArrayCornerLl {
             .instantiate::<SpRowendHstrap>(&NoParams)?
             .with_orientation(Named::ReflectVert);
         let cell = ctx
-            .instantiate::<SpCell>(&NoParams)?
+            .instantiate::<SpCellOpt1a>(&NoParams)?
             .with_orientation(Named::ReflectVert);
 
         let mut grid_tiler = GridTiler::new(into_grid![
                     [rowend_hstrap, hstrap]
-                    [rowend, cell]
-                    [corner, colend]
+                    [rowenda, cell]
+                    [cornera, colenda]
         ]);
         grid_tiler.expose_ports(
             |port: CellPort, (i, j)| corner_port_map_fn(port, i, j, 2, 0, vmetal, hmetal),

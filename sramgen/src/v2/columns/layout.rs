@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use grid::Grid;
 use serde::{Deserialize, Serialize};
-use subgeom::bbox::BoundBox;
+use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
 use subgeom::transform::Translate;
 use subgeom::{Rect, Span};
@@ -37,6 +37,9 @@ static DFF_PADDING: Padding = Padding::new(160, 0, 0, 0);
 
 impl ColPeripherals {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+        let m2 = layers.get(Selector::Metal(2))?;
+
         let mut pc = ctx.instantiate::<Precharge>(&self.params.pc)?;
         let mut pc_end = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
             via_top: false,
@@ -47,7 +50,10 @@ impl ColPeripherals {
             include_wmask: false,
             ..self.params.clone()
         })?;
-        let bbox = Rect::from_spans(Span::new(0, 4_800), col.brect().vspan());
+        let bbox = Rect::from_spans(
+            Span::new(0, 1_200 * self.params.wmux.mux_ratio as i64),
+            col.brect().vspan(),
+        );
         let col = RectBbox::new(col, bbox);
 
         let col_wmask = ctx.instantiate::<Column>(&ColParams {
@@ -121,6 +127,21 @@ impl ColPeripherals {
         )?;
 
         ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
+
+        for port_name in ["vdd", "vss", "sense_en"] {
+            let bboxes = grid_tiler.port_map().port(port_name)?.shapes(m2).fold(
+                HashMap::new(),
+                |mut acc, shape| {
+                    let entry = acc.entry(shape.brect().vspan()).or_insert(Bbox::empty());
+                    *entry = entry.union(shape.bbox());
+                    acc
+                },
+            );
+            for bbox in bboxes.values() {
+                ctx.merge_port(CellPort::with_shape(port_name, m2, bbox.into_rect()));
+            }
+        }
+
         let group = grid_tiler.draw()?;
 
         let bbox = group.bbox();
@@ -136,8 +157,10 @@ impl ColPeripherals {
         ctx.draw_ref(&pc_end)?;
         ctx.merge_port(pc.port("en_b")?.into_cell_port().named("pc_b"));
         ctx.merge_port(pc_end.port("en_b")?.into_cell_port().named("pc_b"));
-        ctx.add_port(pc.port("bl_in")?.into_cell_port().named("bl_dummy"))?;
-        ctx.add_port(pc.port("br_in")?.into_cell_port().named("br_dummy"))?;
+        ctx.add_port(pc.port("bl_in")?.into_cell_port().named("dummy_bl_in"))?;
+        ctx.add_port(pc.port("br_in")?.into_cell_port().named("dummy_br_in"))?;
+        ctx.add_port(pc.port("bl_out")?.into_cell_port().named("dummy_bl"))?;
+        ctx.add_port(pc.port("br_out")?.into_cell_port().named("dummy_br"))?;
 
         pc.orientation_mut().reflect_horiz();
         pc_end.orientation_mut().reflect_horiz();
@@ -238,6 +261,7 @@ impl Column {
         // Data dff
         let mut dff = ctx.instantiate::<DffCol>(&NoParams)?;
         let mut wmask_dff = ctx.instantiate::<DffCol>(&NoParams)?;
+        let cent = ctx.instantiate::<DffColExtend>(&NoParams)?;
         let bbox = Rect::from_spans(
             Span::with_start_and_length((5_840 - 4_800) / 2, pc.brect().width()),
             dff.brect().vspan(),
@@ -249,7 +273,7 @@ impl Column {
             bbox,
         ))));
         for _ in 0..mux_ratio - 1 {
-            row.push(None.into());
+            row.push(cent.clone().into());
         }
         grid.push_row(row);
         let mut row = Vec::new();
@@ -258,14 +282,11 @@ impl Column {
                 RectBbox::new(dff.clone(), bbox),
                 DFF_PADDING,
             ))));
-            for _ in 0..mux_ratio - 1 {
-                row.push(None.into());
-            }
         } else {
-            for _ in 0..mux_ratio {
-                let cent = ctx.instantiate::<DffColExtend>(&NoParams)?;
-                row.push(Pad::new(cent, DFF_PADDING).into());
-            }
+            row.push(Pad::new(cent.clone(), DFF_PADDING).into());
+        }
+        for _ in 0..mux_ratio - 1 {
+            row.push(Pad::new(cent.clone(), DFF_PADDING).into());
         }
         grid.push_row(row);
 
@@ -314,6 +335,7 @@ impl Column {
         });
 
         let layers = ctx.layers();
+        let nwell = layers.get(Selector::Name("nwell"))?;
         let m2 = layers.get(Selector::Metal(2))?;
         let m3 = layers.get(Selector::Metal(3))?;
         let vspan = ctx.brect().vspan();
@@ -413,6 +435,10 @@ impl Column {
                         .build(),
                 )?;
             }
+        }
+
+        for shape in sa.shapes_on(nwell) {
+            ctx.draw_rect(nwell, shape.brect().with_hspan(ctx.brect().hspan()));
         }
 
         let mut draw_vias =
@@ -606,12 +632,12 @@ impl Component for ColumnCent {
         wmask_dff.translate(tiler.translation(6, 0));
         tiler.expose_ports(
             |port: CellPort, (i, _)| match port.name().as_str() {
-                "en_b" | "we" | "sel_b" => Some(port),
+                "en_b" | "we" | "sel_b" | "vdd" | "vss" => Some(port),
                 "clk" => {
                     if i == 3 {
                         Some(port.named("sense_en"))
                     } else {
-                        Some(port)
+                        Some(port.with_index(0))
                     }
                 }
                 _ => None,
@@ -653,7 +679,7 @@ impl Component for ColumnCent {
                     TapTrack::Vss => "vss",
                 });
                 port.add(m3, subgeom::Shape::Rect(rect));
-                ctx.add_port(port).unwrap();
+                ctx.merge_port(port);
                 ctx.draw_rect(m3, rect);
             }
         }
