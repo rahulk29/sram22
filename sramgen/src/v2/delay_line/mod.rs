@@ -3,26 +3,34 @@ use substrate::schematic::circuit::Direction;
 use substrate::{component::Component, index::IndexOwned};
 
 use self::transmission::TransmissionGate;
+use self::tristate::{TristateBuf, TristateBufParams};
 
 use super::gate::{Inv, PrimitiveGateParams};
 
 pub mod tb;
 pub mod transmission;
+pub mod tristate;
 
-pub struct DelayLine {
-    params: DelayLineParams,
+pub struct NaiveDelayLine {
+    params: NaiveDelayLineParams,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct DelayLineParams {
+pub enum PassGateKind {
+    TransmissionGate(PrimitiveGateParams),
+    TristateBuf(TristateBufParams),
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NaiveDelayLineParams {
     stages: usize,
     inv1: PrimitiveGateParams,
     inv2: PrimitiveGateParams,
-    pass: PrimitiveGateParams,
+    pass: PassGateKind,
 }
 
-impl Component for DelayLine {
-    type Params = DelayLineParams;
+impl Component for NaiveDelayLine {
+    type Params = NaiveDelayLineParams;
 
     fn new(
         params: &Self::Params,
@@ -71,17 +79,34 @@ impl Component for DelayLine {
                     .add_to(ctx);
             }
 
-            ctx.instantiate::<TransmissionGate>(&self.params.inv2)?
-                .named(format!("pass_{i}"))
-                .with_connections([
-                    ("din", stage_out),
-                    ("dout", clk_out),
-                    ("en", ctl.index(i)),
-                    ("en_b", ctl_b.index(i)),
-                    ("vdd", vdd),
-                    ("vss", vss),
-                ])
-                .add_to(ctx);
+            match self.params.pass {
+                PassGateKind::TransmissionGate(params) => {
+                    ctx.instantiate::<TransmissionGate>(&params)?
+                        .named(format!("pass_{i}"))
+                        .with_connections([
+                            ("din", stage_out),
+                            ("dout", clk_out),
+                            ("en", ctl.index(i)),
+                            ("en_b", ctl_b.index(i)),
+                            ("vdd", vdd),
+                            ("vss", vss),
+                        ])
+                        .add_to(ctx);
+                }
+                PassGateKind::TristateBuf(params) => {
+                    ctx.instantiate::<TristateBuf>(&params)?
+                        .named(format!("pass_{i}"))
+                        .with_connections([
+                            ("din", stage_out),
+                            ("dout", clk_out),
+                            ("en", ctl.index(i)),
+                            ("en_b", ctl_b.index(i)),
+                            ("vdd", vdd),
+                            ("vss", vss),
+                        ])
+                        .add_to(ctx);
+                }
+            }
         }
         Ok(())
     }
@@ -93,7 +118,8 @@ mod tests {
 
     use super::{
         tb::{DelayLineTb, DelayLineTbParams},
-        DelayLine, DelayLineParams,
+        tristate::TristateBufParams,
+        NaiveDelayLine, NaiveDelayLineParams,
     };
 
     const INV_SIZING: PrimitiveGateParams = PrimitiveGateParams {
@@ -102,21 +128,42 @@ mod tests {
         pwidth: 9_000,
     };
 
-    const PASS_SIZING: PrimitiveGateParams = PrimitiveGateParams {
+    const TGATE_SIZING: PrimitiveGateParams = PrimitiveGateParams {
         length: 150,
         nwidth: 500,
         pwidth: 900,
     };
 
-    const DELAY_LINE_PARAMS: DelayLineParams = DelayLineParams {
+    const TRISTATE_SIZING: TristateBufParams = TristateBufParams {
+        inv1: INV_SIZING,
+        inv2: INV_SIZING,
+    };
+
+    const NAIVE_DELAY_LINE_TGATE_PARAMS: NaiveDelayLineParams = NaiveDelayLineParams {
         stages: 10,
         inv1: INV_SIZING,
         inv2: INV_SIZING,
-        pass: PASS_SIZING,
+        pass: super::PassGateKind::TransmissionGate(TGATE_SIZING),
     };
 
-    const DELAY_LINE_TB_PARAMS: DelayLineTbParams = DelayLineTbParams {
-        inner: DELAY_LINE_PARAMS,
+    const NAIVE_DELAY_LINE_TRISTATE_PARAMS: NaiveDelayLineParams = NaiveDelayLineParams {
+        stages: 10,
+        inv1: INV_SIZING,
+        inv2: INV_SIZING,
+        pass: super::PassGateKind::TristateBuf(TRISTATE_SIZING),
+    };
+
+    const NAIVE_DELAY_LINE_TGATE_TB_PARAMS: DelayLineTbParams = DelayLineTbParams {
+        inner: super::tb::DelayLineKind::Naive(NAIVE_DELAY_LINE_TGATE_PARAMS),
+        vdd: 1.8,
+        f: 1e9,
+        tr: 20e-12,
+        ctl_period: 1e-8,
+        t_stop: None,
+    };
+
+    const NAIVE_DELAY_LINE_TRISTATE_TB_PARAMS: DelayLineTbParams = DelayLineTbParams {
+        inner: super::tb::DelayLineKind::Naive(NAIVE_DELAY_LINE_TRISTATE_PARAMS),
         vdd: 1.8,
         f: 1e9,
         tr: 20e-12,
@@ -125,15 +172,28 @@ mod tests {
     };
 
     #[test]
-    fn test_delay_line() {
+    fn test_naive_delay_line_tgate() {
         let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_delay_line");
-        ctx.write_schematic_to_file::<DelayLine>(
-            &DELAY_LINE_PARAMS,
+        let work_dir = test_work_dir("test_naive_delay_line_tgate");
+        ctx.write_schematic_to_file::<NaiveDelayLine>(
+            &NAIVE_DELAY_LINE_TGATE_PARAMS,
             out_spice(&work_dir, "schematic"),
         )
         .expect("failed to write schematic");
-        ctx.write_simulation::<DelayLineTb>(&DELAY_LINE_TB_PARAMS, work_dir)
+        ctx.write_simulation::<DelayLineTb>(&NAIVE_DELAY_LINE_TGATE_TB_PARAMS, work_dir)
+            .expect("failed to run simulation");
+    }
+
+    #[test]
+    fn test_naive_delay_line_tristate() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_naive_delay_line_tristate");
+        ctx.write_schematic_to_file::<NaiveDelayLine>(
+            &NAIVE_DELAY_LINE_TRISTATE_PARAMS,
+            out_spice(&work_dir, "schematic"),
+        )
+        .expect("failed to write schematic");
+        ctx.write_simulation::<DelayLineTb>(&NAIVE_DELAY_LINE_TRISTATE_TB_PARAMS, work_dir)
             .expect("failed to run simulation");
     }
 }

@@ -10,9 +10,22 @@ pub struct DelayLineTb {
     params: DelayLineTbParams,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub enum DelayLineKind {
+    Naive(NaiveDelayLineParams),
+}
+
+impl DelayLineKind {
+    fn stages(self) -> usize {
+        match self {
+            DelayLineKind::Naive(params) => params.stages,
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DelayLineTbParams {
-    pub inner: DelayLineParams,
+    pub inner: DelayLineKind,
     pub vdd: f64,
     /// Rise time.
     pub tr: f64,
@@ -43,7 +56,7 @@ impl Component for DelayLineTb {
         &self,
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
-        let stages = self.params.inner.stages;
+        let stages = self.params.inner.stages();
 
         let vss = ctx.port("vss", Direction::InOut);
         let [vdd, clk_in, clk_out] = ctx.signals(["vdd", "clk_in", "clk_out"]);
@@ -80,7 +93,7 @@ impl Component for DelayLineTb {
         .named("Vclk")
         .add_to(ctx);
 
-        for i in 0..stages{
+        for i in 0..stages {
             for j in 0..2 {
                 ctx.instantiate::<Vpulse>(&Vpulse {
                     v1: SiValue::zero(),
@@ -100,17 +113,21 @@ impl Component for DelayLineTb {
             }
         }
 
-        ctx.instantiate::<DelayLine>(&self.params.inner)?
-            .with_connections([
-                ("vdd", vdd),
-                ("vss", vss),
-                ("clk_in", clk_in),
-                ("clk_out", clk_out),
-                ("ctl", ctl),
-                ("ctl_b", ctl_b),
-            ])
-            .named("Xdut")
-            .add_to(ctx);
+        match self.params.inner {
+            DelayLineKind::Naive(params) => {
+                ctx.instantiate::<NaiveDelayLine>(&params)?
+                    .with_connections([
+                        ("vdd", vdd),
+                        ("vss", vss),
+                        ("clk_in", clk_in),
+                        ("clk_out", clk_out),
+                        ("ctl", ctl),
+                        ("ctl_b", ctl_b),
+                    ])
+                    .named("Xdut")
+                    .add_to(ctx);
+            }
+        }
 
         Ok(())
     }
@@ -127,7 +144,7 @@ impl Testbench for DelayLineTb {
             .stop(
                 self.params
                     .t_stop
-                    .unwrap_or(self.params.inner.stages as f64 * self.params.ctl_period),
+                    .unwrap_or(self.params.inner.stages() as f64 * self.params.ctl_period),
             )
             .step(1. / 10. / self.params.f)
             .build()
