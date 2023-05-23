@@ -13,12 +13,14 @@ pub struct DelayLineTb {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum DelayLineKind {
     Naive(NaiveDelayLineParams),
+    TristateInv(TristateInvDelayLineParams),
 }
 
 impl DelayLineKind {
     fn stages(self) -> usize {
         match self {
             DelayLineKind::Naive(params) => params.stages,
+            DelayLineKind::TristateInv(params) => params.stages,
         }
     }
 }
@@ -116,6 +118,19 @@ impl Component for DelayLineTb {
         match self.params.inner {
             DelayLineKind::Naive(params) => {
                 ctx.instantiate::<NaiveDelayLine>(&params)?
+                    .with_connections([
+                        ("vdd", vdd),
+                        ("vss", vss),
+                        ("clk_in", clk_in),
+                        ("clk_out", clk_out),
+                        ("ctl", ctl),
+                        ("ctl_b", ctl_b),
+                    ])
+                    .named("Xdut")
+                    .add_to(ctx);
+            }
+            DelayLineKind::TristateInv(params) => {
+                ctx.instantiate::<TristateInvDelayLine>(&params)?
                     .with_connections([
                         ("vdd", vdd),
                         ("vss", vss),

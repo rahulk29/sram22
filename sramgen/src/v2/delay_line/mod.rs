@@ -3,7 +3,7 @@ use substrate::schematic::circuit::Direction;
 use substrate::{component::Component, index::IndexOwned};
 
 use self::transmission::TransmissionGate;
-use self::tristate::{TristateBuf, TristateBufParams};
+use self::tristate::{TristateBuf, TristateBufParams, TristateInv};
 
 use super::gate::{Inv, PrimitiveGateParams};
 
@@ -29,6 +29,17 @@ pub struct NaiveDelayLineParams {
     pass: PassGateKind,
 }
 
+pub struct TristateInvDelayLine {
+    params: TristateInvDelayLineParams,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TristateInvDelayLineParams {
+    stages: usize,
+    inv: PrimitiveGateParams,
+    tristate_inv: PrimitiveGateParams,
+}
+
 impl Component for NaiveDelayLine {
     type Params = NaiveDelayLineParams;
 
@@ -41,7 +52,7 @@ impl Component for NaiveDelayLine {
     }
 
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::format!("delay_line_{}", self.params.stages)
+        arcstr::format!("naive_delay_line_{}", self.params.stages)
     }
 
     fn schematic(
@@ -112,6 +123,102 @@ impl Component for NaiveDelayLine {
     }
 }
 
+impl Component for TristateInvDelayLine {
+    type Params = TristateInvDelayLineParams;
+
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        assert!(params.stages >= 3);
+        Ok(Self { params: *params })
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::format!("tristate_inv_delay_line_{}", self.params.stages)
+    }
+
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        let clk_in = ctx.port("clk_in", Direction::Input);
+        let clk_out = ctx.port("clk_out", Direction::Output);
+        let ctl = ctx.bus_port("ctl", self.params.stages, Direction::Input);
+        let ctl_b = ctx.bus_port("ctl_b", self.params.stages, Direction::Input);
+        let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
+
+        let clk_int_top = ctx.bus("clk_int_top", self.params.stages);
+        let clk_int_bot = ctx.bus("clk_int_bot", self.params.stages - 1);
+
+        ctx.instantiate::<Inv>(&self.params.inv)?
+            .named("inv_0")
+            .with_connections([
+                ("din", clk_in),
+                ("din_b", clk_int_top.index(0)),
+                ("vdd", vdd),
+                ("vss", vss),
+            ])
+            .add_to(ctx);
+
+        ctx.instantiate::<TristateInv>(&self.params.tristate_inv)?
+            .named("tristate_inv_mid_0")
+            .with_connections([
+                ("din", clk_int_top.index(0)),
+                ("din_b", clk_out),
+                ("en", ctl.index(0)),
+                ("en_b", ctl_b.index(0)),
+                ("vdd", vdd),
+                ("vss", vss),
+            ])
+            .add_to(ctx);
+
+        for i in 1..self.params.stages {
+            ctx.instantiate::<Inv>(&self.params.inv)?
+                .named(format!("inv_{i}"))
+                .with_connections([
+                    ("din", clk_int_top.index(i - 1)),
+                    ("din_b", clk_int_top.index(i)),
+                    ("vdd", vdd),
+                    ("vss", vss),
+                ])
+                .add_to(ctx);
+
+            ctx.instantiate::<TristateInv>(&self.params.tristate_inv)?
+                .named(format!("tristate_inv_mid_{i}"))
+                .with_connections([
+                    ("din", clk_int_top.index(i)),
+                    ("din_b", clk_int_bot.index(i - 1)),
+                    ("en", ctl.index(i)),
+                    ("en_b", ctl_b.index(i)),
+                    ("vdd", vdd),
+                    ("vss", vss),
+                ])
+                .add_to(ctx);
+
+            ctx.instantiate::<TristateInv>(&self.params.tristate_inv)?
+                .named(format!("tristate_inv_bot_{i}"))
+                .with_connections([
+                    ("din", clk_int_bot.index(i - 1)),
+                    (
+                        "din_b",
+                        if i == 1 {
+                            clk_out
+                        } else {
+                            clk_int_bot.index(i - 2)
+                        },
+                    ),
+                    ("en", ctl_b.index(i - 1)),
+                    ("en_b", ctl.index(i - 1)),
+                    ("vdd", vdd),
+                    ("vss", vss),
+                ])
+                .add_to(ctx);
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{paths::out_spice, setup_ctx, tests::test_work_dir, v2::gate::PrimitiveGateParams};
@@ -119,7 +226,7 @@ mod tests {
     use super::{
         tb::{DelayLineTb, DelayLineTbParams},
         tristate::TristateBufParams,
-        NaiveDelayLine, NaiveDelayLineParams,
+        NaiveDelayLine, NaiveDelayLineParams, TristateInvDelayLine, TristateInvDelayLineParams,
     };
 
     const INV_SIZING: PrimitiveGateParams = PrimitiveGateParams {
@@ -153,6 +260,12 @@ mod tests {
         pass: super::PassGateKind::TristateBuf(TRISTATE_SIZING),
     };
 
+    const TRISTATE_INV_DELAY_LINE_PARAMS: TristateInvDelayLineParams = TristateInvDelayLineParams {
+        stages: 10,
+        inv: INV_SIZING,
+        tristate_inv: INV_SIZING,
+    };
+
     const NAIVE_DELAY_LINE_TGATE_TB_PARAMS: DelayLineTbParams = DelayLineTbParams {
         inner: super::tb::DelayLineKind::Naive(NAIVE_DELAY_LINE_TGATE_PARAMS),
         vdd: 1.8,
@@ -164,6 +277,15 @@ mod tests {
 
     const NAIVE_DELAY_LINE_TRISTATE_TB_PARAMS: DelayLineTbParams = DelayLineTbParams {
         inner: super::tb::DelayLineKind::Naive(NAIVE_DELAY_LINE_TRISTATE_PARAMS),
+        vdd: 1.8,
+        f: 1e9,
+        tr: 20e-12,
+        ctl_period: 1e-8,
+        t_stop: None,
+    };
+
+    const TRISTATE_INV_DELAY_LINE_TB_PARAMS: DelayLineTbParams = DelayLineTbParams {
+        inner: super::tb::DelayLineKind::TristateInv(TRISTATE_INV_DELAY_LINE_PARAMS),
         vdd: 1.8,
         f: 1e9,
         tr: 20e-12,
@@ -194,6 +316,19 @@ mod tests {
         )
         .expect("failed to write schematic");
         ctx.write_simulation::<DelayLineTb>(&NAIVE_DELAY_LINE_TRISTATE_TB_PARAMS, work_dir)
+            .expect("failed to run simulation");
+    }
+
+    #[test]
+    fn test_tristate_inv_delay_line() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_tristate_inv_delay_line");
+        ctx.write_schematic_to_file::<TristateInvDelayLine>(
+            &TRISTATE_INV_DELAY_LINE_PARAMS,
+            out_spice(&work_dir, "schematic"),
+        )
+        .expect("failed to write schematic");
+        ctx.write_simulation::<DelayLineTb>(&TRISTATE_INV_DELAY_LINE_TB_PARAMS, work_dir)
             .expect("failed to run simulation");
     }
 }
