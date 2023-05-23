@@ -1,12 +1,11 @@
 use serde::{Deserialize, Serialize};
-use subgeom::Point;
 use subgeom::bbox::BoundBox;
-use subgeom::transform::Translate;
+
 use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
 use substrate::layout::cell::PortConflictStrategy;
 use substrate::layout::layers::selector::Selector;
-use substrate::layout::placement::align::{AlignRect, AlignMode};
+use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::tile::LayerBbox;
 use substrate::pdk::stdcell::StdCell;
@@ -137,7 +136,10 @@ pub struct TappedRegister;
 impl Component for TappedRegister {
     type Params = NoParams;
 
-    fn new(params: &Self::Params, ctx: &substrate::data::SubstrateCtx) -> substrate::error::Result<Self> {
+    fn new(
+        _params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
         Ok(Self)
     }
 
@@ -145,7 +147,10 @@ impl Component for TappedRegister {
         arcstr::literal!("tapped_register")
     }
 
-    fn layout(&self, ctx: &mut substrate::layout::context::LayoutCtx) -> substrate::error::Result<()> {
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
         let layers = ctx.layers();
         let outline = layers.get(Selector::Name("outline"))?;
 
@@ -165,9 +170,16 @@ impl Component for TappedRegister {
         row.push(ff);
         row.push(tap);
         let mut row = row.build();
-        row.expose_ports(|port, i| {
-            if i == 1 { Some(port) } else { None }
-        }, PortConflictStrategy::Error)?;
+        row.expose_ports(
+            |port, i| {
+                if i == 1 {
+                    Some(port)
+                } else {
+                    None
+                }
+            },
+            PortConflictStrategy::Error,
+        )?;
         let group = row.generate()?;
         ctx.add_ports(group.ports())?;
         ctx.draw(group)?;

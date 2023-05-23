@@ -212,9 +212,9 @@ The BIST supports the following instructions:
 * `RESET seed`: Resets signature registers and seeds the pseudo-random number generator.
 * `WAIT n`: Waits for `N` clock cycles.
 * `MARCH e0 [, e1, ...] { UP | DOWN }`: marches up or down the address space,
-  performing the march elements `e0`, `e1`, ...
-  The possible march elements are `{READ | WRITE} pattern_address [ FLIP ]`.
-  For example, the march element `READ 5 FLIP` checks that each read operation returns the bit
+  performing the march operations `e0`, `e1`, ...
+  The possible march operations are `{READ | WRITE} pattern_address [ FLIP ]`.
+  For example, the march operation `READ 5 FLIP` checks that each read operation returns the bit
   sequence `1100`, which is the bitwise complement of pattern 5 in the table above.
 * `RAND re0 [, re1, ...] { RA N | UP | DOWN }`: Runs a pseudo-random test.
   If `UP` or `DOWN` is specified, marches up or down (respectively) the address space,
@@ -222,7 +222,7 @@ The BIST supports the following instructions:
   If `RA` is specified, a pseudo-random address is used. The integer `N` specifies how many
   addresses to pick. For example, `RAND OP WRITE 0, READ RA 3` picks three (not necessarily distinct)
   addresses, and for each address, writes the pattern stored in address 0 of the DBPT and then reads it back.
-  Each random element has the following structure: `OP { READ | WRITE | RAND } [ DATA { pattern_address | RAND } MASK {pattern_address | 1 | RAND } ]`.
+  Each random operation has the following structure: `OP { READ | WRITE | RAND } [ DATA { pattern_address | RAND } MASK {pattern_address | 1 | RAND } ]`.
   * `OP`: can be `READ`, `WRITE`, or `RAND`. If `RAND`, an operation (read/write) will be selected pseudo-randomly.
   * `DATA`: can be a pattern address, or `RAND`. If `RAND`, data will be selected pseudo-randomly. If a pattern address is given,
     the data to write will be pulled from the data background pattern table.
@@ -230,7 +230,7 @@ The BIST supports the following instructions:
     will be selected pseudo-randomly. If a pattern address, the mask pattern will be pulled from the DBPT.
   The `DATA` and `MASK` fields are required for `WRITE` and `RAND` operations; they must be left blank for `READ` operations.
 
-All pseudo-random data is drawn from an LFSR.
+All pseudo-random data is drawn from an [LFSR](https://en.wikipedia.org/wiki/Linear-feedback_shift_register).
 
 The BIST continuously outputs a signature. This signature can be compared to an expected signature
 to determine where a test has failed. On every read operation, the value read from memory
@@ -303,6 +303,7 @@ a rising edge of the early clock and a rising edge of the late clock, and produc
 thermometer-encoded digital signal. In the absence of rising edges on the late clock,
 the TDC value is held constant.
 
+Need GDS, LIB, LEF, SPICE, Verilog synth, Verilog sim.
 
 ## PLL
 
