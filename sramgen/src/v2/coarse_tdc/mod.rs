@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use subgeom::bbox::BoundBox;
-use subgeom::transform::Translate;
-use subgeom::Point;
+
 use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
 use substrate::layout::cell::PortConflictStrategy;
@@ -138,8 +137,8 @@ impl Component for TappedRegister {
     type Params = NoParams;
 
     fn new(
-        params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
+        _params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         Ok(Self)
     }

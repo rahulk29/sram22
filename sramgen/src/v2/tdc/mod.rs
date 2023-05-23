@@ -1,16 +1,22 @@
+use grid::Grid;
 use serde::{Deserialize, Serialize};
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
+use subgeom::Dir;
 use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
-use substrate::layout::cell::PortConflictStrategy;
+use substrate::into_vec;
+use substrate::layout::cell::{Instance, Port, PortConflictStrategy};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::placement::array::ArrayTiler;
+use substrate::layout::placement::grid::GridTiler;
 use substrate::layout::placement::tile::LayerBbox;
+use substrate::layout::routing::manual::jog::SJog;
 use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 
+use super::coarse_tdc::TappedRegister;
 use super::decoder::layout::{DecoderGateParams, DecoderTap, PredecoderPhysicalDesignScript};
 use super::gate::{GateParams, Inv, PrimitiveGateParams};
 
@@ -213,7 +219,7 @@ impl Component for TdcCell {
     type Params = PrimitiveGateParams;
     fn new(
         params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
+        _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         Ok(Self { params: *params })
     }
@@ -229,17 +235,17 @@ impl Component for TdcCell {
         let inv = ctx.instantiate::<Inv>(&self.params)?;
         let mut ffs = ctx.instantiate::<TappedRegister4>(&NoParams)?;
 
-        let inv0 = inv.clone().with_orientation(Named::R90Cw);
+        let inv0 = inv.with_orientation(Named::R90Cw);
         ctx.draw_ref(&inv0)?;
 
         let hspace = 400;
-        let vspace = 400;
+        let vspace = 600;
         let mut inv1 = inv0.clone().with_orientation(Named::R90Cw);
         inv1.align_to_the_right_of(inv0.bbox(), hspace);
         inv1.align_top(inv0.bbox());
         ctx.draw_ref(&inv1)?;
 
-        let cx = inv1.bbox().into_rect().right();
+        let _cx = inv1.bbox().into_rect().right();
 
         let mut s11 = inv1.clone().with_orientation(Named::R90Cw);
         s11.align_to_the_right_of(inv1.bbox(), hspace);
@@ -338,6 +344,106 @@ impl Component for TdcCell {
 
         ffs.align_beneath(s41.bbox(), vspace);
         ctx.draw(ffs)?;
+
+        let out0 = inv0.port("y")?;
+        let in1 = inv1.port("a")?;
+
+        let layers = ctx.layers();
+        let m0 = layers.get(Selector::Name("li1"))?;
+
+        let sjog = SJog::builder()
+            .src(out0.largest_rect(m0)?)
+            .dst(in1.largest_rect(m0)?)
+            .dir(subgeom::Dir::Horiz)
+            .layer(m0)
+            .width(200)
+            .l1(400)
+            .grid(5)
+            .build()
+            .unwrap();
+        ctx.draw(sjog)?;
+        let sjog = SJog::builder()
+            .src(inv1.port("y")?.largest_rect(m0)?)
+            .dst(s11.port("a")?.largest_rect(m0)?)
+            .dir(subgeom::Dir::Horiz)
+            .layer(m0)
+            .width(200)
+            .l1(400)
+            .grid(5)
+            .build()
+            .unwrap();
+        ctx.draw(sjog)?;
+        let sjog = SJog::builder()
+            .src(s11.port("y")?.largest_rect(m0)?)
+            .dst(s21.port("a")?.largest_rect(m0)?)
+            .dir(Dir::Vert)
+            .layer(m0)
+            .width(200)
+            .l1(400)
+            .grid(5)
+            .build()
+            .unwrap();
+        ctx.draw(sjog)?;
+
+        let r1 = s11.port("a")?.largest_rect(m0)?;
+        let r2 = s14.port("a")?.largest_rect(m0)?;
+        ctx.draw_rect(m0, r1.union(r2.bbox()).into_rect());
+
+        let sjog = SJog::builder()
+            .src(s12.port("y")?.largest_rect(m0)?)
+            .dst(s22.port("a")?.largest_rect(m0)?)
+            .dir(Dir::Vert)
+            .layer(m0)
+            .width(200)
+            .l1(400)
+            .grid(5)
+            .build()
+            .unwrap();
+        ctx.draw(sjog)?;
+        let sjog = SJog::builder()
+            .src(s13.port("y")?.largest_rect(m0)?)
+            .dst(s22.port("a")?.largest_rect(m0)?)
+            .dir(Dir::Vert)
+            .layer(m0)
+            .width(200)
+            .l1(400)
+            .grid(5)
+            .build()
+            .unwrap();
+        ctx.draw(sjog)?;
+
+        let mut draw_sjog = |src: &Instance, dst: &Instance| -> substrate::error::Result<()> {
+            let sjog = SJog::builder()
+                .src(src.port("y")?.largest_rect(m0)?)
+                .dst(dst.port("a")?.largest_rect(m0)?)
+                .dir(Dir::Vert)
+                .layer(m0)
+                .width(200)
+                .l1(400)
+                .grid(5)
+                .build()
+                .unwrap();
+            ctx.draw(sjog)?;
+            Ok(())
+        };
+
+        draw_sjog(&s21, &s31)?;
+        draw_sjog(&s21, &s32)?;
+        draw_sjog(&s21, &s33)?;
+        draw_sjog(&s21, &s34)?;
+        draw_sjog(&s22, &s35)?;
+        draw_sjog(&s22, &s36)?;
+        draw_sjog(&s22, &s37)?;
+        draw_sjog(&s22, &s38)?;
+
+        draw_sjog(&s32, &s41)?;
+        draw_sjog(&s33, &s41)?;
+        draw_sjog(&s34, &s42)?;
+        draw_sjog(&s35, &s42)?;
+        draw_sjog(&s36, &s43)?;
+        draw_sjog(&s37, &s43)?;
+        draw_sjog(&s38, &s44)?;
+
         Ok(())
     }
 }
@@ -348,8 +454,8 @@ impl Component for TappedRegister4 {
     type Params = NoParams;
 
     fn new(
-        params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
+        _params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         Ok(Self)
     }
@@ -362,40 +468,19 @@ impl Component for TappedRegister4 {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        let reg = ctx.instantiate::<TappedRegister>(&NoParams)?;
         let layers = ctx.layers();
         let outline = layers.get(Selector::Name("outline"))?;
+        let reg_a = LayerBbox::new(reg.clone(), outline);
+        let reg_b = LayerBbox::new(reg.with_orientation(Named::ReflectVert), outline);
 
-        let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
-
-        let tap = lib.try_cell_named("sky130_fd_sc_hd__tap_2")?;
-        let tap = ctx.instantiate::<StdCell>(&tap.id())?;
-        let tap = LayerBbox::new(tap, outline);
-        let ff = lib.try_cell_named("sky130_fd_sc_hd__dfrtp_2")?;
-        let ff = ctx.instantiate::<StdCell>(&ff.id())?;
-        let ff = LayerBbox::new(ff, outline);
-
-        let mut row = ArrayTiler::builder();
-        row.mode(AlignMode::ToTheRight).alt_mode(AlignMode::Top);
-        row.push(tap.clone());
-        for i in 0..4 {
-            row.push(ff.clone());
-        }
-        row.push(tap);
-        let mut row = row.build();
-        row.expose_ports(
-            |port, i| {
-                if i == 1 {
-                    Some(port)
-                } else {
-                    None
-                }
-            },
-            PortConflictStrategy::Error,
-        )?;
-        let group = row.generate()?;
-        ctx.add_ports(group.ports())?;
-        ctx.draw(group)?;
+        let mut grid = Grid::new(0, 0);
+        grid.push_row(into_vec![reg_a.clone()]);
+        grid.push_row(into_vec![reg_b.clone()]);
+        grid.push_row(into_vec![reg_a.clone()]);
+        grid.push_row(into_vec![reg_b.clone()]);
+        let tiler = GridTiler::new(grid);
+        ctx.draw(tiler)?;
 
         Ok(())
     }
@@ -434,7 +519,7 @@ mod tests {
     fn test_tdc_cell() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_tdc_cell");
-        ctx.write_layout::<TdcCell>(&INV_SIZING, out_gds(&work_dir, "layout"))
+        ctx.write_layout::<TdcCell>(&INV_SIZING, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 
