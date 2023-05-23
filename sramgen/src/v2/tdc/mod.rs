@@ -6,10 +6,10 @@ use subgeom::Dir;
 use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
 use substrate::into_vec;
-use substrate::layout::cell::{Instance, Port, PortConflictStrategy};
+use substrate::layout::cell::{Instance, Port};
 use substrate::layout::layers::selector::Selector;
-use substrate::layout::placement::align::{AlignMode, AlignRect};
-use substrate::layout::placement::array::ArrayTiler;
+use substrate::layout::placement::align::AlignRect;
+
 use substrate::layout::placement::grid::GridTiler;
 use substrate::layout::placement::tile::LayerBbox;
 use substrate::layout::routing::manual::jog::SJog;
@@ -477,8 +477,8 @@ impl Component for TappedRegister4 {
         let mut grid = Grid::new(0, 0);
         grid.push_row(into_vec![reg_a.clone()]);
         grid.push_row(into_vec![reg_b.clone()]);
-        grid.push_row(into_vec![reg_a.clone()]);
-        grid.push_row(into_vec![reg_b.clone()]);
+        grid.push_row(into_vec![reg_a]);
+        grid.push_row(into_vec![reg_b]);
         let tiler = GridTiler::new(grid);
         ctx.draw(tiler)?;
 
