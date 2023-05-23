@@ -77,7 +77,7 @@ impl Component for DelayLine {
                     ("din", stage_out),
                     ("dout", clk_out),
                     ("en", ctl.index(i)),
-                    ("en_b", ctl.index(i)),
+                    ("en_b", ctl_b.index(i)),
                     ("vdd", vdd),
                     ("vss", vss),
                 ])
@@ -98,18 +98,18 @@ mod tests {
 
     const INV_SIZING: PrimitiveGateParams = PrimitiveGateParams {
         length: 150,
-        nwidth: 1_000,
-        pwidth: 1_800,
+        nwidth: 5_000,
+        pwidth: 9_000,
     };
 
     const PASS_SIZING: PrimitiveGateParams = PrimitiveGateParams {
         length: 150,
-        nwidth: 1_000,
-        pwidth: 1_800,
+        nwidth: 500,
+        pwidth: 900,
     };
 
     const DELAY_LINE_PARAMS: DelayLineParams = DelayLineParams {
-        stages: 5,
+        stages: 10,
         inv1: INV_SIZING,
         inv2: INV_SIZING,
         pass: PASS_SIZING,

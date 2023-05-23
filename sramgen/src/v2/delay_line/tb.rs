@@ -36,7 +36,7 @@ impl Component for DelayLineTb {
     }
 
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("tdc_testbench")
+        arcstr::literal!("delay_line_testbench")
     }
 
     fn schematic(
@@ -80,13 +80,13 @@ impl Component for DelayLineTb {
         .named("Vclk")
         .add_to(ctx);
 
-        for i in 0..self.params.inner.stages {
+        for i in 0..stages{
             for j in 0..2 {
                 ctx.instantiate::<Vpulse>(&Vpulse {
                     v1: SiValue::zero(),
                     v2: vmax,
                     td: SiValue::with_precision(
-                        (i + j) as f64 * self.params.ctl_period,
+                        (i as f64 + j as f64 - stages as f64) * self.params.ctl_period,
                         SiPrefix::Femto,
                     ),
                     tr,
