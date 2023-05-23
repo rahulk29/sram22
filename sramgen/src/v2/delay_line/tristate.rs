@@ -40,7 +40,7 @@ impl Component for TristateInv {
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
         let [din, en, en_b] = ctx.ports(["din", "en", "en_b"], Direction::Input);
-        let dout = ctx.port("dout", Direction::Output);
+        let din_b = ctx.port("din_b", Direction::Output);
         let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
         let [nint, pint] = ctx.signals(["nint", "pint"]);
 
@@ -61,7 +61,7 @@ impl Component for TristateInv {
             id: nmos_id,
         })?
         .named("mn_en")
-        .with_connections([("d", dout), ("g", en), ("s", nint), ("b", vss)])
+        .with_connections([("d", din_b), ("g", en), ("s", nint), ("b", vss)])
         .add_to(ctx);
 
         ctx.instantiate::<SchematicMos>(&MosParams {
@@ -83,7 +83,7 @@ impl Component for TristateInv {
             id: pmos_id,
         })?
         .named("mp_en")
-        .with_connections([("d", dout), ("g", en_b), ("s", pint), ("b", vdd)])
+        .with_connections([("d", din_b), ("g", en_b), ("s", pint), ("b", vdd)])
         .add_to(ctx);
 
         ctx.instantiate::<SchematicMos>(&MosParams {
@@ -126,14 +126,14 @@ impl Component for TristateBuf {
 
         ctx.instantiate::<Inv>(&self.params.inv1)?
             .named("inv1")
-            .with_connections([("din", din), ("dout", x), ("vdd", vdd), ("vss", vss)])
+            .with_connections([("din", din), ("din_b", x), ("vdd", vdd), ("vss", vss)])
             .add_to(ctx);
 
         ctx.instantiate::<TristateInv>(&self.params.inv2)?
             .named("inv2")
             .with_connections([
                 ("din", x),
-                ("dout", dout),
+                ("din_b", dout),
                 ("en", en),
                 ("en_b", en_b),
                 ("vdd", vdd),

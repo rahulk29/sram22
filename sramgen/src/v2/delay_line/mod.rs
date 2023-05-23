@@ -124,8 +124,8 @@ mod tests {
 
     const INV_SIZING: PrimitiveGateParams = PrimitiveGateParams {
         length: 150,
-        nwidth: 5_000,
-        pwidth: 9_000,
+        nwidth: 1_000,
+        pwidth: 1_800,
     };
 
     const TGATE_SIZING: PrimitiveGateParams = PrimitiveGateParams {
