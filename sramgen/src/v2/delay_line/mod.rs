@@ -247,21 +247,21 @@ mod tests {
     };
 
     const NAIVE_DELAY_LINE_TGATE_PARAMS: NaiveDelayLineParams = NaiveDelayLineParams {
-        stages: 10,
+        stages: 100,
         inv1: INV_SIZING,
         inv2: INV_SIZING,
         pass: super::PassGateKind::TransmissionGate(TGATE_SIZING),
     };
 
     const NAIVE_DELAY_LINE_TRISTATE_PARAMS: NaiveDelayLineParams = NaiveDelayLineParams {
-        stages: 10,
+        stages: 100,
         inv1: INV_SIZING,
         inv2: INV_SIZING,
         pass: super::PassGateKind::TristateBuf(TRISTATE_SIZING),
     };
 
     const TRISTATE_INV_DELAY_LINE_PARAMS: TristateInvDelayLineParams = TristateInvDelayLineParams {
-        stages: 10,
+        stages: 100,
         inv: INV_SIZING,
         tristate_inv: INV_SIZING,
     };
@@ -272,7 +272,7 @@ mod tests {
         f: 1e9,
         tr: 20e-12,
         ctl_period: 1e-8,
-        t_stop: None,
+        t_stop: Some(10e-8),
     };
 
     const NAIVE_DELAY_LINE_TRISTATE_TB_PARAMS: DelayLineTbParams = DelayLineTbParams {
@@ -281,7 +281,7 @@ mod tests {
         f: 1e9,
         tr: 20e-12,
         ctl_period: 1e-8,
-        t_stop: None,
+        t_stop: Some(10e-8),
     };
 
     const TRISTATE_INV_DELAY_LINE_TB_PARAMS: DelayLineTbParams = DelayLineTbParams {
@@ -290,7 +290,7 @@ mod tests {
         f: 1e9,
         tr: 20e-12,
         ctl_period: 1e-8,
-        t_stop: None,
+        t_stop: Some(10e-8),
     };
 
     #[test]
