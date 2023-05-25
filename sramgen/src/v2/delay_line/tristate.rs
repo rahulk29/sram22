@@ -1,19 +1,19 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use subgeom::{bbox::BoundBox, orientation::Named, Point, Rect, Shape, Side, Span};
-use substrate::{
-    component::Component,
-    layout::{
-        cell::{CellPort, Port},
-        elements::mos::LayoutMos,
-        layers::selector::Selector,
-        placement::align::AlignRect,
-        routing::manual::jog::ElbowJog,
-    },
-    pdk::mos::{query::Query, spec::MosKind, GateContactStrategy, LayoutMosParams, MosParams},
-    schematic::{circuit::Direction, elements::mos::SchematicMos},
-};
+use subgeom::bbox::BoundBox;
+use subgeom::orientation::Named;
+use subgeom::{Rect, Shape, Span};
+use substrate::component::Component;
+use substrate::layout::cell::{CellPort, Port};
+use substrate::layout::elements::mos::LayoutMos;
+use substrate::layout::layers::selector::Selector;
+use substrate::layout::placement::align::AlignRect;
+use substrate::pdk::mos::query::Query;
+use substrate::pdk::mos::spec::MosKind;
+use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
+use substrate::schematic::circuit::Direction;
+use substrate::schematic::elements::mos::SchematicMos;
 
 use crate::v2::gate::{Inv, PrimitiveGateParams};
 
@@ -242,12 +242,10 @@ impl Component for TristateBuf {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        paths::{out_gds, out_spice},
-        setup_ctx,
-        tests::test_work_dir,
-        v2::gate::PrimitiveGateParams,
-    };
+    use crate::paths::{out_gds, out_spice};
+    use crate::setup_ctx;
+    use crate::tests::test_work_dir;
+    use crate::v2::gate::PrimitiveGateParams;
 
     use super::TristateInv;
 

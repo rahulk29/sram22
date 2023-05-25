@@ -1,12 +1,12 @@
 use std::collections::{HashMap, HashSet};
-use std::iter::empty;
 
 use grid::{grid, Grid};
 use serde::{Deserialize, Serialize};
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
-use subgeom::{Point, Rect, Side, Sides, Sign, Span};
-use substrate::component::NoParams;
+use subgeom::{Rect, Side, Sides, Sign, Span};
+use substrate::component::{Component, NoParams};
+use substrate::index::IndexOwned;
 use substrate::into_vec;
 use substrate::layout::cell::{CellPort, Port, PortConflictStrategy, PortId};
 use substrate::layout::elements::via::{Via, ViaParams};
@@ -22,7 +22,6 @@ use substrate::layout::straps::SingleSupplyNet;
 use substrate::layout::DrawRef;
 use substrate::schematic::circuit::Direction;
 use substrate::script::Script;
-use substrate::{component::Component, index::IndexOwned};
 
 use self::transmission::TransmissionGate;
 use self::tristate::{TristateBuf, TristateBufParams, TristateInv};
@@ -510,7 +509,7 @@ impl Component for TristateInvDelayLine {
                 ("en_b_1", DelayLineTracks::EnBRight),
                 ("en_b_2", DelayLineTracks::EnRight),
             ] {
-                if i == 0 && port_name.chars().last().unwrap() == '2' {
+                if i == 0 && port_name.ends_with('2') {
                     continue;
                 }
                 let port = tiler
@@ -614,20 +613,14 @@ impl Component for TristateInvDelayLine {
         let mut straps = RoutedStraps::new();
         straps.set_strap_layers([m2, m3]);
 
-        for i in 0..self.params.stages {
+        for tracks in vtracks.iter() {
             straps.add_target(
                 m1,
-                Target::new(
-                    SingleSupplyNet::Vdd,
-                    vtracks[i][DelayLineTracks::Vdd as usize],
-                ),
+                Target::new(SingleSupplyNet::Vdd, tracks[DelayLineTracks::Vdd as usize]),
             );
             straps.add_target(
                 m1,
-                Target::new(
-                    SingleSupplyNet::Vss,
-                    vtracks[i][DelayLineTracks::Vss as usize],
-                ),
+                Target::new(SingleSupplyNet::Vss, tracks[DelayLineTracks::Vss as usize]),
             );
         }
 
@@ -711,16 +704,14 @@ impl Script for DelayLineTapDesignScript {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        paths::{out_gds, out_spice},
-        setup_ctx,
-        tests::test_work_dir,
-        v2::gate::PrimitiveGateParams,
-    };
+    use crate::paths::{out_gds, out_spice};
+    use crate::setup_ctx;
+    use crate::tests::test_work_dir;
+    use crate::v2::gate::PrimitiveGateParams;
 
+    use super::tb::{DelayLineTb, DelayLineTbParams};
+    use super::tristate::TristateBufParams;
     use super::{
-        tb::{DelayLineTb, DelayLineTbParams},
-        tristate::TristateBufParams,
         NaiveDelayLine, NaiveDelayLineParams, TristateInvDelayLine, TristateInvDelayLineParams,
     };
 
