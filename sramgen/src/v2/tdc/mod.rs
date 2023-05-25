@@ -600,10 +600,6 @@ impl Component for TappedRegister4 {
             },
             PortConflictStrategy::Error,
         )?;
-        println!("tapped register 4 ports:");
-        for port in tiler.ports() {
-            println!("tapped register 4 | name = {}", port.name());
-        }
         ctx.add_ports(tiler.ports().cloned())?;
         ctx.draw(tiler)?;
 

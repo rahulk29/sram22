@@ -181,9 +181,6 @@ impl Component for TappedRegister {
             PortConflictStrategy::Error,
         )?;
         let group = row.generate()?;
-        for port in group.ports() {
-            println!("tapped register | name = {}", port.name());
-        }
         ctx.add_ports(group.ports())?;
         ctx.draw(group)?;
 
