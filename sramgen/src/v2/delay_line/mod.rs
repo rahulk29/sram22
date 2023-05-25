@@ -14,8 +14,11 @@ use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignRect;
 use substrate::layout::placement::grid::GridTiler;
 use substrate::layout::placement::tile::{OptionTile, Pad};
+use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
+use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
 use substrate::layout::routing::manual::jog::{ElbowJog, SJog};
 use substrate::layout::routing::tracks::UniformTracks;
+use substrate::layout::straps::SingleSupplyNet;
 use substrate::layout::DrawRef;
 use substrate::schematic::circuit::Direction;
 use substrate::script::Script;
@@ -258,6 +261,7 @@ impl Component for TristateInvDelayLine {
         let m0 = layers.get(Selector::Metal(0))?;
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
+        let m3 = layers.get(Selector::Metal(3))?;
         let nsdm = layers.get(Selector::Name("nsdm"))?;
         let psdm = layers.get(Selector::Name("psdm"))?;
 
@@ -581,6 +585,52 @@ impl Component for TristateInvDelayLine {
             vtracks[0][DelayLineTracks::DoutMid as usize],
         ))?;
 
+        let router_bbox = ctx.brect().expand(2 * 680).snap_to_grid(680);
+
+        let mut router = GreedyRouter::with_config(GreedyRouterConfig {
+            area: router_bbox,
+            layers: vec![
+                LayerConfig {
+                    line: 320,
+                    space: 360,
+                    dir: subgeom::Dir::Vert,
+                    layer: m1,
+                },
+                LayerConfig {
+                    line: 320,
+                    space: 360,
+                    dir: subgeom::Dir::Horiz,
+                    layer: m2,
+                },
+                LayerConfig {
+                    line: 320,
+                    space: 360,
+                    dir: subgeom::Dir::Vert,
+                    layer: m3,
+                },
+            ],
+        });
+
+        let mut straps = RoutedStraps::new();
+        straps.set_strap_layers([m2, m3]);
+
+        for i in 0..self.params.stages {
+            straps.add_target(
+                m1,
+                Target::new(
+                    SingleSupplyNet::Vdd,
+                    vtracks[i][DelayLineTracks::Vdd as usize],
+                ),
+            );
+            straps.add_target(
+                m1,
+                Target::new(
+                    SingleSupplyNet::Vss,
+                    vtracks[i][DelayLineTracks::Vss as usize],
+                ),
+            );
+        }
+
         let htracks = UniformTracks::builder()
             .line(320)
             .space(180)
@@ -604,6 +654,7 @@ impl Component for TristateInvDelayLine {
                     htracks.index(i % 2 + 2 * j),
                 );
                 ctx.draw_rect(m2, rect);
+                router.block(m2, rect);
                 for track in [
                     vtracks[i][track_a as usize],
                     vtracks[i + 1][track_b as usize],
@@ -618,6 +669,8 @@ impl Component for TristateInvDelayLine {
                 }
             }
         }
+
+        straps.fill(&router, ctx)?;
 
         Ok(())
     }
