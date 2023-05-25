@@ -348,27 +348,29 @@ impl Component for TristateInvDelayLine {
         }
         ctx.draw(tgroup)?;
 
-        for i in 0..self.params.stages - 1 {
+        for i in 0..self.params.stages {
             let out_port = tiler
                 .port_map()
                 .port(format!("y_0_{i}"))?
                 .largest_rect(m0)?;
-            let in_port_1 = tiler
-                .port_map()
-                .port(format!("a_0_{}", i + 1))?
-                .largest_rect(m0)?;
+            if i < self.params.stages - 1 {
+                let in_port_1 = tiler
+                    .port_map()
+                    .port(format!("a_0_{}", i + 1))?
+                    .largest_rect(m0)?;
+                let jog = ElbowJog::builder()
+                    .src(out_port.edge(Side::Right))
+                    .dst(in_port_1.center())
+                    .layer(m0)
+                    .width2(in_port_1.width())
+                    .build()
+                    .unwrap();
+                ctx.draw(jog)?;
+            }
             let in_port_2 = tiler
                 .port_map()
                 .port(format!("din_1_{}", i))?
                 .first_rect(m0, Side::Right)?;
-            let jog = ElbowJog::builder()
-                .src(out_port.edge(Side::Right))
-                .dst(in_port_1.center())
-                .layer(m0)
-                .width2(in_port_1.width())
-                .build()
-                .unwrap();
-            ctx.draw(jog)?;
             let jog = ElbowJog::builder()
                 .src(out_port.edge(Side::Right))
                 .dst(in_port_2.center())
