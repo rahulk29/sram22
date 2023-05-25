@@ -1,7 +1,17 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
+use subgeom::{bbox::BoundBox, orientation::Named, Point, Rect, Shape, Side, Span};
 use substrate::{
     component::Component,
-    pdk::mos::{query::Query, spec::MosKind, MosParams},
+    layout::{
+        cell::{CellPort, Port},
+        elements::mos::LayoutMos,
+        layers::selector::Selector,
+        placement::align::AlignRect,
+        routing::manual::jog::ElbowJog,
+    },
+    pdk::mos::{query::Query, spec::MosKind, GateContactStrategy, LayoutMosParams, MosParams},
     schematic::{circuit::Direction, elements::mos::SchematicMos},
 };
 
@@ -99,6 +109,91 @@ impl Component for TristateInv {
 
         Ok(())
     }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+        let m0 = layers.get(Selector::Metal(0))?;
+        let poly = layers.get(Selector::Name("poly"))?;
+        let db = ctx.mos_db();
+        let nmos = db.default_nmos().unwrap();
+        let pmos = db.default_pmos().unwrap();
+
+        let params = LayoutMosParams {
+            skip_sd_metal: vec![vec![1]],
+            deep_nwell: true,
+            contact_strategy: GateContactStrategy::SingleSide,
+            devices: vec![MosParams {
+                w: self.params.nwidth,
+                l: self.params.length,
+                m: 1,
+                nf: 2,
+                id: nmos.id(),
+            }],
+        };
+        let pd = ctx.instantiate::<LayoutMos>(&params)?;
+        ctx.draw_ref(&pd)?;
+
+        let params = LayoutMosParams {
+            skip_sd_metal: vec![vec![1]],
+            deep_nwell: true,
+            contact_strategy: GateContactStrategy::SingleSide,
+            devices: vec![MosParams {
+                w: self.params.pwidth,
+                l: self.params.length,
+                m: 1,
+                nf: 2,
+                id: pmos.id(),
+            }],
+        };
+        let mut pu = ctx
+            .instantiate::<LayoutMos>(&params)?
+            .with_orientation(Named::ReflectHoriz);
+        pu.align_centers_gridded(&pd, ctx.pdk().layout_grid());
+        pu.align_to_the_right_of(&pd, 210);
+        ctx.draw_ref(&pu)?;
+
+        let dout_short = pd
+            .port("sd_0_2")?
+            .largest_rect(m0)?
+            .bbox()
+            .union(pu.port("sd_0_2")?.largest_rect(m0)?.bbox())
+            .into_rect();
+
+        ctx.draw_rect(m0, dout_short);
+        ctx.add_port(CellPort::with_shape("dout", m0, dout_short))?;
+
+        let mut gate_poly_spans = HashMap::new();
+        for shape in pu.shapes_on(poly).chain(pd.shapes_on(poly)) {
+            if let Shape::Rect(rect) = shape {
+                gate_poly_spans
+                    .entry(rect.vspan())
+                    .or_insert(Vec::new())
+                    .push(rect.hspan());
+            }
+        }
+
+        for (vspan, hspans) in gate_poly_spans {
+            if !vspan.intersects(&pu.port("gate_0")?.largest_rect(m0)?.vspan()) {
+                continue;
+            }
+            let new_hspans = Span::merge_adjacent(hspans, |a, b| a.min_distance(b) < 500);
+            for hspan in new_hspans {
+                ctx.draw_rect(poly, Rect::from_spans(hspan, vspan));
+            }
+        }
+
+        ctx.add_port(pd.port("gate_0")?.into_cell_port().named("din"))?;
+        ctx.add_port(pd.port("gate_1")?.into_cell_port().named("en"))?;
+        ctx.add_port(pd.port("sd_0_0")?.into_cell_port().named("vss"))?;
+        ctx.add_port(pu.port("sd_0_0")?.into_cell_port().named("vdd"))?;
+        ctx.merge_port(pu.port("gate_0")?.into_cell_port().named("din"));
+        ctx.add_port(pu.port("gate_1")?.into_cell_port().named("en_b"))?;
+
+        Ok(())
+    }
 }
 
 impl Component for TristateBuf {
@@ -142,5 +237,33 @@ impl Component for TristateBuf {
             .add_to(ctx);
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        paths::{out_gds, out_spice},
+        setup_ctx,
+        tests::test_work_dir,
+        v2::gate::PrimitiveGateParams,
+    };
+
+    use super::TristateInv;
+
+    const INV_SIZING: PrimitiveGateParams = PrimitiveGateParams {
+        length: 150,
+        nwidth: 1_000,
+        pwidth: 1_800,
+    };
+
+    #[test]
+    fn test_tristate_inv() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_tristate_inv");
+        ctx.write_schematic_to_file::<TristateInv>(&INV_SIZING, out_spice(&work_dir, "schematic"))
+            .expect("failed to write schematic");
+        ctx.write_layout::<TristateInv>(&INV_SIZING, out_gds(&work_dir, "layout"))
+            .expect("failed to write schematic");
     }
 }

@@ -1,10 +1,30 @@
+use std::collections::{HashMap, HashSet};
+use std::iter::empty;
+
+use grid::{grid, Grid};
 use serde::{Deserialize, Serialize};
+use subgeom::bbox::BoundBox;
+use subgeom::orientation::Named;
+use subgeom::{Point, Rect, Side, Sides, Sign, Span};
+use substrate::component::NoParams;
+use substrate::into_vec;
+use substrate::layout::cell::{CellPort, Port, PortConflictStrategy, PortId};
+use substrate::layout::elements::via::{Via, ViaParams};
+use substrate::layout::layers::selector::Selector;
+use substrate::layout::placement::align::AlignRect;
+use substrate::layout::placement::grid::GridTiler;
+use substrate::layout::placement::tile::{OptionTile, Pad};
+use substrate::layout::routing::manual::jog::{ElbowJog, SJog};
+use substrate::layout::routing::tracks::UniformTracks;
+use substrate::layout::DrawRef;
 use substrate::schematic::circuit::Direction;
+use substrate::script::Script;
 use substrate::{component::Component, index::IndexOwned};
 
 use self::transmission::TransmissionGate;
 use self::tristate::{TristateBuf, TristateBufParams, TristateInv};
 
+use super::decoder::layout::{DecoderGateParams, DecoderTap, PhysicalDesign};
 use super::gate::{Inv, PrimitiveGateParams};
 
 pub mod tb;
@@ -38,6 +58,18 @@ pub struct TristateInvDelayLineParams {
     stages: usize,
     inv: PrimitiveGateParams,
     tristate_inv: PrimitiveGateParams,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub enum DelayLineTracks {
+    EnBLeft = 0,
+    EnLeft = 1,
+    Vss = 2,
+    DoutMid = 3,
+    DoutBot = 4,
+    Vdd = 5,
+    EnBRight = 6,
+    EnRight = 7,
 }
 
 impl Component for NaiveDelayLine {
@@ -217,11 +249,419 @@ impl Component for TristateInvDelayLine {
         }
         Ok(())
     }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+        let m0 = layers.get(Selector::Metal(0))?;
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+        let psdm = layers.get(Selector::Name("psdm"))?;
+
+        let dsn = ctx
+            .inner()
+            .run_script::<DelayLineTapDesignScript>(&NoParams)?;
+
+        let inv = ctx.instantiate::<Inv>(&self.params.inv)?;
+        let mut tstate = ctx.instantiate::<TristateInv>(&self.params.tristate_inv)?;
+        let tap = ctx
+            .instantiate::<DecoderTap>(&DecoderGateParams {
+                gate: super::gate::GateParams::Inv(self.params.inv),
+                dsn: (*dsn).clone(),
+            })?
+            .with_orientation(Named::R90Cw);
+
+        tstate.align_beneath(&inv, 2_000);
+
+        let tstate_padding = 1_600;
+
+        let inv_tile = Pad::new(
+            inv.with_orientation(Named::ReflectVert),
+            Sides::new(
+                0,
+                tstate.brect().width() - inv.brect().width() + tstate_padding,
+                0,
+                0,
+            ),
+        );
+
+        let tap_tile = Pad::new(
+            tap.clone(),
+            Sides::new(
+                0,
+                tstate.brect().width() - tap.brect().width() + tstate_padding,
+                0,
+                0,
+            ),
+        );
+        let tstate_tile = Pad::new(
+            tstate.with_orientation(Named::ReflectVert),
+            Sides::new(0, tstate_padding, 0, 0),
+        );
+
+        let mut grid: Grid<OptionTile> = grid![
+            [tap_tile.clone().into()][inv_tile.clone().into()][tstate_tile.clone().into()]
+                [tap_tile.clone().into()][None.into()]
+        ];
+
+        for _ in 1..self.params.stages {
+            grid.push_col(into_vec![
+                tap_tile.clone(),
+                inv_tile.clone(),
+                tstate_tile.clone(),
+                tstate_tile.clone(),
+                tap_tile.clone(),
+            ]);
+        }
+
+        let mut tiler = GridTiler::new(grid);
+        tiler.expose_ports(
+            |port: CellPort, (i, j)| {
+                if i > 0 && i < 4 {
+                    let name = format!("{}_{}_{}", port.name(), i - 1, j);
+                    Some(port.named(name))
+                } else {
+                    None
+                }
+            },
+            PortConflictStrategy::Error,
+        )?;
+        let tgroup = tiler.draw_ref()?;
+        for layer in [nsdm, psdm] {
+            let mut merge_sdm = HashMap::new();
+            for shape in tgroup.shapes_on(layer) {
+                merge_sdm
+                    .entry(shape.brect().hspan())
+                    .or_insert(Vec::new())
+                    .push(shape.brect().vspan());
+            }
+
+            for (hspan, vspans) in merge_sdm {
+                let new_vspans = Span::merge_adjacent(vspans, |a, b| a.min_distance(b) < 300);
+                for vspan in new_vspans {
+                    ctx.draw_rect(layer, Rect::from_spans(hspan, vspan));
+                }
+            }
+        }
+        ctx.draw(tgroup)?;
+
+        for i in 0..self.params.stages - 1 {
+            let out_port = tiler
+                .port_map()
+                .port(format!("y_0_{i}"))?
+                .largest_rect(m0)?;
+            let in_port_1 = tiler
+                .port_map()
+                .port(format!("a_0_{}", i + 1))?
+                .largest_rect(m0)?;
+            let in_port_2 = tiler
+                .port_map()
+                .port(format!("din_1_{}", i))?
+                .first_rect(m0, Side::Right)?;
+            let jog = ElbowJog::builder()
+                .src(out_port.edge(Side::Right))
+                .dst(in_port_1.center())
+                .layer(m0)
+                .width2(in_port_1.width())
+                .build()
+                .unwrap();
+            ctx.draw(jog)?;
+            let jog = ElbowJog::builder()
+                .src(out_port.edge(Side::Right))
+                .dst(in_port_2.center())
+                .layer(m0)
+                .width2(in_port_2.width())
+                .build()
+                .unwrap();
+            ctx.draw(jog)?;
+        }
+
+        let mut vtracks = Vec::new();
+        for i in 0..self.params.stages {
+            let mut cur_vtracks = Vec::new();
+            let in_port_left = tiler
+                .port_map()
+                .port(format!("din_1_{i}"))?
+                .first_rect(m0, Side::Left)?;
+
+            let htracks_left = UniformTracks::builder()
+                .line(320)
+                .space(180)
+                .start(in_port_left.right())
+                .sign(Sign::Neg)
+                .build()
+                .unwrap();
+
+            for j in (0..2usize).rev() {
+                let rect = Rect::from_spans(htracks_left.index(j), ctx.brect().vspan());
+                ctx.draw_rect(m1, rect);
+                cur_vtracks.push(rect);
+            }
+            let vss_strap = Span::from_center_span_gridded(
+                tiler
+                    .port_map()
+                    .port(format!("vss_0_{i}"))?
+                    .largest_rect(m0)?
+                    .center()
+                    .x,
+                320,
+                ctx.pdk().layout_grid(),
+            );
+
+            let vdd_strap = Span::from_center_span_gridded(
+                tiler
+                    .port_map()
+                    .port(format!("vdd_0_{i}"))?
+                    .largest_rect(m0)?
+                    .center()
+                    .x,
+                320,
+                ctx.pdk().layout_grid(),
+            );
+
+            let dout1_strap = Span::from_center_span_gridded(
+                vss_strap.center() + (vdd_strap.center() - vss_strap.center()) / 3,
+                320,
+                ctx.pdk().layout_grid(),
+            );
+
+            let dout2_strap = Span::from_center_span_gridded(
+                vss_strap.center() + 2 * (vdd_strap.center() - vss_strap.center()) / 3,
+                320,
+                ctx.pdk().layout_grid(),
+            );
+
+            for (draw_rect, strap) in [
+                (true, vss_strap),
+                (true, dout1_strap),
+                (i > 0, dout2_strap),
+                (true, vdd_strap),
+            ] {
+                let rect = Rect::from_spans(strap, ctx.brect().vspan());
+                cur_vtracks.push(rect);
+                if draw_rect {
+                    ctx.draw_rect(m1, rect);
+                }
+            }
+
+            let in_port_right = tiler
+                .port_map()
+                .port(format!("din_1_{i}"))?
+                .first_rect(m0, Side::Right)?;
+
+            let htracks_right = UniformTracks::builder()
+                .line(320)
+                .space(180)
+                .start(in_port_right.left())
+                .sign(Sign::Pos)
+                .build()
+                .unwrap();
+
+            for j in 0..2usize {
+                let rect = Rect::from_spans(htracks_right.index(j), ctx.brect().vspan());
+                cur_vtracks.push(rect);
+                if i == 0 && j == 1 {
+                    continue;
+                }
+                ctx.draw_rect(m1, rect);
+            }
+
+            for (port_name, track) in [("vss", DelayLineTracks::Vss), ("vdd", DelayLineTracks::Vdd)]
+            {
+                ctx.merge_port(CellPort::with_shape(
+                    port_name,
+                    m1,
+                    cur_vtracks[track as usize],
+                ));
+                for j in 0..3 {
+                    if i == 0 && j == 2 {
+                        continue;
+                    }
+                    for port in tiler
+                        .port_map()
+                        .port(format!("{port_name}_{j}_{i}"))?
+                        .shapes(m0)
+                    {
+                        let via = ctx.instantiate::<Via>(
+                            &ViaParams::builder()
+                                .layers(m0, m1)
+                                .geometry(port.brect(), cur_vtracks[track as usize])
+                                .build(),
+                        )?;
+                        ctx.draw(via)?;
+                    }
+                }
+            }
+
+            for (port_name, track) in [
+                ("dout_1", DelayLineTracks::DoutMid),
+                ("dout_2", DelayLineTracks::DoutBot),
+                ("en_1", DelayLineTracks::EnLeft),
+                ("en_2", DelayLineTracks::EnBLeft),
+                ("en_b_1", DelayLineTracks::EnBRight),
+                ("en_b_2", DelayLineTracks::EnRight),
+            ] {
+                if i == 0 && port_name.chars().last().unwrap() == '2' {
+                    continue;
+                }
+                let port = tiler
+                    .port_map()
+                    .port(format!("{}_{}", port_name, i))?
+                    .largest_rect(m0)?;
+                let port = Rect::from_spans(
+                    port.hspan().union(cur_vtracks[track as usize].hspan()),
+                    port.vspan(),
+                );
+                ctx.draw_rect(m0, port);
+                let via = ctx.instantiate::<Via>(
+                    &ViaParams::builder()
+                        .layers(m0, m1)
+                        .geometry(port, cur_vtracks[track as usize])
+                        .build(),
+                )?;
+                ctx.draw(via)?;
+            }
+
+            ctx.add_port(CellPort::with_shape(
+                PortId::new("ctl", i),
+                m1,
+                cur_vtracks[DelayLineTracks::EnLeft as usize],
+            ))?;
+            ctx.add_port(CellPort::with_shape(
+                PortId::new("ctl_b", i),
+                m1,
+                cur_vtracks[DelayLineTracks::EnBRight as usize],
+            ))?;
+
+            if i > 0 {
+                let sjog = SJog::builder()
+                    .src(
+                        tiler
+                            .port_map()
+                            .port(format!("dout_1_{i}"))?
+                            .largest_rect(m0)?,
+                    )
+                    .dst(
+                        tiler
+                            .port_map()
+                            .port(format!("din_2_{i}"))?
+                            .first_rect(m0, Side::Right)?,
+                    )
+                    .width(170)
+                    .l1(170)
+                    .dir(subgeom::Dir::Vert)
+                    .layer(m0)
+                    .build()
+                    .unwrap();
+                ctx.draw(sjog)?;
+            }
+
+            vtracks.push(cur_vtracks);
+        }
+
+        let port = tiler.port_map().port("a_0_0")?.largest_rect(m0)?;
+        let port = Rect::from_spans(port.hspan().union(vtracks[0][0].hspan()), port.vspan());
+        ctx.draw_rect(m0, port);
+        let via = ctx.instantiate::<Via>(
+            &ViaParams::builder()
+                .layers(m0, m1)
+                .geometry(port, vtracks[0][0])
+                .build(),
+        )?;
+        ctx.draw(via)?;
+        ctx.add_port(CellPort::with_shape("clk_in", m1, vtracks[0][0]))?;
+        ctx.add_port(CellPort::with_shape(
+            "clk_out",
+            m1,
+            vtracks[0][DelayLineTracks::DoutMid as usize],
+        ))?;
+
+        let htracks = UniformTracks::builder()
+            .line(320)
+            .space(180)
+            .start(ctx.brect().top() - 500)
+            .sign(Sign::Neg)
+            .build()
+            .unwrap();
+        for i in 0..self.params.stages - 1 {
+            for (j, (track_a, track_b)) in [
+                (DelayLineTracks::EnLeft, DelayLineTracks::EnRight),
+                (DelayLineTracks::EnLeft, DelayLineTracks::EnBLeft),
+                (DelayLineTracks::DoutMid, DelayLineTracks::DoutBot),
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                let rect = Rect::from_spans(
+                    vtracks[i][track_a as usize]
+                        .hspan()
+                        .union(vtracks[i + 1][track_b as usize].hspan()),
+                    htracks.index(i % 2 + 2 * j),
+                );
+                ctx.draw_rect(m2, rect);
+                for track in [
+                    vtracks[i][track_a as usize],
+                    vtracks[i + 1][track_b as usize],
+                ] {
+                    let via = ctx.instantiate::<Via>(
+                        &ViaParams::builder()
+                            .layers(m1, m2)
+                            .geometry(track, rect)
+                            .build(),
+                    )?;
+                    ctx.draw(via)?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+pub struct DelayLineTapDesignScript;
+
+impl Script for DelayLineTapDesignScript {
+    type Params = NoParams;
+    type Output = PhysicalDesign;
+
+    fn run(
+        _params: &Self::Params,
+        ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self::Output> {
+        let layers = ctx.layers();
+        let li = layers.get(Selector::Metal(0))?;
+        let stripe_metal = layers.get(Selector::Metal(1))?;
+        let wire_metal = layers.get(Selector::Metal(2))?;
+        let nwell = layers.get(Selector::Name("nwell"))?;
+        let psdm = layers.get(Selector::Name("psdm"))?;
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+        Ok(Self::Output {
+            width: 1470,
+            tap_width: 1470,
+            tap_period: 8,
+            stripe_metal,
+            wire_metal,
+            via_metals: vec![],
+            li,
+            line: 320,
+            space: 160,
+            rail_width: 320,
+            abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{paths::out_spice, setup_ctx, tests::test_work_dir, v2::gate::PrimitiveGateParams};
+    use crate::{
+        paths::{out_gds, out_spice},
+        setup_ctx,
+        tests::test_work_dir,
+        v2::gate::PrimitiveGateParams,
+    };
 
     use super::{
         tb::{DelayLineTb, DelayLineTbParams},
@@ -261,7 +701,7 @@ mod tests {
     };
 
     const TRISTATE_INV_DELAY_LINE_PARAMS: TristateInvDelayLineParams = TristateInvDelayLineParams {
-        stages: 100,
+        stages: 5,
         inv: INV_SIZING,
         tristate_inv: INV_SIZING,
     };
@@ -328,6 +768,37 @@ mod tests {
             out_spice(&work_dir, "schematic"),
         )
         .expect("failed to write schematic");
+        ctx.write_layout::<TristateInvDelayLine>(
+            &TRISTATE_INV_DELAY_LINE_PARAMS,
+            out_gds(&work_dir, "layout"),
+        )
+        .expect("failed to write schematic");
+
+        #[cfg(feature = "commercial")]
+        {
+            let drc_work_dir = work_dir.join("drc");
+            let output = ctx
+                .write_drc::<TristateInvDelayLine>(&TRISTATE_INV_DELAY_LINE_PARAMS, drc_work_dir)
+                .expect("failed to run DRC");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::drc::DrcSummary::Pass
+            ));
+            let lvs_work_dir = work_dir.join("lvs");
+            let output = ctx
+                .write_lvs::<TristateInvDelayLine>(&TRISTATE_INV_DELAY_LINE_PARAMS, lvs_work_dir)
+                .expect("failed to run LVS");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::lvs::LvsSummary::Pass
+            ));
+        }
+    }
+
+    #[test]
+    fn test_tb_tristate_inv_delay_line() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_tb_tristate_inv_delay_line");
         ctx.write_simulation::<DelayLineTb>(&TRISTATE_INV_DELAY_LINE_TB_PARAMS, work_dir)
             .expect("failed to run simulation");
     }
