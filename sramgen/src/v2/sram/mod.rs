@@ -261,6 +261,12 @@ pub(crate) mod tests {
         SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV1);
 
     pub(crate) const PARAMS_11: SramParams = SramParams::new(8, 8, 4096, 8, ControlMode::ReplicaV1);
+    pub(crate) const ROCKET_1: SramParams = SramParams::new(8, 4, 512, 64, ControlMode::ReplicaV1);
+    pub(crate) const ROCKET_2: SramParams = SramParams::new(24, 4, 64, 24, ControlMode::ReplicaV1);
+    pub(crate) const ROCKET_3: SramParams = SramParams::new(32, 4, 512, 32, ControlMode::ReplicaV1);
+    pub(crate) const ROCKET_4: SramParams = SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV1);
+    pub(crate) const ROCKET_5: SramParams =
+        SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV1);
 
     macro_rules! test_sram {
         ($name: ident, $params: ident $(, $attr: meta)*) => {
@@ -309,4 +315,9 @@ pub(crate) mod tests {
     test_sram!(test_sram_9, PARAMS_9, ignore = "slow");
     test_sram!(test_sram_10, PARAMS_10, ignore = "slow");
     test_sram!(test_sram_11, PARAMS_11, ignore = "slow");
+    test_sram!(test_sram_rocket_1, ROCKET_1, ignore = "slow");
+    test_sram!(test_sram_rocket_2, ROCKET_2, ignore = "slow");
+    test_sram!(test_sram_rocket_3, ROCKET_3, ignore = "slow");
+    test_sram!(test_sram_rocket_4, ROCKET_4, ignore = "slow");
+    test_sram!(test_sram_rocket_5, ROCKET_5, ignore = "slow");
 }
