@@ -4,7 +4,7 @@ use grid::Grid;
 use serde::{Deserialize, Serialize};
 use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
-use subgeom::{Dir, Rect, Side, Sides};
+use subgeom::{Dir, Rect, Side};
 use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
 use substrate::into_vec;
