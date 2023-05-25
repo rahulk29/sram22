@@ -589,7 +589,7 @@ impl Component for TristateInvDelayLine {
         for i in 0..self.params.stages - 1 {
             for (j, (track_a, track_b)) in [
                 (DelayLineTracks::EnLeft, DelayLineTracks::EnRight),
-                (DelayLineTracks::EnLeft, DelayLineTracks::EnBLeft),
+                (DelayLineTracks::EnBRight, DelayLineTracks::EnBLeft),
                 (DelayLineTracks::DoutMid, DelayLineTracks::DoutBot),
             ]
             .into_iter()
