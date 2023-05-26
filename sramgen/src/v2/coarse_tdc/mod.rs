@@ -174,12 +174,10 @@ impl Component for TappedRegister {
             |port: CellPort, i| {
                 if i == 1 {
                     Some(port)
+                } else if port.name() == "vpwr" || port.name() == "vgnd" {
+                    Some(port)
                 } else {
-                    if port.name() == "vpwr" || port.name() == "vgnd" {
-                        Some(port)
-                    } else {
-                        None
-                    }
+                    None
                 }
             },
             PortConflictStrategy::Merge,
