@@ -312,6 +312,17 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 [[package]]
 name = "calibre"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "lazy_static",
+ "regex",
+ "serde",
+ "tera",
+]
+
+[[package]]
+name = "calibre"
+version = "0.1.0"
 source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git?branch=master#36f2a2a70bffd9193a03dfaef5f3048c0506757b"
 dependencies = [
  "anyhow",
@@ -2246,7 +2257,7 @@ dependencies = [
  "approx",
  "arcstr",
  "bytes",
- "calibre",
+ "calibre 0.1.0 (git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git?branch=master)",
  "clap",
  "codegen",
  "colored",
@@ -2309,7 +2320,7 @@ name = "sub_calibre"
 version = "0.0.1"
 dependencies = [
  "arcstr",
- "calibre",
+ "calibre 0.1.0",
  "derive_builder 0.12.0",
  "substrate",
 ]

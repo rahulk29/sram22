@@ -269,11 +269,13 @@ pub(crate) mod tests {
     pub(crate) const ROCKET_4: SramParams = SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV2);
     pub(crate) const ROCKET_5: SramParams =
         SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV2);
+    pub(crate) const ROCKET_6: SramParams =
+        SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV2);
 
     #[test]
     fn test_sram_tiny() {
         let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_sram_flow");
+        let work_dir = test_work_dir("test_sram_tiny");
 
         let spice_path = out_spice(&work_dir, "schematic");
         ctx.write_schematic_to_file::<Sram>(&TINY_SRAM, &spice_path)
@@ -291,7 +293,7 @@ pub(crate) mod tests {
         {
             crate::abs::run_sram_abstract(
                 &work_dir,
-                "sramgen_sam",
+                "sramgen_sram",
                 crate::paths::out_lef(&work_dir, "abstract"),
                 &gds_path,
                 &verilog_path,
@@ -355,7 +357,7 @@ pub(crate) mod tests {
                 {
                     crate::abs::run_sram_abstract(
                         &work_dir,
-                        "sramgen_sam",
+                        "sramgen_sram",
                         crate::paths::out_lef(&work_dir, "abstract"),
                         &gds_path,
                         &verilog_path,
@@ -413,4 +415,5 @@ pub(crate) mod tests {
     test_sram!(test_sram_rocket_3, ROCKET_3, ignore = "slow");
     test_sram!(test_sram_rocket_4, ROCKET_4, ignore = "slow");
     test_sram!(test_sram_rocket_5, ROCKET_5, ignore = "slow");
+    test_sram!(test_sram_rocket_6, ROCKET_6, ignore = "slow");
 }
