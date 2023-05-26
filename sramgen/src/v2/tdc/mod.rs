@@ -568,7 +568,7 @@ impl Component for TdcCell {
             let net = format!("d{idx}");
 
             let d = router.expand_to_grid(d, ExpandToGridStrategy::Minimum);
-            router.occupy(m2, d, &net)?;
+            router.block(m2, d);
             ctx.draw_rect(m2, d);
 
             let y = inv.port("y")?.largest_rect(m0)?;
