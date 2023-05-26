@@ -8,7 +8,9 @@ use subgeom::{Dir, Rect, Side};
 use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
 use substrate::into_vec;
-use substrate::layout::cell::{CellPort, Instance, Port, PortConflictStrategy, PortId};
+use substrate::layout::cell::{
+    CellPort, Instance, MustConnect, Port, PortConflictStrategy, PortId,
+};
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
@@ -371,7 +373,26 @@ impl Component for TdcCell {
         let r2 = s14.port("a")?.largest_rect(m0)?;
         ctx.draw_rect(m0, r1.union(r2.bbox()).into_rect());
 
-        let mut draw_sjog = |src: &Instance, dst: &Instance| -> substrate::error::Result<()> {
+        let brect = ctx.brect();
+
+        let mut draw_sjog = |src: &Instance, dst: &Instance| -> substrate::error::Result<SJog> {
+            let sjog = SJog::builder()
+                .src(src.port("y")?.largest_rect(m0)?)
+                .dst(dst.port("a")?.largest_rect(m0)?)
+                .dir(Dir::Horiz)
+                .layer(m0)
+                .width(200)
+                .l1(400)
+                .grid(5)
+                .build()
+                .unwrap();
+            ctx.draw_ref(&sjog)?;
+            Ok(sjog)
+        };
+
+        draw_sjog(&inv0, &inv1)?;
+        draw_sjog(&inv1, &s11)?;
+        let mut draw_sjog = |src: &Instance, dst: &Instance| -> substrate::error::Result<SJog> {
             let sjog = SJog::builder()
                 .src(src.port("y")?.largest_rect(m0)?)
                 .dst(dst.port("a")?.largest_rect(m0)?)
@@ -382,13 +403,14 @@ impl Component for TdcCell {
                 .grid(5)
                 .build()
                 .unwrap();
-            ctx.draw(sjog)?;
-            Ok(())
+            ctx.draw_ref(&sjog)?;
+            Ok(sjog)
         };
 
-        draw_sjog(&inv0, &inv1)?;
-        draw_sjog(&inv1, &s11)?;
-        draw_sjog(&s11, &s12)?;
+        let jog = draw_sjog(&s11, &s21)?;
+        let mut s1back = jog.r2();
+        s1back.p0.x = brect.left();
+
         draw_sjog(&s12, &s22)?;
         draw_sjog(&s13, &s22)?;
 
@@ -409,6 +431,8 @@ impl Component for TdcCell {
         draw_sjog(&s37, &s43)?;
         draw_sjog(&s38, &s44)?;
 
+        ctx.draw_rect(m0, s1back);
+
         let row1 = vec![&tap1l, &inv0, &inv1, &s11, &s12, &s13, &s14, &tap1r];
         let row2 = vec![&tap2l, &s21, &s22, &tap2r];
         let row3 = vec![
@@ -417,6 +441,9 @@ impl Component for TdcCell {
         let row4 = vec![&tap4l, &s41, &s42, &s43, &s44, &tap4r];
 
         let nwell = layers.get(Selector::Name("nwell"))?;
+
+        let mut vdd = CellPort::new("vdd");
+        let mut vss = CellPort::new("vss");
 
         for row in [row1, row2, row3, row4] {
             for layer in [nwell] {
@@ -436,6 +463,11 @@ impl Component for TdcCell {
                 let rect = bbox.into_rect();
                 ctx.draw_rect(m1, rect);
 
+                if port == "vdd" {
+                    vdd.add(m1, rect.into());
+                } else {
+                    vss.add(m1, rect.into());
+                }
                 for inst in row[1..row.len() - 1].iter() {
                     let target = inst.port(port)?.largest_rect(m0)?;
                     let viap = ViaParams::builder()
@@ -448,6 +480,9 @@ impl Component for TdcCell {
                 }
             }
         }
+
+        ctx.add_port(vdd.with_must_connect(MustConnect::Yes))?;
+        ctx.add_port(vss.with_must_connect(MustConnect::Yes))?;
 
         let mut router = GreedyRouter::with_config(GreedyRouterConfig {
             area: ctx.brect().expand(8_000),
@@ -472,6 +507,9 @@ impl Component for TdcCell {
                 },
             ],
         });
+
+        ctx.merge_port(ffs.port("vpwr")?);
+        ctx.merge_port(ffs.port("vgnd")?);
 
         for layer in [m0, m1, m2] {
             for shape in ffs.shapes_on(layer) {
