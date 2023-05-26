@@ -529,8 +529,8 @@ impl Component for TdcCell {
                     layer: m2,
                 },
                 LayerConfig {
-                    line: 320,
-                    space: 600,
+                    line: 330,
+                    space: 590,
                     dir: Dir::Horiz,
                     layer: m3,
                 },
