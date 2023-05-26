@@ -13,6 +13,7 @@ use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
 pub mod layout;
 pub mod schematic;
 pub mod testbench;
+pub mod verilog;
 
 pub struct SramInner {
     params: SramParams,
@@ -70,8 +71,7 @@ impl SramParams {
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Serialize, Deserialize)]
 pub enum ControlMode {
-    Simple,
-    ReplicaV1,
+    ReplicaV2,
 }
 
 impl Component for SramInner {
@@ -229,44 +229,107 @@ impl Component for Sram {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use crate::paths::{out_gds, out_spice};
+
+    use self::verilog::save_1rw_verilog;
+    use crate::paths::{out_gds, out_spice, out_verilog};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
     use super::*;
 
-    pub(crate) const TINY_SRAM: SramParams = SramParams::new(2, 4, 64, 4, ControlMode::ReplicaV1);
+    pub(crate) const TINY_SRAM: SramParams = SramParams::new(2, 4, 64, 4, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_1: SramParams = SramParams::new(8, 4, 256, 32, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_1: SramParams = SramParams::new(8, 4, 256, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_2: SramParams = SramParams::new(8, 4, 2048, 64, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_2: SramParams = SramParams::new(8, 4, 2048, 64, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_3: SramParams = SramParams::new(8, 4, 64, 32, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_3: SramParams = SramParams::new(8, 4, 64, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_4: SramParams = SramParams::new(32, 4, 64, 32, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_4: SramParams = SramParams::new(32, 4, 64, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_5: SramParams = SramParams::new(8, 4, 512, 32, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_5: SramParams = SramParams::new(8, 4, 512, 32, ControlMode::ReplicaV2);
 
     pub(crate) const PARAMS_6: SramParams =
-        SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV1);
+        SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_7: SramParams = SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_7: SramParams = SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV2);
 
     pub(crate) const PARAMS_8: SramParams =
-        SramParams::new(32, 8, 1024, 64, ControlMode::ReplicaV1);
+        SramParams::new(32, 8, 1024, 64, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_9: SramParams = SramParams::new(8, 8, 2048, 32, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_9: SramParams = SramParams::new(8, 8, 2048, 32, ControlMode::ReplicaV2);
 
     pub(crate) const PARAMS_10: SramParams =
-        SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV1);
+        SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_11: SramParams = SramParams::new(8, 8, 4096, 8, ControlMode::ReplicaV1);
-    pub(crate) const ROCKET_1: SramParams = SramParams::new(8, 4, 512, 64, ControlMode::ReplicaV1);
-    pub(crate) const ROCKET_2: SramParams = SramParams::new(24, 4, 64, 24, ControlMode::ReplicaV1);
-    pub(crate) const ROCKET_3: SramParams = SramParams::new(32, 4, 512, 32, ControlMode::ReplicaV1);
-    pub(crate) const ROCKET_4: SramParams = SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_11: SramParams = SramParams::new(8, 8, 4096, 8, ControlMode::ReplicaV2);
+    pub(crate) const ROCKET_1: SramParams = SramParams::new(8, 4, 512, 64, ControlMode::ReplicaV2);
+    pub(crate) const ROCKET_2: SramParams = SramParams::new(24, 4, 64, 24, ControlMode::ReplicaV2);
+    pub(crate) const ROCKET_3: SramParams = SramParams::new(32, 4, 512, 32, ControlMode::ReplicaV2);
+    pub(crate) const ROCKET_4: SramParams = SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV2);
     pub(crate) const ROCKET_5: SramParams =
-        SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV1);
+        SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV2);
+
+    #[test]
+    fn test_sram_tiny() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_sram_flow");
+
+        let spice_path = out_spice(&work_dir, "schematic");
+        ctx.write_schematic_to_file::<Sram>(&TINY_SRAM, &spice_path)
+            .expect("failed to write schematic");
+
+        let gds_path = out_gds(&work_dir, "layout");
+        ctx.write_layout::<Sram>(&TINY_SRAM, &gds_path)
+            .expect("failed to write layout");
+
+        let verilog_path = out_verilog(&work_dir, "behavioral");
+        save_1rw_verilog(&verilog_path, "sramgen_sram", &TINY_SRAM)
+            .expect("failed to write behavioral model");
+
+        #[cfg(feature = "commercial")]
+        {
+            crate::abs::run_sram_abstract(
+                &work_dir,
+                "sramgen_sam",
+                crate::paths::out_lef(&work_dir, "abstract"),
+                &gds_path,
+                &verilog_path,
+            )
+            .expect("failed to write abstract");
+            let params = liberate_mx::LibParams::builder()
+                .work_dir(work_dir.join("lib"))
+                .output_file("timing_tt_025C_1v80.schematic.lib")
+                .corner("tt")
+                .cell_name("sramgen_sram")
+                .num_words(TINY_SRAM.num_words)
+                .data_width(TINY_SRAM.data_width)
+                .addr_width(TINY_SRAM.addr_width)
+                .wmask_width(TINY_SRAM.wmask_width)
+                .mux_ratio(TINY_SRAM.mux_ratio)
+                .has_wmask(true)
+                .source_paths(vec![spice_path])
+                .build()
+                .unwrap();
+            crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+            let drc_work_dir = work_dir.join("drc");
+            let output = ctx
+                .write_drc::<Sram>(&TINY_SRAM, drc_work_dir)
+                .expect("failed to run DRC");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::drc::DrcSummary::Pass
+            ));
+            let lvs_work_dir = work_dir.join("lvs");
+            let output = ctx
+                .write_lvs::<Sram>(&TINY_SRAM, lvs_work_dir)
+                .expect("failed to run LVS");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::lvs::LvsSummary::Pass
+            ));
+        }
+    }
 
     macro_rules! test_sram {
         ($name: ident, $params: ident $(, $attr: meta)*) => {
@@ -275,13 +338,44 @@ pub(crate) mod tests {
             fn $name() {
                 let ctx = setup_ctx();
                 let work_dir = test_work_dir(stringify!($name));
-                ctx.write_schematic_to_file::<Sram>(&$params, out_spice(&work_dir, "schematic"))
+
+                let spice_path = out_spice(&work_dir, "schematic");
+                ctx.write_schematic_to_file::<Sram>(&$params, &spice_path)
                     .expect("failed to write schematic");
-                ctx.write_layout::<Sram>(&$params, out_gds(&work_dir, "layout"))
+
+                let gds_path = out_gds(&work_dir, "layout");
+                ctx.write_layout::<Sram>(&$params, &gds_path)
                     .expect("failed to write layout");
+
+                let verilog_path = out_verilog(&work_dir, "behavioral");
+                save_1rw_verilog(&verilog_path, "sramgen_sram", &$params)
+                    .expect("failed to write behavioral model");
 
                 #[cfg(feature = "commercial")]
                 {
+                    crate::abs::run_sram_abstract(
+                        &work_dir,
+                        "sramgen_sam",
+                        crate::paths::out_lef(&work_dir, "abstract"),
+                        &gds_path,
+                        &verilog_path,
+                    )
+                    .expect("failed to write abstract");
+                    let params = liberate_mx::LibParams::builder()
+                        .work_dir(work_dir.join("lib"))
+                        .output_file("timing_tt_025C_1v80.schematic.lib")
+                        .corner("tt")
+                        .cell_name("sramgen_sram")
+                        .num_words($params.num_words)
+                        .data_width($params.data_width)
+                        .addr_width($params.addr_width)
+                        .wmask_width($params.wmask_width)
+                        .mux_ratio($params.mux_ratio)
+                        .has_wmask(true)
+                        .source_paths(vec![spice_path])
+                        .build()
+                        .unwrap();
+                    crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
                     let drc_work_dir = work_dir.join("drc");
                     let output = ctx
                         .write_drc::<Sram>(&$params, drc_work_dir)
@@ -303,7 +397,6 @@ pub(crate) mod tests {
         };
     }
 
-    test_sram!(test_sram_tiny, TINY_SRAM);
     test_sram!(test_sram_1, PARAMS_1);
     test_sram!(test_sram_2, PARAMS_2, ignore = "slow");
     test_sram!(test_sram_3, PARAMS_3, ignore = "slow");
