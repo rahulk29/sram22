@@ -4,7 +4,7 @@ use grid::Grid;
 use serde::{Deserialize, Serialize};
 use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
-use subgeom::{Dir, Rect, Side};
+use subgeom::{Dir, Point, Rect, Side};
 use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
 use substrate::into_vec;
@@ -248,6 +248,25 @@ impl Component for TdcCell {
         let nsdm = layers.get(Selector::Name("nsdm"))?;
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
+        let m3 = layers.get(Selector::Metal(3))?;
+        let via01 = ctx.instantiate::<Via>(
+            &ViaParams::builder()
+                .layers(m0, m1)
+                .geometry(
+                    Rect::from_point(Point::zero()),
+                    Rect::from_point(Point::zero()),
+                )
+                .build(),
+        )?;
+        let via12 = ctx.instantiate::<Via>(
+            &ViaParams::builder()
+                .layers(m1, m2)
+                .geometry(
+                    Rect::from_point(Point::zero()),
+                    Rect::from_point(Point::zero()),
+                )
+                .build(),
+        )?;
         let dsn = PhysicalDesign {
             width: 2_000,
             tap_width: 790,
@@ -271,6 +290,7 @@ impl Component for TdcCell {
 
         let inv0 = inv.with_orientation(Named::R90Cw);
         ctx.draw_ref(&inv0)?;
+        ctx.add_port(inv0.port("a")?.into_cell_port().named("buf_in"))?;
 
         let hspace = 400;
         let vspace = 600;
@@ -371,7 +391,9 @@ impl Component for TdcCell {
 
         let r1 = s11.port("a")?.largest_rect(m0)?;
         let r2 = s14.port("a")?.largest_rect(m0)?;
-        ctx.draw_rect(m0, r1.union(r2.bbox()).into_rect());
+        let rect = r1.union(r2.bbox()).into_rect();
+        ctx.draw_rect(m0, rect);
+        ctx.add_port(CellPort::with_shape("buf_out", m0, rect))?;
 
         let brect = ctx.brect();
 
@@ -391,7 +413,7 @@ impl Component for TdcCell {
         };
 
         draw_sjog(&inv0, &inv1)?;
-        draw_sjog(&inv1, &s11)?;
+        let sjog = draw_sjog(&inv1, &s11)?;
         let mut draw_sjog = |src: &Instance, dst: &Instance| -> substrate::error::Result<SJog> {
             let sjog = SJog::builder()
                 .src(src.port("y")?.largest_rect(m0)?)
@@ -432,6 +454,7 @@ impl Component for TdcCell {
         draw_sjog(&s38, &s44)?;
 
         ctx.draw_rect(m0, s1back);
+        ctx.add_port(CellPort::with_shape("interp1", m0, s1back))?;
 
         let row1 = vec![&tap1l, &inv0, &inv1, &s11, &s12, &s13, &s14, &tap1r];
         let row2 = vec![&tap2l, &s21, &s22, &tap2r];
@@ -505,41 +528,46 @@ impl Component for TdcCell {
                     dir: Dir::Vert,
                     layer: m2,
                 },
+                LayerConfig {
+                    line: 320,
+                    space: 600,
+                    dir: Dir::Horiz,
+                    layer: m3,
+                },
             ],
         });
 
-        ctx.merge_port(ffs.port("vpwr")?);
-        ctx.merge_port(ffs.port("vgnd")?);
+        ctx.merge_port(ffs.port("vpwr")?.into_cell_port().named("vdd"));
+        ctx.merge_port(ffs.port("vgnd")?.into_cell_port().named("vss"));
 
         for layer in [m0, m1, m2] {
             for shape in ffs.shapes_on(layer) {
-                if let Some(rect) = shape.as_rect() {
-                    let rect = rect;
-                    ctx.draw_rect(layer, rect);
-                    router.block(layer, rect);
-                }
+                router.block(layer, shape.brect());
             }
         }
 
         for (idx, inv) in [(0, s44), (1, s43), (2, s42), (3, s41)] {
             let src = ffs.port(PortId::new("d", idx))?.largest_rect(m0)?;
-            let viap = ViaParams::builder()
-                .layers(m0, m1)
-                .geometry(src, src)
-                .build();
-            let via = ctx.instantiate::<Via>(&viap)?;
-            ctx.draw(via)?;
-            let viap = ViaParams::builder()
-                .layers(m1, m2)
-                .geometry(src, src)
-                .build();
-            let via = ctx.instantiate::<Via>(&viap)?;
-            let d = via.layer_bbox(m2);
-            ctx.draw(via)?;
+            let mut via1 = via01.clone();
+            via1.align_centers_gridded(src, ctx.pdk().layout_grid());
+            let mut via2 = via12.clone();
+            via2.align_centers_gridded(src, ctx.pdk().layout_grid());
+            if idx % 2 == 0 {
+                via1.align_bottom(src);
+                via2.align_bottom(src);
+            } else {
+                via1.align_top(src);
+                via2.align_top(src);
+            }
+            router.block(m1, via1.layer_bbox(m1).into_rect());
+            router.block(m1, via2.layer_bbox(m1).into_rect());
+            let d = via2.layer_bbox(m2).into_rect();
+            ctx.draw(via1)?;
+            ctx.draw(via2)?;
 
             let net = format!("d{idx}");
 
-            let d = router.expand_to_grid(d.into_rect(), ExpandToGridStrategy::Minimum);
+            let d = router.expand_to_grid(d, ExpandToGridStrategy::Minimum);
             router.occupy(m2, d, &net)?;
             ctx.draw_rect(m2, d);
 
@@ -548,8 +576,6 @@ impl Component for TdcCell {
                 router.expand_to_grid(y, ExpandToGridStrategy::Corner(subgeom::Corner::LowerRight));
             router.occupy(m0, y, &net)?;
             ctx.draw_rect(m0, y);
-
-            router.occupy(m2, y, &net)?;
 
             router.route_with_net(ctx, m0, y, m2, d, &net)?;
         }
@@ -632,11 +658,11 @@ impl Component for TappedRegister4 {
         grid.push_row(into_vec![reg_b]);
         let mut tiler = GridTiler::new(grid);
         tiler.expose_ports(
-            |mut port: CellPort, idx: (usize, usize)| {
-                port.set_id(PortId::new(port.name(), idx.0));
-                Some(port)
+            |port: CellPort, idx: (usize, usize)| match port.name().as_str() {
+                "vpwr" | "vgnd" => Some(port),
+                _ => Some(port.with_index(idx.0)),
             },
-            PortConflictStrategy::Error,
+            PortConflictStrategy::Merge,
         )?;
         ctx.add_ports(tiler.ports().cloned())?;
         ctx.draw(tiler)?;
