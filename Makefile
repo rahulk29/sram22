@@ -9,7 +9,6 @@ lint-fix:
 
 format:
 	cargo +nightly fmt
-	black sramgen/scripts/
 
 test:
 	cargo test --release
@@ -21,7 +20,7 @@ check:
 	cargo check --all-features --all-targets
 
 install-all:
-	cd sramgen && cargo install --all-features --path . && cd -
+	cd sram22 && cargo install --all-features --path . && cd -
 
 install:
-	cd sramgen && cargo install --path . && cd -
+	cd sram22 && cargo install --path . && cd -
