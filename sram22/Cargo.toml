@@ -1,10 +1,12 @@
 [package]
-name = "sramgen"
-version = "0.1.0"
+name = "sram22"
+version = "0.0.2"
 edition = "2021"
-authors = ["Rahul Kumar <rahulkumar@berkeley.edu>"]
+authors = ["Rahul Kumar <rahulkumar@berkeley.edu>", "Rohan Kumar <rohankumar@berkeley.edu>"]
 description = "A configurable SRAM generator"
-license-file = "../LICENSE"
+readme = "../README.md"
+repository = "https://github.com/rahulk29/sram22"
+license = "BSD-3-Clause"
 
 [dependencies]
 derive_builder = "0.12.0"
