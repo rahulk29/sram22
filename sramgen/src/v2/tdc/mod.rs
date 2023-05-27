@@ -1,10 +1,11 @@
 use std::collections::HashSet;
 
+use arcstr::ArcStr;
 use grid::Grid;
 use serde::{Deserialize, Serialize};
 use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
-use subgeom::{Dir, Point, Rect, Side};
+use subgeom::{Dir, Point, Rect, Side, Span};
 use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
 use substrate::into_vec;
@@ -14,13 +15,14 @@ use substrate::layout::cell::{
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
-use substrate::layout::placement::align::AlignRect;
+use substrate::layout::placement::align::{AlignMode, AlignRect};
 
+use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::grid::GridTiler;
 use substrate::layout::placement::tile::LayerBbox;
 use substrate::layout::routing::auto::grid::ExpandToGridStrategy;
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
-use substrate::layout::routing::manual::jog::SJog;
+use substrate::layout::routing::manual::jog::{ElbowJog, SJog};
 use substrate::layout::routing::tracks::TrackLocator;
 use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
@@ -137,28 +139,34 @@ impl Component for Tdc {
                 .add_to(ctx);
         }
 
-        let tmp0 = ctx.signal("tmp0");
-        let tmp1 = ctx.signal("tmp1");
-        let tmp2 = ctx.signal("tmp2");
+        let tmp = ctx.bus("tmp", 6);
 
-        inv.clone()
-            .with_connections([
-                ("vdd", vdd),
-                ("vss", vss),
-                ("din", stage1.index(stage1.width() - 1)),
-                ("din_b", tmp0),
-            ])
-            .named(arcstr::format!("s2_dummy"))
-            .add_to(ctx);
+        for i in 0..1 {
+            inv.clone()
+                .with_connections([
+                    ("vdd", vdd),
+                    ("vss", vss),
+                    (
+                        "din",
+                        if i == 0 {
+                            stage1.index(0)
+                        } else {
+                            stage1.index(stage1.width() - 1)
+                        },
+                    ),
+                    ("din_b", tmp.index(i)),
+                ])
+                .named(arcstr::format!("s2_dummy_{i}"))
+                .add_to(ctx);
+        }
 
-        for i in 0..3 {
-            let sout = if i < 2 { tmp1 } else { tmp2 };
+        for i in 0..4 {
             inv.clone()
                 .with_connections([
                     ("vdd", vdd),
                     ("vss", vss),
                     ("din", stage3.index(stage3.width() - 1)),
-                    ("din_b", sout),
+                    ("din_b", tmp.index(i + 2)),
                 ])
                 .named(arcstr::format!("s4_dummy_{i}"))
                 .add_to(ctx);
@@ -218,14 +226,79 @@ impl Component for Tdc {
 
         Ok(())
     }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let start_cell = ctx.instantiate::<TdcCell>(&TdcCellParams {
+            inv: self.params.inv,
+            kind: TdcCellKind::Start,
+        })?;
+        let middle_cell = ctx.instantiate::<TdcCell>(&TdcCellParams {
+            inv: self.params.inv,
+            kind: TdcCellKind::Middle,
+        })?;
+        let end_cell = ctx.instantiate::<TdcCell>(&TdcCellParams {
+            inv: self.params.inv,
+            kind: TdcCellKind::End,
+        })?;
+
+        let mut tiler = ArrayTiler::builder()
+            .push(start_cell)
+            .push_num(middle_cell, self.params.stages - 2)
+            .push(end_cell)
+            .mode(AlignMode::ToTheRight)
+            .alt_mode(AlignMode::Top)
+            .build();
+
+        tiler.expose_ports(
+            |port: CellPort, i| {
+                let idx = port.id().index();
+                match port.name().as_str() {
+                    "reset_b" | "vdd" | "vss" => Some(port),
+                    "clk" => Some(port.named("b")),
+                    "q" => Some(
+                        port.named("dout")
+                            .with_index(if i == 0 { 0 } else { 4 * i - 2 } + idx),
+                    ),
+                    "buf_in" => {
+                        if i == 0 {
+                            Some(port.named("a"))
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                }
+            },
+            PortConflictStrategy::Merge,
+        )?;
+        ctx.add_ports(tiler.ports().cloned())?;
+        ctx.draw(tiler)?;
+        Ok(())
+    }
 }
 
 pub struct TdcCell {
-    params: PrimitiveGateParams,
+    params: TdcCellParams,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub enum TdcCellKind {
+    Start,
+    Middle,
+    End,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TdcCellParams {
+    inv: PrimitiveGateParams,
+    kind: TdcCellKind,
 }
 
 impl Component for TdcCell {
-    type Params = PrimitiveGateParams;
+    type Params = TdcCellParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
@@ -281,78 +354,115 @@ impl Component for TdcCell {
             abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
         };
         let decoder_gate = DecoderGateParams {
-            gate: GateParams::Inv(self.params),
+            gate: GateParams::Inv(self.params.inv),
             dsn,
         };
 
-        let inv = ctx.instantiate::<Inv>(&self.params)?;
-        let mut ffs = ctx.instantiate::<TappedRegister4>(&NoParams)?;
+        let inv = ctx.instantiate::<Inv>(&self.params.inv)?;
+        let mut ffs = match self.params.kind {
+            TdcCellKind::Start | TdcCellKind::End => ctx.instantiate::<TappedRegisterN>(&2)?,
+            TdcCellKind::Middle => ctx.instantiate::<TappedRegisterN>(&4)?,
+        };
+        let num_outputs = match self.params.kind {
+            TdcCellKind::Start | TdcCellKind::End => 2,
+            TdcCellKind::Middle => 4,
+        };
 
         let inv0 = inv.with_orientation(Named::R90Cw);
         ctx.draw_ref(&inv0)?;
-        ctx.add_port(inv0.port("a")?.into_cell_port().named("buf_in"))?;
 
         let hspace = 400;
         let vspace = 600;
         let mut inv1 = inv0.clone().with_orientation(Named::R90Cw);
         inv1.align_to_the_right_of(inv0.bbox(), hspace);
         inv1.align_top(inv0.bbox());
-        ctx.draw_ref(&inv1)?;
 
         let _cx = inv1.bbox().into_rect().right();
 
         let mut s11 = inv1.clone().with_orientation(Named::R90Cw);
         s11.align_to_the_right_of(inv1.bbox(), hspace);
         s11.align_top(inv1.bbox());
-        ctx.draw_ref(&s11)?;
 
         let mut s12 = s11.clone();
         s12.align_to_the_right_of(s11.bbox(), hspace);
-        ctx.draw_ref(&s12)?;
         let mut s13 = s11.clone();
         s13.align_to_the_right_of(s12.bbox(), hspace);
-        ctx.draw_ref(&s13)?;
         let mut s14 = s11.clone();
         s14.align_to_the_right_of(s13.bbox(), hspace);
-        ctx.draw_ref(&s14)?;
 
         let mut s21 = s11.clone();
         s21.align_beneath(s11.bbox(), vspace);
-        ctx.draw_ref(&s21)?;
 
         let mut s22 = s13.clone();
         s22.align_beneath(s13.bbox(), vspace);
-        ctx.draw_ref(&s22)?;
 
         let mut s31 = inv0.clone();
         s31.align_beneath(s21.bbox(), vspace);
-        ctx.draw_ref(&s31)?;
+
+        ctx.draw_ref(&inv1)?;
+        ctx.draw_ref(&s11)?;
+        ctx.draw_ref(&s12)?;
+        ctx.draw_ref(&s13)?;
+        ctx.draw_ref(&s14)?;
+        ctx.draw_ref(&s22)?;
+
+        match self.params.kind {
+            TdcCellKind::End | TdcCellKind::Middle => {
+                ctx.draw_ref(&s21)?;
+                ctx.draw_ref(&s31)?;
+            }
+            TdcCellKind::Start => {}
+        }
 
         let mut prev = s31.clone();
 
-        let [s32, s33, s34, s35, s36, s37, s38] = [1, 2, 3, 4, 5, 6, 7].map(|_| {
+        let [s32, s33, s34, s35, s36, s37, s38] = [1, 2, 3, 4, 5, 6, 7].map(|i| {
             let mut s3i = prev.clone();
             s3i.align_to_the_right_of(prev.bbox(), hspace);
-            ctx.draw_ref(&s3i).expect("failed to draw instance");
+            if match self.params.kind {
+                TdcCellKind::Start => i > 3,
+                TdcCellKind::Middle | TdcCellKind::End => true,
+            } {
+                ctx.draw_ref(&s3i).expect("failed to draw instance");
+            }
             prev = s3i.clone();
             s3i
         });
 
         let mut s41 = s32.clone();
         s41.align_beneath(s32.bbox(), vspace);
-        ctx.draw_ref(&s41)?;
         let mut s42 = s34.clone();
         s42.align_beneath(s32.bbox(), vspace);
-        ctx.draw_ref(&s42)?;
         let mut s43 = s36.clone();
         s43.align_beneath(s32.bbox(), vspace);
-        ctx.draw_ref(&s43)?;
         let mut s44 = s38.clone();
         s44.align_beneath(s32.bbox(), vspace);
-        ctx.draw_ref(&s44)?;
+
+        match self.params.kind {
+            TdcCellKind::Start => {
+                ctx.draw_ref(&s43)?;
+                ctx.draw_ref(&s44)?;
+            }
+            TdcCellKind::Middle => {
+                ctx.draw_ref(&s41)?;
+                ctx.draw_ref(&s42)?;
+                ctx.draw_ref(&s43)?;
+                ctx.draw_ref(&s44)?;
+            }
+            TdcCellKind::End => {
+                ctx.draw_ref(&s41)?;
+                ctx.draw_ref(&s42)?;
+            }
+        }
 
         let mut tap = ctx.instantiate::<DecoderTap>(&decoder_gate)?;
         tap.orientation_mut().reflect_vert();
+
+        // let (left2, right2, left3, right3, left4, right4) = match self.params.kind {
+        //     TdcCellKind::Start => (&s22, &s22, &s35, &s38, &s43, &s44),
+        //     TdcCellKind::Middle => (&s21, &s22, &s31, &s38, &s41, &s44),
+        //     TdcCellKind::End => (&s21, &s22, &s31, &s38, &s41, &s42),
+        // };
 
         let mut tap1l = tap.clone();
         tap1l.align_top(inv0.bbox());
@@ -389,13 +499,15 @@ impl Component for TdcCell {
         ffs.align_beneath(s41.bbox(), 4 * vspace);
         ctx.draw_ref(&ffs)?;
 
+        let brect = ctx.brect().expand_dir(Dir::Horiz, 300);
+        let rect = inv0.port("a")?.largest_rect(m0)?;
+        let rect = rect.with_hspan(rect.hspan().add_point(brect.left()));
+        ctx.add_port(CellPort::with_shape("buf_in", m0, rect))?;
+
         let r1 = s11.port("a")?.largest_rect(m0)?;
-        let r2 = s14.port("a")?.largest_rect(m0)?;
-        let rect = r1.union(r2.bbox()).into_rect();
+        let rect = r1.with_hspan(r1.hspan().add_point(brect.right()));
         ctx.draw_rect(m0, rect);
         ctx.add_port(CellPort::with_shape("buf_out", m0, rect))?;
-
-        let brect = ctx.brect();
 
         let mut draw_sjog = |src: &Instance, dst: &Instance| -> substrate::error::Result<SJog> {
             let sjog = SJog::builder()
@@ -413,7 +525,7 @@ impl Component for TdcCell {
         };
 
         draw_sjog(&inv0, &inv1)?;
-        let sjog = draw_sjog(&inv1, &s11)?;
+        draw_sjog(&inv1, &s11)?;
         let mut draw_sjog = |src: &Instance, dst: &Instance| -> substrate::error::Result<SJog> {
             let sjog = SJog::builder()
                 .src(src.port("y")?.largest_rect(m0)?)
@@ -429,39 +541,91 @@ impl Component for TdcCell {
             Ok(sjog)
         };
 
-        let jog = draw_sjog(&s11, &s21)?;
-        let mut s1back = jog.r2();
-        s1back.p0.x = brect.left();
-
         draw_sjog(&s12, &s22)?;
         draw_sjog(&s13, &s22)?;
 
-        draw_sjog(&s21, &s31)?;
-        draw_sjog(&s21, &s32)?;
-        draw_sjog(&s21, &s33)?;
-        draw_sjog(&s21, &s34)?;
         draw_sjog(&s22, &s35)?;
         draw_sjog(&s22, &s36)?;
         draw_sjog(&s22, &s37)?;
         draw_sjog(&s22, &s38)?;
 
-        draw_sjog(&s32, &s41)?;
-        draw_sjog(&s33, &s41)?;
-        draw_sjog(&s34, &s42)?;
-        draw_sjog(&s35, &s42)?;
-        draw_sjog(&s36, &s43)?;
-        draw_sjog(&s37, &s43)?;
-        draw_sjog(&s38, &s44)?;
+        let s1back = if !matches!(self.params.kind, TdcCellKind::Start) {
+            draw_sjog(&s21, &s31)?;
+            draw_sjog(&s21, &s32)?;
+            draw_sjog(&s21, &s33)?;
+            draw_sjog(&s21, &s34)?;
+            draw_sjog(&s32, &s41)?;
+            draw_sjog(&s33, &s41)?;
+            draw_sjog(&s34, &s42)?;
+            draw_sjog(&s35, &s42)?;
 
-        ctx.draw_rect(m0, s1back);
-        ctx.add_port(CellPort::with_shape("interp1", m0, s1back))?;
+            let jog = draw_sjog(&s11, &s21)?;
+            let mut s1back = jog.r2();
+            s1back.p0.x = brect.left();
+            Some(s1back)
+        } else {
+            None
+        };
+
+        if !matches!(self.params.kind, TdcCellKind::End) {
+            draw_sjog(&s36, &s43)?;
+            draw_sjog(&s37, &s43)?;
+            let jog = draw_sjog(&s38, &s44)?;
+            let mut s3forward = jog.r2();
+            s3forward.p1.x = brect.right();
+            ctx.draw_rect(m0, s3forward);
+            ctx.add_port(CellPort::with_shape("interp2_out", m0, s3forward))?;
+        }
+
+        if !matches!(self.params.kind, TdcCellKind::Start) {
+            let s1back = s1back.unwrap();
+            ctx.draw_rect(m0, s1back);
+            ctx.add_port(CellPort::with_shape("interp1_in", m0, s1back))?;
+
+            let interp2_in = s31.port("y")?.largest_rect(m0)?;
+            let jog = ElbowJog::builder()
+                .src(interp2_in.edge(Side::Bot))
+                .dst(Point::new(brect.left(), interp2_in.bottom() - 400))
+                .layer(m0)
+                .width2(200)
+                .build()
+                .unwrap();
+            ctx.add_port(CellPort::with_shape("interp2_in", m0, jog.r2()))?;
+            ctx.draw(jog)?;
+        }
+
+        if !matches!(self.params.kind, TdcCellKind::End) {
+            let interp2_in = s14.port("y")?.largest_rect(m0)?;
+            let jog = ElbowJog::builder()
+                .src(interp2_in.edge(Side::Bot))
+                .dst(Point::new(brect.right(), interp2_in.bottom() - 400))
+                .layer(m0)
+                .width2(200)
+                .build()
+                .unwrap();
+            ctx.add_port(CellPort::with_shape("interp1_out", m0, jog.r2()))?;
+            ctx.draw(jog)?;
+        }
 
         let row1 = vec![&tap1l, &inv0, &inv1, &s11, &s12, &s13, &s14, &tap1r];
-        let row2 = vec![&tap2l, &s21, &s22, &tap2r];
-        let row3 = vec![
-            &tap3l, &s31, &s32, &s33, &s34, &s35, &s36, &s37, &s38, &tap3r,
-        ];
-        let row4 = vec![&tap4l, &s41, &s42, &s43, &s44, &tap4r];
+        let (row2, row3) = if matches!(self.params.kind, TdcCellKind::Start) {
+            (
+                vec![&tap2l, &s22, &tap2r],
+                vec![&tap3l, &s35, &s36, &s37, &s38, &tap3r],
+            )
+        } else {
+            (
+                vec![&tap2l, &s21, &s22, &tap2r],
+                vec![
+                    &tap3l, &s31, &s32, &s33, &s34, &s35, &s36, &s37, &s38, &tap3r,
+                ],
+            )
+        };
+        let row4 = match self.params.kind {
+            TdcCellKind::Start => vec![&tap4l, &s43, &s44, &tap4r],
+            TdcCellKind::Middle => vec![&tap4l, &s41, &s42, &s43, &s44, &tap4r],
+            TdcCellKind::End => vec![&tap4l, &s41, &s42, &tap4r],
+        };
 
         let nwell = layers.get(Selector::Name("nwell"))?;
 
@@ -537,6 +701,68 @@ impl Component for TdcCell {
             ],
         });
 
+        let clk_track = Span::with_stop_and_length(
+            ffs.port(PortId::new("clk", 0))?.largest_rect(m0)?.top(),
+            330,
+        );
+        let clk_rect = Rect::from_spans(ctx.brect().hspan(), clk_track);
+        router.block(m3, clk_rect);
+        ctx.add_port(CellPort::with_shape("clk", m3, clk_rect))?;
+
+        let reset_b_track = Span::with_start_and_length(
+            ffs.port(PortId::new("reset_b", 1))?
+                .largest_rect(m0)?
+                .bottom(),
+            330,
+        );
+        let reset_b_rect = Rect::from_spans(ctx.brect().hspan(), reset_b_track);
+        router.block(m3, reset_b_rect);
+        ctx.add_port(CellPort::with_shape("reset_b", m3, reset_b_rect))?;
+
+        for port_name in ["clk", "reset_b"] {
+            let mut m2_rect: Option<Bbox> = None;
+            for i in 0..num_outputs {
+                for via in if port_name == "clk" {
+                    vec![&via01, &via12]
+                } else {
+                    vec![&via12]
+                } {
+                    let mut via = (*via).clone();
+                    let port_rect = ffs.port(PortId::new(port_name, i))?.largest_rect(m0)?;
+                    if i % 2 == 0 {
+                        via.align_top(port_rect);
+                    } else {
+                        via.align_bottom(port_rect);
+                    }
+                    via.align_left(port_rect);
+                    if let Some(rect) = m2_rect {
+                        m2_rect = Some(rect.bbox().union(via.layer_bbox(m2)));
+                    } else {
+                        m2_rect = Some(via.layer_bbox(m2));
+                    }
+                    ctx.draw(via)?;
+                }
+            }
+            let m2_rect = m2_rect.unwrap().into_rect();
+            ctx.draw_rect(m2, m2_rect);
+            router.block(m2, m2_rect);
+
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m2, m3)
+                    .geometry(
+                        m2_rect,
+                        match port_name {
+                            "clk" => clk_rect,
+                            "reset_b" => reset_b_rect,
+                            _ => unreachable!(),
+                        },
+                    )
+                    .build(),
+            )?;
+            ctx.draw(via)?;
+        }
+
         ctx.merge_port(ffs.port("vpwr")?.into_cell_port().named("vdd"));
         ctx.merge_port(ffs.port("vgnd")?.into_cell_port().named("vss"));
 
@@ -546,7 +772,23 @@ impl Component for TdcCell {
             }
         }
 
-        for (idx, inv) in [(0, s44), (1, s43), (2, s42), (3, s41)] {
+        for (mut idx, inv) in [s44, s43, s42, s41].iter().enumerate() {
+            match self.params.kind {
+                TdcCellKind::Start => {
+                    if idx >= 2 {
+                        continue;
+                    }
+                }
+                TdcCellKind::Middle => {}
+                TdcCellKind::End => {
+                    if idx < 2 {
+                        continue;
+                    } else {
+                        idx -= 2;
+                    }
+                }
+            }
+
             let src = ffs.port(PortId::new("d", idx))?.largest_rect(m0)?;
             let mut via1 = via01.clone();
             via1.align_centers_gridded(src, ctx.pdk().layout_grid());
@@ -589,15 +831,17 @@ impl Component for TdcCell {
         let htrack = htracks
             .index(htracks.track_with_loc(TrackLocator::EndsBefore, ctx.brect().bottom()) - 5);
 
-        let mut output_rects = Vec::with_capacity(4);
-        for i in 0..4 {
+        let mut output_rects = Vec::with_capacity(num_outputs);
+        for i in 0..num_outputs {
             let vtrack = vtracks.index(vstart - 2 * (i as i64) + 2);
             output_rects.push(Rect::from_spans(vtrack, htrack));
             ctx.draw_rect(m2, output_rects[i]);
         }
 
-        for i in 0..4 {
-            let q = ffs.port(PortId::new("q", i))?.largest_rect(m0)?;
+        for i in 0..num_outputs {
+            let q = ffs
+                .port(PortId::new("q", num_outputs - i - 1))?
+                .largest_rect(m0)?;
             let viap = ViaParams::builder().layers(m0, m1).geometry(q, q).build();
             let via = ctx.instantiate::<Via>(&viap)?;
             let q = via.layer_bbox(m1);
@@ -608,7 +852,7 @@ impl Component for TdcCell {
             let net = format!("q{i}");
             router.occupy(m1, q, &net)?;
 
-            let dst = output_rects[4 - i - 1];
+            let dst = output_rects[num_outputs - i - 1];
             router.occupy(m2, dst, &net)?;
             router.route_with_net(ctx, m1, q, m2, dst, &net)?;
 
@@ -625,20 +869,20 @@ impl Component for TdcCell {
     }
 }
 
-pub struct TappedRegister4;
+pub struct TappedRegisterN(usize);
 
-impl Component for TappedRegister4 {
-    type Params = NoParams;
+impl Component for TappedRegisterN {
+    type Params = usize;
 
     fn new(
-        _params: &Self::Params,
+        params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self)
+        Ok(Self(*params))
     }
 
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("tapped_register_4")
+        ArcStr::from(format!("tapped_register_{}", self.0))
     }
 
     fn layout(
@@ -652,10 +896,14 @@ impl Component for TappedRegister4 {
         let reg_b = LayerBbox::new(reg.with_orientation(Named::ReflectVert), outline);
 
         let mut grid = Grid::new(0, 0);
-        grid.push_row(into_vec![reg_a.clone()]);
-        grid.push_row(into_vec![reg_b.clone()]);
-        grid.push_row(into_vec![reg_a]);
-        grid.push_row(into_vec![reg_b]);
+
+        for i in 0..self.0 {
+            grid.push_row(into_vec![if i % 2 == 0 {
+                reg_a.clone()
+            } else {
+                reg_b.clone()
+            }]);
+        }
         let mut tiler = GridTiler::new(grid);
         tiler.expose_ports(
             |port: CellPort, idx: (usize, usize)| match port.name().as_str() {
@@ -687,6 +935,21 @@ mod tests {
         pwidth: 1_800,
     };
 
+    const TDC_CELL_PARAMS: TdcCellParams = TdcCellParams {
+        inv: INV_SIZING,
+        kind: TdcCellKind::Middle,
+    };
+
+    const TDC_CELL_END_PARAMS: TdcCellParams = TdcCellParams {
+        inv: INV_SIZING,
+        kind: TdcCellKind::End,
+    };
+
+    const TDC_CELL_START_PARAMS: TdcCellParams = TdcCellParams {
+        inv: INV_SIZING,
+        kind: TdcCellKind::Start,
+    };
+
     const TDC_PARAMS: TdcParams = TdcParams {
         stages: 64,
         inv: INV_SIZING,
@@ -704,7 +967,23 @@ mod tests {
     fn test_tdc_cell() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_tdc_cell");
-        ctx.write_layout::<TdcCell>(&INV_SIZING, out_gds(work_dir, "layout"))
+        ctx.write_layout::<TdcCell>(&TDC_CELL_PARAMS, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
+    }
+
+    #[test]
+    fn test_tdc_cell_end() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_tdc_cell_end");
+        ctx.write_layout::<TdcCell>(&TDC_CELL_END_PARAMS, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
+    }
+
+    #[test]
+    fn test_tdc_cell_start() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_tdc_cell_start");
+        ctx.write_layout::<TdcCell>(&TDC_CELL_START_PARAMS, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 
@@ -714,7 +993,28 @@ mod tests {
         let work_dir = test_work_dir("test_tdc");
         ctx.write_schematic_to_file::<Tdc>(&TDC_PARAMS, out_spice(&work_dir, "schematic"))
             .expect("failed to write schematic");
-        ctx.write_simulation::<TdcTb>(&TDC_TB_PARAMS, work_dir)
-            .expect("failed to run simulation");
+        ctx.write_layout::<Tdc>(&TDC_PARAMS, out_gds(&work_dir, "layout"))
+            .expect("failed to write layout");
+        #[cfg(feature = "commercial")]
+        {
+            let drc_work_dir = work_dir.join("drc");
+            let output = ctx
+                .write_drc::<Tdc>(&TDC_PARAMS, drc_work_dir)
+                .expect("failed to run DRC");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::drc::DrcSummary::Pass
+            ));
+            let lvs_work_dir = work_dir.join("lvs");
+            let output = ctx
+                .write_lvs::<Tdc>(&TDC_PARAMS, lvs_work_dir)
+                .expect("failed to run LVS");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::lvs::LvsSummary::Pass
+            ));
+            ctx.write_simulation::<TdcTb>(&TDC_TB_PARAMS, &work_dir)
+                .expect("failed to run simulation");
+        }
     }
 }
