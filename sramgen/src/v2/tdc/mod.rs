@@ -16,15 +16,17 @@ use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
-use substrate::layout::Draw;
+use substrate::layout::{Draw, DrawRef};
 
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::grid::GridTiler;
 use substrate::layout::placement::tile::LayerBbox;
 use substrate::layout::routing::auto::grid::ExpandToGridStrategy;
+use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
 use substrate::layout::routing::manual::jog::{ElbowJog, SJog};
 use substrate::layout::routing::tracks::TrackLocator;
+use substrate::layout::straps::SingleSupplyNet;
 use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 
@@ -239,6 +241,11 @@ impl Component for Tdc {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+        let m3 = layers.get(Selector::Metal(3))?;
+
         let start_cell = ctx.instantiate::<TdcCell>(&TdcCellParams {
             inv: self.params.inv,
             kind: TdcCellKind::Start,
@@ -283,7 +290,78 @@ impl Component for Tdc {
             PortConflictStrategy::Merge,
         )?;
         ctx.add_ports(tiler.ports().cloned())?;
-        ctx.draw(tiler)?;
+        let group = tiler.draw_ref()?;
+
+        let router_bbox = group
+            .brect()
+            .expand_dir(Dir::Horiz, 2 * 680)
+            .expand_side(Side::Top, 2 * 680)
+            .snap_to_grid(680);
+
+        let mut router = GreedyRouter::with_config(GreedyRouterConfig {
+            area: router_bbox,
+            layers: vec![
+                LayerConfig {
+                    line: 320,
+                    space: 360,
+                    dir: Dir::Horiz,
+                    layer: m1,
+                },
+                LayerConfig {
+                    line: 320,
+                    space: 360,
+                    dir: Dir::Vert,
+                    layer: m2,
+                },
+                LayerConfig {
+                    line: 320,
+                    space: 360,
+                    dir: Dir::Horiz,
+                    layer: m3,
+                },
+            ],
+        });
+
+        let clk_rect = tiler
+            .port_map()
+            .port("b")?
+            .largest_rect(m3)?
+            .with_hspan(router_bbox.hspan());
+        ctx.merge_port(CellPort::with_shape("b", m3, clk_rect));
+        router.block(m3, clk_rect);
+
+        let reset_b_rect = tiler
+            .port_map()
+            .port("reset_b")?
+            .largest_rect(m3)?
+            .with_hspan(router_bbox.hspan());
+        ctx.merge_port(CellPort::with_shape("reset_b", m3, reset_b_rect));
+        router.block(m3, reset_b_rect);
+
+        for layer in [m1, m2, m3] {
+            for shape in group.shapes_on(layer) {
+                router.block(layer, shape.brect());
+            }
+            for port in tiler.ports() {
+                for shape in port.shapes(layer) {
+                    router.block(layer, shape.brect());
+                }
+            }
+        }
+
+        let mut straps = RoutedStraps::new();
+        straps.set_strap_layers([m2, m3]);
+
+        for (port_name, net) in [("vdd", SingleSupplyNet::Vdd), ("vss", SingleSupplyNet::Vss)] {
+            for shape in tiler.port_map().port(port_name)?.shapes(m1) {
+                straps.add_target(m1, Target::new(net, shape.brect()));
+            }
+        }
+
+        straps.fill(&router, ctx)?;
+
+        ctx.draw(group)?;
+
         Ok(())
     }
 }
