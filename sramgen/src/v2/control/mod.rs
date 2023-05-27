@@ -1,10 +1,7 @@
-use std::path::PathBuf;
-
 use arcstr::ArcStr;
-use codegen::hard_macro;
 
 use serde::{Deserialize, Serialize};
-use substrate::component::{Component, NoParams, View};
+use substrate::component::{Component, NoParams};
 use substrate::data::SubstrateCtx;
 use substrate::index::IndexOwned;
 use substrate::layout::cell::CellPort;
@@ -12,20 +9,10 @@ use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::schematic::circuit::Direction;
 
-use crate::tech::{external_gds_path, external_spice_path};
-
 use super::macros::Dff;
 
 pub mod layout;
 pub mod schematic;
-
-fn path(_ctx: &SubstrateCtx, name: &str, view: View) -> Option<PathBuf> {
-    match view {
-        View::Layout => Some(external_gds_path().join(format!("{name}.gds"))),
-        View::Schematic => Some(external_spice_path().join(format!("{name}.spice"))),
-        _ => None,
-    }
-}
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Serialize, Deserialize)]
 pub enum ControlLogicKind {

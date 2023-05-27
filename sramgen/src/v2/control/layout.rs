@@ -287,7 +287,10 @@ impl ControlLogicReplicaV2 {
         }
 
         // Pins
-        let num_input_pins = 4usize;
+        let (num_input_pins, clk_idx, we_idx) = match self.0 {
+            ControlLogicKind::Standard => (2usize, 0, 1),
+            ControlLogicKind::Test => (4usize, 2, 3),
+        };
         let num_output_pins = 7usize;
         let mut input_rects = Vec::new();
         let mut output_rects = Vec::new();
@@ -319,11 +322,6 @@ impl ControlLogicReplicaV2 {
             m2,
             Rect::from_spans(vtrack.expand(true, 2000), group.brect().vspan()),
         );
-
-        let (clk_idx, we_idx) = match self.0 {
-            ControlLogicKind::Standard => (0, 1),
-            ControlLogicKind::Test => (2, 3),
-        };
 
         let sae_muxed = input_rects[0];
         router.occupy(m1, sae_muxed, "sae_muxed")?;
@@ -1331,6 +1329,10 @@ impl ControlLogicReplicaV2 {
 
         ctx.add_port(CellPort::with_shape("clk", m1, clk_pin))?;
         ctx.add_port(CellPort::with_shape("we", m1, we_pin))?;
+        if matches!(self.0, ControlLogicKind::Test) {
+            ctx.add_port(CellPort::with_shape("sae_int", m1, sae_int))?;
+            ctx.add_port(CellPort::with_shape("sae_muxed", m1, sae_muxed))?;
+        }
         ctx.add_port(CellPort::with_shape("pc_b", m1, pc_b_pin))?;
         ctx.add_port(CellPort::with_shape("wl_en0", m1, wl_en0_pin))?;
         ctx.add_port(CellPort::with_shape("wl_en", m1, wl_en_pin))?;

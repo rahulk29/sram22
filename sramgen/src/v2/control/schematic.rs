@@ -305,7 +305,7 @@ impl ControlLogicReplicaV2 {
         };
         ctx.instantiate::<StdCell>(&bufbuf.id())?
             .with_connections([
-                ("A", sae_int),
+                ("A", sae_buf_in),
                 ("X", sense_en),
                 ("VPWR", vdd),
                 ("VPB", vdd),
@@ -316,7 +316,7 @@ impl ControlLogicReplicaV2 {
             .add_to(ctx);
         ctx.instantiate::<StdCell>(&bufbuf.id())?
             .with_connections([
-                ("A", sae_int),
+                ("A", sae_buf_in),
                 ("X", sense_en),
                 ("VPWR", vdd),
                 ("VPB", vdd),

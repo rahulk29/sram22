@@ -3,7 +3,6 @@ use std::collections::{HashMap, VecDeque};
 use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
 use subgeom::{Corner, Dir, Point, Rect, Shape, Side, Sign, Span};
-use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
 use substrate::layout::cell::{CellPort, Instance, Port, PortId};
