@@ -165,7 +165,14 @@ impl Component for Tdc {
                 .with_connections([
                     ("vdd", vdd),
                     ("vss", vss),
-                    ("din", stage3.index(stage3.width() - 1)),
+                    (
+                        "din",
+                        if i == 0 {
+                            stage3.index(0)
+                        } else {
+                            stage3.index(stage3.width() - 1)
+                        },
+                    ),
                     ("din_b", tmp.index(i + 2)),
                 ])
                 .named(arcstr::format!("s4_dummy_{i}"))
