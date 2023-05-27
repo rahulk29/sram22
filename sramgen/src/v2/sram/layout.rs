@@ -621,7 +621,7 @@ impl SramInner {
         router.occupy(m3, clk_pin, "clk")?;
 
         let src = control.port("clk")?.largest_rect(m1)?;
-        let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Right));
+        let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Bot));
         ctx.draw_rect(m1, src);
         to_route.push((m1, src, m3, clk_pin, Some("clk")));
 
@@ -637,7 +637,7 @@ impl SramInner {
                 router.occupy(m3, pin, port_name)?;
 
                 let src = control.port(port_name)?.largest_rect(m1)?;
-                let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Right));
+                let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Bot));
                 ctx.draw_rect(m1, src);
                 to_route.push((m1, src, m3, pin, Some(port_name)));
             }
