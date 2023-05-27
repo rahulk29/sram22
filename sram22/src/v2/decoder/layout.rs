@@ -620,28 +620,28 @@ impl Component for DecoderVia {
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PhysicalDesign {
     /// Width of a decoder cell.
-    pub width: i64,
+    pub(crate) width: i64,
     /// Width of a decoder tap cell.
-    pub tap_width: i64,
+    pub(crate) tap_width: i64,
     /// Number of decoders on either side of each tap.
-    pub tap_period: usize,
+    pub(crate) tap_period: usize,
     /// The metal layer used for buses and power rails.
-    pub stripe_metal: LayerKey,
+    pub(crate) stripe_metal: LayerKey,
     /// The metal layer used for connecting stripes to individual decoders.
-    pub wire_metal: LayerKey,
+    pub(crate) wire_metal: LayerKey,
     /// List of intermediate layers in via between (`li`)[PhysicalDesign::li] and
     /// (`stripe_metal`)[PhysicalDesign::stripe_metal)
-    pub via_metals: Vec<LayerKey>,
+    pub(crate) via_metals: Vec<LayerKey>,
     /// The metal used to connect to MOS sources, drains, gates, and taps.
-    pub li: LayerKey,
+    pub(crate) li: LayerKey,
     /// Width of wires in bus.
-    pub line: i64,
+    pub(crate) line: i64,
     /// Spacing between wires in bus.
-    pub space: i64,
+    pub(crate) space: i64,
     /// Width of power rail.
-    pub rail_width: i64,
+    pub(crate) rail_width: i64,
     /// Layers that should be extended to the edge of decoder gates and tap cells.
-    pub abut_layers: HashSet<LayerKey>,
+    pub(crate) abut_layers: HashSet<LayerKey>,
 }
 
 pub struct PredecoderPhysicalDesignScript;
