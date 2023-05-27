@@ -1700,8 +1700,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "345f11dca845086e60f1076569dedb4c2026e8dfe420d2900de8683142480bcf"
 
 [[package]]
-name = "sramgen"
-version = "0.1.0"
+name = "sram22"
+version = "0.0.2"
 dependencies = [
  "abstract_lef",
  "anyhow",

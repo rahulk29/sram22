@@ -1,5 +1,5 @@
 use anyhow::Result;
-use sramgen::cli::run;
+use sram22::cli::run;
 
 fn main() -> Result<()> {
     run()
