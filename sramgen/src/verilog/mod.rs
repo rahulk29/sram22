@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::config::sram::SramParams;
+use crate::v2::sram::SramParams;
 use crate::{Result, TEMPLATES};
 
 use serde::{Deserialize, Serialize};
@@ -24,7 +24,7 @@ pub fn generate_1rw_verilog(params: &SramParams) -> Result<String> {
     };
 
     let template_params = Sram1RwParams {
-        module_name: params.name.clone(),
+        module_name: params.name().to_string(),
         num_words: params.num_words,
         data_width: params.data_width,
         addr_width: params.addr_width,
@@ -32,16 +32,4 @@ pub fn generate_1rw_verilog(params: &SramParams) -> Result<String> {
     };
 
     Ok(TEMPLATES.render(template, &Context::from_serialize(template_params)?)?)
-}
-
-pub fn save_1rw_verilog(path: impl AsRef<Path>, params: &SramParams) -> Result<()> {
-    let verilog = generate_1rw_verilog(params)?;
-
-    let path = path.as_ref();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    std::fs::write(path, verilog)?;
-
-    Ok(())
 }

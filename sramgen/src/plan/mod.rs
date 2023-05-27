@@ -1,14 +1,11 @@
 use crate::cli::progress::StepContext;
-use crate::config::sram::{ControlMode, SramConfig, SramParams};
-use crate::layout::sram::draw_sram;
-use crate::paths::{out_bin, out_gds, out_sram, out_verilog};
+use crate::config::sram::SramConfig;
+use crate::paths::{out_bin, out_gds, out_spice, out_verilog};
 use crate::plan::extract::ExtractionResult;
-use crate::schematic::save_modules;
-use crate::schematic::sram::sram;
-use crate::verilog::save_1rw_verilog;
-use crate::{clog2, Result};
+use crate::v2::sram::verilog::save_1rw_verilog;
+use crate::v2::sram::{Sram, SramParams};
+use crate::{clog2, setup_ctx, Result};
 use anyhow::{bail, Context};
-use pdkprims::tech::sky130;
 use std::collections::HashSet;
 use std::path::Path;
 
@@ -65,16 +62,10 @@ pub fn generate_plan(
         ..
     } = config;
 
-    if control != ControlMode::Simple && control != ControlMode::ReplicaV1 {
-        bail!(
-            "Only `ControlMode::Simple` and `ControlMode::ReplicaV1` are supported at the moment"
-        );
-    }
     if data_width % write_size != 0 {
         bail!("Data width must be a multiple of write size");
     }
 
-    let name = out_sram(config);
     let rows = (num_words / mux_ratio) as usize;
     let cols = (data_width * mux_ratio) as usize;
     let row_bits = clog2(rows);
@@ -88,7 +79,6 @@ pub fn generate_plan(
 
     Ok(SramPlan {
         sram_params: SramParams {
-            name,
             wmask_width,
             row_bits,
             col_bits,
@@ -132,31 +122,22 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
 
     std::fs::create_dir_all(work_dir)?;
 
-    let modules = sram(&plan.sram_params);
+    let name = &plan.sram_params.name();
+    let sctx = setup_ctx();
 
-    let name = &plan.sram_params.name;
-
-    let bin_path = out_bin(work_dir, name);
-    save_modules(bin_path, name, modules).with_context(|| "Error saving netlist binaries")?;
-
-    // generate_netlist(&bin_path, work_dir)
-    //     .with_context(|| "Error converting netlists to SPICE format")?;
-
+    let spice_path = out_spice(&work_dir, &name);
+    sctx.write_schematic_to_file::<Sram>(&plan.sram_params, &spice_path)
+        .expect("failed to write schematic");
     try_finish_task!(ctx, TaskKey::GenerateNetlist);
 
-    let mut lib = sky130::pdk_lib(name)?;
-    draw_sram(&mut lib, &plan.sram_params).with_context(|| "Error generating SRAM layout")?;
-
-    let gds_path = out_gds(work_dir, name);
-    lib.save_gds(&gds_path)
-        .with_context(|| "Error saving SRAM GDS")?;
-
+    let gds_path = out_gds(&work_dir, &name);
+    sctx.write_layout::<Sram>(&plan.sram_params, &gds_path)
+        .expect("failed to write layout");
     try_finish_task!(ctx, TaskKey::GenerateLayout);
 
-    let verilog_path = out_verilog(work_dir, name);
-    save_1rw_verilog(&verilog_path, &plan.sram_params)
-        .with_context(|| "Error generating or saving Verilog model")?;
-
+    let verilog_path = out_verilog(&work_dir, &name);
+    save_1rw_verilog(&verilog_path, name.as_str(), &plan.sram_params)
+        .expect("failed to write behavioral model");
     try_finish_task!(ctx, TaskKey::GenerateVerilog);
 
     #[cfg(feature = "commercial")]
@@ -177,16 +158,76 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
         try_execute_task!(
             params.tasks,
             TaskKey::RunDrc,
-            crate::verification::calibre::run_sram_drc(work_dir, name)?,
+            {
+                let drc_work_dir = work_dir.join("drc");
+                let output = sctx
+                    .write_drc::<Sram>(&plan.sram_params, drc_work_dir)
+                    .expect("failed to run DRC");
+                assert!(
+                    matches!(
+                        output.summary,
+                        substrate::verification::drc::DrcSummary::Pass
+                    ),
+                    "DRC failed"
+                );
+            },
             ctx
         );
         try_execute_task!(
             params.tasks,
             TaskKey::RunLvs,
-            crate::verification::calibre::run_sram_lvs(work_dir, name, plan.sram_params.control)?,
+            {
+                let lvs_work_dir = work_dir.join("lvs");
+                let output = sctx
+                    .write_lvs::<Sram>(&plan.sram_params, lvs_work_dir)
+                    .expect("failed to run LVS");
+                assert!(
+                    matches!(
+                        output.summary,
+                        substrate::verification::lvs::LvsSummary::Pass
+                    ),
+                    "LVS failed"
+                );
+            },
             ctx
         );
 
+        try_execute_task!(
+            params.tasks,
+            TaskKey::GenerateLib,
+            {
+                use substrate::schematic::netlist::NetlistPurpose;
+                let timing_spice_path = out_spice(&work_dir, "timing_schematic");
+                sctx.write_schematic_to_file_for_purpose::<Sram>(
+                    &plan.sram_params,
+                    &timing_spice_path,
+                    NetlistPurpose::Timing,
+                )
+                .expect("failed to write timing schematic");
+
+                let params = liberate_mx::LibParams::builder()
+                    .work_dir(work_dir.join("lib"))
+                    .output_file(crate::paths::out_lib(
+                        &work_dir,
+                        "timing_tt_025C_1v80.schematic",
+                    ))
+                    .corner("tt")
+                    .cell_name(name.as_str())
+                    .num_words(plan.sram_params.num_words)
+                    .data_width(plan.sram_params.data_width)
+                    .addr_width(plan.sram_params.addr_width)
+                    .wmask_width(plan.sram_params.wmask_width)
+                    .mux_ratio(plan.sram_params.mux_ratio)
+                    .has_wmask(true)
+                    .source_paths(vec![timing_spice_path])
+                    .build()
+                    .unwrap();
+                crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+            },
+            ctx
+        );
+
+        /*
         if params.pex_level.is_none() && params.tasks.contains(&TaskKey::RunPex) {
             bail!("Must specify a PEX level when running PEX");
         }
@@ -265,6 +306,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
             },
             ctx
         );
+        */
     }
     Ok(())
 }

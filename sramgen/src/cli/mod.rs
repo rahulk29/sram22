@@ -7,7 +7,6 @@ use clap::Parser;
 use crate::cli::args::Args;
 use crate::cli::progress::StepContext;
 use crate::config::sram::parse_sram_config;
-use crate::paths::out_sram;
 use crate::plan::extract::ExtractionResult;
 use crate::plan::{execute_plan, generate_plan, ExecutePlanParams, TaskKey};
 use crate::Result;
@@ -34,28 +33,9 @@ pub fn run() -> Result<()> {
     let config_path = canonicalize(&args.config)?;
 
     println!("{BANNER}");
-    println!("Starting SRAM generation...\n");
 
+    println!("Reading configuration file...\n");
     let config = parse_sram_config(&config_path)?;
-
-    let name = &out_sram(&config);
-
-    let work_dir = if let Some(output_dir) = args.output_dir {
-        output_dir
-    } else {
-        PathBuf::from(name)
-    };
-    std::fs::create_dir_all(&work_dir)?;
-    let work_dir = canonicalize(work_dir)?;
-
-    println!("Configuration file: {:?}", &config_path);
-    println!("Output directory: {:?}\n", &work_dir);
-    println!("SRAM parameters:");
-    println!("\tNumber of words: {}", config.num_words);
-    println!("\tData width: {}", config.data_width);
-    println!("\tMux ratio: {}", config.mux_ratio);
-    println!("\tWrite size: {}", config.write_size);
-    println!("\tControl mode: {:?}\n", config.control);
 
     let enabled_tasks = vec![
         #[cfg(feature = "commercial")]
@@ -82,6 +62,23 @@ pub fn run() -> Result<()> {
 
     let plan = ctx.check(generate_plan(ExtractionResult {}, &config))?;
     ctx.finish(TaskKey::GeneratePlan);
+
+    let work_dir = if let Some(output_dir) = args.output_dir {
+        output_dir
+    } else {
+        PathBuf::from(plan.sram_params.name().as_str())
+    };
+    std::fs::create_dir_all(&work_dir)?;
+    let work_dir = canonicalize(work_dir)?;
+
+    println!("Configuration file: {:?}", &config_path);
+    println!("Output directory: {:?}\n", &work_dir);
+    println!("SRAM parameters:");
+    println!("\tNumber of words: {}", config.num_words);
+    println!("\tData width: {}", config.data_width);
+    println!("\tMux ratio: {}", config.mux_ratio);
+    println!("\tWrite size: {}", config.write_size);
+    println!("\tControl mode: {:?}\n", config.control);
 
     let res = execute_plan(ExecutePlanParams {
         work_dir: &work_dir,

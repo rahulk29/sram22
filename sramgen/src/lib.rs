@@ -27,15 +27,13 @@ use tera::Tera;
 pub mod abs;
 pub mod cli;
 pub mod config;
-pub mod layout;
 #[cfg(feature = "commercial")]
 pub mod liberate;
 pub mod paths;
 pub mod plan;
-pub mod schematic;
 pub mod tech;
 #[cfg(test)]
-mod tests;
+pub mod tests;
 pub mod v2;
 pub mod verification;
 pub mod verilog;
