@@ -13,7 +13,7 @@ use std::path::PathBuf;
 )]
 pub struct Args {
     /// Path to TOML configuration file.
-    #[arg(short, long, default_value = "sramgen.toml")]
+    #[arg(short, long, default_value = "sram22.toml")]
     pub config: PathBuf,
 
     /// Directory to which output files should be saved.
