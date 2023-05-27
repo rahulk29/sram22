@@ -986,7 +986,7 @@ checksum = "2b00cc1c228a6782d0f076e7b232802e0c5689d41bb5df366f2a6b6621cfdfe1"
 [[package]]
 name = "liberate_mx"
 version = "0.1.0"
-source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/liberate-mx.git?branch=master#5930a4c76b43732dc4cfb019bbc9a6d4917445fa"
+source = "git+https://github.com/rahulk29/liberate-mx.git?branch=master#3437f35cd94ab235ff8d3a4dabf4693adda7cc67"
 dependencies = [
  "derive_builder 0.12.0",
  "lazy_static",
