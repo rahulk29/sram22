@@ -32,7 +32,7 @@ use crate::v2::decoder::{
 use crate::v2::gate::GateParams;
 use crate::v2::precharge::layout::{ReplicaPrecharge, ReplicaPrechargeParams};
 
-use super::SramInner;
+use super::{ControlMode, SramInner};
 
 impl SramInner {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
@@ -82,7 +82,10 @@ impl SramInner {
             child_sizes: vec![],
         };
         let mut wmux_driver = ctx.instantiate::<WmuxDriver>(&wmux_driver_params)?;
-        let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&ControlLogicKind::Standard)?;
+        let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&match self.params.control {
+            ControlMode::ReplicaV2 => ControlLogicKind::Standard,
+            ControlMode::ReplicaV2Test => ControlLogicKind::Test,
+        })?;
 
         let num_dffs = self.params.addr_width + 1;
         let mut dffs = ctx.instantiate::<DffArray>(&num_dffs)?;
@@ -605,9 +608,10 @@ impl SramInner {
         to_route.push((m1, src, m2, dst, Some("we")));
 
         // Route clock signal
-        let tracks = router.track_info(m3).tracks();
-        let track_span =
-            tracks.index(tracks.track_with_loc(TrackLocator::StartsAfter, dffs.brect().right()));
+        let tracks = router.track_info(m3).tracks().clone();
+        let start_track = tracks.track_with_loc(TrackLocator::StartsAfter, dffs.brect().right());
+
+        let track_span = tracks.index(start_track);
         let clk_pin = Rect::from_spans(
             track_span,
             Span::with_start_and_length(router_bbox.bottom(), 1000),
@@ -620,6 +624,24 @@ impl SramInner {
         let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Right));
         ctx.draw_rect(m1, src);
         to_route.push((m1, src, m3, clk_pin, Some("clk")));
+
+        if matches!(self.params.control, ControlMode::ReplicaV2Test) {
+            for (i, port_name) in ["sae_int", "sae_muxed"].into_iter().enumerate() {
+                let track_span = tracks.index(start_track + i as i64 + 1);
+                let pin = Rect::from_spans(
+                    track_span,
+                    Span::with_start_and_length(router_bbox.bottom(), 1000),
+                );
+                ctx.draw_rect(m3, pin);
+                ctx.add_port(CellPort::with_shape(port_name, m3, pin))?;
+                router.occupy(m3, pin, port_name)?;
+
+                let src = control.port(port_name)?.largest_rect(m1)?;
+                let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Right));
+                ctx.draw_rect(m1, src);
+                to_route.push((m1, src, m3, pin, Some(port_name)));
+            }
+        }
 
         for i in 0..num_dffs {
             let src = dffs.port(PortId::new("clk", i))?.largest_rect(m2)?;

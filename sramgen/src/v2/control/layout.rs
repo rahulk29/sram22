@@ -296,9 +296,9 @@ impl ControlLogicReplicaV2 {
         let mut output_rects = Vec::new();
         let top_offset = 2;
 
-        let htracks = router.track_info(m1).tracks();
+        let htracks = router.track_info(m1).tracks().clone();
         let htrack_start = htracks.track_with_loc(TrackLocator::EndsBefore, group.brect().top());
-        let vtracks = router.track_info(m2).tracks();
+        let vtracks = router.track_info(m2).tracks().clone();
 
         // Input pins
         let vtrack =
@@ -308,6 +308,14 @@ impl ControlLogicReplicaV2 {
             input_rects.push(Rect::from_spans(vtrack, htrack));
             ctx.draw_rect(m1, input_rects[i]);
         }
+
+        router.block(
+            m2,
+            Rect::from_spans(
+                vtrack.expand(false, 2000).expand(true, 140),
+                group.brect().vspan(),
+            ),
+        );
 
         // Output pins
         let vtrack =
@@ -320,7 +328,10 @@ impl ControlLogicReplicaV2 {
 
         router.block(
             m2,
-            Rect::from_spans(vtrack.expand(true, 2000), group.brect().vspan()),
+            Rect::from_spans(
+                vtrack.expand(true, 2000).expand(false, 140),
+                group.brect().vspan(),
+            ),
         );
 
         let sae_muxed = input_rects[0];

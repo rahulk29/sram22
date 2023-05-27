@@ -124,25 +124,32 @@ impl SramInner {
             ])
             .named("wmux_driver")
             .add_to(ctx);
-        ctx.instantiate::<ControlLogicReplicaV2>(&match self.params.control {
-            ControlMode::ReplicaV2 => ControlLogicKind::Standard,
-            ControlMode::ReplicaV2Test => ControlLogicKind::Test,
-        })?
-        .with_connections([
-            ("clk", clk),
-            ("we", we_in),
-            ("rbl", rbl),
-            ("dummy_bl", dummy_bl),
-            ("pc_b", pc_b),
-            ("wl_en0", wl_en0),
-            ("wl_en", wl_en),
-            ("write_driver_en", write_driver_en),
-            ("sense_en", sense_en),
-            ("vdd", vdd),
-            ("vss", vss),
-        ])
-        .named("control_logic")
-        .add_to(ctx);
+        let mut control_logic = ctx
+            .instantiate::<ControlLogicReplicaV2>(&match self.params.control {
+                ControlMode::ReplicaV2 => ControlLogicKind::Standard,
+                ControlMode::ReplicaV2Test => ControlLogicKind::Test,
+            })?
+            .with_connections([
+                ("clk", clk),
+                ("we", we_in),
+                ("rbl", rbl),
+                ("dummy_bl", dummy_bl),
+                ("pc_b", pc_b),
+                ("wl_en0", wl_en0),
+                ("wl_en", wl_en),
+                ("write_driver_en", write_driver_en),
+                ("sense_en", sense_en),
+                ("vdd", vdd),
+                ("vss", vss),
+            ])
+            .named("control_logic");
+        if matches!(self.params.control, ControlMode::ReplicaV2Test) {
+            control_logic.connect_all([
+                ("sae_int", ctx.port("sae_int", Direction::Output)),
+                ("sae_muxed", ctx.port("sae_muxed", Direction::Input)),
+            ]);
+        }
+        control_logic.add_to(ctx);
 
         let num_dffs = self.params.addr_width + 1;
         ctx.instantiate::<DffArray>(&num_dffs)?
