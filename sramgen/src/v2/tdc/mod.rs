@@ -16,7 +16,7 @@ use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
-use substrate::layout::{Draw, DrawRef};
+use substrate::layout::DrawRef;
 
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::grid::GridTiler;
@@ -544,12 +544,6 @@ impl Component for TdcCell {
 
         let mut tap = ctx.instantiate::<DecoderTap>(&decoder_gate)?;
         tap.orientation_mut().reflect_vert();
-
-        // let (left2, right2, left3, right3, left4, right4) = match self.params.kind {
-        //     TdcCellKind::Start => (&s22, &s22, &s35, &s38, &s43, &s44),
-        //     TdcCellKind::Middle => (&s21, &s22, &s31, &s38, &s41, &s44),
-        //     TdcCellKind::End => (&s21, &s22, &s31, &s38, &s41, &s42),
-        // };
 
         let mut tap1l = tap.clone();
         tap1l.align_top(inv0.bbox());

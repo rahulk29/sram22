@@ -172,9 +172,7 @@ impl Component for TappedRegister {
         let mut row = row.build();
         row.expose_ports(
             |port: CellPort, i| {
-                if i == 1 {
-                    Some(port)
-                } else if port.name() == "vpwr" || port.name() == "vgnd" {
+                if i == 1 || port.name() == "vpwr" || port.name() == "vgnd" {
                     Some(port)
                 } else {
                     None
