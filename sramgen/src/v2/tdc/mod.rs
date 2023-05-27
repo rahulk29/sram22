@@ -499,7 +499,7 @@ impl Component for TdcCell {
         ffs.align_beneath(s41.bbox(), 4 * vspace);
         ctx.draw_ref(&ffs)?;
 
-        let brect = ctx.brect().expand_dir(Dir::Horiz, 300);
+        let brect = ctx.brect().expand_dir(Dir::Horiz, 700);
         let rect = inv0.port("a")?.largest_rect(m0)?;
         let rect = rect.with_hspan(rect.hspan().add_point(brect.left()));
         ctx.add_port(CellPort::with_shape("buf_in", m0, rect))?;
@@ -676,25 +676,25 @@ impl Component for TdcCell {
             layers: vec![
                 LayerConfig {
                     line: 320,
-                    space: 140,
+                    space: 310,
                     dir: Dir::Vert,
                     layer: m0,
                 },
                 LayerConfig {
                     line: 320,
-                    space: 140,
+                    space: 310,
                     dir: Dir::Horiz,
                     layer: m1,
                 },
                 LayerConfig {
                     line: 320,
-                    space: 140,
+                    space: 310,
                     dir: Dir::Vert,
                     layer: m2,
                 },
                 LayerConfig {
                     line: 330,
-                    space: 590,
+                    space: 300,
                     dir: Dir::Horiz,
                     layer: m3,
                 },
