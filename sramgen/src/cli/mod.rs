@@ -37,6 +37,14 @@ pub fn run() -> Result<()> {
     println!("Reading configuration file...\n");
     let config = parse_sram_config(&config_path)?;
 
+    println!("Configuration file: {:?}", &config_path);
+    println!("SRAM parameters:");
+    println!("\tNumber of words: {}", config.num_words);
+    println!("\tData width: {}", config.data_width);
+    println!("\tMux ratio: {}", config.mux_ratio);
+    println!("\tWrite size: {}", config.write_size);
+    println!("\tControl mode: {:?}\n", config.control);
+
     let enabled_tasks = vec![
         #[cfg(feature = "commercial")]
         (args.lef, TaskKey::GenerateLef),
@@ -71,15 +79,6 @@ pub fn run() -> Result<()> {
     std::fs::create_dir_all(&work_dir)?;
     let work_dir = canonicalize(work_dir)?;
 
-    println!("Configuration file: {:?}", &config_path);
-    println!("Output directory: {:?}\n", &work_dir);
-    println!("SRAM parameters:");
-    println!("\tNumber of words: {}", config.num_words);
-    println!("\tData width: {}", config.data_width);
-    println!("\tMux ratio: {}", config.mux_ratio);
-    println!("\tWrite size: {}", config.write_size);
-    println!("\tControl mode: {:?}\n", config.control);
-
     let res = execute_plan(ExecutePlanParams {
         work_dir: &work_dir,
         plan: &plan,
@@ -90,6 +89,7 @@ pub fn run() -> Result<()> {
     });
 
     ctx.check(res)?;
+    println!("Artifacts saved to: {:?}\n", &work_dir);
 
     Ok(())
 }
