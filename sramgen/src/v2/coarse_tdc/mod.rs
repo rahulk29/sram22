@@ -3,7 +3,7 @@ use subgeom::bbox::BoundBox;
 
 use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
-use substrate::layout::cell::PortConflictStrategy;
+use substrate::layout::cell::{CellPort, PortConflictStrategy};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::placement::array::ArrayTiler;
@@ -171,14 +171,14 @@ impl Component for TappedRegister {
         row.push(tap);
         let mut row = row.build();
         row.expose_ports(
-            |port, i| {
-                if i == 1 {
+            |port: CellPort, i| {
+                if i == 1 || port.name() == "vpwr" || port.name() == "vgnd" {
                     Some(port)
                 } else {
                     None
                 }
             },
-            PortConflictStrategy::Error,
+            PortConflictStrategy::Merge,
         )?;
         let group = row.generate()?;
         ctx.add_ports(group.ports())?;
