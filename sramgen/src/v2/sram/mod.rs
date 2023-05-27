@@ -70,8 +70,8 @@ impl SramParams {
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Serialize, Deserialize)]
 pub enum ControlMode {
-    Simple,
-    ReplicaV1,
+    ReplicaV2,
+    ReplicaV2Test,
 }
 
 impl Component for SramInner {
@@ -235,32 +235,32 @@ pub(crate) mod tests {
 
     use super::*;
 
-    pub(crate) const TINY_SRAM: SramParams = SramParams::new(2, 4, 64, 4, ControlMode::ReplicaV1);
+    pub(crate) const TINY_SRAM: SramParams = SramParams::new(2, 4, 64, 4, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_1: SramParams = SramParams::new(8, 4, 256, 32, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_1: SramParams = SramParams::new(8, 4, 256, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_2: SramParams = SramParams::new(8, 4, 2048, 64, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_2: SramParams = SramParams::new(8, 4, 2048, 64, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_3: SramParams = SramParams::new(8, 4, 64, 32, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_3: SramParams = SramParams::new(8, 4, 64, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_4: SramParams = SramParams::new(32, 4, 64, 32, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_4: SramParams = SramParams::new(32, 4, 64, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_5: SramParams = SramParams::new(8, 4, 512, 32, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_5: SramParams = SramParams::new(8, 4, 512, 32, ControlMode::ReplicaV2);
 
     pub(crate) const PARAMS_6: SramParams =
-        SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV1);
+        SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_7: SramParams = SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_7: SramParams = SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV2);
 
     pub(crate) const PARAMS_8: SramParams =
-        SramParams::new(32, 8, 1024, 64, ControlMode::ReplicaV1);
+        SramParams::new(32, 8, 1024, 64, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_9: SramParams = SramParams::new(8, 8, 2048, 32, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_9: SramParams = SramParams::new(8, 8, 2048, 32, ControlMode::ReplicaV2);
 
     pub(crate) const PARAMS_10: SramParams =
-        SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV1);
+        SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_11: SramParams = SramParams::new(8, 8, 4096, 8, ControlMode::ReplicaV1);
+    pub(crate) const PARAMS_11: SramParams = SramParams::new(8, 8, 4096, 8, ControlMode::ReplicaV2);
 
     macro_rules! test_sram {
         ($name: ident, $params: ident $(, $attr: meta)*) => {

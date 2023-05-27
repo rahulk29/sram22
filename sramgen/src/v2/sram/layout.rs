@@ -24,7 +24,7 @@ use substrate::layout::Draw;
 use crate::v2::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
 use crate::v2::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::v2::columns::ColPeripherals;
-use crate::v2::control::{ControlLogicReplicaV2, DffArray};
+use crate::v2::control::{ControlLogicKind, ControlLogicReplicaV2, DffArray};
 use crate::v2::decoder::layout::LastBitDecoderStage;
 use crate::v2::decoder::{
     AddrGate, AddrGateParams, DecoderParams, DecoderStageParams, DecoderTree, Predecoder,
@@ -83,7 +83,7 @@ impl SramInner {
             child_sizes: vec![],
         };
         let mut wmux_driver = ctx.instantiate::<WmuxDriver>(&wmux_driver_params)?;
-        let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?;
+        let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&ControlLogicKind::Standard)?;
 
         let num_dffs = self.params.addr_width + 1;
         let mut dffs = ctx.instantiate::<DffArray>(&num_dffs)?;
