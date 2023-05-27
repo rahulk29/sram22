@@ -1,11 +1,11 @@
 use crate::cli::progress::StepContext;
 use crate::config::sram::SramConfig;
-use crate::paths::{out_bin, out_gds, out_spice, out_verilog};
+use crate::paths::{out_gds, out_spice, out_verilog};
 use crate::plan::extract::ExtractionResult;
 use crate::v2::sram::verilog::save_1rw_verilog;
 use crate::v2::sram::{Sram, SramParams};
 use crate::{clog2, setup_ctx, Result};
-use anyhow::{bail, Context};
+use anyhow::bail;
 use std::collections::HashSet;
 use std::path::Path;
 
@@ -125,17 +125,17 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
     let name = &plan.sram_params.name();
     let sctx = setup_ctx();
 
-    let spice_path = out_spice(&work_dir, &name);
+    let spice_path = out_spice(work_dir, name);
     sctx.write_schematic_to_file::<Sram>(&plan.sram_params, &spice_path)
         .expect("failed to write schematic");
     try_finish_task!(ctx, TaskKey::GenerateNetlist);
 
-    let gds_path = out_gds(&work_dir, &name);
+    let gds_path = out_gds(work_dir, name);
     sctx.write_layout::<Sram>(&plan.sram_params, &gds_path)
         .expect("failed to write layout");
     try_finish_task!(ctx, TaskKey::GenerateLayout);
 
-    let verilog_path = out_verilog(&work_dir, &name);
+    let verilog_path = out_verilog(work_dir, name);
     save_1rw_verilog(&verilog_path, name.as_str(), &plan.sram_params)
         .expect("failed to write behavioral model");
     try_finish_task!(ctx, TaskKey::GenerateVerilog);
@@ -197,7 +197,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
             TaskKey::GenerateLib,
             {
                 use substrate::schematic::netlist::NetlistPurpose;
-                let timing_spice_path = out_spice(&work_dir, "timing_schematic");
+                let timing_spice_path = out_spice(work_dir, "timing_schematic");
                 sctx.write_schematic_to_file_for_purpose::<Sram>(
                     &plan.sram_params,
                     &timing_spice_path,
@@ -208,7 +208,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                 let params = liberate_mx::LibParams::builder()
                     .work_dir(work_dir.join("lib"))
                     .output_file(crate::paths::out_lib(
-                        &work_dir,
+                        work_dir,
                         "timing_tt_025C_1v80.schematic",
                     ))
                     .corner("tt")

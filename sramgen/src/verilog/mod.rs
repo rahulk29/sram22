@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use crate::v2::sram::SramParams;
 use crate::{Result, TEMPLATES};
 

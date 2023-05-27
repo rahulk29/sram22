@@ -1,4 +1,3 @@
-use crate::config::sram::SramConfig;
 use std::path::{Path, PathBuf};
 
 pub fn out_bin(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
