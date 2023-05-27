@@ -16,6 +16,7 @@ use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
+use substrate::layout::Draw;
 
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::grid::GridTiler;
@@ -370,6 +371,7 @@ impl Component for TdcCell {
             TdcCellKind::Start | TdcCellKind::End => ctx.instantiate::<TappedRegisterN>(&2)?,
             TdcCellKind::Middle => ctx.instantiate::<TappedRegisterN>(&4)?,
         };
+        let mut ffs_placement = ctx.instantiate::<TappedRegisterN>(&4)?;
         let num_outputs = match self.params.kind {
             TdcCellKind::Start | TdcCellKind::End => 2,
             TdcCellKind::Middle => 4,
@@ -504,9 +506,14 @@ impl Component for TdcCell {
         ctx.draw_ref(&tap4r)?;
 
         ffs.align_beneath(s41.bbox(), 4 * vspace);
+        ffs_placement.align_beneath(s41.bbox(), 4 * vspace);
         ctx.draw_ref(&ffs)?;
 
-        let brect = ctx.brect().expand_dir(Dir::Horiz, 700);
+        let brect = ctx
+            .bbox()
+            .union(ffs_placement.bbox())
+            .into_rect()
+            .expand_dir(Dir::Horiz, 700);
         let rect = inv0.port("a")?.largest_rect(m0)?;
         let rect = rect.with_hspan(rect.hspan().add_point(brect.left()));
         ctx.add_port(CellPort::with_shape("buf_in", m0, rect))?;
@@ -679,7 +686,7 @@ impl Component for TdcCell {
         ctx.add_port(vss.with_must_connect(MustConnect::Yes))?;
 
         let mut router = GreedyRouter::with_config(GreedyRouterConfig {
-            area: ctx.brect().expand(8_000),
+            area: brect.expand(8_000),
             layers: vec![
                 LayerConfig {
                     line: 320,
@@ -829,14 +836,12 @@ impl Component for TdcCell {
             router.route_with_net(ctx, m0, y, m2, d, &net)?;
         }
 
-        let brect = ctx.brect();
-
         let vtracks = router.track_info(m2).tracks();
         let vstart =
             vtracks.track_with_loc(TrackLocator::EndsBefore, (brect.right() + brect.left()) / 2);
         let htracks = router.track_info(m1).tracks();
-        let htrack = htracks
-            .index(htracks.track_with_loc(TrackLocator::EndsBefore, ctx.brect().bottom()) - 5);
+        let htrack =
+            htracks.index(htracks.track_with_loc(TrackLocator::EndsBefore, brect.bottom()) - 5);
 
         let mut output_rects = Vec::with_capacity(num_outputs);
         for i in 0..num_outputs {
