@@ -7,6 +7,8 @@ use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::routing::auto::straps::PlacedStraps;
 use substrate::layout::straps::SingleSupplyNet;
+#[cfg(test)]
+use substrate::schematic::netlist::NetlistPurpose;
 
 use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
 
@@ -67,6 +69,22 @@ impl SramParams {
             control,
         }
     }
+
+    #[inline]
+    pub fn wmask_granularity(&self) -> usize {
+        self.data_width / self.wmask_width
+    }
+
+    /// The name of the SRAM cell with these parameters.
+    pub fn name(&self) -> arcstr::ArcStr {
+        arcstr::format!(
+            "sram22_{}x{}m{}w{}",
+            self.num_words,
+            self.data_width,
+            self.mux_ratio,
+            self.wmask_granularity()
+        )
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Serialize, Deserialize)]
@@ -85,7 +103,7 @@ impl Component for SramInner {
         })
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("sramgen_sram_inner")
+        arcstr::literal!("sram22_inner")
     }
     fn schematic(
         &self,
@@ -112,7 +130,7 @@ impl Component for Sram {
         })
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("sramgen_sram")
+        self.params.name()
     }
     fn schematic(
         &self,
@@ -231,7 +249,7 @@ impl Component for Sram {
 pub(crate) mod tests {
 
     use self::verilog::save_1rw_verilog;
-    use crate::paths::{out_gds, out_spice, out_verilog};
+    use crate::paths::{out_gds, out_lib, out_spice, out_verilog};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -269,8 +287,7 @@ pub(crate) mod tests {
     pub(crate) const ROCKET_4: SramParams = SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV2);
     pub(crate) const ROCKET_5: SramParams =
         SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV2);
-    pub(crate) const ROCKET_6: SramParams =
-        SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV2);
+    pub(crate) const ROCKET_6: SramParams = SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV2);
 
     #[test]
     fn test_sram_tiny() {
@@ -286,31 +303,40 @@ pub(crate) mod tests {
             .expect("failed to write layout");
 
         let verilog_path = out_verilog(&work_dir, "behavioral");
-        save_1rw_verilog(&verilog_path, "sramgen_sram", &TINY_SRAM)
+        save_1rw_verilog(&verilog_path, &*TINY_SRAM.name(), &TINY_SRAM)
             .expect("failed to write behavioral model");
 
         #[cfg(feature = "commercial")]
         {
             crate::abs::run_sram_abstract(
                 &work_dir,
-                "sramgen_sram",
+                &TINY_SRAM.name(),
                 crate::paths::out_lef(&work_dir, "abstract"),
                 &gds_path,
                 &verilog_path,
             )
             .expect("failed to write abstract");
+
+            let timing_spice_path = out_spice(&work_dir, "timing_schematic");
+            ctx.write_schematic_to_file_for_purpose::<Sram>(
+                &TINY_SRAM,
+                &timing_spice_path,
+                NetlistPurpose::Timing,
+            )
+            .expect("failed to write timing schematic");
+
             let params = liberate_mx::LibParams::builder()
                 .work_dir(work_dir.join("lib"))
-                .output_file("timing_tt_025C_1v80.schematic.lib")
+                .output_file(out_lib(&work_dir, "timing_tt_025C_1v80.schematic"))
                 .corner("tt")
-                .cell_name("sramgen_sram")
+                .cell_name(&*TINY_SRAM.name())
                 .num_words(TINY_SRAM.num_words)
                 .data_width(TINY_SRAM.data_width)
                 .addr_width(TINY_SRAM.addr_width)
                 .wmask_width(TINY_SRAM.wmask_width)
                 .mux_ratio(TINY_SRAM.mux_ratio)
                 .has_wmask(true)
-                .source_paths(vec![spice_path])
+                .source_paths(vec![timing_spice_path])
                 .build()
                 .unwrap();
             crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
@@ -350,31 +376,40 @@ pub(crate) mod tests {
                     .expect("failed to write layout");
 
                 let verilog_path = out_verilog(&work_dir, "behavioral");
-                save_1rw_verilog(&verilog_path, "sramgen_sram", &$params)
+                save_1rw_verilog(&verilog_path,&*$params.name(), &$params)
                     .expect("failed to write behavioral model");
 
                 #[cfg(feature = "commercial")]
                 {
                     crate::abs::run_sram_abstract(
                         &work_dir,
-                        "sramgen_sram",
+                        &$params.name(),
                         crate::paths::out_lef(&work_dir, "abstract"),
                         &gds_path,
                         &verilog_path,
                     )
                     .expect("failed to write abstract");
+
+                    let timing_spice_path = out_spice(&work_dir, "timing_schematic");
+                    ctx.write_schematic_to_file_for_purpose::<Sram>(
+                        &TINY_SRAM,
+                        &timing_spice_path,
+                        NetlistPurpose::Timing,
+                    )
+                    .expect("failed to write timing schematic");
+
                     let params = liberate_mx::LibParams::builder()
                         .work_dir(work_dir.join("lib"))
-                        .output_file("timing_tt_025C_1v80.schematic.lib")
+                        .output_file(out_lib(&work_dir, "timing_tt_025C_1v80.schematic"))
                         .corner("tt")
-                        .cell_name("sramgen_sram")
+                        .cell_name(&*$params.name())
                         .num_words($params.num_words)
                         .data_width($params.data_width)
                         .addr_width($params.addr_width)
                         .wmask_width($params.wmask_width)
                         .mux_ratio($params.mux_ratio)
                         .has_wmask(true)
-                        .source_paths(vec![spice_path])
+                        .source_paths(vec![timing_spice_path])
                         .build()
                         .unwrap();
                     crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
