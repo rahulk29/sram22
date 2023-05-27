@@ -141,7 +141,7 @@ impl Component for Tdc {
 
         let tmp = ctx.bus("tmp", 6);
 
-        for i in 0..1 {
+        for i in 0..2 {
             inv.clone()
                 .with_connections([
                     ("vdd", vdd),
