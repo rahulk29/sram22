@@ -8,7 +8,7 @@ use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 use substrate::schematic::elements::mos::SchematicMos;
 
-use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch};
+use super::{ControlLogicKind, ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch};
 
 impl ControlLogicReplicaV2 {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
@@ -27,13 +27,14 @@ impl ControlLogicReplicaV2 {
             ctx.signals(["pc_read_set", "pc_set", "pc_b0", "pc", "pc_write_set"]);
         let [wl_en_set, wl_en_rst, wl_en0_b, wl_en_write_rst] =
             ctx.signals(["wl_en_set", "wl_en_rst", "wl_en0_b", "wl_en_write_rst"]);
-        let [sense_en_set0, sense_en_set, sense_en0, sense_en_b, sae_set] = ctx.signals([
-            "sense_en_set0",
-            "sense_en_set",
-            "sense_en0",
-            "sense_en_b",
-            "sae_set",
-        ]);
+        let [sense_en_set0, sense_en_set, sense_en_b, sae_set] =
+            ctx.signals(["sense_en_set0", "sense_en_set", "sense_en_b", "sae_set"]);
+
+        let sae_int = match self.0 {
+            ControlLogicKind::Standard => ctx.signal("sae_int"),
+            ControlLogicKind::Test => ctx.port("sae_int", Direction::Output),
+        };
+
         let [wr_drv_set, wr_drv_set_undelayed] =
             ctx.signals(["wr_drv_set", "wr_drv_set_undelayed"]);
         let [rbl_b] = ctx.signals(["rbl_b"]);
@@ -165,7 +166,7 @@ impl ControlLogicReplicaV2 {
             .with_connections([
                 ("s", sense_en_set),
                 ("r", clkp),
-                ("q", sense_en0),
+                ("q", sae_int),
                 ("qb", sense_en_b),
                 ("vdd", vdd),
                 ("vss", vss),
@@ -297,9 +298,14 @@ impl ControlLogicReplicaV2 {
             ])
             .named("wl_en_buf")
             .add_to(ctx);
+
+        let sae_buf_in = match self.0 {
+            ControlLogicKind::Standard => sae_int,
+            ControlLogicKind::Test => ctx.port("sae_muxed", Direction::Input),
+        };
         ctx.instantiate::<StdCell>(&bufbuf.id())?
             .with_connections([
-                ("A", sense_en0),
+                ("A", sae_buf_in),
                 ("X", sense_en),
                 ("VPWR", vdd),
                 ("VPB", vdd),
@@ -310,7 +316,7 @@ impl ControlLogicReplicaV2 {
             .add_to(ctx);
         ctx.instantiate::<StdCell>(&bufbuf.id())?
             .with_connections([
-                ("A", sense_en0),
+                ("A", sae_buf_in),
                 ("X", sense_en),
                 ("VPWR", vdd),
                 ("VPB", vdd),

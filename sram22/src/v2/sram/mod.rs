@@ -90,6 +90,7 @@ impl SramParams {
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Serialize, Deserialize)]
 pub enum ControlMode {
     ReplicaV2,
+    ReplicaV2Test,
 }
 
 impl Component for SramInner {
@@ -221,14 +222,27 @@ impl Component for Sram {
 
         // Route pins to edge of guard ring
         let groups = self.params.cols / self.params.mux_ratio;
-        for (pin, width) in [
-            ("dout", groups),
-            ("din", groups),
-            ("wmask", self.params.wmask_width),
-            ("addr", self.params.addr_width),
-            ("we", 1),
-            ("clk", 1),
-        ] {
+        for (pin, width) in if self.params.control == ControlMode::ReplicaV2 {
+            vec![
+                ("dout", groups),
+                ("din", groups),
+                ("wmask", self.params.wmask_width),
+                ("addr", self.params.addr_width),
+                ("we", 1),
+                ("clk", 1),
+            ]
+        } else {
+            vec![
+                ("dout", groups),
+                ("din", groups),
+                ("wmask", self.params.wmask_width),
+                ("addr", self.params.addr_width),
+                ("we", 1),
+                ("clk", 1),
+                ("sae_int", 1),
+                ("sae_muxed", 1),
+            ]
+        } {
             for i in 0..width {
                 let port_id = PortId::new(pin, i);
                 let rect = sram.port(port_id.clone())?.largest_rect(m3)?;
@@ -249,7 +263,7 @@ impl Component for Sram {
 pub(crate) mod tests {
 
     use self::verilog::save_1rw_verilog;
-    use crate::paths::{out_gds, out_lib, out_spice, out_verilog};
+    use crate::paths::{out_gds, out_spice, out_verilog};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -327,7 +341,10 @@ pub(crate) mod tests {
 
             let params = liberate_mx::LibParams::builder()
                 .work_dir(work_dir.join("lib"))
-                .output_file(out_lib(&work_dir, "timing_tt_025C_1v80.schematic"))
+                .output_file(crate::paths::out_lib(
+                    &work_dir,
+                    "timing_tt_025C_1v80.schematic",
+                ))
                 .corner("tt")
                 .cell_name(&*TINY_SRAM.name())
                 .num_words(TINY_SRAM.num_words)
@@ -400,7 +417,7 @@ pub(crate) mod tests {
 
                     let params = liberate_mx::LibParams::builder()
                         .work_dir(work_dir.join("lib"))
-                        .output_file(out_lib(&work_dir, "timing_tt_025C_1v80.schematic"))
+                        .output_file(crate::paths::out_lib(&work_dir, "timing_tt_025C_1v80.schematic"))
                         .corner("tt")
                         .cell_name(&*$params.name())
                         .num_words($params.num_words)
