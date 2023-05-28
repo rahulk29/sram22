@@ -13,6 +13,12 @@ pub struct Sram1RwParams {
     pub wmask_width: usize,
 }
 
+#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TdcParams {
+    pub module_name: String,
+    pub data_width: usize,
+}
+
 pub fn generate_1rw_verilog(params: &SramParams) -> Result<String> {
     assert_eq!(params.num_words, 1 << params.addr_width);
     let template = if params.wmask_width > 1 {
@@ -30,4 +36,15 @@ pub fn generate_1rw_verilog(params: &SramParams) -> Result<String> {
     };
 
     Ok(TEMPLATES.render(template, &Context::from_serialize(template_params)?)?)
+}
+
+pub fn generate_tdc_verilog(params: &TdcParams) -> Result<String> {
+    assert!(
+        params.data_width > 1,
+        "Output width must be larger than 1, got {}",
+        params.data_width
+    );
+    let template = "tdc.v";
+
+    Ok(TEMPLATES.render(template, &Context::from_serialize(params)?)?)
 }

@@ -1,8 +1,8 @@
 use crate::Result;
-use abstract_lef::{run_abstract, AbstractParams};
+use abstract_lef::AbstractParams;
 use std::path::{Path, PathBuf};
 
-pub fn run_sram_abstract(
+pub fn run_abstract(
     work_dir: impl AsRef<Path>,
     name: &str,
     lef_path: impl AsRef<Path>,
@@ -11,7 +11,7 @@ pub fn run_sram_abstract(
 ) -> Result<()> {
     let abs_work_dir = PathBuf::from(work_dir.as_ref()).join("lef");
 
-    run_abstract(AbstractParams {
+    abstract_lef::run_abstract(AbstractParams {
         work_dir: &abs_work_dir,
         cell_name: name,
         gds_path: gds_path.as_ref(),
