@@ -24,7 +24,7 @@ use substrate::pdk::stdcell::StdCell;
 
 use subgeom::{Corner, Dir, Point, Rect, Side, Span};
 
-use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch};
+use super::{ControlLogicKind, ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch};
 
 impl ControlLogicReplicaV2 {
     pub(crate) fn layout(
@@ -287,15 +287,18 @@ impl ControlLogicReplicaV2 {
         }
 
         // Pins
-        let num_input_pins = 2usize;
+        let (num_input_pins, clk_idx, we_idx) = match self.0 {
+            ControlLogicKind::Standard => (2usize, 0, 1),
+            ControlLogicKind::Test => (4usize, 2, 3),
+        };
         let num_output_pins = 7usize;
         let mut input_rects = Vec::new();
         let mut output_rects = Vec::new();
         let top_offset = 2;
 
-        let htracks = router.track_info(m1).tracks();
+        let htracks = router.track_info(m1).tracks().clone();
         let htrack_start = htracks.track_with_loc(TrackLocator::EndsBefore, group.brect().top());
-        let vtracks = router.track_info(m2).tracks();
+        let vtracks = router.track_info(m2).tracks().clone();
 
         // Input pins
         let vtrack =
@@ -305,6 +308,14 @@ impl ControlLogicReplicaV2 {
             input_rects.push(Rect::from_spans(vtrack, htrack));
             ctx.draw_rect(m1, input_rects[i]);
         }
+
+        router.block(
+            m2,
+            Rect::from_spans(
+                vtrack.expand(false, 2000).expand(true, 140),
+                group.brect().vspan(),
+            ),
+        );
 
         // Output pins
         let vtrack =
@@ -317,12 +328,19 @@ impl ControlLogicReplicaV2 {
 
         router.block(
             m2,
-            Rect::from_spans(vtrack.expand(true, 2000), group.brect().vspan()),
+            Rect::from_spans(
+                vtrack.expand(true, 2000).expand(false, 140),
+                group.brect().vspan(),
+            ),
         );
 
-        let clk_pin = input_rects[0];
+        let sae_muxed = input_rects[0];
+        router.occupy(m1, sae_muxed, "sae_muxed")?;
+        let sae_int = input_rects[1];
+        router.occupy(m1, sae_int, "sae_int")?;
+        let clk_pin = input_rects[clk_idx];
         router.occupy(m1, clk_pin, "clk")?;
-        let we_pin = input_rects[1];
+        let we_pin = input_rects[we_idx];
         router.occupy(m1, we_pin, "we")?;
 
         let pc_b_pin = output_rects[0];
@@ -675,7 +693,6 @@ impl ControlLogicReplicaV2 {
         );
         ctx.draw(sense_en0_out_via)?;
         ctx.draw_rect(m2, sense_en0_out);
-        router.occupy(m2, sense_en0_out, "sense_en0")?;
 
         let sense_en0_in_1 = group.port_map().port("sae_buf_a")?.largest_rect(m0)?;
         let mut sense_en0_in_1_via = via01.with_orientation(Named::R90);
@@ -686,7 +703,6 @@ impl ControlLogicReplicaV2 {
         );
         ctx.draw(sense_en0_in_1_via)?;
         ctx.draw_rect(m1, sense_en0_in_1);
-        router.occupy(m1, sense_en0_in_1, "sense_en0")?;
 
         let sense_en0_in_2 = group.port_map().port("sae_buf2_a")?.largest_rect(m0)?;
         let mut sense_en0_in_2_via = via01.with_orientation(Named::R90);
@@ -697,7 +713,13 @@ impl ControlLogicReplicaV2 {
         );
         ctx.draw(sense_en0_in_2_via)?;
         ctx.draw_rect(m1, sense_en0_in_2);
-        router.occupy(m1, sense_en0_in_2, "sense_en0")?;
+        let (sense_en0_out_net, sense_en0_in_net) = match self.0 {
+            ControlLogicKind::Standard => ("sense_en0", "sense_en0"),
+            ControlLogicKind::Test => ("sae_int", "sae_muxed"),
+        };
+        router.occupy(m2, sense_en0_out, sense_en0_out_net)?;
+        router.occupy(m1, sense_en0_in_1, sense_en0_in_net)?;
+        router.occupy(m1, sense_en0_in_2, sense_en0_in_net)?;
 
         // mux_pc_set -> pc_ctl
         let pc_set_out = group.port_map().port("mux_pc_set_x")?.largest_rect(m0)?;
@@ -1211,8 +1233,17 @@ impl ControlLogicReplicaV2 {
         )?;
         router.route_with_net(ctx, m1, wl_en_rst_out, m1, wl_en_rst_in, "wl_en_rst")?;
         router.route_with_net(ctx, m2, wl_en0_out, m1, wl_en0_in, "wl_en0")?;
-        router.route_with_net(ctx, m2, sense_en0_out, m1, sense_en0_in_1, "sense_en0")?;
-        router.route_with_net(ctx, m2, sense_en0_out, m1, sense_en0_in_2, "sense_en0")?;
+        match self.0 {
+            ControlLogicKind::Standard => {
+                router.route_with_net(ctx, m2, sense_en0_out, m1, sense_en0_in_1, "sense_en0")?;
+                router.route_with_net(ctx, m2, sense_en0_out, m1, sense_en0_in_2, "sense_en0")?;
+            }
+            ControlLogicKind::Test => {
+                router.route_with_net(ctx, m2, sense_en0_out, m1, sae_int, "sae_int")?;
+                router.route_with_net(ctx, m1, sae_muxed, m1, sense_en0_in_1, "sae_muxed")?;
+                router.route_with_net(ctx, m1, sae_muxed, m1, sense_en0_in_2, "sae_muxed")?;
+            }
+        }
         router.route_with_net(ctx, m1, pc_set_out, m1, pc_set_in, "pc_set")?;
         router.route_with_net(
             ctx,
@@ -1309,6 +1340,10 @@ impl ControlLogicReplicaV2 {
 
         ctx.add_port(CellPort::with_shape("clk", m1, clk_pin))?;
         ctx.add_port(CellPort::with_shape("we", m1, we_pin))?;
+        if matches!(self.0, ControlLogicKind::Test) {
+            ctx.add_port(CellPort::with_shape("sae_int", m1, sae_int))?;
+            ctx.add_port(CellPort::with_shape("sae_muxed", m1, sae_muxed))?;
+        }
         ctx.add_port(CellPort::with_shape("pc_b", m1, pc_b_pin))?;
         ctx.add_port(CellPort::with_shape("wl_en0", m1, wl_en0_pin))?;
         ctx.add_port(CellPort::with_shape("wl_en", m1, wl_en_pin))?;

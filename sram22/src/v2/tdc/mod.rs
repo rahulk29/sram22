@@ -1010,7 +1010,6 @@ mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
-    use super::tb::{TdcTb, TdcTbParams};
     use super::*;
 
     const INV_SIZING: PrimitiveGateParams = PrimitiveGateParams {
@@ -1039,7 +1038,8 @@ mod tests {
         inv: INV_SIZING,
     };
 
-    const TDC_TB_PARAMS: TdcTbParams = TdcTbParams {
+    #[cfg(feature = "commercial")]
+    const TDC_TB_PARAMS: super::tb::TdcTbParams = super::tb::TdcTbParams {
         inner: TDC_PARAMS,
         vdd: 1.8,
         delta_t: 1e-9,
@@ -1097,7 +1097,7 @@ mod tests {
                 output.summary,
                 substrate::verification::lvs::LvsSummary::Pass
             ));
-            ctx.write_simulation::<TdcTb>(&TDC_TB_PARAMS, &work_dir)
+            ctx.write_simulation::<super::tb::TdcTb>(&TDC_TB_PARAMS, &work_dir)
                 .expect("failed to run simulation");
         }
     }

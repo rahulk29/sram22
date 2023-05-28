@@ -1,4 +1,3 @@
-use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
 use substrate::schematic::circuit::Direction;
@@ -9,7 +8,7 @@ use crate::v2::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams
 use crate::v2::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::v2::buf::DiffBufParams;
 use crate::v2::columns::{ColParams, ColPeripherals};
-use crate::v2::control::{ControlLogicReplicaV2, DffArray};
+use crate::v2::control::{ControlLogicKind, ControlLogicReplicaV2, DffArray};
 use crate::v2::decoder::{
     AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderStageParams, DecoderTree, WmuxDriver,
 };
@@ -17,7 +16,7 @@ use crate::v2::precharge::{Precharge, PrechargeParams};
 use crate::v2::rmux::ReadMuxParams;
 use crate::v2::wmux::WriteMuxSizing;
 
-use super::SramInner;
+use super::{ControlMode, SramInner};
 
 impl SramInner {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
@@ -125,7 +124,11 @@ impl SramInner {
             ])
             .named("wmux_driver")
             .add_to(ctx);
-        ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?
+        let mut control_logic = ctx
+            .instantiate::<ControlLogicReplicaV2>(&match self.params.control {
+                ControlMode::ReplicaV2 => ControlLogicKind::Standard,
+                ControlMode::ReplicaV2Test => ControlLogicKind::Test,
+            })?
             .with_connections([
                 ("clk", clk),
                 ("we", we_in),
@@ -139,8 +142,14 @@ impl SramInner {
                 ("vdd", vdd),
                 ("vss", vss),
             ])
-            .named("control_logic")
-            .add_to(ctx);
+            .named("control_logic");
+        if matches!(self.params.control, ControlMode::ReplicaV2Test) {
+            control_logic.connect_all([
+                ("sae_int", ctx.port("sae_int", Direction::Output)),
+                ("sae_muxed", ctx.port("sae_muxed", Direction::Input)),
+            ]);
+        }
+        control_logic.add_to(ctx);
 
         let num_dffs = self.params.addr_width + 1;
         ctx.instantiate::<DffArray>(&num_dffs)?
