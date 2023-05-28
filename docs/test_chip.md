@@ -44,7 +44,7 @@ The SRAM test area uses the following pins:
 * `BIST_EN`: Enables all BIST modules.
 * `SRAM_TEST_EN`: Enables manual test mode for all SRAMs.
    When high, SRAMs are enabled by `SRAM_EN`.
-   When low, SRAMs are enabled by the SRAM enable Rocket MMIO register.
+   When low, SRAMs are enabled by an on-chip control signal.
 
 There are three modes of test operation:
 * Built-in self-test (BIST). Performs at-speed (1 op per cycle) testing of predefined memory patterns.
@@ -59,7 +59,7 @@ Note that there are no dual-clock scan chain FFs in the open-source SKY130 PDK.
 
 ```verilog
 // Signals for the i'th SRAM block
-assign sram_en_i = SRAM_TEST_EN ? SRAM_EN : mmio_sram_en;
+assign sram_en_i = SRAM_TEST_EN ? SRAM_EN : chip_sram_en_i;
 assign sram_sel_i = SRAM_TEST_EN ? scan_sram_sel : mmio_sram_sel;
 
 // `tdc_en_i` is an input to the TDC clock gating cell described in the TDC config section
@@ -71,6 +71,13 @@ always @(*) begin
     SRAM_SEL_SCAN: addr_i = scan_addr_i;
     SRAM_SEL_MMIO: addr_i = mmio_addr_i;
     default: addr_i = 0;
+  endcase
+
+  case (sram_sel_i)
+    SRAM_SEL_BIST : chip_sram_en_i = bist_en;
+    SRAM_SEL_SCAN: chip_sram_en_i = 0;
+    SRAM_SEL_MMIO: chip_sram_en_i = mmio_controller_en_i;
+    default: chip_sram_en_i = 0;
   endcase
 end
 ```
