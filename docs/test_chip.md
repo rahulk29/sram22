@@ -37,25 +37,48 @@ The test blocks do not participate in the memory hierarchy of the core.
 
 The SRAM test area uses the following pins:
 * `clk`: The global clock.
-* `SRAM_RSTB`:  An active-low reset for all SRAM test circuitry, including the scan chain.
+* `reset`: The global reset signal.
 * `SRAM_SCAN_IN`: SRAM scan chain input.
 * `SRAM_SCAN_OUT`: SRAM scan chain output.
 * `SRAM_SCAN_EN`: Enables scan chain mode.
 * `SRAM_SAE_CLK`: The clock used to drive the SRAM sense amplifiers.
-* `SRAM_TEST_EN`: Enables **manual test mode (MTM)** for all SRAMs.
-* `TDC_EN`: When in MTM, enables all TDCs. When low, TDCs holds their values.
-  Ignored outside of MTM.
-* `SRAM_EN`: A global chip enable for all SRAM blocks. When setting up SRAM inputs (via scan chain or MMIO), should be held low; once the inputs are ready and stable, this should be set high (usually for one cycle).
+* `SRAM_EXT_EN`: Enables external control of SRAMs (used only for **manual test mode (MTM)**).
+* `SRAM_SCAN_MODE`: Whether scan chain is using scanned inputs or Rocket inputs.
+* `SRAM_EN`: A global chip enable for all SRAM blocks. When setting up SRAM inputs (via scan chain or MMIO), should be held low; once the inputs are ready and stable, this should be set high (usually for one cycle). Similarly, should be held low when reading from the TDC output.
 * `BIST_EN`: Enables all BIST modules when in test mode.
+* `BIST_DONE`: Indicates that the BIST has completed its test.
 
 There are three modes of test operation:
-* Built-in self-test (BIST). Performs at-speed (1 op per cycle) testing of predefined memory patterns.
 * Rocket-controlled testing over memory-mapped I/O (MMIO).
   Programmable test pattern, but limited speed due to needing to fetch instructions from memory
   and synchronize TDC output. Roughly 5-10 cycles per operation.
+    1. `SRAM_EXT_EN` and `SRAM_SCAN_MODE` held low. 
+    2. SRAM enable controlled by FSM that begins execution when MMIO writes to `ex` register.
+    3. `sram_sel` register set to `SRAM_SEL_MMIO`, indicating that the SRAMs should take inputs directy from MMIO registers.
+    2. SRAM enable controlled by FSM that begins execution when MMIO writes to `ex` register. Once execution begins, the FSM should turn on `sram_en_int` for one cycle to trigger a single memory operation.
+    4. Once the operation is complete and the correct values of `dout` and `tdc` are stored in scan chain after an additional cycle, the FSM will set `done` to high, allowing the Rocket to read the relevant values. _Operates under the assumption that `dout` and `tdc` will not change due to the SRAMs being disabled on the next clock cycle (i.e. that clock gating works correctly)._
 * Manual test mode (MTM). Enables testing via scan chain.
   Can scan inputs into registers, then scan out SRAM output.
+    1. `SRAM_EXT_EN` and `SRAM_SCAN_MODE` held high. 
+    2. Values are scanned into the registers and held (Rocket cannot write to MMIO registers while `SRAM_SCAN_MODE` is high).
+    3. `sram_sel` register set to `SRAM_SEL_MMIO`, indicating that the SRAMs should take inputs directy from MMIO registers 
+    2. SRAM enabled by external `SRAM_EN` signal for one cycle.
+    4. Once the operation is complete and the correct values of `dout` and `tdc` are stored in scan chain, results canbe scanned out.
   Slow (~1k cycles per op), but does not rely on Rocket or BIST working.
+* Built-in self-test (BIST) via MMIO. Performs at-speed (1 op per cycle) testing of predefined memory patterns.
+    1. `SRAM_EXT_EN` and `SRAM_SCAN_MODE` held low. 
+    2. SRAM enable controlled by BIST.
+    3. `sram_sel` register set to `SRAM_SEL_BIST`, indicating that the SRAMs should take inputs from the BIST.
+    2. BIST controlled by FSM that begins execution when MMIO writes to `ex` register. The FSM writes `start` signal to reset BIST counters for one (or more) cycles, then enables the BIST.
+    4. Once the test is complete, the BIST will write to the `done` register. The rocket can then read the relevant MMIO registers for the test results.
+* Built-in self-test (BIST) via scan chain. Performs at-speed (1 op per cycle) testing of predefined memory patterns.
+    1. `SRAM_EXT_EN` is held low, and `SRAM_SCAN_MODE` is held high.
+    2. Global reset set in order to reset BIST (`BIST_EN` held low).
+    2. SRAM enable controlled by BIST.
+    3. Values are scanned into the registers and held (Rocket cannot write to MMIO registers while `SRAM_SCAN_MODE` is high).
+    4. `sram_sel` register set to `SRAM_SEL_BIST`, indicating that the SRAMs should take inputs from the BIST.
+    5. Ocne registers are all scanned in, `BIST_EN` is set high, starting the BIST test.
+    4. Once the test is complete, the BIST will write to the `done` register, which can be read externally via the `DONE` pin. The test results can then be scanned out.
 
 Note that there are no dual-clock scan chain FFs in the open-source SKY130 PDK.
 (Dual-clock FFs have a scan clock port and an independent system clock port.)
@@ -64,36 +87,6 @@ Alongside the global BIST, there will be a shared MMIO controller.
 The MMIO controller enables the Rocket to read/write to the SRAMs directly,
 without the need for programming a pattern into the BIST.
 The MMIO controller is described in more detail below.
-
-```verilog
-// Global SRAM input select
-assign sram_sel = omitted; // register connected to MMIO and the scan chain.
-assign sram_sel_next = SRAM_TEST_EN ? sram_sel : mmio_controller_sram_sel_next;
-
-// Signals for the i'th SRAM block
-assign sram_en_i = SRAM_TEST_EN ? SRAM_EN : chip_sram_en_i;
-
-// `tdc_en_i` is an input to the TDC clock gating cell described in the TDC config section
-assign tdc_en_i = SRAM_TEST_EN ? TDC_EN : mmio_controller_tdc_en;
-
-always @(*) begin
-  case (sram_sel)
-    SRAM_SEL_BIST : addr_i = bist_addr;
-    SRAM_SEL_SCAN: addr_i = scan_addr_i;
-    SRAM_SEL_MMIO: addr_i = mmio_controller_addr;
-    SRAM_SEL_DISABLE: addr_i = 0;
-    default: addr_i = 0;
-  endcase
-
-  case (sram_sel)
-    SRAM_SEL_BIST : chip_sram_en_i = bist_en && bist_sram == i;
-    SRAM_SEL_SCAN: chip_sram_en_i = 0;
-    SRAM_SEL_MMIO: chip_sram_en_i = mmio_controller_en_i;
-    SRAM_SEL_DISABLE: chip_sram_en_i = 0;
-    default: chip_sram_en_i = 0;
-  endcase
-end
-```
 
 Clock should be held low when not in use.
 
@@ -276,19 +269,20 @@ port. In the diagram above, Q and SO are always the same value.
 
 The MMIO controller exposes the following memory-mapped registers.
 
-| Name     | Width | Direction     | Description         | 
-| -------- | ----- | ------------- | ------------------- |
-| `addr`   | 13    | R/W           | Read/write address  |
-| `din`    | 32    | R/W           | Write data          |
-| `wmask`  | 32    | R/W           | Write mask          |
-| `we`     | 1     | R/W           | Write enable        |
-| `sram_id`| 4     | R/W           | The ID of the SRAM on which the operation should be performed |
-| `sram_sel`| 2     | R/W           | The SRAM input selector |
-| `dout`   | 32    | RO            | Data read from SRAM |
-| `tdc`    | 252   | RO            | TDC output code     |
-| `ex`     | 1     | WO            | Set high for one cycle to begin a mem op |
-| `done`   | 1     | RO            | High when a mem op completes. Turned off on a subsequent execute. |
-| `rst`    | 1     | WO            | Reset MMIO registers to 0 |
+| Name     | Width | Direction     | Description         | Note       |
+| -------- | ----- | ------------- | ------------------- | ---------- |
+| `addr`   | 13    | R/W           | Read/write address  | |
+| `din`    | 32    | R/W           | Write data          | |
+| `wmask`  | 32    | R/W           | Write mask          | |
+| `we`     | 1     | R/W           | Write enable        | |
+| `sram_id`| 4     | R/W           | The ID of the SRAM on which the operation should be performed | |
+| `sram_sel`| 1     | R/W           | The SRAM input selector | |
+| `sae_ctl`| 7     | R/W           | Delay line tuning parameter | Binary encoded |
+| `sae_sel`| 2     | R/W           | SAE input selector| |
+| `dout`   | 32    | RO            | Data read from SRAM | |
+| `tdc`    | 252   | RO            | TDC output code     | Thermometer encoded |
+| `ex`     | 1     | WO            | Set high for one cycle to begin a mem op | Not on scan chain |
+| `done`   | 1     | RO            | High when a mem op completes. Turned off on a subsequent execute. | Not on scan chain
 
 Widths are specified in bits.
 For the direction field:
@@ -298,15 +292,12 @@ For the direction field:
 
 The `sram_sel` control signal supports the following values:
 * `SRAM_SEL_BIST`: configures the SRAMs to take input from the BIST.
-* `SRAM_SEL_SCAN`: configures the SRAMs to take input from the scan chain.
-* `SRAM_SEL_MMIO`: configures the SRAMs to take input from the MMIO controller.
-* `SRAM_SEL_DISABLE`: disables all SRAMs; sets all inputs to zeroes.
+* `SRAM_SEL_MMIO`: configures the SRAMs to take input from the MMIO registers.
 
 Each SRAM operation will take approximately 5 cycles to complete:
 1 cycle to set up SRAM inputs, 1 cycle for operation, and 3 cycles for TDC synchronization.
 Upon completion of the operation, the `done` flag is raised. It is
-set back to low when another memory operation begins (via writing to the `ex` register),
-or upon writing to the `rst` register.
+set back to low when another memory operation begins (via writing to the `ex` register).
 
 There are also MMIO registers for the BIST.
 
@@ -321,8 +312,6 @@ There are also MMIO registers for the BIST.
 | `bist_insts` | TBD   | R/W | BIST instruction table |
 | `bist_patterns` | TBD   | R/W | BIST data background pattern table |
 | `bist_cycle_limit` | 32   | R/W | Stops BIST execution after this many cycles |
-| `bist_ex` | 1   | WO            | Begin executing BIST instructions |
-| `bist_done` | 1 | RO            | High when the BIST finishes executing a test (see below) |
 | `bist_fail` | 1 | RO            | High if a failure was detected |
 | `bist_fail_cycle` | 32 | RO            | The cycle at which the BIST detected the first failure |
 | `bist_expected` | 32 | RO            | BIST expected data |
