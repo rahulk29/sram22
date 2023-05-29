@@ -322,7 +322,7 @@ pub(crate) mod tests {
 
         #[cfg(feature = "commercial")]
         {
-            crate::abs::run_sram_abstract(
+            crate::abs::run_abstract(
                 &work_dir,
                 &TINY_SRAM.name(),
                 crate::paths::out_lef(&work_dir, "abstract"),
@@ -398,7 +398,7 @@ pub(crate) mod tests {
 
                 #[cfg(feature = "commercial")]
                 {
-                    crate::abs::run_sram_abstract(
+                    crate::abs::run_abstract(
                         &work_dir,
                         &$params.name(),
                         crate::paths::out_lef(&work_dir, "abstract"),

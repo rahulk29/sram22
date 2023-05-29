@@ -1006,9 +1006,10 @@ impl Component for TappedRegisterN {
 #[cfg(test)]
 mod tests {
 
-    use crate::paths::{out_gds, out_spice};
+    use crate::paths::{out_gds, out_spice, out_verilog};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
+    use crate::v2::sram::verilog::save_tdc_verilog;
 
     use super::*;
 
@@ -1077,10 +1078,32 @@ mod tests {
         let work_dir = test_work_dir("test_tdc");
         ctx.write_schematic_to_file::<Tdc>(&TDC_PARAMS, out_spice(&work_dir, "schematic"))
             .expect("failed to write schematic");
-        ctx.write_layout::<Tdc>(&TDC_PARAMS, out_gds(&work_dir, "layout"))
+        let gds_path = out_gds(&work_dir, "layout");
+        ctx.write_layout::<Tdc>(&TDC_PARAMS, &gds_path)
             .expect("failed to write layout");
+        let tdc = ctx.instantiate_layout::<Tdc>(&TDC_PARAMS).unwrap();
+        let name = tdc.cell().name();
         #[cfg(feature = "commercial")]
         {
+            let verilog_path = out_verilog(&work_dir, name);
+            save_tdc_verilog(
+                &verilog_path,
+                &crate::verilog::TdcParams {
+                    module_name: name.to_string(),
+                    data_width: TDC_PARAMS.bits_out(),
+                },
+            )
+            .expect("failed to write behavioral model");
+
+            crate::abs::run_abstract(
+                &work_dir,
+                name,
+                crate::paths::out_lef(&work_dir, name),
+                &gds_path,
+                &verilog_path,
+            )
+            .expect("failed to generate abstract");
+
             let drc_work_dir = work_dir.join("drc");
             let output = ctx
                 .write_drc::<Tdc>(&TDC_PARAMS, drc_work_dir)

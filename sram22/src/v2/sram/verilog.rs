@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use crate::verilog::{generate_tdc_verilog, TdcParams};
 use crate::{Result, TEMPLATES};
 
 use serde::{Deserialize, Serialize};
@@ -39,6 +40,18 @@ pub fn save_1rw_verilog(
     params: &SramParams,
 ) -> Result<()> {
     let verilog = generate_1rw_verilog(name, params)?;
+
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, verilog)?;
+
+    Ok(())
+}
+
+pub fn save_tdc_verilog(path: impl AsRef<Path>, params: &TdcParams) -> Result<()> {
+    let verilog = generate_tdc_verilog(params)?;
 
     let path = path.as_ref();
     if let Some(parent) = path.parent() {

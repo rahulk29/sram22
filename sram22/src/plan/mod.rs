@@ -145,7 +145,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
         try_execute_task!(
             params.tasks,
             TaskKey::GenerateLef,
-            crate::abs::run_sram_abstract(
+            crate::abs::run_abstract(
                 work_dir,
                 name,
                 crate::paths::out_lef(work_dir, name),
