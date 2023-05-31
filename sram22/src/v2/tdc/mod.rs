@@ -1006,6 +1006,9 @@ impl Component for TappedRegisterN {
 #[cfg(test)]
 mod tests {
 
+    use substrate::schematic::netlist::NetlistPurpose;
+    use substrate::verification::pex::PexInput;
+
     use crate::paths::{out_gds, out_spice, out_verilog};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
@@ -1081,10 +1084,20 @@ mod tests {
         let gds_path = out_gds(&work_dir, "layout");
         ctx.write_layout::<Tdc>(&TDC_PARAMS, &gds_path)
             .expect("failed to write layout");
-        let tdc = ctx.instantiate_layout::<Tdc>(&TDC_PARAMS).unwrap();
-        let name = tdc.cell().name();
         #[cfg(feature = "commercial")]
         {
+            let tdc = ctx.instantiate_layout::<Tdc>(&TDC_PARAMS).unwrap();
+            let name = tdc.cell().name();
+
+            let pex_dir = work_dir.join("pex");
+            let pex_source_path = out_spice(&pex_dir, "schematic");
+            let pex_out_path = out_spice(&pex_dir, "schematic.pex");
+            ctx.write_schematic_to_file_for_purpose::<Tdc>(
+                &TDC_PARAMS,
+                &pex_source_path,
+                NetlistPurpose::Pex,
+            )
+            .expect("failed to write schematic for PEX");
             let verilog_path = out_verilog(&work_dir, name);
             save_tdc_verilog(
                 &verilog_path,
@@ -1120,6 +1133,19 @@ mod tests {
                 output.summary,
                 substrate::verification::lvs::LvsSummary::Pass
             ));
+
+            ctx.run_pex(PexInput {
+                work_dir: pex_dir,
+                layout_path: gds_path.clone(),
+                layout_cell_name: name.clone(),
+                layout_format: substrate::layout::LayoutFormat::Gds,
+                source_paths: vec![pex_source_path],
+                source_cell_name: name.clone(),
+                pex_netlist_path: pex_out_path,
+                opts: Default::default(),
+            })
+            .expect("failed to run PEX");
+
             ctx.write_simulation::<super::tb::TdcTb>(&TDC_TB_PARAMS, &work_dir)
                 .expect("failed to run simulation");
         }
