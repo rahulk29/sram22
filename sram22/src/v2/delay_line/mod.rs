@@ -750,7 +750,7 @@ mod tests {
     };
 
     const TRISTATE_INV_DELAY_LINE_PARAMS: TristateInvDelayLineParams = TristateInvDelayLineParams {
-        stages: 5,
+        stages: 128,
         inv: INV_SIZING,
         tristate_inv: INV_SIZING,
     };
