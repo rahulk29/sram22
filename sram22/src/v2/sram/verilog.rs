@@ -1,6 +1,8 @@
 use std::path::Path;
 
-use crate::verilog::{generate_tdc_verilog, TdcParams};
+use crate::verilog::{
+    generate_delay_line_verilog, generate_tdc_verilog, DelayLineParams, TdcParams,
+};
 use crate::{Result, TEMPLATES};
 
 use serde::{Deserialize, Serialize};
@@ -52,6 +54,18 @@ pub fn save_1rw_verilog(
 
 pub fn save_tdc_verilog(path: impl AsRef<Path>, params: &TdcParams) -> Result<()> {
     let verilog = generate_tdc_verilog(params)?;
+
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, verilog)?;
+
+    Ok(())
+}
+
+pub fn save_delay_line_verilog(path: impl AsRef<Path>, params: &DelayLineParams) -> Result<()> {
+    let verilog = generate_delay_line_verilog(params)?;
 
     let path = path.as_ref();
     if let Some(parent) = path.parent() {

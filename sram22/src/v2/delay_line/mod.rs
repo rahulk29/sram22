@@ -707,10 +707,11 @@ mod tests {
     use substrate::schematic::netlist::NetlistPurpose;
     use substrate::verification::pex::PexInput;
 
-    use crate::paths::{out_gds, out_spice};
+    use crate::paths::{out_gds, out_spice, out_verilog};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::v2::gate::PrimitiveGateParams;
+    use crate::v2::sram::verilog::save_delay_line_verilog;
 
     use super::tb::{DelayLineTb, DelayLineTbParams};
     use super::tristate::TristateBufParams;
@@ -827,6 +828,25 @@ mod tests {
                 .instantiate_layout::<TristateInvDelayLine>(&TRISTATE_INV_DELAY_LINE_PARAMS)
                 .unwrap();
             let name = cell.cell().name();
+
+            let verilog_path = out_verilog(&work_dir, name);
+            save_delay_line_verilog(
+                &verilog_path,
+                &crate::verilog::DelayLineParams {
+                    module_name: name.to_string(),
+                    control_width: TRISTATE_INV_DELAY_LINE_PARAMS.stages,
+                },
+            )
+            .expect("failed to write behavioral model");
+
+            crate::abs::run_abstract(
+                &work_dir,
+                name,
+                crate::paths::out_lef(&work_dir, name),
+                &gds_path,
+                &verilog_path,
+            )
+            .expect("failed to generate abstract");
 
             let pex_dir = work_dir.join("pex");
             let pex_source_path = out_spice(&pex_dir, "schematic");

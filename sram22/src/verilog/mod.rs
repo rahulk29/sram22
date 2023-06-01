@@ -19,6 +19,12 @@ pub struct TdcParams {
     pub data_width: usize,
 }
 
+#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct DelayLineParams {
+    pub module_name: String,
+    pub control_width: usize,
+}
+
 pub fn generate_1rw_verilog(params: &SramParams) -> Result<String> {
     assert_eq!(params.num_words, 1 << params.addr_width);
     let template = if params.wmask_width > 1 {
@@ -45,6 +51,17 @@ pub fn generate_tdc_verilog(params: &TdcParams) -> Result<String> {
         params.data_width
     );
     let template = "tdc.v";
+
+    Ok(TEMPLATES.render(template, &Context::from_serialize(params)?)?)
+}
+
+pub fn generate_delay_line_verilog(params: &DelayLineParams) -> Result<String> {
+    assert!(
+        params.control_width > 1,
+        "Control width must be larger than 1, got {}",
+        params.control_width
+    );
+    let template = "delay_line.v";
 
     Ok(TEMPLATES.render(template, &Context::from_serialize(params)?)?)
 }
