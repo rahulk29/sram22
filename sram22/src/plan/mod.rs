@@ -6,7 +6,7 @@ use crate::v2::sram::verilog::save_1rw_verilog;
 use crate::v2::sram::{Sram, SramParams};
 use crate::{clog2, setup_ctx, Result};
 use anyhow::bail;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::path::Path;
 use substrate::schematic::netlist::NetlistPurpose;
 use substrate::verification::pex::PexInput;
@@ -213,6 +213,9 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                     &pex_source_path,
                     NetlistPurpose::Pex,
                 )?;
+                let mut opts = HashMap::with_capacity(1);
+                opts.insert("level".into(), params.pex_level.unwrap().as_str().into());
+
                 sctx.run_pex(PexInput {
                     work_dir: pex_dir,
                     layout_path: gds_path.clone(),
@@ -221,7 +224,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                     source_paths: vec![pex_source_path],
                     source_cell_name: name.clone(),
                     pex_netlist_path: pex_out_path,
-                    opts: Default::default(),
+                    opts,
                 })?;
             },
             ctx
