@@ -1098,6 +1098,7 @@ mod tests {
                 NetlistPurpose::Pex,
             )
             .expect("failed to write schematic for PEX");
+
             let verilog_path = out_verilog(&work_dir, name);
             save_tdc_verilog(
                 &verilog_path,
