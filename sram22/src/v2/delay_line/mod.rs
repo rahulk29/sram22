@@ -704,6 +704,9 @@ impl Script for DelayLineTapDesignScript {
 
 #[cfg(test)]
 mod tests {
+    use substrate::schematic::netlist::NetlistPurpose;
+    use substrate::verification::pex::PexInput;
+
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
@@ -747,7 +750,7 @@ mod tests {
     };
 
     const TRISTATE_INV_DELAY_LINE_PARAMS: TristateInvDelayLineParams = TristateInvDelayLineParams {
-        stages: 5,
+        stages: 128,
         inv: INV_SIZING,
         tristate_inv: INV_SIZING,
     };
@@ -814,14 +817,40 @@ mod tests {
             out_spice(&work_dir, "schematic"),
         )
         .expect("failed to write schematic");
-        ctx.write_layout::<TristateInvDelayLine>(
-            &TRISTATE_INV_DELAY_LINE_PARAMS,
-            out_gds(&work_dir, "layout"),
-        )
-        .expect("failed to write schematic");
+        let gds_path = out_gds(&work_dir, "layout");
+        ctx.write_layout::<TristateInvDelayLine>(&TRISTATE_INV_DELAY_LINE_PARAMS, &gds_path)
+            .expect("failed to write schematic");
 
         #[cfg(feature = "commercial")]
         {
+            let cell = ctx
+                .instantiate_layout::<TristateInvDelayLine>(&TRISTATE_INV_DELAY_LINE_PARAMS)
+                .unwrap();
+            let name = cell.cell().name();
+
+            let pex_dir = work_dir.join("pex");
+            let pex_source_path = out_spice(&pex_dir, "schematic");
+            let pex_out_path = out_spice(&pex_dir, "schematic.pex");
+
+            ctx.write_schematic_to_file_for_purpose::<TristateInvDelayLine>(
+                &TRISTATE_INV_DELAY_LINE_PARAMS,
+                &pex_source_path,
+                NetlistPurpose::Pex,
+            )
+            .expect("failed to write schematic for PEX");
+
+            ctx.run_pex(PexInput {
+                work_dir: pex_dir,
+                layout_path: gds_path.clone(),
+                layout_cell_name: name.clone(),
+                layout_format: substrate::layout::LayoutFormat::Gds,
+                source_paths: vec![pex_source_path],
+                source_cell_name: name.clone(),
+                pex_netlist_path: pex_out_path,
+                opts: Default::default(),
+            })
+            .expect("failed to run PEX");
+
             let drc_work_dir = work_dir.join("drc");
             let output = ctx
                 .write_drc::<TristateInvDelayLine>(&TRISTATE_INV_DELAY_LINE_PARAMS, drc_work_dir)
