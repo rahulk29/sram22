@@ -118,7 +118,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("inv_rbl")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&48)?
+        ctx.instantiate::<InvChain>(&8)?
             .with_connections([
                 ("din", rbl_b),
                 ("dout", pc_read_set),
@@ -139,7 +139,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("and_sense_en")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&48)?
+        ctx.instantiate::<InvChain>(&2)?
             .with_connections([
                 ("din", sense_en_set0),
                 ("dout", sense_en_set),
@@ -275,7 +275,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("wl_en_write_rst_buf")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&16)?
+        ctx.instantiate::<InvChain>(&4)?
             .with_connections([
                 ("din", wl_en_write_rst),
                 ("dout", pc_write_set),

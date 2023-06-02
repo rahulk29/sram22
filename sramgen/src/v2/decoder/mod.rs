@@ -311,13 +311,13 @@ fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64], skew_rising: bool) -> TreeN
     } else {
         AndParams {
             nand: PrimitiveGateParams {
-                nwidth: 2_000,
-                pwidth: 2_000,
+                nwidth: 2_400,
+                pwidth: 0_800,
                 length: 150,
             },
             inv: PrimitiveGateParams {
-                nwidth: 1_000,
-                pwidth: 2_000,
+                nwidth: 3_100,
+                pwidth: 4_300,
                 length: 150,
             },
         }

@@ -60,7 +60,7 @@ impl SramInner {
                 "sense_en",
             ]);
 
-        let tree = DecoderTree::with_scale_and_skew(self.params.row_bits, 2, true);
+        let tree = DecoderTree::with_scale_and_skew(self.params.row_bits, 2, false);
 
         ctx.instantiate::<AddrGate>(&AddrGateParams {
             gate: tree.root.gate,
@@ -92,7 +92,7 @@ impl SramInner {
             .named("decoder")
             .add_to(ctx);
 
-        let col_tree = DecoderTree::with_scale(self.params.col_select_bits, 2);
+        let col_tree = DecoderTree::with_scale(self.params.col_select_bits, 6);
         let col_decoder_params = DecoderParams {
             tree: col_tree.clone(),
         };
@@ -229,13 +229,13 @@ impl SramInner {
             },
             rmux: ReadMuxParams {
                 length: 150,
-                width: 3_000,
+                width: 4_000,
                 mux_ratio: self.params.mux_ratio,
                 idx: 0,
             },
             wmux: WriteMuxSizing {
                 length: 150,
-                mux_width: 2_400,
+                mux_width: 8_800,
                 mux_ratio: self.params.mux_ratio,
             },
             buf: DiffBufParams {

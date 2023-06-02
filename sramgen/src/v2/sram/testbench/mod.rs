@@ -354,12 +354,12 @@ pub fn tb_params(params: SramParams, vdd: f64, short: bool) -> TbParams {
     let mut tb = TbParams::builder();
     let tb = tb
         .ops(ops)
-        .clk_period(20e-9)
+        .clk_period(5.0e-9)
         .tr(40e-12)
         .tf(40e-12)
         .vdd(vdd)
         .c_load(5e-15)
-        .t_hold(400e-12)
+        .t_hold(300e-12)
         .sram(params)
         .build()
         .unwrap();
@@ -383,17 +383,19 @@ impl Testbench for SramTestbench {
         ctx.add_analysis(
             TranAnalysis::builder()
                 .stop(wav.clk.last_t().unwrap())
+                // .stop(10e-9)
                 .step(step)
-                .strobe_period(step)
+                // .strobe_period(step)
                 .opts(opts)
                 .build()
                 .unwrap(),
         );
 
-        let signals = (0..self.params.sram.data_width)
-            .map(|i| format!("dout[{i}]"))
-            .collect();
-        ctx.save(Save::Signals(signals));
+        // let signals = (0..self.params.sram.data_width)
+        //     .map(|i| format!("dout[{i}]"))
+        //     .collect();
+        // ctx.save(Save::Signals(signals));
+        ctx.save(Save::All);
 
         let vdd = SiValue::with_precision(self.params.vdd, SiPrefix::Nano);
 
