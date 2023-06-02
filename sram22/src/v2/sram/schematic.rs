@@ -91,7 +91,7 @@ impl SramInner {
             .named("decoder")
             .add_to(ctx);
 
-        let col_tree = DecoderTree::with_scale(self.params.col_select_bits, 6);
+        let col_tree = DecoderTree::for_columns(self.params.col_select_bits, 6);
         let col_decoder_params = DecoderParams {
             tree: col_tree.clone(),
         };
