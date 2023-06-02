@@ -6,8 +6,10 @@ use crate::v2::sram::verilog::save_1rw_verilog;
 use crate::v2::sram::{Sram, SramParams};
 use crate::{clog2, setup_ctx, Result};
 use anyhow::bail;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use substrate::schematic::netlist::NetlistPurpose;
+use substrate::verification::pex::PexInput;
 
 pub mod extract;
 
@@ -192,25 +194,86 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
             ctx
         );
 
+        if params.pex_level.is_none() && params.tasks.contains(&TaskKey::RunPex) {
+            bail!("Must specify a PEX level when running PEX");
+        }
+        let pex_dir = work_dir.join("pex");
+        let pex_source_path = out_spice(&pex_dir, "schematic");
+        let pex_out_path = out_spice(&pex_dir, "schematic.pex");
+
+        try_execute_task!(
+            params.tasks,
+            TaskKey::RunPex,
+            {
+                sctx.write_schematic_to_file_for_purpose::<Sram>(
+                    &plan.sram_params,
+                    &pex_source_path,
+                    NetlistPurpose::Pex,
+                )?;
+                let mut opts = HashMap::with_capacity(1);
+                opts.insert("level".into(), params.pex_level.unwrap().as_str().into());
+
+                sctx.run_pex(PexInput {
+                    work_dir: pex_dir,
+                    layout_path: gds_path.clone(),
+                    layout_cell_name: name.clone(),
+                    layout_format: substrate::layout::LayoutFormat::Gds,
+                    source_paths: vec![pex_source_path],
+                    source_cell_name: name.clone(),
+                    pex_netlist_path: pex_out_path.clone(),
+                    opts,
+                })?;
+            },
+            ctx
+        );
+
+        /*
+        try_execute_task!(
+            params.tasks,
+            TaskKey::RunSpectre,
+            crate::verification::spectre::run_sram_spectre(&plan.sram_params, work_dir, name)?,
+            ctx
+        );
+        */
+
         try_execute_task!(
             params.tasks,
             TaskKey::GenerateLib,
             {
                 use substrate::schematic::netlist::NetlistPurpose;
-                let timing_spice_path = out_spice(work_dir, "timing_schematic");
-                sctx.write_schematic_to_file_for_purpose::<Sram>(
-                    &plan.sram_params,
-                    &timing_spice_path,
-                    NetlistPurpose::Timing,
-                )
-                .expect("failed to write timing schematic");
+
+                let (source_path, lib_file) = if params.pex_level.is_some() {
+                    if !pex_out_path.exists() {
+                        bail!("PEX netlist not found at path `{:?}`", pex_out_path);
+                    }
+                    (
+                        pex_out_path,
+                        work_dir.join(format!(
+                            "{}_tt_025C_1v80.{}.lib",
+                            params.plan.sram_params.name(),
+                            params.pex_level.unwrap()
+                        )),
+                    )
+                } else {
+                    let timing_spice_path = out_spice(work_dir, "timing_schematic");
+                    sctx.write_schematic_to_file_for_purpose::<Sram>(
+                        &plan.sram_params,
+                        &timing_spice_path,
+                        NetlistPurpose::Timing,
+                    )
+                    .expect("failed to write timing schematic");
+                    (
+                        timing_spice_path,
+                        work_dir.join(format!(
+                            "{}_tt_025C_1v80.schematic.lib",
+                            params.plan.sram_params.name()
+                        )),
+                    )
+                };
 
                 let params = liberate_mx::LibParams::builder()
                     .work_dir(work_dir.join("lib"))
-                    .output_file(crate::paths::out_lib(
-                        work_dir,
-                        "timing_tt_025C_1v80.schematic",
-                    ))
+                    .output_file(lib_file)
                     .corner("tt")
                     .cell_name(name.as_str())
                     .num_words(plan.sram_params.num_words)
@@ -219,94 +282,13 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                     .wmask_width(plan.sram_params.wmask_width)
                     .mux_ratio(plan.sram_params.mux_ratio)
                     .has_wmask(true)
-                    .source_paths(vec![timing_spice_path])
+                    .source_paths(vec![source_path])
                     .build()
                     .unwrap();
                 crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
             },
             ctx
         );
-
-        /*
-        if params.pex_level.is_none() && params.tasks.contains(&TaskKey::RunPex) {
-            bail!("Must specify a PEX level when running PEX");
-        }
-        let pex_netlist_path = params
-            .pex_level
-            .map(|pex_level| crate::paths::out_pex(work_dir, name, pex_level));
-
-        try_execute_task!(
-            params.tasks,
-            TaskKey::RunPex,
-            crate::verification::calibre::run_sram_pex(
-                work_dir,
-                pex_netlist_path.as_ref().unwrap(),
-                name,
-                plan.sram_params.control,
-                params.pex_level.unwrap(),
-            )?,
-            ctx
-        );
-
-        try_execute_task!(
-            params.tasks,
-            TaskKey::RunSpectre,
-            crate::verification::spectre::run_sram_spectre(&plan.sram_params, work_dir, name)?,
-            ctx
-        );
-
-        try_execute_task!(
-            params.tasks,
-            TaskKey::GenerateLib,
-            {
-                use crate::verification::{source_files, VerificationTask};
-                use liberate_mx::LibParams;
-
-                let (source_paths, lib_file) = if let Some(pex_netlist_path) = pex_netlist_path {
-                    if !pex_netlist_path.exists() {
-                        bail!("PEX netlist not found at path `{:?}`", pex_netlist_path);
-                    }
-                    (
-                        vec![pex_netlist_path],
-                        work_dir.join(format!(
-                            "{}_tt_025C_1v80.{}.lib",
-                            params.plan.sram_params.name,
-                            params.pex_level.unwrap()
-                        )),
-                    )
-                } else {
-                    (
-                        source_files(
-                            work_dir,
-                            &plan.sram_params.name,
-                            VerificationTask::SpectreSim,
-                            plan.sram_params.control,
-                        ),
-                        work_dir.join(format!(
-                            "{}_tt_025C_1v80.schematic.lib",
-                            params.plan.sram_params.name
-                        )),
-                    )
-                };
-
-                let params = LibParams::builder()
-                    .work_dir(work_dir.join("lib"))
-                    .output_file(lib_file)
-                    .corner("tt")
-                    .cell_name(&plan.sram_params.name)
-                    .num_words(plan.sram_params.num_words)
-                    .data_width(plan.sram_params.data_width)
-                    .addr_width(plan.sram_params.addr_width)
-                    .wmask_width(plan.sram_params.wmask_width)
-                    .mux_ratio(plan.sram_params.mux_ratio)
-                    .source_paths(source_paths)
-                    .build()?;
-
-                crate::liberate::generate_sram_lib(&params)?;
-            },
-            ctx
-        );
-        */
     }
     Ok(())
 }
