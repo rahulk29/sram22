@@ -6,7 +6,7 @@ module {{module_name}}(
     vdd,
     vss,
 `endif
-    clk_in, clk_out, ctl[CONTROL_WIDTH-1:0], ctl_b[CONTROL_WIDTH-1:0]
+    clk_in, clk_out, ctl, ctl_b
   );
 
   parameter CONTROL_WIDTH = {{control_width}} ;
