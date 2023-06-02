@@ -6,7 +6,7 @@ use crate::v2::sram::verilog::save_1rw_verilog;
 use crate::v2::sram::{Sram, SramParams};
 use crate::{clog2, setup_ctx, Result};
 use anyhow::bail;
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use substrate::schematic::netlist::NetlistPurpose;
 use substrate::verification::pex::PexInput;
@@ -197,9 +197,6 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
         if params.pex_level.is_none() && params.tasks.contains(&TaskKey::RunPex) {
             bail!("Must specify a PEX level when running PEX");
         }
-        let pex_netlist_path = params
-            .pex_level
-            .map(|pex_level| crate::paths::out_pex(work_dir, name, pex_level));
         let pex_dir = work_dir.join("pex");
         let pex_source_path = out_spice(&pex_dir, "schematic");
         let pex_out_path = out_spice(&pex_dir, "schematic.pex");
@@ -223,7 +220,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                     layout_format: substrate::layout::LayoutFormat::Gds,
                     source_paths: vec![pex_source_path],
                     source_cell_name: name.clone(),
-                    pex_netlist_path: pex_out_path,
+                    pex_netlist_path: pex_out_path.clone(),
                     opts,
                 })?;
             },
@@ -245,12 +242,12 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
             {
                 use substrate::schematic::netlist::NetlistPurpose;
 
-                let (source_path, lib_file) = if let Some(pex_netlist_path) = pex_netlist_path {
-                    if !pex_netlist_path.exists() {
-                        bail!("PEX netlist not found at path `{:?}`", pex_netlist_path);
+                let (source_path, lib_file) = if params.pex_level.is_some() {
+                    if !pex_out_path.exists() {
+                        bail!("PEX netlist not found at path `{:?}`", pex_out_path);
                     }
                     (
-                        pex_netlist_path,
+                        pex_out_path,
                         work_dir.join(format!(
                             "{}_tt_025C_1v80.{}.lib",
                             params.plan.sram_params.name(),
