@@ -247,7 +247,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("wr_drv_set")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&8)?
+        ctx.instantiate::<InvChain>(&24)?
             .with_connections([
                 ("din", wr_drv_set_undelayed),
                 ("dout", wr_drv_set),
