@@ -43,7 +43,7 @@ impl SramInner {
             mux_ratio: self.params.mux_ratio,
         })?;
         let mut cols = ctx.instantiate::<ColPeripherals>(&col_params)?;
-        let tree = DecoderTree::with_scale_and_skew(self.params.row_bits, 2, true);
+        let tree = DecoderTree::with_scale_and_skew(self.params.row_bits, 2, false);
         let decoder_params = DecoderStageParams {
             gate: tree.root.gate,
             num: tree.root.num,
@@ -70,7 +70,7 @@ impl SramInner {
         let p1_bits = tree.root.children[0].num.ilog2() as usize;
         let p2_bits = tree.root.children[1].num.ilog2() as usize;
 
-        let col_tree = DecoderTree::with_scale(self.params.col_select_bits, 2);
+        let col_tree = DecoderTree::with_scale(self.params.col_select_bits, 6);
         let col_decoder_params = DecoderParams {
             tree: col_tree.clone(),
         };
@@ -151,7 +151,7 @@ impl SramInner {
 
         let router_bbox = ctx
             .brect()
-            .expand(4 * 680)
+            .expand(8 * 680)
             .expand_side(Side::Right, 4 * 680)
             .snap_to_grid(680);
 

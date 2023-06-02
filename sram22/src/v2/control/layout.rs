@@ -153,10 +153,10 @@ impl ControlLogicReplicaV2 {
         ));
 
         let inv_chain_data: Vec<(String, usize)> = [
-            ("pc_read_set_buf", 48),
-            ("sense_en_delay", 48),
+            ("pc_read_set_buf", 8),
+            ("sense_en_delay", 2),
             ("wr_drv_set_decoder_delay_replica", 8),
-            ("pc_write_set_buf", 16),
+            ("pc_write_set_buf", 4),
         ]
         .into_iter()
         .map(|(name, n)| (name.to_string(), n))
@@ -254,7 +254,7 @@ impl ControlLogicReplicaV2 {
         )?;
 
         let mut router = GreedyRouter::with_config(GreedyRouterConfig {
-            area: group.brect().expand(1_840),
+            area: group.brect().expand(4_000),
             layers: vec![
                 LayerConfig {
                     line: 320,
