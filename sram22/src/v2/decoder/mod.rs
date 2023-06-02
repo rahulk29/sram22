@@ -338,13 +338,13 @@ fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64], skew_rising: bool, cols: bo
     let gate_params = if cols {
         AndParams {
             nand: PrimitiveGateParams {
-                nwidth: 6_000,
-                pwidth: 3_000,
+                nwidth: 10_000,
+                pwidth: 6_000,
                 length: 150,
             },
             inv: PrimitiveGateParams {
-                nwidth: 3_100,
-                pwidth: 4_300,
+                nwidth: 5_000,
+                pwidth: 7_000,
                 length: 150,
             },
         }

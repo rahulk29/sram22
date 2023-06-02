@@ -83,7 +83,7 @@ impl ControlLogicReplicaV2 {
             .with_connections([("din", clk_buf), ("dout", clkp), ("vdd", vdd), ("vss", vss)])
             .named("clk_pulse")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&4)?
+        ctx.instantiate::<InvChain>(&8)?
             .with_connections([
                 ("din", clkp),
                 ("dout", wl_en_set),

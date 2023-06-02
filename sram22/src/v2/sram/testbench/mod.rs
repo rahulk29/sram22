@@ -383,19 +383,19 @@ impl Testbench for SramTestbench {
         ctx.add_analysis(
             TranAnalysis::builder()
                 .stop(wav.clk.last_t().unwrap())
-                // .stop(10e-9)
+                .stop(80e-9)
                 .step(step)
-                .strobe_period(step)
+                // .strobe_period(step)
                 .opts(opts)
                 .build()
                 .unwrap(),
         );
 
-        let signals = (0..self.params.sram.data_width)
-            .map(|i| format!("dout[{i}]"))
-            .collect();
-        ctx.save(Save::Signals(signals));
-        // ctx.save(Save::All);
+        // let signals = (0..self.params.sram.data_width)
+        //     .map(|i| format!("dout[{i}]"))
+        //     .collect();
+        // ctx.save(Save::Signals(signals));
+        ctx.save(Save::All);
 
         let vdd = SiValue::with_precision(self.params.vdd, SiPrefix::Nano);
 
@@ -447,7 +447,7 @@ mod tests {
                     short
                 );
                 let work_dir = test_work_dir(&format!(
-                    "{}_limited/{}_{:.2}_{}",
+                    "{}/{}_{:.2}_{}",
                     name,
                     corner.name(),
                     vdd,
