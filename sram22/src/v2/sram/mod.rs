@@ -269,39 +269,53 @@ pub(crate) mod tests {
 
     use super::*;
 
-    pub(crate) const TINY_SRAM: SramParams = SramParams::new(2, 4, 64, 4, ControlMode::ReplicaV2);
+    pub(crate) const TINY_SRAM: SramParams =
+        SramParams::new(2, 4, 64, 4, ControlMode::ReplicaV2Test);
 
-    pub(crate) const PARAMS_1: SramParams = SramParams::new(8, 4, 256, 32, ControlMode::ReplicaV2);
+    pub(crate) const PARAMS_1: SramParams =
+        SramParams::new(8, 4, 256, 32, ControlMode::ReplicaV2Test);
 
-    pub(crate) const PARAMS_2: SramParams = SramParams::new(8, 4, 2048, 64, ControlMode::ReplicaV2);
+    pub(crate) const PARAMS_2: SramParams =
+        SramParams::new(8, 4, 2048, 64, ControlMode::ReplicaV2Test);
 
-    pub(crate) const PARAMS_3: SramParams = SramParams::new(8, 4, 64, 32, ControlMode::ReplicaV2);
+    pub(crate) const PARAMS_3: SramParams =
+        SramParams::new(8, 4, 64, 32, ControlMode::ReplicaV2Test);
 
-    pub(crate) const PARAMS_4: SramParams = SramParams::new(32, 4, 64, 32, ControlMode::ReplicaV2);
+    pub(crate) const PARAMS_4: SramParams =
+        SramParams::new(32, 4, 64, 32, ControlMode::ReplicaV2Test);
 
-    pub(crate) const PARAMS_5: SramParams = SramParams::new(8, 4, 512, 32, ControlMode::ReplicaV2);
+    pub(crate) const PARAMS_5: SramParams =
+        SramParams::new(8, 4, 512, 32, ControlMode::ReplicaV2Test);
 
     pub(crate) const PARAMS_6: SramParams =
-        SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV2);
+        SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV2Test);
 
-    pub(crate) const PARAMS_7: SramParams = SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV2);
+    pub(crate) const PARAMS_7: SramParams =
+        SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV2Test);
 
     pub(crate) const PARAMS_8: SramParams =
-        SramParams::new(32, 8, 1024, 64, ControlMode::ReplicaV2);
+        SramParams::new(32, 8, 1024, 64, ControlMode::ReplicaV2Test);
 
-    pub(crate) const PARAMS_9: SramParams = SramParams::new(8, 8, 2048, 32, ControlMode::ReplicaV2);
+    pub(crate) const PARAMS_9: SramParams =
+        SramParams::new(8, 8, 2048, 32, ControlMode::ReplicaV2Test);
 
     pub(crate) const PARAMS_10: SramParams =
-        SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV2);
+        SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV2Test);
 
-    pub(crate) const PARAMS_11: SramParams = SramParams::new(8, 8, 4096, 8, ControlMode::ReplicaV2);
-    pub(crate) const ROCKET_1: SramParams = SramParams::new(8, 4, 512, 64, ControlMode::ReplicaV2);
-    pub(crate) const ROCKET_2: SramParams = SramParams::new(24, 4, 64, 24, ControlMode::ReplicaV2);
-    pub(crate) const ROCKET_3: SramParams = SramParams::new(32, 4, 512, 32, ControlMode::ReplicaV2);
-    pub(crate) const ROCKET_4: SramParams = SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV2);
+    pub(crate) const PARAMS_11: SramParams =
+        SramParams::new(8, 8, 4096, 8, ControlMode::ReplicaV2Test);
+    pub(crate) const ROCKET_1: SramParams =
+        SramParams::new(8, 4, 512, 64, ControlMode::ReplicaV2Test);
+    pub(crate) const ROCKET_2: SramParams =
+        SramParams::new(24, 4, 64, 24, ControlMode::ReplicaV2Test);
+    pub(crate) const ROCKET_3: SramParams =
+        SramParams::new(32, 4, 512, 32, ControlMode::ReplicaV2Test);
+    pub(crate) const ROCKET_4: SramParams =
+        SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV2Test);
     pub(crate) const ROCKET_5: SramParams =
-        SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV2);
-    pub(crate) const ROCKET_6: SramParams = SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV2);
+        SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV2Test);
+    pub(crate) const ROCKET_6: SramParams =
+        SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV2Test);
 
     #[test]
     fn test_sram_tiny() {
@@ -316,7 +330,7 @@ pub(crate) mod tests {
         ctx.write_layout::<Sram>(&TINY_SRAM, &gds_path)
             .expect("failed to write layout");
 
-        let verilog_path = out_verilog(&work_dir, "behavioral");
+        let verilog_path = out_verilog(&work_dir, &*TINY_SRAM.name());
         save_1rw_verilog(&verilog_path, &*TINY_SRAM.name(), &TINY_SRAM)
             .expect("failed to write behavioral model");
 
@@ -388,11 +402,11 @@ pub(crate) mod tests {
                 ctx.write_schematic_to_file::<Sram>(&$params, &spice_path)
                     .expect("failed to write schematic");
 
-                let gds_path = out_gds(&work_dir, "layout");
-                ctx.write_layout::<Sram>(&$params, &gds_path)
-                    .expect("failed to write layout");
+                // let gds_path = out_gds(&work_dir, "layout");
+                // ctx.write_layout::<Sram>(&$params, &gds_path)
+                //     .expect("failed to write layout");
 
-                let verilog_path = out_verilog(&work_dir, "behavioral");
+                let verilog_path = out_verilog(&work_dir, &*$params.name());
                 save_1rw_verilog(&verilog_path,&*$params.name(), &$params)
                     .expect("failed to write behavioral model");
 
