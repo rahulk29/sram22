@@ -467,7 +467,7 @@ impl EdgeDetector {
         let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
         let delayed = ctx.signal("delayed");
 
-        ctx.instantiate::<InvChain>(&9)?
+        ctx.instantiate::<InvChain>(&self.invs)?
             .with_connections([("din", din), ("dout", delayed), ("vdd", vdd), ("vss", vss)])
             .named("delay_chain")
             .add_to(ctx);

@@ -103,7 +103,9 @@ impl Component for InvChain {
     }
 }
 
-pub struct EdgeDetector;
+pub struct EdgeDetector {
+    invs: usize,
+}
 
 impl Component for EdgeDetector {
     type Params = NoParams;
@@ -111,7 +113,7 @@ impl Component for EdgeDetector {
         _params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self)
+        Ok(Self { invs: 17 })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("edge_detector")
