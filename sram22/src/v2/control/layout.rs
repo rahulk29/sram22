@@ -194,7 +194,7 @@ impl ControlLogicReplicaV2 {
         let mut group = rows.generate()?;
 
         dummy_bl_pulldown.align_top(group.brect());
-        dummy_bl_pulldown.align(AlignMode::Right, group.brect(), -400);
+        dummy_bl_pulldown.align(AlignMode::ToTheRight, group.brect(), 600);
 
         let mut pulldown_group = Group::new();
         pulldown_group.add(dummy_bl_pulldown);
@@ -966,7 +966,7 @@ impl ControlLogicReplicaV2 {
         we_in_1_via.align_centers_gridded(we_in_1.bbox(), grid);
         let we_in_1 = router.expand_to_grid(
             we_in_1_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Side(Side::Left),
         );
         ctx.draw(we_in_1_via)?;
         ctx.draw_rect(m1, we_in_1);
