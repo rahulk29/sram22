@@ -1,7 +1,7 @@
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
-use crate::{Result, TEMPLATES};
 use crate::verilog::TdcParams;
+use crate::{Result, TEMPLATES};
 use anyhow::Context as AnyhowContext;
 use liberate_mx::{generate_lib, LibParams};
 use tera::Context;

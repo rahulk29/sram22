@@ -1010,7 +1010,7 @@ mod tests {
     use substrate::verification::pex::PexInput;
 
     use crate::liberate::save_tdc_lib;
-    use crate::paths::{out_gds, out_spice, out_verilog, out_lib};
+    use crate::paths::{out_gds, out_lib, out_spice, out_verilog};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::v2::sram::verilog::save_tdc_verilog;
