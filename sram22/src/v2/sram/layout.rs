@@ -116,11 +116,11 @@ impl SramInner {
             5_080 * (tree.root.children[0].num + tree.root.children[1].num) as i64 / 16 + 3_000,
         );
         p1.align_right(decoder.bbox());
-        p2.align_beneath(p1.bbox(), 10_000);
+        p2.align_beneath(p1.bbox(), 5_080);
         p2.align_right(decoder.bbox());
-        wmux_driver.align_beneath(p2.bbox(), 10_000);
+        wmux_driver.align_beneath(p2.bbox(), 5_080);
         wmux_driver.align_right(decoder.bbox());
-        col_dec.align_beneath(wmux_driver.bbox(), 10_000);
+        col_dec.align_beneath(wmux_driver.bbox(), 5_080);
         col_dec.align_right(decoder.bbox());
         addr_gate.align_bottom(col_dec.bbox());
         addr_gate.align_to_the_left_of(col_dec.bbox(), 6_350);
@@ -320,7 +320,7 @@ impl SramInner {
                         (m2, src)
                     };
                     let dst = all_ports[2 * i + j];
-                    to_route.push((layer, src, m3, dst, None));
+                    to_route.push((m3, dst, layer, src, None));
                 }
                 ctr += 1;
             }
