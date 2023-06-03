@@ -9,6 +9,7 @@ use substrate::layout::cell::{CellPort, Instance, Port, PortId};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::layers::selector::Selector;
+use substrate::layout::layers::LayerBoundBox;
 use substrate::layout::placement::align::AlignRect;
 use substrate::layout::routing::auto::grid::{
     ExpandToGridStrategy, JogToGrid, OffGridBusTranslation, OffGridBusTranslationStrategy,
@@ -500,21 +501,20 @@ impl SramInner {
         let and3_dec = matches!(col_tree.root.gate, GateParams::And3(_));
         for (i, dst) in on_grid_bus.ports().enumerate() {
             let src = col_dec.port(PortId::new("decode_b", i))?.largest_rect(m0)?;
-            let ofs = if i % 2 == 0 { 200 } else { 200 + 320 + 360 };
-            let src = Rect::new(
-                Point::new(src.left(), src.top() - ofs - 320),
-                Point::new(src.right(), src.top() - ofs),
-            );
-            ctx.draw_rect(m2, src);
-            let side = if i % 2 == 0 { Side::Right } else { Side::Left };
-            let mut src1 = router.expand_to_grid(src, ExpandToGridStrategy::Side(side));
-            if src1.width() > 970 {
-                src1 = router.expand_to_grid(src, ExpandToGridStrategy::Minimum);
-            }
-            let src = src1;
-            ctx.draw_rect(m0, src);
-            ctx.draw_rect(m1, src);
-            /*let src = router.register_jog_to_grid(
+            // let ofs = if i % 2 == 0 { 200 } else { 200 + 320 + 360 };
+            // let src = Rect::new(
+            //     Point::new(src.left(), src.top() - ofs - 320),
+            //     Point::new(src.right(), src.top() - ofs),
+            // );
+            // ctx.draw_rect(m2, src);
+            // let side = if i % 2 == 0 { Side::Right } else { Side::Left };
+            // let mut src1 = router.expand_to_grid(src, ExpandToGridStrategy::Side(side));
+            // if src1.width() > 960 {
+            //     src1 = router.expand_to_grid(src, ExpandToGridStrategy::Minimum);
+            // }
+            // let src = src1;
+            // ctx.draw_rect(m1, src);
+            let src = router.register_jog_to_grid(
                 JogToGrid::builder()
                     .layer(m0)
                     .rect(src)
@@ -534,7 +534,7 @@ impl SramInner {
                         }
                     })
                     .build(),
-            );*/
+            );
             to_route.push((m1, src, m2, dst, None));
             let via = ctx.instantiate::<Via>(
                 &ViaParams::builder()
@@ -542,6 +542,10 @@ impl SramInner {
                     .geometry(src, src)
                     .build(),
             )?;
+            // let conn = via.layer_bbox(m0).into_rect();
+            // let hspan = conn.hspan().union(src.hspan());
+            // let conn = Rect::from_spans(hspan, conn.vspan());
+            // ctx.draw_rect(m0, conn);
             ctx.draw(via)?;
         }
 
