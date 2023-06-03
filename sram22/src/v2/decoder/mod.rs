@@ -277,7 +277,7 @@ impl Component for WmuxDriver {
 
 impl DecoderTree {
     pub fn for_columns(bits: usize, top_scale: i64) -> Self {
-        let plan = plan_decoder(bits, true, false, false);
+        let plan = plan_decoder(bits, true, false, true);
         let mut root = size_decoder(&plan);
         root.gate = root.gate.scale(top_scale);
         DecoderTree { root }
@@ -338,13 +338,13 @@ fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64], skew_rising: bool, cols: bo
     let gate_params = if cols {
         AndParams {
             nand: PrimitiveGateParams {
-                nwidth: 10_000,
+                nwidth: 4_000,
                 pwidth: 6_000,
                 length: 150,
             },
             inv: PrimitiveGateParams {
-                nwidth: 5_000,
-                pwidth: 7_000,
+                nwidth: 4_000,
+                pwidth: 5_000,
                 length: 150,
             },
         }
