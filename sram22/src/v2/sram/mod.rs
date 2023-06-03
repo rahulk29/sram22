@@ -463,7 +463,10 @@ pub(crate) mod tests {
     }
 
     test_sram!(test_sram_1, PARAMS_1);
+
+    // Fails due to unresolved DRC issue
     test_sram!(test_sram_2, PARAMS_2, ignore = "slow");
+
     test_sram!(test_sram_3, PARAMS_3, ignore = "slow");
     test_sram!(test_sram_4, PARAMS_4, ignore = "slow");
     test_sram!(test_sram_5, PARAMS_5, ignore = "slow");
