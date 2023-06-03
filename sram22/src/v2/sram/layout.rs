@@ -395,8 +395,8 @@ impl SramInner {
         let (p0_ports, p1_ports) = decoder_ports.split_at(tree.root.children[0].num);
 
         // Route predecoders to final decoder stage
-        for (i, &dst) in p0_ports.iter().enumerate().take(tree.root.children[0].num) {
-            let src = p1.port(PortId::new("decode", i))?.largest_rect(m0)?;
+        for (i, &dst) in p1_ports.iter().enumerate().take(tree.root.children[1].num) {
+            let src = p2.port(PortId::new("decode", i))?.largest_rect(m0)?;
             let src = router.register_jog_to_grid(
                 JogToGrid::builder()
                     .layer(m0)
@@ -416,8 +416,8 @@ impl SramInner {
             )?;
             ctx.draw(via)?;
         }
-        for (i, &dst) in p1_ports.iter().enumerate().take(tree.root.children[1].num) {
-            let src = p2.port(PortId::new("decode", i))?.largest_rect(m0)?;
+        for (i, &dst) in p0_ports.iter().enumerate().take(tree.root.children[0].num) {
+            let src = p1.port(PortId::new("decode", i))?.largest_rect(m0)?;
             let src = router.register_jog_to_grid(
                 JogToGrid::builder()
                     .layer(m0)
