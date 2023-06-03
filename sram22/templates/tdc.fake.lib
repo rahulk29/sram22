@@ -1,0 +1,159 @@
+library ({{module_name}}) {
+  delay_model : table_lookup;
+  comment : "";
+  date : "$Date: Fri Jun  2 22:30:36 2023 $";
+  revision : "1.0";
+  capacitive_load_unit (1,pf);
+  current_unit : "1mA";
+  leakage_power_unit : "1nW";
+  pulling_resistance_unit : "1kohm";
+  time_unit : "1ns";
+  voltage_unit : "1V";
+  default_cell_leakage_power : 0;
+  default_fanout_load : 1;
+  default_inout_pin_cap : 0.005;
+  default_input_pin_cap : 0.005;
+  default_leakage_power_density : 0;
+  default_max_transition : 0.04;
+  default_output_pin_cap : 0;
+  in_place_swap_mode : match_footprint;
+  input_threshold_pct_fall : 50;
+  input_threshold_pct_rise : 50;
+  nom_process : 1;
+  nom_temperature : 25;
+  nom_voltage : 1.8;
+  output_threshold_pct_fall : 50;
+  output_threshold_pct_rise : 50;
+  slew_derate_from_library : 1;
+  slew_lower_threshold_pct_fall : 10;
+  slew_lower_threshold_pct_rise : 10;
+  slew_upper_threshold_pct_fall : 90;
+  slew_upper_threshold_pct_rise : 90;
+  voltage_map (vdd, 1.8);
+  voltage_map (vss, 0);
+  voltage_map (GND, 0);
+  operating_conditions (PVT_1P8V_25C) {
+    process : 1;
+    temperature : 25;
+    voltage : 1.8;
+  }
+  default_operating_conditions : PVT_1P8V_25C;
+  bus_naming_style : "%s[%d]";
+  type (bus_{{module_name}}_dout_0) {
+    base_type : array;
+    data_type : bit;
+    bit_width : {{data_width}};
+    bit_from  : {{data_width-1}};
+    bit_to    : 0;
+    downto    : true;
+  }
+  lu_table_template (constraint_template_3x3) {
+    variable_1 : constrained_pin_transition;
+    variable_2 : related_pin_transition;
+    index_1 ("0.00125, 0.005, 0.04");
+    index_2 ("0.00125, 0.005, 0.04");
+  }
+  lu_table_template (delay_template_3x3) {
+    variable_1 : input_net_transition;
+    variable_2 : total_output_net_capacitance;
+    index_1 ("0.00125, 0.005, 0.04");
+    index_2 ("0.0017225, 0.00689, 0.02756");
+  }
+  lu_table_template (mpw_constraint_template_3x3) {
+    variable_1 : constrained_pin_transition;
+    index_1 ("0.00125, 0.005, 0.04");
+  }
+  power_lut_template (passive_output_power_template_3x1) {
+    variable_1 : total_output_net_capacitance;
+    index_1 ("0.0017225, 0.00689, 0.02756");
+  }
+  power_lut_template (passive_power_template_3x1) {
+    variable_1 : input_transition_time;
+    index_1 ("0.00125, 0.005, 0.04");
+  }
+  power_lut_template (power_template_3x3) {
+    variable_1 : input_transition_time;
+    variable_2 : total_output_net_capacitance;
+    index_1 ("0.00125, 0.005, 0.04");
+    index_2 ("0.0017225, 0.00689, 0.02756");
+  }
+  output_voltage (DC_0) {
+    vol : 0.09;
+    voh : 1.71;
+    vomin : 0;
+    vomax : VDD;
+  }
+  cell ({{module_name}}) {
+    area : 0;
+    cell_leakage_power : 100.000;
+    dont_use : true;
+    interface_timing : true;
+    pg_pin (vdd) {
+      direction : inout;
+      pg_type : primary_power;
+      voltage_name : "vdd";
+    }
+    pg_pin (vss) {
+      direction : inout;
+      pg_type : primary_ground;
+      voltage_name : "vss";
+    }
+    leakage_power () {
+      value : 100.100;
+      related_pg_pin : vdd;
+    }
+    leakage_power () {
+      value : 0;
+      related_pg_pin : vss;
+    }
+    bus (dout) {
+      bus_type : bus_{{module_name}}_dout_0;
+      direction : output;
+{% for i in range(end=data_width) %}
+      pin (dout[{{i}}]) {
+        related_ground_pin : vss;
+        related_power_pin : vdd;
+        max_transition : 0.12;
+        capacitance : 0.008;
+        rise_capacitance : 0.008;
+        rise_capacitance_range (0.004, 0.008);
+        fall_capacitance : 0.008;
+        fall_capacitance_range (0.004, 0.008);
+      }
+{% endfor %}
+    }
+    pin (a) {
+      direction : input;
+      related_ground_pin : vss;
+      related_power_pin : vdd;
+      max_transition : 0.08;
+      capacitance : 0.00454247;
+      rise_capacitance : 0.00454247;
+      rise_capacitance_range (0.00407359, 0.00454247);
+      fall_capacitance : 0.00430123;
+      fall_capacitance_range (0.00421607, 0.00430123);
+    }
+    pin (b) {
+      direction : input;
+      related_ground_pin : vss;
+      related_power_pin : vdd;
+      max_transition : 0.10;
+      capacitance : 1.35
+      rise_capacitance : 1.35;
+      rise_capacitance_range (0.85, 1.35);
+      fall_capacitance : 1.05;
+      fall_capacitance_range (0.85, 1.35);
+    }
+    pin (reset_b) {
+      direction : input;
+      related_ground_pin : vss;
+      related_power_pin : vdd;
+      max_transition : 0.20;
+      capacitance : 1.35
+      rise_capacitance : 1.35;
+      rise_capacitance_range (0.85, 1.35);
+      fall_capacitance : 1.35;
+      fall_capacitance_range (0.85, 1.35);
+    }
+  }
+}
