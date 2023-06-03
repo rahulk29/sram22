@@ -383,7 +383,7 @@ impl Testbench for SramTestbench {
         ctx.add_analysis(
             TranAnalysis::builder()
                 .stop(wav.clk.last_t().unwrap())
-                .stop(80e-9)
+                // .stop(80e-9)
                 .step(step)
                 // .strobe_period(step)
                 .opts(opts)
