@@ -277,7 +277,7 @@ impl Component for WmuxDriver {
 
 impl DecoderTree {
     pub fn for_columns(bits: usize, top_scale: i64) -> Self {
-        let plan = plan_decoder(bits, true, false, false);
+        let plan = plan_decoder(bits, true, false, true);
         let mut root = size_decoder(&plan);
         root.gate = root.gate.scale(top_scale);
         DecoderTree { root }
