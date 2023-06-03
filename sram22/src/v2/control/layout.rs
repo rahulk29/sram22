@@ -385,7 +385,7 @@ impl ControlLogicReplicaV2 {
         clkp_out_via.align_centers_gridded(clkp_out.brect(), grid);
         let clkp_out = router.expand_to_grid(
             clkp_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Side(Side::Left),
         );
         ctx.draw(clkp_out_via)?;
         ctx.draw_rect(m1, clkp_out);
@@ -436,7 +436,7 @@ impl ControlLogicReplicaV2 {
         wl_en_set_out_via.align_centers_gridded(wl_en_set_out.bbox(), grid);
         let wl_en_set_out = router.expand_to_grid(
             wl_en_set_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Side(Side::Left),
         );
         ctx.draw(wl_en_set_out_via)?;
         ctx.draw_rect(m1, wl_en_set_out);
@@ -1128,11 +1128,12 @@ impl ControlLogicReplicaV2 {
         rbl_in_via.align_centers_gridded(rbl_in.bbox(), grid);
         let rbl_in = router.expand_to_grid(
             rbl_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Side(Side::Left),
         );
         ctx.draw(rbl_in_via)?;
         ctx.draw_rect(m1, rbl_in);
-        router.occupy(m1, rbl_in, "rbl")?;
+        // router.occupy(m1, rbl_in, "rbl")?;
+        router.block(m1, rbl_in);
 
         // dummy_bl_pin -> inv_dummy_bl
         let dummy_bl_in = group
