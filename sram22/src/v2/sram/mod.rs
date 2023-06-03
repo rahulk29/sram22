@@ -398,6 +398,24 @@ pub(crate) mod tests {
 
                 #[cfg(feature = "commercial")]
                 {
+                    let drc_work_dir = work_dir.join("drc");
+                    let output = ctx
+                        .write_drc::<Sram>(&$params, drc_work_dir)
+                        .expect("failed to run DRC");
+                    assert!(matches!(
+                        output.summary,
+                        substrate::verification::drc::DrcSummary::Pass
+                    ));
+
+                    let lvs_work_dir = work_dir.join("lvs");
+                    let output = ctx
+                        .write_lvs::<Sram>(&$params, lvs_work_dir)
+                        .expect("failed to run LVS");
+                    assert!(matches!(
+                        output.summary,
+                        substrate::verification::lvs::LvsSummary::Pass
+                    ));
+
                     crate::abs::run_abstract(
                         &work_dir,
                         &$params.name(),
@@ -430,22 +448,6 @@ pub(crate) mod tests {
                         .build()
                         .unwrap();
                     crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
-                    let drc_work_dir = work_dir.join("drc");
-                    let output = ctx
-                        .write_drc::<Sram>(&$params, drc_work_dir)
-                        .expect("failed to run DRC");
-                    assert!(matches!(
-                        output.summary,
-                        substrate::verification::drc::DrcSummary::Pass
-                    ));
-                    let lvs_work_dir = work_dir.join("lvs");
-                    let output = ctx
-                        .write_lvs::<Sram>(&$params, lvs_work_dir)
-                        .expect("failed to run LVS");
-                    assert!(matches!(
-                        output.summary,
-                        substrate::verification::lvs::LvsSummary::Pass
-                    ));
                 }
             }
         };
