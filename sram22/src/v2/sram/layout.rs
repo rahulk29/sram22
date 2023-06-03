@@ -409,6 +409,7 @@ impl SramInner {
                     .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
                     .build(),
             );
+            router.block(m1, src);
             to_route.push((m1, src, m1, dst, None));
             let via = ctx.instantiate::<Via>(
                 &ViaParams::builder()
@@ -430,6 +431,7 @@ impl SramInner {
                     .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
                     .build(),
             );
+            router.block(m1, src);
             to_route.push((m1, src, m1, dst, None));
             let via = ctx.instantiate::<Via>(
                 &ViaParams::builder()
