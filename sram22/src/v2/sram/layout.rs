@@ -43,7 +43,7 @@ impl SramInner {
             mux_ratio: self.params.mux_ratio,
         })?;
         let mut cols = ctx.instantiate::<ColPeripherals>(&col_params)?;
-        let tree = DecoderTree::with_scale_and_skew(self.params.row_bits, 2, true);
+        let tree = DecoderTree::with_scale_and_skew(self.params.row_bits, 2, false);
         let decoder_params = DecoderStageParams {
             gate: tree.root.gate,
             num: tree.root.num,
@@ -70,7 +70,7 @@ impl SramInner {
         let p1_bits = tree.root.children[0].num.ilog2() as usize;
         let p2_bits = tree.root.children[1].num.ilog2() as usize;
 
-        let col_tree = DecoderTree::with_scale(self.params.col_select_bits, 2);
+        let col_tree = DecoderTree::for_columns(self.params.col_select_bits, 1);
         let col_decoder_params = DecoderParams {
             tree: col_tree.clone(),
         };
@@ -151,7 +151,7 @@ impl SramInner {
 
         let router_bbox = ctx
             .brect()
-            .expand(4 * 680)
+            .expand(8 * 680)
             .expand_side(Side::Right, 4 * 680)
             .snap_to_grid(680);
 
@@ -239,37 +239,6 @@ impl SramInner {
             router.block(m3, rect);
         }
 
-        for i in 0..2 * self.params.row_bits {
-            let src = dffs
-                .port(PortId::new(if i % 2 == 0 { "q" } else { "qn" }, i / 2))?
-                .largest_rect(m2)?;
-            let src = router.expand_to_grid(
-                src,
-                ExpandToGridStrategy::Side(if i % 2 == 0 { Side::Top } else { Side::Bot }),
-            );
-            ctx.draw_rect(m2, src);
-            router.block(m2, src);
-            let dst = addr_gate.port(PortId::new("in", i))?.largest_rect(m0)?;
-            let dst = router.register_jog_to_grid(
-                JogToGrid::builder()
-                    .layer(m0)
-                    .rect(dst)
-                    .dst_layer(m1)
-                    .width(170)
-                    .first_dir(Side::Bot)
-                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
-                    .build(),
-            );
-            let via = ctx.instantiate::<Via>(
-                &ViaParams::builder()
-                    .layers(m0, m1)
-                    .geometry(dst, dst)
-                    .build(),
-            )?;
-            ctx.draw(via)?;
-            to_route.push((m2, src, m1, dst, None));
-        }
-
         // Route address bits from DFFs to decoders
         let mut ctr = 0;
         for (inst, subtree) in [
@@ -330,6 +299,7 @@ impl SramInner {
                                 .second_dir(if j == 0 { Side::Right } else { Side::Left })
                                 .build(),
                         );
+                        router.block(m1, src);
                         let via = ctx.instantiate::<Via>(
                             &ViaParams::builder()
                                 .layers(m0, m1)
@@ -351,10 +321,42 @@ impl SramInner {
                         (m2, src)
                     };
                     let dst = all_ports[2 * i + j];
-                    to_route.push((layer, src, m3, dst, None));
+                    to_route.push((m3, dst, layer, src, None));
                 }
                 ctr += 1;
             }
+        }
+
+        for i in 0..2 * self.params.row_bits {
+            let src = dffs
+                .port(PortId::new(if i % 2 == 0 { "q" } else { "qn" }, i / 2))?
+                .largest_rect(m2)?;
+            let src = router.expand_to_grid(
+                src,
+                ExpandToGridStrategy::Side(if i % 2 == 0 { Side::Top } else { Side::Bot }),
+            );
+            ctx.draw_rect(m2, src);
+            router.block(m2, src);
+            let dst = addr_gate.port(PortId::new("in", i))?.largest_rect(m0)?;
+            let dst = router.register_jog_to_grid(
+                JogToGrid::builder()
+                    .layer(m0)
+                    .rect(dst)
+                    .dst_layer(m1)
+                    .width(170)
+                    .first_dir(Side::Bot)
+                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
+                    .build(),
+            );
+            router.block(m1, dst);
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m0, m1)
+                    .geometry(dst, dst)
+                    .build(),
+            )?;
+            ctx.draw(via)?;
+            to_route.push((m2, src, m1, dst, None));
         }
 
         let left_port = decoder
@@ -395,27 +397,6 @@ impl SramInner {
         let (p0_ports, p1_ports) = decoder_ports.split_at(tree.root.children[0].num);
 
         // Route predecoders to final decoder stage
-        for (i, &dst) in p0_ports.iter().enumerate().take(tree.root.children[0].num) {
-            let src = p1.port(PortId::new("decode", i))?.largest_rect(m0)?;
-            let src = router.register_jog_to_grid(
-                JogToGrid::builder()
-                    .layer(m0)
-                    .rect(src)
-                    .dst_layer(m1)
-                    .width(170)
-                    .first_dir(Side::Top)
-                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
-                    .build(),
-            );
-            to_route.push((m1, src, m1, dst, None));
-            let via = ctx.instantiate::<Via>(
-                &ViaParams::builder()
-                    .layers(m0, m1)
-                    .geometry(src, src)
-                    .build(),
-            )?;
-            ctx.draw(via)?;
-        }
         for (i, &dst) in p1_ports.iter().enumerate().take(tree.root.children[1].num) {
             let src = p2.port(PortId::new("decode", i))?.largest_rect(m0)?;
             let src = router.register_jog_to_grid(
@@ -428,6 +409,29 @@ impl SramInner {
                     .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
                     .build(),
             );
+            router.block(m1, src);
+            to_route.push((m1, src, m1, dst, None));
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m0, m1)
+                    .geometry(src, src)
+                    .build(),
+            )?;
+            ctx.draw(via)?;
+        }
+        for (i, &dst) in p0_ports.iter().enumerate().take(tree.root.children[0].num) {
+            let src = p1.port(PortId::new("decode", i))?.largest_rect(m0)?;
+            let src = router.register_jog_to_grid(
+                JogToGrid::builder()
+                    .layer(m0)
+                    .rect(src)
+                    .dst_layer(m1)
+                    .width(170)
+                    .first_dir(Side::Top)
+                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
+                    .build(),
+            );
+            router.block(m1, src);
             to_route.push((m1, src, m1, dst, None));
             let via = ctx.instantiate::<Via>(
                 &ViaParams::builder()
@@ -517,7 +521,7 @@ impl SramInner {
                     })
                     .build(),
             );
-            to_route.push((m2, dst, m1, src, None));
+            to_route.push((m1, src, m2, dst, None));
             let via = ctx.instantiate::<Via>(
                 &ViaParams::builder()
                     .layers(m0, m1)

@@ -83,7 +83,7 @@ impl ControlLogicReplicaV2 {
             .with_connections([("din", clk_buf), ("dout", clkp), ("vdd", vdd), ("vss", vss)])
             .named("clk_pulse")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&4)?
+        ctx.instantiate::<InvChain>(&8)?
             .with_connections([
                 ("din", clkp),
                 ("dout", wl_en_set),
@@ -119,7 +119,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("inv_rbl")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&48)?
+        ctx.instantiate::<InvChain>(&8)?
             .with_connections([
                 ("din", rbl_b),
                 ("dout", pc_read_set),
@@ -140,7 +140,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("and_sense_en")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&48)?
+        ctx.instantiate::<InvChain>(&2)?
             .with_connections([
                 ("din", sense_en_set0),
                 ("dout", sense_en_set),
@@ -247,7 +247,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("wr_drv_set")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&8)?
+        ctx.instantiate::<InvChain>(&24)?
             .with_connections([
                 ("din", wr_drv_set_undelayed),
                 ("dout", wr_drv_set),
@@ -276,7 +276,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("wl_en_write_rst_buf")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&16)?
+        ctx.instantiate::<InvChain>(&4)?
             .with_connections([
                 ("din", wl_en_write_rst),
                 ("dout", pc_write_set),
@@ -467,7 +467,7 @@ impl EdgeDetector {
         let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
         let delayed = ctx.signal("delayed");
 
-        ctx.instantiate::<InvChain>(&9)?
+        ctx.instantiate::<InvChain>(&self.invs)?
             .with_connections([("din", din), ("dout", delayed), ("vdd", vdd), ("vss", vss)])
             .named("delay_chain")
             .add_to(ctx);

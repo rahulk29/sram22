@@ -77,13 +77,22 @@ impl SramParams {
 
     /// The name of the SRAM cell with these parameters.
     pub fn name(&self) -> arcstr::ArcStr {
-        arcstr::format!(
-            "sram22_{}x{}m{}w{}",
-            self.num_words,
-            self.data_width,
-            self.mux_ratio,
-            self.wmask_granularity()
-        )
+        match self.control {
+            ControlMode::ReplicaV2 => arcstr::format!(
+                "sram22_{}x{}m{}w{}",
+                self.num_words,
+                self.data_width,
+                self.mux_ratio,
+                self.wmask_granularity()
+            ),
+            ControlMode::ReplicaV2Test => arcstr::format!(
+                "sram22_{}x{}m{}w{}_test",
+                self.num_words,
+                self.data_width,
+                self.mux_ratio,
+                self.wmask_granularity()
+            ),
+        }
     }
 }
 
@@ -412,6 +421,24 @@ pub(crate) mod tests {
 
                 #[cfg(feature = "commercial")]
                 {
+                    let drc_work_dir = work_dir.join("drc");
+                    let output = ctx
+                        .write_drc::<Sram>(&$params, drc_work_dir)
+                        .expect("failed to run DRC");
+                    assert!(matches!(
+                        output.summary,
+                        substrate::verification::drc::DrcSummary::Pass
+                    ));
+
+                    let lvs_work_dir = work_dir.join("lvs");
+                    let output = ctx
+                        .write_lvs::<Sram>(&$params, lvs_work_dir)
+                        .expect("failed to run LVS");
+                    assert!(matches!(
+                        output.summary,
+                        substrate::verification::lvs::LvsSummary::Pass
+                    ));
+
                     crate::abs::run_abstract(
                         &work_dir,
                         &$params.name(),
@@ -445,29 +472,16 @@ pub(crate) mod tests {
                         .build()
                         .unwrap();
                     crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
-                    let drc_work_dir = work_dir.join("drc");
-                    let output = ctx
-                        .write_drc::<Sram>(&$params, drc_work_dir)
-                        .expect("failed to run DRC");
-                    assert!(matches!(
-                        output.summary,
-                        substrate::verification::drc::DrcSummary::Pass
-                    ));
-                    let lvs_work_dir = work_dir.join("lvs");
-                    let output = ctx
-                        .write_lvs::<Sram>(&$params, lvs_work_dir)
-                        .expect("failed to run LVS");
-                    assert!(matches!(
-                        output.summary,
-                        substrate::verification::lvs::LvsSummary::Pass
-                    ));
                 }
             }
         };
     }
 
     test_sram!(test_sram_1, PARAMS_1);
+
+    // Fails due to unresolved DRC issue
     test_sram!(test_sram_2, PARAMS_2, ignore = "slow");
+
     test_sram!(test_sram_3, PARAMS_3, ignore = "slow");
     test_sram!(test_sram_4, PARAMS_4, ignore = "slow");
     test_sram!(test_sram_5, PARAMS_5, ignore = "slow");

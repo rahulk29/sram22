@@ -1009,7 +1009,8 @@ mod tests {
     use substrate::schematic::netlist::NetlistPurpose;
     use substrate::verification::pex::PexInput;
 
-    use crate::paths::{out_gds, out_spice, out_verilog};
+    use crate::liberate::save_tdc_lib;
+    use crate::paths::{out_gds, out_lib, out_spice, out_verilog};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::v2::sram::verilog::save_tdc_verilog;
@@ -1089,15 +1090,15 @@ mod tests {
             let tdc = ctx.instantiate_layout::<Tdc>(&TDC_PARAMS).unwrap();
             let name = tdc.cell().name();
 
-            let pex_dir = work_dir.join("pex");
-            let pex_source_path = out_spice(&pex_dir, "schematic");
-            let pex_out_path = out_spice(&pex_dir, "schematic.pex");
-            ctx.write_schematic_to_file_for_purpose::<Tdc>(
-                &TDC_PARAMS,
-                &pex_source_path,
-                NetlistPurpose::Pex,
+            let lib_path = out_lib(&work_dir, name);
+            save_tdc_lib(
+                &lib_path,
+                &crate::verilog::TdcParams {
+                    module_name: name.to_string(),
+                    data_width: TDC_PARAMS.bits_out(),
+                },
             )
-            .expect("failed to write schematic for PEX");
+            .expect("failed to write lib file from template");
 
             let verilog_path = out_verilog(&work_dir, name);
             save_tdc_verilog(
@@ -1108,6 +1109,16 @@ mod tests {
                 },
             )
             .expect("failed to write behavioral model");
+
+            let pex_dir = work_dir.join("pex");
+            let pex_source_path = out_spice(&pex_dir, "schematic");
+            let pex_out_path = out_spice(&pex_dir, "schematic.pex");
+            ctx.write_schematic_to_file_for_purpose::<Tdc>(
+                &TDC_PARAMS,
+                &pex_source_path,
+                NetlistPurpose::Pex,
+            )
+            .expect("failed to write schematic for PEX");
 
             crate::abs::run_abstract(
                 &work_dir,

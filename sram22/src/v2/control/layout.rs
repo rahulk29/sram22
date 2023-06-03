@@ -109,7 +109,7 @@ impl ControlLogicReplicaV2 {
             create_row(&[
                 ("inv_clk", &ctx.instantiate::<InvChain>(&2)?),
                 ("clk_pulse", &edge_detector),
-                ("decoder_replica", &ctx.instantiate::<InvChain>(&4)?),
+                ("decoder_replica", &ctx.instantiate::<InvChain>(&8)?),
                 ("inv_rbl", &inv),
                 ("and_sense_en", &and),
                 ("inv_we", &inv),
@@ -153,10 +153,10 @@ impl ControlLogicReplicaV2 {
         ));
 
         let inv_chain_data: Vec<(String, usize)> = [
-            ("pc_read_set_buf", 48),
-            ("sense_en_delay", 48),
-            ("wr_drv_set_decoder_delay_replica", 8),
-            ("pc_write_set_buf", 16),
+            ("pc_read_set_buf", 8),
+            ("sense_en_delay", 2),
+            ("wr_drv_set_decoder_delay_replica", 24),
+            ("pc_write_set_buf", 4),
         ]
         .into_iter()
         .map(|(name, n)| (name.to_string(), n))
@@ -194,7 +194,7 @@ impl ControlLogicReplicaV2 {
         let mut group = rows.generate()?;
 
         dummy_bl_pulldown.align_top(group.brect());
-        dummy_bl_pulldown.align(AlignMode::Right, group.brect(), -400);
+        dummy_bl_pulldown.align(AlignMode::ToTheRight, group.brect(), 600);
 
         let mut pulldown_group = Group::new();
         pulldown_group.add(dummy_bl_pulldown);
@@ -254,7 +254,7 @@ impl ControlLogicReplicaV2 {
         )?;
 
         let mut router = GreedyRouter::with_config(GreedyRouterConfig {
-            area: group.brect().expand(1_840),
+            area: group.brect().expand(8 * 680),
             layers: vec![
                 LayerConfig {
                     line: 320,
@@ -318,8 +318,8 @@ impl ControlLogicReplicaV2 {
         );
 
         // Output pins
-        let vtrack =
-            vtracks.index(vtracks.track_with_loc(TrackLocator::StartsAfter, group.brect().right()));
+        let vtrack = vtracks
+            .index(8 + vtracks.track_with_loc(TrackLocator::StartsAfter, group.brect().right()));
         for i in 0..num_output_pins {
             let htrack = htracks.index(htrack_start - 2 * (i as i64) - top_offset);
             output_rects.push(Rect::from_spans(vtrack, htrack));
@@ -385,7 +385,7 @@ impl ControlLogicReplicaV2 {
         clkp_out_via.align_centers_gridded(clkp_out.brect(), grid);
         let clkp_out = router.expand_to_grid(
             clkp_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Side(Side::Left),
         );
         ctx.draw(clkp_out_via)?;
         ctx.draw_rect(m1, clkp_out);
@@ -436,7 +436,7 @@ impl ControlLogicReplicaV2 {
         wl_en_set_out_via.align_centers_gridded(wl_en_set_out.bbox(), grid);
         let wl_en_set_out = router.expand_to_grid(
             wl_en_set_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Side(Side::Left),
         );
         ctx.draw(wl_en_set_out_via)?;
         ctx.draw_rect(m1, wl_en_set_out);
@@ -934,7 +934,7 @@ impl ControlLogicReplicaV2 {
         write_driver_en0_in_via.align_centers_gridded(write_driver_en0_in.bbox(), grid);
         let write_driver_en0_in = router.expand_to_grid(
             write_driver_en0_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Side(Side::Right),
         );
         ctx.draw(write_driver_en0_in_via)?;
         ctx.draw_rect(m1, write_driver_en0_in);
@@ -966,7 +966,7 @@ impl ControlLogicReplicaV2 {
         we_in_1_via.align_centers_gridded(we_in_1.bbox(), grid);
         let we_in_1 = router.expand_to_grid(
             we_in_1_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Side(Side::Left),
         );
         ctx.draw(we_in_1_via)?;
         ctx.draw_rect(m1, we_in_1);
@@ -1013,7 +1013,7 @@ impl ControlLogicReplicaV2 {
         pc_b_out_1_via.align_centers_gridded(pc_b_out_1.bbox(), grid);
         let pc_b_out_1 = router.expand_to_grid(
             pc_b_out_1_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Side(Side::Left),
         );
         ctx.draw(pc_b_out_1_via)?;
         ctx.draw_rect(m1, pc_b_out_1);
@@ -1024,11 +1024,12 @@ impl ControlLogicReplicaV2 {
         pc_b_out_2_via.align_centers_gridded(pc_b_out_2.bbox(), grid);
         let pc_b_out_2 = router.expand_to_grid(
             pc_b_out_2_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Corner(Corner::LowerLeft),
         );
         ctx.draw(pc_b_out_2_via)?;
         ctx.draw_rect(m1, pc_b_out_2);
-        router.occupy(m1, pc_b_out_2, "pc_b")?;
+        // router.occupy(m1, pc_b_out_2, "pc_b")?;
+        router.block(m1, pc_b_out_2);
 
         // wl_ctl -> wl_en0_pin
         let wl_en0_out = group.port_map().port("wl_ctl_q")?.largest_rect(m0)?;
@@ -1049,11 +1050,12 @@ impl ControlLogicReplicaV2 {
         wl_en_out_via.align_centers_gridded(wl_en_out.bbox(), grid);
         let wl_en_out = router.expand_to_grid(
             wl_en_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Side(Side::Left),
         );
         ctx.draw(wl_en_out_via)?;
         ctx.draw_rect(m1, wl_en_out);
-        router.occupy(m1, wl_en_out, "wl_en")?;
+        // router.occupy(m1, wl_en_out, "wl_en")?;
+        router.block(m1, wl_en_out);
 
         let wl_en_in = group
             .port_map()
@@ -1113,11 +1115,12 @@ impl ControlLogicReplicaV2 {
         sense_en_out_2_via.align_centers_gridded(sense_en_out_2.bbox(), grid);
         let sense_en_out_2 = router.expand_to_grid(
             sense_en_out_2_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Side(Side::Top),
+            ExpandToGridStrategy::Corner(Corner::UpperLeft),
         );
         ctx.draw(sense_en_out_2_via)?;
         ctx.draw_rect(m1, sense_en_out_2);
-        router.occupy(m1, sense_en_out_2, "sense_en")?;
+        // router.occupy(m1, sense_en_out_2, "sense_en")?;
+        router.block(m1, sense_en_out_2);
 
         // rbl_pin -> inv_rbl
         let rbl_in = group.port_map().port("inv_rbl_a")?.largest_rect(m0)?;
@@ -1125,11 +1128,12 @@ impl ControlLogicReplicaV2 {
         rbl_in_via.align_centers_gridded(rbl_in.bbox(), grid);
         let rbl_in = router.expand_to_grid(
             rbl_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Side(Side::Left),
         );
         ctx.draw(rbl_in_via)?;
         ctx.draw_rect(m1, rbl_in);
-        router.occupy(m1, rbl_in, "rbl")?;
+        // router.occupy(m1, rbl_in, "rbl")?;
+        router.block(m1, rbl_in);
 
         // dummy_bl_pin -> inv_dummy_bl
         let dummy_bl_in = group
@@ -1760,7 +1764,7 @@ impl EdgeDetector {
         let m1 = layers.get(Selector::Metal(1))?;
         let grid = ctx.pdk().layout_grid();
 
-        let inv_chain = ctx.instantiate::<InvChain>(&9)?;
+        let inv_chain = ctx.instantiate::<InvChain>(&self.invs)?;
 
         let mut row = new_row();
         row.push(LayerBbox::new(inv_chain, outline));
