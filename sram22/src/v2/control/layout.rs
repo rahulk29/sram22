@@ -109,7 +109,7 @@ impl ControlLogicReplicaV2 {
             create_row(&[
                 ("inv_clk", &ctx.instantiate::<InvChain>(&2)?),
                 ("clk_pulse", &edge_detector),
-                ("decoder_replica", &ctx.instantiate::<InvChain>(&4)?),
+                ("decoder_replica", &ctx.instantiate::<InvChain>(&8)?),
                 ("inv_rbl", &inv),
                 ("and_sense_en", &and),
                 ("inv_we", &inv),
@@ -155,7 +155,7 @@ impl ControlLogicReplicaV2 {
         let inv_chain_data: Vec<(String, usize)> = [
             ("pc_read_set_buf", 8),
             ("sense_en_delay", 2),
-            ("wr_drv_set_decoder_delay_replica", 8),
+            ("wr_drv_set_decoder_delay_replica", 24),
             ("pc_write_set_buf", 4),
         ]
         .into_iter()
@@ -254,7 +254,7 @@ impl ControlLogicReplicaV2 {
         )?;
 
         let mut router = GreedyRouter::with_config(GreedyRouterConfig {
-            area: group.brect().expand(4_000),
+            area: group.brect().expand(8*680),
             layers: vec![
                 LayerConfig {
                     line: 320,
@@ -319,7 +319,7 @@ impl ControlLogicReplicaV2 {
 
         // Output pins
         let vtrack =
-            vtracks.index(vtracks.track_with_loc(TrackLocator::StartsAfter, group.brect().right()));
+            vtracks.index(8+vtracks.track_with_loc(TrackLocator::StartsAfter, group.brect().right()));
         for i in 0..num_output_pins {
             let htrack = htracks.index(htrack_start - 2 * (i as i64) - top_offset);
             output_rects.push(Rect::from_spans(vtrack, htrack));
