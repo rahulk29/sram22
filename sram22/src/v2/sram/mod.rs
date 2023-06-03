@@ -77,13 +77,22 @@ impl SramParams {
 
     /// The name of the SRAM cell with these parameters.
     pub fn name(&self) -> arcstr::ArcStr {
-        arcstr::format!(
-            "sram22_{}x{}m{}w{}",
-            self.num_words,
-            self.data_width,
-            self.mux_ratio,
-            self.wmask_granularity()
-        )
+        match self.control {
+            ControlMode::ReplicaV2 => arcstr::format!(
+                "sram22_{}x{}m{}w{}",
+                self.num_words,
+                self.data_width,
+                self.mux_ratio,
+                self.wmask_granularity()
+            ),
+            ControlMode::ReplicaV2Test => arcstr::format!(
+                "sram22_{}x{}m{}w{}_test",
+                self.num_words,
+                self.data_width,
+                self.mux_ratio,
+                self.wmask_granularity()
+            ),
+        }
     }
 }
 
