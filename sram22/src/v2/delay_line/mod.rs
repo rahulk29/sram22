@@ -707,7 +707,8 @@ mod tests {
     use substrate::schematic::netlist::NetlistPurpose;
     use substrate::verification::pex::PexInput;
 
-    use crate::paths::{out_gds, out_spice, out_verilog};
+    use crate::liberate::save_delay_line_lib;
+    use crate::paths::{out_gds, out_lib, out_spice, out_verilog};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::v2::gate::PrimitiveGateParams;
@@ -828,6 +829,16 @@ mod tests {
                 .instantiate_layout::<TristateInvDelayLine>(&TRISTATE_INV_DELAY_LINE_PARAMS)
                 .unwrap();
             let name = cell.cell().name();
+
+            let lib_path = out_lib(&work_dir, name);
+            save_delay_line_lib(
+                &lib_path,
+                &crate::verilog::DelayLineParams {
+                    module_name: name.to_string(),
+                    control_width: TRISTATE_INV_DELAY_LINE_PARAMS.stages,
+                },
+            )
+            .expect("failed to write lib file from template");
 
             let verilog_path = out_verilog(&work_dir, name);
             save_delay_line_verilog(
