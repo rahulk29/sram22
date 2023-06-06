@@ -385,7 +385,7 @@ impl Component for TristateInvDelayLine {
             ctx.draw(jog)?;
         }
 
-        let vtrack_expand = 3_000;
+        let vtrack_expand = 12_000;
 
         let mut vtracks = Vec::new();
         for i in 0..self.params.stages {
@@ -602,6 +602,7 @@ impl Component for TristateInvDelayLine {
         let router_bbox = ctx
             .brect()
             .expand_dir(subgeom::Dir::Horiz, 2 * 680)
+            .expand_dir(subgeom::Dir::Vert, 12 * 680)
             .snap_to_grid(680);
 
         let mut router = GreedyRouter::with_config(GreedyRouterConfig {
