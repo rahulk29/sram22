@@ -4,7 +4,8 @@ use grid::{grid, Grid};
 use serde::{Deserialize, Serialize};
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
-use subgeom::{Rect, Side, Sides, Sign, Span};
+use subgeom::transform::Translate;
+use subgeom::{Point, Rect, Side, Sides, Sign, Span};
 use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
 use substrate::into_vec;
@@ -384,6 +385,8 @@ impl Component for TristateInvDelayLine {
             ctx.draw(jog)?;
         }
 
+        let vtrack_expand = 3_000;
+
         let mut vtracks = Vec::new();
         for i in 0..self.params.stages {
             let mut cur_vtracks = Vec::new();
@@ -402,8 +405,11 @@ impl Component for TristateInvDelayLine {
 
             for j in (0..2usize).rev() {
                 let rect = Rect::from_spans(htracks_left.index(j), ctx.brect().vspan());
-                ctx.draw_rect(m1, rect);
                 cur_vtracks.push(rect);
+                if i == 0 && j == 1 {
+                    continue;
+                }
+                ctx.draw_rect(m1, rect);
             }
             let vss_strap = Span::from_center_span_gridded(
                 tiler
@@ -533,12 +539,14 @@ impl Component for TristateInvDelayLine {
             ctx.add_port(CellPort::with_shape(
                 PortId::new("ctl", i),
                 m1,
-                cur_vtracks[DelayLineTracks::EnLeft as usize],
+                cur_vtracks[DelayLineTracks::EnLeft as usize]
+                    .expand_dir(subgeom::Dir::Vert, vtrack_expand),
             ))?;
             ctx.add_port(CellPort::with_shape(
                 PortId::new("ctl_b", i),
                 m1,
-                cur_vtracks[DelayLineTracks::EnBRight as usize],
+                cur_vtracks[DelayLineTracks::EnBRight as usize]
+                    .expand_dir(subgeom::Dir::Vert, vtrack_expand),
             ))?;
 
             if i > 0 {
@@ -568,23 +576,33 @@ impl Component for TristateInvDelayLine {
         }
 
         let port = tiler.port_map().port("a_0_0")?.largest_rect(m0)?;
-        let port = Rect::from_spans(port.hspan().union(vtracks[0][0].hspan()), port.vspan());
+        let mut port_vtrack = vtracks[0][0];
+        port_vtrack.translate(Point::new(-1_000, 0));
+        let port = Rect::from_spans(port.hspan().union(port_vtrack.hspan()), port.vspan());
         ctx.draw_rect(m0, port);
         let via = ctx.instantiate::<Via>(
             &ViaParams::builder()
                 .layers(m0, m1)
-                .geometry(port, vtracks[0][0])
+                .geometry(port, port_vtrack)
                 .build(),
         )?;
         ctx.draw(via)?;
-        ctx.add_port(CellPort::with_shape("clk_in", m1, vtracks[0][0]))?;
+        ctx.add_port(CellPort::with_shape(
+            "clk_in",
+            m1,
+            port_vtrack.expand_dir(subgeom::Dir::Vert, vtrack_expand),
+        ))?;
         ctx.add_port(CellPort::with_shape(
             "clk_out",
             m1,
-            vtracks[0][DelayLineTracks::DoutMid as usize],
+            vtracks[0][DelayLineTracks::DoutMid as usize]
+                .expand_dir(subgeom::Dir::Vert, vtrack_expand),
         ))?;
 
-        let router_bbox = ctx.brect().expand(2 * 680).snap_to_grid(680);
+        let router_bbox = ctx
+            .brect()
+            .expand_dir(subgeom::Dir::Horiz, 2 * 680)
+            .snap_to_grid(680);
 
         let mut router = GreedyRouter::with_config(GreedyRouterConfig {
             area: router_bbox,
@@ -707,8 +725,9 @@ mod tests {
     use substrate::schematic::netlist::NetlistPurpose;
     use substrate::verification::pex::PexInput;
 
+    #[cfg(feature = "commercial")]
     use crate::liberate::save_delay_line_lib;
-    use crate::paths::{out_gds, out_lib, out_spice, out_verilog};
+    use crate::paths::{out_gds, out_spice, out_verilog};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::v2::gate::PrimitiveGateParams;
@@ -830,7 +849,7 @@ mod tests {
                 .unwrap();
             let name = cell.cell().name();
 
-            let lib_path = out_lib(&work_dir, name);
+            let lib_path = crate::paths::out_lib(&work_dir, name);
             save_delay_line_lib(
                 &lib_path,
                 &crate::verilog::DelayLineParams {

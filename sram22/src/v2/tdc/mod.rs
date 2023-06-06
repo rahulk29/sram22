@@ -1009,8 +1009,9 @@ mod tests {
     use substrate::schematic::netlist::NetlistPurpose;
     use substrate::verification::pex::PexInput;
 
+    #[cfg(feature = "commercial")]
     use crate::liberate::save_tdc_lib;
-    use crate::paths::{out_gds, out_lib, out_spice, out_verilog};
+    use crate::paths::{out_gds, out_spice, out_verilog};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::v2::sram::verilog::save_tdc_verilog;
@@ -1090,7 +1091,7 @@ mod tests {
             let tdc = ctx.instantiate_layout::<Tdc>(&TDC_PARAMS).unwrap();
             let name = tdc.cell().name();
 
-            let lib_path = out_lib(&work_dir, name);
+            let lib_path = crate::paths::out_lib(&work_dir, name);
             save_tdc_lib(
                 &lib_path,
                 &crate::verilog::TdcParams {
