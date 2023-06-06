@@ -16,7 +16,7 @@ use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
-use substrate::layout::DrawRef;
+use substrate::layout::{Draw, DrawRef};
 
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::grid::GridTiler;
@@ -242,6 +242,7 @@ impl Component for Tdc {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let layers = ctx.layers();
+        let m0 = layers.get(Selector::Metal(0))?;
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
         let m3 = layers.get(Selector::Metal(3))?;
@@ -289,8 +290,48 @@ impl Component for Tdc {
             },
             PortConflictStrategy::Merge,
         )?;
-        ctx.add_ports(tiler.ports().cloned())?;
-        let group = tiler.draw_ref()?;
+        ctx.add_ports(tiler.ports().cloned().filter_map(|port| {
+            if port.name().as_str() == "a" {
+                None
+            } else {
+                Some(port)
+            }
+        }))?;
+        let mut via01 = ctx.instantiate::<Via>(
+            &ViaParams::builder()
+                .layers(m0, m1)
+                .geometry(
+                    Rect::from_point(Point::zero()),
+                    Rect::from_point(Point::zero()),
+                )
+                .build(),
+        )?;
+        let mut via12 = ctx.instantiate::<Via>(
+            &ViaParams::builder()
+                .layers(m1, m2)
+                .geometry(
+                    Rect::from_point(Point::zero()),
+                    Rect::from_point(Point::zero()),
+                )
+                .build(),
+        )?;
+        let mut via23 = ctx.instantiate::<Via>(
+            &ViaParams::builder()
+                .layers(m2, m3)
+                .geometry(
+                    Rect::from_point(Point::zero()),
+                    Rect::from_point(Point::zero()),
+                )
+                .build(),
+        )?;
+
+        let mut group = tiler.draw_ref()?;
+
+        let a_port = tiler.port_map().port("a")?.largest_rect(m0)?;
+        via01.align_left(a_port);
+        via01.align_centers_vertically_gridded(a_port, ctx.pdk().layout_grid());
+        via12.align_centers_gridded(via01.brect(), ctx.pdk().layout_grid());
+        via23.align_centers_gridded(via01.brect(), ctx.pdk().layout_grid());
 
         let router_bbox = group
             .brect()
@@ -321,6 +362,15 @@ impl Component for Tdc {
                 },
             ],
         });
+
+        let via_brect = via23.layer_bbox(m3).into_rect();
+        let port_rect = via_brect.with_hspan(via_brect.hspan().add_point(router_bbox.left()));
+        ctx.draw_rect(m3, port_rect);
+        ctx.add_port(CellPort::with_shape("a", m3, port_rect))?;
+        router.block(m3, port_rect);
+        group.add_group(via01.draw()?);
+        group.add_group(via12.draw()?);
+        group.add_group(via23.draw()?);
 
         let clk_rect = tiler
             .port_map()
