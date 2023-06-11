@@ -4,8 +4,16 @@ version = 3
 
 [[package]]
 name = "abstract_lef"
+version = "0.0.2"
+source = "git+https://github.com/rahulk29/abstract-lef.git?branch=main#df25290c51ddd069e06729a4c0740aa5d5029c19"
+dependencies = [
+ "abstract_lef 0.1.0",
+]
+
+[[package]]
+name = "abstract_lef"
 version = "0.1.0"
-source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/abstract_lef.git?branch=master#3794c67d5eca5cd58608254a30773eab3f9f875d"
+source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/abstract_lef.git?branch=master#a8a2b44e2bc00420fd0af5f4803fbf7437f19f58"
 dependencies = [
  "derive_builder 0.11.2",
  "lazy_static",
@@ -1704,7 +1712,7 @@ checksum = "345f11dca845086e60f1076569dedb4c2026e8dfe420d2900de8683142480bcf"
 name = "sram22"
 version = "0.0.2"
 dependencies = [
- "abstract_lef",
+ "abstract_lef 0.0.2",
  "anyhow",
  "approx",
  "arcstr",
