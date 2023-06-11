@@ -4,7 +4,7 @@ use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
 use super::SpCellArray;
-use crate::v2::macros::{SpCell, SpColend, SpHstrap};
+use crate::blocks::macros::{SpCell, SpColend, SpHstrap};
 
 impl SpCellArray {
     pub(crate) fn schematic(

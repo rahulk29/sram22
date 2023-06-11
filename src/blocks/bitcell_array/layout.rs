@@ -14,7 +14,7 @@ use substrate::layout::placement::nine_patch::{NpTiler, Region};
 use substrate::layout::placement::tile::OptionTile;
 use substrate::{into_grid, into_vec};
 
-use crate::v2::macros::{
+use crate::blocks::macros::{
     SpCell, SpCellOpt1a, SpColend, SpColendPCent, SpColenda, SpColendaPCent, SpCorner, SpCornera,
     SpHorizWlstrapP, SpHstrap, SpRowend, SpRowendHstrap, SpRowenda, SpWlstrapP, SpWlstrapaP,
 };

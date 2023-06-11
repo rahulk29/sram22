@@ -526,10 +526,10 @@ mod tests {
 
     use substrate::component::NoParams;
 
+    use crate::blocks::gate::AndParams;
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
-    use crate::v2::gate::AndParams;
 
     use super::layout::{
         DecoderGate, DecoderGateParams, LastBitDecoderPhysicalDesignScript, LastBitDecoderStage,

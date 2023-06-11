@@ -33,7 +33,7 @@ impl WriteMux {
     ) -> substrate::error::Result<()> {
         let pc = ctx
             .inner()
-            .run_script::<crate::v2::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
 
         let db = ctx.mos_db();
         let mos = db
@@ -315,7 +315,7 @@ fn write_mux_tap_layout(
 ) -> substrate::error::Result<()> {
     let pc = ctx
         .inner()
-        .run_script::<crate::v2::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+        .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
 
     let mux = ctx.instantiate::<WriteMux>(&params.for_wmux())?;
     let meta = mux.cell().get_metadata::<Metadata>();

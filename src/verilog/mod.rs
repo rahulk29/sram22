@@ -1,4 +1,4 @@
-use crate::v2::sram::SramParams;
+use crate::blocks::sram::SramParams;
 use crate::{Result, TEMPLATES};
 
 use serde::{Deserialize, Serialize};

@@ -1,4 +1,6 @@
-use crate::v2::macros::{SpCellOpt1aReplica, SpCellReplica, SpColend, SpCorner, SpRowendReplica};
+use crate::blocks::macros::{
+    SpCellOpt1aReplica, SpCellReplica, SpColend, SpCorner, SpRowendReplica,
+};
 use arcstr::ArcStr;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};

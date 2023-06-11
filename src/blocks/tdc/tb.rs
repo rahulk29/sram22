@@ -1,4 +1,4 @@
-use crate::v2::gate::{Inv, PrimitiveGateParams};
+use crate::blocks::gate::{Inv, PrimitiveGateParams};
 use substrate::schematic::elements::vdc::Vdc;
 use substrate::schematic::elements::vpulse::Vpulse;
 use substrate::units::{SiPrefix, SiValue};

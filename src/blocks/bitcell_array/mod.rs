@@ -60,11 +60,11 @@ mod tests {
     use substrate::layout::layers::selector::Selector;
     use substrate::layout::layers::LayerBoundBox;
 
+    use crate::blocks::bitcell_array::layout::*;
+    use crate::blocks::guard_ring::{GuardRingWrapper, WrapperParams};
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
-    use crate::v2::bitcell_array::layout::*;
-    use crate::v2::guard_ring::{GuardRingWrapper, WrapperParams};
 
     use super::*;
 

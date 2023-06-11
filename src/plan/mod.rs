@@ -1,9 +1,9 @@
+use crate::blocks::sram::verilog::save_1rw_verilog;
+use crate::blocks::sram::{Sram, SramParams};
 use crate::cli::progress::StepContext;
 use crate::config::sram::SramConfig;
 use crate::paths::{out_gds, out_spice, out_verilog};
 use crate::plan::extract::ExtractionResult;
-use crate::v2::sram::verilog::save_1rw_verilog;
-use crate::v2::sram::{Sram, SramParams};
 use crate::{clog2, setup_ctx, Result};
 use anyhow::bail;
 use std::collections::{HashMap, HashSet};

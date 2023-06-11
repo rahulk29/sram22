@@ -7,9 +7,9 @@ use substrate::schematic::signal::{Signal, Slice};
 use substrate::index::IndexOwned;
 
 use super::{Decoder, DecoderStage, DecoderStageParams, TreeNode};
+use crate::blocks::decoder::get_idxs;
+use crate::blocks::gate::{And2, And3, GateParams};
 use crate::clog2;
-use crate::v2::decoder::get_idxs;
-use crate::v2::gate::{And2, And3, GateParams};
 
 impl Decoder {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {

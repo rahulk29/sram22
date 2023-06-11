@@ -20,17 +20,17 @@ use substrate::layout::routing::tracks::{TrackLocator, UniformTracks};
 use substrate::layout::straps::SingleSupplyNet;
 use substrate::layout::Draw;
 
-use crate::v2::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
-use crate::v2::bitcell_array::{SpCellArray, SpCellArrayParams};
-use crate::v2::columns::ColPeripherals;
-use crate::v2::control::{ControlLogicKind, ControlLogicReplicaV2, DffArray};
-use crate::v2::decoder::layout::LastBitDecoderStage;
-use crate::v2::decoder::{
+use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
+use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
+use crate::blocks::columns::ColPeripherals;
+use crate::blocks::control::{ControlLogicKind, ControlLogicReplicaV2, DffArray};
+use crate::blocks::decoder::layout::LastBitDecoderStage;
+use crate::blocks::decoder::{
     AddrGate, AddrGateParams, DecoderParams, DecoderStageParams, DecoderTree, Predecoder,
     WmuxDriver,
 };
-use crate::v2::gate::GateParams;
-use crate::v2::precharge::layout::{ReplicaPrecharge, ReplicaPrechargeParams};
+use crate::blocks::gate::GateParams;
+use crate::blocks::precharge::layout::{ReplicaPrecharge, ReplicaPrechargeParams};
 
 use super::{ControlMode, SramInner};
 

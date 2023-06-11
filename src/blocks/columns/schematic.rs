@@ -4,12 +4,12 @@ use substrate::index::IndexOwned;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
-use crate::v2::buf::DiffBuf;
-use crate::v2::control::DffArray;
-use crate::v2::macros::{Dff, SenseAmp};
-use crate::v2::precharge::Precharge;
-use crate::v2::rmux::{ReadMux, ReadMuxParams};
-use crate::v2::wmux::{WriteMux, WriteMuxParams};
+use crate::blocks::buf::DiffBuf;
+use crate::blocks::control::DffArray;
+use crate::blocks::macros::{Dff, SenseAmp};
+use crate::blocks::precharge::Precharge;
+use crate::blocks::rmux::{ReadMux, ReadMuxParams};
+use crate::blocks::wmux::{WriteMux, WriteMuxParams};
 
 use super::{ColPeripherals, Column};
 

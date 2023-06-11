@@ -5,7 +5,7 @@ use substrate::pdk::mos::MosParams;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::elements::mos::SchematicMos;
 
-use crate::v2::gate::PrimitiveGateParams;
+use crate::blocks::gate::PrimitiveGateParams;
 
 pub struct TransmissionGate {
     params: PrimitiveGateParams,

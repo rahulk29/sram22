@@ -20,14 +20,14 @@ use substrate::layout::placement::tile::{OptionTile, Pad, Padding, RectBbox, Til
 use substrate::layout::routing::tracks::{Boundary, CenteredTrackParams, FixedTracks};
 use substrate::layout::Draw;
 
-use crate::v2::buf::layout::DiffBufCent;
-use crate::v2::buf::DiffBuf;
-use crate::v2::columns::Column;
-use crate::v2::macros::{DffCol, DffColCent, DffColExtend, SenseAmp, SenseAmpCent};
-use crate::v2::precharge::layout::{PrechargeCent, PrechargeEnd, PrechargeEndParams};
-use crate::v2::precharge::Precharge;
-use crate::v2::rmux::{ReadMux, ReadMuxCent, ReadMuxEnd, ReadMuxParams};
-use crate::v2::wmux::{
+use crate::blocks::buf::layout::DiffBufCent;
+use crate::blocks::buf::DiffBuf;
+use crate::blocks::columns::Column;
+use crate::blocks::macros::{DffCol, DffColCent, DffColExtend, SenseAmp, SenseAmpCent};
+use crate::blocks::precharge::layout::{PrechargeCent, PrechargeEnd, PrechargeEndParams};
+use crate::blocks::precharge::Precharge;
+use crate::blocks::rmux::{ReadMux, ReadMuxCent, ReadMuxEnd, ReadMuxParams};
+use crate::blocks::wmux::{
     WriteMux, WriteMuxCent, WriteMuxCentParams, WriteMuxEnd, WriteMuxEndParams, WriteMuxParams,
 };
 

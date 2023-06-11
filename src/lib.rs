@@ -25,6 +25,7 @@ use tera::Tera;
 
 #[cfg(feature = "commercial")]
 pub mod abs;
+pub mod blocks;
 pub mod cli;
 pub mod config;
 #[cfg(feature = "commercial")]
@@ -34,7 +35,6 @@ pub mod plan;
 pub mod tech;
 #[cfg(test)]
 pub mod tests;
-pub mod v2;
 pub mod verification;
 pub mod verilog;
 

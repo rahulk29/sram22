@@ -4,17 +4,17 @@ use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 use substrate::schematic::signal::Signal;
 
-use crate::v2::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
-use crate::v2::bitcell_array::{SpCellArray, SpCellArrayParams};
-use crate::v2::buf::DiffBufParams;
-use crate::v2::columns::{ColParams, ColPeripherals};
-use crate::v2::control::{ControlLogicKind, ControlLogicReplicaV2, DffArray};
-use crate::v2::decoder::{
+use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
+use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
+use crate::blocks::buf::DiffBufParams;
+use crate::blocks::columns::{ColParams, ColPeripherals};
+use crate::blocks::control::{ControlLogicKind, ControlLogicReplicaV2, DffArray};
+use crate::blocks::decoder::{
     AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderStageParams, DecoderTree, WmuxDriver,
 };
-use crate::v2::precharge::{Precharge, PrechargeParams};
-use crate::v2::rmux::ReadMuxParams;
-use crate::v2::wmux::WriteMuxSizing;
+use crate::blocks::precharge::{Precharge, PrechargeParams};
+use crate::blocks::rmux::ReadMuxParams;
+use crate::blocks::wmux::WriteMuxSizing;
 
 use super::{ControlMode, SramInner};
 

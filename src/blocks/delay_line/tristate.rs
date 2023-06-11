@@ -15,7 +15,7 @@ use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::elements::mos::SchematicMos;
 
-use crate::v2::gate::{Inv, PrimitiveGateParams};
+use crate::blocks::gate::{Inv, PrimitiveGateParams};
 
 pub struct TristateInv {
     params: PrimitiveGateParams,
@@ -242,10 +242,10 @@ impl Component for TristateBuf {
 
 #[cfg(test)]
 mod tests {
+    use crate::blocks::gate::PrimitiveGateParams;
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
-    use crate::v2::gate::PrimitiveGateParams;
 
     use super::TristateInv;
 

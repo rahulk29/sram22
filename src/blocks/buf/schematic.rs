@@ -2,7 +2,7 @@ use substrate::error::Result;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
-use crate::v2::gate::{Inv, PrimitiveGateParams};
+use crate::blocks::gate::{Inv, PrimitiveGateParams};
 
 use super::{Buf, BufParams, DiffBuf};
 

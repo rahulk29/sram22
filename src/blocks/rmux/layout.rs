@@ -32,7 +32,7 @@ impl ReadMux {
     ) -> substrate::error::Result<()> {
         let pc = ctx
             .inner()
-            .run_script::<crate::v2::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
 
         let db = ctx.mos_db();
         let mos = db
@@ -266,7 +266,7 @@ impl ReadMuxCent {
     ) -> substrate::error::Result<()> {
         let pc = ctx
             .inner()
-            .run_script::<crate::v2::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
 
         read_mux_tap_layout(pc.tap_width, false, &self.params, ctx)?;
         Ok(())
@@ -281,7 +281,7 @@ fn read_mux_tap_layout(
 ) -> substrate::error::Result<()> {
     let pc = ctx
         .inner()
-        .run_script::<crate::v2::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+        .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
 
     let mux = ctx.instantiate::<ReadMux>(params)?;
     let stripe_hspan = Span::new(-width, 2 * width);
@@ -382,7 +382,7 @@ impl ReadMuxEnd {
     ) -> substrate::error::Result<()> {
         let pc = ctx
             .inner()
-            .run_script::<crate::v2::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
         read_mux_tap_layout(pc.tap_width, true, &self.params, ctx)?;
         Ok(())
     }

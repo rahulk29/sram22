@@ -26,7 +26,7 @@ use substrate::layout::routing::manual::jog::OffsetJog;
 use substrate::layout::routing::tracks::UniformTracks;
 use substrate::script::Script;
 
-use crate::v2::gate::{Gate, GateParams};
+use crate::blocks::gate::{Gate, GateParams};
 
 use super::{DecoderParams, DecoderStage, DecoderStageParams, Predecoder};
 
