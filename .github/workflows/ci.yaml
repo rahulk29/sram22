@@ -49,10 +49,6 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ steps.toolchain.outputs.cachekey }}
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: 'recursive'
       - name: Check formatting
         run: |
           cargo +nightly fmt --check
