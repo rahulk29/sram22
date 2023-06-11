@@ -64,6 +64,9 @@ pub fn generate_plan(
         ..
     } = config;
 
+    if mux_ratio != 4 && mux_ratio != 8 {
+        bail!("Mux ratio must be 4 or 8");
+    }
     if data_width % write_size != 0 {
         bail!("Data width must be a multiple of write size");
     }
@@ -78,6 +81,14 @@ pub fn generate_plan(
     let num_words = num_words as usize;
     let data_width = data_width as usize;
     let addr_width = clog2(num_words);
+
+    if 2usize.pow(row_bits.try_into().unwrap()) != rows || rows < 16 {
+        bail!("The number of rows (num words / mux ratio) must be a power of 2 greater than or equal to 16");
+    }
+
+    if cols < 16 {
+        bail!("The number of columns (data width * mux ratio) must be at least 16");
+    }
 
     Ok(SramPlan {
         sram_params: SramParams {

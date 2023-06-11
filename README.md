@@ -23,8 +23,6 @@ git clone https://github.com/rahulk29/sram22.git
 cd sram22 && make install-all && cd -
 ```
 
-_Note: As SRAM22 currently only supports the Sky130 process, you will need to have a signed Sky130 NDA on file to use certain features._
-
 #### External
 
 If you do not have BWRC access, you can still install SRAM22, albeit without
@@ -40,8 +38,8 @@ cd sram22 && make install && cd -
 ### Usage
 
 ```
-sram22 0.1.0
-Rahul Kumar <rahulkumar@berkeley.edu>
+sram22 0.2.0
+Rahul Kumar <rahulkumar@berkeley.edu>, Rohan Kumar <rohankumar@berkeley.edu>
 A configurable SRAM generator
 
 Usage: sram22 [OPTIONS]
@@ -65,7 +63,7 @@ Options:
 SRAM22 generates memory blocks based on a TOML configuration file. An example configuration, showing all the available options, is shown below:
 
 ```toml
-num_words = 32
+num_words = 64
 data_width = 32
 mux_ratio = 2
 write_size = 32
@@ -75,10 +73,10 @@ pex_level = "rcc"
 ```
 
 To generate an SRAM using this configuration, put the above text into a file called
-`sram22_32x32m2w8/sram22.toml`, then run:
+`sram22_64x32m4w8/sram22.toml`, then run:
 
 ```
-cd sram22_32x32m2w8
+cd sram22_64x32m4w8
 sram22 -o .
 ```
 
@@ -86,25 +84,25 @@ Add additional flags depending on what views you want to generate and what verif
 If you do not have access to BWRC servers, most flags will not be available.
 
 If you have access to proprietary tools (eg. Calibre, Spectre, etc.) and would like access
-to the SRAM22 plugins for those tools, please contact us. Contact information is in `sram22/Cargo.toml`.
+to the SRAM22 plugins for those tools, please contact us.
 
-The available configuration options are:
-* `num_words`: Must be a power of 2, greater than or equal to 16.
-* `data_width`: Must be a power of 2, greater than or equal to 16. Must be an integer multiple of `write_size`.
-* `mux_ratio`: Must be 4, or 8.
-* `write_size`: Must be a power of 2, less than or equal to `data_width`.
+The number of rows in the SRAM bitcell array is `num_words / mux_ratio`.
+The number of columns in the array is `num_words * mux_ratio`.
+
+A valid configuration must have:
+* A `mux_ratio` of 4 or 8
+* A `data_width` that is an integer multiple of the `write_size`
+* A power-of-two number of rows
+* At least 16 rows
+* At least 16 columns
 * `control`: Must be `"ReplicaV2"`.
 * `pex_level`: Must be `"r"`, `"c"`, `"rc"`, or `"rcc"`. If you do not have commercial plugins enabled, this option will be ignored.
-
-### Technology Setup
-
-See the `tech/sky130/` directory for an example of how to set up a new process to work with SRAM22.
 
 ### Dependencies
 
 In order to use SRAM22, your system will need to have the following components:
 
-- Rust (SRAM22 is tested with version 1.69.0)
+- Rust (SRAM22 is tested with version 1.70.0)
 - Make
 
 ### Contribution
