@@ -339,7 +339,7 @@ pub(crate) mod tests {
         ctx.write_layout::<Sram>(&TINY_SRAM, &gds_path)
             .expect("failed to write layout");
 
-        let verilog_path = out_verilog(&work_dir, &*TINY_SRAM.name());
+        let verilog_path = out_verilog(&work_dir, &TINY_SRAM.name());
         save_1rw_verilog(&verilog_path, &*TINY_SRAM.name(), &TINY_SRAM)
             .expect("failed to write behavioral model");
 

@@ -852,7 +852,7 @@ mod tests {
 
             let lib_path = crate::paths::out_lib(&work_dir, name);
             save_delay_line_lib(
-                &lib_path,
+                lib_path,
                 &crate::verilog::DelayLineParams {
                     module_name: name.to_string(),
                     control_width: TRISTATE_INV_DELAY_LINE_PARAMS.stages,

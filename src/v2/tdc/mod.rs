@@ -1143,7 +1143,7 @@ mod tests {
 
             let lib_path = crate::paths::out_lib(&work_dir, name);
             save_tdc_lib(
-                &lib_path,
+                lib_path,
                 &crate::verilog::TdcParams {
                     module_name: name.to_string(),
                     data_width: TDC_PARAMS.bits_out(),
@@ -1199,7 +1199,7 @@ mod tests {
 
             ctx.run_pex(PexInput {
                 work_dir: pex_dir,
-                layout_path: gds_path.clone(),
+                layout_path: gds_path,
                 layout_cell_name: name.clone(),
                 layout_format: substrate::layout::LayoutFormat::Gds,
                 source_paths: vec![pex_source_path],
