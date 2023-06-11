@@ -24,7 +24,7 @@ jobs:
         with:
           repository: substrate-labs/skywater-pdk
           path: skywater-pdk
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
         with:
           repository: substrate-labs/substrate
           path: ../substrate
