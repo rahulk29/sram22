@@ -15,8 +15,6 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-        with:
-          path: sram22
       - name: Install native dependencies
         run: |
           sudo apt-get update
@@ -25,13 +23,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: substrate-labs/skywater-pdk
-          path: skywater-pdk
-      - uses: actions/checkout@v3
-        with:
-          repository: substrate-labs/substrate
-          path: substrate
+          path: tech/sky130/skywater-pdk
       - name: Update submodules
-        working-directory: skywater-pdk
+        working-directory: tech/sky130/skywater-pdk
         run: |
           git submodule update --init ./libraries/sky130_fd_pr/latest
           git submodule update --init ./libraries/sky130_fd_sc_hd/latest
@@ -52,17 +46,14 @@ jobs:
         with:
           key: ${{ steps.toolchain.outputs.cachekey }}
       - name: Switch to public Cargo.toml
-        working-directory: sram22
         run: |
           mv Cargo.public.toml Cargo.toml
       - name: Check formatting
-        working-directory: sram22
         run: |
           cargo +nightly fmt --check
       - name: Test
-        working-directory: sram22
         shell: bash
         run: |
           make test
         env:
-          SKY130_OPEN_PDK_ROOT: ${{ github.workspace }}/skywater-pdk
+          SKY130_OPEN_PDK_ROOT: ${{ github.workspace }}/tech/sky130/skywater-pdk
