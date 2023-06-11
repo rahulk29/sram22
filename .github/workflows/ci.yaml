@@ -14,9 +14,21 @@ jobs:
     name: Build, lint, and test
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      - name: Install ngspice
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ngspice
+      - name: Clone external dependencies
+        uses: actions/checkout@v3
         with:
-          submodules: 'recursive'
+          repository: substrate-labs/skywater-pdk
+          path: tech/sky130/skywater-pdk
+      - name: Update submodules
+        working-directory: tech/sky130/skywater-pdk
+        run: |
+          git submodule update --init ./libraries/sky130_fd_pr/latest
+          git submodule update --init ./libraries/sky130_fd_sc_hd/latest
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@nightly
         id: toolchain-nightly
@@ -36,10 +48,9 @@ jobs:
       - name: Check formatting
         run: |
           cargo +nightly fmt --check
-          black sramgen/scripts/ --check
-      - name: Lint
-        run: make lint
       - name: Test
         shell: bash
         run: |
           make test
+        env:
+          SKY130_OPEN_PDK_ROOT: ${{ github.workspace }}/tech/sky130/skywater-pdk

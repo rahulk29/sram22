@@ -1,12 +1,42 @@
-[workspace]
+[package]
+name = "sram22"
+version = "0.2.0"
+edition = "2021"
+authors = ["Rahul Kumar <rahulkumar@berkeley.edu>", "Rohan Kumar <rohankumar@berkeley.edu>"]
+description = "A configurable SRAM generator"
+repository = "https://github.com/rahulk29/sram22"
+license = "BSD-3-Clause"
 
-members = [
-  "fanout",
-  "sramgen",
-]
+[dependencies]
+derive_builder = "0.12.0"
+grid = "0.9.0"
+thiserror = "1.0.37"
+serde = { version = "1.0.149", features = ["derive"] }
+serde_json = "1.0.89"
+toml = "0.5.9"
+log = "0.4.17"
+indicatif = "0.17.2"
+clap = { version = "4.0.29", features = ["derive"] }
+itertools = "0.10.5"
+psfparser = { git = "https://github.com/rahulk29/psfparser.git", branch = "master" }
+arcstr = "1.1.5"
+anyhow = "1"
+tera = "1.17.1"
+lazy_static = "1.4.0"
+colored = "2.0.0"
 
-exclude = ["./deps/" ]
+# Substrate dependencies
+substrate = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
+subgeom = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
+codegen = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
+sky130_open_pdk = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
+ngspice = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
 
-[profile.release]
-lto = true
-codegen-units = 1
+[dev-dependencies]
+tempfile = "3.3.0"
+approx = "0.5.1"
+paste = "1.0"
+
+[features]
+default = []
+
