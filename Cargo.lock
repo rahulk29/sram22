@@ -655,13 +655,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fanout"
-version = "0.1.0"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "fastrand"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1712,7 +1705,6 @@ dependencies = [
  "codegen",
  "colored",
  "derive_builder 0.12.0",
- "fanout",
  "grid",
  "indicatif",
  "itertools",

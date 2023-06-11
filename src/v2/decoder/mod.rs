@@ -1,4 +1,3 @@
-use fanout::FanoutAnalyzer;
 use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
@@ -307,34 +306,11 @@ impl DecoderTree {
 }
 
 fn size_decoder(tree: &PlanTreeNode) -> TreeNode {
-    let mut f = FanoutAnalyzer::new();
-
-    let mut nodes = vec![];
-    let mut curr = Some(tree);
-    while let Some(node) = curr {
-        nodes.push(node);
-        curr = node.children.get(0);
-    }
-    nodes.reverse();
-
-    for (i, node) in nodes.iter().enumerate() {
-        for gate in node.gate.as_fanout_gates() {
-            f.add_gate(gate);
-        }
-        if let Some(next) = nodes.get(i + 1) {
-            f.add_branch((next.num / node.num) as f64);
-        }
-    }
-    // TODO use fanout results
-    let res = f.size(32f64);
-    let mut sizes = res.sizes().collect::<Vec<_>>();
-
-    sizes.reverse();
-
-    size_helper_tmp(tree, &sizes, tree.skew_rising, tree.cols)
+    // TODO improve decoder sizing
+    size_helper_tmp(tree, tree.skew_rising, tree.cols)
 }
 
-fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64], skew_rising: bool, cols: bool) -> TreeNode {
+fn size_helper_tmp(x: &PlanTreeNode, skew_rising: bool, cols: bool) -> TreeNode {
     let gate_params = if cols {
         AndParams {
             nand: PrimitiveGateParams {
@@ -382,7 +358,7 @@ fn size_helper_tmp(x: &PlanTreeNode, _sizes: &[f64], skew_rising: bool, cols: bo
         children: x
             .children
             .iter()
-            .map(|n| size_helper_tmp(n, _sizes, skew_rising, cols))
+            .map(|n| size_helper_tmp(n, skew_rising, cols))
             .collect::<Vec<_>>(),
     }
 }

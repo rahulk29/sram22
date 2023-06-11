@@ -20,7 +20,7 @@ check:
 	cargo check --all-features --all-targets
 
 install-all:
-	cd sram22 && cargo install --all-features --path . && cd -
+	cargo install --all-features --path .
 
 install:
-	cd sram22 && cargo install --path . && cd -
+	cargo install --path .

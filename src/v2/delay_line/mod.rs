@@ -892,7 +892,7 @@ mod tests {
 
             ctx.run_pex(PexInput {
                 work_dir: pex_dir,
-                layout_path: gds_path.clone(),
+                layout_path: gds_path,
                 layout_cell_name: name.clone(),
                 layout_format: substrate::layout::LayoutFormat::Gds,
                 source_paths: vec![pex_source_path],
