@@ -20,7 +20,7 @@ You can then install SRAM22 using the following commands:
 
 ```bash
 git clone https://github.com/rahulk29/sram22.git
-cd sram22 && make install-all && cd -
+cd sram22 && mv Cargo.bwrc.toml Cargo.toml && make install-all && cd -
 ```
 
 #### External

@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-      - name: Install dependencies
+      - name: Install ngspice
         run: |
           sudo apt-get update
           sudo apt-get install -y ngspice
@@ -45,9 +45,6 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ steps.toolchain.outputs.cachekey }}
-      - name: Switch to public Cargo.toml
-        run: |
-          mv Cargo.public.toml Cargo.toml
       - name: Check formatting
         run: |
           cargo +nightly fmt --check
