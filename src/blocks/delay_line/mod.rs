@@ -810,7 +810,7 @@ mod tests {
         let work_dir = test_work_dir("test_naive_delay_line_tgate");
         ctx.write_schematic_to_file::<NaiveDelayLine>(
             &NAIVE_DELAY_LINE_TGATE_PARAMS,
-            out_spice(&work_dir, "schematic"),
+            out_spice(work_dir, "schematic"),
         )
         .expect("failed to write schematic");
     }
@@ -830,7 +830,7 @@ mod tests {
         let work_dir = test_work_dir("test_naive_delay_line_tristate");
         ctx.write_schematic_to_file::<NaiveDelayLine>(
             &NAIVE_DELAY_LINE_TRISTATE_PARAMS,
-            out_spice(&work_dir, "schematic"),
+            out_spice(work_dir, "schematic"),
         )
         .expect("failed to write schematic");
     }
