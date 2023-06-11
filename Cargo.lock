@@ -336,6 +336,7 @@ checksum = "2da6da31387c7e4ef160ffab6d5e7f00c42626fe39aea70a7b0f1773f7dd6c1b"
 [[package]]
 name = "codegen"
 version = "0.1.0"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
 dependencies = [
  "darling 0.14.4",
  "itertools",
@@ -725,6 +726,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gds21"
 version = "0.2.1"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
 dependencies = [
  "arcstr",
  "byteorder",
@@ -1070,6 +1072,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 [[package]]
 name = "ngspice"
 version = "0.0.1"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -1624,6 +1627,7 @@ checksum = "7bd3e3206899af3f8b12af284fafc038cc1dc2b41d1b89dd17297221c5d225de"
 [[package]]
 name = "sky130_commercial_pdk"
 version = "0.1.0"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
 dependencies = [
  "arcstr",
  "sky130_common_pdk",
@@ -1633,6 +1637,7 @@ dependencies = [
 [[package]]
 name = "sky130_common_pdk"
 version = "0.1.0"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
 dependencies = [
  "arcstr",
  "subgeom",
@@ -1642,6 +1647,7 @@ dependencies = [
 [[package]]
 name = "sky130_open_pdk"
 version = "0.1.0"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
 dependencies = [
  "arcstr",
  "sky130_common_pdk",
@@ -1682,6 +1688,7 @@ checksum = "f67ad224767faa3c7d8b6d91985b78e70a1324408abcb1cfcc2be4c06bc06043"
 [[package]]
 name = "spectre"
 version = "0.1.0"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -1696,6 +1703,7 @@ dependencies = [
 [[package]]
 name = "spice_rawfile"
 version = "0.0.1"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
 dependencies = [
  "nom",
  "serde",
@@ -1710,7 +1718,7 @@ checksum = "345f11dca845086e60f1076569dedb4c2026e8dfe420d2900de8683142480bcf"
 
 [[package]]
 name = "sram22"
-version = "0.0.2"
+version = "0.2.0"
 dependencies = [
  "abstract_lef 0.0.2",
  "anyhow",
@@ -1735,7 +1743,7 @@ dependencies = [
  "sky130_commercial_pdk",
  "sky130_open_pdk",
  "spectre",
- "sub_calibre",
+ "sub_calibre 0.0.2",
  "subgeom",
  "substrate",
  "tempfile",
@@ -1768,6 +1776,7 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 [[package]]
 name = "sub_calibre"
 version = "0.0.1"
+source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rohankumar/substrate_mentor_plugins.git?branch=main#e091d657d90bf51b5fb3ba73a1fc615d0079846b"
 dependencies = [
  "arcstr",
  "calibre 0.1.0",
@@ -1776,8 +1785,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sub_calibre"
+version = "0.0.2"
+source = "git+https://github.com/rahulk29/substrate_mentor_plugins?branch=main#2e00094b06e3f79e654a6ddc1403d81b6d709ef6"
+dependencies = [
+ "sub_calibre 0.0.1",
+]
+
+[[package]]
 name = "subgeom"
 version = "0.1.0"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
 dependencies = [
  "array_map",
  "enum_dispatch",
@@ -1789,6 +1807,7 @@ dependencies = [
 [[package]]
 name = "sublut"
 version = "0.1.0"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
 dependencies = [
  "derive_builder 0.12.0",
  "serde",
@@ -1798,6 +1817,7 @@ dependencies = [
 [[package]]
 name = "subspice"
 version = "0.0.2"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
 dependencies = [
  "anyhow",
  "nom",
@@ -1808,6 +1828,7 @@ dependencies = [
 [[package]]
 name = "substrate"
 version = "0.1.0"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
 dependencies = [
  "anyhow",
  "arcstr",
