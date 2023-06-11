@@ -18,10 +18,10 @@ pub const COLUMN_WIDTH: isize = BITCELL_WIDTH + TAPCELL_WIDTH;
 
 #[inline]
 pub fn external_gds_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tech/sky130/gds")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tech/sky130/gds")
 }
 
 #[inline]
 pub fn external_spice_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tech/sky130/spice")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tech/sky130/spice")
 }

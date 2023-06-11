@@ -21,7 +21,7 @@ itertools = "0.10.5"
 psfparser = { git = "https://github.com/rahulk29/psfparser.git", branch = "master" }
 arcstr = "1.1.5"
 anyhow = "1"
-calibre = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git", branch = "master", optional = true }
+calibre = { git = "https://github.com/rahulk29/calibre", branch = "main" }
 abstract_lef = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/abstract_lef.git", branch = "master", optional = true }
 liberate_mx = { git = "https://github.com/rahulk29/liberate-mx.git", branch = "master", optional = true }
 tera = "1.17.1"
@@ -42,7 +42,7 @@ approx = "0.5.1"
 paste = "1.0"
 
 [features]
-commercial = ["dep:calibre", "dep:abstract_lef", "dep:liberate_mx", "dep:spectre"]
+commercial = ["calibre/commercial", "dep:abstract_lef", "dep:liberate_mx", "dep:spectre"]
 
 default = []
 

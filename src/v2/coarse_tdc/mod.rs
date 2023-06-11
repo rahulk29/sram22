@@ -293,4 +293,13 @@ mod tests {
         ctx.write_simulation::<CoarseTdcTb>(&TDC_TB_PARAMS, work_dir)
             .expect("failed to run simulation");
     }
+
+    #[test]
+    #[ignore = "slow"]
+    fn test_coarse_tdc_sim() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_coarse_tdc_sim");
+        ctx.write_simulation::<CoarseTdcTb>(&TDC_TB_PARAMS, work_dir)
+            .expect("failed to run simulation");
+    }
 }

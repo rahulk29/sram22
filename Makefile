@@ -1,4 +1,4 @@
-.PHONY: lint lint-fix format test alltest devtest check install-all install
+.PHONY: lint lint-fix format test alltest check install-all install
 
 lint:
 	cargo clippy --all-features --all-targets -- -D warnings

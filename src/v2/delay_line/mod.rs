@@ -813,6 +813,13 @@ mod tests {
             out_spice(&work_dir, "schematic"),
         )
         .expect("failed to write schematic");
+    }
+
+    #[test]
+    #[ignore = "slow"]
+    fn test_naive_delay_line_tgate_sim() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_naive_delay_line_tgate_sim");
         ctx.write_simulation::<DelayLineTb>(&NAIVE_DELAY_LINE_TGATE_TB_PARAMS, work_dir)
             .expect("failed to run simulation");
     }
@@ -826,6 +833,13 @@ mod tests {
             out_spice(&work_dir, "schematic"),
         )
         .expect("failed to write schematic");
+    }
+
+    #[test]
+    #[ignore = "slow"]
+    fn test_naive_delay_line_tristate_sim() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_naive_delay_line_tristate_sim");
         ctx.write_simulation::<DelayLineTb>(&NAIVE_DELAY_LINE_TRISTATE_TB_PARAMS, work_dir)
             .expect("failed to run simulation");
     }
@@ -922,6 +936,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "slow"]
     fn test_tb_tristate_inv_delay_line() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_tb_tristate_inv_delay_line");
