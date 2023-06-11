@@ -64,3 +64,5 @@ jobs:
         shell: bash
         run: |
           make test
+        env:
+          SKY130_OPEN_PDK_ROOT: ${{ github.workspace }}/skywater-pdk
