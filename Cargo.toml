@@ -51,5 +51,3 @@ calibre = ["calibre/commercial"]
 
 default = []
 
-[profile.release]
-codegen-units = 1
