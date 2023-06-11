@@ -49,7 +49,6 @@ jobs:
           components: clippy
       - name: Cache workspace
         uses: Swatinem/rust-cache@v2
-        working-directory: sram22
         with:
           key: ${{ steps.toolchain.outputs.cachekey }}
       - name: Check formatting
