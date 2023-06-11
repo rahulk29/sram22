@@ -51,6 +51,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ steps.toolchain.outputs.cachekey }}
+      - name: Switch to public Cargo.toml
+        working-directory: sram22
+        run: |
+          mv Cargo.public.toml Cargo.toml
       - name: Check formatting
         working-directory: sram22
         run: |
