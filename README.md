@@ -87,7 +87,7 @@ If you have access to proprietary tools (eg. Calibre, Spectre, etc.) and would l
 to the SRAM22 plugins for those tools, please contact us.
 
 The number of rows in the SRAM bitcell array is `num_words / mux_ratio`.
-The number of columns in the array is `num_words * mux_ratio`.
+The number of columns in the array is `data_width * mux_ratio`.
 
 A valid configuration must have:
 * A `mux_ratio` of 4 or 8
