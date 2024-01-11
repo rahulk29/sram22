@@ -5,6 +5,15 @@
 SRAM22 parametrically generates SRAM blocks. At the moment, we only support the SKY130 process.
 SRAM22 is still a work in progress.
 
+### Dependencies
+
+In order to use SRAM22, your system will need to have the following components:
+
+- Rust (SRAM22 is tested with version 1.70.0)
+- Make
+- A local copy of our [slightly modified version of the SKY 130 PDK](https://github.com/ucb-substrate/skywater-pdk). 
+You will also need to set the environment variable `SKY130_OPEN_PDK_ROOT` to point to the location of the repo.
+
 ### Installation
 
 #### BWRC
@@ -97,13 +106,6 @@ A valid configuration must have:
 * At least 16 columns
 * `control`: Must be `"ReplicaV2"`.
 * `pex_level`: Must be `"r"`, `"c"`, `"rc"`, or `"rcc"`. If you do not have commercial plugins enabled, this option will be ignored.
-
-### Dependencies
-
-In order to use SRAM22, your system will need to have the following components:
-
-- Rust (SRAM22 is tested with version 1.70.0)
-- Make
 
 ### Contribution
 
