@@ -5,6 +5,19 @@
 SRAM22 parametrically generates SRAM blocks. At the moment, we only support the SKY130 process.
 SRAM22 is still a work in progress.
 
+### Dependencies
+
+In order to use SRAM22, your system will need to have the following components:
+
+- Rust (SRAM22 is tested with version 1.70.0)
+- Make
+- A local clone of our [slightly modified version of the SKY 130 PDK](https://github.com/ucb-substrate/skywater-pdk). 
+You will also need to set the environment variable `SKY130_OPEN_PDK_ROOT` to the absolute path of the local PDK's root directory.
+Substrate uses standard cells from the `sky130_fd_sc_hd` library, so you will also need to run the following from the PDK root directory:
+    ```
+    git submodule update --init libraries/sky130_fd_sc_hd/latest
+    ```
+
 ### Installation
 
 #### BWRC
@@ -65,8 +78,8 @@ SRAM22 generates memory blocks based on a TOML configuration file. An example co
 ```toml
 num_words = 64
 data_width = 32
-mux_ratio = 2
-write_size = 32
+mux_ratio = 4
+write_size = 8
 control = "ReplicaV2"
 # The `pex_level` flag is only available with a full installation.
 pex_level = "rcc"
@@ -87,7 +100,7 @@ If you have access to proprietary tools (eg. Calibre, Spectre, etc.) and would l
 to the SRAM22 plugins for those tools, please contact us.
 
 The number of rows in the SRAM bitcell array is `num_words / mux_ratio`.
-The number of columns in the array is `num_words * mux_ratio`.
+The number of columns in the array is `data_width * mux_ratio`.
 
 A valid configuration must have:
 * A `mux_ratio` of 4 or 8
@@ -97,13 +110,6 @@ A valid configuration must have:
 * At least 16 columns
 * `control`: Must be `"ReplicaV2"`.
 * `pex_level`: Must be `"r"`, `"c"`, `"rc"`, or `"rcc"`. If you do not have commercial plugins enabled, this option will be ignored.
-
-### Dependencies
-
-In order to use SRAM22, your system will need to have the following components:
-
-- Rust (SRAM22 is tested with version 1.70.0)
-- Make
 
 ### Contribution
 
