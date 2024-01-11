@@ -15,7 +15,7 @@ In order to use SRAM22, your system will need to have the following components:
 You will also need to set the environment variable `SKY130_OPEN_PDK_ROOT` to the absolute path of the local PDK's root directory.
 Substrate uses standard cells from the `sky130_fd_sc_hd` library, so you will also need to run the following from the PDK root directory:
     ```
-    git update --init libraries/sky130_fd_sc_hd/latest
+    git submodule update --init libraries/sky130_fd_sc_hd/latest
     ```
 
 ### Installation
