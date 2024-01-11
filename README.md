@@ -65,8 +65,8 @@ SRAM22 generates memory blocks based on a TOML configuration file. An example co
 ```toml
 num_words = 64
 data_width = 32
-mux_ratio = 2
-write_size = 32
+mux_ratio = 4
+write_size = 8
 control = "ReplicaV2"
 # The `pex_level` flag is only available with a full installation.
 pex_level = "rcc"
