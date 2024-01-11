@@ -11,8 +11,12 @@ In order to use SRAM22, your system will need to have the following components:
 
 - Rust (SRAM22 is tested with version 1.70.0)
 - Make
-- A local copy of our [slightly modified version of the SKY 130 PDK](https://github.com/ucb-substrate/skywater-pdk). 
+- A local clone of our [slightly modified version of the SKY 130 PDK](https://github.com/ucb-substrate/skywater-pdk). 
 You will also need to set the environment variable `SKY130_OPEN_PDK_ROOT` to the absolute path of the local PDK's root directory.
+Substrate uses standard cells from the `sky130_fd_sc_hd` library, so you will also need to run the following from the PDK root directory:
+    ```
+    git update --init libraries/sky130_fd_sc_hd/latest
+    ```
 
 ### Installation
 
