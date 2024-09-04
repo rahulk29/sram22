@@ -3,6 +3,26 @@
 version = 3
 
 [[package]]
+name = "abstract_lef"
+version = "0.0.2"
+source = "git+https://github.com/rahulk29/abstract-lef.git?branch=main#df25290c51ddd069e06729a4c0740aa5d5029c19"
+dependencies = [
+ "abstract_lef 0.1.0",
+]
+
+[[package]]
+name = "abstract_lef"
+version = "0.1.0"
+source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/abstract_lef.git?branch=master#a8a2b44e2bc00420fd0af5f4803fbf7437f19f58"
+dependencies = [
+ "derive_builder 0.11.2",
+ "lazy_static",
+ "serde",
+ "tera",
+ "thiserror",
+]
+
+[[package]]
 name = "ahash"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -206,6 +226,26 @@ name = "byteorder"
 version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
+
+[[package]]
+name = "calibre"
+version = "0.0.2"
+source = "git+https://github.com/rahulk29/calibre?branch=main#171e7a9f5586d3932c9204cfc7c1b7abc213eb9d"
+dependencies = [
+ "calibre 0.1.0",
+]
+
+[[package]]
+name = "calibre"
+version = "0.1.0"
+source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git?branch=master#fbaa22d02fd70566c5a0f4288f0fa8059651207d"
+dependencies = [
+ "anyhow",
+ "lazy_static",
+ "regex",
+ "serde",
+ "tera",
+]
 
 [[package]]
 name = "cc"
@@ -491,11 +531,20 @@ dependencies = [
 
 [[package]]
 name = "derive_builder"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d07adf7be193b71cc36b193d0f5fe60b918a3a9db4dad0449f57bcfd519704a3"
+dependencies = [
+ "derive_builder_macro 0.11.2",
+]
+
+[[package]]
+name = "derive_builder"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d67778784b508018359cbc8696edb3db78160bab2c2a28ba7f56ef6932997f8"
 dependencies = [
- "derive_builder_macro",
+ "derive_builder_macro 0.12.0",
 ]
 
 [[package]]
@@ -512,6 +561,18 @@ dependencies = [
 
 [[package]]
 name = "derive_builder_core"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f91d4cfa921f1c05904dc3c57b4a32c38aed3340cce209f3a6fd1478babafc4"
+dependencies = [
+ "darling 0.14.4",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "derive_builder_core"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c11bdc11a0c47bc7d37d582b5285da6849c96681023680b906673c5707af7b0f"
@@ -519,6 +580,16 @@ dependencies = [
  "darling 0.14.4",
  "proc-macro2",
  "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "derive_builder_macro"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f0314b72bed045f3a68671b3c86328386762c93f82d98c65c3cb5e5f573dd68"
+dependencies = [
+ "derive_builder_core 0.11.2",
  "syn 1.0.109",
 ]
 
@@ -929,6 +1000,18 @@ name = "libc"
 version = "0.2.146"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f92be4933c13fd498862a9e02a3055f8a8d9c039ce33db97306fd5a6caa7f29b"
+
+[[package]]
+name = "liberate_mx"
+version = "0.1.0"
+source = "git+https://github.com/rahulk29/liberate-mx.git?branch=master#3437f35cd94ab235ff8d3a4dabf4693adda7cc67"
+dependencies = [
+ "derive_builder 0.12.0",
+ "lazy_static",
+ "serde",
+ "tera",
+ "thiserror",
+]
 
 [[package]]
 name = "libm"
@@ -1527,6 +1610,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bd3e3206899af3f8b12af284fafc038cc1dc2b41d1b89dd17297221c5d225de"
 
 [[package]]
+name = "sky130_commercial_pdk"
+version = "0.1.0"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
+dependencies = [
+ "arcstr",
+ "sky130_common_pdk",
+ "substrate",
+]
+
+[[package]]
 name = "sky130_common_pdk"
 version = "0.1.0"
 source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
@@ -1578,6 +1671,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f67ad224767faa3c7d8b6d91985b78e70a1324408abcb1cfcc2be4c06bc06043"
 
 [[package]]
+name = "spectre"
+version = "0.1.0"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
+dependencies = [
+ "anyhow",
+ "lazy_static",
+ "log",
+ "psfparser",
+ "serde",
+ "spice_rawfile",
+ "substrate",
+ "tera",
+]
+
+[[package]]
 name = "spice_rawfile"
 version = "0.0.1"
 source = "git+https://github.com/substrate-labs/substrate?branch=main#82a793a776fb76e033a86367d15251cbd70d3448"
@@ -1597,9 +1705,11 @@ checksum = "345f11dca845086e60f1076569dedb4c2026e8dfe420d2900de8683142480bcf"
 name = "sram22"
 version = "0.2.0"
 dependencies = [
+ "abstract_lef 0.0.2",
  "anyhow",
  "approx",
  "arcstr",
+ "calibre 0.0.2",
  "clap",
  "codegen",
  "colored",
@@ -1608,13 +1718,17 @@ dependencies = [
  "indicatif",
  "itertools",
  "lazy_static",
+ "liberate_mx",
  "log",
  "ngspice",
  "paste",
  "psfparser",
  "serde",
  "serde_json",
+ "sky130_commercial_pdk",
  "sky130_open_pdk",
+ "spectre",
+ "sub_calibre 0.0.2",
  "subgeom",
  "substrate",
  "tempfile",
@@ -1643,6 +1757,25 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
+
+[[package]]
+name = "sub_calibre"
+version = "0.0.1"
+source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rohankumar/substrate_mentor_plugins.git?branch=main#e091d657d90bf51b5fb3ba73a1fc615d0079846b"
+dependencies = [
+ "arcstr",
+ "calibre 0.1.0",
+ "derive_builder 0.12.0",
+ "substrate",
+]
+
+[[package]]
+name = "sub_calibre"
+version = "0.0.2"
+source = "git+https://github.com/rahulk29/substrate_mentor_plugins?branch=main#2e00094b06e3f79e654a6ddc1403d81b6d709ef6"
+dependencies = [
+ "sub_calibre 0.0.1",
+]
 
 [[package]]
 name = "subgeom"

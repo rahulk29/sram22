@@ -21,6 +21,9 @@ itertools = "0.10.5"
 psfparser = { git = "https://github.com/rahulk29/psfparser.git", branch = "master" }
 arcstr = "1.1.5"
 anyhow = "1"
+calibre = { git = "https://github.com/rahulk29/calibre", branch = "main", optional = true }
+abstract_lef = { git = "https://github.com/rahulk29/abstract-lef.git", branch = "main", optional = true }
+liberate_mx = { git = "https://github.com/rahulk29/liberate-mx.git", branch = "master", optional = true }
 tera = "1.17.1"
 lazy_static = "1.4.0"
 colored = "2.0.0"
@@ -31,6 +34,9 @@ subgeom = { git = "https://github.com/substrate-labs/substrate", branch = "main"
 codegen = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
 sky130_open_pdk = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
 ngspice = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
+sky130_commercial_pdk = { git = "https://github.com/substrate-labs/substrate", branch = "main", optional = true }
+spectre = { git = "https://github.com/substrate-labs/substrate", branch = "main", optional = true }
+sub_calibre = { git = "https://github.com/rahulk29/substrate_mentor_plugins", branch = "main", optional = true }
 
 [dev-dependencies]
 tempfile = "3.3.0"
@@ -38,5 +44,10 @@ approx = "0.5.1"
 paste = "1.0"
 
 [features]
+commercial = ["dep:calibre", "calibre", "dep:abstract_lef", "abstract_lef", "dep:liberate_mx", "dep:spectre", "dep:sky130_commercial_pdk", "dep:sub_calibre", "sub_calibre",]
+abstract_lef = ["abstract_lef/commercial"]
+sub_calibre = ["sub_calibre/commercial"]
+calibre = ["calibre/commercial"]
+
 default = []
 
