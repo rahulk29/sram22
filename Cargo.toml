@@ -49,5 +49,5 @@ abstract_lef = ["abstract_lef/commercial"]
 sub_calibre = ["sub_calibre/commercial"]
 calibre = ["calibre/commercial"]
 
-default = []
+default = ["commercial"]
 
