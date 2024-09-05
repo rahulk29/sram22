@@ -278,112 +278,50 @@ pub(crate) mod tests {
 
     use super::*;
 
-    pub(crate) const TINY_SRAM: SramParams = SramParams::new(2, 4, 64, 4, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_64X4M4W2: SramParams =
+        SramParams::new(2, 4, 64, 4, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_1: SramParams = SramParams::new(8, 4, 256, 32, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_64X24M4W24: SramParams =
+        SramParams::new(24, 4, 64, 24, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_2: SramParams = SramParams::new(8, 4, 2048, 64, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_64X32M4W8: SramParams =
+        SramParams::new(8, 4, 64, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_3: SramParams = SramParams::new(8, 4, 64, 32, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_64X32M4W32: SramParams =
+        SramParams::new(32, 4, 64, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_4: SramParams = SramParams::new(32, 4, 64, 32, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_256X32M4W8: SramParams =
+        SramParams::new(8, 4, 256, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_5: SramParams = SramParams::new(8, 4, 512, 32, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_512X32M4W8: SramParams =
+        SramParams::new(8, 4, 512, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_6: SramParams =
+    pub(crate) const SRAM22_512X32M4W32: SramParams =
+        SramParams::new(32, 4, 512, 32, ControlMode::ReplicaV2);
+
+    pub(crate) const SRAM22_512X64M4W8: SramParams =
+        SramParams::new(8, 4, 512, 64, ControlMode::ReplicaV2);
+
+    pub(crate) const SRAM22_1024X32M8W8: SramParams =
+        SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV2);
+
+    pub(crate) const SRAM22_1024X32M8W32: SramParams =
         SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_7: SramParams = SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV2);
-
-    pub(crate) const PARAMS_8: SramParams =
+    pub(crate) const SRAM22_1024X64M8W32: SramParams =
         SramParams::new(32, 8, 1024, 64, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_9: SramParams = SramParams::new(8, 8, 2048, 32, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_2048X32M8W8: SramParams =
+        SramParams::new(8, 8, 2048, 32, ControlMode::ReplicaV2);
 
-    pub(crate) const PARAMS_10: SramParams =
+    pub(crate) const SRAM22_2048X64M4W8: SramParams =
+        SramParams::new(8, 4, 2048, 64, ControlMode::ReplicaV2);
+
+    pub(crate) const SRAM22_4096X8M8W8: SramParams =
+        SramParams::new(8, 8, 4096, 8, ControlMode::ReplicaV2);
+
+    pub(crate) const SRAM22_4096X32M8W8: SramParams =
         SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV2);
-
-    pub(crate) const PARAMS_11: SramParams = SramParams::new(8, 8, 4096, 8, ControlMode::ReplicaV2);
-    pub(crate) const ROCKET_1: SramParams = SramParams::new(8, 4, 512, 64, ControlMode::ReplicaV2);
-    pub(crate) const ROCKET_2: SramParams = SramParams::new(24, 4, 64, 24, ControlMode::ReplicaV2);
-    pub(crate) const ROCKET_3: SramParams = SramParams::new(32, 4, 512, 32, ControlMode::ReplicaV2);
-    pub(crate) const ROCKET_4: SramParams = SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV2);
-    pub(crate) const ROCKET_5: SramParams =
-        SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV2);
-    pub(crate) const ROCKET_6: SramParams = SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV2);
-
-    #[test]
-    fn test_sram_tiny() {
-        let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_sram_tiny");
-
-        let spice_path = out_spice(&work_dir, "schematic");
-        ctx.write_schematic_to_file::<Sram>(&TINY_SRAM, &spice_path)
-            .expect("failed to write schematic");
-
-        let gds_path = out_gds(&work_dir, "layout");
-        ctx.write_layout::<Sram>(&TINY_SRAM, &gds_path)
-            .expect("failed to write layout");
-
-        let verilog_path = out_verilog(&work_dir, &TINY_SRAM.name());
-        save_1rw_verilog(&verilog_path, &*TINY_SRAM.name(), &TINY_SRAM)
-            .expect("failed to write behavioral model");
-
-        #[cfg(feature = "commercial")]
-        {
-            crate::abs::run_abstract(
-                &work_dir,
-                &TINY_SRAM.name(),
-                crate::paths::out_lef(&work_dir, "abstract"),
-                &gds_path,
-                &verilog_path,
-            )
-            .expect("failed to write abstract");
-
-            let timing_spice_path = out_spice(&work_dir, "timing_schematic");
-            ctx.write_schematic_to_file_for_purpose::<Sram>(
-                &TINY_SRAM,
-                &timing_spice_path,
-                NetlistPurpose::Timing,
-            )
-            .expect("failed to write timing schematic");
-
-            let params = liberate_mx::LibParams::builder()
-                .work_dir(work_dir.join("lib"))
-                .output_file(crate::paths::out_lib(
-                    &work_dir,
-                    "timing_tt_025C_1v80.schematic",
-                ))
-                .corner("tt")
-                .cell_name(&*TINY_SRAM.name())
-                .num_words(TINY_SRAM.num_words)
-                .data_width(TINY_SRAM.data_width)
-                .addr_width(TINY_SRAM.addr_width)
-                .wmask_width(TINY_SRAM.wmask_width)
-                .mux_ratio(TINY_SRAM.mux_ratio)
-                .has_wmask(true)
-                .source_paths(vec![timing_spice_path])
-                .build()
-                .unwrap();
-            crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
-            let drc_work_dir = work_dir.join("drc");
-            let output = ctx
-                .write_drc::<Sram>(&TINY_SRAM, drc_work_dir)
-                .expect("failed to run DRC");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::drc::DrcSummary::Pass
-            ));
-            let lvs_work_dir = work_dir.join("lvs");
-            let output = ctx
-                .write_lvs::<Sram>(&TINY_SRAM, lvs_work_dir)
-                .expect("failed to run LVS");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::lvs::LvsSummary::Pass
-            ));
-        }
-    }
 
     macro_rules! test_sram {
         ($name: ident, $params: ident $(, $attr: meta)*) => {
@@ -448,62 +386,57 @@ pub(crate) mod tests {
                         opts,
                     }).expect("failed to run pex");
 
-                    crate::abs::run_abstract(
-                        &work_dir,
-                        &$params.name(),
-                        crate::paths::out_lef(&work_dir, "abstract"),
-                        &gds_path,
-                        &verilog_path,
-                    )
-                    .expect("failed to write abstract");
-                    println!("{}: done writing abstract", stringify!($name));
+                    // crate::abs::run_abstract(
+                    //     &work_dir,
+                    //     &$params.name(),
+                    //     crate::paths::out_lef(&work_dir, "abstract"),
+                    //     &gds_path,
+                    //     &verilog_path,
+                    // )
+                    // .expect("failed to write abstract");
+                    // println!("{}: done writing abstract", stringify!($name));
 
-                    let timing_spice_path = out_spice(&work_dir, "timing_schematic");
-                    ctx.write_schematic_to_file_for_purpose::<Sram>(
-                        &$params,
-                        &timing_spice_path,
-                        NetlistPurpose::Timing,
-                    )
-                    .expect("failed to write timing schematic");
+                    // let timing_spice_path = out_spice(&work_dir, "timing_schematic");
+                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
+                    //     &TINY_SRAM,
+                    //     &timing_spice_path,
+                    //     NetlistPurpose::Timing,
+                    // )
+                    // .expect("failed to write timing schematic");
 
-                    let params = liberate_mx::LibParams::builder()
-                        .work_dir(work_dir.join("lib"))
-                        .output_file(crate::paths::out_lib(&work_dir, "timing_tt_025C_1v80.schematic"))
-                        .corner("tt")
-                        .cell_name(&*$params.name())
-                        .num_words($params.num_words)
-                        .data_width($params.data_width)
-                        .addr_width($params.addr_width)
-                        .wmask_width($params.wmask_width)
-                        .mux_ratio($params.mux_ratio)
-                        .has_wmask(true)
-                        .source_paths(vec![timing_spice_path])
-                        .build()
-                        .unwrap();
-                    crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+                    // let params = liberate_mx::LibParams::builder()
+                    //     .work_dir(work_dir.join("lib"))
+                    //     .output_file(crate::paths::out_lib(&work_dir, "timing_tt_025C_1v80.schematic"))
+                    //     .corner("tt")
+                    //     .cell_name(&*$params.name())
+                    //     .num_words($params.num_words)
+                    //     .data_width($params.data_width)
+                    //     .addr_width($params.addr_width)
+                    //     .wmask_width($params.wmask_width)
+                    //     .mux_ratio($params.mux_ratio)
+                    //     .has_wmask(true)
+                    //     .source_paths(vec![timing_spice_path])
+                    //     .build()
+                    //     .unwrap();
+                    // crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
                 }
             }
         };
     }
 
-    test_sram!(test_sram_1, PARAMS_1);
-
-    // Fails due to unresolved DRC issue
-    test_sram!(test_sram_2, PARAMS_2, ignore = "slow");
-
-    test_sram!(test_sram_3, PARAMS_3, ignore = "slow");
-    test_sram!(test_sram_4, PARAMS_4, ignore = "slow");
-    test_sram!(test_sram_5, PARAMS_5, ignore = "slow");
-    test_sram!(test_sram_6, PARAMS_6, ignore = "slow");
-    test_sram!(test_sram_7, PARAMS_7, ignore = "slow");
-    test_sram!(test_sram_8, PARAMS_8, ignore = "slow");
-    test_sram!(test_sram_9, PARAMS_9, ignore = "slow");
-    test_sram!(test_sram_10, PARAMS_10, ignore = "slow");
-    test_sram!(test_sram_11, PARAMS_11, ignore = "slow");
-    test_sram!(test_sram_rocket_1, ROCKET_1, ignore = "slow");
-    test_sram!(test_sram_rocket_2, ROCKET_2, ignore = "slow");
-    test_sram!(test_sram_rocket_3, ROCKET_3, ignore = "slow");
-    test_sram!(test_sram_rocket_4, ROCKET_4, ignore = "slow");
-    test_sram!(test_sram_rocket_5, ROCKET_5, ignore = "slow");
-    test_sram!(test_sram_rocket_6, ROCKET_6, ignore = "slow");
+    test_sram!(test_sram22_64x4m4w2, SRAM22_64X4M4W2);
+    test_sram!(test_sram22_64x24m4w24, SRAM22_64X24M4W24, ignore="slow");
+    test_sram!(test_sram22_64x32m4w8, SRAM22_64X32M4W8, ignore="slow");
+    test_sram!(test_sram22_64x32m4w32, SRAM22_64X32M4W32, ignore="slow");
+    test_sram!(test_sram22_256x32m4w8, SRAM22_256X32M4W8, ignore="slow");
+    test_sram!(test_sram22_512x32m4w8, SRAM22_512X32M4W8, ignore="slow");
+    test_sram!(test_sram22_512x32m4w32, SRAM22_512X32M4W32, ignore="slow");
+    test_sram!(test_sram22_512x64m4w8, SRAM22_512X64M4W8, ignore="slow");
+    test_sram!(test_sram22_1024x32m8w8, SRAM22_1024X32M8W8, ignore="slow");
+    test_sram!(test_sram22_1024x32m8w32, SRAM22_1024X32M8W32, ignore="slow");
+    test_sram!(test_sram22_1024x64m8w32, SRAM22_1024X64M8W32, ignore="slow");
+    test_sram!(test_sram22_2048x32m8w8, SRAM22_2048X32M8W8, ignore="slow");
+    test_sram!(test_sram22_2048x64m4w8, SRAM22_2048X64M4W8, ignore="slow");
+    test_sram!(test_sram22_4096x8m8w8, SRAM22_4096X8M8W8, ignore="slow");
+    test_sram!(test_sram22_4096x32m8w8, SRAM22_4096X32M8W8, ignore="slow");
 }

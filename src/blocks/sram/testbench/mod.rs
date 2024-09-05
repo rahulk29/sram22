@@ -479,21 +479,29 @@ mod tests {
         }
     }
 
-    #[test]
-    #[ignore = "slow"]
-    fn test_sram_tb_tiny() {
-        test_sram("test_sram_tb_tiny", TINY_SRAM);
+    macro_rules! test_tb_sram {
+        ($name: ident, $params: ident) => {
+            #[test]
+            #[ignore = "slow"]
+            fn $name() {
+                test_sram(stringify!($name), $params);
+            }
+        }
     }
 
-    #[test]
-    #[ignore = "slow"]
-    fn test_sram_tb_1() {
-        test_sram("test_sram_tb_1", PARAMS_1);
-    }
-
-    #[test]
-    #[ignore = "slow"]
-    fn test_sram_tb_2() {
-        test_sram("test_sram_tb_2", PARAMS_2);
-    }
+    test_tb_sram!(test_tb_sram22_64x4m4w2, SRAM22_64X4M4W2);
+    test_tb_sram!(test_tb_sram22_64x24m4w24, SRAM22_64X24M4W24);
+    test_tb_sram!(test_tb_sram22_64x32m4w8, SRAM22_64X32M4W8);
+    test_tb_sram!(test_tb_sram22_64x32m4w32, SRAM22_64X32M4W32);
+    test_tb_sram!(test_tb_sram22_256x32m4w8, SRAM22_256X32M4W8);
+    test_tb_sram!(test_tb_sram22_512x32m4w8, SRAM22_512X32M4W8);
+    test_tb_sram!(test_tb_sram22_512x32m4w32, SRAM22_512X32M4W32);
+    test_tb_sram!(test_tb_sram22_512x64m4w8, SRAM22_512X64M4W8);
+    test_tb_sram!(test_tb_sram22_1024x32m8w8, SRAM22_1024X32M8W8);
+    test_tb_sram!(test_tb_sram22_1024x32m8w32, SRAM22_1024X32M8W32);
+    test_tb_sram!(test_tb_sram22_1024x64m8w32, SRAM22_1024X64M8W32);
+    test_tb_sram!(test_tb_sram22_2048x32m8w8, SRAM22_2048X32M8W8);
+    test_tb_sram!(test_tb_sram22_2048x64m4w8, SRAM22_2048X64M4W8);
+    test_tb_sram!(test_tb_sram22_4096x8m8w8, SRAM22_4096X8M8W8);
+    test_tb_sram!(test_tb_sram22_4096x32m8w8, SRAM22_4096X32M8W8);
 }
