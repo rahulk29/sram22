@@ -340,7 +340,7 @@ pub fn tb_params(params: SramParams, vdd: f64, short: bool) -> TbParams {
                 ops.push(Op::WriteMasked {
                     addr: BitSignal::from_u64(i, addr_width),
                     data: BitSignal::from_u64(bits, data_width),
-                    mask: BitSignal::from_u64(bit_pattern1, wmask_width),
+                    mask: BitSignal::from_u64(bit_pattern1 + i * 0b10110010111, wmask_width),
                 });
             }
             for i in 0..16 {
@@ -424,60 +424,84 @@ impl Testbench for SramTestbench {
 
 #[cfg(test)]
 mod tests {
-    use std::env;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
+    use std::env;
 
     use super::super::tests::*;
     use super::*;
 
     fn test_sram(name: &str, params: SramParams) {
-        unsafe {
-            env::set_var("SPECTRE_FLAGS", "+preset=mx +postlpreset=mx +logstatus +mt=32 -64 +error +warn +note");
-        }
+        env::set_var(
+            "SPECTRE_FLAGS",
+            "+preset=mx +postlpreset=mx +logstatus +mt=8 -64 +error +warn +note",
+        );
         let ctx = setup_ctx();
         let corners = ctx.corner_db();
 
         let short = false;
         let short_str = if short { "short" } else { "long" };
 
+        let mut handles = Vec::new();
         for vdd in [1.8, 1.5, 2.0] {
-            let tb = tb_params(params.clone(), vdd, short);
             for corner in corners.corners() {
-                println!(
-                    "Testing corner {} with Vdd = {}, short = {}",
-                    corner.name(),
-                    vdd,
-                    short
-                );
-                let work_dir = test_work_dir(&format!(
-                    "{}_limited/{}_{:.2}_{}",
-                    name,
-                    corner.name(),
-                    vdd,
-                    short_str
-                ));
-                ctx.write_simulation_with_corner::<SramTestbench>(&tb, &work_dir, corner.clone())
+                let corner = corner.clone();
+                let params = params.clone();
+                let name = name.to_string();
+                handles.push(std::thread::spawn(move || {
+                    let ctx = setup_ctx();
+                    let tb = tb_params(params, vdd, short);
+                    let work_dir = test_work_dir(&format!(
+                        "{}_limited/{}_{:.2}_{}",
+                        name,
+                        corner.name(),
+                        vdd,
+                        short_str
+                    ));
+                    ctx.write_simulation_with_corner::<SramTestbench>(
+                        &tb,
+                        &work_dir,
+                        corner.clone(),
+                    )
                     .expect("failed to run simulation");
+                    println!(
+                        "Simulated corner {} with Vdd = {}, short = {}",
+                        corner.name(),
+                        vdd,
+                        short
+                    );
+                }));
+            }
+        }
+
+        for h in handles {
+            h.join().expect("failed to join on thread");
+        }
+    }
+
+    macro_rules! test_tb_sram {
+        ($name: ident, $params: ident) => {
+            #[test]
+            #[ignore = "slow"]
+            fn $name() {
+                test_sram(stringify!($name), $params);
             }
         }
     }
 
-    #[test]
-    #[ignore = "slow"]
-    fn test_sram_tb_tiny() {
-        test_sram("test_sram_tb_tiny", TINY_SRAM);
-    }
-
-    #[test]
-    #[ignore = "slow"]
-    fn test_sram_tb_1() {
-        test_sram("test_sram_tb_1", PARAMS_1);
-    }
-
-    #[test]
-    #[ignore = "slow"]
-    fn test_sram_tb_2() {
-        test_sram("test_sram_tb_2", PARAMS_2);
-    }
+    test_tb_sram!(test_tb_sram22_64x4m4w2, SRAM22_64X4M4W2);
+    test_tb_sram!(test_tb_sram22_64x24m4w24, SRAM22_64X24M4W24);
+    test_tb_sram!(test_tb_sram22_64x32m4w8, SRAM22_64X32M4W8);
+    test_tb_sram!(test_tb_sram22_64x32m4w32, SRAM22_64X32M4W32);
+    test_tb_sram!(test_tb_sram22_256x32m4w8, SRAM22_256X32M4W8);
+    test_tb_sram!(test_tb_sram22_512x32m4w8, SRAM22_512X32M4W8);
+    test_tb_sram!(test_tb_sram22_512x32m4w32, SRAM22_512X32M4W32);
+    test_tb_sram!(test_tb_sram22_512x64m4w8, SRAM22_512X64M4W8);
+    test_tb_sram!(test_tb_sram22_1024x32m8w8, SRAM22_1024X32M8W8);
+    test_tb_sram!(test_tb_sram22_1024x32m8w32, SRAM22_1024X32M8W32);
+    test_tb_sram!(test_tb_sram22_1024x64m8w32, SRAM22_1024X64M8W32);
+    test_tb_sram!(test_tb_sram22_2048x32m8w8, SRAM22_2048X32M8W8);
+    test_tb_sram!(test_tb_sram22_2048x64m4w8, SRAM22_2048X64M4W8);
+    test_tb_sram!(test_tb_sram22_4096x8m8w8, SRAM22_4096X8M8W8);
+    test_tb_sram!(test_tb_sram22_4096x32m8w8, SRAM22_4096X32M8W8);
 }
