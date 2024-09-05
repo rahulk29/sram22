@@ -447,9 +447,12 @@ mod tests {
         let mut handles = Vec::new();
         for vdd in [1.8, 1.5, 2.0] {
             for corner in corners.corners() {
+                let corner = corner.clone();
+                let params = params.clone();
+                let name = name.to_string();
                 handles.push(std::thread::spawn(move || {
-                    let tb = tb_params(params.clone(), vdd, short);
-                    let ctx = ctx.clone();
+                    let ctx = setup_ctx();
+                    let tb = tb_params(params, vdd, short);
                     let work_dir = test_work_dir(&format!(
                         "{}_limited/{}_{:.2}_{}",
                         name,
