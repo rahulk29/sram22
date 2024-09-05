@@ -424,6 +424,7 @@ impl Testbench for SramTestbench {
 
 #[cfg(test)]
 mod tests {
+    use std::env;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -431,6 +432,9 @@ mod tests {
     use super::*;
 
     fn test_sram(name: &str, params: SramParams) {
+        unsafe {
+            env::set_var("SPECTRE_FLAGS", "+preset=mx +postlpreset=mx +logstatus +mt=32 -64 +error +warn +note");
+        }
         let ctx = setup_ctx();
         let corners = ctx.corner_db();
 
