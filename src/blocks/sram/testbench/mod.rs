@@ -340,7 +340,7 @@ pub fn tb_params(params: SramParams, vdd: f64, short: bool) -> TbParams {
                 ops.push(Op::WriteMasked {
                     addr: BitSignal::from_u64(i, addr_width),
                     data: BitSignal::from_u64(bits, data_width),
-                    mask: BitSignal::from_u64(bit_pattern1, wmask_width),
+                    mask: BitSignal::from_u64(bit_pattern1 + i * 0b10110010111, wmask_width),
                 });
             }
             for i in 0..16 {
@@ -424,16 +424,19 @@ impl Testbench for SramTestbench {
 
 #[cfg(test)]
 mod tests {
-    use std::env;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
+    use std::env;
 
     use super::super::tests::*;
     use super::*;
 
     fn test_sram(name: &str, params: SramParams) {
         unsafe {
-            env::set_var("SPECTRE_FLAGS", "+preset=mx +postlpreset=mx +logstatus +mt=32 -64 +error +warn +note");
+            env::set_var(
+                "SPECTRE_FLAGS",
+                "+preset=mx +postlpreset=mx +logstatus +mt=32 -64 +error +warn +note",
+            );
         }
         let ctx = setup_ctx();
         let corners = ctx.corner_db();
@@ -441,25 +444,37 @@ mod tests {
         let short = false;
         let short_str = if short { "short" } else { "long" };
 
+        let mut handles = Vec::new();
         for vdd in [1.8, 1.5, 2.0] {
-            let tb = tb_params(params.clone(), vdd, short);
             for corner in corners.corners() {
-                println!(
-                    "Testing corner {} with Vdd = {}, short = {}",
-                    corner.name(),
-                    vdd,
-                    short
-                );
-                let work_dir = test_work_dir(&format!(
-                    "{}_limited/{}_{:.2}_{}",
-                    name,
-                    corner.name(),
-                    vdd,
-                    short_str
-                ));
-                ctx.write_simulation_with_corner::<SramTestbench>(&tb, &work_dir, corner.clone())
+                handles.push(std::thread::spawn(move || {
+                    let tb = tb_params(params.clone(), vdd, short);
+                    let ctx = ctx.clone();
+                    let work_dir = test_work_dir(&format!(
+                        "{}_limited/{}_{:.2}_{}",
+                        name,
+                        corner.name(),
+                        vdd,
+                        short_str
+                    ));
+                    ctx.write_simulation_with_corner::<SramTestbench>(
+                        &tb,
+                        &work_dir,
+                        corner.clone(),
+                    )
                     .expect("failed to run simulation");
+                    println!(
+                        "Simulated corner {} with Vdd = {}, short = {}",
+                        corner.name(),
+                        vdd,
+                        short
+                    );
+                }));
             }
+        }
+
+        for h in handles {
+            h.join().expect("failed to join on thread");
         }
     }
 
