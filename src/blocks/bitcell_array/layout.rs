@@ -676,7 +676,7 @@ impl SpCellArray {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let hstrap_ratio = 8;
+        let hstrap_ratio = 4;
         let nx = self.params.cols / self.params.mux_ratio;
         let ny = self.params.rows / hstrap_ratio;
 
@@ -803,7 +803,7 @@ mod tests {
         let work_dir = test_work_dir("test_sp_cell_array_bottom");
         let tap_ratio = TapRatio {
             mux_ratio: 4,
-            hstrap_ratio: 8,
+            hstrap_ratio: 4,
         };
         ctx.write_layout::<SpCellArrayBottom>(&tap_ratio, out_gds(work_dir, "layout"))
             .expect("failed to write layout");

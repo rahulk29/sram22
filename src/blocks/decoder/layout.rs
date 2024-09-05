@@ -698,7 +698,7 @@ impl Script for LastBitDecoderPhysicalDesignScript {
         Ok(Self::Output {
             width: 1_580,
             tap_width: 1_580,
-            tap_period: 8,
+            tap_period: 4,
             stripe_metal,
             wire_metal,
             via_metals: vec![],
