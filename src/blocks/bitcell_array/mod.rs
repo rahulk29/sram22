@@ -26,7 +26,11 @@ impl Component for SpCellArray {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        if params.rows % 4 != 0 || params.cols % params.mux_ratio != 0 || params.rows == 0 || params.cols == 0 {
+        if params.rows % 4 != 0
+            || params.cols % params.mux_ratio != 0
+            || params.rows == 0
+            || params.cols == 0
+        {
             return Err(substrate::component::error::Error::InvalidParams.into());
         }
         Ok(Self { params: *params })

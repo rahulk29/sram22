@@ -1,9 +1,9 @@
 use substrate::error::Result;
 use substrate::index::IndexOwned;
+use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 use substrate::schematic::signal::Signal;
-use substrate::pdk::stdcell::StdCell;
 
 use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
 use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
@@ -45,7 +45,6 @@ impl SramInner {
         let wmux_sel = ctx.bus("wmux_sel", self.params.mux_ratio);
         let wmux_sel_b = ctx.bus("wmux_sel_b", self.params.mux_ratio);
 
-
         let stdcells = ctx.inner().std_cell_db();
         let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
 
@@ -57,13 +56,15 @@ impl SramInner {
             (wmask, self.params.wmask_width),
         ] {
             for i in 0..width {
-                ctx.instantiate::<StdCell>(&diode.id())?.with_connections([
-                    ("DIODE", port.index(i)),
-                    ("VPWR", vdd),
-                    ("VPB", vdd),
-                    ("VGND", vss),
-                    ("VNB", vss),
-                ]).add_to(ctx);
+                ctx.instantiate::<StdCell>(&diode.id())?
+                    .with_connections([
+                        ("DIODE", port.index(i)),
+                        ("VPWR", vdd),
+                        ("VPB", vdd),
+                        ("VGND", vss),
+                        ("VNB", vss),
+                    ])
+                    .add_to(ctx);
             }
         }
 

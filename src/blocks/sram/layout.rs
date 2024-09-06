@@ -560,13 +560,13 @@ impl SramInner {
         for (i, dst) in on_grid_bus.ports().enumerate() {
             let mut src = col_dec.port(PortId::new("decode_b", i))?.largest_rect(m0)?;
             let mut second_dir = {
-                        let side = if i % 2 == 0 { Side::Right } else { Side::Left };
-                        if and3_dec {
-                            !side
-                        } else {
-                            side
-                        }
-                    };
+                let side = if i % 2 == 0 { Side::Right } else { Side::Left };
+                if and3_dec {
+                    !side
+                } else {
+                    side
+                }
+            };
             let src_gridded = router.expand_to_grid(src, ExpandToGridStrategy::All);
             if (src_gridded.side(!second_dir) - src.side(!second_dir)).abs() <= 85 {
                 second_dir = !second_dir;
@@ -1059,7 +1059,10 @@ impl SramInner {
             ("dout", groups),
             ("din", groups),
             ("wmask", self.params.wmask_width),
-        ].into_iter().enumerate() {
+        ]
+        .into_iter()
+        .enumerate()
+        {
             for i in 0..width {
                 let port_id = PortId::new(port, i);
                 let rect = cols
@@ -1128,7 +1131,12 @@ impl SramInner {
                 }
 
                 let diode_port = diode.port("diode")?.largest_rect(m0)?;
-                let diode_via = ctx.instantiate::<Via>(&ViaParams::builder().layers(m0, m1).geometry(diode_port, rect).build())?;
+                let diode_via = ctx.instantiate::<Via>(
+                    &ViaParams::builder()
+                        .layers(m0, m1)
+                        .geometry(diode_port, rect)
+                        .build(),
+                )?;
                 ctx.draw(diode)?;
                 ctx.draw(diode_via)?;
 

@@ -441,10 +441,45 @@ pub(crate) mod tests {
                         layout_format: substrate::layout::LayoutFormat::Gds,
                         source_paths: vec![pex_path],
                         source_cell_name: $params.name().clone(),
-                        pex_netlist_path,
+                        pex_netlist_path: pex_netlist_path.clone(),
                         ground_net: "vss".to_string(),
                         opts,
                     }).expect("failed to run pex");
+
+                    let short = false;
+                    let short_str = if short { "short" } else { "long" };
+                    let corners = ctx.corner_db();
+                    let mut handles = Vec::new();
+                    for vdd in [1.8, 1.6, 2.0] {
+                        for corner in corners.corners() {
+                            let corner = corner.clone();
+                            let params = $params.clone();
+                            let pex_netlist = Some(pex_netlist_path.clone());
+                            let work_dir = work_dir.clone();
+                            handles.push(std::thread::spawn(move || {
+                                let ctx = setup_ctx();
+                                let tb = crate::blocks::sram::testbench::tb_params(params, vdd, short, pex_netlist);
+                                let work_dir = work_dir.join(format!(
+                                    "{}_{:.2}_{}",
+                                    corner.name(),
+                                    vdd,
+                                    short_str
+                                ));
+                                ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
+                                    &tb,
+                                    &work_dir,
+                                    corner.clone(),
+                                )
+                                .expect("failed to run simulation");
+                                println!(
+                                    "Simulated corner {} with Vdd = {}, short = {}",
+                                    corner.name(),
+                                    vdd,
+                                    short
+                                );
+                            }));
+                        }
+                    }
 
                     // crate::abs::run_abstract(
                     //     &work_dir,
