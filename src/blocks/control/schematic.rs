@@ -49,7 +49,7 @@ impl ControlLogicReplicaV2 {
         let inv = lib.try_cell_named("sky130_fd_sc_hd__inv_2")?;
         let and2 = lib.try_cell_named("sky130_fd_sc_hd__and2_2")?;
         let mux2 = lib.try_cell_named("sky130_fd_sc_hd__mux2_2")?;
-        let bufbuf = lib.try_cell_named("sky130_fd_sc_hd__bufbuf_16")?;
+        let bufbuf = lib.try_cell_named("sky130_fd_sc_hd__bufbuf_8")?;
 
         let nmos_id = ctx
             .mos_db()
