@@ -299,12 +299,16 @@ impl Component for SramPex {
     ) -> substrate::error::Result<()> {
         use std::fmt::Write;
 
-        let inner = ctx.instantiate::<Sram>(&self.params.params)?.named("xdut");
+        let inner = ctx.instantiate::<Sram>(&self.params.params)?.named("Xdut");
         let mut s = inner.name().to_string();
         for port in inner.ports()? {
             ctx.bus_port(port.name(), port.width(), port.direction());
             for i in 0..port.width() {
-                write!(&mut s, " {}[{}]", port.name(), i).unwrap();
+                if port.width > 1 {
+                    write!(&mut s, " {}[{}]", port.name(), i).unwrap();
+                } else {
+                    write!(&mut s, " {}", port.name()).unwrap();
+                }
             }
         }
         write!(&mut s, " {}", inner.module().local().unwrap().name()).unwrap();

@@ -429,14 +429,22 @@ impl Testbench for SramTestbench {
 
         let vdd = SiValue::with_precision(self.params.vdd, SiPrefix::Nano);
 
+        let sram_inst_path = if self.params.pex_netlist.is_some() {
+            "Xdut.Xdut.X0"
+        } else {
+            "Xdut.X0"
+        };
         for i in 0..self.params.sram.rows {
-            ctx.set_ic(format!("Xdut.X0.wl[{i}]"), SiValue::zero());
+            ctx.set_ic(format!("{sram_inst_path}.wl[{i}]"), SiValue::zero());
             for j in 0..self.params.sram.cols {
                 ctx.set_ic(
-                    format!("Xdut.X0.Xbitcell_array.Xcell_{i}_{j}.X0.Q"),
+                    format!("{sram_inst_path}.Xbitcell_array.Xcell_{i}_{j}.X0.Q"),
                     SiValue::zero(),
                 );
-                ctx.set_ic(format!("Xdut.X0.Xbitcell_array.Xcell_{i}_{j}.X0.QB"), vdd);
+                ctx.set_ic(
+                    format!("{sram_inst_path}.Xbitcell_array.Xcell_{i}_{j}.X0.QB"),
+                    vdd,
+                );
             }
         }
         Ok(())
