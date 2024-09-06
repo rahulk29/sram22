@@ -114,11 +114,7 @@ pub fn push_bus(
 fn generate_waveforms(params: &TbParams) -> TbWaveforms {
     let mut addr = vec![Waveform::with_initial_value(0f64); params.sram.addr_width];
     let mut din = vec![Waveform::with_initial_value(0f64); params.sram.data_width];
-    let wmask_bits = if params.sram.wmask_width > 1 {
-        params.sram.wmask_width
-    } else {
-        0
-    };
+    let wmask_bits = params.sram.wmask_width;
     let mut wmask = vec![Waveform::with_initial_value(0f64); wmask_bits];
     let mut clk = Waveform::with_initial_value(0f64);
     let mut we = Waveform::with_initial_value(0f64);
