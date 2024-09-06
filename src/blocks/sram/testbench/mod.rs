@@ -509,7 +509,7 @@ mod tests {
         .expect("failed to run pex");
 
         let mut handles = Vec::new();
-        for vdd in [1.8, 1.5, 2.0] {
+        for vdd in [1.8, 1.6, 2.0] {
             for corner in corners.corners() {
                 let corner = corner.clone();
                 let params = params.clone();
