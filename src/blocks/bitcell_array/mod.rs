@@ -26,7 +26,7 @@ impl Component for SpCellArray {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        if params.rows % 8 != 0 || params.cols % 8 != 0 || params.rows == 0 || params.cols == 0 {
+        if params.rows % 4 != 0 || params.cols % params.mux_ratio != 0 || params.rows == 0 || params.cols == 0 {
             return Err(substrate::component::error::Error::InvalidParams.into());
         }
         Ok(Self { params: *params })
@@ -374,7 +374,7 @@ mod tests {
         let work_dir = test_work_dir("test_sp_cell_array_tiles");
         let tap_ratio = TapRatio {
             mux_ratio: 4,
-            hstrap_ratio: 8,
+            hstrap_ratio: 4,
         };
         ctx.write_layout::<SpCellArrayCornerUl>(&NoParams, out_gds(&work_dir, "corner_ul"))
             .expect("failed to write layout");

@@ -3,13 +3,17 @@ use std::collections::{HashMap, VecDeque};
 use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
 use subgeom::{Corner, Dir, Point, Rect, Shape, Side, Sign, Span};
+use substrate::component::{Component, NoParams};
 use substrate::error::Result;
 use substrate::index::IndexOwned;
-use substrate::layout::cell::{CellPort, Instance, Port, PortId};
+use substrate::layout::cell::{CellPort, Instance, Port, PortConflictStrategy, PortId};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::layers::selector::Selector;
-use substrate::layout::placement::align::AlignRect;
+use substrate::layout::layers::LayerBoundBox;
+use substrate::layout::placement::align::{AlignMode, AlignRect};
+use substrate::layout::placement::array::ArrayTiler;
+use substrate::layout::placement::tile::LayerBbox;
 use substrate::layout::routing::auto::grid::{
     ExpandToGridStrategy, JogToGrid, OffGridBusTranslation, OffGridBusTranslationStrategy,
 };
@@ -19,6 +23,7 @@ use substrate::layout::routing::manual::jog::{ElbowJog, SJog};
 use substrate::layout::routing::tracks::{TrackLocator, UniformTracks};
 use substrate::layout::straps::SingleSupplyNet;
 use substrate::layout::Draw;
+use substrate::pdk::stdcell::StdCell;
 
 use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
 use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
@@ -33,6 +38,60 @@ use crate::blocks::gate::GateParams;
 use crate::blocks::precharge::layout::{ReplicaPrecharge, ReplicaPrechargeParams};
 
 use super::{ControlMode, SramInner};
+
+pub struct TappedDiode;
+
+impl Component for TappedDiode {
+    type Params = NoParams;
+    fn new(
+        _params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self)
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("tapped_diode")
+    }
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+        let outline = layers.get(Selector::Name("outline"))?;
+
+        let stdcells = ctx.inner().std_cell_db();
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
+
+        let tap = lib.try_cell_named("sky130_fd_sc_hd__tap_2")?;
+        let tap = ctx.instantiate::<StdCell>(&tap.id())?;
+        let tap = LayerBbox::new(tap, outline);
+        let diode = lib.try_cell_named("sky130_fd_sc_hd__diode_2")?;
+        let diode = ctx.instantiate::<StdCell>(&diode.id())?;
+        let diode = LayerBbox::new(diode, outline);
+
+        let mut row = ArrayTiler::builder();
+        row.mode(AlignMode::ToTheRight).alt_mode(AlignMode::Top);
+        row.push(tap.clone());
+        row.push(diode);
+        row.push(tap);
+        let mut row = row.build();
+        row.expose_ports(
+            |port: CellPort, i| {
+                if i == 1 || port.name() == "vpwr" || port.name() == "vgnd" {
+                    Some(port)
+                } else {
+                    None
+                }
+            },
+            PortConflictStrategy::Merge,
+        )?;
+        let group = row.generate()?;
+        ctx.add_ports(group.ports())?;
+        ctx.draw(group)?;
+
+        Ok(())
+    }
+}
 
 impl SramInner {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
@@ -499,7 +558,20 @@ impl SramInner {
         )?;
         let and3_dec = matches!(col_tree.root.gate, GateParams::And3(_));
         for (i, dst) in on_grid_bus.ports().enumerate() {
-            let src = col_dec.port(PortId::new("decode_b", i))?.largest_rect(m0)?;
+            let mut src = col_dec.port(PortId::new("decode_b", i))?.largest_rect(m0)?;
+            let mut second_dir = {
+                        let side = if i % 2 == 0 { Side::Right } else { Side::Left };
+                        if and3_dec {
+                            !side
+                        } else {
+                            side
+                        }
+                    };
+            let src_gridded = router.expand_to_grid(src, ExpandToGridStrategy::All);
+            if (src_gridded.side(!second_dir) - src.side(!second_dir)).abs() <= 85 {
+                second_dir = !second_dir;
+                src = src_gridded.with_vspan(src.vspan());
+            }
             let src = router.register_jog_to_grid(
                 JogToGrid::builder()
                     .layer(m0)
@@ -511,14 +583,7 @@ impl SramInner {
                     } else {
                         Side::Bot
                     })
-                    .second_dir({
-                        let side = if i % 2 == 0 { Side::Right } else { Side::Left };
-                        if and3_dec {
-                            !side
-                        } else {
-                            side
-                        }
-                    })
+                    .second_dir(second_dir)
                     .build(),
             );
             to_route.push((m1, src, m2, dst, None));
@@ -672,25 +737,25 @@ impl SramInner {
         }
 
         // Route replica precharge to control logic.
-        let bottom_port = replica_pc.port("rbr")?.largest_rect(m2)?;
+        let rbl_port = replica_pc.port("rbl")?.largest_rect(m2)?;
         let ports = router
             .register_off_grid_bus_translation(
                 ctx,
                 OffGridBusTranslation::builder()
-                    .strategy(OffGridBusTranslationStrategy::Parallel)
+                    .strategy(OffGridBusTranslationStrategy::Perpendicular(m3))
                     .layer(m2)
                     .line_and_space(360, 140)
-                    .output(bottom_port.edge(Side::Left))
-                    .start(bottom_port.side(Side::Bot))
-                    .n(3)
+                    .output(rbl_port.edge(Side::Bot))
+                    .start(rbl_port.side(Side::Bot))
+                    .n(2)
                     .shift(-1)
                     .build(),
             )?
             .ports()
             .collect::<Vec<Rect>>();
 
-        let replica_pc_en_b_rect = ports[2];
-        let rbl_rect = ports[1];
+        let replica_pc_en_b_rect = ports[1];
+        let rbl_rect = ports[0];
 
         // Route control logic outputs
         let pc_b_rect = cols.port("pc_b")?.largest_rect(m2)?;
@@ -705,13 +770,13 @@ impl SramInner {
         ctx.draw_rect(m1, dst);
 
         to_route.push((m2, src, m1, dst, Some("pc_b")));
-        to_route.push((m2, replica_pc_en_b_rect, m1, dst, Some("pc_b")));
+        to_route.push((m3, replica_pc_en_b_rect, m1, dst, Some("pc_b")));
 
         let dst = control.port("rbl")?.largest_rect(m1)?;
         let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
         ctx.draw_rect(m1, dst);
 
-        to_route.push((m2, rbl_rect, m1, dst, Some("rbl")));
+        to_route.push((m3, rbl_rect, m1, dst, Some("rbl")));
 
         let sense_en_rect = cols.port("sense_en")?.largest_rect(m2)?;
         let expanded_all = router.expand_to_grid(sense_en_rect, ExpandToGridStrategy::All);
@@ -990,18 +1055,100 @@ impl SramInner {
 
         // Route column peripheral outputs to pins on bounding box of SRAM
         let groups = self.params.cols / self.params.mux_ratio;
-        for (port, width) in [
+        for (j, (port, width)) in [
             ("dout", groups),
             ("din", groups),
             ("wmask", self.params.wmask_width),
-        ] {
+        ].into_iter().enumerate() {
             for i in 0..width {
                 let port_id = PortId::new(port, i);
-                let rect = cols.port(port_id.clone())?.largest_rect(m3)?;
-                let rect = rect.with_vspan(rect.vspan().add_point(router_bbox.bottom()));
+                let rect = cols
+                    .port(port_id.clone())?
+                    .largest_rect(m3)?
+                    .expand_side(Side::Bot, 1_000);
                 ctx.draw_rect(m3, rect);
-                ctx.add_port(CellPort::builder().id(port_id).add(m3, rect).build())?;
                 router.block(m3, rect);
+
+                let mut via23 = ctx.instantiate::<Via>(
+                    &ViaParams::builder()
+                        .layers(m2, m3)
+                        .geometry(
+                            Rect::from_point(Point::zero()),
+                            Rect::from_point(Point::zero()),
+                        )
+                        .build(),
+                )?;
+                let mut via12 = ctx.instantiate::<Via>(
+                    &ViaParams::builder()
+                        .layers(m1, m2)
+                        .geometry(
+                            Rect::from_point(Point::zero()),
+                            Rect::from_point(Point::zero()),
+                        )
+                        .build(),
+                )?;
+
+                via23.align_centers_gridded(rect, ctx.pdk().layout_grid());
+                via23.align_bottom(rect);
+                via12.align_centers_gridded(&via23, ctx.pdk().layout_grid());
+
+                ctx.draw_ref(&via23)?;
+                ctx.draw_ref(&via12)?;
+                router.block(m2, via23.brect());
+                router.block(m2, via12.brect());
+                router.block(m1, via12.brect());
+
+                let rect = rect.with_vspan(via12.brect().vspan().add_point(router_bbox.bottom()));
+                ctx.draw_rect(m1, rect);
+                router.block(m1, rect);
+
+                let mut diode = ctx
+                    .instantiate::<TappedDiode>(&NoParams)?
+                    .with_orientation(Named::R90);
+                diode.align(
+                    AlignMode::Left,
+                    rect,
+                    match j {
+                        0 => -2_000,
+                        1 => -1_000,
+                        2 => -1_800,
+                        _ => unreachable!(),
+                    },
+                );
+                diode.align(AlignMode::Top, rect, -6_000 * (j + 1) as i64);
+
+                for (port_name, net) in [
+                    ("vpwr", SingleSupplyNet::Vdd),
+                    ("vgnd", SingleSupplyNet::Vss),
+                ] {
+                    straps.add_target(
+                        m1,
+                        Target::new(net, diode.port(port_name)?.largest_rect(m1)?),
+                    );
+                }
+
+                let diode_port = diode.port("diode")?.largest_rect(m0)?;
+                let diode_via = ctx.instantiate::<Via>(&ViaParams::builder().layers(m0, m1).geometry(diode_port, rect).build())?;
+                ctx.draw(diode)?;
+                ctx.draw(diode_via)?;
+
+                via23.align_centers_gridded(rect, ctx.pdk().layout_grid());
+                via23.align_bottom(rect);
+                via12.align_centers_gridded(&via23, ctx.pdk().layout_grid());
+
+                ctx.draw_ref(&via23)?;
+                ctx.draw_ref(&via12)?;
+                router.block(m2, via23.brect());
+                router.block(m2, via12.brect());
+                router.block(m1, via12.brect());
+
+                ctx.add_port(
+                    CellPort::builder()
+                        .id(port_id)
+                        .add(m3, via23.layer_bbox(m3).into_rect())
+                        .build(),
+                )?;
+                router.block(m3, via23.layer_bbox(m3).into_rect());
             }
         }
 
