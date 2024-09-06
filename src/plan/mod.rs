@@ -233,6 +233,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                     source_cell_name: name.clone(),
                     pex_netlist_path: pex_out_path.clone(),
                     opts,
+                    ground_net: "vss".to_string(),
                 })?;
             },
             ctx

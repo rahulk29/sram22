@@ -442,6 +442,7 @@ pub(crate) mod tests {
                         source_paths: vec![pex_path],
                         source_cell_name: $params.name().clone(),
                         pex_netlist_path,
+                        ground_net: "vss".to_string(),
                         opts,
                     }).expect("failed to run pex");
 
