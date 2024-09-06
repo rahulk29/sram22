@@ -412,7 +412,7 @@ impl Testbench for SramTestbench {
         }
         ctx.add_analysis(
             TranAnalysis::builder()
-                .stop(wav.clk.last_t().unwrap())
+                .stop(wav.clk.last_t().unwrap() + 2.0 * step)
                 // .stop(80e-9)
                 .step(step)
                 .strobe_period(step)
@@ -467,7 +467,6 @@ mod tests {
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
-    use std::env;
     use substrate::schematic::netlist::NetlistPurpose;
 
     fn test_sram(name: &str, params: SramParams) {
