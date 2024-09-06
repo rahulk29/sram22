@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use substrate::component::Component;
@@ -15,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use substrate::verification::simulation::testbench::Testbench;
 use substrate::verification::simulation::waveform::{TimeWaveform, Waveform};
 
-use super::{Sram, SramParams};
+use super::{Sram, SramParams, SramPex, SramPexParams};
 
 pub mod verify;
 
@@ -42,6 +43,7 @@ pub struct TbParams {
 
     /// SRAM configuration to test.
     pub sram: SramParams,
+    pub pex_netlist: Option<PathBuf>,
 }
 
 impl TbParams {
@@ -236,7 +238,11 @@ impl Component for SramTestbench {
         let waveforms = generate_waveforms(&self.params);
         let output_cap = SiValue::with_precision(self.params.c_load, SiPrefix::Femto);
 
-        ctx.instantiate::<Sram>(&self.params.sram)?
+        if let Some(ref pex_netlist) = self.params.pex_netlist {
+            ctx.instantiate::<SramPex>(&SramPexParams {
+                params: self.params.sram.clone(),
+                pex_netlist: pex_netlist.clone(),
+            })?
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
@@ -249,6 +255,21 @@ impl Component for SramTestbench {
             ])
             .named("dut")
             .add_to(ctx);
+        } else {
+            ctx.instantiate::<Sram>(&self.params.sram)?
+                .with_connections([
+                    ("vdd", vdd),
+                    ("vss", vss),
+                    ("clk", clk),
+                    ("we", we),
+                    ("addr", addr),
+                    ("wmask", wmask),
+                    ("din", din),
+                    ("dout", dout),
+                ])
+                .named("dut")
+                .add_to(ctx);
+        }
 
         ctx.instantiate::<Vdc>(&SiValue::with_precision(self.params.vdd, SiPrefix::Milli))?
             .with_connections([("p", vdd), ("n", vss)])
@@ -290,7 +311,12 @@ impl Component for SramTestbench {
     }
 }
 
-pub fn tb_params(params: SramParams, vdd: f64, short: bool) -> TbParams {
+pub fn tb_params(
+    params: SramParams,
+    vdd: f64,
+    short: bool,
+    pex_netlist: Option<PathBuf>,
+) -> TbParams {
     let wmask_width = params.wmask_width;
     let data_width = params.data_width;
     let addr_width = params.addr_width;
@@ -361,6 +387,7 @@ pub fn tb_params(params: SramParams, vdd: f64, short: bool) -> TbParams {
         .c_load(5e-15)
         .t_hold(300e-12)
         .sram(params)
+        .pex_netlist(pex_netlist)
         .build()
         .unwrap();
 
@@ -380,9 +407,12 @@ impl Testbench for SramTestbench {
             ("write".to_string(), "initial.ic".to_string()),
             ("readns".to_string(), "initial.ic".to_string()),
         ]);
+        if let Some(ref netlist) = self.params.pex_netlist {
+            ctx.include(netlist);
+        }
         ctx.add_analysis(
             TranAnalysis::builder()
-                .stop(wav.clk.last_t().unwrap())
+                .stop(wav.clk.last_t().unwrap() + 2.0 * step)
                 // .stop(80e-9)
                 .step(step)
                 .strobe_period(step)
@@ -399,14 +429,22 @@ impl Testbench for SramTestbench {
 
         let vdd = SiValue::with_precision(self.params.vdd, SiPrefix::Nano);
 
+        let sram_inst_path = if self.params.pex_netlist.is_some() {
+            "Xdut.Xdut.X0"
+        } else {
+            "Xdut.X0"
+        };
         for i in 0..self.params.sram.rows {
-            ctx.set_ic(format!("Xdut.X0.wl[{i}]"), SiValue::zero());
+            ctx.set_ic(format!("{sram_inst_path}.wl[{i}]"), SiValue::zero());
             for j in 0..self.params.sram.cols {
                 ctx.set_ic(
-                    format!("Xdut.X0.Xbitcell_array.Xcell_{i}_{j}.X0.Q"),
+                    format!("{sram_inst_path}.Xbitcell_array.Xcell_{i}_{j}.X0.Q"),
                     SiValue::zero(),
                 );
-                ctx.set_ic(format!("Xdut.X0.Xbitcell_array.Xcell_{i}_{j}.X0.QB"), vdd);
+                ctx.set_ic(
+                    format!("{sram_inst_path}.Xbitcell_array.Xcell_{i}_{j}.X0.QB"),
+                    vdd,
+                );
             }
         }
         Ok(())
@@ -424,23 +462,51 @@ impl Testbench for SramTestbench {
 
 #[cfg(test)]
 mod tests {
-    use crate::setup_ctx;
-    use crate::tests::test_work_dir;
-    use std::env;
-
     use super::super::tests::*;
     use super::*;
+    use crate::paths::{out_gds, out_spice};
+    use crate::setup_ctx;
+    use crate::tests::test_work_dir;
+    use substrate::schematic::netlist::NetlistPurpose;
 
     fn test_sram(name: &str, params: SramParams) {
-        env::set_var(
-            "SPECTRE_FLAGS",
-            "+preset=mx +postlpreset=mx +logstatus +mt=8 -64 +error +warn +note",
-        );
+        // env::set_var(
+        //     "SPECTRE_FLAGS",
+        //     "+preset=mx +postlpreset=mx +logstatus +mt=8 -64 +error +warn +note",
+        // );
         let ctx = setup_ctx();
         let corners = ctx.corner_db();
 
         let short = false;
         let short_str = if short { "short" } else { "long" };
+
+        let work_dir = test_work_dir(name);
+
+        let gds_path = out_gds(&work_dir, "layout");
+        ctx.write_layout::<Sram>(&params, &gds_path)
+            .expect("failed to write layout");
+
+        let pex_path = out_spice(&work_dir, "pex_schematic");
+        let pex_dir = work_dir.join("pex");
+        let pex_level = calibre::pex::PexLevel::C;
+        let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+        ctx.write_schematic_to_file_for_purpose::<Sram>(&params, &pex_path, NetlistPurpose::Pex)
+            .expect("failed to write pex source netlist");
+        let mut opts = std::collections::HashMap::with_capacity(1);
+        opts.insert("level".into(), pex_level.as_str().into());
+
+        ctx.run_pex(substrate::verification::pex::PexInput {
+            work_dir: pex_dir,
+            layout_path: gds_path.clone(),
+            layout_cell_name: params.name().clone(),
+            layout_format: substrate::layout::LayoutFormat::Gds,
+            source_paths: vec![pex_path],
+            source_cell_name: params.name().clone(),
+            pex_netlist_path: pex_netlist_path.clone(),
+            ground_net: "vss".to_string(),
+            opts,
+        })
+        .expect("failed to run pex");
 
         let mut handles = Vec::new();
         for vdd in [1.8, 1.5, 2.0] {
@@ -448,11 +514,12 @@ mod tests {
                 let corner = corner.clone();
                 let params = params.clone();
                 let name = name.to_string();
+                let pex_netlist = Some(pex_netlist_path.clone());
                 handles.push(std::thread::spawn(move || {
                     let ctx = setup_ctx();
-                    let tb = tb_params(params, vdd, short);
+                    let tb = tb_params(params, vdd, short, pex_netlist);
                     let work_dir = test_work_dir(&format!(
-                        "{}_limited/{}_{:.2}_{}",
+                        "{}/{}_{:.2}_{}",
                         name,
                         corner.name(),
                         vdd,
@@ -486,7 +553,7 @@ mod tests {
             fn $name() {
                 test_sram(stringify!($name), $params);
             }
-        }
+        };
     }
 
     test_tb_sram!(test_tb_sram22_64x4m4w2, SRAM22_64X4M4W2);

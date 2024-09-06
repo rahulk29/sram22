@@ -913,6 +913,7 @@ mod tests {
                 source_cell_name: name.clone(),
                 pex_netlist_path: pex_out_path,
                 opts: Default::default(),
+                ground_net: "vss".to_string(),
             })
             .expect("failed to run PEX");
 
