@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use subgeom::bbox::BoundBox;
 use subgeom::{Dir, Rect, Span};
-use substrate::component::Component;
+use substrate::component::{error, Component};
+use substrate::error::ErrorSource;
 use substrate::layout::cell::{CellPort, Port, PortId};
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
@@ -23,6 +25,16 @@ pub struct SramInner {
 
 pub struct Sram {
     params: SramParams,
+}
+
+pub struct SramPex {
+    params: SramPexParams,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SramPexParams {
+    params: SramParams,
+    pex_netlist: PathBuf,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -268,6 +280,49 @@ impl Component for Sram {
     }
 }
 
+impl Component for SramPex {
+    type Params = SramPexParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::format!("{}_pex", self.params.params.name())
+    }
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        use std::fmt::Write;
+
+        let inner = ctx.instantiate::<Sram>(&self.params.params)?.named("xdut");
+        let mut s = inner.name().to_string();
+        for port in inner.ports()? {
+            ctx.bus_port(port.name(), port.width(), port.direction());
+            for i in 0..port.width() {
+                write!(&mut s, " {}[{}]", port.name(), i).unwrap();
+            }
+        }
+        write!(&mut s, " {}", inner.module().local().unwrap().name()).unwrap();
+        ctx.set_spice(s);
+        Ok(())
+    }
+
+    fn layout(
+        &self,
+        _ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        Err(ErrorSource::Component(error::Error::ViewUnsupported(
+            substrate::component::View::Layout,
+        ))
+        .into())
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
 
@@ -425,18 +480,26 @@ pub(crate) mod tests {
     }
 
     test_sram!(test_sram22_64x4m4w2, SRAM22_64X4M4W2);
-    test_sram!(test_sram22_64x24m4w24, SRAM22_64X24M4W24, ignore="slow");
-    test_sram!(test_sram22_64x32m4w8, SRAM22_64X32M4W8, ignore="slow");
-    test_sram!(test_sram22_64x32m4w32, SRAM22_64X32M4W32, ignore="slow");
-    test_sram!(test_sram22_256x32m4w8, SRAM22_256X32M4W8, ignore="slow");
-    test_sram!(test_sram22_512x32m4w8, SRAM22_512X32M4W8, ignore="slow");
-    test_sram!(test_sram22_512x32m4w32, SRAM22_512X32M4W32, ignore="slow");
-    test_sram!(test_sram22_512x64m4w8, SRAM22_512X64M4W8, ignore="slow");
-    test_sram!(test_sram22_1024x32m8w8, SRAM22_1024X32M8W8, ignore="slow");
-    test_sram!(test_sram22_1024x32m8w32, SRAM22_1024X32M8W32, ignore="slow");
-    test_sram!(test_sram22_1024x64m8w32, SRAM22_1024X64M8W32, ignore="slow");
-    test_sram!(test_sram22_2048x32m8w8, SRAM22_2048X32M8W8, ignore="slow");
-    test_sram!(test_sram22_2048x64m4w8, SRAM22_2048X64M4W8, ignore="slow");
-    test_sram!(test_sram22_4096x8m8w8, SRAM22_4096X8M8W8, ignore="slow");
-    test_sram!(test_sram22_4096x32m8w8, SRAM22_4096X32M8W8, ignore="slow");
+    test_sram!(test_sram22_64x24m4w24, SRAM22_64X24M4W24, ignore = "slow");
+    test_sram!(test_sram22_64x32m4w8, SRAM22_64X32M4W8, ignore = "slow");
+    test_sram!(test_sram22_64x32m4w32, SRAM22_64X32M4W32, ignore = "slow");
+    test_sram!(test_sram22_256x32m4w8, SRAM22_256X32M4W8, ignore = "slow");
+    test_sram!(test_sram22_512x32m4w8, SRAM22_512X32M4W8, ignore = "slow");
+    test_sram!(test_sram22_512x32m4w32, SRAM22_512X32M4W32, ignore = "slow");
+    test_sram!(test_sram22_512x64m4w8, SRAM22_512X64M4W8, ignore = "slow");
+    test_sram!(test_sram22_1024x32m8w8, SRAM22_1024X32M8W8, ignore = "slow");
+    test_sram!(
+        test_sram22_1024x32m8w32,
+        SRAM22_1024X32M8W32,
+        ignore = "slow"
+    );
+    test_sram!(
+        test_sram22_1024x64m8w32,
+        SRAM22_1024X64M8W32,
+        ignore = "slow"
+    );
+    test_sram!(test_sram22_2048x32m8w8, SRAM22_2048X32M8W8, ignore = "slow");
+    test_sram!(test_sram22_2048x64m4w8, SRAM22_2048X64M4W8, ignore = "slow");
+    test_sram!(test_sram22_4096x8m8w8, SRAM22_4096X8M8W8, ignore = "slow");
+    test_sram!(test_sram22_4096x32m8w8, SRAM22_4096X32M8W8, ignore = "slow");
 }
