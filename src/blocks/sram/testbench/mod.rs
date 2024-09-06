@@ -471,10 +471,10 @@ mod tests {
     use substrate::schematic::netlist::NetlistPurpose;
 
     fn test_sram(name: &str, params: SramParams) {
-        env::set_var(
-            "SPECTRE_FLAGS",
-            "+preset=mx +postlpreset=mx +logstatus +mt=8 -64 +error +warn +note",
-        );
+        // env::set_var(
+        //     "SPECTRE_FLAGS",
+        //     "+preset=mx +postlpreset=mx +logstatus +mt=8 -64 +error +warn +note",
+        // );
         let ctx = setup_ctx();
         let corners = ctx.corner_db();
 
