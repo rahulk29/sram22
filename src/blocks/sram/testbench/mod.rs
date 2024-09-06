@@ -489,7 +489,7 @@ mod tests {
 
         let pex_path = out_spice(&work_dir, "pex_schematic");
         let pex_dir = work_dir.join("pex");
-        let pex_level = calibre::pex::PexLevel::Rc;
+        let pex_level = calibre::pex::PexLevel::C;
         let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
         ctx.write_schematic_to_file_for_purpose::<Sram>(&params, &pex_path, NetlistPurpose::Pex)
             .expect("failed to write pex source netlist");
