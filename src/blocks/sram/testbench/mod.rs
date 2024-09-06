@@ -454,12 +454,13 @@ impl Testbench for SramTestbench {
 
 #[cfg(test)]
 mod tests {
+    use super::super::tests::*;
+    use super::*;
+    use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use std::env;
-
-    use super::super::tests::*;
-    use super::*;
+    use substrate::schematic::netlist::NetlistPurpose;
 
     fn test_sram(name: &str, params: SramParams) {
         env::set_var(
@@ -472,18 +473,45 @@ mod tests {
         let short = false;
         let short_str = if short { "short" } else { "long" };
 
+        let work_dir = test_work_dir(name);
+
+        let gds_path = out_gds(&work_dir, "layout");
+        ctx.write_layout::<Sram>(&params, &gds_path)
+            .expect("failed to write layout");
+
+        let pex_path = out_spice(&work_dir, "pex_schematic");
+        let pex_dir = work_dir.join("pex");
+        let pex_level = calibre::pex::PexLevel::Rc;
+        let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+        ctx.write_schematic_to_file_for_purpose::<Sram>(&params, &pex_path, NetlistPurpose::Pex)
+            .expect("failed to write pex source netlist");
+        let mut opts = std::collections::HashMap::with_capacity(1);
+        opts.insert("level".into(), pex_level.as_str().into());
+
+        ctx.run_pex(substrate::verification::pex::PexInput {
+            work_dir: pex_dir,
+            layout_path: gds_path.clone(),
+            layout_cell_name: params.name().clone(),
+            layout_format: substrate::layout::LayoutFormat::Gds,
+            source_paths: vec![pex_path],
+            source_cell_name: params.name().clone(),
+            pex_netlist_path: pex_netlist_path.clone(),
+            opts,
+        })
+        .expect("failed to run pex");
+
         let mut handles = Vec::new();
         for vdd in [1.8, 1.5, 2.0] {
             for corner in corners.corners() {
                 let corner = corner.clone();
                 let params = params.clone();
                 let name = name.to_string();
-                let pex_netlist = Some(PathBuf::from("/dev/null"));
+                let pex_netlist = Some(pex_netlist_path.clone());
                 handles.push(std::thread::spawn(move || {
                     let ctx = setup_ctx();
                     let tb = tb_params(params, vdd, short, pex_netlist);
                     let work_dir = test_work_dir(&format!(
-                        "{}_limited/{}_{:.2}_{}",
+                        "{}/{}_{:.2}_{}",
                         name,
                         corner.name(),
                         vdd,
