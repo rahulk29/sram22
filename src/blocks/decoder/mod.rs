@@ -14,6 +14,8 @@ pub mod layout;
 pub mod schematic;
 pub mod sim;
 
+pub mod sizing;
+
 pub struct Decoder {
     params: DecoderParams,
 }
@@ -407,8 +409,8 @@ fn partition_bits(bits: usize, top: bool) -> Vec<usize> {
     assert!(bits > 3);
 
     if top {
-        let left = bits / 2;
-        return vec![left, bits - left];
+        let right = bits / 2;
+        return vec![bits - right, right];
     }
 
     if bits % 2 == 0 {
@@ -421,8 +423,8 @@ fn partition_bits(bits: usize, top: bool) -> Vec<usize> {
             _ => panic!("unexpected remainder of `bits` divided by 3"),
         }
     } else {
-        let left = bits / 2;
-        vec![left, bits - left]
+        let right = bits / 2;
+        vec![bits - right, right]
     }
 }
 
