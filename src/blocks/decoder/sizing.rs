@@ -6,7 +6,7 @@ pub trait Tree: Sized {
 }
 
 pub trait ValueTree<V>: Tree {
-    fn value(&self) -> &V;
+    fn value_for_child(&self, idx: usize) -> &V;
 }
 
 pub fn path_map_tree<T: Tree, U: ValueTree<V>, F, V>(tree: &T, map: &F, end: &V) -> U
@@ -15,12 +15,12 @@ where
 {
     let path = left_path(tree);
     let mut mapped_path = map(&path, end);
-    assert_eq!(left_path_len(&mapped_path), path.len());
+    debug_assert_eq!(left_path_len(&mapped_path), path.len());
 
     let mut state = Some((&mut mapped_path, path[0]));
     while let Some((out, input)) = state {
-        for tree in input.children().iter().skip(1) {
-            let subtree = path_map_tree(tree, map, out.value());
+        for (i, tree) in input.children().iter().enumerate().skip(1) {
+            let subtree = path_map_tree(tree, map, out.value_for_child(i));
             out.add_right_child(subtree);
         }
         state = if let Some(child) = input.children().first() {
@@ -108,7 +108,7 @@ mod tests {
     }
 
     impl ValueTree<i32> for ValueTreeNode {
-        fn value(&self) -> &i32 {
+        fn value_for_child(&self, _: usize) -> &i32 {
             &self.value
         }
     }
