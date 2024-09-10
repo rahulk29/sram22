@@ -70,6 +70,19 @@ pub struct PrimitiveGateParams {
     pub length: i64,
 }
 
+impl GateType {
+    pub fn primitive_gates(&self) -> Vec<GateType> {
+        match *self {
+            GateType::And2 => vec![GateType::Nand2, GateType::Inv],
+            GateType::And3 => vec![GateType::Nand3, GateType::Inv],
+            GateType::Inv => vec![GateType::Inv],
+            GateType::Nand2 => vec![GateType::Nand2],
+            GateType::Nand3 => vec![GateType::Nand3],
+            GateType::Nor2 => vec![GateType::Nor2],
+        }
+    }
+}
+
 impl PrimitiveGateParams {
     pub fn scale(&self, factor: i64) -> Self {
         Self {
@@ -127,6 +140,17 @@ impl GateParams {
             GateParams::Nand2(x) => Self::Nand2(x.scale(factor)),
             GateParams::Nand3(x) => Self::Nand3(x.scale(factor)),
             GateParams::Nor2(x) => Self::Nor2(x.scale(factor)),
+        }
+    }
+
+    pub fn gate_type(&self) -> GateType {
+        match self {
+            GateParams::And2(_) => GateType::And2,
+            GateParams::And3(_) => GateType::And3,
+            GateParams::Inv(_) => GateType::Inv,
+            GateParams::Nand2(_) => GateType::Nand2,
+            GateParams::Nand3(_) => GateType::Nand3,
+            GateParams::Nor2(_) => GateType::Nor2,
         }
     }
 }

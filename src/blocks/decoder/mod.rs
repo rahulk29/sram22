@@ -1,12 +1,14 @@
-use serde::{Deserialize, Serialize};
-use substrate::component::{Component, NoParams};
-use substrate::index::IndexOwned;
-use substrate::schematic::circuit::Direction;
-
 use self::layout::{
     decoder_stage_layout, LastBitDecoderPhysicalDesignScript, PredecoderPhysicalDesignScript,
     RoutingStyle,
 };
+use crate::blocks::decoder::sizing::{path_map_tree, Tree, ValueTree};
+use serde::{Deserialize, Serialize};
+use subgeom::snap_to_grid;
+use substrate::component::{Component, NoParams};
+use substrate::index::IndexOwned;
+use substrate::logic::delay::{GateModel, LogicPath};
+use substrate::schematic::circuit::Direction;
 
 use super::gate::{AndParams, Gate, GateParams, GateType, PrimitiveGateParams};
 
@@ -51,6 +53,7 @@ pub struct TreeNode {
     // Number of one-hot outputs.
     pub num: usize,
     pub children: Vec<TreeNode>,
+    pub child_nums: Vec<usize>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -312,57 +315,113 @@ fn size_decoder(tree: &PlanTreeNode) -> TreeNode {
     size_helper_tmp(tree, tree.skew_rising, tree.cols)
 }
 
-fn size_helper_tmp(x: &PlanTreeNode, skew_rising: bool, cols: bool) -> TreeNode {
-    let gate_params = if cols {
-        AndParams {
-            nand: PrimitiveGateParams {
-                nwidth: 10_000,
-                pwidth: 8_000,
-                length: 150,
-            },
-            inv: PrimitiveGateParams {
-                nwidth: 8_000,
-                pwidth: 10_000,
-                length: 150,
-            },
-        }
-    } else if skew_rising {
-        AndParams {
-            nand: PrimitiveGateParams {
-                nwidth: 4_000,
-                pwidth: 1_000,
-                length: 150,
-            },
-            inv: PrimitiveGateParams {
-                nwidth: 600,
-                pwidth: 6_800,
-                length: 150,
-            },
-        }
-    } else {
-        AndParams {
-            nand: PrimitiveGateParams {
-                nwidth: 2_400,
-                pwidth: 800,
-                length: 150,
-            },
-            inv: PrimitiveGateParams {
-                nwidth: 3_100,
-                pwidth: 4_300,
-                length: 150,
-            },
-        }
-    };
-    // TODO size decoder
-    TreeNode {
-        gate: GateParams::new_and(x.gate, gate_params),
-        num: x.num,
-        children: x
-            .children
-            .iter()
-            .map(|n| size_helper_tmp(n, skew_rising, cols))
-            .collect::<Vec<_>>(),
+const GATE_MODEL: GateModel = GateModel {
+    res: 1.0,
+    cin: 1.0,
+    cout: 1.0,
+};
+
+const NAND_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+    nwidth: 2_000,
+    pwidth: 1_600,
+    length: 150,
+};
+
+fn gate_model(gate: GateType) -> GateModel {
+    GATE_MODEL
+}
+
+fn scale(gate: PrimitiveGateParams, scale: f64) -> PrimitiveGateParams {
+    let nwidth = snap_to_grid((gate.nwidth as f64 * scale).round() as i64, 10);
+    let pwidth = snap_to_grid((gate.pwidth as f64 * scale).round() as i64, 10);
+    PrimitiveGateParams {
+        nwidth,
+        pwidth,
+        length: gate.length,
     }
+}
+
+fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
+    let mut lp = LogicPath::new();
+    let mut vars = Vec::new();
+    for node in path.iter().copied().rev() {
+        for gate in node.gate.primitive_gates() {
+            let var = lp.create_variable_with_initial(1.);
+            lp.append_unsized_gate(GATE_MODEL, var);
+            vars.push(var);
+        }
+    }
+
+    lp.size();
+
+    let mut cnode: Option<&mut TreeNode> = None;
+    let mut tree = None;
+    let mut vars = vars.iter().copied();
+
+    for &node in path {
+        let gate = match node.gate {
+            GateType::And2 => GateParams::And2(AndParams {
+                nand: scale(NAND_PARAMS, lp.value(vars.next().unwrap())),
+                inv: scale(NAND_PARAMS, lp.value(vars.next().unwrap())),
+            }),
+            _ => todo!(),
+        };
+
+        let n = TreeNode {
+            gate,
+            num: node.num,
+            children: vec![],
+            child_nums: node.children.iter().map(|n| n.num).collect(),
+        };
+
+        if let Some(parent) = cnode {
+            parent.children.push(n);
+            cnode = Some(&mut parent.children[0])
+        } else {
+            tree = Some(n);
+            cnode = Some(tree.as_mut().unwrap());
+        }
+    }
+
+    tree.unwrap()
+}
+
+impl Tree for PlanTreeNode {
+    fn children(&self) -> &[Self] {
+        &self.children
+    }
+
+    fn children_mut(&mut self) -> &mut [Self] {
+        &mut self.children
+    }
+
+    fn add_right_child(&mut self, child: Self) {
+        self.children.push(child);
+    }
+}
+
+impl Tree for TreeNode {
+    fn children(&self) -> &[Self] {
+        &self.children
+    }
+
+    fn children_mut(&mut self) -> &mut [Self] {
+        &mut self.children
+    }
+
+    fn add_right_child(&mut self, child: Self) {
+        self.children.push(child);
+    }
+}
+
+impl ValueTree<f64> for TreeNode {
+    fn value_for_child(&self, idx: usize) -> f64 {
+        (self.num / self.child_nums[idx]) as f64 * gate_model(self.gate.gate_type()).cin
+    }
+}
+
+fn size_helper_tmp(x: &PlanTreeNode, skew_rising: bool, cols: bool) -> TreeNode {
+    path_map_tree(x, &size_path, &1.)
 }
 
 fn plan_decoder(bits: usize, top: bool, skew_rising: bool, cols: bool) -> PlanTreeNode {
