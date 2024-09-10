@@ -407,10 +407,8 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
     for (i, node) in path.iter().copied().rev().enumerate() {
         for (j, gate) in node.gate.primitive_gates().iter().copied().enumerate() {
             if i == 0 && j == 0 {
-                println!("append sized {gate:?}");
                 lp.append_sized_gate(gate_model(gate));
             } else {
-                println!("append unsized {gate:?}");
                 let var = lp.create_variable_with_initial(2.);
                 let model = gate_model(gate);
                 if i != 0 && j == 0 {
@@ -444,7 +442,6 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
         })
         .collect::<Vec<_>>();
     values.push(1.);
-    println!("values = {values:?}");
     let mut values = values.into_iter();
 
     for &node in path {
@@ -479,9 +476,7 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
         }
     }
 
-    let tree = tree.unwrap();
-    println!("tree: {tree:#?}");
-    tree
+    tree.unwrap()
 }
 
 impl Tree for PlanTreeNode {
