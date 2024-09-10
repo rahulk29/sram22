@@ -153,6 +153,28 @@ impl GateParams {
             GateParams::Nor2(_) => GateType::Nor2,
         }
     }
+
+    pub fn first_gate_sizing(&self) -> PrimitiveGateParams {
+        match self {
+            GateParams::And2(a) => a.nand,
+            GateParams::And3(a) => a.nand,
+            GateParams::Inv(x) => *x,
+            GateParams::Nand2(x) => *x,
+            GateParams::Nand3(x) => *x,
+            GateParams::Nor2(x) => *x,
+        }
+    }
+
+    pub fn last_gate_sizing(&self) -> PrimitiveGateParams {
+        match self {
+            GateParams::And2(a) => a.inv,
+            GateParams::And3(a) => a.inv,
+            GateParams::Inv(x) => *x,
+            GateParams::Nand2(x) => *x,
+            GateParams::Nand3(x) => *x,
+            GateParams::Nor2(x) => *x,
+        }
+    }
 }
 
 macro_rules! call_gate_fn {

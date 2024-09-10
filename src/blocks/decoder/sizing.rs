@@ -23,11 +23,10 @@ where
             let subtree = path_map_tree(tree, map, &out.value_for_child(i));
             out.add_right_child(subtree);
         }
-        state = if let Some(child) = input.children().first() {
-            Some((&mut mapped_path.children_mut()[0], child))
-        } else {
-            None
-        };
+        state = input
+            .children()
+            .first()
+            .map(|child| (&mut mapped_path.children_mut()[0], child));
     }
 
     mapped_path

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use subgeom::snap_to_grid;
 use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
-use substrate::logic::delay::{GateModel, LogicPath};
+use substrate::logic::delay::{GateModel, LogicPath, OptimizerOpts};
 use substrate::schematic::circuit::Direction;
 
 use super::gate::{AndParams, Gate, GateParams, GateType, PrimitiveGateParams};
@@ -315,25 +315,85 @@ fn size_decoder(tree: &PlanTreeNode) -> TreeNode {
     size_helper_tmp(tree, tree.skew_rising, tree.cols)
 }
 
-const GATE_MODEL: GateModel = GateModel {
+/// The on-resistance and capacitances of a 1x inverter ([`INV_PARAMS`]).
+const INV_MODEL: GateModel = GateModel {
     res: 1.0,
     cin: 1.0,
     cout: 1.0,
 };
 
-const NAND_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+/// The on-resistance and capacitances of a 1x NAND2 gate ([`NAND2_PARAMS`]).
+const NAND2_MODEL: GateModel = GateModel {
+    res: 1.0,
+    cin: 1.0,
+    cout: 1.0,
+};
+
+/// The on-resistance and capacitances of a 1x NAND3 gate ([`NAND3_PARAMS`]).
+const NAND3_MODEL: GateModel = GateModel {
+    res: 1.0,
+    cin: 1.0,
+    cout: 1.0,
+};
+
+/// The on-resistance and capacitances of a 1x NOR2 gate ([`NOR2_PARAMS`]).
+const NOR2_MODEL: GateModel = GateModel {
+    res: 1.0,
+    cin: 1.0,
+    cout: 1.0,
+};
+
+/// The sizing of a 1x inverter.
+const INV_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+    nwidth: 1_000,
+    pwidth: 1_600,
+    length: 150,
+};
+
+/// The sizing of a 1x NAND2 gate.
+const NAND2_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
     nwidth: 2_000,
     pwidth: 1_600,
     length: 150,
 };
 
+/// The sizing of a 1x NAND3 gate.
+const NAND3_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+    nwidth: 3_000,
+    pwidth: 1_600,
+    length: 150,
+};
+
+/// The sizing of a 1x NOR2 gate.
+const NOR2_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+    nwidth: 1_000,
+    pwidth: 3_200,
+    length: 150,
+};
+
+fn gate_params(gate: GateType) -> PrimitiveGateParams {
+    match gate {
+        GateType::Inv => INV_PARAMS,
+        GateType::Nand2 => NAND2_PARAMS,
+        GateType::Nand3 => NAND3_PARAMS,
+        GateType::Nor2 => NOR2_PARAMS,
+        gate => panic!("unsupported gate type: {gate:?}"),
+    }
+}
+
 fn gate_model(gate: GateType) -> GateModel {
-    GATE_MODEL
+    match gate {
+        GateType::Inv => INV_MODEL,
+        GateType::Nand2 => NAND2_MODEL,
+        GateType::Nand3 => NAND3_MODEL,
+        GateType::Nor2 => NOR2_MODEL,
+        gate => panic!("unsupported gate type: {gate:?}"),
+    }
 }
 
 fn scale(gate: PrimitiveGateParams, scale: f64) -> PrimitiveGateParams {
-    let nwidth = snap_to_grid((gate.nwidth as f64 * scale).round() as i64, 10);
-    let pwidth = snap_to_grid((gate.pwidth as f64 * scale).round() as i64, 10);
+    let nwidth = snap_to_grid((gate.nwidth as f64 * scale).round() as i64, 50);
+    let pwidth = snap_to_grid((gate.pwidth as f64 * scale).round() as i64, 50);
     PrimitiveGateParams {
         nwidth,
         pwidth,
@@ -344,27 +404,63 @@ fn scale(gate: PrimitiveGateParams, scale: f64) -> PrimitiveGateParams {
 fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
     let mut lp = LogicPath::new();
     let mut vars = Vec::new();
-    for node in path.iter().copied().rev() {
-        for gate in node.gate.primitive_gates() {
-            let var = lp.create_variable_with_initial(1.);
-            lp.append_unsized_gate(GATE_MODEL, var);
-            vars.push(var);
+    for (i, node) in path.iter().copied().rev().enumerate() {
+        for (j, gate) in node.gate.primitive_gates().iter().copied().enumerate() {
+            if i == 0 && j == 0 {
+                println!("append sized {gate:?}");
+                lp.append_sized_gate(gate_model(gate));
+            } else {
+                println!("append unsized {gate:?}");
+                let var = lp.create_variable_with_initial(2.);
+                let model = gate_model(gate);
+                if i != 0 && j == 0 {
+                    let mult = (node.num / node.children[0].num) as f64 * model.cin - 1.;
+                    assert!(mult >= 0.0);
+                    lp.append_variable_capacitor(mult, var);
+                }
+                lp.append_unsized_gate(model, var);
+                vars.push(var);
+            }
         }
     }
+    lp.append_capacitor(*end);
 
-    lp.size();
+    lp.size_with_opts(OptimizerOpts {
+        lr: 0.2,
+        lr_decay: 0.999995,
+        max_iter: 10_000_000,
+    });
 
     let mut cnode: Option<&mut TreeNode> = None;
     let mut tree = None;
-    let mut vars = vars.iter().copied();
+
+    let mut values = vars
+        .iter()
+        .rev()
+        .map(|v| {
+            let v = lp.value(*v);
+            assert!(v >= 0.5);
+            v
+        })
+        .collect::<Vec<_>>();
+    values.push(1.);
+    println!("values = {values:?}");
+    let mut values = values.into_iter();
 
     for &node in path {
         let gate = match node.gate {
             GateType::And2 => GateParams::And2(AndParams {
-                nand: scale(NAND_PARAMS, lp.value(vars.next().unwrap())),
-                inv: scale(NAND_PARAMS, lp.value(vars.next().unwrap())),
+                inv: scale(INV_PARAMS, values.next().unwrap()),
+                nand: scale(NAND2_PARAMS, values.next().unwrap()),
             }),
-            _ => todo!(),
+            GateType::And3 => GateParams::And3(AndParams {
+                inv: scale(INV_PARAMS, values.next().unwrap()),
+                nand: scale(NAND3_PARAMS, values.next().unwrap()),
+            }),
+            GateType::Inv => GateParams::Inv(scale(INV_PARAMS, values.next().unwrap())),
+            GateType::Nand2 => GateParams::Nand2(scale(NAND2_PARAMS, values.next().unwrap())),
+            GateType::Nand3 => GateParams::Nand3(scale(NAND3_PARAMS, values.next().unwrap())),
+            GateType::Nor2 => GateParams::Nor2(scale(NOR2_PARAMS, values.next().unwrap())),
         };
 
         let n = TreeNode {
@@ -383,7 +479,9 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
         }
     }
 
-    tree.unwrap()
+    let tree = tree.unwrap();
+    println!("tree: {tree:#?}");
+    tree
 }
 
 impl Tree for PlanTreeNode {
@@ -416,12 +514,17 @@ impl Tree for TreeNode {
 
 impl ValueTree<f64> for TreeNode {
     fn value_for_child(&self, idx: usize) -> f64 {
-        (self.num / self.child_nums[idx]) as f64 * gate_model(self.gate.gate_type()).cin
+        let first_gate_type = self.gate.gate_type().primitive_gates()[0];
+        let first_gate = self.gate.first_gate_sizing();
+        let model = gate_model(first_gate_type);
+        (self.num / self.child_nums[idx]) as f64 * model.cin * first_gate.nwidth as f64
+            / (gate_params(first_gate_type).nwidth as f64)
     }
 }
 
 fn size_helper_tmp(x: &PlanTreeNode, skew_rising: bool, cols: bool) -> TreeNode {
-    path_map_tree(x, &size_path, &1.)
+    // TODO: use real load capacitance
+    path_map_tree(x, &size_path, &128.)
 }
 
 fn plan_decoder(bits: usize, top: bool, skew_rising: bool, cols: bool) -> PlanTreeNode {
