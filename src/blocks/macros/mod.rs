@@ -279,6 +279,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(feature = "commercial")]
     #[ignore = "slow"]
     fn test_sense_amp_clk_cap() {
         let ctx = setup_ctx();

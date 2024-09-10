@@ -405,6 +405,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "commercial")]
     #[ignore = "slow"]
     fn test_bitline_wordline_cap() {
         let ctx = setup_ctx();

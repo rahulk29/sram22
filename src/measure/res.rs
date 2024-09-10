@@ -13,7 +13,7 @@ use substrate::schematic::elements::vpulse::Vpulse;
 use substrate::schematic::signal::Signal;
 use substrate::units::{SiPrefix, SiValue};
 use substrate::verification::simulation::testbench::Testbench;
-use substrate::verification::simulation::waveform::{SharedWaveform, TimeWaveform};
+use substrate::verification::simulation::waveform::{EdgeDir, SharedWaveform, TimeWaveform};
 use substrate::verification::simulation::{Analysis, Save, TranAnalysis};
 
 use crate::pex::Pex;
@@ -140,48 +140,52 @@ impl<P: Clone + Serialize, T: Component<Params = P>> Component for TransitionTes
     }
 }
 
-// impl<P: Clone + Serialize, T: Component<Params = P>> Testbench for TransitionTestbench<T> {
-//     type Output = TransitionTimes;
-//
-//     fn setup(
-//         &mut self,
-//         ctx: &mut substrate::verification::simulation::context::PreSimCtx,
-//     ) -> substrate::error::Result<()> {
-//         if let Some(ref netlist) = self.params.pex_netlist {
-//             ctx.include(netlist);
-//         }
-//         ctx.add_analysis(Analysis::Tran(
-//             TranAnalysis::builder()
-//                 .stop(6e-6)
-//                 .start(0.0)
-//                 .step(1e-9)
-//                 .build()
-//                 .unwrap(),
-//         ))
-//         .save(Save::All);
-//         Ok(())
-//     }
-//
-//     fn measure(
-//         &mut self,
-//         ctx: &substrate::verification::simulation::context::PostSimCtx,
-//     ) -> substrate::error::Result<Self::Output> {
-//         let data = ctx.output().data[0].tran();
-//         let sig = SharedWaveform::from_signal(&data.data["vmeas"], &data.time);
-//         let transitions = sig.transitions(
-//             self.params.lower_threshold * self.params.vdd,
-//             self.params.upper_threshold * self.params.vdd,
-//         );
-//
-//         let t1 = data.time.values[idx1];
-//         let t2 = data.time.values[idx2];
-//
-//         assert!(v2 > v1);
-//         assert!(idx2 > idx1);
-//         assert!(t2 > t1);
-//
-//         let cnode = self.params.idc as f64 * 1e-9 * (t2 - t1) / (v2 - v1);
-//
-//         Ok(NodeCap { cnode })
-//     }
-// }
+impl<P: Clone + Serialize, T: Component<Params = P>> Testbench for TransitionTestbench<T> {
+    type Output = TransitionTimes;
+
+    fn setup(
+        &mut self,
+        ctx: &mut substrate::verification::simulation::context::PreSimCtx,
+    ) -> substrate::error::Result<()> {
+        if let Some(ref netlist) = self.params.pex_netlist {
+            ctx.include(netlist);
+        }
+        let duration = (self.params.delay + self.params.width) * 2.;
+        ctx.add_analysis(Analysis::Tran(
+            TranAnalysis::builder()
+                .stop(duration)
+                .start(0.0)
+                .step(duration / 1e5)
+                .build()
+                .unwrap(),
+        ))
+        .save(Save::All);
+        Ok(())
+    }
+
+    fn measure(
+        &mut self,
+        ctx: &substrate::verification::simulation::context::PostSimCtx,
+    ) -> substrate::error::Result<Self::Output> {
+        let data = ctx.output().data[0].tran();
+        let sig = SharedWaveform::from_signal(&data.time, &data.data["vmeas"]);
+        let mut transitions = sig
+            .transitions(
+                self.params.lower_threshold * self.params.vdd,
+                self.params.upper_threshold * self.params.vdd,
+            )
+            .collect::<Vec<_>>();
+
+        println!("{:?}", transitions);
+
+        let t1 = transitions[0];
+        let t2 = transitions[1];
+
+        let (tr, tf) = match t1.dir() {
+            EdgeDir::Rising => (t1.duration(), t2.duration()),
+            EdgeDir::Falling => (t2.duration(), t1.duration()),
+        };
+
+        Ok(TransitionTimes { tr, tf })
+    }
+}
