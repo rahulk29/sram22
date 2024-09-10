@@ -1,20 +1,16 @@
 use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
-use substrate::{
-    component::Component,
-    layout::{
-        cell::{CellPort, PortConflictStrategy},
-        layers::selector::Selector,
-        placement::{align::AlignMode, array::ArrayTiler},
-    },
-};
+use substrate::component::Component;
+use substrate::layout::cell::{CellPort, PortConflictStrategy};
+use substrate::layout::layers::selector::Selector;
+use substrate::layout::placement::align::AlignMode;
+use substrate::layout::placement::array::ArrayTiler;
 
-use super::decoder::{
-    self,
-    layout::{decoder_stage_layout, DecoderGate, DecoderGateParams, DecoderTap, RoutingStyle},
-    DecoderStageParams,
+use super::decoder::layout::{
+    decoder_stage_layout, DecoderGate, DecoderGateParams, DecoderTap, RoutingStyle,
 };
+use super::decoder::{self, DecoderStageParams};
 
 pub mod layout;
 pub mod schematic;
@@ -568,8 +564,10 @@ mod tests {
                 )
                 .expect("failed to write simulation");
             println!(
-                "params = {:?}, tr = {}, tf={}",
-                params, transitions.tr, transitions.tf
+                "params = {:?}, tr = {:.3}ps, tf={:.3}ps",
+                params,
+                transitions.tr * 1e12,
+                transitions.tf * 1e12
             );
             let diff = (transitions.tr - transitions.tf).abs();
             if let Some((pdiff, _)) = opt {
