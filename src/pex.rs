@@ -1,8 +1,6 @@
 use serde::Serialize;
-use substrate::{
-    component::{error, Component},
-    error::ErrorSource,
-};
+use substrate::component::{error, Component};
+use substrate::error::ErrorSource;
 
 pub struct Pex<T: Component> {
     params: T::Params,
