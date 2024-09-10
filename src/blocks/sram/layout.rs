@@ -1053,6 +1053,13 @@ impl SramInner {
             }
         }
 
+        // Connect replica precharge to power straps.
+        for port in replica_pc.port("vdd")?.shapes(m2) {
+            if let Shape::Rect(rect) = port {
+                straps.add_target(m2, Target::new(SingleSupplyNet::Vdd, rect));
+            }
+        }
+
         // Route column peripheral outputs to pins on bounding box of SRAM
         let groups = self.params.cols / self.params.mux_ratio;
         for (j, (port, width)) in [

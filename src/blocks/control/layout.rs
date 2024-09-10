@@ -46,7 +46,7 @@ impl ControlLogicReplicaV2 {
         let and = ctx.instantiate::<StdCell>(&and.id())?;
         let mux = lib.try_cell_named("sky130_fd_sc_hd__mux2_2")?;
         let mux = ctx.instantiate::<StdCell>(&mux.id())?;
-        let bufbuf = lib.try_cell_named("sky130_fd_sc_hd__bufbuf_16")?;
+        let bufbuf = lib.try_cell_named("sky130_fd_sc_hd__bufbuf_8")?;
         let bufbuf = ctx.instantiate::<StdCell>(&bufbuf.id())?;
         let edge_detector = ctx.instantiate::<EdgeDetector>(&NoParams)?;
         let sr_latch = ctx.instantiate::<SrLatch>(&NoParams)?;
@@ -72,15 +72,15 @@ impl ControlLogicReplicaV2 {
             row.push(tap.clone());
             for (_, inst) in insts {
                 row.push(LayerBbox::new((*inst).clone(), outline));
+                row.push(tap.clone());
             }
-            row.push(tap.clone());
             let mut row = row.build();
 
             let names: Vec<String> = insts.iter().map(|(name, _)| name.to_string()).collect();
             row.expose_ports(
                 |port: CellPort, i| {
-                    let name = if i > 0 && i <= names.len() {
-                        &names[i - 1]
+                    let name = if i % 2 == 1 {
+                        &names[i / 2]
                     } else {
                         return None;
                     };
@@ -132,8 +132,8 @@ impl ControlLogicReplicaV2 {
         rows.push(LayerBbox::new(
             create_row(&[
                 ("wr_drv_set", &and),
-                ("wl_en_buf", &bufbuf),
                 ("sae_buf", &bufbuf),
+                ("wl_en_buf", &bufbuf),
                 ("wbl_pulldown_en", &and),
             ])?,
             outline,
@@ -148,7 +148,7 @@ impl ControlLogicReplicaV2 {
         rows.push(LayerBbox::new(row, outline));
 
         rows.push(LayerBbox::new(
-            create_row(&[("pc_b_buf2", &bufbuf), ("wr_drv_buf", &bufbuf)])?,
+            create_row(&[("wr_drv_buf", &bufbuf), ("pc_b_buf2", &bufbuf)])?,
             outline,
         ));
 
@@ -365,7 +365,7 @@ impl ControlLogicReplicaV2 {
             m0,
             Rect::from_spans(
                 clk_buf_in.hspan().union(clk_buf_out.hspan()),
-                clk_buf_in.vspan(),
+                Span::with_start_and_length(clk_buf_in.bottom(), 170),
             ),
         );
 
@@ -377,7 +377,10 @@ impl ControlLogicReplicaV2 {
             .largest_rect(m0)?;
         ctx.draw_rect(
             m0,
-            Rect::from_spans(clkp_in.hspan().union(clkp_out.hspan()), clkp_in.vspan()),
+            Rect::from_spans(
+                clkp_in.hspan().union(clkp_out.hspan()),
+                Span::with_start_and_length(clkp_in.bottom(), 170),
+            ),
         );
 
         // clk_pulse -> sae_ctl/pc_ctl/wr_drv_set
@@ -498,7 +501,7 @@ impl ControlLogicReplicaV2 {
             m0,
             Rect::from_spans(
                 rbl_b_out.hspan().union(rbl_b_in.hspan()),
-                Span::with_start_and_length(rbl_b_in.bottom(), 250),
+                Span::with_start_and_length(rbl_b_in.bottom(), 170),
             ),
         );
 
@@ -1695,16 +1698,36 @@ impl InvChain {
         let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
         let inv = lib.try_cell_named("sky130_fd_sc_hd__inv_2")?;
         let inv = ctx.instantiate::<StdCell>(&inv.id())?;
+        let tap = lib.try_cell_named("sky130_fd_sc_hd__tap_2")?;
+        let tap = ctx.instantiate::<StdCell>(&tap.id())?;
 
         let layers = ctx.layers();
         let m0 = layers.get(Selector::Metal(0))?;
         let outline = layers.get(Selector::Name("outline"))?;
 
         let mut row = new_row();
-        row.push_num(LayerBbox::new(inv, outline), self.n);
+        let group_size = 8;
+        let num_groups = self.n.div_ceil(group_size);
+        for i in 0..num_groups {
+            if i == num_groups - 1 {
+                row.push_num(
+                    LayerBbox::new(inv.clone(), outline),
+                    self.n - (num_groups - 1) * group_size,
+                );
+            } else {
+                row.push_num(LayerBbox::new(inv.clone(), outline), group_size);
+                row.push(LayerBbox::new(tap.clone(), outline));
+            }
+        }
         let mut row = row.build();
         row.expose_ports(
-            |port: CellPort, i| Some(port.with_index(i)),
+            |port: CellPort, i| {
+                if i % (group_size + 1) < group_size {
+                    Some(port.with_index(i / (group_size + 1) * group_size + i % (group_size + 1)))
+                } else {
+                    None
+                }
+            },
             PortConflictStrategy::Error,
         )?;
 
@@ -1714,7 +1737,17 @@ impl InvChain {
                 .port_map()
                 .port(PortId::new("a", i + 1))?
                 .largest_rect(m0)?;
-            ctx.draw_rect(m0, Rect::from_spans(a.hspan().union(y.hspan()), a.vspan()));
+            ctx.draw_rect(
+                m0,
+                Rect::from_spans(
+                    a.hspan().union(y.hspan()),
+                    if i % group_size == group_size - 1 {
+                        Span::with_start_and_length(a.bottom(), 170)
+                    } else {
+                        a.vspan()
+                    },
+                ),
+            );
         }
         ctx.add_port(
             row.port_map()

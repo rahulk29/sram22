@@ -23,12 +23,12 @@ impl Buf {
         };
 
         let mut inv1 = ctx.instantiate::<Inv>(inv_params)?;
-        inv1.connect_all([("vdd", &vdd), ("vss", &vss), ("din", &din), ("din_b", &x)]);
+        inv1.connect_all([("vdd", &vdd), ("vss", &vss), ("a", &din), ("y", &x)]);
         inv1.set_name("inv_1".to_string());
         ctx.add_instance(inv1);
 
         let mut inv2 = ctx.instantiate::<Inv>(inv_params)?;
-        inv2.connect_all([("vdd", &vdd), ("vss", &vss), ("din", &x), ("din_b", &dout)]);
+        inv2.connect_all([("vdd", &vdd), ("vss", &vss), ("a", &x), ("y", &dout)]);
         inv2.set_name("inv_2".to_string());
         ctx.add_instance(inv2);
 

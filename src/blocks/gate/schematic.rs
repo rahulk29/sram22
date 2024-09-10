@@ -29,7 +29,7 @@ impl And2 {
         ctx.add_instance(nand);
 
         let mut inv = ctx.instantiate::<Inv>(&self.params.inv)?;
-        inv.connect_all([("vdd", &vdd), ("din", &yb), ("din_b", &y), ("vss", &vss)]);
+        inv.connect_all([("vdd", &vdd), ("a", &yb), ("y", &y), ("vss", &vss)]);
         ctx.add_instance(inv);
 
         Ok(())
@@ -61,7 +61,7 @@ impl And3 {
         ctx.add_instance(nand);
 
         let mut inv = ctx.instantiate::<Inv>(&self.params.inv)?;
-        inv.connect_all([("vdd", &vdd), ("din", &yb), ("din_b", &y), ("vss", &vss)]);
+        inv.connect_all([("vdd", &vdd), ("a", &yb), ("y", &y), ("vss", &vss)]);
         ctx.add_instance(inv);
 
         Ok(())
@@ -77,8 +77,8 @@ impl Inv {
 
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
-        let din = ctx.port("din", Direction::Input);
-        let din_b = ctx.port("din_b", Direction::Output);
+        let a = ctx.port("a", Direction::Input);
+        let y = ctx.port("y", Direction::Output);
 
         let pmos_id = ctx
             .mos_db()
@@ -97,7 +97,7 @@ impl Inv {
             nf: 1,
             id: pmos_id,
         })?;
-        mp.connect_all([("d", &din_b), ("g", &din), ("s", &vdd), ("b", &vdd)]);
+        mp.connect_all([("d", &y), ("g", &a), ("s", &vdd), ("b", &vdd)]);
         mp.set_name("MP0");
         ctx.add_instance(mp);
 
@@ -108,7 +108,7 @@ impl Inv {
             nf: 1,
             id: nmos_id,
         })?;
-        mn.connect_all([("d", &din_b), ("g", &din), ("s", &vss), ("b", &vss)]);
+        mn.connect_all([("d", &y), ("g", &a), ("s", &vss), ("b", &vss)]);
         mn.set_name("MN0");
         ctx.add_instance(mn);
 

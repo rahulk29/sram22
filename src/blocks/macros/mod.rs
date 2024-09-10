@@ -263,3 +263,78 @@ pub struct SpWlstrapa;
     gds_cell_name = "sky130_fd_bd_sram__sram_sp_wlstrapa_p"
 )]
 pub struct SpWlstrapaP;
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use substrate::component::NoParams;
+    use substrate::schematic::netlist::NetlistPurpose;
+
+    use crate::measure::cap::{self, CapTestbench, TbNode};
+    use crate::paths::{out_gds, out_spice};
+    use crate::setup_ctx;
+    use crate::tests::test_work_dir;
+
+    use super::*;
+
+    #[test]
+    #[ignore = "slow"]
+    fn test_sense_amp_clk_cap() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_sense_amp_clk_cap");
+
+        let pex_path = out_spice(&work_dir, "pex_schematic");
+        let pex_dir = work_dir.join("pex");
+        let pex_level = calibre::pex::PexLevel::Rc;
+        let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+        ctx.write_schematic_to_file_for_purpose::<SenseAmp>(
+            &NoParams,
+            &pex_path,
+            NetlistPurpose::Pex,
+        )
+        .expect("failed to write pex source netlist");
+        let mut opts = std::collections::HashMap::with_capacity(1);
+        opts.insert("level".into(), pex_level.as_str().into());
+
+        let gds_path = out_gds(&work_dir, "layout");
+        ctx.write_layout::<SenseAmp>(&NoParams, &gds_path)
+            .expect("failed to write layout");
+
+        ctx.run_pex(substrate::verification::pex::PexInput {
+            work_dir: pex_dir,
+            layout_path: gds_path.clone(),
+            layout_cell_name: arcstr::literal!("sramgen_sp_sense_amp"),
+            layout_format: substrate::layout::LayoutFormat::Gds,
+            source_paths: vec![pex_path],
+            source_cell_name: arcstr::literal!("sramgen_sp_sense_amp_wrapper"),
+            pex_netlist_path: pex_netlist_path.clone(),
+            ground_net: "vss".to_string(),
+            opts,
+        })
+        .expect("failed to run pex");
+
+        let sim_work_dir = work_dir.join("sim");
+        let cap = ctx
+            .write_simulation::<CapTestbench<SenseAmp>>(
+                &cap::TbParams {
+                    idc: 10,
+                    vdd: 1.8,
+                    dut: NoParams,
+                    pex_netlist: Some(pex_netlist_path.clone()),
+                    connections: HashMap::from_iter([
+                        (arcstr::literal!("VDD"), vec![TbNode::Vdd]),
+                        (arcstr::literal!("VSS"), vec![TbNode::Vss]),
+                        (arcstr::literal!("clk"), vec![TbNode::Vmeas]),
+                        (arcstr::literal!("inn"), vec![TbNode::Vdd]),
+                        (arcstr::literal!("inp"), vec![TbNode::Vss]),
+                        (arcstr::literal!("outp"), vec![TbNode::Floating]),
+                        (arcstr::literal!("outn"), vec![TbNode::Floating]),
+                    ]),
+                },
+                &sim_work_dir,
+            )
+            .expect("failed to write simulation");
+        println!("Cclk = {}", cap.cnode);
+    }
+}

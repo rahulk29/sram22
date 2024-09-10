@@ -275,6 +275,8 @@ impl Predecoder {
             })?;
             child.place(Corner::UpperLeft, Point::new(x, 0));
             x += child.brect().width() + dsn.width * dsn.tap_period as i64;
+            ctx.merge_port(child.port("vdd")?);
+            ctx.merge_port(child.port("vss")?);
 
             for port in child
                 .ports_starting_with("predecode")

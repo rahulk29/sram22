@@ -1,9 +1,15 @@
 use arcstr::ArcStr;
 
 use serde::{Deserialize, Serialize};
+use subgeom::{Dir, Rect, Shape, Side, Span};
 use substrate::component::Component;
+use substrate::layout::cell::{Port, PortId};
+use substrate::layout::elements::via::{Via, ViaParams};
+use substrate::layout::layers::selector::Selector;
+use substrate::layout::layers::LayerBoundBox;
 
-pub mod cbl;
+use crate::blocks::guard_ring::{GuardRingWrapper, WrapperParams};
+
 pub mod layout;
 pub mod replica;
 pub mod schematic;
@@ -55,262 +61,266 @@ impl Component for SpCellArray {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use subgeom::{Dir, Rect, Shape, Side, Span};
-    use substrate::component::{Component, NoParams};
-    use substrate::layout::cell::{Port, PortId};
-    use substrate::layout::elements::via::{Via, ViaParams};
-    use substrate::layout::layers::selector::Selector;
-    use substrate::layout::layers::LayerBoundBox;
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct SpCellArrayWithGuardRingParams {
+    inner: SpCellArrayParams,
+    h_width: i64,
+    v_width: i64,
+}
 
-    use crate::blocks::bitcell_array::layout::*;
-    use crate::blocks::guard_ring::{GuardRingWrapper, WrapperParams};
-    use crate::paths::{out_gds, out_spice};
-    use crate::setup_ctx;
-    use crate::tests::test_work_dir;
+pub struct SpCellArrayWithGuardRing {
+    params: SpCellArrayWithGuardRingParams,
+}
 
-    use super::*;
+impl Component for SpCellArrayWithGuardRing {
+    type Params = SpCellArrayWithGuardRingParams;
 
-    #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
-    pub struct SpCellArrayWithGuardRingParams {
-        inner: SpCellArrayParams,
-        h_width: i64,
-        v_width: i64,
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self { params: *params })
     }
 
-    pub struct SpCellArrayWithGuardRing {
-        params: SpCellArrayWithGuardRingParams,
+    fn name(&self) -> ArcStr {
+        arcstr::literal!("sp_cell_array_with_guard_ring")
     }
 
-    impl Component for SpCellArrayWithGuardRing {
-        type Params = SpCellArrayWithGuardRingParams;
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        let mut array = ctx.instantiate::<SpCellArray>(&self.params.inner)?;
+        ctx.bubble_all_ports(&mut array);
+        ctx.add_instance(array);
+        Ok(())
+    }
 
-        fn new(
-            params: &Self::Params,
-            _ctx: &substrate::data::SubstrateCtx,
-        ) -> substrate::error::Result<Self> {
-            Ok(Self { params: *params })
-        }
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let v_metal = ctx.layers().get(Selector::Metal(1))?;
+        let h_metal = ctx.layers().get(Selector::Metal(2))?;
+        let m3 = ctx.layers().get(Selector::Metal(3))?;
+        let params: WrapperParams<SpCellArrayParams> = WrapperParams {
+            inner: self.params.inner,
+            enclosure: 2_000,
+            h_metal,
+            v_metal,
+            h_width: self.params.h_width,
+            v_width: self.params.v_width,
+        };
+        let array = ctx.instantiate::<GuardRingWrapper<SpCellArray>>(&params)?;
 
-        fn name(&self) -> ArcStr {
-            arcstr::literal!("sp_cell_array_with_guard_ring")
-        }
-
-        fn schematic(
-            &self,
-            ctx: &mut substrate::schematic::context::SchematicCtx,
-        ) -> substrate::error::Result<()> {
-            let mut array = ctx.instantiate::<SpCellArray>(&self.params.inner)?;
-            ctx.bubble_all_ports(&mut array);
-            ctx.add_instance(array);
-            Ok(())
-        }
-
-        fn layout(
-            &self,
-            ctx: &mut substrate::layout::context::LayoutCtx,
-        ) -> substrate::error::Result<()> {
-            let v_metal = ctx.layers().get(Selector::Metal(1))?;
-            let h_metal = ctx.layers().get(Selector::Metal(2))?;
-            let m3 = ctx.layers().get(Selector::Metal(3))?;
-            let params: WrapperParams<SpCellArrayParams> = WrapperParams {
-                inner: self.params.inner,
-                enclosure: 2_000,
-                h_metal,
-                v_metal,
-                h_width: self.params.h_width,
-                v_width: self.params.v_width,
+        for (ring_port_name, side, port_names) in [
+            ("ring_vss", Side::Left, vec!["vgnd", "vnb", "wl_dummy"]),
+            ("ring_vdd", Side::Left, vec!["vpwr", "vpb"]),
+            ("ring_vss", Side::Top, vec!["vgnd", "vnb"]),
+            (
+                "ring_vdd",
+                Side::Top,
+                vec!["vpwr", "vpb", "bl_dummy", "br_dummy"],
+            ),
+        ] {
+            let dir = side.coord_dir();
+            let (ring_metal, port_metal) = match dir {
+                Dir::Horiz => (v_metal, h_metal),
+                Dir::Vert => (h_metal, v_metal),
             };
-            let array = ctx.instantiate::<GuardRingWrapper<SpCellArray>>(&params)?;
+            let ring_port = array.port(ring_port_name)?;
+            let ring_rect = ring_port.first_rect(ring_metal, side)?;
+            // Specifically for routing vertical straps to VDD via M3.
+            let mut via_rects = Vec::new();
+            // Specifically for merging horizontal straps on same net.
+            let mut to_merge = Vec::new();
 
-            for (ring_port_name, side, port_names) in [
-                ("ring_vss", Side::Left, vec!["vgnd", "vnb", "wl_dummy"]),
-                ("ring_vdd", Side::Left, vec!["vpwr", "vpb"]),
-                ("ring_vss", Side::Top, vec!["vgnd", "vnb"]),
-                (
-                    "ring_vdd",
-                    Side::Top,
-                    vec!["vpwr", "vpb", "bl_dummy", "br_dummy"],
-                ),
-            ] {
-                let dir = side.coord_dir();
-                let (ring_metal, port_metal) = match dir {
-                    Dir::Horiz => (v_metal, h_metal),
-                    Dir::Vert => (h_metal, v_metal),
-                };
-                let ring_port = array.port(ring_port_name)?;
-                let ring_rect = ring_port.first_rect(ring_metal, side)?;
-                // Specifically for routing vertical straps to VDD via M3.
-                let mut via_rects = Vec::new();
-                // Specifically for merging horizontal straps on same net.
-                let mut to_merge = Vec::new();
-
-                for port_name in port_names {
-                    let ports = array.ports_starting_with(port_name);
-                    for port in ports {
-                        if port.id() == &PortId::new("bl_dummy", 0)
-                            || port.id() == &PortId::new("br_dummy", 0)
-                        {
-                            continue;
+            for port_name in port_names {
+                let ports = array.ports_starting_with(port_name);
+                for port in ports {
+                    if port.id() == &PortId::new("bl_dummy", 0)
+                        || port.id() == &PortId::new("br_dummy", 0)
+                    {
+                        continue;
+                    }
+                    let start = port.first_rect(port_metal, side)?.side(side);
+                    let extremes = Side::with_dir(side.edge_dir())
+                        .map(|s| port.first_rect(port_metal, s).unwrap().side(s))
+                        .collect::<Vec<i64>>();
+                    let intermediate_vspan = Span::with_point_and_length(
+                        !side.sign(),
+                        ring_rect.side(!side) - side.sign().as_int() * 4_000,
+                        500,
+                    );
+                    if side == Side::Top && port_name == "vpb" {
+                        // Special case for clustered VDD ports at the edges.
+                        for edge in Side::with_dir(!dir) {
+                            let edge_start = port.first_rect(port_metal, edge)?.side(edge);
+                            let hspan = Span::with_point_and_length(edge.sign(), edge_start, 1_400);
+                            let rect = Rect::from_spans(hspan, intermediate_vspan);
+                            ctx.draw_rect(port_metal, rect);
+                            let viap = ViaParams::builder()
+                                .layers(port_metal, ring_metal)
+                                .geometry(rect, rect)
+                                .expand(
+                                    substrate::layout::elements::via::ViaExpansion::LongerDirection,
+                                )
+                                .build();
+                            let via = ctx.instantiate::<Via>(&viap)?;
+                            ctx.draw(via)?;
+                            let viap = ViaParams::builder()
+                                .layers(ring_metal, m3)
+                                .geometry(rect, rect)
+                                .expand(
+                                    substrate::layout::elements::via::ViaExpansion::LongerDirection,
+                                )
+                                .build();
+                            let via = ctx.instantiate::<Via>(&viap)?;
+                            via_rects.push(via.layer_bbox(m3).into_rect());
+                            ctx.draw(via)?;
                         }
-                        let start = port.first_rect(port_metal, side)?.side(side);
-                        let extremes = Side::with_dir(side.edge_dir())
-                            .map(|s| port.first_rect(port_metal, s).unwrap().side(s))
-                            .collect::<Vec<i64>>();
-                        let intermediate_vspan = Span::with_point_and_length(
-                            !side.sign(),
-                            ring_rect.side(!side) - side.sign().as_int() * 4_000,
-                            500,
-                        );
-                        if side == Side::Top && port_name == "vpb" {
-                            // Special case for clustered VDD ports at the edges.
-                            for edge in Side::with_dir(!dir) {
-                                let edge_start = port.first_rect(port_metal, edge)?.side(edge);
-                                let hspan =
-                                    Span::with_point_and_length(edge.sign(), edge_start, 1_400);
-                                let rect = Rect::from_spans(hspan, intermediate_vspan);
-                                ctx.draw_rect(port_metal, rect);
-                                let viap = ViaParams::builder()
-                                    .layers(port_metal, ring_metal)
-                                    .geometry(rect, rect)
-                                    .expand(substrate::layout::elements::via::ViaExpansion::LongerDirection)
-                                    .build();
-                                let via = ctx.instantiate::<Via>(&viap)?;
-                                ctx.draw(via)?;
-                                let viap = ViaParams::builder()
-                                    .layers(ring_metal, m3)
-                                    .geometry(rect, rect)
-                                    .expand(substrate::layout::elements::via::ViaExpansion::LongerDirection)
-                                    .build();
-                                let via = ctx.instantiate::<Via>(&viap)?;
-                                via_rects.push(via.layer_bbox(m3).into_rect());
-                                ctx.draw(via)?;
+                    }
+
+                    for shape in port.shapes(port_metal) {
+                        if let Shape::Rect(r) = shape {
+                            if r.side(side) != start {
+                                continue;
                             }
-                        }
 
-                        for shape in port.shapes(port_metal) {
-                            if let Shape::Rect(r) = shape {
-                                if r.side(side) != start {
-                                    continue;
+                            match dir {
+                                Dir::Horiz => {
+                                    let rect = Rect::span_builder()
+                                        .with(dir, ring_rect.span(dir).union(r.span(dir)))
+                                        .with(!dir, r.span(!dir))
+                                        .build();
+                                    ctx.draw_rect(port_metal, rect);
+                                    let viap = ViaParams::builder()
+                                        .layers(ring_metal, port_metal)
+                                        .geometry(ring_rect, rect)
+                                        .expand(substrate::layout::elements::via::ViaExpansion::LongerDirection)
+                                        .build();
+                                    let via = ctx.instantiate::<Via>(&viap)?;
+                                    to_merge.push(via.layer_bbox(port_metal).into_rect());
+                                    ctx.draw(via)?;
                                 }
-
-                                match dir {
-                                    Dir::Horiz => {
+                                Dir::Vert => match ring_port_name {
+                                    "ring_vss" => {
                                         let rect = Rect::span_builder()
                                             .with(dir, ring_rect.span(dir).union(r.span(dir)))
                                             .with(!dir, r.span(!dir))
                                             .build();
                                         ctx.draw_rect(port_metal, rect);
-                                        let viap = ViaParams::builder()
-                                        .layers(ring_metal, port_metal)
-                                        .geometry(ring_rect, rect)
-                                        .expand(substrate::layout::elements::via::ViaExpansion::LongerDirection)
-                                        .build();
-                                        let via = ctx.instantiate::<Via>(&viap)?;
-                                        to_merge.push(via.layer_bbox(port_metal).into_rect());
-                                        ctx.draw(via)?;
                                     }
-                                    Dir::Vert => match ring_port_name {
-                                        "ring_vss" => {
-                                            let rect = Rect::span_builder()
-                                                .with(dir, ring_rect.span(dir).union(r.span(dir)))
-                                                .with(!dir, r.span(!dir))
-                                                .build();
-                                            ctx.draw_rect(port_metal, rect);
-                                        }
-                                        _ => {
-                                            let rect = Rect::span_builder()
-                                                .with(dir, intermediate_vspan.union(r.span(dir)))
-                                                .with(!dir, r.span(!dir))
-                                                .build();
-                                            ctx.draw_rect(port_metal, rect);
+                                    _ => {
+                                        let rect = Rect::span_builder()
+                                            .with(dir, intermediate_vspan.union(r.span(dir)))
+                                            .with(!dir, r.span(!dir))
+                                            .build();
+                                        ctx.draw_rect(port_metal, rect);
 
-                                            if !(extremes.contains(&r.left())
-                                                || extremes.contains(&r.right()))
-                                            {
-                                                let viap = ViaParams::builder()
-                                                    .layers(port_metal, ring_metal)
-                                                    .geometry(
-                                                        rect.with_vspan(intermediate_vspan),
-                                                        rect.with_vspan(intermediate_vspan),
-                                                    )
-                                                    .build();
-                                                let via = ctx.instantiate::<Via>(&viap)?;
-                                                ctx.draw(via)?;
-                                                let viap = ViaParams::builder()
-                                                    .layers(ring_metal, m3)
-                                                    .geometry(
-                                                        rect.with_vspan(intermediate_vspan),
-                                                        rect.with_vspan(intermediate_vspan),
-                                                    )
-                                                    .build();
-                                                let via = ctx.instantiate::<Via>(&viap)?;
-                                                via_rects.push(via.layer_bbox(m3).into_rect());
-                                                ctx.draw(via)?;
-                                            }
+                                        if !(extremes.contains(&r.left())
+                                            || extremes.contains(&r.right()))
+                                        {
+                                            let viap = ViaParams::builder()
+                                                .layers(port_metal, ring_metal)
+                                                .geometry(
+                                                    rect.with_vspan(intermediate_vspan),
+                                                    rect.with_vspan(intermediate_vspan),
+                                                )
+                                                .build();
+                                            let via = ctx.instantiate::<Via>(&viap)?;
+                                            ctx.draw(via)?;
+                                            let viap = ViaParams::builder()
+                                                .layers(ring_metal, m3)
+                                                .geometry(
+                                                    rect.with_vspan(intermediate_vspan),
+                                                    rect.with_vspan(intermediate_vspan),
+                                                )
+                                                .build();
+                                            let via = ctx.instantiate::<Via>(&viap)?;
+                                            via_rects.push(via.layer_bbox(m3).into_rect());
+                                            ctx.draw(via)?;
                                         }
-                                    },
-                                }
+                                    }
+                                },
                             }
                         }
                     }
                 }
-
-                // Only applicable for VDD connections on the top of the bitcell.
-                for via in via_rects {
-                    let rect = Rect::from_spans(
-                        via.span(side.edge_dir()),
-                        via.span(side.coord_dir()).union(ring_rect.vspan()),
-                    );
-                    ctx.draw_rect(m3, rect);
-                    let viap = ViaParams::builder()
-                        .layers(ring_metal, m3)
-                        .geometry(ring_rect, rect)
-                        .expand(substrate::layout::elements::via::ViaExpansion::LongerDirection)
-                        .build();
-                    let via = ctx.instantiate::<Via>(&viap)?;
-                    ctx.draw(via)?;
-                }
-
-                // Only applicable for metal 2 horizontal connections.
-                if let Some(hspan) = to_merge
-                    .iter()
-                    .map(|rect| rect.span(dir))
-                    .reduce(|acc, e| acc.union(e))
-                {
-                    let merged_spans = Span::merge_adjacent(
-                        to_merge.iter().map(|rect| rect.span(!dir)),
-                        |a, b| a.min_distance(b) < 400,
-                    );
-                    for span in merged_spans {
-                        let curr = Rect::span_builder()
-                            .with(dir, hspan)
-                            .with(!dir, span)
-                            .build();
-                        ctx.draw_rect(port_metal, curr);
-                    }
-                }
             }
 
-            let vss = array.port("ring_vss")?.into_cell_port().named("vss");
-            let vdd = array.port("ring_vdd")?.into_cell_port().named("vdd");
-            ctx.add_ports([vss, vdd]).unwrap();
-            ctx.add_ports(
-                array
-                    .ports()
-                    .filter(|port| ["bl", "br", "wl"].contains(&port.name().as_ref())),
-            )
-            .unwrap();
-            ctx.add_port(array.port("bl_dummy")?.into_cell_port().named("dummy_bl"))
-                .unwrap();
-            ctx.add_port(array.port("br_dummy")?.into_cell_port().named("dummy_br"))
-                .unwrap();
+            // Only applicable for VDD connections on the top of the bitcell.
+            for via in via_rects {
+                let rect = Rect::from_spans(
+                    via.span(side.edge_dir()),
+                    via.span(side.coord_dir()).union(ring_rect.vspan()),
+                );
+                ctx.draw_rect(m3, rect);
+                let viap = ViaParams::builder()
+                    .layers(ring_metal, m3)
+                    .geometry(ring_rect, rect)
+                    .expand(substrate::layout::elements::via::ViaExpansion::LongerDirection)
+                    .build();
+                let via = ctx.instantiate::<Via>(&viap)?;
+                ctx.draw(via)?;
+            }
 
-            ctx.draw(array)?;
-            Ok(())
+            // Only applicable for metal 2 horizontal connections.
+            if let Some(hspan) = to_merge
+                .iter()
+                .map(|rect| rect.span(dir))
+                .reduce(|acc, e| acc.union(e))
+            {
+                let merged_spans =
+                    Span::merge_adjacent(to_merge.iter().map(|rect| rect.span(!dir)), |a, b| {
+                        a.min_distance(b) < 400
+                    });
+                for span in merged_spans {
+                    let curr = Rect::span_builder()
+                        .with(dir, hspan)
+                        .with(!dir, span)
+                        .build();
+                    ctx.draw_rect(port_metal, curr);
+                }
+            }
         }
+
+        let vss = array.port("ring_vss")?.into_cell_port().named("vss");
+        let vdd = array.port("ring_vdd")?.into_cell_port().named("vdd");
+        ctx.add_ports([vss, vdd]).unwrap();
+        ctx.add_ports(
+            array
+                .ports()
+                .filter(|port| ["bl", "br", "wl"].contains(&port.name().as_ref())),
+        )
+        .unwrap();
+        ctx.add_port(array.port("bl_dummy")?.into_cell_port().named("dummy_bl"))
+            .unwrap();
+        ctx.add_port(array.port("br_dummy")?.into_cell_port().named("dummy_br"))
+            .unwrap();
+
+        ctx.draw(array)?;
+        Ok(())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use substrate::component::NoParams;
+    use substrate::schematic::netlist::NetlistPurpose;
+
+    use crate::measure::cap::{self, CapTestbench, TbNode};
+    use crate::paths::{out_gds, out_spice};
+    use crate::setup_ctx;
+    use crate::tests::test_work_dir;
+
+    use super::layout::{
+        SpCellArrayBottom, SpCellArrayCenter, SpCellArrayCornerLl, SpCellArrayCornerLr,
+        SpCellArrayCornerUl, SpCellArrayCornerUr, TapRatio,
+    };
+    use super::*;
 
     #[test]
     fn test_sp_cell_array() {
@@ -392,5 +402,103 @@ mod tests {
             .expect("failed to write layout");
         ctx.write_layout::<SpCellArrayCenter>(&tap_ratio, out_gds(&work_dir, "center"))
             .expect("failed to write layout");
+    }
+
+    #[test]
+    #[ignore = "slow"]
+    fn test_bitline_wordline_cap() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_bitline_wordline_cap");
+        let params = SpCellArrayWithGuardRingParams {
+            inner: SpCellArrayParams {
+                rows: 128,
+                cols: 8,
+                mux_ratio: 4,
+            },
+            h_width: 1_360,
+            v_width: 1_360,
+        };
+
+        let pex_path = out_spice(&work_dir, "pex_schematic");
+        let pex_dir = work_dir.join("pex");
+        let pex_level = calibre::pex::PexLevel::Rc;
+        let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+        ctx.write_schematic_to_file_for_purpose::<SpCellArrayWithGuardRing>(
+            &params,
+            &pex_path,
+            NetlistPurpose::Pex,
+        )
+        .expect("failed to write pex source netlist");
+        let mut opts = std::collections::HashMap::with_capacity(1);
+        opts.insert("level".into(), pex_level.as_str().into());
+
+        let gds_path = out_gds(&work_dir, "layout");
+        ctx.write_layout::<SpCellArrayWithGuardRing>(&params, &gds_path)
+            .expect("failed to write layout");
+
+        ctx.run_pex(substrate::verification::pex::PexInput {
+            work_dir: pex_dir,
+            layout_path: gds_path.clone(),
+            layout_cell_name: arcstr::literal!("sp_cell_array_with_guard_ring"),
+            layout_format: substrate::layout::LayoutFormat::Gds,
+            source_paths: vec![pex_path],
+            source_cell_name: arcstr::literal!("sp_cell_array_with_guard_ring"),
+            pex_netlist_path: pex_netlist_path.clone(),
+            ground_net: "vss".to_string(),
+            opts,
+        })
+        .expect("failed to run pex");
+
+        let mut bls = vec![TbNode::Vdd; params.inner.cols];
+        bls[0] = TbNode::Vmeas;
+
+        let bl_work_dir = work_dir.join("bl_sim");
+        let cap = ctx
+            .write_simulation::<CapTestbench<SpCellArrayWithGuardRing>>(
+                &cap::TbParams {
+                    idc: 10,
+                    vdd: 1.8,
+                    dut: params,
+                    pex_netlist: Some(pex_netlist_path.clone()),
+                    connections: HashMap::from_iter([
+                        (arcstr::literal!("vdd"), vec![TbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![TbNode::Vss]),
+                        (arcstr::literal!("dummy_bl"), vec![TbNode::Vdd]),
+                        (arcstr::literal!("dummy_br"), vec![TbNode::Vdd]),
+                        (arcstr::literal!("bl"), bls),
+                        (arcstr::literal!("br"), vec![TbNode::Vdd; params.inner.cols]),
+                        (arcstr::literal!("wl"), vec![TbNode::Vss; params.inner.rows]),
+                    ]),
+                },
+                &bl_work_dir,
+            )
+            .expect("failed to write simulation");
+        println!("Cbl = {}", cap.cnode);
+
+        let mut wls = vec![TbNode::Vss; params.inner.rows];
+        wls[0] = TbNode::Vmeas;
+
+        let wl_work_dir = work_dir.join("wl_sim");
+        let cap = ctx
+            .write_simulation::<CapTestbench<SpCellArrayWithGuardRing>>(
+                &cap::TbParams {
+                    idc: 10,
+                    vdd: 1.8,
+                    dut: params,
+                    pex_netlist: Some(pex_netlist_path),
+                    connections: HashMap::from_iter([
+                        (arcstr::literal!("vdd"), vec![TbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![TbNode::Vss]),
+                        (arcstr::literal!("dummy_bl"), vec![TbNode::Vdd]),
+                        (arcstr::literal!("dummy_br"), vec![TbNode::Vdd]),
+                        (arcstr::literal!("bl"), vec![TbNode::Vdd; params.inner.cols]),
+                        (arcstr::literal!("br"), vec![TbNode::Vdd; params.inner.cols]),
+                        (arcstr::literal!("wl"), wls),
+                    ]),
+                },
+                &wl_work_dir,
+            )
+            .expect("failed to write simulation");
+        println!("Cwl = {}", cap.cnode);
     }
 }

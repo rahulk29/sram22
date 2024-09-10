@@ -30,7 +30,9 @@ pub mod cli;
 pub mod config;
 #[cfg(feature = "commercial")]
 pub mod liberate;
+pub mod measure;
 pub mod paths;
+pub mod pex;
 pub mod plan;
 pub mod tech;
 #[cfg(test)]

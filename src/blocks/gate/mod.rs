@@ -1,5 +1,20 @@
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
-use substrate::component::Component;
+use substrate::{
+    component::Component,
+    layout::{
+        cell::{CellPort, PortConflictStrategy},
+        layers::selector::Selector,
+        placement::{align::AlignMode, array::ArrayTiler},
+    },
+};
+
+use super::decoder::{
+    self,
+    layout::{decoder_stage_layout, DecoderGate, DecoderGateParams, DecoderTap, RoutingStyle},
+    DecoderStageParams,
+};
 
 pub mod layout;
 pub mod schematic;
@@ -11,6 +26,10 @@ pub enum Gate {
     Nand2(Nand2),
     Nand3(Nand3),
     Nor2(Nor2),
+}
+
+pub struct TappedGate {
+    params: GateParams,
 }
 
 pub struct And2 {
@@ -225,6 +244,75 @@ impl Component for Gate {
     }
 }
 
+impl Component for TappedGate {
+    type Params = GateParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(TappedGate {
+            params: params.clone(),
+        })
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("tapped_gate")
+    }
+
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        let mut gate = ctx.instantiate::<Gate>(&self.params)?;
+        ctx.bubble_all_ports(&mut gate);
+        ctx.add_instance(gate);
+        Ok(())
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+        let li = layers.get(Selector::Metal(0))?;
+        let stripe_metal = layers.get(Selector::Metal(1))?;
+        let wire_metal = layers.get(Selector::Metal(2))?;
+        let nwell = layers.get(Selector::Name("nwell"))?;
+        let psdm = layers.get(Selector::Name("psdm"))?;
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+        let decoder_params = DecoderGateParams {
+            gate: self.params,
+            dsn: decoder::layout::PhysicalDesign {
+                width: 1_580,
+                tap_width: 1_580,
+                tap_period: 1,
+                stripe_metal,
+                wire_metal,
+                via_metals: vec![],
+                li,
+                line: 320,
+                space: 160,
+                rail_width: 320,
+                abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
+            },
+        };
+        let gate = ctx.instantiate::<DecoderGate>(&decoder_params)?;
+        let tap = ctx.instantiate::<DecoderTap>(&decoder_params)?;
+        let mut tiler = ArrayTiler::builder()
+            .push(tap)
+            .push(gate)
+            .mode(AlignMode::ToTheRight)
+            .alt_mode(AlignMode::CenterVertical)
+            .build();
+        tiler.expose_ports(|port: CellPort, _i| Some(port), PortConflictStrategy::Merge)?;
+        ctx.add_ports(tiler.ports().cloned()).unwrap();
+
+        ctx.draw_ref(&tiler)?;
+
+        Ok(())
+    }
+}
+
 impl Component for And2 {
     type Params = AndParams;
     fn new(
@@ -415,6 +503,43 @@ mod tests {
     use crate::tests::test_work_dir;
 
     use super::*;
+
+    #[test]
+    fn test_inv() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_inv");
+
+        let params = PrimitiveGateParams {
+            pwidth: 1_000,
+            nwidth: 1_000,
+            length: 150,
+        };
+        ctx.write_layout::<Inv>(&params, out_gds(&work_dir, "layout"))
+            .expect("failed to write layout");
+        ctx.write_schematic_to_file::<Inv>(&params, out_spice(&work_dir, "netlist"))
+            .expect("failed to write schematic");
+
+        #[cfg(feature = "commercial")]
+        {
+            let tapped_params = GateParams::Inv(params);
+            let drc_work_dir = work_dir.join("drc");
+            let output = ctx
+                .write_drc::<TappedGate>(&tapped_params, drc_work_dir)
+                .expect("failed to run DRC");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::drc::DrcSummary::Pass
+            ));
+            let lvs_work_dir = work_dir.join("lvs");
+            let output = ctx
+                .write_lvs::<TappedGate>(&tapped_params, lvs_work_dir)
+                .expect("failed to run LVS");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::lvs::LvsSummary::Pass
+            ));
+        }
+    }
 
     #[test]
     fn test_and2() {

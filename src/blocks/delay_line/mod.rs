@@ -116,12 +116,7 @@ impl Component for NaiveDelayLine {
             {
                 ctx.instantiate::<Inv>(*params)?
                     .named(format!("buf_inv_{i}_{j}"))
-                    .with_connections([
-                        ("din", input),
-                        ("din_b", output),
-                        ("vdd", &vdd),
-                        ("vss", &vss),
-                    ])
+                    .with_connections([("a", input), ("y", output), ("vdd", &vdd), ("vss", &vss)])
                     .add_to(ctx);
             }
 
@@ -189,8 +184,8 @@ impl Component for TristateInvDelayLine {
         ctx.instantiate::<Inv>(&self.params.inv)?
             .named("inv_0")
             .with_connections([
-                ("din", clk_in),
-                ("din_b", clk_int_top.index(0)),
+                ("a", clk_in),
+                ("y", clk_int_top.index(0)),
                 ("vdd", vdd),
                 ("vss", vss),
             ])
@@ -212,8 +207,8 @@ impl Component for TristateInvDelayLine {
             ctx.instantiate::<Inv>(&self.params.inv)?
                 .named(format!("inv_{i}"))
                 .with_connections([
-                    ("din", clk_int_top.index(i - 1)),
-                    ("din_b", clk_int_top.index(i)),
+                    ("a", clk_int_top.index(i - 1)),
+                    ("y", clk_int_top.index(i)),
                     ("vdd", vdd),
                     ("vss", vss),
                 ])
