@@ -1056,13 +1056,7 @@ impl SramInner {
         // Connect replica precharge to power straps.
         for port in replica_pc.port("vdd")?.shapes(m2) {
             if let Shape::Rect(rect) = port {
-                straps.add_target(
-                    m2,
-                    Target::new(
-                        SingleSupplyNet::Vdd,
-                        rect,
-                    ),
-                );
+                straps.add_target(m2, Target::new(SingleSupplyNet::Vdd, rect));
             }
         }
 

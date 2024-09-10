@@ -80,7 +80,7 @@ impl ControlLogicReplicaV2 {
             row.expose_ports(
                 |port: CellPort, i| {
                     let name = if i % 2 == 1 {
-                        &names[i/2]
+                        &names[i / 2]
                     } else {
                         return None;
                     };
@@ -148,10 +148,7 @@ impl ControlLogicReplicaV2 {
         rows.push(LayerBbox::new(row, outline));
 
         rows.push(LayerBbox::new(
-            create_row(&[
-            ("wr_drv_buf", &bufbuf),
-            ("pc_b_buf2", &bufbuf),
-            ])?,
+            create_row(&[("wr_drv_buf", &bufbuf), ("pc_b_buf2", &bufbuf)])?,
             outline,
         ));
 
@@ -380,7 +377,10 @@ impl ControlLogicReplicaV2 {
             .largest_rect(m0)?;
         ctx.draw_rect(
             m0,
-            Rect::from_spans(clkp_in.hspan().union(clkp_out.hspan()), Span::with_start_and_length(clkp_in.bottom(), 170)),
+            Rect::from_spans(
+                clkp_in.hspan().union(clkp_out.hspan()),
+                Span::with_start_and_length(clkp_in.bottom(), 170),
+            ),
         );
 
         // clk_pulse -> sae_ctl/pc_ctl/wr_drv_set
@@ -1708,9 +1708,12 @@ impl InvChain {
         let mut row = new_row();
         let group_size = 8;
         let num_groups = self.n.div_ceil(group_size);
-        for i in 0..num_groups{
+        for i in 0..num_groups {
             if i == num_groups - 1 {
-                row.push_num(LayerBbox::new(inv.clone(), outline), self.n - (num_groups - 1) * group_size);
+                row.push_num(
+                    LayerBbox::new(inv.clone(), outline),
+                    self.n - (num_groups - 1) * group_size,
+                );
             } else {
                 row.push_num(LayerBbox::new(inv.clone(), outline), group_size);
                 row.push(LayerBbox::new(tap.clone(), outline));
@@ -1725,7 +1728,6 @@ impl InvChain {
                     None
                 }
             },
-
             PortConflictStrategy::Error,
         )?;
 
@@ -1735,12 +1737,17 @@ impl InvChain {
                 .port_map()
                 .port(PortId::new("a", i + 1))?
                 .largest_rect(m0)?;
-            ctx.draw_rect(m0, Rect::from_spans(a.hspan().union(y.hspan()), 
-            if i % group_size == group_size - 1 {
-                Span::with_start_and_length(a.bottom(), 170)
-            } else {
-                a.vspan()
-            }));
+            ctx.draw_rect(
+                m0,
+                Rect::from_spans(
+                    a.hspan().union(y.hspan()),
+                    if i % group_size == group_size - 1 {
+                        Span::with_start_and_length(a.bottom(), 170)
+                    } else {
+                        a.vspan()
+                    },
+                ),
+            );
         }
         ctx.add_port(
             row.port_map()
