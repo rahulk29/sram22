@@ -4,8 +4,7 @@ use std::path::PathBuf;
 use arcstr::ArcStr;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
-use substrate::component::{error, Component};
-use substrate::error::ErrorSource;
+use substrate::component::Component;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::elements::idc::Idc;
 use substrate::schematic::elements::vdc::Vdc;
@@ -141,7 +140,7 @@ impl<P: Clone + Serialize, T: Component<Params = P>> Testbench for CapTestbench<
                 .build()
                 .unwrap(),
         ))
-        .save(Save::All);
+        .save(Save::Signals(["vmeas".into()].into_iter().collect()));
         Ok(())
     }
 

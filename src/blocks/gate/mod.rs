@@ -12,8 +12,7 @@ use substrate::{
 
 use super::decoder::{
     self,
-    layout::{decoder_stage_layout, DecoderGate, DecoderGateParams, DecoderTap, RoutingStyle},
-    DecoderStageParams,
+    layout::{DecoderGate, DecoderGateParams, DecoderTap},
 };
 
 pub mod layout;
@@ -455,8 +454,12 @@ mod tests {
     use std::collections::HashMap;
 
     use substrate::schematic::netlist::NetlistPurpose;
+    use substrate::units::{SiPrefix, SiValue};
 
-    use crate::measure::res::{TransitionTbNode, TransitionTbParams, TransitionTestbench};
+    use crate::measure::impedance::{
+        AcImpedanceTbNode, AcImpedanceTbParams, AcImpedanceTestbench, TransitionTbNode,
+        TransitionTbParams, TransitionTestbench,
+    };
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
@@ -498,6 +501,101 @@ mod tests {
                 substrate::verification::lvs::LvsSummary::Pass
             ));
         }
+    }
+
+    #[test]
+    #[cfg(feature = "commercial")]
+    #[ignore = "slow"]
+    fn test_inv_char() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_inv_char");
+        let params = GateParams::Inv(PrimitiveGateParams {
+            pwidth: 2_500,
+            nwidth: 1_000,
+            length: 150,
+        });
+
+        let pex_path = out_spice(&work_dir, "pex_schematic");
+        let pex_dir = work_dir.join("pex");
+        let pex_level = calibre::pex::PexLevel::Rc;
+        let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+        ctx.write_schematic_to_file_for_purpose::<TappedGate>(
+            &params,
+            &pex_path,
+            NetlistPurpose::Pex,
+        )
+        .expect("failed to write pex source netlist");
+        let mut opts = std::collections::HashMap::with_capacity(1);
+        opts.insert("level".into(), pex_level.as_str().into());
+
+        let gds_path = out_gds(&work_dir, "layout");
+        ctx.write_layout::<TappedGate>(&params, &gds_path)
+            .expect("failed to write layout");
+
+        ctx.run_pex(substrate::verification::pex::PexInput {
+            work_dir: pex_dir,
+            layout_path: gds_path.clone(),
+            layout_cell_name: arcstr::literal!("tapped_gate"),
+            layout_format: substrate::layout::LayoutFormat::Gds,
+            source_paths: vec![pex_path],
+            source_cell_name: arcstr::literal!("tapped_gate"),
+            pex_netlist_path: pex_netlist_path.clone(),
+            ground_net: "vss".to_string(),
+            opts,
+        })
+        .expect("failed to run pex");
+
+        let pu_zout_work_dir = work_dir.join("pu_zout_sim");
+        let pu_zout = ctx
+            .write_simulation::<AcImpedanceTestbench<TappedGate>>(
+                &AcImpedanceTbParams {
+                    vdd: 1.8,
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
+                    dut: params,
+                    pex_netlist: Some(pex_netlist_path.clone()),
+                    connections: HashMap::from_iter([
+                        (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("a"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("y"), vec![AcImpedanceTbNode::Vmeas]),
+                    ]),
+                },
+                &pu_zout_work_dir,
+            )
+            .expect("failed to write simulation");
+        println!(
+            "Pull-up: Cout = {}, Rout = {}",
+            pu_zout.max_freq_cap(),
+            pu_zout.min_freq_res()
+        );
+
+        let pd_zout_work_dir = work_dir.join("pd_zout_sim");
+        let pd_zout = ctx
+            .write_simulation::<AcImpedanceTestbench<TappedGate>>(
+                &AcImpedanceTbParams {
+                    vdd: 1.8,
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
+                    dut: params,
+                    pex_netlist: Some(pex_netlist_path.clone()),
+                    connections: HashMap::from_iter([
+                        (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("a"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("y"), vec![AcImpedanceTbNode::Vmeas]),
+                    ]),
+                },
+                &pd_zout_work_dir,
+            )
+            .expect("failed to write simulation");
+        println!(
+            "Pull-down: Cout = {}, Rout = {}",
+            pd_zout.max_freq_cap(),
+            pd_zout.min_freq_res()
+        );
     }
 
     #[test]
@@ -654,6 +752,103 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "commercial")]
+    #[ignore = "slow"]
+    fn test_nand2_char() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_nand2_char");
+        let params = GateParams::Nand2(PrimitiveGateParams {
+            pwidth: 2_500,
+            nwidth: 2_000,
+            length: 150,
+        });
+
+        let pex_path = out_spice(&work_dir, "pex_schematic");
+        let pex_dir = work_dir.join("pex");
+        let pex_level = calibre::pex::PexLevel::Rc;
+        let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+        ctx.write_schematic_to_file_for_purpose::<TappedGate>(
+            &params,
+            &pex_path,
+            NetlistPurpose::Pex,
+        )
+        .expect("failed to write pex source netlist");
+        let mut opts = std::collections::HashMap::with_capacity(1);
+        opts.insert("level".into(), pex_level.as_str().into());
+
+        let gds_path = out_gds(&work_dir, "layout");
+        ctx.write_layout::<TappedGate>(&params, &gds_path)
+            .expect("failed to write layout");
+
+        ctx.run_pex(substrate::verification::pex::PexInput {
+            work_dir: pex_dir,
+            layout_path: gds_path.clone(),
+            layout_cell_name: arcstr::literal!("tapped_gate"),
+            layout_format: substrate::layout::LayoutFormat::Gds,
+            source_paths: vec![pex_path],
+            source_cell_name: arcstr::literal!("tapped_gate"),
+            pex_netlist_path: pex_netlist_path.clone(),
+            ground_net: "vss".to_string(),
+            opts,
+        })
+        .expect("failed to run pex");
+
+        let pu_zout_work_dir = work_dir.join("pu_zout_sim");
+        let pu_zout = ctx
+            .write_simulation::<AcImpedanceTestbench<TappedGate>>(
+                &AcImpedanceTbParams {
+                    vdd: 1.8,
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
+                    dut: params,
+                    pex_netlist: Some(pex_netlist_path.clone()),
+                    connections: HashMap::from_iter([
+                        (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("a"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("b"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("y"), vec![AcImpedanceTbNode::Vmeas]),
+                    ]),
+                },
+                &pu_zout_work_dir,
+            )
+            .expect("failed to write simulation");
+        println!(
+            "Pull-up: Cout = {}, Rout = {}",
+            pu_zout.max_freq_cap(),
+            pu_zout.min_freq_res()
+        );
+
+        let pd_zout_work_dir = work_dir.join("pd_zout_sim");
+        let pd_zout = ctx
+            .write_simulation::<AcImpedanceTestbench<TappedGate>>(
+                &AcImpedanceTbParams {
+                    vdd: 1.8,
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
+                    dut: params,
+                    pex_netlist: Some(pex_netlist_path.clone()),
+                    connections: HashMap::from_iter([
+                        (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("a"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("b"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("y"), vec![AcImpedanceTbNode::Vmeas]),
+                    ]),
+                },
+                &pd_zout_work_dir,
+            )
+            .expect("failed to write simulation");
+        println!(
+            "Pull-down: Cout = {}, Rout = {}",
+            pd_zout.max_freq_cap(),
+            pd_zout.min_freq_res()
+        );
+    }
+
+    #[test]
     fn test_nand3() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_nand3");
@@ -667,6 +862,105 @@ mod tests {
             .expect("failed to write layout");
         ctx.write_schematic_to_file::<Nand3>(&params, out_spice(&work_dir, "netlist"))
             .expect("failed to write schematic");
+    }
+
+    #[test]
+    #[cfg(feature = "commercial")]
+    #[ignore = "slow"]
+    fn test_nand3_char() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_nand3_char");
+        let params = GateParams::Nand3(PrimitiveGateParams {
+            pwidth: 2_500,
+            nwidth: 3_000,
+            length: 150,
+        });
+
+        let pex_path = out_spice(&work_dir, "pex_schematic");
+        let pex_dir = work_dir.join("pex");
+        let pex_level = calibre::pex::PexLevel::Rc;
+        let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+        ctx.write_schematic_to_file_for_purpose::<TappedGate>(
+            &params,
+            &pex_path,
+            NetlistPurpose::Pex,
+        )
+        .expect("failed to write pex source netlist");
+        let mut opts = std::collections::HashMap::with_capacity(1);
+        opts.insert("level".into(), pex_level.as_str().into());
+
+        let gds_path = out_gds(&work_dir, "layout");
+        ctx.write_layout::<TappedGate>(&params, &gds_path)
+            .expect("failed to write layout");
+
+        ctx.run_pex(substrate::verification::pex::PexInput {
+            work_dir: pex_dir,
+            layout_path: gds_path.clone(),
+            layout_cell_name: arcstr::literal!("tapped_gate"),
+            layout_format: substrate::layout::LayoutFormat::Gds,
+            source_paths: vec![pex_path],
+            source_cell_name: arcstr::literal!("tapped_gate"),
+            pex_netlist_path: pex_netlist_path.clone(),
+            ground_net: "vss".to_string(),
+            opts,
+        })
+        .expect("failed to run pex");
+
+        let pu_zout_work_dir = work_dir.join("pu_zout_sim");
+        let pu_zout = ctx
+            .write_simulation::<AcImpedanceTestbench<TappedGate>>(
+                &AcImpedanceTbParams {
+                    vdd: 1.8,
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
+                    dut: params,
+                    pex_netlist: Some(pex_netlist_path.clone()),
+                    connections: HashMap::from_iter([
+                        (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("a"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("b"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("c"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("y"), vec![AcImpedanceTbNode::Vmeas]),
+                    ]),
+                },
+                &pu_zout_work_dir,
+            )
+            .expect("failed to write simulation");
+        println!(
+            "Pull-up: Cout = {}, Rout = {}",
+            pu_zout.max_freq_cap(),
+            pu_zout.min_freq_res()
+        );
+
+        let pd_zout_work_dir = work_dir.join("pd_zout_sim");
+        let pd_zout = ctx
+            .write_simulation::<AcImpedanceTestbench<TappedGate>>(
+                &AcImpedanceTbParams {
+                    vdd: 1.8,
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
+                    dut: params,
+                    pex_netlist: Some(pex_netlist_path.clone()),
+                    connections: HashMap::from_iter([
+                        (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("a"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("b"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("c"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("y"), vec![AcImpedanceTbNode::Vmeas]),
+                    ]),
+                },
+                &pd_zout_work_dir,
+            )
+            .expect("failed to write simulation");
+        println!(
+            "Pull-down: Cout = {}, Rout = {}",
+            pd_zout.max_freq_cap(),
+            pd_zout.min_freq_res()
+        );
     }
 
     #[test]
