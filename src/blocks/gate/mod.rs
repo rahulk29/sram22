@@ -454,7 +454,6 @@ mod tests {
     use std::collections::HashMap;
 
     use substrate::schematic::netlist::NetlistPurpose;
-    use substrate::units::{SiPrefix, SiValue};
 
     use crate::measure::impedance::{
         AcImpedanceTbNode, AcImpedanceTbParams, AcImpedanceTestbench, TransitionTbNode,
@@ -666,8 +665,10 @@ mod tests {
                 )
                 .expect("failed to write simulation");
             println!(
-                "params = {:?}, tr = {}, tf={}",
-                params, transitions.tr, transitions.tf
+                "params = {:?}, tr = {:.3}ps, tf={:.3}ps",
+                params,
+                transitions.tr * 1e12,
+                transitions.tf * 1e12
             );
             let diff = (transitions.tr - transitions.tf).abs();
             if let Some((pdiff, _)) = opt {

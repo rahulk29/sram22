@@ -311,7 +311,6 @@ mod tests {
     use substrate::component::NoParams;
     use substrate::schematic::netlist::NetlistPurpose;
 
-    use crate::measure::cap::{self, CapTestbench, TbNode};
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
