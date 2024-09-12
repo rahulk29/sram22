@@ -97,9 +97,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.87"
+version = "1.0.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10f00e1f6e58a40e807377c75c6a7f97bf9044fab57816f2414e6f5f4499d7b8"
+checksum = "4e1496f8fb1fbf272686b8d37f523dab3e4a7443300055e74cdaa449f3114356"
 
 [[package]]
 name = "approx"
@@ -317,7 +317,7 @@ checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
 [[package]]
 name = "codegen"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#c17e85f1dc2bcc4b1028298b4549ea4a845c3973"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#154560d28abcc7ffcca9efcd74bb2cdd6c063859"
 dependencies = [
  "darling 0.14.4",
  "itertools",
@@ -729,7 +729,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gds21"
 version = "0.2.1"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#c17e85f1dc2bcc4b1028298b4549ea4a845c3973"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#154560d28abcc7ffcca9efcd74bb2cdd6c063859"
 dependencies = [
  "arcstr",
  "byteorder",
@@ -1053,7 +1053,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 [[package]]
 name = "ngspice"
 version = "0.0.1"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#c17e85f1dc2bcc4b1028298b4549ea4a845c3973"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#154560d28abcc7ffcca9efcd74bb2cdd6c063859"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -1537,9 +1537,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.36"
+version = "0.38.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f55e80d50763938498dd5ebb18647174e0c76dc38c5505294bb224624f30f36"
+checksum = "8acb788b847c24f28525660c4d7758620a7210875711f79e7f663cc152726811"
 dependencies = [
  "bitflags 2.6.0",
  "errno",
@@ -1669,7 +1669,7 @@ checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 [[package]]
 name = "sky130_commercial_pdk"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#c17e85f1dc2bcc4b1028298b4549ea4a845c3973"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#154560d28abcc7ffcca9efcd74bb2cdd6c063859"
 dependencies = [
  "arcstr",
  "sky130_common_pdk",
@@ -1679,7 +1679,7 @@ dependencies = [
 [[package]]
 name = "sky130_common_pdk"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#c17e85f1dc2bcc4b1028298b4549ea4a845c3973"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#154560d28abcc7ffcca9efcd74bb2cdd6c063859"
 dependencies = [
  "arcstr",
  "subgeom",
@@ -1689,7 +1689,7 @@ dependencies = [
 [[package]]
 name = "sky130_open_pdk"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#c17e85f1dc2bcc4b1028298b4549ea4a845c3973"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#154560d28abcc7ffcca9efcd74bb2cdd6c063859"
 dependencies = [
  "arcstr",
  "sky130_common_pdk",
@@ -1731,7 +1731,7 @@ checksum = "b7c388c1b5e93756d0c740965c41e8822f866621d41acbdf6336a6a168f8840c"
 [[package]]
 name = "spectre"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#c17e85f1dc2bcc4b1028298b4549ea4a845c3973"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#154560d28abcc7ffcca9efcd74bb2cdd6c063859"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -1746,7 +1746,7 @@ dependencies = [
 [[package]]
 name = "spice_rawfile"
 version = "0.0.1"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#c17e85f1dc2bcc4b1028298b4549ea4a845c3973"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#154560d28abcc7ffcca9efcd74bb2cdd6c063859"
 dependencies = [
  "nom",
  "serde",
@@ -1844,7 +1844,7 @@ dependencies = [
 [[package]]
 name = "subgeom"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#c17e85f1dc2bcc4b1028298b4549ea4a845c3973"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#154560d28abcc7ffcca9efcd74bb2cdd6c063859"
 dependencies = [
  "array_map",
  "enum_dispatch",
@@ -1856,7 +1856,7 @@ dependencies = [
 [[package]]
 name = "sublut"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#c17e85f1dc2bcc4b1028298b4549ea4a845c3973"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#154560d28abcc7ffcca9efcd74bb2cdd6c063859"
 dependencies = [
  "derive_builder 0.12.0",
  "serde",
@@ -1866,7 +1866,7 @@ dependencies = [
 [[package]]
 name = "subspice"
 version = "0.0.2"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#c17e85f1dc2bcc4b1028298b4549ea4a845c3973"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#154560d28abcc7ffcca9efcd74bb2cdd6c063859"
 dependencies = [
  "anyhow",
  "nom",
@@ -1877,7 +1877,7 @@ dependencies = [
 [[package]]
 name = "substrate"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#c17e85f1dc2bcc4b1028298b4549ea4a845c3973"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#154560d28abcc7ffcca9efcd74bb2cdd6c063859"
 dependencies = [
  "anyhow",
  "arcstr",
@@ -2190,9 +2190,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.12"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b"
+checksum = "e91b56cd4cadaeb79bbf1a5645f6b4f8dc5bde8834ad5894a8db35fda9efa1fe"
 
 [[package]]
 name = "unicode-linebreak"

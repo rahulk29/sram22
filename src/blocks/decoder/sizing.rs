@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 pub trait Tree: Sized {
     fn children(&self) -> &[Self];
     fn children_mut(&mut self) -> &mut [Self];
@@ -9,13 +11,18 @@ pub trait ValueTree<V>: Tree {
     fn value_for_child(&self, idx: usize) -> V;
 }
 
-pub fn path_map_tree<T: Tree, U: ValueTree<V>, F, V>(tree: &T, map: &F, end: &V) -> U
+pub fn path_map_tree<T: Tree + Debug, U: ValueTree<V> + Debug, F, V>(
+    tree: &T,
+    map: &F,
+    end: &V,
+) -> U
 where
     F: Fn(&[&T], &V) -> U,
 {
     let path = left_path(tree);
     let mut mapped_path = map(&path, end);
-    debug_assert_eq!(left_path_len(&mapped_path), path.len());
+    assert_eq!(left_path_len(&mapped_path), path.len());
+    assert_eq!(tree.children().len(), mapped_path.children().len());
 
     let mut state = Some((&mut mapped_path, path[0]));
     while let Some((out, input)) = state {
@@ -26,7 +33,7 @@ where
         state = input
             .children()
             .first()
-            .map(|child| (&mut mapped_path.children_mut()[0], child));
+            .map(|child| (&mut out.children_mut()[0], child));
     }
 
     mapped_path

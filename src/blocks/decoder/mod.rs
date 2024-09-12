@@ -280,60 +280,36 @@ impl Component for WmuxDriver {
 }
 
 impl DecoderTree {
-    pub fn for_columns(bits: usize, top_scale: i64) -> Self {
-        let plan = plan_decoder(bits, true, false, true);
-        let mut root = size_decoder(&plan);
-        root.gate = root.gate.scale(top_scale);
+    pub fn new(bits: usize, cload: f64) -> Self {
+        let plan = plan_decoder(bits, true, false, false);
+        let mut root = size_decoder(&plan, cload);
         DecoderTree { root }
-    }
-
-    pub fn with_scale_and_skew(bits: usize, top_scale: i64, skew_rising: bool) -> Self {
-        let plan = plan_decoder(bits, true, skew_rising, false);
-        let mut root = size_decoder(&plan);
-        root.gate = root.gate.scale(top_scale);
-        DecoderTree { root }
-    }
-
-    #[inline]
-    pub fn with_scale(bits: usize, top_scale: i64) -> Self {
-        Self::with_scale_and_skew(bits, top_scale, false)
-    }
-
-    #[inline]
-    pub fn with_skew(bits: usize, skew_rising: bool) -> Self {
-        Self::with_scale_and_skew(bits, 1, skew_rising)
-    }
-
-    #[inline]
-    pub fn new(bits: usize) -> Self {
-        Self::with_scale_and_skew(bits, 1, false)
     }
 }
 
-fn size_decoder(tree: &PlanTreeNode) -> TreeNode {
-    // TODO improve decoder sizing
-    size_helper_tmp(tree, tree.skew_rising, tree.cols)
+fn size_decoder(tree: &PlanTreeNode, cwl: f64) -> TreeNode {
+    path_map_tree(tree, &size_path, &cwl)
 }
 
 /// The on-resistance and capacitances of a 1x inverter ([`INV_PARAMS`]).
 const INV_MODEL: GateModel = GateModel {
-    res: 1.0,
-    cin: 1.0,
-    cout: 1.0,
+    res: 1422.118502462849,
+    cin: 0.000000000000004482092764998187,
+    cout: 0.0000000004387405174617657,
 };
 
 /// The on-resistance and capacitances of a 1x NAND2 gate ([`NAND2_PARAMS`]).
 const NAND2_MODEL: GateModel = GateModel {
-    res: 1.0,
-    cin: 1.0,
-    cout: 1.0,
+    res: 1478.364147093855,
+    cin: 0.000000000000005389581112035269,
+    cout: 0.0000000002743620195248461,
 };
 
 /// The on-resistance and capacitances of a 1x NAND3 gate ([`NAND3_PARAMS`]).
 const NAND3_MODEL: GateModel = GateModel {
-    res: 1.0,
-    cin: 1.0,
-    cout: 1.0,
+    res: 1478.037783669641,
+    cin: 0.000000000000006217130454627972,
+    cout: 0.000000000216366152882086,
 };
 
 /// The on-resistance and capacitances of a 1x NOR2 gate ([`NOR2_PARAMS`]).
@@ -346,21 +322,21 @@ const NOR2_MODEL: GateModel = GateModel {
 /// The sizing of a 1x inverter.
 const INV_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
     nwidth: 1_000,
-    pwidth: 1_600,
+    pwidth: 2_500,
     length: 150,
 };
 
 /// The sizing of a 1x NAND2 gate.
 const NAND2_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
     nwidth: 2_000,
-    pwidth: 1_600,
+    pwidth: 2_500,
     length: 150,
 };
 
 /// The sizing of a 1x NAND3 gate.
 const NAND3_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
     nwidth: 3_000,
-    pwidth: 1_600,
+    pwidth: 2_500,
     length: 150,
 };
 
@@ -408,15 +384,22 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
         for (j, gate) in node.gate.primitive_gates().iter().copied().enumerate() {
             if i == 0 && j == 0 {
                 lp.append_sized_gate(gate_model(gate));
+                println!("fanout = {:.3}", end / gate_model(gate).cin);
+                println!("append sized {gate:?}");
             } else {
                 let var = lp.create_variable_with_initial(2.);
                 let model = gate_model(gate);
                 if i != 0 && j == 0 {
-                    let mult = (node.num / node.children[0].num) as f64 * model.cin - 1.;
-                    assert!(mult >= 0.0);
-                    lp.append_variable_capacitor(mult, var);
+                    let branching = node.num / node.children[0].num - 1;
+                    if branching > 0 {
+                        let mult = branching as f64 * model.cin;
+                        assert!(mult >= 0.0, "mult must be larger than zero, got {mult}");
+                        lp.append_variable_capacitor(mult, var);
+                        println!("append variable cap {branching:?}x");
+                    }
                 }
                 lp.append_unsized_gate(model, var);
+                println!("append unsized {gate:?}");
                 vars.push(var);
             }
         }
@@ -424,7 +407,7 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
     lp.append_capacitor(*end);
 
     lp.size_with_opts(OptimizerOpts {
-        lr: 0.2,
+        lr: 1e11,
         lr_decay: 0.999995,
         max_iter: 10_000_000,
     });
@@ -437,11 +420,12 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
         .rev()
         .map(|v| {
             let v = lp.value(*v);
-            assert!(v >= 0.5);
+            assert!(v >= 0.5, "gate scale must be at least 0.5, got {v:.3}");
             v
         })
         .collect::<Vec<_>>();
     values.push(1.);
+    println!("values = {values:?}");
     let mut values = values.into_iter();
 
     for &node in path {
@@ -517,11 +501,6 @@ impl ValueTree<f64> for TreeNode {
     }
 }
 
-fn size_helper_tmp(x: &PlanTreeNode, skew_rising: bool, cols: bool) -> TreeNode {
-    // TODO: use real load capacitance
-    path_map_tree(x, &size_path, &128.)
-}
-
 fn plan_decoder(bits: usize, top: bool, skew_rising: bool, cols: bool) -> PlanTreeNode {
     assert!(bits > 1);
     if bits == 2 {
@@ -552,12 +531,30 @@ fn plan_decoder(bits: usize, top: bool, skew_rising: bool, cols: bool) -> PlanTr
             .into_iter()
             .map(|x| plan_decoder(x, false, skew_rising, cols))
             .collect::<Vec<_>>();
-        PlanTreeNode {
+        let node = PlanTreeNode {
             gate,
             num: 2usize.pow(bits as u32),
             children,
             skew_rising,
             cols,
+        };
+
+        if top {
+            PlanTreeNode {
+                gate: GateType::Inv,
+                num: node.num,
+                children: vec![PlanTreeNode {
+                    gate: GateType::Inv,
+                    num: node.num,
+                    children: vec![node],
+                    skew_rising,
+                    cols,
+                }],
+                skew_rising,
+                cols,
+            }
+        } else {
+            node
         }
     }
 }
@@ -700,7 +697,7 @@ mod tests {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_decoder_4bit");
 
-        let tree = DecoderTree::new(4);
+        let tree = DecoderTree::new(4, 150e-15);
         let params = DecoderParams { tree };
 
         ctx.write_schematic_to_file::<Decoder>(&params, out_spice(work_dir, "netlist"))
@@ -767,7 +764,7 @@ mod tests {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_predecoder_4");
 
-        let tree = DecoderTree::new(4);
+        let tree = DecoderTree::new(4, 150e-15);
         let params = DecoderParams { tree };
 
         ctx.write_layout::<Predecoder>(&params, out_gds(work_dir, "layout"))
@@ -779,7 +776,7 @@ mod tests {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_predecoder_6");
 
-        let tree = DecoderTree::new(6);
+        let tree = DecoderTree::new(6, 150e-15);
         let params = DecoderParams { tree };
 
         ctx.write_layout::<Predecoder>(&params, out_gds(&work_dir, "layout"))

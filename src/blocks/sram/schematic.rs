@@ -17,7 +17,7 @@ use crate::blocks::precharge::{Precharge, PrechargeParams};
 use crate::blocks::rmux::ReadMuxParams;
 use crate::blocks::wmux::WriteMuxSizing;
 
-use super::{ControlMode, SramInner};
+use super::{ControlMode, SramInner, READ_MUX_INPUT_CAP, WORDLINE_CAP_PER_CELL};
 
 impl SramInner {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
@@ -83,7 +83,9 @@ impl SramInner {
                 "sense_en",
             ]);
 
-        let tree = DecoderTree::with_scale_and_skew(self.params.row_bits, 2, false);
+        let wl_cap = (self.params.cols + 4) as f64 * WORDLINE_CAP_PER_CELL;
+        println!("wl_cap = {:.3}pF", wl_cap * 1e12);
+        let tree = DecoderTree::new(self.params.row_bits, wl_cap);
 
         ctx.instantiate::<AddrGate>(&AddrGateParams {
             gate: tree.root.gate,
@@ -115,7 +117,11 @@ impl SramInner {
             .named("decoder")
             .add_to(ctx);
 
-        let col_tree = DecoderTree::for_columns(self.params.col_select_bits, 1);
+        // TODO add wmux driver input capacitance
+        let col_tree = DecoderTree::new(
+            self.params.col_select_bits,
+            READ_MUX_INPUT_CAP * (self.params.cols / self.params.mux_ratio) as f64,
+        );
         let col_decoder_params = DecoderParams {
             tree: col_tree.clone(),
         };
