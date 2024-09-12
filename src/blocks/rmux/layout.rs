@@ -121,6 +121,9 @@ impl ReadMux {
             tracks.push(rect);
         }
 
+        ctx.add_port(CellPort::with_shape("bl", pc.v_metal, tracks[1]))?;
+        ctx.add_port(CellPort::with_shape("br", pc.v_metal, tracks[2]))?;
+
         let mut metadata = Metadata::builder();
 
         for (port, idx) in [("sd_1_1", 1), ("sd_0_0", 2)] {

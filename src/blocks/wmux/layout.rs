@@ -149,6 +149,9 @@ impl WriteMux {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+        ctx.add_port(CellPort::with_shape("bl", pc.v_metal, tracks[0]))?;
+        ctx.add_port(CellPort::with_shape("br", pc.v_metal, tracks[2]))?;
+
         let target = wmask.port("sd_0_0")?.largest_rect(pc.m0)?;
         let jog = SJog::builder()
             .src(tracks[1])

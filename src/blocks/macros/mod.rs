@@ -271,7 +271,6 @@ mod tests {
     use substrate::component::NoParams;
     use substrate::schematic::netlist::NetlistPurpose;
 
-    use crate::measure::cap::{self, CapTestbench, TbNode};
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
@@ -282,6 +281,10 @@ mod tests {
     #[cfg(feature = "commercial")]
     #[ignore = "slow"]
     fn test_sense_amp_clk_cap() {
+        use crate::measure::impedance::{
+            AcImpedanceTbNode, AcImpedanceTbParams, AcImpedanceTestbench,
+        };
+
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_sense_amp_clk_cap");
 
@@ -317,25 +320,28 @@ mod tests {
 
         let sim_work_dir = work_dir.join("sim");
         let cap = ctx
-            .write_simulation::<CapTestbench<SenseAmp>>(
-                &cap::TbParams {
-                    idc: 10,
+            .write_simulation::<AcImpedanceTestbench<SenseAmp>>(
+                &AcImpedanceTbParams {
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
                     vdd: 1.8,
                     dut: NoParams,
                     pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Vss,
                     connections: HashMap::from_iter([
-                        (arcstr::literal!("VDD"), vec![TbNode::Vdd]),
-                        (arcstr::literal!("VSS"), vec![TbNode::Vss]),
-                        (arcstr::literal!("clk"), vec![TbNode::Vmeas]),
-                        (arcstr::literal!("inn"), vec![TbNode::Vdd]),
-                        (arcstr::literal!("inp"), vec![TbNode::Vss]),
-                        (arcstr::literal!("outp"), vec![TbNode::Floating]),
-                        (arcstr::literal!("outn"), vec![TbNode::Floating]),
+                        (arcstr::literal!("VDD"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("VSS"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("clk"), vec![AcImpedanceTbNode::Vmeas]),
+                        (arcstr::literal!("inn"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("inp"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("outp"), vec![AcImpedanceTbNode::Floating]),
+                        (arcstr::literal!("outn"), vec![AcImpedanceTbNode::Floating]),
                     ]),
                 },
                 &sim_work_dir,
             )
             .expect("failed to write simulation");
-        println!("Cclk = {}", cap.cnode);
+        println!("Cclk = {}", cap.max_freq_cap());
     }
 }

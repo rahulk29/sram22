@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::elements::iac::Iac;
+use substrate::schematic::elements::resistor::Resistor;
 use substrate::schematic::elements::vdc::Vdc;
 use substrate::schematic::elements::vpulse::Vpulse;
 use substrate::schematic::signal::Signal;
@@ -228,6 +229,7 @@ pub struct AcImpedanceTbParams<T> {
     pub points: usize,
     pub dut: T,
     pub pex_netlist: Option<PathBuf>,
+    pub vmeas_conn: AcImpedanceTbNode,
     pub connections: HashMap<ArcStr, Vec<AcImpedanceTbNode>>,
 }
 
@@ -266,6 +268,34 @@ impl<P: Clone + Serialize, T: Component<Params = P>> Component for AcImpedanceTe
         let vmeas = ctx.signal("vmeas");
         let mut ctr = 0;
 
+        match self.params.vmeas_conn {
+            AcImpedanceTbNode::Vdd => {
+                ctx.instantiate::<Resistor>(&SiValue::new(100, SiPrefix::Mega))?
+                    .with_connections([("p", vmeas), ("n", vdd)])
+                    .named("Vmeas")
+                    .add_to(ctx);
+            }
+            AcImpedanceTbNode::Vss => {
+                ctx.instantiate::<Resistor>(&SiValue::new(100, SiPrefix::Mega))?
+                    .with_connections([("p", vmeas), ("n", vss)])
+                    .named("Vmeas")
+                    .add_to(ctx);
+            }
+            AcImpedanceTbNode::Vcustom(val) => {
+                ctr += 1;
+                let vcustom = ctx.signal(format!("custom{ctr}"));
+                ctx.instantiate::<Vdc>(&val)?
+                    .with_connections([("p", vcustom), ("n", vss)])
+                    .named("Vmeas")
+                    .add_to(ctx);
+                ctx.instantiate::<Resistor>(&SiValue::new(100, SiPrefix::Mega))?
+                    .with_connections([("p", vmeas), ("n", vcustom)])
+                    .named("Vmeas")
+                    .add_to(ctx);
+            }
+            _ => {}
+        };
+
         let mut connections = Vec::new();
 
         for (k, nodes) in &self.params.connections {
@@ -276,6 +306,7 @@ impl<P: Clone + Serialize, T: Component<Params = P>> Component for AcImpedanceTe
                     AcImpedanceTbNode::Vss => vss,
                     AcImpedanceTbNode::Vmeas => vmeas,
                     AcImpedanceTbNode::Vcustom(val) => {
+                        ctr += 1;
                         let vcustom = ctx.signal(format!("custom{ctr}"));
                         ctx.instantiate::<Vdc>(val)?
                             .with_connections([("p", vcustom), ("n", vss)])

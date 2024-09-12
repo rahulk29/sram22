@@ -23,7 +23,7 @@ impl Decoder {
         let decode = ctx.bus_port("decode", out_bits, Direction::Output);
         let decode_b = ctx.bus_port("decode_b", out_bits, Direction::Output);
 
-        let port_names = vec!["a", "b", "c"];
+        let port_names = ["a", "b", "c"];
 
         // Initialize all gates in the decoder tree using BFS.
         let mut queue = VecDeque::<(Option<Slice>, &TreeNode)>::new();

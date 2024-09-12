@@ -466,6 +466,7 @@ mod tests {
                     points: 10,
                     dut: params,
                     pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Vdd,
                     connections: HashMap::from_iter([
                         (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
                         (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
@@ -501,6 +502,7 @@ mod tests {
                     points: 10,
                     dut: params,
                     pex_netlist: Some(pex_netlist_path),
+                    vmeas_conn: AcImpedanceTbNode::Vss,
                     connections: HashMap::from_iter([
                         (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
                         (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),

@@ -203,9 +203,7 @@ impl Component for TappedGate {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(TappedGate {
-            params: params.clone(),
-        })
+        Ok(TappedGate { params: *params })
     }
 
     fn name(&self) -> arcstr::ArcStr {
@@ -544,6 +542,27 @@ mod tests {
         })
         .expect("failed to run pex");
 
+        let pu_zin_work_dir = work_dir.join("pu_zin_sim");
+        let pu_zin = ctx
+            .write_simulation::<AcImpedanceTestbench<TappedGate>>(
+                &AcImpedanceTbParams {
+                    vdd: 1.8,
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
+                    dut: params,
+                    pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Vss,
+                    connections: HashMap::from_iter([
+                        (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("a"), vec![AcImpedanceTbNode::Vmeas]),
+                        (arcstr::literal!("y"), vec![AcImpedanceTbNode::Floating]),
+                    ]),
+                },
+                &pu_zin_work_dir,
+            )
+            .expect("failed to write simulation");
         let pu_zout_work_dir = work_dir.join("pu_zout_sim");
         let pu_zout = ctx
             .write_simulation::<AcImpedanceTestbench<TappedGate>>(
@@ -554,6 +573,7 @@ mod tests {
                     points: 10,
                     dut: params,
                     pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Floating,
                     connections: HashMap::from_iter([
                         (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
                         (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
@@ -565,11 +585,33 @@ mod tests {
             )
             .expect("failed to write simulation");
         println!(
-            "Pull-up: Cout = {}, Rout = {}",
+            "Pull-up: Cin = {}, Cout = {}, Rout = {}",
+            pu_zin.max_freq_cap(),
             pu_zout.max_freq_cap(),
             pu_zout.min_freq_res()
         );
 
+        let pd_zin_work_dir = work_dir.join("pd_zin_sim");
+        let pd_zin = ctx
+            .write_simulation::<AcImpedanceTestbench<TappedGate>>(
+                &AcImpedanceTbParams {
+                    vdd: 1.8,
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
+                    dut: params,
+                    pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Vdd,
+                    connections: HashMap::from_iter([
+                        (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("a"), vec![AcImpedanceTbNode::Vmeas]),
+                        (arcstr::literal!("y"), vec![AcImpedanceTbNode::Floating]),
+                    ]),
+                },
+                &pd_zin_work_dir,
+            )
+            .expect("failed to write simulation");
         let pd_zout_work_dir = work_dir.join("pd_zout_sim");
         let pd_zout = ctx
             .write_simulation::<AcImpedanceTestbench<TappedGate>>(
@@ -580,6 +622,7 @@ mod tests {
                     points: 10,
                     dut: params,
                     pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Floating,
                     connections: HashMap::from_iter([
                         (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
                         (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
@@ -591,7 +634,8 @@ mod tests {
             )
             .expect("failed to write simulation");
         println!(
-            "Pull-down: Cout = {}, Rout = {}",
+            "Pull-down: Cin = {}, Cout = {}, Rout = {}",
+            pd_zin.max_freq_cap(),
             pd_zout.max_freq_cap(),
             pd_zout.min_freq_res()
         );
@@ -794,6 +838,28 @@ mod tests {
         })
         .expect("failed to run pex");
 
+        let pu_zin_work_dir = work_dir.join("pu_zin_sim");
+        let pu_zin = ctx
+            .write_simulation::<AcImpedanceTestbench<TappedGate>>(
+                &AcImpedanceTbParams {
+                    vdd: 1.8,
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
+                    dut: params,
+                    pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Vss,
+                    connections: HashMap::from_iter([
+                        (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("a"), vec![AcImpedanceTbNode::Vmeas]),
+                        (arcstr::literal!("b"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("y"), vec![AcImpedanceTbNode::Floating]),
+                    ]),
+                },
+                &pu_zin_work_dir,
+            )
+            .expect("failed to write simulation");
         let pu_zout_work_dir = work_dir.join("pu_zout_sim");
         let pu_zout = ctx
             .write_simulation::<AcImpedanceTestbench<TappedGate>>(
@@ -804,6 +870,7 @@ mod tests {
                     points: 10,
                     dut: params,
                     pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Floating,
                     connections: HashMap::from_iter([
                         (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
                         (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
@@ -816,11 +883,34 @@ mod tests {
             )
             .expect("failed to write simulation");
         println!(
-            "Pull-up: Cout = {}, Rout = {}",
+            "Pull-up: Cin = {}, Cout = {}, Rout = {}",
+            pu_zin.max_freq_cap(),
             pu_zout.max_freq_cap(),
             pu_zout.min_freq_res()
         );
 
+        let pd_zin_work_dir = work_dir.join("pd_zin_sim");
+        let pd_zin = ctx
+            .write_simulation::<AcImpedanceTestbench<TappedGate>>(
+                &AcImpedanceTbParams {
+                    vdd: 1.8,
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
+                    dut: params,
+                    pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Vdd,
+                    connections: HashMap::from_iter([
+                        (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("a"), vec![AcImpedanceTbNode::Vmeas]),
+                        (arcstr::literal!("b"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("y"), vec![AcImpedanceTbNode::Floating]),
+                    ]),
+                },
+                &pd_zin_work_dir,
+            )
+            .expect("failed to write simulation");
         let pd_zout_work_dir = work_dir.join("pd_zout_sim");
         let pd_zout = ctx
             .write_simulation::<AcImpedanceTestbench<TappedGate>>(
@@ -831,6 +921,7 @@ mod tests {
                     points: 10,
                     dut: params,
                     pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Floating,
                     connections: HashMap::from_iter([
                         (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
                         (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
@@ -843,7 +934,8 @@ mod tests {
             )
             .expect("failed to write simulation");
         println!(
-            "Pull-down: Cout = {}, Rout = {}",
+            "Pull-down: Cin = {}, Cout = {}, Rout = {}",
+            pd_zin.max_freq_cap(),
             pd_zout.max_freq_cap(),
             pd_zout.min_freq_res()
         );
@@ -907,6 +999,29 @@ mod tests {
         })
         .expect("failed to run pex");
 
+        let pu_zin_work_dir = work_dir.join("pu_zin_sim");
+        let pu_zin = ctx
+            .write_simulation::<AcImpedanceTestbench<TappedGate>>(
+                &AcImpedanceTbParams {
+                    vdd: 1.8,
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
+                    dut: params,
+                    pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Vss,
+                    connections: HashMap::from_iter([
+                        (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("a"), vec![AcImpedanceTbNode::Vmeas]),
+                        (arcstr::literal!("b"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("c"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("y"), vec![AcImpedanceTbNode::Floating]),
+                    ]),
+                },
+                &pu_zin_work_dir,
+            )
+            .expect("failed to write simulation");
         let pu_zout_work_dir = work_dir.join("pu_zout_sim");
         let pu_zout = ctx
             .write_simulation::<AcImpedanceTestbench<TappedGate>>(
@@ -917,6 +1032,7 @@ mod tests {
                     points: 10,
                     dut: params,
                     pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Floating,
                     connections: HashMap::from_iter([
                         (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
                         (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
@@ -930,11 +1046,35 @@ mod tests {
             )
             .expect("failed to write simulation");
         println!(
-            "Pull-up: Cout = {}, Rout = {}",
+            "Pull-up: Cin = {}, Cout = {}, Rout = {}",
+            pu_zin.max_freq_cap(),
             pu_zout.max_freq_cap(),
             pu_zout.min_freq_res()
         );
 
+        let pd_zin_work_dir = work_dir.join("pd_zin_sim");
+        let pd_zin = ctx
+            .write_simulation::<AcImpedanceTestbench<TappedGate>>(
+                &AcImpedanceTbParams {
+                    vdd: 1.8,
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
+                    dut: params,
+                    pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Vdd,
+                    connections: HashMap::from_iter([
+                        (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("a"), vec![AcImpedanceTbNode::Vmeas]),
+                        (arcstr::literal!("b"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("c"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("y"), vec![AcImpedanceTbNode::Floating]),
+                    ]),
+                },
+                &pd_zin_work_dir,
+            )
+            .expect("failed to write simulation");
         let pd_zout_work_dir = work_dir.join("pd_zout_sim");
         let pd_zout = ctx
             .write_simulation::<AcImpedanceTestbench<TappedGate>>(
@@ -945,6 +1085,7 @@ mod tests {
                     points: 10,
                     dut: params,
                     pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Floating,
                     connections: HashMap::from_iter([
                         (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
                         (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
@@ -958,7 +1099,8 @@ mod tests {
             )
             .expect("failed to write simulation");
         println!(
-            "Pull-down: Cout = {}, Rout = {}",
+            "Pull-down: Cin = {}, Cout = {}, Rout = {}",
+            pd_zin.max_freq_cap(),
             pd_zout.max_freq_cap(),
             pd_zout.min_freq_res()
         );
