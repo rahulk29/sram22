@@ -10,7 +10,7 @@ use substrate::index::IndexOwned;
 use substrate::logic::delay::{GateModel, LogicPath, OptimizerOpts};
 use substrate::schematic::circuit::Direction;
 
-use super::gate::{AndParams, Gate, GateParams, GateType, PrimitiveGateParams};
+use super::gate::{AndParams, Gate, GateParams, GateType, PrimitiveGateParams, PrimitiveGateType};
 
 pub mod layout;
 pub mod schematic;
@@ -292,62 +292,62 @@ fn size_decoder(tree: &PlanTreeNode, cwl: f64) -> TreeNode {
 }
 
 /// The on-resistance and capacitances of a 1x inverter ([`INV_PARAMS`]).
-const INV_MODEL: GateModel = GateModel {
+pub(crate) const INV_MODEL: GateModel = GateModel {
     res: 1422.118502462849,
     cin: 0.000000000000004482092764998187,
     cout: 0.0000000004387405174617657,
 };
 
 /// The on-resistance and capacitances of a 1x NAND2 gate ([`NAND2_PARAMS`]).
-const NAND2_MODEL: GateModel = GateModel {
+pub(crate) const NAND2_MODEL: GateModel = GateModel {
     res: 1478.364147093855,
     cin: 0.000000000000005389581112035269,
     cout: 0.0000000002743620195248461,
 };
 
 /// The on-resistance and capacitances of a 1x NAND3 gate ([`NAND3_PARAMS`]).
-const NAND3_MODEL: GateModel = GateModel {
+pub(crate) const NAND3_MODEL: GateModel = GateModel {
     res: 1478.037783669641,
     cin: 0.000000000000006217130454627972,
     cout: 0.000000000216366152882086,
 };
 
 /// The on-resistance and capacitances of a 1x NOR2 gate ([`NOR2_PARAMS`]).
-const NOR2_MODEL: GateModel = GateModel {
+pub(crate) const NOR2_MODEL: GateModel = GateModel {
     res: 1.0,
     cin: 1.0,
     cout: 1.0,
 };
 
 /// The sizing of a 1x inverter.
-const INV_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+pub(crate) const INV_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
     nwidth: 1_000,
     pwidth: 2_500,
     length: 150,
 };
 
 /// The sizing of a 1x NAND2 gate.
-const NAND2_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+pub(crate) const NAND2_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
     nwidth: 2_000,
     pwidth: 2_500,
     length: 150,
 };
 
 /// The sizing of a 1x NAND3 gate.
-const NAND3_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+pub(crate) const NAND3_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
     nwidth: 3_000,
     pwidth: 2_500,
     length: 150,
 };
 
 /// The sizing of a 1x NOR2 gate.
-const NOR2_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+pub(crate) const NOR2_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
     nwidth: 1_000,
     pwidth: 3_200,
     length: 150,
 };
 
-fn gate_params(gate: GateType) -> PrimitiveGateParams {
+pub(crate) fn gate_params(gate: GateType) -> PrimitiveGateParams {
     match gate {
         GateType::Inv => INV_PARAMS,
         GateType::Nand2 => NAND2_PARAMS,
@@ -357,7 +357,16 @@ fn gate_params(gate: GateType) -> PrimitiveGateParams {
     }
 }
 
-fn gate_model(gate: GateType) -> GateModel {
+pub(crate) fn primitive_gate_params(gate: PrimitiveGateType) -> PrimitiveGateParams {
+    match gate {
+        PrimitiveGateType::Inv => INV_PARAMS,
+        PrimitiveGateType::Nand2 => NAND2_PARAMS,
+        PrimitiveGateType::Nand3 => NAND3_PARAMS,
+        PrimitiveGateType::Nor2 => NOR2_PARAMS,
+    }
+}
+
+pub(crate) fn gate_model(gate: GateType) -> GateModel {
     match gate {
         GateType::Inv => INV_MODEL,
         GateType::Nand2 => NAND2_MODEL,
@@ -367,7 +376,16 @@ fn gate_model(gate: GateType) -> GateModel {
     }
 }
 
-fn scale(gate: PrimitiveGateParams, scale: f64) -> PrimitiveGateParams {
+pub(crate) fn primitive_gate_model(gate: PrimitiveGateType) -> GateModel {
+    match gate {
+        PrimitiveGateType::Inv => INV_MODEL,
+        PrimitiveGateType::Nand2 => NAND2_MODEL,
+        PrimitiveGateType::Nand3 => NAND3_MODEL,
+        PrimitiveGateType::Nor2 => NOR2_MODEL,
+    }
+}
+
+pub(crate) fn scale(gate: PrimitiveGateParams, scale: f64) -> PrimitiveGateParams {
     let nwidth = snap_to_grid((gate.nwidth as f64 * scale).round() as i64, 50);
     let pwidth = snap_to_grid((gate.pwidth as f64 * scale).round() as i64, 50);
     PrimitiveGateParams {

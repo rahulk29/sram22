@@ -77,17 +77,17 @@ inout rbl
   wire clkp;
   edge_detector clk_edge_detector(.clk(clk & ce), .clkp(clkp));
 
-	sr_latch pc_b_latch(.s(clkp | reset), .r(sae), .q(pc_b));
-	sr_latch sae_latch(.s(we_b & rbl_b), .r(clkp | reset), .q(sae));
+  sr_latch pc_b_latch(.s(clkp | reset), .r(sae #4), .q(pc_b));
+  sr_latch sae_latch(.s(we_b & wlen_decoder), .r(clkp | reset), .q(sae));
 
-	wire wlen_set, wlen_rst;
-	assign wlen_set = clkp;
-	assign wlen_rst = we ? clkp #4 : rbl_b;
-	sr_latch wlen_latch(.s(wlen_set), .r(wlen_rst | reset), .q(wlen));
+  wire wlen_set, wlen_rst;
+  assign wlen_set = clkp;
+  assign wlen_rst = we ? clkp #4 : rbl_b;
+  sr_latch wlen_latch(.s(wlen_set), .r(wlen_rst | reset), .q(wlen));
 
-	wire wrdrven_rst;
-	decoder_replica decoder_replica(.a(wrdrven), .o(wrdrven_rst));
-	sr_latch wrdrven_latch(.s(clkp & we), .r(wrdrven_rst #4 | reset), .q(wrdrven));
+  wire wrdrven_rst;
+  decoder_replica decoder_replica(.a(wlen_rst), .o(wlen_decoder));
+  sr_latch wrdrven_latch(.s(clkp & we), .r(wlen_decoder | reset), .q(wrdrven));
 
 endmodule
 ```
