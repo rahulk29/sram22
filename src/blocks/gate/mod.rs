@@ -14,6 +14,7 @@ use super::decoder::{self, DecoderStageParams};
 
 pub mod layout;
 pub mod schematic;
+pub mod sizing;
 
 pub enum Gate {
     And2(And2),
@@ -72,6 +73,14 @@ pub enum GateParams {
 pub enum GateType {
     And2,
     And3,
+    Inv,
+    Nand2,
+    Nand3,
+    Nor2,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
+pub enum PrimitiveGateType {
     Inv,
     Nand2,
     Nand3,
