@@ -77,7 +77,7 @@ inout rbl
   wire clkp;
   edge_detector clk_edge_detector(.clk(clk & ce), .clkp(clkp));
 
-  sr_latch pc_b_latch(.s(clkp | reset), .r(sae #4), .q(pc_b));
+  sr_latch pc_latch(.s(sae #4 | reset), .r(clkp), .q(pc_b));
   sr_latch sae_latch(.s(we_b & wlen_decoder), .r(clkp | reset), .q(sae));
 
   wire wlen_set, wlen_rst;
