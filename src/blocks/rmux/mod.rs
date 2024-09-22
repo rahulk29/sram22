@@ -1,11 +1,8 @@
 use serde::Serialize;
-use substrate::{
-    component::Component,
-    layout::{
-        cell::{CellPort, PortConflictStrategy},
-        placement::{align::AlignMode, array::ArrayTiler},
-    },
-};
+use substrate::component::Component;
+use substrate::layout::cell::{CellPort, PortConflictStrategy};
+use substrate::layout::placement::align::AlignMode;
+use substrate::layout::placement::array::ArrayTiler;
 
 mod layout;
 mod schematic;
