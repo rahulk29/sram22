@@ -14,6 +14,7 @@ use crate::blocks::control::{ControlLogicReplicaV2, DffArray, InvChain};
 use crate::blocks::decoder::{
     AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderStageParams, DecoderTree, WmuxDriver,
 };
+use crate::blocks::gate::{AndParams, GateParams};
 use crate::blocks::precharge::{Precharge, PrechargeParams};
 use crate::blocks::rmux::ReadMuxParams;
 use crate::blocks::wmux::WriteMuxSizing;
@@ -100,7 +101,11 @@ impl SramInner {
         let tree = DecoderTree::new(self.params.row_bits, wl_cap);
 
         ctx.instantiate::<AddrGate>(&AddrGateParams {
-            gate: tree.root.gate,
+            gate: GateParams::And2(AndParams {
+                // TODO fix this
+                nand: tree.root.gate.first_gate_sizing(),
+                inv: tree.root.gate.first_gate_sizing(),
+            }),
             num: self.params.row_bits,
         })?
         .with_connections([

@@ -105,6 +105,18 @@ impl GateType {
             GateType::Nor2 => vec![GateType::Nor2],
         }
     }
+
+    pub fn is_inv(&self) -> bool {
+        matches!(self, GateType::Inv)
+    }
+
+    pub fn is_and(&self) -> bool {
+        matches!(self, GateType::And2 | GateType::And3)
+    }
+
+    pub fn is_nand(&self) -> bool {
+        matches!(self, GateType::Nand2 | GateType::Nand3)
+    }
 }
 
 impl PrimitiveGateParams {
