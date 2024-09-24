@@ -1,6 +1,7 @@
 use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
+use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
@@ -35,10 +36,15 @@ impl ColPeripherals {
         let din = ctx.bus_port("din", word_length, Direction::Input);
         let dout = ctx.bus_port("dout", word_length, Direction::Output);
 
+        let wmask_in0 = ctx.bus("wmask_in0", wmask_bits);
         let wmask_in = ctx.bus("wmask_in", wmask_bits);
         let wmask_in_b = ctx.bus("wmask_in_b", wmask_bits);
         let [dummy_bl_noconn, dummy_br_noconn] =
             ctx.signals(["dummy_bl_noconn", "dummy_br_noconn"]);
+
+        let stdcells = ctx.inner().std_cell_db();
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
+        let bufbuf = lib.try_cell_named("sky130_fd_sc_hd__bufbuf_16")?;
 
         ctx.instantiate::<DffArray>(&wmask_bits)?
             .with_connections([
@@ -46,11 +52,26 @@ impl ColPeripherals {
                 ("vss", vss),
                 ("clk", clk),
                 ("d", wmask),
-                ("q", wmask_in),
+                ("q", wmask_in0),
                 ("qn", wmask_in_b),
             ])
             .named("wmask_dffs")
             .add_to(ctx);
+
+        for i in 0..wmask_bits {
+            for _ in 0..3 {
+                ctx.instantiate::<StdCell>(&bufbuf.id())?
+                    .with_connections([
+                        ("A", wmask_in0.index(i)),
+                        ("X", wmask_in.index(i)),
+                        ("VPWR", vdd),
+                        ("VPB", vdd),
+                        ("VGND", vss),
+                        ("VNB", vss),
+                    ])
+                    .add_to(ctx);
+            }
+        }
 
         for i in 0..word_length {
             let range = i * mux_ratio..(i + 1) * mux_ratio;

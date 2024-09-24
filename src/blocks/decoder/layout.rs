@@ -294,7 +294,7 @@ impl Predecoder {
             for j in 0..node.num {
                 let src = child.port(PortId::new("decode", j))?.largest_rect(dsn.li)?;
                 let dst = inst
-                    .port(&format!("predecode_{i}_{j}"))?
+                    .port(format!("predecode_{i}_{j}"))?
                     .largest_rect(dsn.stripe_metal)?;
                 let rect =
                     Rect::from_spans(src.hspan(), Span::new(src.top() - src.width(), src.top()));

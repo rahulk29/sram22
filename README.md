@@ -80,7 +80,6 @@ num_words = 64
 data_width = 32
 mux_ratio = 4
 write_size = 8
-control = "ReplicaV2"
 # The `pex_level` flag is only available with a full installation.
 pex_level = "rcc"
 ```
@@ -108,7 +107,6 @@ A valid configuration must have:
 * A power-of-two number of rows
 * At least 16 rows
 * At least 16 columns
-* `control`: Must be `"ReplicaV2"`.
 * `pex_level`: Must be `"r"`, `"c"`, `"rc"`, or `"rcc"`. If you do not have commercial plugins enabled, this option will be ignored.
 
 ### Contribution

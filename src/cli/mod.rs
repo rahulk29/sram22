@@ -43,7 +43,6 @@ pub fn run() -> Result<()> {
     println!("\tData width: {}", config.data_width);
     println!("\tMux ratio: {}", config.mux_ratio);
     println!("\tWrite size: {}", config.write_size);
-    println!("\tControl mode: {:?}\n", config.control);
 
     let enabled_tasks = vec![
         #[cfg(feature = "commercial")]
