@@ -461,7 +461,7 @@ pub(crate) mod tests {
                             let work_dir = work_dir.clone();
                             handles.push(std::thread::spawn(move || {
                                 let ctx = setup_ctx();
-                                let tb = crate::blocks::sram::testbench::tb_params(params, vdd, short, pex_netlist);
+                                let tb = crate::blocks::sram::testbench::tb_params(params, vdd, short, None);
                                 let work_dir = work_dir.join(format!(
                                     "{}_{:.2}_{}",
                                     corner.name(),
@@ -482,6 +482,9 @@ pub(crate) mod tests {
                                 );
                             }));
                         }
+                    }
+                    for handle in handles {
+                        handle.join().expect("failed to join thread");
                     }
 
                     // crate::abs::run_abstract(

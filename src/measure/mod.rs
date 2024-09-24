@@ -1,2 +1,2 @@
 pub mod cap;
-pub mod res;
+pub mod impedance;

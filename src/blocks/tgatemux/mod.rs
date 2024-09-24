@@ -7,34 +7,35 @@ use substrate::layout::placement::array::ArrayTiler;
 mod layout;
 mod schematic;
 
-pub struct ReadMux {
-    params: ReadMuxParams,
+pub struct TGateMux {
+    params: TGateMuxParams,
 }
 
-/// ReadMux taps.
-pub struct ReadMuxCent {
-    params: ReadMuxParams,
+/// [`TGateMux`] taps.
+pub struct TGateMuxCent {
+    params: TGateMuxParams,
 }
 
-/// ReadMux end cap.
-pub struct ReadMuxEnd {
-    params: ReadMuxParams,
+/// [`TGateMux`] end cap.
+pub struct TGateMuxEnd {
+    params: TGateMuxParams,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ReadMuxParams {
+pub struct TGateMuxParams {
     pub length: i64,
-    pub width: i64,
+    pub pwidth: i64,
+    pub nwidth: i64,
     pub mux_ratio: usize,
     pub idx: usize,
 }
 
-pub struct TappedReadMux {
-    pub params: ReadMuxParams,
+pub struct TappedTGateMux {
+    pub params: TGateMuxParams,
 }
 
-impl Component for ReadMux {
-    type Params = ReadMuxParams;
+impl Component for TGateMux {
+    type Params = TGateMuxParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
@@ -44,7 +45,7 @@ impl Component for ReadMux {
         })
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("read_mux")
+        arcstr::literal!("tgate_mux")
     }
 
     fn schematic(
@@ -62,8 +63,8 @@ impl Component for ReadMux {
     }
 }
 
-impl Component for ReadMuxCent {
-    type Params = ReadMuxParams;
+impl Component for TGateMuxCent {
+    type Params = TGateMuxParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
@@ -73,7 +74,7 @@ impl Component for ReadMuxCent {
         })
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("read_mux_cent")
+        arcstr::literal!("tgate_mux_cent")
     }
 
     fn schematic(
@@ -91,8 +92,8 @@ impl Component for ReadMuxCent {
     }
 }
 
-impl Component for ReadMuxEnd {
-    type Params = ReadMuxParams;
+impl Component for TGateMuxEnd {
+    type Params = TGateMuxParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
@@ -102,7 +103,7 @@ impl Component for ReadMuxEnd {
         })
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("read_mux_end")
+        arcstr::literal!("tgate_mux_end")
     }
 
     fn schematic(
@@ -120,26 +121,26 @@ impl Component for ReadMuxEnd {
     }
 }
 
-impl Component for TappedReadMux {
-    type Params = ReadMuxParams;
+impl Component for TappedTGateMux {
+    type Params = TGateMuxParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(TappedReadMux {
+        Ok(TappedTGateMux {
             params: params.clone(),
         })
     }
 
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("tapped_read_mux")
+        arcstr::literal!("tapped_tgate_mux")
     }
 
     fn schematic(
         &self,
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
-        let mut gate = ctx.instantiate::<ReadMux>(&self.params)?;
+        let mut gate = ctx.instantiate::<TGateMux>(&self.params)?;
         ctx.bubble_all_ports(&mut gate);
         ctx.add_instance(gate);
         Ok(())
@@ -149,12 +150,12 @@ impl Component for TappedReadMux {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let params = ReadMuxParams {
+        let params = TGateMuxParams {
             idx: 0,
             ..self.params
         };
-        let gate = ctx.instantiate::<ReadMux>(&params)?;
-        let tap = ctx.instantiate::<ReadMuxEnd>(&params)?;
+        let gate = ctx.instantiate::<TGateMux>(&params)?;
+        let tap = ctx.instantiate::<TGateMuxEnd>(&params)?;
         let mut tiler = ArrayTiler::builder()
             .push(tap)
             .push(gate)
@@ -170,8 +171,8 @@ impl Component for TappedReadMux {
                         None
                     }
                 }
-                "read_bl" => Some(port.with_id("bl_out")),
-                "read_br" => Some(port.with_id("br_out")),
+                "bl_out" => Some(port.with_id("bl_out")),
+                "br_out" => Some(port.with_id("br_out")),
                 _ => Some(port),
             },
             PortConflictStrategy::Merge,
@@ -193,27 +194,31 @@ mod tests {
 
     use super::*;
 
-    const READ_MUX_PARAMS: ReadMuxParams = ReadMuxParams {
+    const TGATE_MUX_PARAMS: TGateMuxParams = TGateMuxParams {
         length: 150,
-        width: 4_000,
+        pwidth: 4_000,
+        nwidth: 2_000,
         mux_ratio: 4,
         idx: 2,
     };
 
     #[test]
-    fn test_read_mux() {
+    fn test_tgate_mux() {
         let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_read_mux");
-        ctx.write_layout::<ReadMux>(&READ_MUX_PARAMS, out_gds(&work_dir, "layout"))
+        let work_dir = test_work_dir("test_tgate_mux");
+        ctx.write_layout::<TGateMux>(&TGATE_MUX_PARAMS, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
-        ctx.write_schematic_to_file::<ReadMux>(&READ_MUX_PARAMS, out_spice(&work_dir, "schematic"))
-            .expect("failed to write schematic");
+        ctx.write_schematic_to_file::<TGateMux>(
+            &TGATE_MUX_PARAMS,
+            out_spice(&work_dir, "schematic"),
+        )
+        .expect("failed to write schematic");
 
         #[cfg(feature = "commercial")]
         {
             let lvs_work_dir = work_dir.join("lvs");
             let output = ctx
-                .write_lvs::<TappedReadMux>(&READ_MUX_PARAMS, lvs_work_dir)
+                .write_lvs::<TappedTGateMux>(&TGATE_MUX_PARAMS, lvs_work_dir)
                 .expect("failed to run LVS");
             assert!(matches!(
                 output.summary,
@@ -223,25 +228,25 @@ mod tests {
     }
 
     #[test]
-    fn test_read_mux_cent() {
+    fn test_tgate_mux_cent() {
         let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_read_mux_cent");
-        ctx.write_layout::<ReadMuxCent>(&READ_MUX_PARAMS, out_gds(work_dir, "layout"))
+        let work_dir = test_work_dir("test_tgate_mux_cent");
+        ctx.write_layout::<TGateMuxCent>(&TGATE_MUX_PARAMS, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 
     #[test]
-    fn test_read_mux_end() {
+    fn test_tgate_mux_end() {
         let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_read_mux_end");
-        ctx.write_layout::<ReadMuxEnd>(&READ_MUX_PARAMS, out_gds(work_dir, "layout"))
+        let work_dir = test_work_dir("test_tgate_mux_end");
+        ctx.write_layout::<TGateMuxEnd>(&TGATE_MUX_PARAMS, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 
     #[test]
     #[cfg(feature = "commercial")]
     #[ignore = "slow"]
-    fn test_rmux_cap() {
+    fn test_tgate_mux_cap() {
         use std::collections::HashMap;
 
         use substrate::schematic::netlist::NetlistPurpose;
@@ -251,14 +256,14 @@ mod tests {
         };
 
         let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_rmux_cap");
+        let work_dir = test_work_dir("test_tgate_mux_cap");
 
         let pex_path = out_spice(&work_dir, "pex_schematic");
         let pex_dir = work_dir.join("pex");
         let pex_level = calibre::pex::PexLevel::Rc;
         let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
-        ctx.write_schematic_to_file_for_purpose::<TappedReadMux>(
-            &READ_MUX_PARAMS,
+        ctx.write_schematic_to_file_for_purpose::<TappedTGateMux>(
+            &TGATE_MUX_PARAMS,
             &pex_path,
             NetlistPurpose::Pex,
         )
@@ -267,16 +272,16 @@ mod tests {
         opts.insert("level".into(), pex_level.as_str().into());
 
         let gds_path = out_gds(&work_dir, "layout");
-        ctx.write_layout::<TappedReadMux>(&READ_MUX_PARAMS, &gds_path)
+        ctx.write_layout::<TappedTGateMux>(&TGATE_MUX_PARAMS, &gds_path)
             .expect("failed to write layout");
 
         ctx.run_pex(substrate::verification::pex::PexInput {
             work_dir: pex_dir,
             layout_path: gds_path.clone(),
-            layout_cell_name: arcstr::literal!("tapped_read_mux"),
+            layout_cell_name: arcstr::literal!("tapped_tgate_mux"),
             layout_format: substrate::layout::LayoutFormat::Gds,
             source_paths: vec![pex_path],
-            source_cell_name: arcstr::literal!("tapped_read_mux"),
+            source_cell_name: arcstr::literal!("tapped_tgate_mux"),
             pex_netlist_path: pex_netlist_path.clone(),
             ground_net: "vss".to_string(),
             opts,
@@ -285,13 +290,13 @@ mod tests {
 
         let selb_work_dir = work_dir.join("selb_sim");
         let cap_selb = ctx
-            .write_simulation::<AcImpedanceTestbench<TappedReadMux>>(
+            .write_simulation::<AcImpedanceTestbench<TappedTGateMux>>(
                 &AcImpedanceTbParams {
                     fstart: 100.,
                     fstop: 100e6,
                     points: 10,
                     vdd: 1.8,
-                    dut: READ_MUX_PARAMS,
+                    dut: TGATE_MUX_PARAMS,
                     pex_netlist: Some(pex_netlist_path.clone()),
                     vmeas_conn: AcImpedanceTbNode::Vss,
                     connections: HashMap::from_iter([

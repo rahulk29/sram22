@@ -311,7 +311,6 @@ mod tests {
     use substrate::component::NoParams;
     use substrate::schematic::netlist::NetlistPurpose;
 
-    use crate::measure::cap::{self, CapTestbench, TbNode};
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
@@ -405,8 +404,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "commercial")]
     #[ignore = "slow"]
     fn test_bitline_wordline_cap() {
+        use crate::measure::impedance::{
+            AcImpedanceTbNode, AcImpedanceTbParams, AcImpedanceTestbench,
+        };
+
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_bitline_wordline_cap");
         let params = SpCellArrayWithGuardRingParams {
@@ -449,56 +453,76 @@ mod tests {
         })
         .expect("failed to run pex");
 
-        let mut bls = vec![TbNode::Vdd; params.inner.cols];
-        bls[0] = TbNode::Vmeas;
+        let mut bls = vec![AcImpedanceTbNode::Vdd; params.inner.cols];
+        bls[0] = AcImpedanceTbNode::Vmeas;
 
-        let bl_work_dir = work_dir.join("bl_sim");
-        let cap = ctx
-            .write_simulation::<CapTestbench<SpCellArrayWithGuardRing>>(
-                &cap::TbParams {
-                    idc: 10,
+        let bl_ac_work_dir = work_dir.join("bl_ac_sim");
+        let cap_ac = ctx
+            .write_simulation::<AcImpedanceTestbench<SpCellArrayWithGuardRing>>(
+                &AcImpedanceTbParams {
                     vdd: 1.8,
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
                     dut: params,
                     pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Vdd,
                     connections: HashMap::from_iter([
-                        (arcstr::literal!("vdd"), vec![TbNode::Vdd]),
-                        (arcstr::literal!("vss"), vec![TbNode::Vss]),
-                        (arcstr::literal!("dummy_bl"), vec![TbNode::Vdd]),
-                        (arcstr::literal!("dummy_br"), vec![TbNode::Vdd]),
+                        (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("dummy_bl"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("dummy_br"), vec![AcImpedanceTbNode::Vdd]),
                         (arcstr::literal!("bl"), bls),
-                        (arcstr::literal!("br"), vec![TbNode::Vdd; params.inner.cols]),
-                        (arcstr::literal!("wl"), vec![TbNode::Vss; params.inner.rows]),
+                        (
+                            arcstr::literal!("br"),
+                            vec![AcImpedanceTbNode::Vdd; params.inner.cols],
+                        ),
+                        (
+                            arcstr::literal!("wl"),
+                            vec![AcImpedanceTbNode::Vss; params.inner.rows],
+                        ),
                     ]),
                 },
-                &bl_work_dir,
+                &bl_ac_work_dir,
             )
             .expect("failed to write simulation");
-        println!("Cbl = {}", cap.cnode);
 
-        let mut wls = vec![TbNode::Vss; params.inner.rows];
-        wls[0] = TbNode::Vmeas;
+        println!("Cbl = {}", cap_ac.max_freq_cap());
 
-        let wl_work_dir = work_dir.join("wl_sim");
-        let cap = ctx
-            .write_simulation::<CapTestbench<SpCellArrayWithGuardRing>>(
-                &cap::TbParams {
-                    idc: 10,
+        let mut wls = vec![AcImpedanceTbNode::Vss; params.inner.rows];
+        wls[0] = AcImpedanceTbNode::Vmeas;
+
+        let wl_ac_work_dir = work_dir.join("wl_ac_sim");
+        let cap_ac = ctx
+            .write_simulation::<AcImpedanceTestbench<SpCellArrayWithGuardRing>>(
+                &AcImpedanceTbParams {
                     vdd: 1.8,
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
                     dut: params,
                     pex_netlist: Some(pex_netlist_path),
+                    vmeas_conn: AcImpedanceTbNode::Vss,
                     connections: HashMap::from_iter([
-                        (arcstr::literal!("vdd"), vec![TbNode::Vdd]),
-                        (arcstr::literal!("vss"), vec![TbNode::Vss]),
-                        (arcstr::literal!("dummy_bl"), vec![TbNode::Vdd]),
-                        (arcstr::literal!("dummy_br"), vec![TbNode::Vdd]),
-                        (arcstr::literal!("bl"), vec![TbNode::Vdd; params.inner.cols]),
-                        (arcstr::literal!("br"), vec![TbNode::Vdd; params.inner.cols]),
+                        (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
+                        (arcstr::literal!("dummy_bl"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("dummy_br"), vec![AcImpedanceTbNode::Vdd]),
+                        (
+                            arcstr::literal!("bl"),
+                            vec![AcImpedanceTbNode::Vdd; params.inner.cols],
+                        ),
+                        (
+                            arcstr::literal!("br"),
+                            vec![AcImpedanceTbNode::Vdd; params.inner.cols],
+                        ),
                         (arcstr::literal!("wl"), wls),
                     ]),
                 },
-                &wl_work_dir,
+                &wl_ac_work_dir,
             )
             .expect("failed to write simulation");
-        println!("Cwl = {}", cap.cnode);
+
+        println!("Cwl = {}", cap_ac.max_freq_cap());
     }
 }

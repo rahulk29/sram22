@@ -17,7 +17,7 @@ use substrate::pdk::mos::query::Query;
 use substrate::pdk::mos::spec::MosKind;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 
-use super::{ReadMux, ReadMuxCent, ReadMuxEnd, ReadMuxParams};
+use super::{TGateMux, TGateMuxCent, TGateMuxEnd, TGateMuxParams};
 
 use derive_builder::Builder;
 
@@ -25,7 +25,7 @@ const GATE_LINE: i64 = 320;
 const GATE_SPACE: i64 = 180;
 const POWER_VSPAN: Span = Span::new_unchecked(3_000, 3_800);
 
-impl ReadMux {
+impl TGateMux {
     pub(crate) fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
@@ -44,14 +44,14 @@ impl ReadMux {
             contact_strategy: GateContactStrategy::SingleSide,
             devices: vec![
                 MosParams {
-                    w: self.params.width,
+                    w: self.params.pwidth,
                     l: self.params.length,
                     m: 1,
                     nf: 1,
                     id: mos.id(),
                 },
                 MosParams {
-                    w: self.params.width,
+                    w: self.params.pwidth,
                     l: self.params.length,
                     m: 1,
                     nf: 1,
@@ -137,8 +137,8 @@ impl ReadMux {
         }
 
         for (port, idx, x, side, name) in [
-            ("sd_1_0", 3, pc.width, Side::Right, "read_bl"),
-            ("sd_0_1", 0, 0, Side::Left, "read_br"),
+            ("sd_1_0", 3, pc.width, Side::Right, "bl_out"),
+            ("sd_0_1", 0, 0, Side::Left, "br_out"),
         ] {
             let target = mos.port(port)?.largest_rect(pc.m0)?;
             let viap = ViaParams::builder()
@@ -262,7 +262,7 @@ impl Metadata {
     }
 }
 
-impl ReadMuxCent {
+impl TGateMuxCent {
     pub(crate) fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
@@ -271,22 +271,22 @@ impl ReadMuxCent {
             .inner()
             .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
 
-        read_mux_tap_layout(pc.tap_width, false, &self.params, ctx)?;
+        tgate_mux_tap_layout(pc.tap_width, false, &self.params, ctx)?;
         Ok(())
     }
 }
 
-fn read_mux_tap_layout(
+fn tgate_mux_tap_layout(
     width: i64,
     end: bool,
-    params: &ReadMuxParams,
+    params: &TGateMuxParams,
     ctx: &mut LayoutCtx,
 ) -> substrate::error::Result<()> {
     let pc = ctx
         .inner()
         .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
 
-    let mux = ctx.instantiate::<ReadMux>(params)?;
+    let mux = ctx.instantiate::<TGateMux>(params)?;
     let stripe_hspan = Span::new(-width, 2 * width);
 
     let meta = mux.cell().get_metadata::<Metadata>();
@@ -378,7 +378,7 @@ fn read_mux_tap_layout(
     Ok(())
 }
 
-impl ReadMuxEnd {
+impl TGateMuxEnd {
     pub(crate) fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
@@ -386,7 +386,7 @@ impl ReadMuxEnd {
         let pc = ctx
             .inner()
             .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
-        read_mux_tap_layout(pc.tap_width, true, &self.params, ctx)?;
+        tgate_mux_tap_layout(pc.tap_width, true, &self.params, ctx)?;
         Ok(())
     }
 }
