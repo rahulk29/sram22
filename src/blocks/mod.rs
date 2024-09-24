@@ -13,4 +13,5 @@ pub mod rmux;
 pub mod senseamp;
 pub mod sram;
 pub mod tdc;
+pub mod tgatemux;
 pub mod wmux;
