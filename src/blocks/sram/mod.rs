@@ -19,6 +19,9 @@ pub mod schematic;
 pub mod testbench;
 pub mod verilog;
 
+pub const WORDLINE_CAP_PER_CELL: f64 = 0.00000000000001472468276676486 / 12.;
+pub const READ_MUX_INPUT_CAP: f64 = WORDLINE_CAP_PER_CELL * 4.; // TODO
+
 pub struct SramInner {
     params: SramParams,
 }
