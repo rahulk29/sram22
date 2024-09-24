@@ -3,15 +3,12 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
-use crate::blocks::sram::ControlMode;
-
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct SramConfig {
     pub num_words: i32,
     pub data_width: i32,
     pub mux_ratio: i32,
     pub write_size: i32,
-    pub control: ControlMode,
     #[cfg(feature = "commercial")]
     pub pex_level: Option<calibre::pex::PexLevel>,
 }

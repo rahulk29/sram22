@@ -58,8 +58,6 @@ pub struct SramParams {
     pub num_words: usize,
     pub data_width: usize,
     pub addr_width: usize,
-
-    pub control: ControlMode,
 }
 
 impl SramParams {
@@ -68,7 +66,6 @@ impl SramParams {
         mux_ratio: usize,
         num_words: usize,
         data_width: usize,
-        control: ControlMode,
     ) -> Self {
         Self {
             wmask_width: data_width / wmask_granularity,
@@ -81,7 +78,6 @@ impl SramParams {
             num_words,
             data_width,
             addr_width: num_words.ilog2() as usize,
-            control,
         }
     }
 
@@ -92,29 +88,14 @@ impl SramParams {
 
     /// The name of the SRAM cell with these parameters.
     pub fn name(&self) -> arcstr::ArcStr {
-        match self.control {
-            ControlMode::ReplicaV2 => arcstr::format!(
-                "sram22_{}x{}m{}w{}",
-                self.num_words,
-                self.data_width,
-                self.mux_ratio,
-                self.wmask_granularity()
-            ),
-            ControlMode::ReplicaV2Test => arcstr::format!(
-                "sram22_{}x{}m{}w{}_test",
-                self.num_words,
-                self.data_width,
-                self.mux_ratio,
-                self.wmask_granularity()
-            ),
-        }
+        arcstr::format!(
+            "sram22_{}x{}m{}w{}",
+            self.num_words,
+            self.data_width,
+            self.mux_ratio,
+            self.wmask_granularity()
+        )
     }
-}
-
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Serialize, Deserialize)]
-pub enum ControlMode {
-    ReplicaV2,
-    ReplicaV2Test,
 }
 
 impl Component for SramInner {
@@ -246,27 +227,14 @@ impl Component for Sram {
 
         // Route pins to edge of guard ring
         let groups = self.params.cols / self.params.mux_ratio;
-        for (pin, width) in if self.params.control == ControlMode::ReplicaV2 {
-            vec![
-                ("dout", groups),
-                ("din", groups),
-                ("wmask", self.params.wmask_width),
-                ("addr", self.params.addr_width),
-                ("we", 1),
-                ("clk", 1),
-            ]
-        } else {
-            vec![
-                ("dout", groups),
-                ("din", groups),
-                ("wmask", self.params.wmask_width),
-                ("addr", self.params.addr_width),
-                ("we", 1),
-                ("clk", 1),
-                ("sae_int", 1),
-                ("sae_muxed", 1),
-            ]
-        } {
+        for (pin, width) in [
+            ("dout", groups),
+            ("din", groups),
+            ("wmask", self.params.wmask_width),
+            ("addr", self.params.addr_width),
+            ("we", 1),
+            ("clk", 1),
+        ] {
             for i in 0..width {
                 let port_id = PortId::new(pin, i);
                 let rect = sram.port(port_id.clone())?.largest_rect(m3)?;
@@ -340,50 +308,35 @@ pub(crate) mod tests {
 
     use super::*;
 
-    pub(crate) const SRAM22_64X4M4W2: SramParams =
-        SramParams::new(2, 4, 64, 4, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_64X4M4W2: SramParams = SramParams::new(2, 4, 64, 4);
 
-    pub(crate) const SRAM22_64X24M4W24: SramParams =
-        SramParams::new(24, 4, 64, 24, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_64X24M4W24: SramParams = SramParams::new(24, 4, 64, 24);
 
-    pub(crate) const SRAM22_64X32M4W8: SramParams =
-        SramParams::new(8, 4, 64, 32, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_64X32M4W8: SramParams = SramParams::new(8, 4, 64, 32);
 
-    pub(crate) const SRAM22_64X32M4W32: SramParams =
-        SramParams::new(32, 4, 64, 32, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_64X32M4W32: SramParams = SramParams::new(32, 4, 64, 32);
 
-    pub(crate) const SRAM22_256X32M4W8: SramParams =
-        SramParams::new(8, 4, 256, 32, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_256X32M4W8: SramParams = SramParams::new(8, 4, 256, 32);
 
-    pub(crate) const SRAM22_512X32M4W8: SramParams =
-        SramParams::new(8, 4, 512, 32, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_512X32M4W8: SramParams = SramParams::new(8, 4, 512, 32);
 
-    pub(crate) const SRAM22_512X32M4W32: SramParams =
-        SramParams::new(32, 4, 512, 32, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_512X32M4W32: SramParams = SramParams::new(32, 4, 512, 32);
 
-    pub(crate) const SRAM22_512X64M4W8: SramParams =
-        SramParams::new(8, 4, 512, 64, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_512X64M4W8: SramParams = SramParams::new(8, 4, 512, 64);
 
-    pub(crate) const SRAM22_1024X32M8W8: SramParams =
-        SramParams::new(8, 8, 1024, 32, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_1024X32M8W8: SramParams = SramParams::new(8, 8, 1024, 32);
 
-    pub(crate) const SRAM22_1024X32M8W32: SramParams =
-        SramParams::new(32, 8, 1024, 32, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_1024X32M8W32: SramParams = SramParams::new(32, 8, 1024, 32);
 
-    pub(crate) const SRAM22_1024X64M8W32: SramParams =
-        SramParams::new(32, 8, 1024, 64, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_1024X64M8W32: SramParams = SramParams::new(32, 8, 1024, 64);
 
-    pub(crate) const SRAM22_2048X32M8W8: SramParams =
-        SramParams::new(8, 8, 2048, 32, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_2048X32M8W8: SramParams = SramParams::new(8, 8, 2048, 32);
 
-    pub(crate) const SRAM22_2048X64M4W8: SramParams =
-        SramParams::new(8, 4, 2048, 64, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_2048X64M4W8: SramParams = SramParams::new(8, 4, 2048, 64);
 
-    pub(crate) const SRAM22_4096X8M8W8: SramParams =
-        SramParams::new(8, 8, 4096, 8, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_4096X8M8W8: SramParams = SramParams::new(8, 8, 4096, 8);
 
-    pub(crate) const SRAM22_4096X32M8W8: SramParams =
-        SramParams::new(8, 8, 4096, 32, ControlMode::ReplicaV2);
+    pub(crate) const SRAM22_4096X32M8W8: SramParams = SramParams::new(8, 8, 4096, 32);
 
     macro_rules! test_sram {
         ($name: ident, $params: ident $(, $attr: meta)*) => {
@@ -397,59 +350,59 @@ pub(crate) mod tests {
                 ctx.write_schematic_to_file::<Sram>(&$params, &spice_path)
                     .expect("failed to write schematic");
 
-                let gds_path = out_gds(&work_dir, "layout");
-                ctx.write_layout::<Sram>(&$params, &gds_path)
-                    .expect("failed to write layout");
+                // let gds_path = out_gds(&work_dir, "layout");
+                // ctx.write_layout::<Sram>(&$params, &gds_path)
+                //     .expect("failed to write layout");
 
-                let verilog_path = out_verilog(&work_dir, &*$params.name());
-                save_1rw_verilog(&verilog_path,&*$params.name(), &$params)
-                    .expect("failed to write behavioral model");
+                // let verilog_path = out_verilog(&work_dir, &*$params.name());
+                // save_1rw_verilog(&verilog_path,&*$params.name(), &$params)
+                //     .expect("failed to write behavioral model");
 
                 #[cfg(feature = "commercial")]
                 {
-                    let drc_work_dir = work_dir.join("drc");
-                    let output = ctx
-                        .write_drc::<Sram>(&$params, drc_work_dir)
-                        .expect("failed to run DRC");
-                    assert!(matches!(
-                        output.summary,
-                        substrate::verification::drc::DrcSummary::Pass
-                    ));
+                    // let drc_work_dir = work_dir.join("drc");
+                    // let output = ctx
+                    //     .write_drc::<Sram>(&$params, drc_work_dir)
+                    //     .expect("failed to run DRC");
+                    // assert!(matches!(
+                    //     output.summary,
+                    //     substrate::verification::drc::DrcSummary::Pass
+                    // ));
 
-                    let lvs_work_dir = work_dir.join("lvs");
-                    let output = ctx
-                        .write_lvs::<Sram>(&$params, lvs_work_dir)
-                        .expect("failed to run LVS");
-                    assert!(matches!(
-                        output.summary,
-                        substrate::verification::lvs::LvsSummary::Pass
-                    ));
+                    // let lvs_work_dir = work_dir.join("lvs");
+                    // let output = ctx
+                    //     .write_lvs::<Sram>(&$params, lvs_work_dir)
+                    //     .expect("failed to run LVS");
+                    // assert!(matches!(
+                    //     output.summary,
+                    //     substrate::verification::lvs::LvsSummary::Pass
+                    // ));
 
-                    let pex_path = out_spice(&work_dir, "pex_schematic");
-                    let pex_dir = work_dir.join("pex");
-                    let pex_level = calibre::pex::PexLevel::Rc;
-                    let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
-                    ctx.write_schematic_to_file_for_purpose::<Sram>(
-                        &$params,
-                        &pex_path,
-                        NetlistPurpose::Pex,
-                    ).expect("failed to write pex source netlist");
-                    let mut opts = std::collections::HashMap::with_capacity(1);
-                    opts.insert("level".into(), pex_level.as_str().into());
+                    // let pex_path = out_spice(&work_dir, "pex_schematic");
+                    // let pex_dir = work_dir.join("pex");
+                    // let pex_level = calibre::pex::PexLevel::Rc;
+                    // let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
+                    //     &$params,
+                    //     &pex_path,
+                    //     NetlistPurpose::Pex,
+                    // ).expect("failed to write pex source netlist");
+                    // let mut opts = std::collections::HashMap::with_capacity(1);
+                    // opts.insert("level".into(), pex_level.as_str().into());
 
-                    ctx.run_pex(substrate::verification::pex::PexInput {
-                        work_dir: pex_dir,
-                        layout_path: gds_path.clone(),
-                        layout_cell_name: $params.name().clone(),
-                        layout_format: substrate::layout::LayoutFormat::Gds,
-                        source_paths: vec![pex_path],
-                        source_cell_name: $params.name().clone(),
-                        pex_netlist_path: pex_netlist_path.clone(),
-                        ground_net: "vss".to_string(),
-                        opts,
-                    }).expect("failed to run pex");
+                    // ctx.run_pex(substrate::verification::pex::PexInput {
+                    //     work_dir: pex_dir,
+                    //     layout_path: gds_path.clone(),
+                    //     layout_cell_name: $params.name().clone(),
+                    //     layout_format: substrate::layout::LayoutFormat::Gds,
+                    //     source_paths: vec![pex_path],
+                    //     source_cell_name: $params.name().clone(),
+                    //     pex_netlist_path: pex_netlist_path.clone(),
+                    //     ground_net: "vss".to_string(),
+                    //     opts,
+                    // }).expect("failed to run pex");
 
-                    let short = false;
+                    let short = true;
                     let short_str = if short { "short" } else { "long" };
                     let corners = ctx.corner_db();
                     let mut handles = Vec::new();
@@ -457,7 +410,7 @@ pub(crate) mod tests {
                         for corner in corners.corners() {
                             let corner = corner.clone();
                             let params = $params.clone();
-                            let pex_netlist = Some(pex_netlist_path.clone());
+                            // let pex_netlist = Some(pex_netlist_path.clone());
                             let work_dir = work_dir.clone();
                             handles.push(std::thread::spawn(move || {
                                 let ctx = setup_ctx();

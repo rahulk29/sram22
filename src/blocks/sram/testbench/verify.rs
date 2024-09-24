@@ -64,6 +64,7 @@ pub(crate) fn verify_simulation(data: &TranData, tb: &TbParams) -> Result<()> {
                     }
                 }
             }
+            _ => {}
         }
     }
     Ok(())

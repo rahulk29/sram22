@@ -28,7 +28,7 @@ use substrate::pdk::stdcell::StdCell;
 use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
 use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::blocks::columns::ColPeripherals;
-use crate::blocks::control::{ControlLogicKind, ControlLogicReplicaV2, DffArray};
+use crate::blocks::control::{ControlLogicReplicaV2, DffArray};
 use crate::blocks::decoder::layout::LastBitDecoderStage;
 use crate::blocks::decoder::{
     AddrGate, AddrGateParams, DecoderParams, DecoderStageParams, DecoderTree, Predecoder,
@@ -37,7 +37,7 @@ use crate::blocks::decoder::{
 use crate::blocks::gate::GateParams;
 use crate::blocks::precharge::layout::{ReplicaPrecharge, ReplicaPrechargeParams};
 
-use super::{ControlMode, SramInner};
+use super::SramInner;
 
 pub struct TappedDiode;
 
@@ -141,10 +141,7 @@ impl SramInner {
             child_sizes: vec![],
         };
         let mut wmux_driver = ctx.instantiate::<WmuxDriver>(&wmux_driver_params)?;
-        let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&match self.params.control {
-            ControlMode::ReplicaV2 => ControlLogicKind::Standard,
-            ControlMode::ReplicaV2Test => ControlLogicKind::Test,
-        })?;
+        let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?;
 
         let num_dffs = self.params.addr_width + 1;
         let mut dffs = ctx.instantiate::<DffArray>(&num_dffs)?;
@@ -318,7 +315,7 @@ impl SramInner {
                     total += curr_bits;
                     println!("total: {total}");
                     let bottom_port = inst
-                        .port(&format!("predecode_{}_1", total - 1))?
+                        .port(format!("predecode_{}_1", total - 1))?
                         .largest_rect(m2)?;
                     let on_grid_bus = router.register_off_grid_bus_translation(
                         ctx,
@@ -419,7 +416,7 @@ impl SramInner {
         }
 
         let left_port = decoder
-            .port(&format!("predecode_1_{}", tree.root.children[1].num - 1))?
+            .port(format!("predecode_1_{}", tree.root.children[1].num - 1))?
             .largest_rect(m1)?;
 
         let decoder_tracks = UniformTracks::builder()
@@ -694,24 +691,6 @@ impl SramInner {
         ctx.draw_rect(m1, src);
         to_route.push((m1, src, m3, clk_pin, Some("clk")));
 
-        if matches!(self.params.control, ControlMode::ReplicaV2Test) {
-            for (i, port_name) in ["sae_int", "sae_muxed"].into_iter().enumerate() {
-                let track_span = tracks.index(start_track + i as i64 + 1);
-                let pin = Rect::from_spans(
-                    track_span,
-                    Span::with_start_and_length(router_bbox.bottom(), 1000),
-                );
-                ctx.draw_rect(m3, pin);
-                ctx.add_port(CellPort::with_shape(port_name, m3, pin))?;
-                router.occupy(m3, pin, port_name)?;
-
-                let src = control.port(port_name)?.largest_rect(m1)?;
-                let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Bot));
-                ctx.draw_rect(m1, src);
-                to_route.push((m1, src, m3, pin, Some(port_name)));
-            }
-        }
-
         for i in 0..num_dffs {
             let src = dffs.port(PortId::new("clk", i))?.largest_rect(m2)?;
             let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Top));
@@ -845,7 +824,7 @@ impl SramInner {
             for port_name in ["bl", "br"] {
                 let src = rbl.port(PortId::new(port_name, i))?.largest_rect(m1)?;
                 let dst = replica_pc
-                    .port(PortId::new(&format!("{}_in", port_name), i))?
+                    .port(PortId::new(format!("{}_in", port_name), i))?
                     .largest_rect(m1)?;
                 ctx.draw_rect(m1, src.bbox().union(dst.bbox()).into_rect());
             }

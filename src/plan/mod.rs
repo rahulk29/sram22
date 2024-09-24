@@ -60,7 +60,6 @@ pub fn generate_plan(
         data_width,
         mux_ratio,
         write_size,
-        control,
         ..
     } = config;
 
@@ -102,7 +101,6 @@ pub fn generate_plan(
             num_words,
             data_width,
             addr_width,
-            control,
         },
     })
 }
