@@ -13,6 +13,7 @@ use crate::blocks::columns::{ColParams, ColPeripherals};
 use crate::blocks::control::{ControlLogicReplicaV2, DffArray, InvChain};
 use crate::blocks::decoder::{
     AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderStageParams, DecoderTree, WmuxDriver,
+    INV_PARAMS, NAND2_PARAMS,
 };
 use crate::blocks::gate::{AndParams, GateParams};
 use crate::blocks::precharge::{Precharge, PrechargeParams};
@@ -103,8 +104,8 @@ impl SramInner {
         ctx.instantiate::<AddrGate>(&AddrGateParams {
             gate: GateParams::And2(AndParams {
                 // TODO fix this
-                nand: tree.root.gate.first_gate_sizing(),
-                inv: tree.root.gate.first_gate_sizing(),
+                nand: NAND2_PARAMS,
+                inv: INV_PARAMS,
             }),
             num: self.params.row_bits,
         })?
