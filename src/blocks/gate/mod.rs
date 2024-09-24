@@ -7,11 +7,14 @@ use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::ArrayTiler;
 
-use super::decoder::layout::{DecoderGate, DecoderGateParams, DecoderTap};
-use super::decoder::{self};
+use super::decoder::layout::{
+    decoder_stage_layout, DecoderGate, DecoderGateParams, DecoderTap, RoutingStyle,
+};
+use super::decoder::{self, DecoderStageParams};
 
 pub mod layout;
 pub mod schematic;
+pub mod sizing;
 
 pub enum Gate {
     And2(And2),
@@ -77,10 +80,31 @@ pub enum GateType {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
+pub enum PrimitiveGateType {
+    Inv,
+    Nand2,
+    Nand3,
+    Nor2,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
 pub struct PrimitiveGateParams {
     pub nwidth: i64,
     pub pwidth: i64,
     pub length: i64,
+}
+
+impl GateType {
+    pub fn primitive_gates(&self) -> Vec<GateType> {
+        match *self {
+            GateType::And2 => vec![GateType::Nand2, GateType::Inv],
+            GateType::And3 => vec![GateType::Nand3, GateType::Inv],
+            GateType::Inv => vec![GateType::Inv],
+            GateType::Nand2 => vec![GateType::Nand2],
+            GateType::Nand3 => vec![GateType::Nand3],
+            GateType::Nor2 => vec![GateType::Nor2],
+        }
+    }
 }
 
 impl PrimitiveGateParams {
@@ -140,6 +164,39 @@ impl GateParams {
             GateParams::Nand2(x) => Self::Nand2(x.scale(factor)),
             GateParams::Nand3(x) => Self::Nand3(x.scale(factor)),
             GateParams::Nor2(x) => Self::Nor2(x.scale(factor)),
+        }
+    }
+
+    pub fn gate_type(&self) -> GateType {
+        match self {
+            GateParams::And2(_) => GateType::And2,
+            GateParams::And3(_) => GateType::And3,
+            GateParams::Inv(_) => GateType::Inv,
+            GateParams::Nand2(_) => GateType::Nand2,
+            GateParams::Nand3(_) => GateType::Nand3,
+            GateParams::Nor2(_) => GateType::Nor2,
+        }
+    }
+
+    pub fn first_gate_sizing(&self) -> PrimitiveGateParams {
+        match self {
+            GateParams::And2(a) => a.nand,
+            GateParams::And3(a) => a.nand,
+            GateParams::Inv(x) => *x,
+            GateParams::Nand2(x) => *x,
+            GateParams::Nand3(x) => *x,
+            GateParams::Nor2(x) => *x,
+        }
+    }
+
+    pub fn last_gate_sizing(&self) -> PrimitiveGateParams {
+        match self {
+            GateParams::And2(a) => a.inv,
+            GateParams::And3(a) => a.inv,
+            GateParams::Inv(x) => *x,
+            GateParams::Nand2(x) => *x,
+            GateParams::Nand3(x) => *x,
+            GateParams::Nor2(x) => *x,
         }
     }
 }

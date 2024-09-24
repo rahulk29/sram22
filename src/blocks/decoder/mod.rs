@@ -1,18 +1,22 @@
-use serde::{Deserialize, Serialize};
-use substrate::component::{Component, NoParams};
-use substrate::index::IndexOwned;
-use substrate::schematic::circuit::Direction;
-
 use self::layout::{
     decoder_stage_layout, LastBitDecoderPhysicalDesignScript, PredecoderPhysicalDesignScript,
     RoutingStyle,
 };
+use crate::blocks::decoder::sizing::{path_map_tree, Tree, ValueTree};
+use serde::{Deserialize, Serialize};
+use subgeom::snap_to_grid;
+use substrate::component::{Component, NoParams};
+use substrate::index::IndexOwned;
+use substrate::logic::delay::{GateModel, LogicPath, OptimizerOpts};
+use substrate::schematic::circuit::Direction;
 
-use super::gate::{AndParams, Gate, GateParams, GateType, PrimitiveGateParams};
+use super::gate::{AndParams, Gate, GateParams, GateType, PrimitiveGateParams, PrimitiveGateType};
 
 pub mod layout;
 pub mod schematic;
 pub mod sim;
+
+pub mod sizing;
 
 pub struct Decoder {
     params: DecoderParams,
@@ -49,6 +53,7 @@ pub struct TreeNode {
     // Number of one-hot outputs.
     pub num: usize,
     pub children: Vec<TreeNode>,
+    pub child_nums: Vec<usize>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -275,91 +280,242 @@ impl Component for WmuxDriver {
 }
 
 impl DecoderTree {
-    pub fn for_columns(bits: usize, top_scale: i64) -> Self {
-        let plan = plan_decoder(bits, true, false, true);
-        let mut root = size_decoder(&plan);
-        root.gate = root.gate.scale(top_scale);
+    pub fn new(bits: usize, cload: f64) -> Self {
+        let plan = plan_decoder(bits, true, false, false);
+        let mut root = size_decoder(&plan, cload);
         DecoderTree { root }
-    }
-
-    pub fn with_scale_and_skew(bits: usize, top_scale: i64, skew_rising: bool) -> Self {
-        let plan = plan_decoder(bits, true, skew_rising, false);
-        let mut root = size_decoder(&plan);
-        root.gate = root.gate.scale(top_scale);
-        DecoderTree { root }
-    }
-
-    #[inline]
-    pub fn with_scale(bits: usize, top_scale: i64) -> Self {
-        Self::with_scale_and_skew(bits, top_scale, false)
-    }
-
-    #[inline]
-    pub fn with_skew(bits: usize, skew_rising: bool) -> Self {
-        Self::with_scale_and_skew(bits, 1, skew_rising)
-    }
-
-    #[inline]
-    pub fn new(bits: usize) -> Self {
-        Self::with_scale_and_skew(bits, 1, false)
     }
 }
 
-fn size_decoder(tree: &PlanTreeNode) -> TreeNode {
-    // TODO improve decoder sizing
-    size_helper_tmp(tree, tree.skew_rising, tree.cols)
+fn size_decoder(tree: &PlanTreeNode, cwl: f64) -> TreeNode {
+    path_map_tree(tree, &size_path, &cwl)
 }
 
-fn size_helper_tmp(x: &PlanTreeNode, skew_rising: bool, cols: bool) -> TreeNode {
-    let gate_params = if cols {
-        AndParams {
-            nand: PrimitiveGateParams {
-                nwidth: 10_000,
-                pwidth: 8_000,
-                length: 150,
-            },
-            inv: PrimitiveGateParams {
-                nwidth: 8_000,
-                pwidth: 10_000,
-                length: 150,
-            },
+/// The on-resistance and capacitances of a 1x inverter ([`INV_PARAMS`]).
+pub(crate) const INV_MODEL: GateModel = GateModel {
+    res: 1422.118502462849,
+    cin: 0.000000000000004482092764998187,
+    cout: 0.0000000004387405174617657,
+};
+
+/// The on-resistance and capacitances of a 1x NAND2 gate ([`NAND2_PARAMS`]).
+pub(crate) const NAND2_MODEL: GateModel = GateModel {
+    res: 1478.364147093855,
+    cin: 0.000000000000005389581112035269,
+    cout: 0.0000000002743620195248461,
+};
+
+/// The on-resistance and capacitances of a 1x NAND3 gate ([`NAND3_PARAMS`]).
+pub(crate) const NAND3_MODEL: GateModel = GateModel {
+    res: 1478.037783669641,
+    cin: 0.000000000000006217130454627972,
+    cout: 0.000000000216366152882086,
+};
+
+/// The on-resistance and capacitances of a 1x NOR2 gate ([`NOR2_PARAMS`]).
+pub(crate) const NOR2_MODEL: GateModel = GateModel {
+    res: 1.0,
+    cin: 1.0,
+    cout: 1.0,
+};
+
+/// The sizing of a 1x inverter.
+pub(crate) const INV_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+    nwidth: 1_000,
+    pwidth: 2_500,
+    length: 150,
+};
+
+/// The sizing of a 1x NAND2 gate.
+pub(crate) const NAND2_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+    nwidth: 2_000,
+    pwidth: 2_500,
+    length: 150,
+};
+
+/// The sizing of a 1x NAND3 gate.
+pub(crate) const NAND3_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+    nwidth: 3_000,
+    pwidth: 2_500,
+    length: 150,
+};
+
+/// The sizing of a 1x NOR2 gate.
+pub(crate) const NOR2_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+    nwidth: 1_000,
+    pwidth: 3_200,
+    length: 150,
+};
+
+pub(crate) fn gate_params(gate: GateType) -> PrimitiveGateParams {
+    match gate {
+        GateType::Inv => INV_PARAMS,
+        GateType::Nand2 => NAND2_PARAMS,
+        GateType::Nand3 => NAND3_PARAMS,
+        GateType::Nor2 => NOR2_PARAMS,
+        gate => panic!("unsupported gate type: {gate:?}"),
+    }
+}
+
+pub(crate) fn primitive_gate_params(gate: PrimitiveGateType) -> PrimitiveGateParams {
+    match gate {
+        PrimitiveGateType::Inv => INV_PARAMS,
+        PrimitiveGateType::Nand2 => NAND2_PARAMS,
+        PrimitiveGateType::Nand3 => NAND3_PARAMS,
+        PrimitiveGateType::Nor2 => NOR2_PARAMS,
+    }
+}
+
+pub(crate) fn gate_model(gate: GateType) -> GateModel {
+    match gate {
+        GateType::Inv => INV_MODEL,
+        GateType::Nand2 => NAND2_MODEL,
+        GateType::Nand3 => NAND3_MODEL,
+        GateType::Nor2 => NOR2_MODEL,
+        gate => panic!("unsupported gate type: {gate:?}"),
+    }
+}
+
+pub(crate) fn primitive_gate_model(gate: PrimitiveGateType) -> GateModel {
+    match gate {
+        PrimitiveGateType::Inv => INV_MODEL,
+        PrimitiveGateType::Nand2 => NAND2_MODEL,
+        PrimitiveGateType::Nand3 => NAND3_MODEL,
+        PrimitiveGateType::Nor2 => NOR2_MODEL,
+    }
+}
+
+pub(crate) fn scale(gate: PrimitiveGateParams, scale: f64) -> PrimitiveGateParams {
+    let nwidth = snap_to_grid((gate.nwidth as f64 * scale).round() as i64, 50);
+    let pwidth = snap_to_grid((gate.pwidth as f64 * scale).round() as i64, 50);
+    PrimitiveGateParams {
+        nwidth,
+        pwidth,
+        length: gate.length,
+    }
+}
+
+fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
+    let mut lp = LogicPath::new();
+    let mut vars = Vec::new();
+    for (i, node) in path.iter().copied().rev().enumerate() {
+        for (j, gate) in node.gate.primitive_gates().iter().copied().enumerate() {
+            if i == 0 && j == 0 {
+                lp.append_sized_gate(gate_model(gate));
+                println!("fanout = {:.3}", end / gate_model(gate).cin);
+                println!("append sized {gate:?}");
+            } else {
+                let var = lp.create_variable_with_initial(2.);
+                let model = gate_model(gate);
+                if i != 0 && j == 0 {
+                    let branching = node.num / node.children[0].num - 1;
+                    if branching > 0 {
+                        let mult = branching as f64 * model.cin;
+                        assert!(mult >= 0.0, "mult must be larger than zero, got {mult}");
+                        lp.append_variable_capacitor(mult, var);
+                        println!("append variable cap {branching:?}x");
+                    }
+                }
+                lp.append_unsized_gate(model, var);
+                println!("append unsized {gate:?}");
+                vars.push(var);
+            }
         }
-    } else if skew_rising {
-        AndParams {
-            nand: PrimitiveGateParams {
-                nwidth: 4_000,
-                pwidth: 1_000,
-                length: 150,
-            },
-            inv: PrimitiveGateParams {
-                nwidth: 600,
-                pwidth: 6_800,
-                length: 150,
-            },
+    }
+    lp.append_capacitor(*end);
+
+    lp.size_with_opts(OptimizerOpts {
+        lr: 1e11,
+        lr_decay: 0.999995,
+        max_iter: 10_000_000,
+    });
+
+    let mut cnode: Option<&mut TreeNode> = None;
+    let mut tree = None;
+
+    let mut values = vars
+        .iter()
+        .rev()
+        .map(|v| {
+            let v = lp.value(*v);
+            assert!(v >= 0.5, "gate scale must be at least 0.5, got {v:.3}");
+            v
+        })
+        .collect::<Vec<_>>();
+    values.push(1.);
+    println!("values = {values:?}");
+    let mut values = values.into_iter();
+
+    for &node in path {
+        let gate = match node.gate {
+            GateType::And2 => GateParams::And2(AndParams {
+                inv: scale(INV_PARAMS, values.next().unwrap()),
+                nand: scale(NAND2_PARAMS, values.next().unwrap()),
+            }),
+            GateType::And3 => GateParams::And3(AndParams {
+                inv: scale(INV_PARAMS, values.next().unwrap()),
+                nand: scale(NAND3_PARAMS, values.next().unwrap()),
+            }),
+            GateType::Inv => GateParams::Inv(scale(INV_PARAMS, values.next().unwrap())),
+            GateType::Nand2 => GateParams::Nand2(scale(NAND2_PARAMS, values.next().unwrap())),
+            GateType::Nand3 => GateParams::Nand3(scale(NAND3_PARAMS, values.next().unwrap())),
+            GateType::Nor2 => GateParams::Nor2(scale(NOR2_PARAMS, values.next().unwrap())),
+        };
+
+        let n = TreeNode {
+            gate,
+            num: node.num,
+            children: vec![],
+            child_nums: node.children.iter().map(|n| n.num).collect(),
+        };
+
+        if let Some(parent) = cnode {
+            parent.children.push(n);
+            cnode = Some(&mut parent.children[0])
+        } else {
+            tree = Some(n);
+            cnode = Some(tree.as_mut().unwrap());
         }
-    } else {
-        AndParams {
-            nand: PrimitiveGateParams {
-                nwidth: 2_400,
-                pwidth: 800,
-                length: 150,
-            },
-            inv: PrimitiveGateParams {
-                nwidth: 3_100,
-                pwidth: 4_300,
-                length: 150,
-            },
-        }
-    };
-    // TODO size decoder
-    TreeNode {
-        gate: GateParams::new_and(x.gate, gate_params),
-        num: x.num,
-        children: x
-            .children
-            .iter()
-            .map(|n| size_helper_tmp(n, skew_rising, cols))
-            .collect::<Vec<_>>(),
+    }
+
+    tree.unwrap()
+}
+
+impl Tree for PlanTreeNode {
+    fn children(&self) -> &[Self] {
+        &self.children
+    }
+
+    fn children_mut(&mut self) -> &mut [Self] {
+        &mut self.children
+    }
+
+    fn add_right_child(&mut self, child: Self) {
+        self.children.push(child);
+    }
+}
+
+impl Tree for TreeNode {
+    fn children(&self) -> &[Self] {
+        &self.children
+    }
+
+    fn children_mut(&mut self) -> &mut [Self] {
+        &mut self.children
+    }
+
+    fn add_right_child(&mut self, child: Self) {
+        self.children.push(child);
+    }
+}
+
+impl ValueTree<f64> for TreeNode {
+    fn value_for_child(&self, idx: usize) -> f64 {
+        let first_gate_type = self.gate.gate_type().primitive_gates()[0];
+        let first_gate = self.gate.first_gate_sizing();
+        let model = gate_model(first_gate_type);
+        (self.num / self.child_nums[idx]) as f64 * model.cin * first_gate.nwidth as f64
+            / (gate_params(first_gate_type).nwidth as f64)
     }
 }
 
@@ -393,12 +549,30 @@ fn plan_decoder(bits: usize, top: bool, skew_rising: bool, cols: bool) -> PlanTr
             .into_iter()
             .map(|x| plan_decoder(x, false, skew_rising, cols))
             .collect::<Vec<_>>();
-        PlanTreeNode {
+        let node = PlanTreeNode {
             gate,
             num: 2usize.pow(bits as u32),
             children,
             skew_rising,
             cols,
+        };
+
+        if top {
+            PlanTreeNode {
+                gate: GateType::Inv,
+                num: node.num,
+                children: vec![PlanTreeNode {
+                    gate: GateType::Inv,
+                    num: node.num,
+                    children: vec![node],
+                    skew_rising,
+                    cols,
+                }],
+                skew_rising,
+                cols,
+            }
+        } else {
+            node
         }
     }
 }
@@ -407,8 +581,8 @@ fn partition_bits(bits: usize, top: bool) -> Vec<usize> {
     assert!(bits > 3);
 
     if top {
-        let left = bits / 2;
-        return vec![left, bits - left];
+        let right = bits / 2;
+        return vec![bits - right, right];
     }
 
     if bits % 2 == 0 {
@@ -421,8 +595,8 @@ fn partition_bits(bits: usize, top: bool) -> Vec<usize> {
             _ => panic!("unexpected remainder of `bits` divided by 3"),
         }
     } else {
-        let left = bits / 2;
-        vec![left, bits - left]
+        let right = bits / 2;
+        vec![bits - right, right]
     }
 }
 
@@ -541,7 +715,7 @@ mod tests {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_decoder_4bit");
 
-        let tree = DecoderTree::new(4);
+        let tree = DecoderTree::new(4, 150e-15);
         let params = DecoderParams { tree };
 
         ctx.write_schematic_to_file::<Decoder>(&params, out_spice(work_dir, "netlist"))
@@ -608,7 +782,7 @@ mod tests {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_predecoder_4");
 
-        let tree = DecoderTree::new(4);
+        let tree = DecoderTree::new(4, 150e-15);
         let params = DecoderParams { tree };
 
         ctx.write_layout::<Predecoder>(&params, out_gds(work_dir, "layout"))
@@ -620,7 +794,7 @@ mod tests {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_predecoder_6");
 
-        let tree = DecoderTree::new(6);
+        let tree = DecoderTree::new(6, 150e-15);
         let params = DecoderParams { tree };
 
         ctx.write_layout::<Predecoder>(&params, out_gds(&work_dir, "layout"))

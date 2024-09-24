@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use crate::verification::calibre::SKY130_LAYERPROPS_PATH;
 pub use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 #[cfg(not(feature = "commercial"))]
@@ -89,6 +90,7 @@ pub fn setup_ctx() -> SubstrateCtx {
                 .runset_file(PathBuf::from(
                     crate::verification::calibre::SKY130_DRC_RUNSET_PATH,
                 ))
+                .layerprops(PathBuf::from(SKY130_LAYERPROPS_PATH))
                 .build()
                 .unwrap(),
         )

@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use super::{Decoder, DecoderParams, DecoderTree};
+use crate::blocks::sram::WORDLINE_CAP_PER_CELL;
 use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 use substrate::index::IndexOwned;
@@ -10,8 +12,6 @@ use substrate::units::{SiPrefix, SiValue};
 use substrate::verification::simulation::testbench::Testbench;
 use substrate::verification::simulation::waveform::Waveform;
 use substrate::verification::simulation::{OutputFormat, TranAnalysis};
-
-use super::{Decoder, DecoderParams, DecoderTree};
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct DecoderCriticalPathTbParams {
@@ -55,7 +55,7 @@ impl Component for DecoderCriticalPathTb {
             .with_connections([("p", vdd), ("n", vss)])
             .add_to(ctx);
 
-        let tree = DecoderTree::with_scale(params.bits, params.scale);
+        let tree = DecoderTree::new(params.bits, 64. * WORDLINE_CAP_PER_CELL);
         let decoder_params = DecoderParams { tree };
         ctx.instantiate::<Decoder>(&decoder_params)?
             .with_connections([
