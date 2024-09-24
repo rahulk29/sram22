@@ -15,3 +15,4 @@ pub mod sram;
 pub mod tdc;
 pub mod tgatemux;
 pub mod wmux;
+pub mod wrdriver;

@@ -16,14 +16,16 @@ use crate::blocks::decoder::{
 };
 use crate::blocks::precharge::{Precharge, PrechargeParams};
 use crate::blocks::rmux::ReadMuxParams;
+use crate::blocks::tgatemux::TGateMuxParams;
 use crate::blocks::wmux::WriteMuxSizing;
+use crate::blocks::wrdriver::WriteDriverParams;
 
 use super::{SramInner, READ_MUX_INPUT_CAP, WORDLINE_CAP_PER_CELL};
 
 impl SramInner {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
         let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
-        let [clk, we, ce, reset] = ctx.ports(["clk", "we", "ce", "reset"], Direction::Input);
+        let [clk, we, ce, reset_b] = ctx.ports(["clk", "we", "ce", "reset_b"], Direction::Input);
 
         let addr = ctx.bus_port("addr", self.params.addr_width, Direction::Input);
         let wmask = ctx.bus_port("wmask", self.params.wmask_width, Direction::Input);
@@ -43,12 +45,10 @@ impl SramInner {
         let wl = ctx.bus("wl", self.params.rows);
         let wl_b = ctx.bus("wl_b", self.params.rows);
 
+        let col_sel0 = ctx.bus("col_sel0", self.params.mux_ratio);
         let col_sel = ctx.bus("col_sel", self.params.mux_ratio);
         let col_sel0_b = ctx.bus("col_sel0_b", self.params.mux_ratio);
         let col_sel_b = ctx.bus("col_sel_b", self.params.mux_ratio);
-
-        let wmux_sel = ctx.bus("wmux_sel", self.params.mux_ratio);
-        let wmux_sel_b = ctx.bus("wmux_sel_b", self.params.mux_ratio);
 
         let stdcells = ctx.inner().std_cell_db();
         let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
@@ -149,30 +149,19 @@ impl SramInner {
                 ("vss", vss),
                 ("addr", addr_in.index(0..self.params.col_select_bits)),
                 ("addr_b", addr_in_b.index(0..self.params.col_select_bits)),
-                ("decode", col_sel),
+                ("decode", col_sel0),
                 ("decode_b", col_sel0_b),
             ])
             .named("column_decoder")
             .add_to(ctx);
 
-        ctx.instantiate::<WmuxDriver>(&wmux_driver_params)?
-            .with_connection("in", col_sel)
-            .with_connection("en", write_driver_en)
-            .with_connections([
-                ("vdd", vdd),
-                ("vss", vss),
-                ("decode", wmux_sel),
-                ("decode_b", wmux_sel_b),
-            ])
-            .named("wmux_driver")
-            .add_to(ctx);
         let control_logic = ctx
             .instantiate::<ControlLogicReplicaV2>(&NoParams)?
             .with_connections([
                 ("clk", clk),
                 ("we", we_in),
                 ("ce", ce_in),
-                ("reset", reset),
+                ("reset_b", reset_b),
                 ("rbl", rbl),
                 ("pc_b", pc_b0),
                 ("wlen", wl_en0),
@@ -197,6 +186,16 @@ impl SramInner {
 
         for i in 0..self.params.mux_ratio {
             for _ in 0..3 {
+                ctx.instantiate::<StdCell>(&bufbuf.id())?
+                    .with_connections([
+                        ("A", col_sel0.index(i)),
+                        ("X", col_sel.index(i)),
+                        ("VPWR", vdd),
+                        ("VPB", vdd),
+                        ("VGND", vss),
+                        ("VNB", vss),
+                    ])
+                    .add_to(ctx);
                 ctx.instantiate::<StdCell>(&bufbuf.id())?
                     .with_connections([
                         ("A", col_sel0_b.index(i)),
@@ -264,7 +263,12 @@ impl SramInner {
 
         let num_dffs = self.params.addr_width + 2;
         ctx.instantiate::<DffArray>(&num_dffs)?
-            .with_connections([("vdd", vdd), ("vss", vss), ("clk", clk)])
+            .with_connections([
+                ("vdd", vdd),
+                ("vss", vss),
+                ("clk", clk),
+                ("reset_b", reset_b),
+            ])
             .with_connection("d", Signal::new(vec![addr, we, ce]))
             .with_connection("q", Signal::new(vec![addr_in0, we_in, ce_in]))
             .with_connection("qn", Signal::new(vec![addr_in0_b, we_in_b, ce_in_b]))
@@ -332,6 +336,7 @@ impl SramInner {
         ctx.instantiate::<ColPeripherals>(&self.col_params())?
             .with_connections([
                 ("clk", clk),
+                ("reset_b", reset_b),
                 ("vdd", vdd),
                 ("vss", vss),
                 ("dummy_bl", dummy_bl),
@@ -339,8 +344,9 @@ impl SramInner {
                 ("bl", bl),
                 ("br", br),
                 ("pc_b", pc_b),
+                ("sel", col_sel),
                 ("sel_b", col_sel_b),
-                ("we", wmux_sel),
+                ("we", write_driver_en),
                 ("wmask", wmask),
                 ("din", din),
                 ("dout", dout),
@@ -366,16 +372,19 @@ impl SramInner {
                 pull_up_width: 2_000,
                 equalizer_width: 1_200,
             },
-            rmux: ReadMuxParams {
+            wrdriver: WriteDriverParams {
                 length: 150,
-                width: 4_000,
+                pwidth_driver: 3_000,
+                nwidth_driver: 3_000,
+                pwidth_logic: 3_000,
+                nwidth_logic: 3_000,
+            },
+            mux: TGateMuxParams {
+                length: 150,
+                pwidth: 4_000,
+                nwidth: 4_000,
                 mux_ratio: self.params.mux_ratio,
                 idx: 0,
-            },
-            wmux: WriteMuxSizing {
-                length: 150,
-                mux_width: 8_800,
-                mux_ratio: self.params.mux_ratio,
             },
             buf: DiffBufParams {
                 width: 4_800,
