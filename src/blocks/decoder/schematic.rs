@@ -8,7 +8,7 @@ use substrate::index::IndexOwned;
 
 use super::{Decoder, DecoderStage, DecoderStageParams, TreeNode};
 use crate::blocks::decoder::get_idxs;
-use crate::blocks::gate::{And2, And3, GateParams};
+use crate::blocks::gate::{And2, And3, GateParams, Inv};
 use crate::clog2;
 
 impl Decoder {
@@ -43,15 +43,26 @@ impl Decoder {
             stage.connect_all([("vdd", &vdd), ("vss", &vss)]);
 
             if let Some(output_port) = output_port {
-                let unused_wire = ctx.bus(format!("unused_{ctr}"), output_port.width());
-                stage.connect_all([("decode", &output_port), ("decode_b", &unused_wire)]);
+                stage.connect("decode", &output_port);
+                if gate_size > 1 {
+                    let unused_wire = ctx.bus(format!("unused_{ctr}"), output_port.width());
+                    stage.connect("decode_b", &unused_wire);
+                }
             } else {
-                stage.connect_all([("decode", &decode), ("decode_b", &decode_b)]);
+                stage.connect("decode", &decode);
+                if gate_size > 1 {
+                    stage.connect("decode_b", &decode_b);
+                }
             }
 
             for (i, &port_name) in port_names.iter().enumerate().take(gate_size) {
                 let input_signal = if let Some(child) = node.children.get(i) {
-                    let input_bus = ctx.bus(format!("{port_name}_{ctr}"), child.num);
+                    let input_bus = if output_port.is_none() && gate_size == 1 {
+                        // the root stage must be an inverter
+                        decode_b.clone()
+                    } else {
+                        ctx.bus(format!("{port_name}_{ctr}"), child.num)
+                    };
                     queue.push_back((Some(input_bus), child));
                     input_bus.into()
                 } else {
@@ -75,18 +86,22 @@ impl DecoderStage {
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
         let decode = ctx.bus_port("decode", num, Direction::Output);
-        let decode_b = ctx.bus_port("decode_b", num, Direction::Output);
-
+        let decode_b = if !self.params.gate.gate_type().is_inv() {
+            Some(ctx.bus_port("decode_b", num, Direction::Output))
+        } else {
+            None
+        };
         let port_names = [
             arcstr::literal!("a"),
             arcstr::literal!("b"),
             arcstr::literal!("c"),
         ];
 
-        // Instantiate NAND gate.
-        let (and, gate_size) = match self.params.gate {
+        // Instantiate gate.
+        let (gate, gate_size) = match self.params.gate {
             GateParams::And2(params) => (ctx.instantiate::<And2>(&params)?, 2),
             GateParams::And3(params) => (ctx.instantiate::<And3>(&params)?, 3),
+            GateParams::Inv(params) => (ctx.instantiate::<Inv>(&params)?, 1),
             _ => unreachable!(),
         };
 
@@ -106,17 +121,15 @@ impl DecoderStage {
         for i in 0..num {
             let idxs = get_idxs(i, &self.params.child_sizes);
 
-            let mut and = and.clone();
-            and.connect_all([
-                ("vdd", &vdd),
-                ("vss", &vss),
-                ("yb", &decode_b.index(i)),
-                ("y", &decode.index(i)),
-            ]);
-            for j in 0..gate_size {
-                and.connect(port_names[j].clone(), input_ports[j].index(idxs[j]));
+            let mut gate = gate.clone();
+            gate.connect_all([("vdd", &vdd), ("vss", &vss), ("y", &decode.index(i))]);
+            if let Some(ref decode_b) = decode_b {
+                gate.connect("yb", &decode_b.index(i))
             }
-            ctx.add_instance(and);
+            for j in 0..gate_size {
+                gate.connect(port_names[j].clone(), input_ports[j].index(idxs[j]));
+            }
+            ctx.add_instance(gate);
         }
 
         Ok(())

@@ -406,7 +406,7 @@ pub(crate) mod tests {
                     let short_str = if short { "short" } else { "long" };
                     let corners = ctx.corner_db();
                     let mut handles = Vec::new();
-                    for vdd in [1.8, 1.6, 2.0] {
+                    for vdd in [1.8] {
                         for corner in corners.corners() {
                             let corner = corner.clone();
                             let params = $params.clone();

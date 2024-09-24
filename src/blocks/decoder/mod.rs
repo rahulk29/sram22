@@ -62,7 +62,6 @@ struct PlanTreeNode {
     num: usize,
     children: Vec<PlanTreeNode>,
     skew_rising: bool,
-    cols: bool,
 }
 
 pub struct WlDriver {
@@ -142,7 +141,10 @@ impl Component for AddrGate {
         let gate = match params.gate {
             params @ GateParams::And2(_) => params,
             GateParams::And3(params) => GateParams::And2(params),
-            _ => panic!("Unsupported wmux driver gate"),
+            x => panic!(
+                "address gating must be performed by AND gates, got {:?}",
+                x.gate_type()
+            ),
         };
         Ok(Self {
             params: AddrGateParams {
@@ -281,7 +283,7 @@ impl Component for WmuxDriver {
 
 impl DecoderTree {
     pub fn new(bits: usize, cload: f64) -> Self {
-        let plan = plan_decoder(bits, true, false, false);
+        let plan = plan_decoder(bits, true, false);
         let mut root = size_decoder(&plan, cload);
         DecoderTree { root }
     }
@@ -402,8 +404,6 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
         for (j, gate) in node.gate.primitive_gates().iter().copied().enumerate() {
             if i == 0 && j == 0 {
                 lp.append_sized_gate(gate_model(gate));
-                println!("fanout = {:.3}", end / gate_model(gate).cin);
-                println!("append sized {gate:?}");
             } else {
                 let var = lp.create_variable_with_initial(2.);
                 let model = gate_model(gate);
@@ -413,11 +413,9 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
                         let mult = branching as f64 * model.cin;
                         assert!(mult >= 0.0, "mult must be larger than zero, got {mult}");
                         lp.append_variable_capacitor(mult, var);
-                        println!("append variable cap {branching:?}x");
                     }
                 }
                 lp.append_unsized_gate(model, var);
-                println!("append unsized {gate:?}");
                 vars.push(var);
             }
         }
@@ -443,7 +441,6 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
         })
         .collect::<Vec<_>>();
     values.push(1.);
-    println!("values = {values:?}");
     let mut values = values.into_iter();
 
     for &node in path {
@@ -519,7 +516,7 @@ impl ValueTree<f64> for TreeNode {
     }
 }
 
-fn plan_decoder(bits: usize, top: bool, skew_rising: bool, cols: bool) -> PlanTreeNode {
+fn plan_decoder(bits: usize, top: bool, skew_rising: bool) -> PlanTreeNode {
     assert!(bits > 1);
     if bits == 2 {
         PlanTreeNode {
@@ -527,7 +524,6 @@ fn plan_decoder(bits: usize, top: bool, skew_rising: bool, cols: bool) -> PlanTr
             num: 4,
             children: vec![],
             skew_rising,
-            cols,
         }
     } else if bits == 3 {
         PlanTreeNode {
@@ -535,7 +531,6 @@ fn plan_decoder(bits: usize, top: bool, skew_rising: bool, cols: bool) -> PlanTr
             num: 8,
             children: vec![],
             skew_rising,
-            cols,
         }
     } else {
         let split = partition_bits(bits, top);
@@ -547,14 +542,13 @@ fn plan_decoder(bits: usize, top: bool, skew_rising: bool, cols: bool) -> PlanTr
 
         let children = split
             .into_iter()
-            .map(|x| plan_decoder(x, false, skew_rising, cols))
+            .map(|x| plan_decoder(x, false, skew_rising))
             .collect::<Vec<_>>();
         let node = PlanTreeNode {
             gate,
             num: 2usize.pow(bits as u32),
             children,
             skew_rising,
-            cols,
         };
 
         if top {
@@ -566,10 +560,8 @@ fn plan_decoder(bits: usize, top: bool, skew_rising: bool, cols: bool) -> PlanTr
                     num: node.num,
                     children: vec![node],
                     skew_rising,
-                    cols,
                 }],
                 skew_rising,
-                cols,
             }
         } else {
             node

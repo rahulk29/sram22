@@ -89,7 +89,6 @@ fn size_path(path: &[&GateTreeNode], end: &f64) -> SizedGateTreeNode {
             }
 
             lp.append_unsized_gate(model, var);
-            println!("append unsized {gate:?}");
             vars.push(var);
         }
     }
@@ -115,7 +114,6 @@ fn size_path(path: &[&GateTreeNode], end: &f64) -> SizedGateTreeNode {
         })
         .collect::<Vec<_>>();
     values.push(1.);
-    println!("values = {values:?}");
     let mut values = values.into_iter();
 
     for &node in path {
