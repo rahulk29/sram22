@@ -15,7 +15,6 @@ impl Decoder {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
         let out_bits = self.params.tree.root.num;
         let mut in_bits = clog2(out_bits);
-        println!("tree: {:?}", self.params.tree);
 
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);

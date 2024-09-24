@@ -284,7 +284,6 @@ impl Component for WmuxDriver {
 impl DecoderTree {
     pub fn new(bits: usize, cload: f64) -> Self {
         let plan = plan_decoder(bits, true, false);
-        println!("plan tree = {plan:?}");
         let mut root = size_decoder(&plan, cload);
         DecoderTree { root }
     }
@@ -405,8 +404,6 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
         for (j, gate) in node.gate.primitive_gates().iter().copied().enumerate() {
             if i == 0 && j == 0 {
                 lp.append_sized_gate(gate_model(gate));
-                println!("fanout = {:.3}", end / gate_model(gate).cin);
-                println!("append sized {gate:?}");
             } else {
                 let var = lp.create_variable_with_initial(2.);
                 let model = gate_model(gate);
@@ -416,11 +413,9 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
                         let mult = branching as f64 * model.cin;
                         assert!(mult >= 0.0, "mult must be larger than zero, got {mult}");
                         lp.append_variable_capacitor(mult, var);
-                        println!("append variable cap {branching:?}x");
                     }
                 }
                 lp.append_unsized_gate(model, var);
-                println!("append unsized {gate:?}");
                 vars.push(var);
             }
         }
@@ -446,7 +441,6 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
         })
         .collect::<Vec<_>>();
     values.push(1.);
-    println!("values = {values:?}");
     let mut values = values.into_iter();
 
     for &node in path {

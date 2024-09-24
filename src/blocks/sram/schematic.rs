@@ -98,7 +98,6 @@ impl SramInner {
         let [decrepstart, decrepend] = ctx.signals(["decrepstart", "decrepend"]);
 
         let wl_cap = (self.params.cols + 4) as f64 * WORDLINE_CAP_PER_CELL;
-        println!("wl_cap = {:.3}pF", wl_cap * 1e12);
         let tree = DecoderTree::new(self.params.row_bits, wl_cap);
 
         ctx.instantiate::<AddrGate>(&AddrGateParams {
