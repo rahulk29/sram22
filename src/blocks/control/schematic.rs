@@ -362,9 +362,9 @@ impl SrLatch {
         let [q0, q0b] = ctx.signals(["q0", "q0b"]);
 
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_default_lib()?;
-        let nand2 = lib.try_cell_named("sky130_fd_sc_hd__nand2_8")?;
-        let inv = lib.try_cell_named("sky130_fd_sc_hd__inv_2")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let nand2 = lib.try_cell_named("sky130_fd_sc_hs__nand2_8")?;
+        let inv = lib.try_cell_named("sky130_fd_sc_hs__inv_2")?;
 
         let mut nand_set = ctx.instantiate::<StdCell>(&nand2.id())?;
         let mut nand_reset = nand_set.clone();
@@ -428,9 +428,9 @@ impl InvChain {
         let x = ctx.bus("x", self.n - 1);
 
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_default_lib()?;
-        let inv = lib.try_cell_named("sky130_fd_sc_hd__inv_2")?;
-        let inv_end = lib.try_cell_named("sky130_fd_sc_hd__inv_4")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let inv = lib.try_cell_named("sky130_fd_sc_hs__inv_2")?;
+        let inv_end = lib.try_cell_named("sky130_fd_sc_hs__inv_4")?;
 
         for i in 0..self.n {
             ctx.instantiate::<StdCell>(&if i == self.n - 1 {
@@ -466,8 +466,8 @@ impl EdgeDetector {
             .add_to(ctx);
 
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_default_lib()?;
-        let and2 = lib.try_cell_named("sky130_fd_sc_hd__and2_4")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let and2 = lib.try_cell_named("sky130_fd_sc_hs__and2_4")?;
 
         ctx.instantiate::<StdCell>(&and2.id())?
             .with_connections([
