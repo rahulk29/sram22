@@ -196,8 +196,8 @@ mod tests {
 
     const TGATE_MUX_PARAMS: TGateMuxParams = TGateMuxParams {
         length: 150,
-        pwidth: 4_000,
-        nwidth: 2_000,
+        pwidth: 2_000,
+        nwidth: 1_000,
         mux_ratio: 4,
         idx: 2,
     };
