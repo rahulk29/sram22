@@ -41,7 +41,7 @@ pub fn run() -> Result<()> {
     println!("SRAM parameters:");
     println!("\tNumber of words: {}", config.num_words);
     println!("\tData width: {}", config.data_width);
-    println!("\tMux ratio: {}", config.mux_ratio);
+    println!("\tMux ratio: {}", config.mux_ratio as usize);
     println!("\tWrite size: {}", config.write_size);
 
     let enabled_tasks = vec![

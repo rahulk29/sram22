@@ -88,6 +88,7 @@ impl ColPeripherals {
                     ("bl", &bl.index(range.clone())),
                     ("br", &br.index(range)),
                     ("pc_b", &pc_b),
+                    ("sel", &sel),
                     ("sel_b", &sel_b),
                     ("we", &we),
                     ("wmask", &wmask_in.index(i / self.params.wmask_granularity)),
@@ -168,6 +169,7 @@ impl Column {
                 ("bl_out", &bl_out),
                 ("br_out", &br_out),
                 ("vdd", &vdd),
+                ("vss", &vss),
             ]);
             mux.set_name(format!("mux_{i}"));
             ctx.add_instance(mux);

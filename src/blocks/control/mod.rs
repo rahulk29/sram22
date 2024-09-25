@@ -153,13 +153,15 @@ impl Component for DffArray {
 
         let stdcells = ctx.inner().std_cell_db();
         let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
-        let dfrtp = lib.try_cell_named("sky130_fd_sc_hs__dfrbp")?;
+        let dfrtp = lib.try_cell_named("sky130_fd_sc_hs__dfrbp_2")?;
 
         for i in 0..self.n {
             ctx.instantiate::<StdCell>(&dfrtp.id())?
                 .with_connections([
                     ("VPWR", vdd),
-                    ("GND", vss),
+                    ("VGND", vss),
+                    ("VNB", vss),
+                    ("VPB", vdd),
                     ("CLK", clk),
                     ("RESET_B", rb),
                     ("D", d.index(i)),

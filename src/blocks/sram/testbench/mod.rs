@@ -93,7 +93,7 @@ pub struct TbWaveforms {
     we: Waveform,
 
     /// Reset.
-    reset: Waveform,
+    reset_b: Waveform,
 
     /// One [`Waveform`] per write mask bit.
     ///
@@ -120,14 +120,14 @@ pub fn push_bus(
 }
 
 fn generate_waveforms(params: &TbParams) -> TbWaveforms {
-    let mut addr = vec![Waveform::with_initial_value(0f64); params.sram.addr_width];
-    let mut din = vec![Waveform::with_initial_value(0f64); params.sram.data_width];
-    let wmask_bits = params.sram.wmask_width;
+    let mut addr = vec![Waveform::with_initial_value(0f64); params.sram.addr_width()];
+    let mut din = vec![Waveform::with_initial_value(0f64); params.sram.data_width()];
+    let wmask_bits = params.sram.wmask_width();
     let mut wmask = vec![Waveform::with_initial_value(0f64); wmask_bits];
     let mut clk = Waveform::with_initial_value(0f64);
     let mut ce = Waveform::with_initial_value(0f64);
     let mut we = Waveform::with_initial_value(0f64);
-    let mut reset = Waveform::with_initial_value(0f64);
+    let mut reset_b = Waveform::with_initial_value(params.vdd);
 
     let period = params.clk_period;
     let vdd = params.vdd;
@@ -137,7 +137,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
     let mut t = 0f64;
     let mut t_end;
 
-    let wmask_all = BitSignal::ones(params.sram.wmask_width);
+    let wmask_all = BitSignal::ones(params.sram.wmask_width());
 
     for op in params.ops.iter() {
         t_end = t + period;
@@ -152,8 +152,8 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 we.push_low(t_data, vdd, tf);
                 // Set chip enable low
                 ce.push_low(t_data, vdd, tf);
-                // Set reset high.
-                reset.push_high(t_data, vdd, tr);
+                // Set reset high
+                reset_b.push_low(t_data, vdd, tf);
             }
             Op::None => {
                 // Set write enable low
@@ -161,7 +161,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 // Set chip enable low
                 ce.push_low(t_data, vdd, tf);
                 // Set reset low
-                reset.push_low(t_data, vdd, tf);
+                reset_b.push_high(t_data, vdd, tr);
             }
             Op::Read { addr: addrv } => {
                 // Set write enable low
@@ -169,9 +169,9 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 // Set chip enable high
                 ce.push_high(t_data, vdd, tr);
                 // Set reset low
-                reset.push_low(t_data, vdd, tf);
+                reset_b.push_high(t_data, vdd, tr);
 
-                assert_eq!(addrv.width(), params.sram.addr_width);
+                assert_eq!(addrv.width(), params.sram.addr_width());
                 push_bus(&mut addr, addrv, t_data, vdd, tr, tf);
             }
             Op::Write { addr: addrv, data } => {
@@ -180,9 +180,9 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 // Set chip enable high
                 ce.push_high(t_data, vdd, tr);
                 // Set reset low
-                reset.push_low(t_data, vdd, tf);
+                reset_b.push_high(t_data, vdd, tr);
 
-                assert_eq!(addrv.width(), params.sram.addr_width);
+                assert_eq!(addrv.width(), params.sram.addr_width());
                 push_bus(&mut addr, addrv, t_data, vdd, tr, tf);
 
                 assert_eq!(data.width(), params.sram.data_width);
@@ -201,16 +201,16 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 // Set chip enable high
                 ce.push_high(t_data, vdd, tr);
                 // Set reset low
-                reset.push_low(t_data, vdd, tf);
+                reset_b.push_high(t_data, vdd, tr);
 
-                assert_eq!(addrv.width(), params.sram.addr_width);
+                assert_eq!(addrv.width(), params.sram.addr_width());
                 push_bus(&mut addr, addrv, t_data, vdd, tr, tf);
 
                 assert_eq!(data.width(), params.sram.data_width);
                 push_bus(&mut din, data, t_data, vdd, tr, tf);
 
-                assert!(params.sram.wmask_width > 1);
-                assert_eq!(mask.width(), params.sram.wmask_width);
+                assert!(params.sram.wmask_width() > 1);
+                assert_eq!(mask.width(), params.sram.wmask_width());
                 push_bus(&mut wmask, mask, t_data, vdd, tr, tf);
             }
         }
@@ -235,7 +235,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
         clk,
         ce,
         we,
-        reset,
+        reset_b,
         wmask,
     }
 }
@@ -260,12 +260,12 @@ impl Component for SramTestbench {
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
         let vss = ctx.port("vss", Direction::InOut);
-        let [vdd, clk, ce, we, reset] = ctx.signals(["vdd", "clk", "ce", "we", "reset"]);
+        let [vdd, clk, ce, we, reset_b] = ctx.signals(["vdd", "clk", "ce", "we", "reset_b"]);
 
-        let addr = ctx.bus("addr", self.params.sram.addr_width);
-        let din = ctx.bus("din", self.params.sram.data_width);
-        let dout = ctx.bus("dout", self.params.sram.data_width);
-        let wmask = ctx.bus("wmask", self.params.sram.wmask_width);
+        let addr = ctx.bus("addr", self.params.sram.addr_width());
+        let din = ctx.bus("din", self.params.sram.data_width());
+        let dout = ctx.bus("dout", self.params.sram.data_width());
+        let wmask = ctx.bus("wmask", self.params.sram.wmask_width());
 
         let waveforms = generate_waveforms(&self.params);
         let output_cap = SiValue::with_precision(self.params.c_load, SiPrefix::Femto);
@@ -281,7 +281,7 @@ impl Component for SramTestbench {
                 ("clk", clk),
                 ("ce", ce),
                 ("we", we),
-                ("reset", reset),
+                ("reset_b", reset_b),
                 ("addr", addr),
                 ("wmask", wmask),
                 ("din", din),
@@ -297,7 +297,7 @@ impl Component for SramTestbench {
                     ("clk", clk),
                     ("ce", ce),
                     ("we", we),
-                    ("reset", reset),
+                    ("reset_b", reset_b),
                     ("addr", addr),
                     ("wmask", wmask),
                     ("din", din),
@@ -324,17 +324,17 @@ impl Component for SramTestbench {
             .with_connections([("p", we), ("n", vss)])
             .named("Vwe")
             .add_to(ctx);
-        ctx.instantiate::<Vpwl>(&Arc::new(waveforms.reset))?
-            .with_connections([("p", reset), ("n", vss)])
-            .named("Vreset")
+        ctx.instantiate::<Vpwl>(&Arc::new(waveforms.reset_b))?
+            .with_connections([("p", reset_b), ("n", vss)])
+            .named("Vreset_b")
             .add_to(ctx);
-        for i in 0..self.params.sram.addr_width {
+        for i in 0..self.params.sram.addr_width() {
             ctx.instantiate::<Vpwl>(&Arc::new(waveforms.addr[i].clone()))?
                 .with_connections([("p", addr.index(i)), ("n", vss)])
                 .named(format!("Vaddr_{i}"))
                 .add_to(ctx);
         }
-        for i in 0..self.params.sram.wmask_width {
+        for i in 0..self.params.sram.wmask_width() {
             ctx.instantiate::<Vpwl>(&Arc::new(waveforms.wmask[i].clone()))?
                 .with_connections([("p", wmask.index(i)), ("n", vss)])
                 .named(format!("Vwmask_{i}"))
@@ -361,9 +361,9 @@ pub fn tb_params(
     short: bool,
     pex_netlist: Option<PathBuf>,
 ) -> TbParams {
-    let wmask_width = params.wmask_width;
-    let data_width = params.data_width;
-    let addr_width = params.addr_width;
+    let wmask_width = params.wmask_width();
+    let data_width = params.data_width();
+    let addr_width = params.addr_width();
 
     // An alternating 64-bit sequence 0b010101...01
     let bit_pattern1 = 0x5555555555555555u64;
@@ -479,9 +479,9 @@ impl Testbench for SramTestbench {
         } else {
             "Xdut.X0"
         };
-        for i in 0..self.params.sram.rows {
+        for i in 0..self.params.sram.rows() {
             ctx.set_ic(format!("{sram_inst_path}.wl[{i}]"), SiValue::zero());
-            for j in 0..self.params.sram.cols {
+            for j in 0..self.params.sram.cols() {
                 ctx.set_ic(
                     format!("{sram_inst_path}.Xbitcell_array.Xcell_{i}_{j}.X0.Q"),
                     SiValue::zero(),

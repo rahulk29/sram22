@@ -8,7 +8,7 @@ use anyhow::{anyhow, bail, Result};
 
 pub(crate) fn verify_simulation(data: &TranData, tb: &TbParams) -> Result<()> {
     let mut state = HashMap::new();
-    let data_bits_per_wmask = tb.sram.data_width / tb.sram.wmask_width;
+    let data_bits_per_wmask = tb.sram.data_width / tb.sram.wmask_width();
 
     // Clock cycle counter
     // Initialized to 1 instead of 0,

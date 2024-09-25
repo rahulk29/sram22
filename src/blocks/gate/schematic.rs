@@ -376,7 +376,7 @@ impl TristateInv {
             .id();
         let pmos_id = ctx
             .mos_db()
-            .query(Query::builder().kind(MosKind::Nmos).build().unwrap())?
+            .query(Query::builder().kind(MosKind::Pmos).build().unwrap())?
             .id();
 
         ctx.instantiate::<SchematicMos>(&MosParams {

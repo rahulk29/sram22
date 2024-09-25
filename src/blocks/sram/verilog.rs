@@ -20,14 +20,14 @@ pub struct Sram1RwParams {
 }
 
 pub fn generate_1rw_verilog(name: impl Into<String>, params: &SramParams) -> Result<String> {
-    assert_eq!(params.num_words, 1 << params.addr_width);
+    assert_eq!(params.num_words, 1 << params.addr_width());
 
     let template_params = Sram1RwParams {
         module_name: name.into(),
-        num_words: params.num_words,
-        data_width: params.data_width,
-        addr_width: params.addr_width,
-        wmask_width: params.wmask_width,
+        num_words: params.num_words(),
+        data_width: params.data_width(),
+        addr_width: params.addr_width(),
+        wmask_width: params.wmask_width(),
     };
 
     Ok(TEMPLATES.render(
