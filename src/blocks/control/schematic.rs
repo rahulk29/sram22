@@ -246,7 +246,7 @@ impl ControlLogicReplicaV2 {
             .with_connections([
                 ("A", wlen_q),
                 ("B", wlend),
-                ("Y", wlen),
+                ("X", wlen),
                 ("VPWR", vdd),
                 ("VPB", vdd),
                 ("VGND", vss),
