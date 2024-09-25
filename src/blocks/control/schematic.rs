@@ -261,7 +261,7 @@ impl ControlLogicReplicaV2 {
                 ("vdd", vdd),
                 ("vss", vss),
             ])
-            .named("clkp_delay")
+            .named("wlen_q_delay")
             .add_to(ctx);
 
         // CONTROL LATCHES
