@@ -11,8 +11,8 @@ impl ControlLogicReplicaV2 {
         // PORTS
         let [clk, ce, we, reset, decrepend] =
             ctx.ports(["clk", "ce", "we", "reset", "decrepend"], Direction::Input);
-        let [saen, pc_b, rwl, wlen, wrdrven, decrepstart] = ctx.ports(
-            ["saen", "pc_b", "rwl", "wlen", "wrdrven", "decrepstart"],
+        let [saen, pc_b, wlen, wrdrven, decrepstart] = ctx.ports(
+            ["saen", "pc_b", "wlen", "wrdrven", "decrepstart"],
             Direction::Output,
         );
         let [rbl, vdd, vss] = ctx.ports(["rbl", "vdd", "vss"], Direction::InOut);
