@@ -6,6 +6,7 @@ use substrate::index::IndexOwned;
 use substrate::layout::cell::CellPort;
 use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::ArrayTiler;
+use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 
 use super::macros::Dff;
@@ -145,16 +146,24 @@ impl Component for DffArray {
         let n = self.n;
         let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
         let clk = ctx.port("clk", Direction::Input);
+        let rb = ctx.port("rb", Direction::Input);
         let d = ctx.bus_port("d", n, Direction::Input);
         let q = ctx.bus_port("q", n, Direction::Output);
         let qn = ctx.bus_port("qn", n, Direction::Output);
 
+        let stdcells = ctx.inner().std_cell_db();
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let dfrtp = lib.try_cell_named("sky130_fd_sc_hs__dfrbp_2")?;
+
         for i in 0..self.n {
-            ctx.instantiate::<Dff>(&NoParams)?
+            ctx.instantiate::<StdCell>(&dfrtp.id())?
                 .with_connections([
-                    ("VDD", vdd),
-                    ("GND", vss),
+                    ("VPWR", vdd),
+                    ("VGND", vss),
+                    ("VNB", vss),
+                    ("VPB", vdd),
                     ("CLK", clk),
+                    ("RESET_B", rb),
                     ("D", d.index(i)),
                     ("Q", q.index(i)),
                     ("Q_N", qn.index(i)),

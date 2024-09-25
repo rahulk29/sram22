@@ -43,15 +43,15 @@ impl Decoder {
             stage.connect_all([("vdd", &vdd), ("vss", &vss)]);
 
             if let Some(output_port) = output_port {
-                stage.connect("decode", &output_port);
+                stage.connect("decode", output_port);
                 if gate_size > 1 {
                     let unused_wire = ctx.bus(format!("unused_{ctr}"), output_port.width());
-                    stage.connect("decode_b", &unused_wire);
+                    stage.connect("decode_b", unused_wire);
                 }
             } else {
-                stage.connect("decode", &decode);
+                stage.connect("decode", decode);
                 if gate_size > 1 {
-                    stage.connect("decode_b", &decode_b);
+                    stage.connect("decode_b", decode_b);
                 }
             }
 
@@ -59,7 +59,7 @@ impl Decoder {
                 let input_signal = if let Some(child) = node.children.get(i) {
                     let input_bus = if output_port.is_none() && gate_size == 1 {
                         // the root stage must be an inverter
-                        decode_b.clone()
+                        decode_b
                     } else {
                         ctx.bus(format!("{port_name}_{ctr}"), child.num)
                     };
@@ -124,7 +124,7 @@ impl DecoderStage {
             let mut gate = gate.clone();
             gate.connect_all([("vdd", &vdd), ("vss", &vss), ("y", &decode.index(i))]);
             if let Some(ref decode_b) = decode_b {
-                gate.connect("yb", &decode_b.index(i))
+                gate.connect("yb", decode_b.index(i))
             }
             for j in 0..gate_size {
                 gate.connect(port_names[j].clone(), input_ports[j].index(idxs[j]));
