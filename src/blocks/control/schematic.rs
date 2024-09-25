@@ -11,8 +11,8 @@ impl ControlLogicReplicaV2 {
         // PORTS
         let [clk, ce, we, reset, decrepend] =
             ctx.ports(["clk", "ce", "we", "reset", "decrepend"], Direction::Input);
-        let [saen, pc_b, wlen, wrdrven, decrepstart] = ctx.ports(
-            ["saen", "pc_b", "wlen", "wrdrven", "decrepstart"],
+        let [saen, pc_b, rwl, wlen, wrdrven, decrepstart] = ctx.ports(
+            ["saen", "pc_b", "rwl", "wlen", "wrdrven", "decrepstart"],
             Direction::Output,
         );
         let [rbl, vdd, vss] = ctx.ports(["rbl", "vdd", "vss"], Direction::InOut);
@@ -50,6 +50,7 @@ impl ControlLogicReplicaV2 {
         let nand2 = lib.try_cell_named("sky130_fd_sc_hs__nand2_4")?;
         let nor2 = lib.try_cell_named("sky130_fd_sc_hs__nor2_4")?;
         let mux2 = lib.try_cell_named("sky130_fd_sc_hs__mux2_4")?;
+        let buf_small = lib.try_cell_named("sky130_fd_sc_hs__buf_8")?;
         let buf = lib.try_cell_named("sky130_fd_sc_hs__buf_16")?;
         let biginv = lib.try_cell_named("sky130_fd_sc_hs__inv_16")?;
 
@@ -262,6 +263,17 @@ impl ControlLogicReplicaV2 {
                 ("vss", vss),
             ])
             .named("wlen_q_delay")
+            .add_to(ctx);
+        ctx.instantiate::<StdCell>(&buf.id())?
+            .with_connections([
+                ("A", wlen_q),
+                ("X", rwl),
+                ("VPWR", vdd),
+                ("VPB", vdd),
+                ("VGND", vss),
+                ("VNB", vss),
+            ])
+            .named("rwl_buf")
             .add_to(ctx);
 
         // CONTROL LATCHES

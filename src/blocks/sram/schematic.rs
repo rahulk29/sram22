@@ -76,7 +76,7 @@ impl SramInner {
             }
         }
 
-        let [we_in, we_in_b, ce_in, ce_in_b, dummy_bl, dummy_br, rbl, rbr, pc_b0, pc_b, wl_en0, wl_en, write_driver_en0, write_driver_en, sense_en0, sense_en] =
+        let [we_in, we_in_b, ce_in, ce_in_b, dummy_bl, dummy_br, rwl, rbl, rbr, pc_b0, pc_b, wl_en0, wl_en, write_driver_en0, write_driver_en, sense_en0, sense_en] =
             ctx.signals([
                 "we_in",
                 "we_in_b",
@@ -84,6 +84,7 @@ impl SramInner {
                 "ce_in_b",
                 "dummy_bl",
                 "dummy_br",
+                "rwl",
                 "rbl",
                 "rbr",
                 "pc_b0",
@@ -179,6 +180,7 @@ impl SramInner {
                 ("ce", ce_in),
                 ("reset", reset),
                 ("rbl", rbl),
+                ("rwl", rwl),
                 ("pc_b", pc_b0),
                 ("wlen", wl_en0),
                 ("wrdrven", write_driver_en0),
@@ -329,7 +331,7 @@ impl SramInner {
             ("vss", vss),
             ("rbl", rbl),
             ("rbr", rbr),
-            ("rwl", wl_en0),
+            ("rwl", rwl),
         ])
         .named("replica_bitcell_array")
         .add_to(ctx);
