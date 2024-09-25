@@ -1,8 +1,5 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use substrate::component::Component;
-use substrate::layout::cell::{CellPort, PortConflictStrategy, PortId};
-use substrate::layout::placement::align::AlignMode;
-use substrate::layout::placement::array::ArrayTiler;
 
 mod layout;
 mod schematic;

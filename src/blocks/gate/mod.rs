@@ -537,7 +537,7 @@ impl Component for TristateInv {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        self.layout(ctx)
+        todo!()
     }
 }
 

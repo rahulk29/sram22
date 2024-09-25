@@ -4,7 +4,7 @@ use crate::cli::progress::StepContext;
 use crate::config::sram::SramConfig;
 use crate::paths::{out_gds, out_spice, out_verilog};
 use crate::plan::extract::ExtractionResult;
-use crate::{clog2, setup_ctx, Result};
+use crate::{setup_ctx, Result};
 use anyhow::bail;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;

@@ -12,14 +12,11 @@ use crate::blocks::buf::DiffBufParams;
 use crate::blocks::columns::{ColParams, ColPeripherals};
 use crate::blocks::control::{ControlLogicReplicaV2, DffArray, InvChain};
 use crate::blocks::decoder::{
-    AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderStageParams, DecoderTree, WmuxDriver,
-    INV_PARAMS, NAND2_PARAMS,
+    AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderTree, INV_PARAMS, NAND2_PARAMS,
 };
 use crate::blocks::gate::{AndParams, GateParams};
 use crate::blocks::precharge::{Precharge, PrechargeParams};
-use crate::blocks::rmux::ReadMuxParams;
 use crate::blocks::tgatemux::TGateMuxParams;
-use crate::blocks::wmux::WriteMuxSizing;
 use crate::blocks::wrdriver::WriteDriverParams;
 
 use super::{SramInner, READ_MUX_INPUT_CAP, WORDLINE_CAP_PER_CELL};
@@ -146,11 +143,6 @@ impl SramInner {
         );
         let col_decoder_params = DecoderParams {
             tree: col_tree.clone(),
-        };
-        let wmux_driver_params = DecoderStageParams {
-            gate: col_tree.root.gate,
-            num: col_tree.root.num,
-            child_sizes: vec![],
         };
 
         ctx.instantiate::<Decoder>(&col_decoder_params)?

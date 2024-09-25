@@ -1,8 +1,4 @@
-use substrate::pdk::mos::query::Query;
-use substrate::pdk::mos::spec::MosKind;
-use substrate::pdk::mos::MosParams;
 use substrate::schematic::circuit::Direction;
-use substrate::schematic::elements::mos::SchematicMos;
 
 use crate::blocks::gate::{And2, AndParams, PrimitiveGateParams, TristateInv};
 
@@ -13,8 +9,6 @@ impl WriteDriver {
         &self,
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
-        let length = self.params.length;
-
         let we = ctx.port("we", Direction::Input);
         let wmask = ctx.port("wmask", Direction::Input);
         let data = ctx.port("data", Direction::Input);

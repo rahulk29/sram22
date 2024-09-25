@@ -6,9 +6,7 @@ use substrate::schematic::context::SchematicCtx;
 
 use super::buf::DiffBufParams;
 use super::precharge::PrechargeParams;
-use super::rmux::ReadMuxParams;
 use super::tgatemux::TGateMuxParams;
-use super::wmux::WriteMuxSizing;
 use super::wrdriver::WriteDriverParams;
 use serde::Serialize;
 
