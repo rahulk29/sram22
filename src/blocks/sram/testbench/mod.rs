@@ -366,10 +366,10 @@ pub fn tb_params(
     let addr_width = params.addr_width();
 
     // An alternating 64-bit sequence 0b010101...01
-    let bit_pattern1 = 0x5555555555555555u64;
+    let bit_pattern1 = 0x5555555555555555u128;
 
     // An alternating 64-bit sequence 0b101010...10
-    let bit_pattern2 = 0xAAAAAAAAAAAAAAAAu64;
+    let bit_pattern2 = 0xAAAAAAAAAAAAAAAAu128;
 
     let addr1 = BitSignal::zeros(addr_width);
     let addr2 = BitSignal::ones(addr_width);
@@ -378,11 +378,11 @@ pub fn tb_params(
         Op::Reset,
         Op::Write {
             addr: addr1.clone(),
-            data: BitSignal::from_u64(bit_pattern1, data_width),
+            data: BitSignal::from_u128(bit_pattern1, data_width),
         },
         Op::Write {
             addr: addr2.clone(),
-            data: BitSignal::from_u64(bit_pattern2, data_width),
+            data: BitSignal::from_u128(bit_pattern2, data_width),
         },
         Op::Read {
             addr: addr1.clone(),
@@ -395,13 +395,13 @@ pub fn tb_params(
         for i in 0..16 {
             let bits = (i % 2) * bit_pattern2 + (1 - (i % 2)) * bit_pattern1 + i + 1;
             ops.push(Op::Write {
-                addr: BitSignal::from_u64(i, addr_width),
-                data: BitSignal::from_u64(bits, data_width),
+                addr: BitSignal::from_u128(i, addr_width),
+                data: BitSignal::from_u128(bits, data_width),
             });
         }
         for i in 0..16 {
             ops.push(Op::Read {
-                addr: BitSignal::from_u64(i, addr_width),
+                addr: BitSignal::from_u128(i, addr_width),
             });
         }
 
@@ -409,14 +409,14 @@ pub fn tb_params(
             for i in 0..16 {
                 let bits = (1 - (i % 2)) * bit_pattern2 + (i % 2) * bit_pattern1 + i + 1;
                 ops.push(Op::WriteMasked {
-                    addr: BitSignal::from_u64(i, addr_width),
-                    data: BitSignal::from_u64(bits, data_width),
-                    mask: BitSignal::from_u64(bit_pattern1 + i * 0b10110010111, wmask_width),
+                    addr: BitSignal::from_u128(i, addr_width),
+                    data: BitSignal::from_u128(bits, data_width),
+                    mask: BitSignal::from_u128(bit_pattern1 + i * 0b10110010111, wmask_width),
                 });
             }
             for i in 0..16 {
                 ops.push(Op::Read {
-                    addr: BitSignal::from_u64(i, addr_width),
+                    addr: BitSignal::from_u128(i, addr_width),
                 });
             }
         }
