@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::path::PathBuf;
 use subgeom::bbox::BoundBox;
 use subgeom::{Dir, Rect, Span};
@@ -34,6 +35,13 @@ pub struct SramPex {
     params: SramPexParams,
 }
 
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Clone, Copy, Hash)]
+#[repr(u8)]
+pub enum MuxRatio {
+    M4 = 4,
+    M8 = 8,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SramPexParams {
     params: SramParams,
@@ -42,48 +50,80 @@ pub struct SramPexParams {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SramParams {
-    pub wmask_width: usize,
-
-    // Schematic
-    pub row_bits: usize,
-    pub col_bits: usize,
-    pub col_select_bits: usize,
-
-    // Layout
-    pub rows: usize,
-    pub cols: usize,
-    pub mux_ratio: usize,
-
-    // Verilog
-    pub num_words: usize,
-    pub data_width: usize,
-    pub addr_width: usize,
+    wmask_granularity: usize,
+    mux_ratio: MuxRatio,
+    num_words: usize,
+    data_width: usize,
 }
 
 impl SramParams {
     pub const fn new(
         wmask_granularity: usize,
-        mux_ratio: usize,
+        mux_ratio: MuxRatio,
         num_words: usize,
         data_width: usize,
     ) -> Self {
         Self {
-            wmask_width: data_width / wmask_granularity,
-            row_bits: (num_words / mux_ratio).ilog2() as usize,
-            col_bits: (data_width * mux_ratio).ilog2() as usize,
-            col_select_bits: mux_ratio.ilog2() as usize,
-            rows: num_words / mux_ratio,
-            cols: data_width * mux_ratio,
+            wmask_granularity,
             mux_ratio,
             num_words,
             data_width,
-            addr_width: num_words.ilog2() as usize,
         }
     }
 
     #[inline]
+    pub fn wmask_width(&self) -> usize {
+        self.data_width / self.wmask_granularity
+    }
+
+    #[inline]
+    pub fn row_bits(&self) -> usize {
+        (self.num_words / self.mux_ratio as usize).ilog2() as usize
+    }
+
+    #[inline]
+    pub fn col_bits(&self) -> usize {
+        (self.data_width * self.mux_ratio as usize).ilog2() as usize
+    }
+
+    #[inline]
+    pub fn col_select_bits(&self) -> usize {
+        (self.mux_ratio as usize).ilog2() as usize
+    }
+
+    #[inline]
+    pub fn rows(&self) -> usize {
+        self.num_words / self.mux_ratio as usize
+    }
+
+    #[inline]
+    pub fn cols(&self) -> usize {
+        self.data_width * self.mux_ratio as usize
+    }
+
+    #[inline]
     pub fn wmask_granularity(&self) -> usize {
-        self.data_width / self.wmask_width
+        self.wmask_granularity
+    }
+
+    #[inline]
+    pub fn mux_ratio(&self) -> usize {
+        self.mux_ratio as usize
+    }
+
+    #[inline]
+    pub fn num_words(&self) -> usize {
+        self.num_words
+    }
+
+    #[inline]
+    pub fn data_width(&self) -> usize {
+        self.data_width
+    }
+
+    #[inline]
+    pub fn addr_width(&self) -> usize {
+        self.num_words.ilog2() as usize
     }
 
     /// The name of the SRAM cell with these parameters.
@@ -92,7 +132,7 @@ impl SramParams {
             "sram22_{}x{}m{}w{}",
             self.num_words,
             self.data_width,
-            self.mux_ratio,
+            self.mux_ratio as u8,
             self.wmask_granularity()
         )
     }
@@ -226,12 +266,12 @@ impl Component for Sram {
         ctx.draw(ring)?;
 
         // Route pins to edge of guard ring
-        let groups = self.params.cols / self.params.mux_ratio;
+        let groups = self.params.cols() / self.params.mux_ratio();
         for (pin, width) in [
             ("dout", groups),
             ("din", groups),
-            ("wmask", self.params.wmask_width),
-            ("addr", self.params.addr_width),
+            ("wmask", self.params.wmask_width()),
+            ("addr", self.params.addr_width()),
             ("we", 1),
             ("clk", 1),
         ] {
@@ -308,35 +348,35 @@ pub(crate) mod tests {
 
     use super::*;
 
-    pub(crate) const SRAM22_64X4M4W2: SramParams = SramParams::new(2, 4, 64, 4);
+    pub(crate) const SRAM22_64X4M4W2: SramParams = SramParams::new(2, MuxRatio::M4, 64, 4);
 
-    pub(crate) const SRAM22_64X24M4W24: SramParams = SramParams::new(24, 4, 64, 24);
+    pub(crate) const SRAM22_64X24M4W24: SramParams = SramParams::new(24, MuxRatio::M4, 64, 24);
 
-    pub(crate) const SRAM22_64X32M4W8: SramParams = SramParams::new(8, 4, 64, 32);
+    pub(crate) const SRAM22_64X32M4W8: SramParams = SramParams::new(8, MuxRatio::M4, 64, 32);
 
-    pub(crate) const SRAM22_64X32M4W32: SramParams = SramParams::new(32, 4, 64, 32);
+    pub(crate) const SRAM22_64X32M4W32: SramParams = SramParams::new(32, MuxRatio::M4, 64, 32);
 
-    pub(crate) const SRAM22_256X32M4W8: SramParams = SramParams::new(8, 4, 256, 32);
+    pub(crate) const SRAM22_256X32M4W8: SramParams = SramParams::new(8, MuxRatio::M4, 256, 32);
 
-    pub(crate) const SRAM22_512X32M4W8: SramParams = SramParams::new(8, 4, 512, 32);
+    pub(crate) const SRAM22_512X32M4W8: SramParams = SramParams::new(8, MuxRatio::M4, 512, 32);
 
-    pub(crate) const SRAM22_512X32M4W32: SramParams = SramParams::new(32, 4, 512, 32);
+    pub(crate) const SRAM22_512X32M4W32: SramParams = SramParams::new(32, MuxRatio::M4, 512, 32);
 
-    pub(crate) const SRAM22_512X64M4W8: SramParams = SramParams::new(8, 4, 512, 64);
+    pub(crate) const SRAM22_512X64M4W8: SramParams = SramParams::new(8, MuxRatio::M4, 512, 64);
 
-    pub(crate) const SRAM22_1024X32M8W8: SramParams = SramParams::new(8, 8, 1024, 32);
+    pub(crate) const SRAM22_1024X32M8W8: SramParams = SramParams::new(8, MuxRatio::M8, 1024, 32);
 
-    pub(crate) const SRAM22_1024X32M8W32: SramParams = SramParams::new(32, 8, 1024, 32);
+    pub(crate) const SRAM22_1024X32M8W32: SramParams = SramParams::new(32, MuxRatio::M8, 1024, 32);
 
-    pub(crate) const SRAM22_1024X64M8W32: SramParams = SramParams::new(32, 8, 1024, 64);
+    pub(crate) const SRAM22_1024X64M8W32: SramParams = SramParams::new(32, MuxRatio::M8, 1024, 64);
 
-    pub(crate) const SRAM22_2048X32M8W8: SramParams = SramParams::new(8, 8, 2048, 32);
+    pub(crate) const SRAM22_2048X32M8W8: SramParams = SramParams::new(8, MuxRatio::M8, 2048, 32);
 
-    pub(crate) const SRAM22_2048X64M4W8: SramParams = SramParams::new(8, 4, 2048, 64);
+    pub(crate) const SRAM22_2048X64M4W8: SramParams = SramParams::new(8, MuxRatio::M4, 2048, 64);
 
-    pub(crate) const SRAM22_4096X8M8W8: SramParams = SramParams::new(8, 8, 4096, 8);
+    pub(crate) const SRAM22_4096X8M8W8: SramParams = SramParams::new(8, MuxRatio::M8, 4096, 8);
 
-    pub(crate) const SRAM22_4096X32M8W8: SramParams = SramParams::new(8, 8, 4096, 32);
+    pub(crate) const SRAM22_4096X32M8W8: SramParams = SramParams::new(8, MuxRatio::M8, 4096, 32);
 
     macro_rules! test_sram {
         ($name: ident, $params: ident $(, $attr: meta)*) => {

@@ -6,8 +6,8 @@ use substrate::schematic::context::SchematicCtx;
 
 use super::buf::DiffBufParams;
 use super::precharge::PrechargeParams;
-use super::rmux::ReadMuxParams;
-use super::wmux::WriteMuxSizing;
+use super::tgatemux::TGateMuxParams;
+use super::wrdriver::WriteDriverParams;
 use serde::Serialize;
 
 pub mod layout;
@@ -16,8 +16,8 @@ pub mod schematic;
 #[derive(Debug, Clone, Serialize)]
 pub struct ColParams {
     pub pc: PrechargeParams,
-    pub rmux: ReadMuxParams,
-    pub wmux: WriteMuxSizing,
+    pub mux: TGateMuxParams,
+    pub wrdriver: WriteDriverParams,
     pub buf: DiffBufParams,
     pub cols: usize,
     pub include_wmask: bool,
@@ -26,7 +26,7 @@ pub struct ColParams {
 
 impl ColParams {
     fn mux_ratio(&self) -> usize {
-        self.rmux.mux_ratio
+        self.mux.mux_ratio
     }
 
     fn word_length(&self) -> usize {
@@ -52,12 +52,6 @@ impl Component for ColPeripherals {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        if params.rmux.mux_ratio != params.wmux.mux_ratio {
-            return Err(substrate::error::ErrorSource::Component(
-                substrate::component::error::Error::InvalidParams,
-            )
-            .into());
-        }
         Ok(Self {
             params: params.clone(),
         })
@@ -118,14 +112,17 @@ mod tests {
     use super::layout::{ColCentParams, ColumnCent};
     use super::*;
 
-    const WRITE_MUX_SIZING: WriteMuxSizing = WriteMuxSizing {
+    const WRITE_DRIVER_PARAMS: WriteDriverParams = WriteDriverParams {
         length: 150,
-        mux_width: 2_400,
-        mux_ratio: 4,
+        pwidth_driver: 3_000,
+        nwidth_driver: 3_000,
+        pwidth_logic: 3_000,
+        nwidth_logic: 3_000,
     };
-    const READ_MUX_PARAMS: ReadMuxParams = ReadMuxParams {
+    const MUX_PARAMS: TGateMuxParams = TGateMuxParams {
         length: 150,
-        width: 3_000,
+        pwidth: 3_000,
+        nwidth: 3_000,
         mux_ratio: 4,
         idx: 2,
     };
@@ -143,8 +140,8 @@ mod tests {
 
     const COL_WMASK_PARAMS: ColParams = ColParams {
         pc: PRECHARGE_PARAMS,
-        rmux: READ_MUX_PARAMS,
-        wmux: WRITE_MUX_SIZING,
+        wrdriver: WRITE_DRIVER_PARAMS,
+        mux: MUX_PARAMS,
         buf: DIFF_BUF_PARAMS,
         cols: 16,
         include_wmask: true,
@@ -153,8 +150,8 @@ mod tests {
 
     const COL_PARAMS: ColParams = ColParams {
         pc: PRECHARGE_PARAMS,
-        rmux: READ_MUX_PARAMS,
-        wmux: WRITE_MUX_SIZING,
+        wrdriver: WRITE_DRIVER_PARAMS,
+        mux: MUX_PARAMS,
         buf: DIFF_BUF_PARAMS,
         cols: 128,
         include_wmask: false,

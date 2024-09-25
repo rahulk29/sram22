@@ -53,6 +53,10 @@ pub struct Nor2 {
     params: PrimitiveGateParams,
 }
 
+pub struct TristateInv {
+    params: PrimitiveGateParams,
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
 pub struct AndParams {
     pub nand: PrimitiveGateParams,
@@ -507,6 +511,33 @@ impl Component for Nor2 {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         self.layout(ctx)
+    }
+}
+
+impl Component for TristateInv {
+    type Params = PrimitiveGateParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self { params: *params })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("tristate_inv")
+    }
+
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        self.schematic(ctx)
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        todo!()
     }
 }
 

@@ -97,12 +97,12 @@ impl SramInner {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
         let col_params = self.col_params();
         let bitcells = ctx.instantiate::<SpCellArray>(&SpCellArrayParams {
-            rows: self.params.rows,
-            cols: self.params.cols,
-            mux_ratio: self.params.mux_ratio,
+            rows: self.params.rows(),
+            cols: self.params.cols(),
+            mux_ratio: self.params.mux_ratio(),
         })?;
         let mut cols = ctx.instantiate::<ColPeripherals>(&col_params)?;
-        let tree = DecoderTree::new(self.params.row_bits, 128e-15); // TODO
+        let tree = DecoderTree::new(self.params.row_bits(), 128e-15); // TODO
         let decoder_params = DecoderStageParams {
             gate: tree.root.gate,
             num: tree.root.num,
@@ -113,7 +113,7 @@ impl SramInner {
             .with_orientation(Named::R90Cw);
         let mut addr_gate = ctx.instantiate::<AddrGate>(&AddrGateParams {
             gate: tree.root.gate,
-            num: 2 * self.params.row_bits,
+            num: 2 * self.params.row_bits(),
         })?;
 
         let mut p1 = ctx.instantiate::<Predecoder>(&DecoderParams {
@@ -129,7 +129,7 @@ impl SramInner {
         let p1_bits = tree.root.children[0].num.ilog2() as usize;
         let p2_bits = tree.root.children[1].num.ilog2() as usize;
 
-        let col_tree = DecoderTree::new(self.params.col_select_bits, 128e-15); // TODO
+        let col_tree = DecoderTree::new(self.params.col_select_bits(), 128e-15); // TODO
         let col_decoder_params = DecoderParams {
             tree: col_tree.clone(),
         };
@@ -143,10 +143,10 @@ impl SramInner {
         let mut wmux_driver = ctx.instantiate::<WmuxDriver>(&wmux_driver_params)?;
         let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?;
 
-        let num_dffs = self.params.addr_width + 1;
+        let num_dffs = self.params.addr_width() + 1;
         let mut dffs = ctx.instantiate::<DffArray>(&num_dffs)?;
 
-        let rbl_rows = ((self.params.rows / 12) + 1) * 2;
+        let rbl_rows = ((self.params.rows() / 12) + 1) * 2;
         let rbl_wl_index = rbl_rows / 2;
         let mut rbl = ctx.instantiate::<ReplicaCellArray>(&ReplicaCellArrayParams {
             rows: rbl_rows,
@@ -280,7 +280,7 @@ impl SramInner {
                     .id(if i == num_dffs - 1 {
                         "we".into()
                     } else {
-                        PortId::new("addr", self.params.addr_width - i - 1)
+                        PortId::new("addr", self.params.addr_width() - i - 1)
                     })
                     .add(m3, rect)
                     .build(),
@@ -383,7 +383,7 @@ impl SramInner {
             }
         }
 
-        for i in 0..2 * self.params.row_bits {
+        for i in 0..2 * self.params.row_bits() {
             let src = dffs
                 .port(PortId::new(if i % 2 == 0 { "q" } else { "qn" }, i / 2))?
                 .largest_rect(m2)?;
@@ -500,7 +500,7 @@ impl SramInner {
 
         // Route write mux driver to write muxes.
         let bottom_port = cols
-            .port(PortId::new("we", self.params.mux_ratio - 1))?
+            .port(PortId::new("we", self.params.mux_ratio() - 1))?
             .largest_rect(m2)?;
         let on_grid_bus = router.register_off_grid_bus_translation(
             ctx,
@@ -510,7 +510,7 @@ impl SramInner {
                 .line_and_space(340, 160)
                 .output(bottom_port.edge(Side::Left))
                 .start(bottom_port.side(Side::Bot))
-                .n(self.params.mux_ratio as i64)
+                .n(self.params.mux_ratio() as i64)
                 .build(),
         )?;
         for (i, dst) in on_grid_bus.ports().enumerate() {
@@ -539,7 +539,7 @@ impl SramInner {
 
         // Route column decoder to read muxes.
         let bottom_port = cols
-            .port(PortId::new("sel_b", self.params.mux_ratio - 1))?
+            .port(PortId::new("sel_b", self.params.mux_ratio() - 1))?
             .largest_rect(m2)?;
         let on_grid_bus = router.register_off_grid_bus_translation(
             ctx,
@@ -549,7 +549,7 @@ impl SramInner {
                 .line_and_space(320, 180)
                 .output(bottom_port.edge(Side::Left))
                 .start(bottom_port.side(Side::Bot))
-                .n(self.params.mux_ratio as i64)
+                .n(self.params.mux_ratio() as i64)
                 .shift(-1)
                 .build(),
         )?;
@@ -644,7 +644,7 @@ impl SramInner {
         }
 
         // Route precharges to bitcell array
-        for i in 0..self.params.cols {
+        for i in 0..self.params.cols() {
             for port_name in ["bl", "br"] {
                 let src = cols.port(PortId::new(port_name, i))?.largest_rect(m1)?;
                 let dst = bitcells.port(PortId::new(port_name, i))?.largest_rect(m1)?;
@@ -1040,11 +1040,11 @@ impl SramInner {
         }
 
         // Route column peripheral outputs to pins on bounding box of SRAM
-        let groups = self.params.cols / self.params.mux_ratio;
+        let groups = self.params.cols() / self.params.mux_ratio();
         for (j, (port, width)) in [
             ("dout", groups),
             ("din", groups),
-            ("wmask", self.params.wmask_width),
+            ("wmask", self.params.wmask_width()),
         ]
         .into_iter()
         .enumerate()

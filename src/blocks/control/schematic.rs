@@ -9,8 +9,10 @@ use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch};
 impl ControlLogicReplicaV2 {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
         // PORTS
-        let [clk, ce, we, reset, decrepend] =
-            ctx.ports(["clk", "ce", "we", "reset", "decrepend"], Direction::Input);
+        let [clk, ce, we, reset_b, decrepend] = ctx.ports(
+            ["clk", "ce", "we", "reset_b", "decrepend"],
+            Direction::Input,
+        );
         let [saen, pc_b, wlen, wrdrven, decrepstart] = ctx.ports(
             ["saen", "pc_b", "wlen", "wrdrven", "decrepstart"],
             Direction::Output,
@@ -33,7 +35,8 @@ impl ControlLogicReplicaV2 {
         let [saen_set_b, saen_b] = ctx.signals(["saen_set_b", "saen_b"]);
         let [wrdrven_set_b, wrdrven_grst_b, wrdrven_b] =
             ctx.signals(["wrdrven_set_b", "wrdrven_grst_b", "wrdrven_b"]);
-        let [we_b, pc, pc_set_b, rbl_b] = ctx.signals(["we_b", "pc", "pc_set_b", "rbl_b"]);
+        let [reset, we_b, pc, pc_set_b, rbl_b] =
+            ctx.signals(["reset", "we_b", "pc", "pc_set_b", "rbl_b"]);
 
         // STANDARD CELLS
         let stdcells = ctx.inner().std_cell_db();
@@ -45,6 +48,18 @@ impl ControlLogicReplicaV2 {
         let mux2 = lib.try_cell_named("sky130_fd_sc_hs__mux2_4")?;
         let buf = lib.try_cell_named("sky130_fd_sc_hs__buf_16")?;
         let biginv = lib.try_cell_named("sky130_fd_sc_hs__inv_16")?;
+
+        ctx.instantiate::<StdCell>(&biginv.id())?
+            .with_connections([
+                ("A", reset_b),
+                ("Y", reset),
+                ("VPWR", vdd),
+                ("VPB", vdd),
+                ("VGND", vss),
+                ("VNB", vss),
+            ])
+            .named("reset_inv")
+            .add_to(ctx);
 
         // CLK LOGIC
         ctx.instantiate::<StdCell>(&and2.id())?
@@ -260,7 +275,7 @@ impl ControlLogicReplicaV2 {
             .add_to(ctx);
         ctx.instantiate::<StdCell>(&nand2.id())?
             .with_connections([
-                ("A", clkp),
+                ("A", clkpd),
                 ("B", we),
                 ("Y", wrdrven_set_b),
                 ("VPWR", vdd),
@@ -288,7 +303,7 @@ impl ControlLogicReplicaV2 {
 
 impl SrLatch {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
-        let [s, r] = ctx.ports(["sb", "rb"], Direction::Input);
+        let [sb, rb] = ctx.ports(["sb", "rb"], Direction::Input);
         let [q, qb] = ctx.ports(["q", "qb"], Direction::Output);
         let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
 
@@ -303,7 +318,7 @@ impl SrLatch {
         let mut nand_reset = nand_set.clone();
 
         nand_set.connect_all([
-            ("A", s),
+            ("A", sb),
             ("B", q0b),
             ("Y", q0),
             ("VPWR", vdd),
@@ -315,7 +330,7 @@ impl SrLatch {
         ctx.add_instance(nand_set);
 
         nand_reset.connect_all([
-            ("A", r),
+            ("A", rb),
             ("B", q0),
             ("Y", q0b),
             ("VPWR", vdd),
