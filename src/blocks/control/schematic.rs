@@ -128,7 +128,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("clkpd_inv")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&3)?
+        ctx.instantiate::<InvChain>(&7)?
             .with_connections([
                 ("din", clkpd_b),
                 ("dout", clkpdd),
