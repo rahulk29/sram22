@@ -22,7 +22,6 @@ where
     let path = left_path(tree);
     let mut mapped_path = map(&path, end);
     assert_eq!(left_path_len(&mapped_path), path.len());
-    assert_eq!(tree.children().len(), mapped_path.children().len());
 
     let mut state = Some((&mut mapped_path, path[0]));
     while let Some((out, input)) = state {

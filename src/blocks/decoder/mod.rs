@@ -423,7 +423,7 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
     lp.append_capacitor(*end);
 
     lp.size_with_opts(OptimizerOpts {
-        lr: 1e11,
+        lr: 1e10,
         lr_decay: 0.999995,
         max_iter: 10_000_000,
     });
