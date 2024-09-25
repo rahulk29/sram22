@@ -252,7 +252,7 @@ impl ControlLogicReplicaV2 {
                 ("VGND", vss),
                 ("VNB", vss),
             ])
-            .named("nand_wlendb_web")
+            .named("and_wlen")
             .add_to(ctx);
         ctx.instantiate::<InvChain>(&3)?
             .with_connections([
