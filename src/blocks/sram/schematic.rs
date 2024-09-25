@@ -50,11 +50,11 @@ impl SramInner {
         let col_sel_b = ctx.bus("col_sel_b", self.params.mux_ratio());
 
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
 
-        let diode = lib.try_cell_named("sky130_fd_sc_hd__diode_2")?;
-        let bufbuf_small = lib.try_cell_named("sky130_fd_sc_hd__bufbuf_8")?;
-        let bufbuf = lib.try_cell_named("sky130_fd_sc_hd__bufbuf_16")?;
+        let diode = lib.try_cell_named("sky130_fd_sc_hs__diode_2")?;
+        let bufbuf_small = lib.try_cell_named("sky130_fd_sc_hs__bufbuf_8")?;
+        let bufbuf = lib.try_cell_named("sky130_fd_sc_hs__bufbuf_16")?;
 
         for (port, width) in [
             (dout, self.params.data_width()),

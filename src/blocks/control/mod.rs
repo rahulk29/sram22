@@ -79,7 +79,9 @@ impl Component for InvChain {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self { n: *params })
+        let n = *params;
+        assert!(n >= 1, "inverter chain must have at least one inverter");
+        Ok(Self { n })
     }
     fn name(&self) -> arcstr::ArcStr {
         ArcStr::from(format!("inv_chain_{}", self.n))
