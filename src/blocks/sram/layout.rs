@@ -104,7 +104,9 @@ impl SramInner {
         let mut cols = ctx.instantiate::<ColPeripherals>(&col_params)?;
         let tree = DecoderTree::new(self.params.row_bits(), 128e-15); // TODO
         let decoder_params = DecoderStageParams {
+            max_width: None,
             gate: tree.root.gate,
+            invs: vec![],
             num: tree.root.num,
             child_sizes: tree.root.children.iter().map(|n| n.num).collect(),
         };
@@ -136,7 +138,9 @@ impl SramInner {
 
         let mut col_dec = ctx.instantiate::<Predecoder>(&col_decoder_params)?;
         let wmux_driver_params = DecoderStageParams {
+            max_width: None,
             gate: col_tree.root.gate,
+            invs: vec![],
             num: col_tree.root.num,
             child_sizes: vec![],
         };

@@ -1,5 +1,6 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
+use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 use substrate::layout::cell::{CellPort, PortConflictStrategy};
@@ -53,8 +54,8 @@ pub struct Nor2 {
     params: PrimitiveGateParams,
 }
 
-pub struct TristateInv {
-    params: PrimitiveGateParams,
+pub struct GateTree {
+    params: GateTreeParams,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
@@ -98,6 +99,26 @@ pub struct PrimitiveGateParams {
     pub length: i64,
 }
 
+pub struct GateTreeParams {
+    max_width: i64,
+    dir: subgeom::Dir,
+    nodes: Vec<GateTreeNodeParams>,
+    interstage_buses: Vec<Vec<ArcStr>>,
+}
+
+pub struct GateTreeNodeParams {
+    max_width: i64,
+    width: i64,
+    tap_width: i64,
+    tap_period: usize,
+    dir: subgeom::Dir,
+    line: i64,
+    space: i64,
+    params: GateParams,
+    invs: Vec<PrimitiveGateParams>,
+    conns: Vec<HashMap<ArcStr, ArcStr>>,
+}
+
 impl GateType {
     pub fn primitive_gates(&self) -> Vec<GateType> {
         match *self {
@@ -124,17 +145,17 @@ impl GateType {
 }
 
 impl PrimitiveGateParams {
-    pub fn scale(&self, factor: i64) -> Self {
+    pub fn scale(&self, factor: f64) -> Self {
         Self {
-            nwidth: self.nwidth * factor,
-            pwidth: self.pwidth * factor,
+            nwidth: ((self.nwidth as f64) * factor).round() as i64,
+            pwidth: ((self.pwidth as f64) * factor).round() as i64,
             length: self.length,
         }
     }
 }
 
 impl AndParams {
-    pub fn scale(&self, factor: i64) -> Self {
+    pub fn scale(&self, factor: f64) -> Self {
         Self {
             nand: self.nand.scale(factor),
             inv: self.inv.scale(factor),
@@ -172,7 +193,7 @@ impl GateParams {
         }
     }
 
-    pub fn scale(&self, factor: i64) -> Self {
+    pub fn scale(&self, factor: f64) -> Self {
         match self {
             GateParams::And2(x) => Self::And2(x.scale(factor)),
             GateParams::And3(x) => Self::And3(x.scale(factor)),
@@ -300,7 +321,7 @@ impl Component for TappedGate {
         let psdm = layers.get(Selector::Name("psdm"))?;
         let nsdm = layers.get(Selector::Name("nsdm"))?;
         let decoder_params = DecoderGateParams {
-            gate: self.params,
+            gate: Some(self.params),
             dsn: decoder::layout::PhysicalDesign {
                 width: 1_580,
                 tap_width: 1_580,
@@ -511,33 +532,6 @@ impl Component for Nor2 {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         self.layout(ctx)
-    }
-}
-
-impl Component for TristateInv {
-    type Params = PrimitiveGateParams;
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        Ok(Self { params: *params })
-    }
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("tristate_inv")
-    }
-
-    fn schematic(
-        &self,
-        ctx: &mut substrate::schematic::context::SchematicCtx,
-    ) -> substrate::error::Result<()> {
-        self.schematic(ctx)
-    }
-
-    fn layout(
-        &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
-    ) -> substrate::error::Result<()> {
-        todo!()
     }
 }
 

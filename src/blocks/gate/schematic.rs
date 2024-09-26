@@ -4,7 +4,7 @@ use substrate::pdk::mos::MosParams;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::elements::mos::SchematicMos;
 
-use super::{And2, And3, Inv, Nand2, Nand3, Nor2, TristateInv};
+use super::{And2, And3, Inv, Nand2, Nand3, Nor2};
 
 impl And2 {
     pub(crate) fn schematic(
@@ -351,77 +351,6 @@ impl Nor2 {
         p2.connect_all([("d", &x), ("g", &b), ("s", &vdd), ("b", &vdd)]);
         p2.set_name("p2");
         ctx.add_instance(p2);
-
-        Ok(())
-    }
-}
-
-impl TristateInv {
-    pub(crate) fn schematic(
-        &self,
-        ctx: &mut substrate::schematic::context::SchematicCtx,
-    ) -> substrate::error::Result<()> {
-        let vdd = ctx.port("vdd", Direction::InOut);
-        let a = ctx.port("a", Direction::Input);
-        let en = ctx.port("en", Direction::Input);
-        let enb = ctx.port("enb", Direction::Input);
-        let y = ctx.port("y", Direction::Output);
-        let vss = ctx.port("vss", Direction::InOut);
-        let px = ctx.signal("px");
-        let nx = ctx.signal("nx");
-
-        let nmos_id = ctx
-            .mos_db()
-            .query(Query::builder().kind(MosKind::Nmos).build().unwrap())?
-            .id();
-        let pmos_id = ctx
-            .mos_db()
-            .query(Query::builder().kind(MosKind::Pmos).build().unwrap())?
-            .id();
-
-        ctx.instantiate::<SchematicMos>(&MosParams {
-            w: self.params.pwidth,
-            l: self.params.length,
-            m: 1,
-            nf: 1,
-            id: pmos_id,
-        })?
-        .with_connections([("d", &px), ("g", &a), ("s", &vdd), ("b", &vdd)])
-        .named("datap")
-        .add_to(ctx);
-
-        ctx.instantiate::<SchematicMos>(&MosParams {
-            w: self.params.pwidth,
-            l: self.params.length,
-            m: 1,
-            nf: 1,
-            id: pmos_id,
-        })?
-        .with_connections([("d", &y), ("g", &enb), ("s", &px), ("b", &vdd)])
-        .named("enp")
-        .add_to(ctx);
-
-        ctx.instantiate::<SchematicMos>(&MosParams {
-            w: self.params.nwidth,
-            l: self.params.length,
-            m: 1,
-            nf: 1,
-            id: nmos_id,
-        })?
-        .with_connections([("d", &nx), ("g", &a), ("s", &vss), ("b", &vss)])
-        .named("datan")
-        .add_to(ctx);
-
-        ctx.instantiate::<SchematicMos>(&MosParams {
-            w: self.params.nwidth,
-            l: self.params.length,
-            m: 1,
-            nf: 1,
-            id: nmos_id,
-        })?
-        .with_connections([("d", &y), ("g", &en), ("s", &nx), ("b", &vss)])
-        .named("enn")
-        .add_to(ctx);
 
         Ok(())
     }

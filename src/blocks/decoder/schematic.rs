@@ -34,7 +34,9 @@ impl Decoder {
             ctr += 1;
             let gate_size = node.gate.num_inputs();
             let mut stage = ctx.instantiate::<DecoderStage>(&DecoderStageParams {
+                max_width: None,
                 gate: node.gate,
+                invs: vec![],
                 num: node.num,
                 child_sizes: (0..gate_size)
                     .map(|i| node.children.get(i).map(|child| child.num).unwrap_or(2))

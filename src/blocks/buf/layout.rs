@@ -237,7 +237,7 @@ struct Metadata {
 }
 
 #[derive(Builder)]
-struct Col {
+pub struct Col {
     inv: Instance,
     vdd: Span,
     vss: Span,

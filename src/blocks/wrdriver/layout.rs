@@ -10,7 +10,7 @@ use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
 
-use substrate::layout::placement::align::AlignRect;
+use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::routing::manual::jog::{OffsetJog, SJog};
 
@@ -18,6 +18,9 @@ use substrate::layout::routing::tracks::{Boundary, FixedTracks};
 use substrate::pdk::mos::query::Query;
 use substrate::pdk::mos::spec::MosKind;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
+
+use crate::blocks::delay_line::tristate::TristateInv;
+use crate::blocks::gate::{And2, AndParams, PrimitiveGateParams};
 
 use super::WriteDriver;
 
@@ -31,265 +34,203 @@ impl WriteDriver {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        // let pc = ctx
-        //     .inner()
-        //     .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+        let layers = ctx.layers();
+        let m0 = layers.get(Selector::Metal(0))?;
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+        let nwell = layers.get(Selector::Name("nwell"))?;
 
-        // let db = ctx.mos_db();
-        // let mos = db
-        //     .query(Query::builder().kind(MosKind::Nmos).build().unwrap())
-        //     .unwrap();
+        let driver_params = PrimitiveGateParams {
+            pwidth: self.params.pwidth_driver,
+            nwidth: self.params.nwidth_driver,
+            length: self.params.length,
+        };
+        let logic_params = PrimitiveGateParams {
+            pwidth: self.params.pwidth_logic,
+            nwidth: self.params.nwidth_logic,
+            length: self.params.length,
+        };
 
-        // let cx = pc.width / 2;
-        // let params = LayoutMosParams {
-        //     skip_sd_metal: vec![vec![]; 2],
-        //     deep_nwell: true,
-        //     contact_strategy: GateContactStrategy::SingleSide,
-        //     devices: vec![MosParams {
-        //         w: self.params.sizing.mux_width,
-        //         l: self.params.sizing.length,
-        //         m: 1,
-        //         nf: 1,
-        //         id: mos.id(),
-        //     }],
-        // };
+        // let mut outs = [None, None];
+        let stripe_width = 340;
+        let stripe_space = 160;
+        // let stripe_span = Span::new(-self.params.width, 2 * self.params.width);
 
-        // let _meta = Metadata::builder();
+        let blinv = ctx.instantiate::<TristateInv>(&driver_params)?;
+        let mut brinv = ctx.instantiate::<TristateInv>(&driver_params)?;
+        let mut and = ctx.instantiate::<And2>(&AndParams {
+            nand: logic_params,
+            inv: logic_params,
+        })?;
+        brinv.align(AlignMode::ToTheRight, &blinv, 170);
+        brinv.align(AlignMode::CenterVertical, &blinv, 0);
+        and.align(AlignMode::ToTheRight, &brinv, 170);
+        and.align(AlignMode::CenterVertical, &brinv, 0);
+        ctx.draw(blinv)?;
+        ctx.draw(brinv)?;
+        ctx.draw(and)?;
+        // let mut cols = Vec::with_capacity(2);
+        // for j in 0..2 {
+        //     for (i, out) in outs.iter_mut().enumerate() {
+        //         let mut inv = ctx.instantiate::<LayoutMos>(&params)?;
+        //         inv.place_center_x(j * (inv.brect().width() + 2 * 170));
+        //         if i == 0 {
+        //             inv.place_center_y(self.params.width / 4);
+        //         } else {
+        //             inv.orientation_mut().reflect_vert();
+        //             inv.place_center_y(3 * self.params.width / 4);
+        //         }
 
-        // let mut mux1 = ctx.instantiate::<LayoutMos>(&params)?;
-        // mux1.set_orientation(Named::R90);
-        // mux1.place_center_x(cx);
-        // ctx.draw_ref(&mux1)?;
-        // let mut mux2 = ctx.instantiate::<LayoutMos>(&params)?;
-        // mux2.set_orientation(Named::R90);
-        // mux2.align_beneath(mux1.bbox(), 400);
-        // mux2.place_center_x(cx);
-        // ctx.draw_ref(&mux2)?;
+        //         for elem in inv.cell().elems() {
+        //             if elem.layer.layer() == nwell {
+        //                 let elem = elem.transform(inv.transformation());
+        //                 let rect = Rect::from_spans(elem.brect().hspan(), stripe_span);
+        //                 ctx.draw_rect(nwell, rect);
+        //             }
+        //         }
+        //         col.inv(inv.clone());
 
-        // let viap = ViaParams::builder()
-        //     .layers(pc.m0, pc.v_metal)
-        //     .geometry(
-        //         mux1.port("gate_0")?.largest_rect(pc.m0)?,
-        //         Rect::from_spans(pc.out_tracks.index(1), Span::new(-10_000, 10_000)),
-        //     )
-        //     .build();
-        // let mut via = ctx.instantiate::<Via>(&viap)?;
+        //         let src = inv.port("sd_0_0")?.largest_rect(m0)?;
+        //         let dst = inv.port("sd_1_0")?.largest_rect(m0)?;
+        //         let short = src.bbox().union(dst.bbox()).into_rect();
+        //         ctx.draw_rect(m0, short);
+        //         if j == 0 {
+        //             *out = Some(short);
+        //         }
 
-        // let src = mux1.port("sd_0_0")?.largest_rect(pc.m0)?;
-        // let elbow = OffsetJog::builder()
-        //     .dir(Dir::Vert)
-        //     .sign(Sign::Pos)
-        //     .src(src)
-        //     .dst(pc.out_tracks.index(1).start() - 40)
-        //     .layer(pc.m0)
-        //     .build()
-        //     .unwrap();
-        // ctx.draw_ref(&elbow)?;
+        //         for (port, name) in [("sd_0_1", "vss"), ("sd_1_1", "vdd")] {
+        //             let pwr = inv.port(port)?.largest_rect(m0)?;
+        //             let viap = ViaParams::builder()
+        //                 .layers(m0, m1)
+        //                 .geometry(pwr, pwr)
+        //                 .expand(ViaExpansion::LongerDirection)
+        //                 .build();
+        //             let via = ctx.instantiate::<Via>(&viap)?;
+        //             ctx.draw_ref(&via)?;
 
-        // via.place_center(Point::new(
-        //     pc.out_tracks.index(1).center(),
-        //     elbow.r2().center().y,
-        // ));
-        // ctx.draw_ref(&via)?;
+        //             let power_span =
+        //                 Span::from_center_span_gridded(via.brect().center().x, POWER_HEIGHT, GRID);
+        //             let power_stripe = Rect::from_spans(power_span, stripe_span);
+        //             let viap = ViaParams::builder()
+        //                 .layers(m1, m2)
+        //                 .geometry(via.layer_bbox(m1), power_stripe)
+        //                 .expand(ViaExpansion::LongerDirection)
+        //                 .build();
+        //             let via = ctx.instantiate::<Via>(&viap)?;
+        //             ctx.draw(via)?;
+        //             if i == 0 {
+        //                 ctx.draw_rect(m2, power_stripe);
+        //                 ctx.merge_port(CellPort::with_shape(name, m2, power_stripe));
+        //                 if name == "vss" {
+        //                     col.vss(power_stripe.hspan());
+        //                 } else if name == "vdd" {
+        //                     col.vdd(power_stripe.hspan());
+        //                 } else {
+        //                     unreachable!()
+        //                 }
+        //             }
+        //         }
 
-        // let src = mux2.port("sd_0_1")?.largest_rect(pc.m0)?;
-        // let elbow = OffsetJog::builder()
-        //     .dir(Dir::Vert)
-        //     .sign(Sign::Pos)
-        //     .src(src)
-        //     .dst(pc.out_tracks.index(1).stop() + 40)
-        //     .layer(pc.m0)
-        //     .build()
-        //     .unwrap();
-        // ctx.draw_ref(&elbow)?;
+        //         if j == 1 {
+        //             let dst = inv.port("gate_0")?.largest_rect(m0)?;
+        //             let jog = SJog::builder()
+        //                 .src(out.unwrap())
+        //                 .dst(dst)
+        //                 .dir(Dir::Horiz)
+        //                 .layer(m0)
+        //                 .width(170)
+        //                 .grid(GRID)
+        //                 .build()
+        //                 .unwrap();
+        //             ctx.draw(jog)?;
 
-        // via.place_center(Point::new(
-        //     pc.out_tracks.index(1).center(),
-        //     elbow.r2().center().y,
-        // ));
-        // ctx.draw_ref(&via)?;
+        //             let extent = short.right() + 2 * stripe_width + 2 * stripe_space + 40;
+        //             let m0_conn = Rect::new(
+        //                 short.corner(Corner::LowerLeft),
+        //                 Point::new(extent, short.top()),
+        //             );
+        //             ctx.draw_rect(m0, m0_conn);
+        //             let out_span = Span::with_start_and_length(
+        //                 short.right() + stripe_space + i as i64 * (stripe_width + stripe_space),
+        //                 stripe_width,
+        //             );
+        //             let stripe = Rect::from_spans(out_span, stripe_span);
+        //             ctx.draw_rect(m2, stripe);
+        //             let name = if i == 0 {
+        //                 arcstr::literal!("outn")
+        //             } else {
+        //                 arcstr::literal!("outp")
+        //             };
+        //             ctx.add_port(CellPort::with_shape(name, m2, stripe))
+        //                 .unwrap();
 
-        // let mut wmask = ctx.instantiate::<LayoutMos>(&params)?;
-        // wmask.set_orientation(Named::R90);
-        // wmask.place_center_x(cx);
-        // wmask.align_beneath(mux2.bbox(), GATE_SPACE);
-        // ctx.draw_ref(&wmask)?;
+        //             let viap = ViaParams::builder()
+        //                 .layers(m0, m1)
+        //                 .geometry(m0_conn, m0_conn)
+        //                 .expand(ViaExpansion::LongerDirection)
+        //                 .build();
+        //             let via = ctx.instantiate::<Via>(&viap)?;
+        //             ctx.draw_ref(&via)?;
 
-        // let mut npd = ctx.instantiate::<LayoutMos>(&params)?;
-        // npd.set_orientation(Named::R90);
-        // npd.place_center_x(cx);
-        // npd.align_beneath(wmask.bbox(), GATE_SPACE);
-        // ctx.draw_ref(&npd)?;
+        //             let viap = ViaParams::builder()
+        //                 .layers(m1, m2)
+        //                 .geometry(via.layer_bbox(m1), stripe)
+        //                 .expand(ViaExpansion::LongerDirection)
+        //                 .build();
+        //             let via = ctx.instantiate::<Via>(&viap)?;
+        //             ctx.draw_ref(&via)?;
+        //         } else {
+        //             let input = inv.port("gate_0")?.largest_rect(m0)?;
+        //             let extent = input.left() - 2 * stripe_space - 2 * stripe_width;
+        //             let m0_conn = Rect::new(Point::new(extent - 40, input.bottom()), input.p1);
+        //             let in_span = Span::with_start_and_length(
+        //                 extent + i as i64 * (stripe_space + stripe_width),
+        //                 stripe_width,
+        //             );
+        //             ctx.draw_rect(m0, m0_conn);
+        //             let stripe = Rect::from_spans(in_span, stripe_span);
+        //             ctx.draw_rect(m2, stripe);
+        //             let name = if i == 0 {
+        //                 arcstr::literal!("inn")
+        //             } else {
+        //                 arcstr::literal!("inp")
+        //             };
+        //             ctx.add_port(CellPort::with_shape(name, m2, stripe))
+        //                 .unwrap();
 
-        // for (inst, port, idx) in [(&mux1, "sd_0_1", 0), (&mux2, "sd_0_0", 2)] {
-        //     let target = inst.port(port)?.largest_rect(pc.m0)?;
-        //     via.place_center(Point::new(
-        //         pc.out_tracks.index(idx).center(),
-        //         target.center().y,
-        //     ));
-        //     ctx.draw_ref(&via)?;
-        //     let rect = Rect::from_spans(
-        //         via.brect().hspan().union(target.hspan()),
-        //         via.brect().vspan(),
-        //     );
-        //     ctx.draw_rect(pc.m0, rect);
-        // }
+        //             let viap = ViaParams::builder()
+        //                 .layers(m0, m1)
+        //                 .geometry(m0_conn, m0_conn)
+        //                 .expand(ViaExpansion::LongerDirection)
+        //                 .build();
+        //             let via = ctx.instantiate::<Via>(&viap)?;
+        //             ctx.draw_ref(&via)?;
 
-        // let top = ctx.brect().top() + IMPLANT_PAD;
-        // let tracks = pc
-        //     .out_tracks
-        //     .iter()
-        //     .map(|track| -> Result<Rect, substrate::error::SubstrateError> {
-        //         let r = Rect::from_spans(
-        //             track,
-        //             Span::new(mux2.port("gate_0")?.largest_rect(pc.m0)?.top(), top),
-        //         );
-        //         ctx.draw_rect(pc.v_metal, r);
-        //         Ok(r)
-        //     })
-        //     .collect::<Result<Vec<_>, _>>()?;
-
-        // ctx.add_port(CellPort::with_shape("bl", pc.v_metal, tracks[0]))?;
-        // ctx.add_port(CellPort::with_shape("br", pc.v_metal, tracks[2]))?;
-
-        // let target = wmask.port("sd_0_0")?.largest_rect(pc.m0)?;
-        // let jog = SJog::builder()
-        //     .src(tracks[1])
-        //     .dst(target)
-        //     .layer(pc.v_metal)
-        //     .dir(Dir::Vert)
-        //     .grid(pc.grid)
-        //     .build()
-        //     .unwrap();
-        // ctx.draw_ref(&jog)?;
-
-        // let viap = ViaParams::builder()
-        //     .layers(pc.m0, pc.v_metal)
-        //     .geometry(target, jog.r3())
-        //     .expand(ViaExpansion::LongerDirection)
-        //     .build();
-        // let via_arr = ctx.instantiate::<Via>(&viap)?;
-        // ctx.draw(via_arr)?;
-
-        // let target = npd.port("sd_0_0")?.largest_rect(pc.m0)?;
-        // let power_span = Span::from_center_span_gridded(target.center().y, 800, pc.grid);
-        // let stripe_span = Span::new(-pc.width, 2 * pc.width);
-
-        // let power_stripe = Rect::from_spans(stripe_span, power_span);
-        // ctx.draw_rect(pc.h_metal, power_stripe);
-        // ctx.add_port(CellPort::with_shape("vss", pc.h_metal, power_stripe))
-        //     .unwrap();
-        // let viap = ViaParams::builder()
-        //     .layers(pc.m0, pc.v_metal)
-        //     .geometry(target, target)
-        //     .expand(ViaExpansion::LongerDirection)
-        //     .build();
-        // let v = ctx.instantiate::<Via>(&viap)?;
-        // ctx.draw_ref(&v)?;
-        // let viap = ViaParams::builder()
-        //     .layers(pc.v_metal, pc.h_metal)
-        //     .geometry(v.brect(), power_stripe)
-        //     .expand(ViaExpansion::LongerDirection)
-        //     .build();
-        // let v = ctx.instantiate::<Via>(&viap)?;
-        // ctx.draw(v)?;
-
-        // let mut gate_stripes = Vec::with_capacity(3);
-        // for (inst, port) in [(&mux1, "data_b"), (&mux2, "data"), (&wmask, "wmask")] {
-        //     let target = inst.port("gate_0")?.largest_rect(pc.m0)?;
-        //     let rect = Rect::from_spans(stripe_span, target.vspan());
-        //     ctx.draw_rect(pc.m0, rect);
-
-        //     let span = Span::from_center_span_gridded(target.center().y, 340, pc.grid);
-        //     let rect = Rect::from_spans(stripe_span, span);
-        //     ctx.draw_rect(pc.h_metal, rect);
-        //     gate_stripes.push((target.vspan(), span));
-
-        //     ctx.add_port(CellPort::with_shape(port, pc.h_metal, rect))
-        //         .unwrap();
-
-        //     if std::ptr::eq(inst, &wmask) {
-        //         via.place_center(Point::new(cx + 220, target.center().y));
-        //         ctx.draw_ref(&via)?;
-
-        //         let viap = ViaParams::builder()
-        //             .layers(pc.v_metal, pc.h_metal)
-        //             .geometry(via.brect(), rect)
-        //             .build();
-        //         let v = ctx.instantiate::<Via>(&viap)?;
-        //         ctx.draw(v)?;
+        //             let viap = ViaParams::builder()
+        //                 .layers(m1, m2)
+        //                 .geometry(via.layer_bbox(m1), stripe)
+        //                 .expand(ViaExpansion::LongerDirection)
+        //                 .build();
+        //             let via = ctx.instantiate::<Via>(&viap)?;
+        //             ctx.draw_ref(&via)?;
+        //         }
+        //         ctx.draw(inv)?;
         //     }
+        //     cols.push(col.build().unwrap());
         // }
 
-        // let src = wmask.port("sd_0_1")?.largest_rect(pc.m0)?;
-        // let dst = npd.port("sd_0_1")?.largest_rect(pc.m0)?;
-        // let rect = src.bbox().union(dst.bbox()).into_rect();
-        // ctx.draw_rect(pc.v_metal, rect);
+        // ctx.set_metadata(Metadata { cols });
 
-        // for inst in [&wmask, &npd] {
-        //     let bot = inst.port("sd_0_1")?.largest_rect(pc.m0)?;
-        //     let viap = ViaParams::builder()
-        //         .geometry(bot, rect)
-        //         .layers(pc.m0, pc.v_metal)
-        //         .expand(ViaExpansion::LongerDirection)
-        //         .build();
-        //     let via = ctx.instantiate::<Via>(&viap)?;
-        //     ctx.draw(via)?;
-        // }
-
-        // let tracks = FixedTracks {
-        //     line: 340,
-        //     space: 160,
-        //     boundary_space: 160,
-        //     interior_tracks: self.params.sizing.mux_ratio.checked_sub(2).unwrap(),
-        //     start: npd.brect().bottom(),
-        //     lower_boundary: Boundary::Track,
-        //     upper_boundary: Boundary::Track,
-        //     sign: Sign::Neg,
-        // };
-
-        // ctx.set_metadata(Metadata {
-        //     gate_stripes,
-        //     power_stripe: power_stripe.vspan(),
-        //     ctrl_tracks: tracks.clone(),
-        // });
-
-        // for (i, track) in tracks.iter().enumerate() {
-        //     let rect = Rect::from_spans(stripe_span, track);
-        //     ctx.draw_rect(pc.h_metal, rect);
-        //     ctx.add_port(CellPort::with_shape(PortId::new("we", i), pc.h_metal, rect))?;
-
-        //     if i == self.params.idx {
-        //         let target = npd.port("gate_0")?.largest_rect(pc.m0)?;
-        //         let gate_conn =
-        //             Rect::from_spans(target.hspan(), target.vspan().union(rect.vspan()));
-
-        //         let viap = ViaParams::builder()
-        //             .layers(pc.v_metal, pc.h_metal)
-        //             .geometry(Rect::from_spans(pc.out_tracks.index(1), rect.vspan()), rect)
-        //             .build();
-        //         let mut via1 = ctx.instantiate::<Via>(&viap)?;
-        //         via1.place_center(rect.center());
-        //         ctx.draw_ref(&via1)?;
-
-        //         via.place_center(rect.center());
-        //         ctx.draw_ref(&via)?;
-
-        //         ctx.draw_rect(pc.m0, gate_conn);
-        //     }
-        // }
-
-        // let layers = ctx.layers();
-        // let nsdm = layers.get(Selector::Name("nsdm"))?;
-
-        // let hspan = Span::new(0, pc.width);
-        // let vspan = ctx.brect().vspan();
-        // let bounds = Rect::from_spans(hspan, vspan);
-        // let vspan = vspan.shrink(Sign::Pos, IMPLANT_PAD);
-        // let implant = Rect::from_spans(hspan, vspan);
-        // ctx.draw_rect(nsdm, implant);
+        // let vspan = Span::new(0, self.params.width);
+        // let bounds = Rect::from_spans(ctx.brect().hspan(), vspan);
         // ctx.flatten();
         // ctx.trim(&bounds);
+
+        // let outline = layers.get(Selector::Name("outline"))?;
+        // let rect = ctx
+        //     .brect()
+        //     .expand_dims(Dims::new(WELL_PAD, 0), ExpandMode::UpperRight);
+        // ctx.draw_rect(outline, rect);
 
         Ok(())
     }
