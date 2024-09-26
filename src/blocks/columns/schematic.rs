@@ -47,8 +47,8 @@ impl ColPeripherals {
             ctx.signals(["dummy_bl_noconn", "dummy_br_noconn"]);
 
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
-        let bufbuf = lib.try_cell_named("sky130_fd_sc_hd__bufbuf_16")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let bufbuf = lib.try_cell_named("sky130_fd_sc_hs__bufbuf_16")?;
 
         ctx.instantiate::<DffArray>(&wmask_bits)?
             .with_connections([

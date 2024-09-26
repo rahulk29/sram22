@@ -13,8 +13,8 @@ impl ControlLogicReplicaV2 {
             ["clk", "ce", "we", "reset_b", "decrepend"],
             Direction::Input,
         );
-        let [saen, pc_b, wlen, wrdrven, decrepstart] = ctx.ports(
-            ["saen", "pc_b", "wlen", "wrdrven", "decrepstart"],
+        let [saen, pc_b, rwl, wlen, wrdrven, decrepstart] = ctx.ports(
+            ["saen", "pc_b", "rwl", "wlen", "wrdrven", "decrepstart"],
             Direction::Output,
         );
         let [rbl, vdd, vss] = ctx.ports(["rbl", "vdd", "vss"], Direction::InOut);
@@ -30,8 +30,14 @@ impl ControlLogicReplicaV2 {
             "clkpdd",
             "clkp_grst_b",
         ]);
-        let [wlen_grst_b, wlen_rst_decoderd, wlen_b] =
-            ctx.signals(["wlen_grst_b", "wlen_rst_decoderd", "wlen_b"]);
+        let [wlen_grst_b, wlen_rst_decoderd, wlen_b, wlen_q, wlend_b, wlend] = ctx.signals([
+            "wlen_grst_b",
+            "wlen_rst_decoderd",
+            "wlen_b",
+            "wlen_q",
+            "wlend_b",
+            "wlend",
+        ]);
         let [saen_set_b, saen_b] = ctx.signals(["saen_set_b", "saen_b"]);
         let [wrdrven_set_b, wrdrven_grst_b, wrdrven_b] =
             ctx.signals(["wrdrven_set_b", "wrdrven_grst_b", "wrdrven_b"]);
@@ -43,9 +49,11 @@ impl ControlLogicReplicaV2 {
         let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
         let inv = lib.try_cell_named("sky130_fd_sc_hs__inv_2")?;
         let and2 = lib.try_cell_named("sky130_fd_sc_hs__and2_2")?;
+        let and2_med = lib.try_cell_named("sky130_fd_sc_hs__and2_4")?;
         let nand2 = lib.try_cell_named("sky130_fd_sc_hs__nand2_4")?;
         let nor2 = lib.try_cell_named("sky130_fd_sc_hs__nor2_4")?;
         let mux2 = lib.try_cell_named("sky130_fd_sc_hs__mux2_4")?;
+        let buf_small = lib.try_cell_named("sky130_fd_sc_hs__buf_8")?;
         let buf = lib.try_cell_named("sky130_fd_sc_hs__buf_16")?;
         let biginv = lib.try_cell_named("sky130_fd_sc_hs__inv_16")?;
 
@@ -120,7 +128,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("clkpd_inv")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&3)?
+        ctx.instantiate::<InvChain>(&7)?
             .with_connections([
                 ("din", clkpd_b),
                 ("dout", clkpdd),
@@ -238,13 +246,57 @@ impl ControlLogicReplicaV2 {
             ])
             .named("and_sense_en")
             .add_to(ctx);
+        ctx.instantiate::<StdCell>(&nand2.id())?
+            .with_connections([
+                ("A", wlend_b),
+                ("B", we_b),
+                ("Y", wlend),
+                ("VPWR", vdd),
+                ("VPB", vdd),
+                ("VGND", vss),
+                ("VNB", vss),
+            ])
+            .named("nand_wlendb_web")
+            .add_to(ctx);
+        ctx.instantiate::<StdCell>(&and2_med.id())?
+            .with_connections([
+                ("A", wlen_q),
+                ("B", wlend),
+                ("X", wlen),
+                ("VPWR", vdd),
+                ("VPB", vdd),
+                ("VGND", vss),
+                ("VNB", vss),
+            ])
+            .named("and_wlen")
+            .add_to(ctx);
+        ctx.instantiate::<InvChain>(&3)?
+            .with_connections([
+                ("din", wlen_q),
+                ("dout", wlend_b),
+                ("vdd", vdd),
+                ("vss", vss),
+            ])
+            .named("wlen_q_delay")
+            .add_to(ctx);
+        ctx.instantiate::<StdCell>(&buf.id())?
+            .with_connections([
+                ("A", wlen_q),
+                ("X", rwl),
+                ("VPWR", vdd),
+                ("VPB", vdd),
+                ("VGND", vss),
+                ("VNB", vss),
+            ])
+            .named("rwl_buf")
+            .add_to(ctx);
 
         // CONTROL LATCHES
         ctx.instantiate::<SrLatch>(&NoParams)?
             .with_connections([
                 ("sb", clkpd_b),
                 ("rb", wlen_grst_b),
-                ("q", wlen),
+                ("q", wlen_q),
                 ("qb", wlen_b),
                 ("vdd", vdd),
                 ("vss", vss),
@@ -310,9 +362,9 @@ impl SrLatch {
         let [q0, q0b] = ctx.signals(["q0", "q0b"]);
 
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_default_lib()?;
-        let nand2 = lib.try_cell_named("sky130_fd_sc_hd__nand2_8")?;
-        let inv = lib.try_cell_named("sky130_fd_sc_hd__inv_2")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let nand2 = lib.try_cell_named("sky130_fd_sc_hs__nand2_8")?;
+        let inv = lib.try_cell_named("sky130_fd_sc_hs__inv_2")?;
 
         let mut nand_set = ctx.instantiate::<StdCell>(&nand2.id())?;
         let mut nand_reset = nand_set.clone();
@@ -376,9 +428,9 @@ impl InvChain {
         let x = ctx.bus("x", self.n - 1);
 
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_default_lib()?;
-        let inv = lib.try_cell_named("sky130_fd_sc_hd__inv_2")?;
-        let inv_end = lib.try_cell_named("sky130_fd_sc_hd__inv_4")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let inv = lib.try_cell_named("sky130_fd_sc_hs__inv_2")?;
+        let inv_end = lib.try_cell_named("sky130_fd_sc_hs__inv_4")?;
 
         for i in 0..self.n {
             ctx.instantiate::<StdCell>(&if i == self.n - 1 {
@@ -414,8 +466,8 @@ impl EdgeDetector {
             .add_to(ctx);
 
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_default_lib()?;
-        let and2 = lib.try_cell_named("sky130_fd_sc_hd__and2_4")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let and2 = lib.try_cell_named("sky130_fd_sc_hs__and2_4")?;
 
         ctx.instantiate::<StdCell>(&and2.id())?
             .with_connections([

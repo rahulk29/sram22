@@ -378,6 +378,10 @@ pub(crate) mod tests {
 
     pub(crate) const SRAM22_4096X32M8W8: SramParams = SramParams::new(8, MuxRatio::M8, 4096, 32);
 
+    pub(crate) const SRAM22_4096X128M8W8: SramParams = SramParams::new(8, MuxRatio::M8, 4096, 128);
+
+    pub(crate) const SRAM22_2048X256M4W8: SramParams = SramParams::new(8, MuxRatio::M4, 2048, 256);
+
     macro_rules! test_sram {
         ($name: ident, $params: ident $(, $attr: meta)*) => {
             #[test]
@@ -541,4 +545,14 @@ pub(crate) mod tests {
     test_sram!(test_sram22_2048x64m4w8, SRAM22_2048X64M4W8, ignore = "slow");
     test_sram!(test_sram22_4096x8m8w8, SRAM22_4096X8M8W8, ignore = "slow");
     test_sram!(test_sram22_4096x32m8w8, SRAM22_4096X32M8W8, ignore = "slow");
+    test_sram!(
+        test_sram22_4096x128m8w8,
+        SRAM22_4096X128M8W8,
+        ignore = "slow"
+    );
+    test_sram!(
+        test_sram22_2048x256m4w8,
+        SRAM22_2048X256M4W8,
+        ignore = "slow"
+    );
 }

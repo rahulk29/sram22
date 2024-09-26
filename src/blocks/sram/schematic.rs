@@ -50,11 +50,11 @@ impl SramInner {
         let col_sel_b = ctx.bus("col_sel_b", self.params.mux_ratio());
 
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
 
-        let diode = lib.try_cell_named("sky130_fd_sc_hd__diode_2")?;
-        let bufbuf_small = lib.try_cell_named("sky130_fd_sc_hd__bufbuf_8")?;
-        let bufbuf = lib.try_cell_named("sky130_fd_sc_hd__bufbuf_16")?;
+        let diode = lib.try_cell_named("sky130_fd_sc_hs__diode_2")?;
+        let bufbuf_small = lib.try_cell_named("sky130_fd_sc_hs__bufbuf_8")?;
+        let bufbuf = lib.try_cell_named("sky130_fd_sc_hs__bufbuf_16")?;
 
         for (port, width) in [
             (dout, self.params.data_width()),
@@ -74,7 +74,7 @@ impl SramInner {
             }
         }
 
-        let [we_in, we_in_b, ce_in, ce_in_b, dummy_bl, dummy_br, rbl, rbr, pc_b0, pc_b1, pc_b, wl_en0, wl_en1, wl_en, write_driver_en0, write_driver_en1, write_driver_en, sense_en0, sense_en1, sense_en] =
+        let [we_in, we_in_b, ce_in, ce_in_b, dummy_bl, dummy_br, rwl, rbl, rbr, pc_b0, pc_b1, pc_b, wl_en0, wl_en1, wl_en, write_driver_en0, write_driver_en1, write_driver_en, sense_en0, sense_en1, sense_en] =
             ctx.signals([
                 "we_in",
                 "we_in_b",
@@ -82,6 +82,7 @@ impl SramInner {
                 "ce_in_b",
                 "dummy_bl",
                 "dummy_br",
+                "rwl",
                 "rbl",
                 "rbr",
                 "pc_b0",
@@ -165,6 +166,7 @@ impl SramInner {
                 ("ce", ce_in),
                 ("reset_b", reset_b),
                 ("rbl", rbl),
+                ("rwl", rwl),
                 ("pc_b", pc_b0),
                 ("wlen", wl_en0),
                 ("wrdrven", write_driver_en0),
@@ -370,7 +372,7 @@ impl SramInner {
             ("vss", vss),
             ("rbl", rbl),
             ("rbr", rbr),
-            ("rwl", wl_en0),
+            ("rwl", rwl),
         ])
         .named("replica_bitcell_array")
         .add_to(ctx);
