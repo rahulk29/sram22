@@ -214,8 +214,16 @@ impl TGateMux {
             }
         }
 
-        let vdd_stripe = Span::new(blbr_stripes[1].stop(), blbr_stripes[0].start()).shrink_all(300);
-        let vss_stripe = Span::new(blbr_stripes[3].stop(), blbr_stripes[2].start()).shrink_all(300);
+        let mut vdd_stripe =
+            Span::new(blbr_stripes[1].stop(), blbr_stripes[0].start()).shrink_all(300);
+        if vdd_stripe.length() > 1800 {
+            vdd_stripe = Span::from_center_span_gridded(vdd_stripe.center(), 1800, 5);
+        }
+        let mut vss_stripe =
+            Span::new(blbr_stripes[3].stop(), blbr_stripes[2].start()).shrink_all(300);
+        if vss_stripe.length() > 1800 {
+            vss_stripe = Span::from_center_span_gridded(vss_stripe.center(), 1800, 5);
+        }
         if vss_stripe.length() < 200 || vdd_stripe.length() < 200 {
             panic!("insufficient space for vdd/vss stripe");
         }
@@ -406,12 +414,14 @@ fn tgate_mux_tap_layout(
     let tap_rect = ntap_bounds.shrink(300);
 
     let layers = ctx.layers();
-    let tap = layers.get(Selector::Name("tap"))?;
+    let taplayer = layers.get(Selector::Name("tap"))?;
     let nwell = layers.get(Selector::Name("nwell"))?;
     let nsdm = layers.get(Selector::Name("nsdm"))?;
+    let psdm = layers.get(Selector::Name("psdm"))?;
 
+    // Draw n+ tap to nwell.
     let viap = ViaParams::builder()
-        .layers(tap, pc.m0)
+        .layers(taplayer, pc.m0)
         .geometry(tap_rect, tap_rect)
         .build();
     let tap = ctx.instantiate::<Via>(&viap)?;
@@ -429,6 +439,38 @@ fn tgate_mux_tap_layout(
     let viap = ViaParams::builder()
         .layers(pc.v_metal, pc.h_metal)
         .geometry(target, power_stripe)
+        .build();
+    let via = ctx.instantiate::<Via>(&viap)?;
+    ctx.draw_ref(&via)?;
+
+    // Draw p+ tap to substrate.
+    let ptap_bounds = Rect::from_spans(
+        bounds.hspan(),
+        Span::new(meta.nwell_vspan.stop(), bounds.vspan().stop()),
+    );
+    let tap_rect = ptap_bounds.shrink(300);
+    let viap = ViaParams::builder()
+        .layers(taplayer, pc.m0)
+        .geometry(tap_rect, tap_rect)
+        .build();
+    let tap = ctx.instantiate::<Via>(&viap)?;
+    ctx.draw_ref(&tap)?;
+    let mut psdm_rect = via.layer_bbox(taplayer).into_rect();
+    psdm_rect.expand(130);
+    ctx.draw_rect(psdm, psdm_rect);
+
+    let target = tap.layer_bbox(pc.m0).into_rect();
+    let viap = ViaParams::builder()
+        .layers(pc.m0, pc.v_metal)
+        .geometry(target, target)
+        .build();
+    let via = ctx.instantiate::<Via>(&viap)?;
+    ctx.draw_ref(&via)?;
+
+    let target = via.layer_bbox(pc.v_metal).into_rect();
+    let viap = ViaParams::builder()
+        .layers(pc.v_metal, pc.h_metal)
+        .geometry(target, ground_stripe)
         .build();
     let via = ctx.instantiate::<Via>(&viap)?;
     ctx.draw_ref(&via)?;
