@@ -309,6 +309,16 @@ impl TGateMux {
             ctx.draw_rect(psdm, Rect::from_spans(bounds.hspan(), span));
         }
 
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+        let implants = ctx
+            .elems()
+            .filter(|elem| elem.layer.layer() == nsdm)
+            .map(|elem| elem.brect().vspan())
+            .collect::<Vec<_>>();
+        for span in implants {
+            ctx.draw_rect(nsdm, Rect::from_spans(bounds.hspan(), span));
+        }
+
         Ok(())
     }
 }
