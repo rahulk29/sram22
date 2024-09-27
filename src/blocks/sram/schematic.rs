@@ -178,7 +178,7 @@ impl SramInner {
             ])
             .named("control_logic");
         control_logic.add_to(ctx);
-        ctx.instantiate::<InvChain>(&8)?
+        ctx.instantiate::<InvChain>(&28)?
             .with_connections([
                 ("din", decrepstart),
                 ("dout", decrepend),
