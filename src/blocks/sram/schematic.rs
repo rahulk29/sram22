@@ -213,7 +213,7 @@ impl SramInner {
             }
         }
 
-        for _ in 0..1 {
+        for _ in 0..2 {
             ctx.instantiate::<StdCell>(&bufbuf_small.id())?
                 .with_connections([
                     ("A", pc_b0),
@@ -225,7 +225,7 @@ impl SramInner {
                 ])
                 .add_to(ctx);
         }
-        for _ in 0..6 {
+        for _ in 0..12 {
             ctx.instantiate::<StdCell>(&bufbuf.id())?
                 .with_connections([
                     ("A", pc_b1),

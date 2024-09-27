@@ -25,7 +25,6 @@ use substrate::layout::placement::align::AlignRect;
 
 const GATE_LINE: i64 = 320;
 const GATE_SPACE: i64 = 180;
-const POWER_VSPAN: Span = Span::new_unchecked(3_000, 3_800);
 
 impl TGateMux {
     pub(crate) fn layout(
@@ -160,6 +159,10 @@ impl TGateMux {
             ctx.draw(via)?;
         }
 
+        let mut split_via0 = Vec::new();
+        let mut split_via1 = Vec::new();
+        let mut blbr_stripes = Vec::new();
+
         for (inst, port, idx, x, side, name) in [
             (&pmos, "sd_1_0", 3, pc.width, Side::Right, Some("bl_out")),
             (&pmos, "sd_0_1", 0, 0, Side::Left, Some("br_out")),
@@ -175,7 +178,9 @@ impl TGateMux {
                 )
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;
-            metadata.split_via0(viap);
+            if side == Side::Left {
+                split_via0.push(viap);
+            }
             ctx.draw_rect(
                 pc.m0,
                 Rect::from_spans(
@@ -196,8 +201,10 @@ impl TGateMux {
                 .expand(ViaExpansion::LongerDirection)
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;
-            metadata.split_via1(viap);
-            metadata.bot_stripe(stripe.vspan());
+            if side == Side::Left {
+                split_via1.push(viap);
+            }
+            blbr_stripes.push(stripe.vspan());
             ctx.draw_ref(&via)?;
 
             ctx.draw_rect(pc.h_metal, stripe);
@@ -207,6 +214,17 @@ impl TGateMux {
             }
         }
 
+        let vdd_stripe = Span::new(blbr_stripes[1].stop(), blbr_stripes[0].start()).shrink_all(300);
+        let vss_stripe = Span::new(blbr_stripes[3].stop(), blbr_stripes[2].start()).shrink_all(300);
+        if vss_stripe.length() < 200 || vdd_stripe.length() < 200 {
+            panic!("insufficient space for vdd/vss stripe");
+        }
+
+        metadata.vdd_stripe(vdd_stripe);
+        metadata.vss_stripe(vss_stripe);
+        metadata.blbr_stripes(blbr_stripes);
+        metadata.split_via0(split_via0);
+        metadata.split_via1(split_via1);
         metadata.split_track(tracks[0]);
         metadata.nwell_vspan(pmos.brect().vspan());
 
@@ -257,8 +275,10 @@ impl TGateMux {
             }
         }
 
-        let power_stripe = Rect::from_spans(stripe_hspan, POWER_VSPAN);
+        let power_stripe = Rect::from_spans(stripe_hspan, vdd_stripe);
         ctx.draw_rect(pc.h_metal, power_stripe);
+        let ground_stripe = Rect::from_spans(stripe_hspan, vss_stripe);
+        ctx.draw_rect(pc.h_metal, ground_stripe);
 
         let bounds = Rect::from_spans(Span::new(0, pc.width), ctx.brect().vspan());
         ctx.flatten();
@@ -287,12 +307,14 @@ impl TGateMux {
 
 #[derive(Debug, Builder)]
 struct Metadata {
-    split_via1: ViaParams,
-    split_via0: ViaParams,
+    split_via1: Vec<ViaParams>,
+    split_via0: Vec<ViaParams>,
     split_track: Rect,
-    bot_stripe: Span,
+    blbr_stripes: Vec<Span>,
     nwell_vspan: Span,
     sel_tracks_ystart: i64,
+    vdd_stripe: Span,
+    vss_stripe: Span,
 }
 
 impl Metadata {
@@ -330,17 +352,10 @@ fn tgate_mux_tap_layout(
 
     let meta = mux.cell().get_metadata::<Metadata>();
 
-    let mut via1 = ctx.instantiate::<Via>(&meta.split_via1)?;
-    let mut via0 = ctx.instantiate::<Via>(&meta.split_via0)?;
-    via1.place_center(Point::new(width, via1.brect().center().y));
-    via0.place_center(Point::new(width, via0.brect().center().y));
-    ctx.draw_ref(&via1)?;
-    ctx.draw_ref(&via0)?;
-    if !end {
-        via1.place_center(Point::new(0, via1.brect().center().y));
-        via0.place_center(Point::new(0, via0.brect().center().y));
-        ctx.draw_ref(&via1)?;
-        ctx.draw_ref(&via0)?;
+    for via in meta.split_via0.iter().chain(meta.split_via1.iter()) {
+        let mut via = ctx.instantiate::<Via>(via)?;
+        via.place_center(Point::new(width, via.brect().center().y));
+        ctx.draw_ref(&via)?;
     }
 
     let mut vtrack = meta.split_track.double(Side::Left);
@@ -374,9 +389,13 @@ fn tgate_mux_tap_layout(
         ))?;
     }
 
-    let power_stripe = Rect::from_spans(stripe_hspan, POWER_VSPAN);
+    let power_stripe = Rect::from_spans(stripe_hspan, meta.vdd_stripe);
     ctx.draw_rect(pc.h_metal, power_stripe);
     ctx.add_port(CellPort::with_shape("vdd", pc.h_metal, power_stripe))
+        .unwrap();
+    let ground_stripe = Rect::from_spans(stripe_hspan, meta.vss_stripe);
+    ctx.draw_rect(pc.h_metal, ground_stripe);
+    ctx.add_port(CellPort::with_shape("vss", pc.h_metal, ground_stripe))
         .unwrap();
 
     let bounds = Rect::from_spans(Span::new(0, width), mux.brect().vspan());
@@ -414,16 +433,15 @@ fn tgate_mux_tap_layout(
     let via = ctx.instantiate::<Via>(&viap)?;
     ctx.draw_ref(&via)?;
 
-    if !end {
+    for &stripe in meta.blbr_stripes.iter() {
+        if !end {
+            ctx.draw_rect(pc.h_metal, Rect::from_spans(Span::new(0, 200), stripe));
+        }
         ctx.draw_rect(
             pc.h_metal,
-            Rect::from_spans(Span::new(0, 200), meta.bot_stripe),
+            Rect::from_spans(Span::with_stop_and_length(width, 200), stripe),
         );
     }
-    ctx.draw_rect(
-        pc.h_metal,
-        Rect::from_spans(Span::with_stop_and_length(width, 200), meta.bot_stripe),
-    );
 
     ctx.draw_rect(nwell, ntap_bounds);
     ctx.draw_rect(nsdm, ntap_bounds);
