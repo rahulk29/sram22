@@ -155,10 +155,18 @@ impl Component for TappedTGateMux {
             ..self.params
         };
         let gate = ctx.instantiate::<TGateMux>(&params)?;
+        let mut gate_flipped = ctx.instantiate::<TGateMux>(&params)?;
+        gate_flipped.reflect_horiz_anchored();
         let tap = ctx.instantiate::<TGateMuxEnd>(&params)?;
+        let mut tap_flipped = ctx.instantiate::<TGateMuxEnd>(&params)?;
+        tap_flipped.reflect_horiz_anchored();
         let mut tiler = ArrayTiler::builder()
             .push(tap)
+            .push(gate.clone())
+            .push(gate_flipped.clone())
             .push(gate)
+            .push(gate_flipped)
+            .push(tap_flipped)
             .mode(AlignMode::ToTheRight)
             .alt_mode(AlignMode::Bottom)
             .build();
