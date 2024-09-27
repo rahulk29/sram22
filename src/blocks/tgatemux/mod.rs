@@ -313,6 +313,7 @@ mod tests {
                             vec![AcImpedanceTbNode::Floating],
                         ),
                         (arcstr::literal!("vdd"), vec![AcImpedanceTbNode::Vdd]),
+                        (arcstr::literal!("vss"), vec![AcImpedanceTbNode::Vss]),
                     ]),
                 },
                 &selb_work_dir,
