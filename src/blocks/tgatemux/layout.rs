@@ -455,7 +455,7 @@ fn tgate_mux_tap_layout(
         .build();
     let tap = ctx.instantiate::<Via>(&viap)?;
     ctx.draw_ref(&tap)?;
-    let mut psdm_rect = via.layer_bbox(taplayer).into_rect();
+    let mut psdm_rect = tap.layer_bbox(taplayer).into_rect();
     psdm_rect.expand(130);
     ctx.draw_rect(psdm, psdm_rect);
 
