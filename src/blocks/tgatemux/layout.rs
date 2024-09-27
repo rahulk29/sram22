@@ -445,13 +445,12 @@ fn tgate_mux_tap_layout(
 
     // Draw p+ tap to substrate.
     let ptap_bounds = Rect::from_spans(
-        bounds.hspan(),
-        Span::new(meta.nwell_vspan.stop(), bounds.vspan().stop()),
+        bounds.hspan().shrink_all(300),
+        Span::new(meta.nwell_vspan.stop(), bounds.vspan().stop()).shrink_all(600),
     );
-    let tap_rect = ptap_bounds.shrink(300);
     let viap = ViaParams::builder()
         .layers(taplayer, pc.m0)
-        .geometry(tap_rect, tap_rect)
+        .geometry(ptap_bounds, ptap_bounds)
         .build();
     let tap = ctx.instantiate::<Via>(&viap)?;
     ctx.draw_ref(&tap)?;
