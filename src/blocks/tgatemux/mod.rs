@@ -300,6 +300,7 @@ mod tests {
                     pex_netlist: Some(pex_netlist_path.clone()),
                     vmeas_conn: AcImpedanceTbNode::Vss,
                     connections: HashMap::from_iter([
+                        (arcstr::literal!("sel"), vec![AcImpedanceTbNode::Vdd]),
                         (arcstr::literal!("sel_b"), vec![AcImpedanceTbNode::Vmeas]),
                         (arcstr::literal!("bl"), vec![AcImpedanceTbNode::Vdd]),
                         (arcstr::literal!("br"), vec![AcImpedanceTbNode::Vdd]),
