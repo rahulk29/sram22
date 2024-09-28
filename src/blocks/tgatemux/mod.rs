@@ -177,7 +177,7 @@ impl Component for TappedTGateMux {
             .alt_mode(AlignMode::Bottom)
             .build();
         tiler.expose_ports(
-            |port: CellPort, _i| match port.name().as_str() {
+            |port: CellPort, i| match port.name().as_str() {
                 "sel" | "sel_b" => {
                     if port.id().index() == 0 {
                         let name = port.name().clone();
@@ -188,6 +188,13 @@ impl Component for TappedTGateMux {
                 }
                 "bl_out" => Some(port.with_id("bl_out")),
                 "br_out" => Some(port.with_id("br_out")),
+                "bl" | "br" => {
+                    if i == 1 {
+                        Some(port)
+                    } else {
+                        None
+                    }
+                }
                 _ => Some(port),
             },
             PortConflictStrategy::Merge,
