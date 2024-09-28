@@ -129,7 +129,14 @@ impl TGateMux {
 
         let mut tracks = Vec::with_capacity(pc.in_tracks.len());
         for i in 0..pc.in_tracks.len() {
-            let rect = Rect::from_spans(pc.in_tracks.index(i), Span::new(out_bot, in_top));
+            let bot = if i == 0 || i == 3 { abs_bot } else { out_bot };
+            let mut hspan = pc.in_tracks.index(i);
+            if i == 0 {
+                hspan = hspan.expand(true, 70);
+            } else if i == 3 {
+                hspan = hspan.expand(false, 70);
+            }
+            let rect = Rect::from_spans(hspan, Span::new(bot, in_top));
             ctx.draw_rect(pc.v_metal, rect);
             tracks.push(rect);
         }
