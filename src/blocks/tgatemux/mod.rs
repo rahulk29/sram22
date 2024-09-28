@@ -178,9 +178,10 @@ impl Component for TappedTGateMux {
             .build();
         tiler.expose_ports(
             |port: CellPort, _i| match port.name().as_str() {
-                "sel_b" => {
+                "sel" | "sel_b" => {
                     if port.id().index() == 0 {
-                        Some(port.with_id("sel_b"))
+                        let name = port.name().clone();
+                        Some(port.with_id(name))
                     } else {
                         None
                     }
