@@ -21,6 +21,7 @@ pub enum Gate {
     And2(And2),
     And3(And3),
     Inv(Inv),
+    FoldedInv(FoldedInv),
     Nand2(Nand2),
     Nand3(Nand3),
     Nor2(Nor2),
@@ -39,6 +40,10 @@ pub struct And3 {
 }
 
 pub struct Inv {
+    params: PrimitiveGateParams,
+}
+
+pub struct FoldedInv {
     params: PrimitiveGateParams,
 }
 
@@ -69,6 +74,7 @@ pub enum GateParams {
     And2(AndParams),
     And3(AndParams),
     Inv(PrimitiveGateParams),
+    FoldedInv(PrimitiveGateParams),
     Nand2(PrimitiveGateParams),
     Nand3(PrimitiveGateParams),
     Nor2(PrimitiveGateParams),
@@ -79,6 +85,7 @@ pub enum GateType {
     And2,
     And3,
     Inv,
+    FoldedInv,
     Nand2,
     Nand3,
     Nor2,
@@ -87,6 +94,7 @@ pub enum GateType {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
 pub enum PrimitiveGateType {
     Inv,
+    FoldedInv,
     Nand2,
     Nand3,
     Nor2,
@@ -125,6 +133,7 @@ impl GateType {
             GateType::And2 => vec![GateType::Nand2, GateType::Inv],
             GateType::And3 => vec![GateType::Nand3, GateType::Inv],
             GateType::Inv => vec![GateType::Inv],
+            GateType::FoldedInv => vec![GateType::FoldedInv],
             GateType::Nand2 => vec![GateType::Nand2],
             GateType::Nand3 => vec![GateType::Nand3],
             GateType::Nor2 => vec![GateType::Nor2],
@@ -132,7 +141,7 @@ impl GateType {
     }
 
     pub fn is_inv(&self) -> bool {
-        matches!(self, GateType::Inv)
+        matches!(self, GateType::Inv | GateType::FoldedInv)
     }
 
     pub fn is_and(&self) -> bool {
@@ -167,6 +176,7 @@ impl GateParams {
     pub fn new_primitive(gt: GateType, params: PrimitiveGateParams) -> Self {
         match gt {
             GateType::Inv => Self::Inv(params),
+            GateType::FoldedInv => Self::FoldedInv(params),
             GateType::Nand2 => Self::Nand2(params),
             GateType::Nand3 => Self::Nand3(params),
             GateType::Nor2 => Self::Nor2(params),
@@ -187,6 +197,7 @@ impl GateParams {
             GateParams::And2(_) => 2,
             GateParams::And3(_) => 3,
             GateParams::Inv(_) => 1,
+            GateParams::FoldedInv(_) => 1,
             GateParams::Nand2(_) => 2,
             GateParams::Nand3(_) => 3,
             GateParams::Nor2(_) => 2,
@@ -198,6 +209,7 @@ impl GateParams {
             GateParams::And2(x) => Self::And2(x.scale(factor)),
             GateParams::And3(x) => Self::And3(x.scale(factor)),
             GateParams::Inv(x) => Self::Inv(x.scale(factor)),
+            GateParams::FoldedInv(x) => Self::FoldedInv(x.scale(factor)),
             GateParams::Nand2(x) => Self::Nand2(x.scale(factor)),
             GateParams::Nand3(x) => Self::Nand3(x.scale(factor)),
             GateParams::Nor2(x) => Self::Nor2(x.scale(factor)),
@@ -209,6 +221,7 @@ impl GateParams {
             GateParams::And2(_) => GateType::And2,
             GateParams::And3(_) => GateType::And3,
             GateParams::Inv(_) => GateType::Inv,
+            GateParams::FoldedInv(_) => GateType::FoldedInv,
             GateParams::Nand2(_) => GateType::Nand2,
             GateParams::Nand3(_) => GateType::Nand3,
             GateParams::Nor2(_) => GateType::Nor2,
@@ -220,6 +233,7 @@ impl GateParams {
             GateParams::And2(a) => a.nand,
             GateParams::And3(a) => a.nand,
             GateParams::Inv(x) => *x,
+            GateParams::FoldedInv(x) => *x,
             GateParams::Nand2(x) => *x,
             GateParams::Nand3(x) => *x,
             GateParams::Nor2(x) => *x,
@@ -231,6 +245,7 @@ impl GateParams {
             GateParams::And2(a) => a.inv,
             GateParams::And3(a) => a.inv,
             GateParams::Inv(x) => *x,
+            GateParams::FoldedInv(x) => *x,
             GateParams::Nand2(x) => *x,
             GateParams::Nand3(x) => *x,
             GateParams::Nor2(x) => *x,
@@ -244,6 +259,7 @@ macro_rules! call_gate_fn {
             Gate::And2(gate) => gate.$fn_call($($arg),*),
             Gate::And3(gate) => gate.$fn_call($($arg),*),
             Gate::Inv(gate) => gate.$fn_call($($arg),*),
+            Gate::FoldedInv(gate) => gate.$fn_call($($arg),*),
             Gate::Nand2(gate) => gate.$fn_call($($arg),*),
             Gate::Nand3(gate) => gate.$fn_call($($arg),*),
             Gate::Nor2(gate) => gate.$fn_call($($arg),*),
@@ -261,6 +277,7 @@ impl Component for Gate {
             GateParams::And2(params) => Self::And2(And2 { params }),
             GateParams::And3(params) => Self::And3(And3 { params }),
             GateParams::Inv(params) => Self::Inv(Inv { params }),
+            GateParams::FoldedInv(params) => Self::FoldedInv(FoldedInv { params }),
             GateParams::Nand2(params) => Self::Nand2(Nand2 { params }),
             GateParams::Nand3(params) => Self::Nand3(Nand3 { params }),
             GateParams::Nor2(params) => Self::Nor2(Nor2 { params }),
@@ -441,6 +458,33 @@ impl Inv {
             pwidth: 2_400,
             length: 150,
         }
+    }
+}
+
+impl Component for FoldedInv {
+    type Params = PrimitiveGateParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self { params: *params })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("folded_inv")
+    }
+
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        self.schematic(ctx)
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        self.layout(ctx)
     }
 }
 

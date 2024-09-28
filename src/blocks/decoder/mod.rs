@@ -310,7 +310,7 @@ pub(crate) fn gate_params(gate: GateType) -> PrimitiveGateParams {
 
 pub(crate) fn primitive_gate_params(gate: PrimitiveGateType) -> PrimitiveGateParams {
     match gate {
-        PrimitiveGateType::Inv => INV_PARAMS,
+        PrimitiveGateType::Inv | PrimitiveGateType::FoldedInv => INV_PARAMS,
         PrimitiveGateType::Nand2 => NAND2_PARAMS,
         PrimitiveGateType::Nand3 => NAND3_PARAMS,
         PrimitiveGateType::Nor2 => NOR2_PARAMS,
@@ -319,7 +319,7 @@ pub(crate) fn primitive_gate_params(gate: PrimitiveGateType) -> PrimitiveGatePar
 
 pub(crate) fn gate_model(gate: GateType) -> GateModel {
     match gate {
-        GateType::Inv => INV_MODEL,
+        GateType::Inv | GateType::FoldedInv => INV_MODEL,
         GateType::Nand2 => NAND2_MODEL,
         GateType::Nand3 => NAND3_MODEL,
         GateType::Nor2 => NOR2_MODEL,
@@ -329,7 +329,7 @@ pub(crate) fn gate_model(gate: GateType) -> GateModel {
 
 pub(crate) fn primitive_gate_model(gate: PrimitiveGateType) -> GateModel {
     match gate {
-        PrimitiveGateType::Inv => INV_MODEL,
+        PrimitiveGateType::Inv | PrimitiveGateType::FoldedInv => INV_MODEL,
         PrimitiveGateType::Nand2 => NAND2_MODEL,
         PrimitiveGateType::Nand3 => NAND3_MODEL,
         PrimitiveGateType::Nor2 => NOR2_MODEL,
@@ -403,6 +403,7 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
                 nand: scale(NAND3_PARAMS, values.next().unwrap()),
             }),
             GateType::Inv => GateParams::Inv(scale(INV_PARAMS, values.next().unwrap())),
+            GateType::FoldedInv => GateParams::FoldedInv(scale(INV_PARAMS, values.next().unwrap())),
             GateType::Nand2 => GateParams::Nand2(scale(NAND2_PARAMS, values.next().unwrap())),
             GateType::Nand3 => GateParams::Nand3(scale(NAND3_PARAMS, values.next().unwrap())),
             GateType::Nor2 => GateParams::Nor2(scale(NOR2_PARAMS, values.next().unwrap())),

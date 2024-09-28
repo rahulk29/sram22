@@ -8,7 +8,6 @@ use substrate::schematic::signal::Signal;
 
 use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
 use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
-use crate::blocks::buf::DiffBufParams;
 use crate::blocks::columns::{ColParams, ColPeripherals};
 use crate::blocks::control::{ControlLogicReplicaV2, DffArray, InvChain};
 use crate::blocks::decoder::{
@@ -429,12 +428,6 @@ impl SramInner {
                 nwidth: 4_000,
                 mux_ratio: self.params.mux_ratio(),
                 idx: 0,
-            },
-            buf: DiffBufParams {
-                width: 4_800,
-                nw: 1_200,
-                pw: 2_000,
-                lch: 150,
             },
             cols: self.params.cols(),
             wmask_granularity: self.params.cols()

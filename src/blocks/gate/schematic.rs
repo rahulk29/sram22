@@ -4,7 +4,7 @@ use substrate::pdk::mos::MosParams;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::elements::mos::SchematicMos;
 
-use super::{And2, And3, Inv, Nand2, Nand3, Nor2};
+use super::{And2, And3, FoldedInv, Inv, Nand2, Nand3, Nor2};
 
 impl And2 {
     pub(crate) fn schematic(
@@ -28,7 +28,7 @@ impl And2 {
         ]);
         ctx.add_instance(nand);
 
-        let mut inv = ctx.instantiate::<Inv>(&self.params.inv)?;
+        let mut inv = ctx.instantiate::<FoldedInv>(&self.params.inv)?;
         inv.connect_all([("vdd", &vdd), ("a", &yb), ("y", &y), ("vss", &vss)]);
         ctx.add_instance(inv);
 
@@ -105,6 +105,54 @@ impl Inv {
             w: self.params.nwidth,
             l: length,
             m: 1,
+            nf: 1,
+            id: nmos_id,
+        })?;
+        mn.connect_all([("d", &y), ("g", &a), ("s", &vss), ("b", &vss)]);
+        mn.set_name("MN0");
+        ctx.add_instance(mn);
+
+        Ok(())
+    }
+}
+
+impl FoldedInv {
+    pub(crate) fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        let vdd = ctx.port("vdd", Direction::InOut);
+        let vss = ctx.port("vss", Direction::InOut);
+        let a = ctx.port("a", Direction::Input);
+        let y = ctx.port("y", Direction::Output);
+
+        let pmos_id = ctx
+            .mos_db()
+            .query(Query::builder().kind(MosKind::Pmos).build().unwrap())?
+            .id();
+
+        let nmos_id = ctx
+            .mos_db()
+            .query(Query::builder().kind(MosKind::Nmos).build().unwrap())?
+            .id();
+
+        let half_params = self.params.scale(0.5);
+
+        let mut mp = ctx.instantiate::<SchematicMos>(&MosParams {
+            w: half_params.pwidth,
+            l: half_params.length,
+            m: 2,
+            nf: 1,
+            id: pmos_id,
+        })?;
+        mp.connect_all([("d", &y), ("g", &a), ("s", &vdd), ("b", &vdd)]);
+        mp.set_name("MP0");
+        ctx.add_instance(mp);
+
+        let mut mn = ctx.instantiate::<SchematicMos>(&MosParams {
+            w: half_params.nwidth,
+            l: half_params.length,
+            m: 2,
             nf: 1,
             id: nmos_id,
         })?;

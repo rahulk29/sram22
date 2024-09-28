@@ -2,8 +2,14 @@ use std::path::PathBuf;
 
 use codegen::hard_macro;
 
-use substrate::component::View;
+use subgeom::bbox::BoundBox;
+use subgeom::{Rect, Sign, Span};
+use substrate::component::{Component, NoParams, View};
 use substrate::data::SubstrateCtx;
+use substrate::layout::cell::{CellPort, Port};
+use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
+use substrate::layout::layers::selector::Selector;
+use substrate::layout::layers::LayerBoundBox;
 
 use crate::tech::{external_gds_path, external_spice_path};
 
@@ -71,13 +77,95 @@ pub struct SenseAmp;
 )]
 pub struct SenseAmpWithOffset;
 
-#[hard_macro(
-    name = "sramgen_sp_sense_amp_cent",
-    pdk = "sky130-open",
-    path_fn = "path",
-    gds_cell_name = "sramgen_sp_sense_amp_cent"
-)]
 pub struct SenseAmpCent;
+
+impl Component for SenseAmpCent {
+    type Params = NoParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self)
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("sense_amp_cent")
+    }
+
+    fn schematic(
+        &self,
+        _ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        Ok(())
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+        let nwell = layers.get(Selector::Name("nwell"))?;
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+        let psdm = layers.get(Selector::Name("psdm"))?;
+        let outline = layers.get(Selector::Name("outline"))?;
+        let tap = layers.get(Selector::Name("tap"))?;
+        let m0 = layers.get(Selector::Metal(0))?;
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+
+        let pc = ctx
+            .inner()
+            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+
+        let sa = ctx.instantiate::<SenseAmp>(&NoParams)?;
+        let hspan = Span::new(0, pc.tap_width);
+        let bounds = Rect::from_spans(hspan, sa.brect().vspan());
+
+        ctx.draw_rect(
+            nwell,
+            Rect::from_spans(hspan, sa.layer_bbox(nwell).into_rect().vspan()),
+        );
+
+        let nspan = sa.layer_bbox(nsdm).into_rect().vspan();
+        let pspan = sa.layer_bbox(psdm).into_rect().vspan();
+
+        for (span, vdd) in [(nspan, true), (pspan, false)] {
+            let r = Rect::from_spans(hspan, span).shrink(200);
+            let viap = ViaParams::builder().layers(tap, m0).geometry(r, r).build();
+            let via = ctx.instantiate::<Via>(&viap)?;
+            ctx.draw(via)?;
+
+            let pspan = sa
+                .port(if vdd { "vdd" } else { "vss" })?
+                .largest_rect(m2)?
+                .vspan();
+            let power_stripe = Rect::from_spans(hspan, pspan);
+
+            let viap = ViaParams::builder().layers(m0, m1).geometry(r, r).build();
+            let via = ctx.instantiate::<Via>(&viap)?;
+            ctx.draw_ref(&via)?;
+
+            let viap = ViaParams::builder()
+                .layers(m1, m2)
+                .geometry(via.layer_bbox(m1), power_stripe)
+                .expand(ViaExpansion::LongerDirection)
+                .build();
+            let via = ctx.instantiate::<Via>(&viap)?;
+            ctx.draw(via)?;
+
+            ctx.draw_rect(m2, power_stripe);
+
+            let name = if vdd {
+                arcstr::literal!("vdd")
+            } else {
+                arcstr::literal!("vss")
+            };
+            ctx.merge_port(CellPort::with_shape(name, m2, power_stripe));
+        }
+        ctx.draw_rect(outline, bounds);
+
+        Ok(())
+    }
+}
 
 #[hard_macro(
     name = "openram_dff",

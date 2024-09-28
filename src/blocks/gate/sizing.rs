@@ -118,7 +118,7 @@ fn size_path(path: &[&GateTreeNode], end: &f64) -> SizedGateTreeNode {
 
     for &node in path {
         let gate = match node.gate {
-            PrimitiveGateType::Inv => crate::blocks::decoder::scale(
+            PrimitiveGateType::Inv | PrimitiveGateType::FoldedInv => crate::blocks::decoder::scale(
                 crate::blocks::decoder::INV_PARAMS,
                 values.next().unwrap(),
             ),
