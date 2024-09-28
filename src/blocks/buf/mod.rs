@@ -1,55 +1,17 @@
 use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 
+use super::gate::PrimitiveGateParams;
+
 pub mod layout;
 pub mod schematic;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BufParams {
-    pub nw: i64,
-    pub pw: i64,
-    pub lch: i64,
-}
-
-pub struct Buf {
-    params: BufParams,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DiffBufParams {
-    pub width: i64,
-    pub nw: i64,
-    pub pw: i64,
-    pub lch: i64,
-}
-
 pub struct DiffBuf {
-    params: DiffBufParams,
-}
-
-impl Component for Buf {
-    type Params = BufParams;
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
-    }
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("buf")
-    }
-    fn schematic(
-        &self,
-        ctx: &mut substrate::schematic::context::SchematicCtx,
-    ) -> substrate::error::Result<()> {
-        self.schematic(ctx)
-    }
+    params: PrimitiveGateParams,
 }
 
 impl Component for DiffBuf {
-    type Params = DiffBufParams;
+    type Params = PrimitiveGateParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
@@ -85,11 +47,10 @@ mod tests {
     use super::layout::DiffBufCent;
     use super::*;
 
-    const PARAMS: DiffBufParams = DiffBufParams {
-        lch: 150,
-        nw: 1_000,
-        pw: 2_000,
-        width: 4_800,
+    const PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+        length: 150,
+        nwidth: 1_000,
+        pwidth: 2_000,
     };
 
     #[test]

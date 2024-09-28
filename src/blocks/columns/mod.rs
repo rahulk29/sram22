@@ -4,7 +4,6 @@ use substrate::component::Component;
 use substrate::layout::context::LayoutCtx;
 use substrate::schematic::context::SchematicCtx;
 
-use super::buf::DiffBufParams;
 use super::precharge::PrechargeParams;
 use super::tgatemux::TGateMuxParams;
 use super::wrdriver::WriteDriverParams;
@@ -18,7 +17,6 @@ pub struct ColParams {
     pub pc: PrechargeParams,
     pub mux: TGateMuxParams,
     pub wrdriver: WriteDriverParams,
-    pub buf: DiffBufParams,
     pub cols: usize,
     pub include_wmask: bool,
     pub wmask_granularity: usize,
@@ -131,18 +129,11 @@ mod tests {
         pull_up_width: 2_000,
         equalizer_width: 1_200,
     };
-    const DIFF_BUF_PARAMS: DiffBufParams = DiffBufParams {
-        width: 4_800,
-        nw: 1_200,
-        pw: 2_000,
-        lch: 150,
-    };
 
     const COL_WMASK_PARAMS: ColParams = ColParams {
         pc: PRECHARGE_PARAMS,
         wrdriver: WRITE_DRIVER_PARAMS,
         mux: MUX_PARAMS,
-        buf: DIFF_BUF_PARAMS,
         cols: 16,
         include_wmask: true,
         wmask_granularity: 2,
@@ -152,7 +143,6 @@ mod tests {
         pc: PRECHARGE_PARAMS,
         wrdriver: WRITE_DRIVER_PARAMS,
         mux: MUX_PARAMS,
-        buf: DIFF_BUF_PARAMS,
         cols: 128,
         include_wmask: false,
         wmask_granularity: 8,

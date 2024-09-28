@@ -1,6 +1,9 @@
 use substrate::schematic::circuit::Direction;
 
-use crate::blocks::gate::{And2, AndParams, PrimitiveGateParams, TristateInv};
+use crate::blocks::{
+    delay_line::tristate::TristateInv,
+    gate::{And2, AndParams, PrimitiveGateParams},
+};
 
 use super::WriteDriver;
 
@@ -49,10 +52,10 @@ impl WriteDriver {
         })?
         .with_connections([
             ("vdd", vdd),
-            ("a", data_b),
+            ("din", data_b),
             ("en", en),
-            ("enb", en_b),
-            ("y", bl),
+            ("en_b", en_b),
+            ("din_b", bl),
             ("vss", vss),
         ])
         .named("bldriver")
@@ -65,10 +68,10 @@ impl WriteDriver {
         })?
         .with_connections([
             ("vdd", vdd),
-            ("a", data),
+            ("din", data),
             ("en", en),
-            ("enb", en_b),
-            ("y", br),
+            ("en_b", en_b),
+            ("din_b", br),
             ("vss", vss),
         ])
         .named("brdriver")

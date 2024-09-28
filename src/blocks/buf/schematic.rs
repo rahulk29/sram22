@@ -4,41 +4,11 @@ use substrate::schematic::context::SchematicCtx;
 
 use crate::blocks::gate::{Inv, PrimitiveGateParams};
 
-use super::{Buf, BufParams, DiffBuf};
-
-impl Buf {
-    pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
-        let length = self.params.lch;
-
-        let vdd = ctx.port("vdd", Direction::InOut);
-        let vss = ctx.port("vss", Direction::InOut);
-        let din = ctx.port("din", Direction::Input);
-        let dout = ctx.port("dout", Direction::Output);
-        let x = ctx.signal("x");
-
-        let inv_params = &PrimitiveGateParams {
-            nwidth: self.params.nw,
-            pwidth: self.params.pw,
-            length,
-        };
-
-        let mut inv1 = ctx.instantiate::<Inv>(inv_params)?;
-        inv1.connect_all([("vdd", &vdd), ("vss", &vss), ("a", &din), ("y", &x)]);
-        inv1.set_name("inv_1".to_string());
-        ctx.add_instance(inv1);
-
-        let mut inv2 = ctx.instantiate::<Inv>(inv_params)?;
-        inv2.connect_all([("vdd", &vdd), ("vss", &vss), ("a", &x), ("y", &dout)]);
-        inv2.set_name("inv_2".to_string());
-        ctx.add_instance(inv2);
-
-        Ok(())
-    }
-}
+use super::DiffBuf;
 
 impl DiffBuf {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
-        let _length = self.params.lch;
+        let _length = self.params.length;
 
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
@@ -47,12 +17,8 @@ impl DiffBuf {
         let dout1 = ctx.port("dout1", Direction::Output);
         let dout2 = ctx.port("dout2", Direction::Output);
 
-        for (din, dout, suffix) in [(&din1, &dout1, "1"), (&din2, &dout2, "2")] {
-            let mut buf = ctx.instantiate::<Buf>(&BufParams {
-                pw: self.params.pw,
-                nw: self.params.nw,
-                lch: self.params.lch,
-            })?;
+        for (din, dout, suffix) in [(&din1, &dout2, "1"), (&din2, &dout1, "2")] {
+            let mut buf = ctx.instantiate::<Inv>(&self.params)?;
             buf.connect_all([("vdd", &vdd), ("vss", &vss), ("din", din), ("dout", dout)]);
             buf.set_name(format!("buf_{suffix}"));
             ctx.add_instance(buf);

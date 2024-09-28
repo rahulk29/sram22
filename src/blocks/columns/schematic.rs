@@ -202,17 +202,17 @@ impl Column {
         sa.set_name("sense_amp");
         ctx.add_instance(sa);
 
-        let mut buf = ctx.instantiate::<DiffBuf>(&self.params.buf)?;
-        buf.connect_all([
-            ("vdd", &vdd),
-            ("vss", &vss),
-            ("din1", &sa_outp),
-            ("din2", &sa_outn),
-            ("dout1", &dout),
-            ("dout2", &diff_buf_outn),
-        ]);
-        buf.set_name("buf");
-        ctx.add_instance(buf);
+        // let mut buf = ctx.instantiate::<DiffBuf>(&self.params.buf)?;
+        // buf.connect_all([
+        //     ("vdd", &vdd),
+        //     ("vss", &vss),
+        //     ("din1", &sa_outp),
+        //     ("din2", &sa_outn),
+        //     ("dout1", &dout),
+        //     ("dout2", &diff_buf_outn),
+        // ]);
+        // buf.set_name("buf");
+        // ctx.add_instance(buf);
 
         let mut dff = ctx.instantiate::<Dff>(&NoParams)?;
         dff.connect_all([
