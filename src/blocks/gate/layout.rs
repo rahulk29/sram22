@@ -6,7 +6,7 @@ use substrate::layout::placement::align::AlignRect;
 use substrate::layout::routing::manual::jog::OffsetJog;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 
-use super::{And2, And3, Inv, Nand2, Nand3, Nor2};
+use super::{And2, And3, FoldedInv, Inv, Nand2, Nand3, Nor2};
 
 impl And2 {
     pub(crate) fn layout(
@@ -14,25 +14,30 @@ impl And2 {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let nand = ctx.instantiate::<Nand2>(&self.params.nand)?;
-        let mut inv = ctx.instantiate::<Inv>(&self.params.inv)?;
+        let mut inv = ctx.instantiate::<FoldedInv>(&self.params.inv)?;
 
         inv.align_to_the_right_of(nand.bbox(), 300);
         inv.align_centers_vertically_gridded(nand.bbox(), ctx.pdk().layout_grid());
 
         let m0 = nand.port("y")?.any_layer();
-        let dst = inv.port("a")?.largest_rect(m0)?;
-        let jog = OffsetJog::builder()
-            .dir(subgeom::Dir::Horiz)
-            .sign(subgeom::Sign::Pos)
-            .src(nand.port("y")?.largest_rect(m0)?)
-            .dst(dst.bottom())
-            .layer(m0)
-            .space(170)
-            .build()
-            .unwrap();
-        let rect = Rect::from_spans(Span::new(jog.r2().left(), dst.right()), dst.vspan());
-        ctx.draw(jog)?;
-        ctx.draw_rect(m0, rect);
+        for dst in inv
+            .port("a")?
+            .shapes(m0)
+            .filter_map(|shape| shape.as_rect())
+        {
+            let jog = OffsetJog::builder()
+                .dir(subgeom::Dir::Horiz)
+                .sign(subgeom::Sign::Pos)
+                .src(nand.port("y")?.largest_rect(m0)?)
+                .dst(dst.bottom())
+                .layer(m0)
+                .space(170)
+                .build()
+                .unwrap();
+            let rect = Rect::from_spans(Span::new(jog.r2().left(), dst.right()), dst.vspan());
+            ctx.draw(jog)?;
+            ctx.draw_rect(m0, rect);
+        }
 
         ctx.add_port(
             nand.port("vdd")?
@@ -168,6 +173,66 @@ impl Inv {
             .unwrap();
         ctx.add_port(mos.port("sd_1_0")?.into_cell_port().named("vdd"))
             .unwrap();
+        ctx.add_port(CellPort::with_shape("y", m0, short)).unwrap();
+
+        ctx.flatten();
+        Ok(())
+    }
+}
+
+impl FoldedInv {
+    pub(crate) fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let db = ctx.mos_db();
+        let nmos = db.default_nmos().unwrap();
+        let pmos = db.default_pmos().unwrap();
+        let half_params = self.params.scale(0.5);
+
+        let params = LayoutMosParams {
+            skip_sd_metal: vec![vec![]; 3],
+            deep_nwell: true,
+            contact_strategy: GateContactStrategy::SingleSide,
+            devices: vec![
+                MosParams {
+                    w: half_params.nwidth,
+                    l: half_params.length,
+                    m: 1,
+                    nf: 2,
+                    id: nmos.id(),
+                },
+                MosParams {
+                    w: half_params.pwidth,
+                    l: half_params.length,
+                    m: 1,
+                    nf: 2,
+                    id: pmos.id(),
+                },
+            ],
+        };
+        let mos = ctx.instantiate::<LayoutMos>(&params)?;
+        ctx.draw_ref(&mos)?;
+
+        let m0 = mos.port("gate_0")?.any_layer();
+
+        let short = mos
+            .port("sd_0_1")?
+            .largest_rect(m0)?
+            .bbox()
+            .union(mos.port("sd_1_1")?.largest_rect(m0)?.bbox())
+            .into_rect();
+        ctx.draw_rect(m0, short);
+
+        ctx.add_port(mos.port("gate_0")?.into_cell_port().named("a"))
+            .unwrap();
+        ctx.merge_port(mos.port("gate_1")?.into_cell_port().named("a"));
+        ctx.add_port(mos.port("sd_0_0")?.into_cell_port().named("vss"))
+            .unwrap();
+        ctx.merge_port(mos.port("sd_0_2")?.into_cell_port().named("vss"));
+        ctx.add_port(mos.port("sd_1_0")?.into_cell_port().named("vdd"))
+            .unwrap();
+        ctx.merge_port(mos.port("sd_1_2")?.into_cell_port().named("vdd"));
         ctx.add_port(CellPort::with_shape("y", m0, short)).unwrap();
 
         ctx.flatten();

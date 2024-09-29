@@ -37,7 +37,9 @@ pub struct DecoderParams {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DecoderStageParams {
+    pub max_width: Option<i64>,
     pub gate: GateParams,
+    pub invs: Vec<PrimitiveGateParams>,
     pub num: usize,
     pub child_sizes: Vec<usize>,
 }
@@ -64,10 +66,6 @@ struct PlanTreeNode {
     skew_rising: bool,
 }
 
-pub struct WlDriver {
-    params: DecoderStageParams,
-}
-
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AddrGateParams {
     pub gate: GateParams,
@@ -77,59 +75,6 @@ pub struct AddrGateParams {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AddrGate {
     params: AddrGateParams,
-}
-
-impl Component for WlDriver {
-    type Params = DecoderStageParams;
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
-    }
-
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("wordline_driver")
-    }
-
-    fn schematic(
-        &self,
-        ctx: &mut substrate::schematic::context::SchematicCtx,
-    ) -> substrate::error::Result<()> {
-        let n = self.params.num;
-        let vdd = ctx.port("vdd", Direction::InOut);
-        let input = ctx.bus_port("in", n, Direction::Input);
-        let en = ctx.port("wl_en", Direction::Input);
-        let y = ctx.bus_port("decode", n, Direction::Output);
-        let yb = ctx.bus_port("decode_b", n, Direction::Output);
-        let vss = ctx.port("vss", Direction::InOut);
-        for i in 0..n {
-            ctx.instantiate::<Gate>(&self.params.gate)?
-                .with_connections([
-                    ("vdd", vdd),
-                    ("a", input.index(i)),
-                    ("b", en),
-                    ("y", y.index(i)),
-                    ("yb", yb.index(i)),
-                    ("vss", vss),
-                ])
-                .named(format!("gate_{i}"))
-                .add_to(ctx);
-        }
-        Ok(())
-    }
-
-    fn layout(
-        &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
-    ) -> substrate::error::Result<()> {
-        let dsn = ctx
-            .inner()
-            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
-        decoder_stage_layout(ctx, &self.params, &dsn, RoutingStyle::Driver)
-    }
 }
 
 impl Component for AddrGate {
@@ -208,7 +153,9 @@ impl Component for AddrGate {
             .inner()
             .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
         let params = DecoderStageParams {
+            max_width: None,
             gate: self.params.gate,
+            invs: vec![],
             num: self.params.num,
             child_sizes: vec![],
         };
@@ -232,7 +179,9 @@ impl Component for WmuxDriver {
         };
         Ok(Self {
             params: DecoderStageParams {
+                max_width: None,
                 gate,
+                invs: vec![],
                 num: params.num,
                 child_sizes: params.child_sizes.clone(),
             },
@@ -386,7 +335,7 @@ pub(crate) fn gate_params(gate: GateType) -> PrimitiveGateParams {
 
 pub(crate) fn primitive_gate_params(gate: PrimitiveGateType) -> PrimitiveGateParams {
     match gate {
-        PrimitiveGateType::Inv => INV_PARAMS,
+        PrimitiveGateType::Inv | PrimitiveGateType::FoldedInv => INV_PARAMS,
         PrimitiveGateType::Nand2 => NAND2_PARAMS,
         PrimitiveGateType::Nand3 => NAND3_PARAMS,
         PrimitiveGateType::Nor2 => NOR2_PARAMS,
@@ -395,7 +344,7 @@ pub(crate) fn primitive_gate_params(gate: PrimitiveGateType) -> PrimitiveGatePar
 
 pub(crate) fn gate_model(gate: GateType) -> GateModel {
     match gate {
-        GateType::Inv => INV_MODEL,
+        GateType::Inv | GateType::FoldedInv => INV_MODEL,
         GateType::Nand2 => NAND2_MODEL,
         GateType::Nand3 => NAND3_MODEL,
         GateType::Nor2 => NOR2_MODEL,
@@ -405,7 +354,7 @@ pub(crate) fn gate_model(gate: GateType) -> GateModel {
 
 pub(crate) fn primitive_gate_model(gate: PrimitiveGateType) -> GateModel {
     match gate {
-        PrimitiveGateType::Inv => INV_MODEL,
+        PrimitiveGateType::Inv | PrimitiveGateType::FoldedInv => INV_MODEL,
         PrimitiveGateType::Nand2 => NAND2_MODEL,
         PrimitiveGateType::Nand3 => NAND3_MODEL,
         PrimitiveGateType::Nor2 => NOR2_MODEL,
@@ -479,6 +428,7 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
                 nand: scale(NAND3_PARAMS, values.next().unwrap()),
             }),
             GateType::Inv => GateParams::Inv(scale(INV_PARAMS, values.next().unwrap())),
+            GateType::FoldedInv => GateParams::FoldedInv(scale(INV_PARAMS, values.next().unwrap())),
             GateType::Nand2 => GateParams::Nand2(scale(NAND2_PARAMS, values.next().unwrap())),
             GateType::Nand3 => GateParams::Nand3(scale(NAND3_PARAMS, values.next().unwrap())),
             GateType::Nor2 => GateParams::Nor2(scale(NOR2_PARAMS, values.next().unwrap())),
@@ -745,6 +695,7 @@ mod tests {
         let work_dir = test_work_dir("test_decoder_stage_4");
 
         let params = DecoderStageParams {
+            max_width: None,
             gate: GateParams::And2(AndParams {
                 nand: PrimitiveGateParams {
                     nwidth: 3_000,
@@ -757,6 +708,7 @@ mod tests {
                     length: 150,
                 },
             }),
+            invs: vec![],
             num: 4,
             child_sizes: vec![2, 2],
         };
@@ -775,7 +727,7 @@ mod tests {
             .expect("failed to run design script");
 
         let params = DecoderGateParams {
-            gate: GateParams::And2(AndParams {
+            gate: Some(GateParams::And2(AndParams {
                 nand: PrimitiveGateParams {
                     nwidth: 2_000,
                     pwidth: 2_000,
@@ -786,7 +738,7 @@ mod tests {
                     pwidth: 2_000,
                     length: 150,
                 },
-            }),
+            })),
             dsn: (*dsn).clone(),
         };
 
@@ -834,6 +786,7 @@ mod tests {
         let work_dir = test_work_dir("test_last_bit_decoder_4");
 
         let params = DecoderStageParams {
+            max_width: Some(70_000),
             gate: GateParams::And2(AndParams {
                 nand: PrimitiveGateParams {
                     nwidth: 3_000,
@@ -846,9 +799,18 @@ mod tests {
                     length: 150,
                 },
             }),
+            invs: vec![PrimitiveGateParams {
+                nwidth: 2_000,
+                pwidth: 2_000,
+                length: 150,
+            }],
             num: 16,
             child_sizes: vec![4, 4],
         };
+
+        let spice_path = out_spice(&work_dir, "schematic");
+        ctx.write_schematic_to_file::<LastBitDecoderStage>(&params, &spice_path)
+            .expect("failed to write schematic");
 
         ctx.write_layout::<LastBitDecoderStage>(&params, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
@@ -860,6 +822,15 @@ mod tests {
             assert!(matches!(
                 output.summary,
                 substrate::verification::drc::DrcSummary::Pass
+            ));
+
+            let lvs_work_dir = work_dir.join("lvs");
+            let output = ctx
+                .write_lvs::<LastBitDecoderStage>(&params, lvs_work_dir)
+                .expect("failed to run LVS");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::lvs::LvsSummary::Pass
             ));
         }
     }
