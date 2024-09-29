@@ -1,4 +1,5 @@
 use serde::Serialize;
+use subgeom::bbox::BoundBox;
 use substrate::component::Component;
 use substrate::layout::cell::{CellPort, PortConflictStrategy};
 use substrate::layout::placement::align::AlignMode;
@@ -31,6 +32,10 @@ pub struct TGateMuxParams {
 }
 
 pub struct TappedTGateMux {
+    pub params: TGateMuxParams,
+}
+
+pub struct TGateMuxGroup {
     pub params: TGateMuxParams,
 }
 
@@ -207,6 +212,36 @@ impl Component for TappedTGateMux {
     }
 }
 
+impl Component for TGateMuxGroup {
+    type Params = TGateMuxParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(TGateMuxGroup {
+            params: params.clone(),
+        })
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("tgate_mux_group")
+    }
+
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        todo!()
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        self.layout(ctx)
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -262,6 +297,14 @@ mod tests {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_tgate_mux_end");
         ctx.write_layout::<TGateMuxEnd>(&TGATE_MUX_PARAMS, out_gds(work_dir, "layout"))
+            .expect("failed to write layout");
+    }
+
+    #[test]
+    fn test_tgate_mux_group() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_tgate_mux_group");
+        ctx.write_layout::<TGateMuxGroup>(&TGATE_MUX_PARAMS, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 

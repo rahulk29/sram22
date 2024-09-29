@@ -4,7 +4,7 @@ use subgeom::orientation::Named;
 use subgeom::{Dir, Point, Rect, Side, Span};
 use substrate::component::NoParams;
 use substrate::index::IndexOwned;
-use substrate::layout::cell::{CellPort, Port, PortId};
+use substrate::layout::cell::{CellPort, Port, PortConflictStrategy, PortId};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
@@ -18,10 +18,11 @@ use substrate::pdk::mos::query::Query;
 use substrate::pdk::mos::spec::MosKind;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 
-use super::{TGateMux, TGateMuxCent, TGateMuxEnd, TGateMuxParams};
+use super::{TGateMux, TGateMuxCent, TGateMuxEnd, TGateMuxGroup, TGateMuxParams};
 
 use derive_builder::Builder;
-use substrate::layout::placement::align::AlignRect;
+use substrate::layout::placement::align::{AlignMode, AlignRect};
+use substrate::layout::placement::array::ArrayTiler;
 
 const GATE_LINE: i64 = 320;
 const GATE_SPACE: i64 = 180;
@@ -137,7 +138,6 @@ impl TGateMux {
                 hspan = hspan.expand(false, 70);
             }
             let rect = Rect::from_spans(hspan, Span::new(bot, in_top));
-            ctx.draw_rect(pc.v_metal, rect);
             tracks.push(rect);
         }
 
@@ -146,6 +146,7 @@ impl TGateMux {
 
         let mut metadata = Metadata::builder();
         metadata.sel_tracks_ystart(nmos.brect().top());
+        metadata.bl_in_top(in_top);
 
         for (port, idx) in [("sd_1_1", 2), ("sd_0_0", 1)] {
             let target = nmos.port(port)?.largest_rect(pc.m0)?;
@@ -332,6 +333,7 @@ impl TGateMux {
 
 #[derive(Debug, Builder)]
 struct Metadata {
+    bl_in_top: i64,
     split_via1: Vec<ViaParams>,
     split_via0: Vec<ViaParams>,
     split_track: Rect,
@@ -384,11 +386,11 @@ fn tgate_mux_tap_layout(
     }
 
     let mut vtrack = meta.split_track.double(Side::Left);
-    if !end {
-        ctx.draw_rect(pc.v_metal, vtrack);
-    }
+    // if !end {
+    //     ctx.draw_rect(pc.v_metal, vtrack);
+    // }
     vtrack.place_center(Point::new(width, vtrack.center().y));
-    ctx.draw_rect(pc.v_metal, vtrack);
+    // ctx.draw_rect(pc.v_metal, vtrack);
 
     for i in 0..params.mux_ratio {
         let vspan = Span::with_stop_and_length(-(GATE_LINE + GATE_SPACE) * i as i64, GATE_LINE);
@@ -515,6 +517,83 @@ impl TGateMuxEnd {
             .inner()
             .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
         tgate_mux_tap_layout(pc.tap_width, true, &self.params, ctx)?;
+        Ok(())
+    }
+}
+
+impl TGateMuxGroup {
+    pub(crate) fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let pc = ctx
+            .inner()
+            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+
+        let params = TGateMuxParams {
+            idx: 0,
+            ..self.params
+        };
+        let gate = ctx.instantiate::<TGateMux>(&params)?;
+        let meta = gate.cell().get_metadata::<Metadata>();
+        let mut tiler = ArrayTiler::builder();
+
+        for i in 0..self.params.mux_ratio {
+            let params = TGateMuxParams {
+                idx: i,
+                ..self.params
+            };
+            let mut gate = ctx.instantiate::<TGateMux>(&params)?;
+            if i % 2 != 0 {
+                gate.reflect_horiz_anchored();
+            }
+            tiler.push(gate);
+        }
+        let mut tiler = tiler
+            .mode(AlignMode::ToTheRight)
+            .alt_mode(AlignMode::Bottom)
+            .build();
+        tiler.expose_ports(
+            |port: CellPort, i| match port.name().as_str() {
+                "sel" | "sel_b" => Some(port),
+                "bl_out" | "br_out" => None,
+                "bl" | "br" => Some(port.with_index(i)),
+                _ => Some(port),
+            },
+            PortConflictStrategy::Merge,
+        )?;
+        ctx.add_ports(tiler.ports().cloned()).unwrap();
+        let blbr_top = meta.bl_in_top + tiler.translation(0).y;
+
+        ctx.draw_ref(&tiler)?;
+
+        for i in 0..2 {
+            let brm1 = Rect::from_spans(
+                Span::from_center_span((self.params.mux_ratio / 2 + i) as i64 * pc.width, 280),
+                Span::new(-2 * (GATE_LINE + GATE_SPACE), blbr_top),
+            );
+            ctx.draw_rect(pc.v_metal, brm1);
+            let brm2 = Rect::from_spans(
+                Span::new(0, self.params.mux_ratio as i64 * pc.width),
+                Span::with_start_and_length(
+                    -((i + 1) as i64) * (GATE_LINE + GATE_SPACE),
+                    GATE_LINE,
+                ),
+            );
+            ctx.draw_rect(pc.h_metal, brm2);
+
+            let viap = ViaParams::builder()
+                .layers(pc.v_metal, pc.h_metal)
+                .geometry(brm1, brm2)
+                .expand(ViaExpansion::LongerDirection)
+                .build();
+            let via = ctx.instantiate::<Via>(&viap)?;
+            ctx.draw(via)?;
+            let port_name = if i == 0 { "br_out" } else { "bl_out" };
+
+            ctx.add_port(CellPort::with_shape(port_name, pc.h_metal, brm2))?;
+        }
+
         Ok(())
     }
 }
