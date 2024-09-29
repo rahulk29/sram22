@@ -327,6 +327,9 @@ impl TGateMux {
             ctx.draw_rect(nsdm, Rect::from_spans(bounds.hspan(), span));
         }
 
+        let outline = layers.get(Selector::Name("outline"))?;
+        ctx.draw_rect(outline, ctx.brect());
+
         Ok(())
     }
 }
@@ -437,6 +440,7 @@ fn tgate_mux_tap_layout(
     let nwell = layers.get(Selector::Name("nwell"))?;
     let nsdm = layers.get(Selector::Name("nsdm"))?;
     let psdm = layers.get(Selector::Name("psdm"))?;
+    let outline = layers.get(Selector::Name("outline"))?;
 
     // Draw n+ tap to nwell.
     let viap = ViaParams::builder()
@@ -504,6 +508,12 @@ fn tgate_mux_tap_layout(
 
     ctx.draw_rect(nwell, ntap_bounds);
     ctx.draw_rect(nsdm, ntap_bounds);
+
+    let mux_outline = mux.layer_bbox(outline).into_rect();
+    ctx.draw_rect(
+        outline,
+        Rect::from_spans(ctx.brect().hspan(), mux_outline.vspan()),
+    );
 
     Ok(())
 }
@@ -593,6 +603,17 @@ impl TGateMuxGroup {
 
             ctx.add_port(CellPort::with_shape(port_name, pc.h_metal, brm2))?;
         }
+
+        let layers = ctx.layers();
+        let outline = layers.get(Selector::Name("outline"))?;
+        let mux_outline = gate.layer_bbox(outline).into_rect();
+        ctx.draw_rect(
+            outline,
+            Rect::from_spans(
+                ctx.brect().hspan(),
+                mux_outline.vspan().translate(tiler.translation(0).y),
+            ),
+        );
 
         Ok(())
     }
