@@ -2,7 +2,7 @@ use substrate::error::Result;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
-use crate::blocks::gate::{Inv, PrimitiveGateParams};
+use crate::blocks::gate::{FoldedInv, Inv, PrimitiveGateParams};
 
 use super::DiffBuf;
 
@@ -18,8 +18,8 @@ impl DiffBuf {
         let dout2 = ctx.port("dout2", Direction::Output);
 
         for (din, dout, suffix) in [(&din1, &dout2, "1"), (&din2, &dout1, "2")] {
-            let mut buf = ctx.instantiate::<Inv>(&self.params)?;
-            buf.connect_all([("vdd", &vdd), ("vss", &vss), ("din", din), ("dout", dout)]);
+            let mut buf = ctx.instantiate::<FoldedInv>(&self.params)?;
+            buf.connect_all([("vdd", &vdd), ("vss", &vss), ("a", din), ("y", dout)]);
             buf.set_name(format!("buf_{suffix}"));
             ctx.add_instance(buf);
         }

@@ -13,7 +13,7 @@ use crate::blocks::control::{ControlLogicReplicaV2, DffArray, InvChain};
 use crate::blocks::decoder::{
     AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderTree, INV_PARAMS, NAND2_PARAMS,
 };
-use crate::blocks::gate::{AndParams, GateParams};
+use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams};
 use crate::blocks::precharge::{Precharge, PrechargeParams};
 use crate::blocks::tgatemux::TGateMuxParams;
 use crate::blocks::wrdriver::WriteDriverParams;
@@ -428,6 +428,11 @@ impl SramInner {
                 nwidth: 4_000,
                 mux_ratio: self.params.mux_ratio(),
                 idx: 0,
+            },
+            buf: PrimitiveGateParams {
+                nwidth: 1_200,
+                pwidth: 2_000,
+                length: 150,
             },
             cols: self.params.cols(),
             wmask_granularity: self.params.cols()

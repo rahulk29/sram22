@@ -128,11 +128,13 @@ impl Component for SenseAmpCent {
         let nspan = sa.layer_bbox(nsdm).into_rect().vspan();
         let pspan = sa.layer_bbox(psdm).into_rect().vspan();
 
-        for (span, vdd) in [(nspan, true), (pspan, false)] {
+        for (span, vdd) in [(pspan, true), (nspan, false)] {
             let r = Rect::from_spans(hspan, span).shrink(200);
             let viap = ViaParams::builder().layers(tap, m0).geometry(r, r).build();
             let via = ctx.instantiate::<Via>(&viap)?;
-            ctx.draw(via)?;
+            ctx.draw_ref(&via)?;
+            let sdm_rect = via.layer_bbox(tap).into_rect().expand(130);
+            ctx.draw_rect(if vdd { nsdm } else { psdm }, sdm_rect);
 
             let pspan = sa
                 .port(if vdd { "vdd" } else { "vss" })?
@@ -146,7 +148,7 @@ impl Component for SenseAmpCent {
 
             let viap = ViaParams::builder()
                 .layers(m1, m2)
-                .geometry(via.layer_bbox(m1), power_stripe)
+                .geometry(via.layer_bbox(m1).into_rect(), power_stripe)
                 .expand(ViaExpansion::LongerDirection)
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;

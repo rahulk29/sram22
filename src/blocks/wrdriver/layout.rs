@@ -1,7 +1,7 @@
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
 use subgeom::{Dir, Point, Rect, Side, Sign, Span};
-use substrate::component::NoParams;
+use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
 use substrate::layout::cell::{CellPort, Port, PortId};
 use substrate::layout::context::LayoutCtx;
@@ -23,22 +23,17 @@ use crate::blocks::delay_line::tristate::TristateInv;
 use crate::blocks::gate::{And2, AndParams, PrimitiveGateParams};
 use crate::blocks::macros::SenseAmp;
 
-use super::WriteDriver;
+use super::{WriteDriver, WriteDriverParams};
 
 use derive_builder::Builder;
 
-const GATE_SPACE: i64 = 210;
-const IMPLANT_PAD: i64 = 400;
+pub const POWER_HEIGHT: i64 = 800;
 
 impl WriteDriver {
     pub(crate) fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let pc = ctx
-            .inner()
-            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
-
         let layers = ctx.layers();
         let m0 = layers.get(Selector::Metal(0))?;
         let m1 = layers.get(Selector::Metal(1))?;
@@ -52,16 +47,6 @@ impl WriteDriver {
             nwidth: self.params.nwidth_driver,
             length: self.params.length,
         };
-        let logic_params = PrimitiveGateParams {
-            pwidth: self.params.pwidth_logic,
-            nwidth: self.params.nwidth_logic,
-            length: self.params.length,
-        };
-
-        // let mut outs = [None, None];
-        let stripe_width = 340;
-        let stripe_space = 160;
-        // let stripe_span = Span::new(-self.params.width, 2 * self.params.width);
 
         let blinv = ctx
             .instantiate::<TristateInv>(&driver_params)?
@@ -92,7 +77,8 @@ impl WriteDriver {
             let viap = ViaParams::builder()
                 .layers(m0, m1)
                 .geometry(m0_rect, m1_rect)
-                .expand(ViaExpansion::LongerDirection)
+                .top_extension(Dir::Vert)
+                .bot_extension(Dir::Horiz)
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;
             ctx.draw_ref(&via)?;
@@ -130,6 +116,35 @@ impl WriteDriver {
             ctx.draw_rect(m2, port_rect);
             ctx.add_port(CellPort::builder().id(port).add(m2, port_rect).build())?;
         }
+
+        for port in ["vdd", "vss"] {
+            let power_span = Span::from_center_span_gridded(
+                blinv.port(port)?.largest_rect(m0)?.center().y,
+                POWER_HEIGHT,
+                ctx.pdk().layout_grid(),
+            );
+            let power_stripe = Rect::from_spans(hspan, power_span);
+            for inst in [&blinv, &brinv] {
+                let pwr = inst.port(port)?.largest_rect(m0)?;
+                let viap = ViaParams::builder()
+                    .layers(m0, m1)
+                    .geometry(pwr, pwr)
+                    .expand(ViaExpansion::LongerDirection)
+                    .build();
+                let via = ctx.instantiate::<Via>(&viap)?;
+                ctx.draw_ref(&via)?;
+                let viap = ViaParams::builder()
+                    .layers(m1, m2)
+                    .geometry(via.layer_bbox(m1), power_stripe)
+                    .expand(ViaExpansion::LongerDirection)
+                    .build();
+                let via = ctx.instantiate::<Via>(&viap)?;
+                ctx.draw(via)?;
+            }
+            ctx.draw_rect(m2, power_stripe);
+            ctx.merge_port(CellPort::with_shape(port, m2, power_stripe));
+        }
+
         ctx.add_port(
             CellPort::builder()
                 .id("data_b")
@@ -143,7 +158,6 @@ impl WriteDriver {
                 .build(),
         )?;
 
-        ctx.draw_rect(nwell, blinv.layer_bbox(nwell).into_rect().with_hspan(hspan));
         ctx.draw_rect(
             nsdm,
             blinv
@@ -158,318 +172,114 @@ impl WriteDriver {
                 .union(brinv.layer_bbox(psdm))
                 .into_rect(),
         );
+        let nwell_vspan = blinv.layer_bbox(nwell).into_rect().vspan();
         ctx.draw(blinv)?;
         ctx.draw(brinv)?;
-        // let mut cols = Vec::with_capacity(2);
-        // for j in 0..2 {
-        //     for (i, out) in outs.iter_mut().enumerate() {
-        //         let mut inv = ctx.instantiate::<LayoutMos>(&params)?;
-        //         inv.place_center_x(j * (inv.brect().width() + 2 * 170));
-        //         if i == 0 {
-        //             inv.place_center_y(self.params.width / 4);
-        //         } else {
-        //             inv.orientation_mut().reflect_vert();
-        //             inv.place_center_y(3 * self.params.width / 4);
-        //         }
-
-        //         for elem in inv.cell().elems() {
-        //             if elem.layer.layer() == nwell {
-        //                 let elem = elem.transform(inv.transformation());
-        //                 let rect = Rect::from_spans(elem.brect().hspan(), stripe_span);
-        //                 ctx.draw_rect(nwell, rect);
-        //             }
-        //         }
-        //         col.inv(inv.clone());
-
-        //         let src = inv.port("sd_0_0")?.largest_rect(m0)?;
-        //         let dst = inv.port("sd_1_0")?.largest_rect(m0)?;
-        //         let short = src.bbox().union(dst.bbox()).into_rect();
-        //         ctx.draw_rect(m0, short);
-        //         if j == 0 {
-        //             *out = Some(short);
-        //         }
-
-        //         for (port, name) in [("sd_0_1", "vss"), ("sd_1_1", "vdd")] {
-        //             let pwr = inv.port(port)?.largest_rect(m0)?;
-        //             let viap = ViaParams::builder()
-        //                 .layers(m0, m1)
-        //                 .geometry(pwr, pwr)
-        //                 .expand(ViaExpansion::LongerDirection)
-        //                 .build();
-        //             let via = ctx.instantiate::<Via>(&viap)?;
-        //             ctx.draw_ref(&via)?;
-
-        //             let power_span =
-        //                 Span::from_center_span_gridded(via.brect().center().x, POWER_HEIGHT, GRID);
-        //             let power_stripe = Rect::from_spans(power_span, stripe_span);
-        //             let viap = ViaParams::builder()
-        //                 .layers(m1, m2)
-        //                 .geometry(via.layer_bbox(m1), power_stripe)
-        //                 .expand(ViaExpansion::LongerDirection)
-        //                 .build();
-        //             let via = ctx.instantiate::<Via>(&viap)?;
-        //             ctx.draw(via)?;
-        //             if i == 0 {
-        //                 ctx.draw_rect(m2, power_stripe);
-        //                 ctx.merge_port(CellPort::with_shape(name, m2, power_stripe));
-        //                 if name == "vss" {
-        //                     col.vss(power_stripe.hspan());
-        //                 } else if name == "vdd" {
-        //                     col.vdd(power_stripe.hspan());
-        //                 } else {
-        //                     unreachable!()
-        //                 }
-        //             }
-        //         }
-
-        //         if j == 1 {
-        //             let dst = inv.port("gate_0")?.largest_rect(m0)?;
-        //             let jog = SJog::builder()
-        //                 .src(out.unwrap())
-        //                 .dst(dst)
-        //                 .dir(Dir::Horiz)
-        //                 .layer(m0)
-        //                 .width(170)
-        //                 .grid(GRID)
-        //                 .build()
-        //                 .unwrap();
-        //             ctx.draw(jog)?;
-
-        //             let extent = short.right() + 2 * stripe_width + 2 * stripe_space + 40;
-        //             let m0_conn = Rect::new(
-        //                 short.corner(Corner::LowerLeft),
-        //                 Point::new(extent, short.top()),
-        //             );
-        //             ctx.draw_rect(m0, m0_conn);
-        //             let out_span = Span::with_start_and_length(
-        //                 short.right() + stripe_space + i as i64 * (stripe_width + stripe_space),
-        //                 stripe_width,
-        //             );
-        //             let stripe = Rect::from_spans(out_span, stripe_span);
-        //             ctx.draw_rect(m2, stripe);
-        //             let name = if i == 0 {
-        //                 arcstr::literal!("outn")
-        //             } else {
-        //                 arcstr::literal!("outp")
-        //             };
-        //             ctx.add_port(CellPort::with_shape(name, m2, stripe))
-        //                 .unwrap();
-
-        //             let viap = ViaParams::builder()
-        //                 .layers(m0, m1)
-        //                 .geometry(m0_conn, m0_conn)
-        //                 .expand(ViaExpansion::LongerDirection)
-        //                 .build();
-        //             let via = ctx.instantiate::<Via>(&viap)?;
-        //             ctx.draw_ref(&via)?;
-
-        //             let viap = ViaParams::builder()
-        //                 .layers(m1, m2)
-        //                 .geometry(via.layer_bbox(m1), stripe)
-        //                 .expand(ViaExpansion::LongerDirection)
-        //                 .build();
-        //             let via = ctx.instantiate::<Via>(&viap)?;
-        //             ctx.draw_ref(&via)?;
-        //         } else {
-        //             let input = inv.port("gate_0")?.largest_rect(m0)?;
-        //             let extent = input.left() - 2 * stripe_space - 2 * stripe_width;
-        //             let m0_conn = Rect::new(Point::new(extent - 40, input.bottom()), input.p1);
-        //             let in_span = Span::with_start_and_length(
-        //                 extent + i as i64 * (stripe_space + stripe_width),
-        //                 stripe_width,
-        //             );
-        //             ctx.draw_rect(m0, m0_conn);
-        //             let stripe = Rect::from_spans(in_span, stripe_span);
-        //             ctx.draw_rect(m2, stripe);
-        //             let name = if i == 0 {
-        //                 arcstr::literal!("inn")
-        //             } else {
-        //                 arcstr::literal!("inp")
-        //             };
-        //             ctx.add_port(CellPort::with_shape(name, m2, stripe))
-        //                 .unwrap();
-
-        //             let viap = ViaParams::builder()
-        //                 .layers(m0, m1)
-        //                 .geometry(m0_conn, m0_conn)
-        //                 .expand(ViaExpansion::LongerDirection)
-        //                 .build();
-        //             let via = ctx.instantiate::<Via>(&viap)?;
-        //             ctx.draw_ref(&via)?;
-
-        //             let viap = ViaParams::builder()
-        //                 .layers(m1, m2)
-        //                 .geometry(via.layer_bbox(m1), stripe)
-        //                 .expand(ViaExpansion::LongerDirection)
-        //                 .build();
-        //             let via = ctx.instantiate::<Via>(&viap)?;
-        //             ctx.draw_ref(&via)?;
-        //         }
-        //         ctx.draw(inv)?;
-        //     }
-        //     cols.push(col.build().unwrap());
-        // }
-
-        // ctx.set_metadata(Metadata { cols });
-
-        // let vspan = Span::new(0, self.params.width);
-        // let bounds = Rect::from_spans(ctx.brect().hspan(), vspan);
-        // ctx.flatten();
-        // ctx.trim(&bounds);
-
-        // let outline = layers.get(Selector::Name("outline"))?;
-        // let rect = ctx
-        //     .brect()
-        //     .expand_dims(Dims::new(WELL_PAD, 0), ExpandMode::UpperRight);
-        // ctx.draw_rect(outline, rect);
-
+        for port in ["outp", "outn"] {
+            let sa_out = sa.port(port)?.largest_rect(m1)?;
+            let m1_rect = Rect::from_spans(sa_out.hspan(), ctx.brect().vspan());
+            ctx.draw_rect(m1, m1_rect);
+        }
+        ctx.draw_rect(
+            nwell,
+            Rect::from_spans(hspan, nwell_vspan.add_point(ctx.brect().top())),
+        );
         Ok(())
     }
 }
 
-// #[derive(Debug, Builder)]
-// struct Metadata {
-//     /// m0 and h_metal gate stripes for data, data_b, and wmask
-//     gate_stripes: Vec<(Span, Span)>,
-//     /// Horizontal power stripe
-//     power_stripe: Span,
-//     /// Mux control tracks.
-//     ctrl_tracks: FixedTracks,
-// }
-//
-// impl Metadata {
-//     pub fn builder() -> MetadataBuilder {
-//         MetadataBuilder::default()
-//     }
-// }
-//
-// fn write_mux_tap_layout(
-//     end: bool,
-//     params: &WriteMuxCentParams,
-//     ctx: &mut LayoutCtx,
-// ) -> substrate::error::Result<()> {
-//     let pc = ctx
-//         .inner()
-//         .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
-//
-//     let mux = ctx.instantiate::<WriteMux>(&params.for_wmux())?;
-//     let meta = mux.cell().get_metadata::<Metadata>();
-//     let stripe_span = Span::new(-pc.tap_width, 2 * pc.tap_width);
-//
-//     let hspan = Span::new(0, pc.tap_width);
-//     let bounds = Rect::from_spans(hspan, mux.brect().vspan().shrink(Sign::Pos, IMPLANT_PAD));
-//
-//     let tap_span = Span::from_center_span_gridded(pc.tap_width / 2, 170, pc.grid);
-//     let tap_space = tap_span.expand_all(170);
-//
-//     for (i, (bot_span, top_span)) in meta.gate_stripes.iter().copied().enumerate() {
-//         for (j, hspan) in [
-//             Span::new(0, tap_space.start()),
-//             Span::new(tap_space.stop(), pc.tap_width),
-//         ]
-//         .into_iter()
-//         .enumerate()
-//         {
-//             if end && j == 0 {
-//                 continue;
-//             }
-//
-//             let bot = Rect::from_spans(hspan, bot_span);
-//             let top = Rect::from_spans(hspan, top_span);
-//             ctx.draw_rect(
-//                 pc.m0,
-//                 bot.expand_side(if j == 0 { Side::Right } else { Side::Left }, -80),
-//             );
-//             ctx.draw_rect(pc.h_metal, top);
-//             ctx.draw_rect(pc.v_metal, Rect::from_spans(hspan.shrink_all(20), top_span));
-//             let viap = ViaParams::builder()
-//                 .layers(pc.m0, pc.v_metal)
-//                 .geometry(bot, top)
-//                 .build();
-//             let via = ctx.instantiate::<Via>(&viap)?;
-//             ctx.draw(via)?;
-//
-//             let viap = ViaParams::builder()
-//                 .layers(pc.v_metal, pc.h_metal)
-//                 .geometry(bot, top)
-//                 .build();
-//             let via = ctx.instantiate::<Via>(&viap)?;
-//             ctx.draw(via)?;
-//         }
-//
-//         let short = (i < 2 && !params.cut_data) || (i == 2 && !params.cut_wmask);
-//         if short {
-//             let rect = Rect::from_spans(stripe_span, top_span);
-//             ctx.draw_rect(pc.h_metal, rect);
-//         }
-//     }
-//
-//     let layers = ctx.layers();
-//     let tap = layers.get(Selector::Name("tap"))?;
-//     let outline = layers.get(Selector::Name("outline"))?;
-//
-//     let tap_area = Rect::from_spans(tap_span, bounds.vspan().shrink_all(300));
-//     let viap = ViaParams::builder()
-//         .layers(tap, pc.m0)
-//         .geometry(tap_area, tap_area)
-//         .expand(ViaExpansion::LongerDirection)
-//         .build();
-//     let via = ctx.instantiate::<Via>(&viap)?;
-//     ctx.draw_ref(&via)?;
-//
-//     let viap = ViaParams::builder()
-//         .layers(pc.m0, pc.v_metal)
-//         .geometry(via.layer_bbox(pc.m0), tap_area)
-//         .expand(ViaExpansion::LongerDirection)
-//         .build();
-//     let via = ctx.instantiate::<Via>(&viap)?;
-//     ctx.draw_ref(&via)?;
-//
-//     let power_stripe = Rect::from_spans(stripe_span, meta.power_stripe);
-//     ctx.draw_rect(pc.h_metal, power_stripe);
-//     ctx.add_port(CellPort::with_shape("vss", pc.h_metal, power_stripe))
-//         .unwrap();
-//
-//     let viap = ViaParams::builder()
-//         .layers(pc.v_metal, pc.h_metal)
-//         .geometry(via.layer_bbox(pc.v_metal), power_stripe)
-//         .expand(ViaExpansion::LongerDirection)
-//         .build();
-//     let via = ctx.instantiate::<Via>(&viap)?;
-//     ctx.draw_ref(&via)?;
-//
-//     for (i, track) in meta.ctrl_tracks.iter().enumerate() {
-//         let rect = Rect::from_spans(hspan, track);
-//         ctx.draw_rect(pc.h_metal, rect);
-//         ctx.add_port(CellPort::with_shape(PortId::new("we", i), pc.h_metal, rect))?;
-//     }
-//
-//     let bounds = Rect::from_spans(hspan, mux.brect().vspan());
-//     let psdm = layers.get(Selector::Name("psdm"))?;
-//     ctx.draw_rect(outline, bounds);
-//     ctx.draw_rect(psdm, bounds);
-//     ctx.flatten();
-//     ctx.trim(&bounds);
-//
-//     Ok(())
-// }
-//
-// impl WriteMuxCent {
-//     pub(crate) fn layout(
-//         &self,
-//         ctx: &mut substrate::layout::context::LayoutCtx,
-//     ) -> substrate::error::Result<()> {
-//         write_mux_tap_layout(false, &self.params, ctx)?;
-//         Ok(())
-//     }
-// }
-//
-// impl WriteMuxEnd {
-//     pub(crate) fn layout(
-//         &self,
-//         ctx: &mut substrate::layout::context::LayoutCtx,
-//     ) -> substrate::error::Result<()> {
-//         write_mux_tap_layout(true, &self.params.for_wmux_cent(), ctx)?;
-//         Ok(())
-//     }
-// }
+pub struct WriteDriverCent {
+    params: WriteDriverParams,
+}
+
+impl Component for WriteDriverCent {
+    type Params = WriteDriverParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("write_driver_cent")
+    }
+
+    fn schematic(
+        &self,
+        _ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        Ok(())
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+        let nwell = layers.get(Selector::Name("nwell"))?;
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+        let psdm = layers.get(Selector::Name("psdm"))?;
+        let outline = layers.get(Selector::Name("outline"))?;
+        let tap = layers.get(Selector::Name("tap"))?;
+        let m0 = layers.get(Selector::Metal(0))?;
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+
+        let pc = ctx
+            .inner()
+            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+
+        let sa = ctx.instantiate::<WriteDriver>(&self.params)?;
+        let hspan = Span::new(0, pc.tap_width);
+        let bounds = Rect::from_spans(hspan, sa.brect().vspan());
+
+        ctx.draw_rect(
+            nwell,
+            Rect::from_spans(hspan, sa.layer_bbox(nwell).into_rect().vspan()),
+        );
+
+        let nspan = sa.layer_bbox(nsdm).into_rect().vspan();
+        let pspan = sa.layer_bbox(psdm).into_rect().vspan();
+
+        for (span, vdd) in [(pspan, true), (nspan, false)] {
+            let r = Rect::from_spans(hspan, span).shrink(200);
+            let viap = ViaParams::builder().layers(tap, m0).geometry(r, r).build();
+            let via = ctx.instantiate::<Via>(&viap)?;
+            ctx.draw_ref(&via)?;
+            let sdm_rect = via.layer_bbox(tap).into_rect().expand(130);
+            ctx.draw_rect(if vdd { nsdm } else { psdm }, sdm_rect);
+
+            let pspan = sa
+                .port(if vdd { "vdd" } else { "vss" })?
+                .largest_rect(m2)?
+                .vspan();
+            let power_stripe = Rect::from_spans(hspan, pspan);
+
+            let viap = ViaParams::builder().layers(m0, m1).geometry(r, r).build();
+            let via = ctx.instantiate::<Via>(&viap)?;
+            ctx.draw_ref(&via)?;
+
+            let viap = ViaParams::builder()
+                .layers(m1, m2)
+                .geometry(via.layer_bbox(m1), power_stripe)
+                .expand(ViaExpansion::LongerDirection)
+                .build();
+            let via = ctx.instantiate::<Via>(&viap)?;
+            ctx.draw(via)?;
+
+            ctx.draw_rect(m2, power_stripe);
+
+            let name = if vdd {
+                arcstr::literal!("vdd")
+            } else {
+                arcstr::literal!("vss")
+            };
+            ctx.merge_port(CellPort::with_shape(name, m2, power_stripe));
+        }
+        ctx.draw_rect(outline, bounds);
+
+        Ok(())
+    }
+}

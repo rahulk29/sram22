@@ -40,9 +40,10 @@ impl ColPeripherals {
         let din = ctx.bus_port("din", word_length, Direction::Input);
         let dout = ctx.bus_port("dout", word_length, Direction::Output);
 
-        let wmask_in0 = ctx.bus("wmask_in0", wmask_bits);
         let wmask_in = ctx.bus("wmask_in", wmask_bits);
         let wmask_in_b = ctx.bus("wmask_in_b", wmask_bits);
+        let we_i = ctx.bus("we_i", wmask_bits);
+        let we_ib = ctx.bus("we_ib", wmask_bits);
         let [dummy_bl_noconn, dummy_br_noconn] =
             ctx.signals(["dummy_bl_noconn", "dummy_br_noconn"]);
 
@@ -57,26 +58,11 @@ impl ColPeripherals {
                 ("clk", clk),
                 ("rb", reset_b),
                 ("d", wmask),
-                ("q", wmask_in0),
-                ("qn", wmask_in_b),
+                ("q", we_i),
+                ("qn", we_ib),
             ])
             .named("wmask_dffs")
             .add_to(ctx);
-
-        for i in 0..wmask_bits {
-            for _ in 0..3 {
-                ctx.instantiate::<StdCell>(&bufbuf.id())?
-                    .with_connections([
-                        ("A", wmask_in0.index(i)),
-                        ("X", wmask_in.index(i)),
-                        ("VPWR", vdd),
-                        ("VPB", vdd),
-                        ("VGND", vss),
-                        ("VNB", vss),
-                    ])
-                    .add_to(ctx);
-            }
-        }
 
         for i in 0..word_length {
             let range = i * mux_ratio..(i + 1) * mux_ratio;
@@ -90,8 +76,8 @@ impl ColPeripherals {
                     ("pc_b", &pc_b),
                     ("sel", &sel),
                     ("sel_b", &sel_b),
-                    ("we", &we),
-                    ("wmask", &wmask_in.index(i / self.params.wmask_granularity)),
+                    ("we", &we_i.index(i / self.params.wmask_granularity)),
+                    ("we_b", &we_ib.index(i / self.params.wmask_granularity)),
                     ("din", &din.index(i)),
                     ("dout", &dout.index(i)),
                     ("sense_en", &sense_en),
@@ -135,7 +121,7 @@ impl Column {
         let sel = ctx.bus_port("sel", self.params.mux_ratio(), Direction::Input);
         let sel_b = ctx.bus_port("sel_b", self.params.mux_ratio(), Direction::Input);
         let we = ctx.port("we", Direction::Input);
-        let wmask = ctx.port("wmask", Direction::Input);
+        let we_b = ctx.port("we_b", Direction::Input);
         let din = ctx.port("din", Direction::Input);
         let dout = ctx.port("dout", Direction::Output);
         let sense_en = ctx.port("sense_en", Direction::Input);
@@ -177,8 +163,8 @@ impl Column {
 
         let mut wrdrv = ctx.instantiate::<WriteDriver>(&self.params.wrdriver)?;
         wrdrv.connect_all([
-            ("we", &we),
-            ("wmask", &wmask),
+            ("en", &we),
+            ("en_b", &we_b),
             ("data", &q),
             ("data_b", &q_b),
             ("bl", &bl_out),
@@ -202,17 +188,17 @@ impl Column {
         sa.set_name("sense_amp");
         ctx.add_instance(sa);
 
-        // let mut buf = ctx.instantiate::<DiffBuf>(&self.params.buf)?;
-        // buf.connect_all([
-        //     ("vdd", &vdd),
-        //     ("vss", &vss),
-        //     ("din1", &sa_outp),
-        //     ("din2", &sa_outn),
-        //     ("dout1", &dout),
-        //     ("dout2", &diff_buf_outn),
-        // ]);
-        // buf.set_name("buf");
-        // ctx.add_instance(buf);
+        let mut buf = ctx.instantiate::<DiffBuf>(&self.params.buf)?;
+        buf.connect_all([
+            ("vdd", &vdd),
+            ("vss", &vss),
+            ("din1", &sa_outp),
+            ("din2", &sa_outn),
+            ("dout1", &dout),
+            ("dout2", &diff_buf_outn),
+        ]);
+        buf.set_name("buf");
+        ctx.add_instance(buf);
 
         let mut dff = ctx.instantiate::<Dff>(&NoParams)?;
         dff.connect_all([

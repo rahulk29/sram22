@@ -4,6 +4,7 @@ use substrate::component::Component;
 use substrate::layout::context::LayoutCtx;
 use substrate::schematic::context::SchematicCtx;
 
+use super::gate::PrimitiveGateParams;
 use super::precharge::PrechargeParams;
 use super::tgatemux::TGateMuxParams;
 use super::wrdriver::WriteDriverParams;
@@ -17,6 +18,7 @@ pub struct ColParams {
     pub pc: PrechargeParams,
     pub mux: TGateMuxParams,
     pub wrdriver: WriteDriverParams,
+    pub buf: PrimitiveGateParams,
     pub cols: usize,
     pub include_wmask: bool,
     pub wmask_granularity: usize,
@@ -130,10 +132,17 @@ mod tests {
         equalizer_width: 1_200,
     };
 
+    const DIFF_BUF_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+        nwidth: 1_200,
+        pwidth: 2_000,
+        length: 150,
+    };
+
     const COL_WMASK_PARAMS: ColParams = ColParams {
         pc: PRECHARGE_PARAMS,
         wrdriver: WRITE_DRIVER_PARAMS,
         mux: MUX_PARAMS,
+        buf: DIFF_BUF_PARAMS,
         cols: 16,
         include_wmask: true,
         wmask_granularity: 2,
@@ -143,6 +152,7 @@ mod tests {
         pc: PRECHARGE_PARAMS,
         wrdriver: WRITE_DRIVER_PARAMS,
         mux: MUX_PARAMS,
+        buf: DIFF_BUF_PARAMS,
         cols: 128,
         include_wmask: false,
         wmask_granularity: 8,
