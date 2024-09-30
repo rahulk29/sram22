@@ -10,9 +10,12 @@ use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayPa
 use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::blocks::columns::{ColParams, ColPeripherals};
 use crate::blocks::control::{ControlLogicReplicaV2, DffArray, InvChain};
+use crate::blocks::decoder::layout::LastBitDecoderStage;
 use crate::blocks::decoder::{
-    AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderTree, INV_PARAMS, NAND2_PARAMS,
+    AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderStageParams, DecoderTree, INV_PARAMS,
+    NAND2_PARAMS,
 };
+use crate::blocks::gate::sizing::InverterGateTreeNode;
 use crate::blocks::gate::{AndParams, GateParams};
 use crate::blocks::precharge::{Precharge, PrechargeParams};
 use crate::blocks::tgatemux::TGateMuxParams;
@@ -211,6 +214,23 @@ impl SramInner {
                     .add_to(ctx);
             }
         }
+
+        let invs = InverterGateTreeNode::buffer(4)
+            .elaborate()
+            .size(50e-15)
+            .as_inv_chain();
+        let pc_b_buffer = DecoderStageParams {
+            max_width: None,
+            gate: GateParams::Inv(invs[0]),
+            invs: invs.into_iter().skip(1).collect(),
+            num: 1,
+            child_sizes: vec![],
+        };
+
+        ctx.instantiate::<LastBitDecoderStage>(&pc_b_buffer)?
+            .with_connections([("vdd", vdd), ("vss", vss), ("y", pc_b), ("y_b", pc_b1)])
+            .named("pc_b_buffer")
+            .add_to(ctx);
 
         for _ in 0..2 {
             ctx.instantiate::<StdCell>(&bufbuf_small.id())?
