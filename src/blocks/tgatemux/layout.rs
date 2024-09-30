@@ -328,7 +328,11 @@ impl TGateMux {
         }
 
         let outline = layers.get(Selector::Name("outline"))?;
-        ctx.draw_rect(outline, ctx.brect());
+        ctx.draw_rect(
+            outline,
+            ctx.brect()
+                .expand_side(Side::Bot, 2 * (GATE_LINE + GATE_SPACE)),
+        );
 
         Ok(())
     }
@@ -580,15 +584,12 @@ impl TGateMuxGroup {
         for i in 0..2 {
             let brm1 = Rect::from_spans(
                 Span::from_center_span((self.params.mux_ratio / 2 + i) as i64 * pc.width, 280),
-                Span::new(-2 * (GATE_LINE + GATE_SPACE), blbr_top),
+                Span::new(0, blbr_top),
             );
             ctx.draw_rect(pc.v_metal, brm1);
             let brm2 = Rect::from_spans(
                 Span::new(0, self.params.mux_ratio as i64 * pc.width),
-                Span::with_start_and_length(
-                    -((i + 1) as i64) * (GATE_LINE + GATE_SPACE),
-                    GATE_LINE,
-                ),
+                Span::with_start_and_length((1 - i as i64) * (GATE_LINE + GATE_SPACE), GATE_LINE),
             );
             ctx.draw_rect(pc.h_metal, brm2);
 
