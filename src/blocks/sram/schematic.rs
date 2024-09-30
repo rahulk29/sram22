@@ -55,8 +55,6 @@ impl SramInner {
         let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
 
         let diode = lib.try_cell_named("sky130_fd_sc_hs__diode_2")?;
-        let bufbuf_small = lib.try_cell_named("sky130_fd_sc_hs__bufbuf_8")?;
-        let bufbuf = lib.try_cell_named("sky130_fd_sc_hs__bufbuf_16")?;
 
         for (port, width) in [
             (dout, self.params.data_width()),
@@ -190,29 +188,31 @@ impl SramInner {
             .named("decoder_replica")
             .add_to(ctx);
 
+        let col_sel_buf_b = ctx.bus("col_sel_buf_b", col_sel.width());
+        let col_sel_buf = ctx.bus("col_sel_buf", col_sel.width());
         for i in 0..self.params.mux_ratio() {
-            for _ in 0..3 {
-                ctx.instantiate::<StdCell>(&bufbuf.id())?
-                    .with_connections([
-                        ("A", col_sel0.index(i)),
-                        ("X", col_sel.index(i)),
-                        ("VPWR", vdd),
-                        ("VPB", vdd),
-                        ("VGND", vss),
-                        ("VNB", vss),
-                    ])
-                    .add_to(ctx);
-                ctx.instantiate::<StdCell>(&bufbuf.id())?
-                    .with_connections([
-                        ("A", col_sel0_b.index(i)),
-                        ("X", col_sel_b.index(i)),
-                        ("VPWR", vdd),
-                        ("VPB", vdd),
-                        ("VGND", vss),
-                        ("VNB", vss),
-                    ])
-                    .add_to(ctx);
-            }
+            let buffer = fanout_buffer_stage(50e-15);
+            ctx.instantiate::<LastBitDecoderStage>(&buffer)?
+                .with_connections([
+                    ("vdd", vdd),
+                    ("vss", vss),
+                    ("y", col_sel.index(i)),
+                    ("y_b", col_sel_buf_b.index(i)),
+                    ("predecode_0_0", col_sel0.index(i)),
+                ])
+                .named(format!("col_sel_buf_{i}"))
+                .add_to(ctx);
+            let buffer = fanout_buffer_stage(50e-15);
+            ctx.instantiate::<LastBitDecoderStage>(&buffer)?
+                .with_connections([
+                    ("vdd", vdd),
+                    ("vss", vss),
+                    ("y", col_sel_b.index(i)),
+                    ("y_b", col_sel_buf.index(i)),
+                    ("predecode_0_0", col_sel0_b.index(i)),
+                ])
+                .named(format!("col_sel_b_buf_{i}"))
+                .add_to(ctx);
         }
 
         // TODO: estimate load capacitances
@@ -270,29 +270,31 @@ impl SramInner {
             .named("addr_we_ce_dffs")
             .add_to(ctx);
 
+        let addr_in_b_buf = ctx.bus("addr_in_b_buf", self.params.addr_width());
+        let addr_in_buf = ctx.bus("addr_in_buf", self.params.addr_width());
         for i in 0..self.params.addr_width() {
-            for _ in 0..3 {
-                ctx.instantiate::<StdCell>(&bufbuf.id())?
-                    .with_connections([
-                        ("A", addr_in0.index(i)),
-                        ("X", addr_in.index(i)),
-                        ("VPWR", vdd),
-                        ("VPB", vdd),
-                        ("VGND", vss),
-                        ("VNB", vss),
-                    ])
-                    .add_to(ctx);
-                ctx.instantiate::<StdCell>(&bufbuf.id())?
-                    .with_connections([
-                        ("A", addr_in0_b.index(i)),
-                        ("X", addr_in_b.index(i)),
-                        ("VPWR", vdd),
-                        ("VPB", vdd),
-                        ("VGND", vss),
-                        ("VNB", vss),
-                    ])
-                    .add_to(ctx);
-            }
+            let buffer = fanout_buffer_stage(50e-15);
+            ctx.instantiate::<LastBitDecoderStage>(&buffer)?
+                .with_connections([
+                    ("vdd", vdd),
+                    ("vss", vss),
+                    ("y", addr_in.index(i)),
+                    ("y_b", addr_in_b_buf.index(i)),
+                    ("predecode_0_0", addr_in0.index(i)),
+                ])
+                .named(format!("addr_in_buffer_{i}"))
+                .add_to(ctx);
+            let buffer = fanout_buffer_stage(50e-15);
+            ctx.instantiate::<LastBitDecoderStage>(&buffer)?
+                .with_connections([
+                    ("vdd", vdd),
+                    ("vss", vss),
+                    ("y", addr_in_b.index(i)),
+                    ("y_b", addr_in_buf.index(i)),
+                    ("predecode_0_0", addr_in0_b.index(i)),
+                ])
+                .named(format!("addr_inb_buffer_{i}"))
+                .add_to(ctx);
         }
 
         ctx.instantiate::<SpCellArray>(&SpCellArrayParams {
