@@ -390,6 +390,10 @@ fn tgate_mux_tap_layout(
         let mut via = ctx.instantiate::<Via>(via)?;
         via.place_center(Point::new(width, via.brect().center().y));
         ctx.draw_ref(&via)?;
+        if !end {
+            via.place_center(Point::new(0, via.brect().center().y));
+            ctx.draw_ref(&via)?;
+        }
     }
 
     let mut vtrack = meta.split_track.double(Side::Left);
