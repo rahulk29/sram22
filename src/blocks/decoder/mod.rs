@@ -236,31 +236,6 @@ impl DecoderTree {
         let mut root = size_decoder(&plan, cload);
         DecoderTree { root }
     }
-
-    pub fn buffer(stages: usize, cload: f64) -> Self {
-        assert_eq!(stages % 2, 0, "must have an even number of stages");
-        assert!(stages >= 2, "must have at least 2 stages");
-        let mut root = PlanTreeNode {
-            gate: GateType::Inv,
-            num: 0,
-            children: vec![],
-            skew_rising: false,
-        };
-        let mut node = &mut root;
-        for _ in 1..stages {
-            let child = PlanTreeNode {
-                gate: GateType::Inv,
-                num: 1,
-                children: vec![],
-                skew_rising: false,
-            };
-            node.children.push(child);
-            node = &mut node.children[0];
-        }
-
-        let root = size_decoder(&root, cload);
-        DecoderTree { root }
-    }
 }
 
 fn size_decoder(tree: &PlanTreeNode, cwl: f64) -> TreeNode {
