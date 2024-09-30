@@ -12,8 +12,8 @@ use crate::blocks::columns::{ColParams, ColPeripherals};
 use crate::blocks::control::{ControlLogicReplicaV2, DffArray, InvChain};
 use crate::blocks::decoder::layout::LastBitDecoderStage;
 use crate::blocks::decoder::{
-    AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderStageParams, DecoderTree, INV_PARAMS,
-    NAND2_PARAMS,
+    AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderStageParams, DecoderTree, INV_MODEL,
+    INV_PARAMS, NAND2_PARAMS,
 };
 use crate::blocks::gate::sizing::InverterGateTreeNode;
 use crate::blocks::gate::{AndParams, GateParams};
@@ -76,7 +76,7 @@ impl SramInner {
             }
         }
 
-        let [we_in, we_in_b, ce_in, ce_in_b, dummy_bl, dummy_br, rwl, rbl, rbr, pc_b0, pc_b1, pc_b, wl_en0, wl_en1, wl_en, write_driver_en0, write_driver_en1, write_driver_en, sense_en0, sense_en1, sense_en] =
+        let [we_in, we_in_b, ce_in, ce_in_b, dummy_bl, dummy_br, rwl, rbl, rbr, pc_b0, pc, pc_b, wl_en0, wl_en_b, wl_en, write_driver_en0, write_driver_en_b, write_driver_en, sense_en0, sense_en_b, sense_en] =
             ctx.signals([
                 "we_in",
                 "we_in_b",
@@ -88,16 +88,16 @@ impl SramInner {
                 "rbl",
                 "rbr",
                 "pc_b0",
-                "pc_b1",
+                "pc",
                 "pc_b",
                 "wl_en0",
-                "wl_en1",
+                "wl_en_b",
                 "wl_en",
                 "write_driver_en0",
-                "write_driver_en1",
+                "write_driver_en_b",
                 "write_driver_en",
                 "sense_en0",
-                "sense_en1",
+                "sense_en_b",
                 "sense_en",
             ]);
         let [decrepstart, decrepend] = ctx.signals(["decrepstart", "decrepend"]);
@@ -215,119 +215,51 @@ impl SramInner {
             }
         }
 
-        let invs = InverterGateTreeNode::buffer(4)
-            .elaborate()
-            .size(50e-15)
-            .as_inv_chain();
-        let pc_b_buffer = DecoderStageParams {
-            max_width: None,
-            gate: GateParams::Inv(invs[0]),
-            invs: invs.into_iter().skip(1).collect(),
-            num: 1,
-            child_sizes: vec![],
-        };
-
+        // TODO: estimate load capacitances
+        let pc_b_buffer = fanout_buffer_stage(50e-15);
         ctx.instantiate::<LastBitDecoderStage>(&pc_b_buffer)?
-            .with_connections([("vdd", vdd), ("vss", vss), ("y", pc_b), ("y_b", pc_b1)])
+            .with_connections([
+                ("vdd", vdd),
+                ("vss", vss),
+                ("y", pc_b),
+                ("y_b", pc),
+                ("predecode_0_0", pc_b0),
+            ])
             .named("pc_b_buffer")
             .add_to(ctx);
-
-        for _ in 0..2 {
-            ctx.instantiate::<StdCell>(&bufbuf_small.id())?
-                .with_connections([
-                    ("A", pc_b0),
-                    ("X", pc_b1),
-                    ("VPWR", vdd),
-                    ("VPB", vdd),
-                    ("VGND", vss),
-                    ("VNB", vss),
-                ])
-                .add_to(ctx);
-        }
-        for _ in 0..12 {
-            ctx.instantiate::<StdCell>(&bufbuf.id())?
-                .with_connections([
-                    ("A", pc_b1),
-                    ("X", pc_b),
-                    ("VPWR", vdd),
-                    ("VPB", vdd),
-                    ("VGND", vss),
-                    ("VNB", vss),
-                ])
-                .add_to(ctx);
-        }
-        for _ in 0..1 {
-            ctx.instantiate::<StdCell>(&bufbuf.id())?
-                .with_connections([
-                    ("A", wl_en0),
-                    ("X", wl_en1),
-                    ("VPWR", vdd),
-                    ("VPB", vdd),
-                    ("VGND", vss),
-                    ("VNB", vss),
-                ])
-                .add_to(ctx);
-        }
-        for _ in 0..5 {
-            ctx.instantiate::<StdCell>(&bufbuf.id())?
-                .with_connections([
-                    ("A", wl_en1),
-                    ("X", wl_en),
-                    ("VPWR", vdd),
-                    ("VPB", vdd),
-                    ("VGND", vss),
-                    ("VNB", vss),
-                ])
-                .add_to(ctx);
-        }
-        for _ in 0..1 {
-            ctx.instantiate::<StdCell>(&bufbuf.id())?
-                .with_connections([
-                    ("A", write_driver_en0),
-                    ("X", write_driver_en1),
-                    ("VPWR", vdd),
-                    ("VPB", vdd),
-                    ("VGND", vss),
-                    ("VNB", vss),
-                ])
-                .add_to(ctx);
-        }
-        for _ in 0..5 {
-            ctx.instantiate::<StdCell>(&bufbuf.id())?
-                .with_connections([
-                    ("A", write_driver_en1),
-                    ("X", write_driver_en),
-                    ("VPWR", vdd),
-                    ("VPB", vdd),
-                    ("VGND", vss),
-                    ("VNB", vss),
-                ])
-                .add_to(ctx);
-        }
-        for _ in 0..1 {
-            ctx.instantiate::<StdCell>(&bufbuf.id())?
-                .with_connections([
-                    ("A", sense_en0),
-                    ("X", sense_en1),
-                    ("VPWR", vdd),
-                    ("VPB", vdd),
-                    ("VGND", vss),
-                    ("VNB", vss),
-                ])
-                .add_to(ctx);
-        }
-        for _ in 0..5 {
-            ctx.instantiate::<StdCell>(&bufbuf.id())?
-                .with_connections([
-                    ("A", sense_en1),
-                    ("X", sense_en),
-                    ("VPWR", vdd),
-                    ("VPB", vdd),
-                    ("VGND", vss),
-                    ("VNB", vss),
-                ])
-                .add_to(ctx);
-        }
+        let wlen_buffer = fanout_buffer_stage(50e-15);
+        ctx.instantiate::<LastBitDecoderStage>(&wlen_buffer)?
+            .with_connections([
+                ("vdd", vdd),
+                ("vss", vss),
+                ("y", wl_en),
+                ("y_b", wl_en_b),
+                ("predecode_0_0", wl_en0),
+            ])
+            .named("wlen_buffer")
+            .add_to(ctx);
+        let write_driver_en_buffer = fanout_buffer_stage(50e-15);
+        ctx.instantiate::<LastBitDecoderStage>(&write_driver_en_buffer)?
+            .with_connections([
+                ("vdd", vdd),
+                ("vss", vss),
+                ("y", write_driver_en),
+                ("y_b", write_driver_en_b),
+                ("predecode_0_0", write_driver_en0),
+            ])
+            .named("write_driver_en_buffer")
+            .add_to(ctx);
+        let sense_en_buffer = fanout_buffer_stage(50e-15);
+        ctx.instantiate::<LastBitDecoderStage>(&sense_en_buffer)?
+            .with_connections([
+                ("vdd", vdd),
+                ("vss", vss),
+                ("y", sense_en),
+                ("y_b", sense_en_b),
+                ("predecode_0_0", sense_en0),
+            ])
+            .named("sense_en_buffer")
+            .add_to(ctx);
 
         let num_dffs = self.params.addr_width() + 2;
         ctx.instantiate::<DffArray>(&num_dffs)?
@@ -455,5 +387,48 @@ impl SramInner {
                 / self.params.wmask_width(),
             include_wmask: true,
         }
+    }
+}
+
+fn buffer_chain_num_stages(cl: f64) -> usize {
+    let fo = cl / INV_MODEL.cin;
+    if fo < 2.0 {
+        return 2;
+    }
+    let stages = 2 * (fo.log(3.0) / 2.0).round() as usize;
+    let res = if stages == 0 { 2 } else { stages };
+
+    assert_eq!(stages % 2, 0);
+    stages
+}
+
+fn fanout_buffer_stage(cl: f64) -> DecoderStageParams {
+    let stages = buffer_chain_num_stages(cl);
+    let invs = InverterGateTreeNode::buffer(stages)
+        .elaborate()
+        .size(cl)
+        .as_inv_chain();
+    DecoderStageParams {
+        max_width: None,
+        gate: GateParams::Inv(invs[0]),
+        invs: invs.into_iter().skip(1).collect(),
+        num: 1,
+        child_sizes: vec![1],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::blocks::decoder::INV_MODEL;
+    use crate::blocks::sram::schematic::buffer_chain_num_stages;
+
+    #[test]
+    fn test_num_stages() {
+        assert_eq!(buffer_chain_num_stages(4. * INV_MODEL.cin), 2);
+        assert_eq!(buffer_chain_num_stages(16. * INV_MODEL.cin), 2);
+        assert_eq!(buffer_chain_num_stages(26. * INV_MODEL.cin), 2);
+        assert_eq!(buffer_chain_num_stages(28. * INV_MODEL.cin), 4);
+        assert_eq!(buffer_chain_num_stages(242. * INV_MODEL.cin), 4);
+        assert_eq!(buffer_chain_num_stages(244. * INV_MODEL.cin), 6);
     }
 }
