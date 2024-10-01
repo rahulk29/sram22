@@ -107,14 +107,40 @@ impl WriteDriver {
             }
 
             let port_rect = vias
-                .into_iter()
+                .iter()
                 .map(|via| via.layer_bbox(m2))
                 .reduce(|a, b| a.union(b))
                 .unwrap()
                 .into_rect();
 
             ctx.draw_rect(m2, port_rect);
-            ctx.add_port(CellPort::builder().id(port).add(m2, port_rect).build())?;
+
+            if port == "en_b" {
+                let between_transistors = blinv.layer_bbox(nwell).into_rect().bottom();
+                let m1_rect = vias[1].layer_bbox(m1).into_rect();
+                let m1_rect = m1_rect.with_vspan(m1_rect.vspan().add_point(between_transistors));
+                ctx.draw_rect(m1, m1_rect);
+                let via_rect = m1_rect.with_vspan(Span::from_center_span_gridded(
+                    between_transistors,
+                    140,
+                    ctx.pdk().layout_grid(),
+                ));
+                let viap = ViaParams::builder()
+                    .layers(m1, m2)
+                    .geometry(via_rect, via_rect)
+                    .expand(ViaExpansion::LongerDirection)
+                    .build();
+                let via = ctx.instantiate::<Via>(&viap)?;
+                ctx.draw_ref(&via)?;
+                ctx.add_port(
+                    CellPort::builder()
+                        .id(port)
+                        .add(m2, via.layer_bbox(m2).into_rect())
+                        .build(),
+                )?;
+            } else {
+                ctx.add_port(CellPort::builder().id(port).add(m2, port_rect).build())?;
+            }
         }
 
         for port in ["vdd", "vss"] {

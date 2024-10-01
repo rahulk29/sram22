@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
 use subgeom::transform::Translate;
-use subgeom::{Dir, Rect, Sign, Span};
+use subgeom::{Dir, Rect, Side, Sign, Span};
 use substrate::component::{Component, NoParams};
 use substrate::error::Result;
 use substrate::index::IndexOwned;
@@ -18,6 +18,7 @@ use substrate::layout::layers::{LayerBoundBox, LayerPurpose, LayerSpec};
 use substrate::layout::placement::align::AlignRect;
 use substrate::layout::placement::grid::GridTiler;
 use substrate::layout::placement::tile::{OptionTile, Pad, Padding, RectBbox, Tile};
+use substrate::layout::routing::manual::jog::{OffsetJog, SJog};
 use substrate::layout::routing::tracks::{Boundary, CenteredTrackParams, FixedTracks};
 use substrate::layout::Draw;
 use substrate::pdk::stdcell::StdCell;
@@ -284,36 +285,34 @@ impl Column {
         grid.push_row(row);
 
         let mut tiler = GridTiler::new(grid);
-        // pc.translate(tiler.translation(0, 0));
-        // mux.translate(tiler.translation(1, 0));
-        // sa.translate(tiler.translation(2, 0));
-        // wrdrv.translate(tiler.translation(3, 0));
-        // buf.translate(tiler.translation(4, 0));
-        // dff.translate(tiler.translation(5, 0));
-        // if self.params.include_wmask {
-        //     wmask_dff.translate(tiler.translation(6, 0));
-        // }
-        // // tiler.expose_ports(
-        //     |port: CellPort, (i, j)| match i {
-        //         0..=2 => match port.name().as_str() {
-        //             "bl_in" => Some(port.named("bl").with_index(j)),
-        //             "br_in" => Some(port.named("br").with_index(j)),
-        //             "en_b" | "we" | "sel_b" => Some(port),
-        //             _ => None,
-        //         },
-        //         3 => match port.name().as_str() {
-        //             "clk" => Some(port.named("sense_en")),
-        //             _ => None,
-        //         },
-        //         5 | 6 => match port.name().as_str() {
-        //             "clk" => Some(port.with_index(i - 5)),
-        //             _ => None,
-        //         },
-        //         _ => None,
-        //     },
-        //     PortConflictStrategy::Merge,
-        // )?;
-        // ctx.add_ports(tiler.ports().cloned()).unwrap();
+        pc.translate(tiler.translation(0, 0));
+        mux.translate(tiler.translation(1, 0));
+        sa.translate(tiler.translation(2, 0));
+        wrdrv.translate(tiler.translation(3, 0));
+        buf.translate(tiler.translation(4, 0));
+        dff.translate(tiler.translation(5, 0));
+        tiler.expose_ports(
+            |port: CellPort, (i, _)| match port.name().as_str() {
+                "sel" | "sel_b" | "vdd" | "vss" => Some(port),
+                "en_b" => {
+                    if i == 0 {
+                        Some(port.named("pc_b"))
+                    } else {
+                        None
+                    }
+                }
+                "clk" => {
+                    if i == 2 {
+                        Some(port.named("sense_en"))
+                    } else {
+                        Some(port)
+                    }
+                }
+                _ => None,
+            },
+            PortConflictStrategy::Merge,
+        )?;
+        ctx.add_ports(tiler.ports().cloned()).unwrap();
         ctx.draw(tiler)?;
 
         // let hspan = Span::new(0, 4 * pc.brect().width());
@@ -329,8 +328,9 @@ impl Column {
 
         let layers = ctx.layers();
         let nwell = layers.get(Selector::Name("nwell"))?;
+        let m0 = layers.get(Selector::Metal(0))?;
+        let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
-        let m3 = layers.get(Selector::Metal(3))?;
         let vspan = ctx.brect().vspan();
 
         // let track_vspans = |track: CellTrack| -> substrate::error::Result<Vec<Span>> {
@@ -481,6 +481,105 @@ impl Column {
         //     draw_vias(&wmask_dff, "q", CellTrack::Wmask)?;
         // }
 
+        // Route positive diffbuf output to bottom.
+        let buf_out = buf.port("dout1")?.largest_rect(m0)?;
+        let dff_vss = dff.port("vss")?.largest_rect(m1)?;
+        let dout_track = Span::with_stop_and_length(dff_vss.left() - 140, 280);
+        let center_track =
+            Span::from_center_span_gridded(buf.brect().center().x, 280, ctx.pdk().layout_grid());
+
+        let jog_y = dff.port("q")?.largest_rect(m0)?.bottom() - 600;
+        let jog = OffsetJog::builder()
+            .dir(subgeom::Dir::Vert)
+            .sign(subgeom::Sign::Neg)
+            .src(buf_out)
+            .dst(center_track.start())
+            .layer(m0)
+            .space(300)
+            .build()
+            .unwrap();
+        let rect1 = Rect::from_spans(center_track, jog.r2().vspan().add_point(jog_y));
+        let rect2 = Rect::from_spans(dout_track, Span::new(ctx.brect().bottom(), jog_y));
+        let rect3 = Rect::from_spans(
+            dout_track.union(center_track),
+            Span::from_center_span_gridded(jog_y, 280, ctx.pdk().layout_grid()),
+        );
+        let viap = ViaParams::builder()
+            .layers(m0, m1)
+            .geometry(jog.r2(), rect1)
+            .build();
+        let via = ctx.instantiate::<Via>(&viap)?;
+        ctx.draw(jog)?;
+        ctx.draw_rect(m1, rect1);
+        ctx.draw_rect(m1, rect2);
+        ctx.draw_rect(m1, rect3);
+        ctx.draw(via)?;
+
+        // Route din and din_b to dff.
+        let dout2 = buf.port("dout2")?.largest_rect(m0)?;
+        for (in_port, out_port, center) in [
+            ("data", "q", buf.port("dout1")?.largest_rect(m0)?.center().x),
+            ("data_b", "q_n", dout2.center().x),
+        ] {
+            println!("{:?}", dff.ports().collect::<Vec<_>>());
+            let port_rect = wrdrv.port(in_port)?.largest_rect(m0)?;
+            let out_port_rect = if out_port == "q" {
+                dff.port(out_port)?.largest_rect(m0)?
+            } else {
+                dff.port(out_port)?.first_rect(m0, Side::Left)?
+            };
+            let viap = ViaParams::builder()
+                .layers(m0, m1)
+                .geometry(port_rect, port_rect)
+                .build();
+            let via = ctx.instantiate::<Via>(&viap)?;
+            ctx.draw_ref(&via)?;
+
+            let m1_track = Span::from_center_span_gridded(center, 280, ctx.pdk().layout_grid());
+            let m1_rect = Rect::from_spans(m1_track, dout2.vspan().union(out_port_rect.vspan()));
+            let jog = SJog::builder()
+                .src(m1_rect)
+                .dst(via.layer_bbox(m1).into_rect())
+                .dir(Dir::Vert)
+                .layer(m1)
+                .grid(ctx.pdk().layout_grid())
+                .build()
+                .unwrap();
+            ctx.draw(jog)?;
+            ctx.draw_rect(m1, m1_rect);
+            let viap = ViaParams::builder()
+                .layers(m0, m1)
+                .geometry(out_port_rect, m1_rect)
+                .build();
+            let via = ctx.instantiate::<Via>(&viap)?;
+            ctx.draw_ref(&via)?;
+        }
+
+        // Route we and we_b to bottom
+        for (side, port, in_port) in [(Sign::Neg, "en", "we"), (Sign::Pos, "en_b", "we_b")] {
+            let port_rect = wrdrv.port(port)?.largest_rect(m2)?;
+            let dff_m1_brect = dff.layer_bbox(m1).into_rect();
+            let dout_track = Span::with_point_and_length(
+                !side,
+                dff_m1_brect.hspan().point(side) + side.as_int() * 140,
+                280,
+            );
+            let m2_rect = Rect::from_spans(dout_track.union(port_rect.hspan()), port_rect.vspan());
+            let m1_rect = Rect::from_spans(
+                dout_track,
+                port_rect.vspan().add_point(ctx.brect().bottom()),
+            );
+            let viap = ViaParams::builder()
+                .layers(m1, m2)
+                .geometry(m1_rect, m2_rect)
+                .build();
+            let via = ctx.instantiate::<Via>(&viap)?;
+            ctx.draw_rect(m1, m1_rect);
+            ctx.add_port(CellPort::builder().id(in_port).add(m1, m1_rect).build())?;
+            ctx.draw_rect(m2, m2_rect);
+            ctx.draw(via)?;
+        }
+
         Ok(())
     }
 }
@@ -604,97 +703,36 @@ impl Component for ColumnCent {
         grid.push_row(into_vec![dff.clone()]);
 
         let mut tiler = GridTiler::new(grid);
-        // pc.translate(tiler.translation(0, 0));
-        // rmux.translate(tiler.translation(1, 0));
-        // wmux.translate(tiler.translation(2, 0));
-        // sa.translate(tiler.translation(3, 0));
-        // buf.translate(tiler.translation(4, 0));
-        // dff.translate(tiler.translation(5, 0));
-        // wmask_dff.translate(tiler.translation(6, 0));
-        // tiler.expose_ports(
-        //     |port: CellPort, (i, _)| match port.name().as_str() {
-        //         "en_b" | "we" | "sel_b" | "vdd" | "vss" => Some(port),
-        //         "clk" => {
-        //             if i == 3 {
-        //                 Some(port.named("sense_en"))
-        //             } else {
-        //                 Some(port.with_index(0))
-        //             }
-        //         }
-        //         _ => None,
-        //     },
-        //     PortConflictStrategy::Merge,
-        // )?;
-        // ctx.add_ports(tiler.ports().cloned())?;
+        pc.translate(tiler.translation(0, 0));
+        mux.translate(tiler.translation(1, 0));
+        sa.translate(tiler.translation(2, 0));
+        wrdrv.translate(tiler.translation(3, 0));
+        buf.translate(tiler.translation(4, 0));
+        dff.translate(tiler.translation(5, 0));
+        tiler.expose_ports(
+            |port: CellPort, (i, _)| match port.name().as_str() {
+                "sel" | "sel_b" | "vdd" | "vss" => Some(port),
+                "en_b" => {
+                    if i == 0 {
+                        Some(port.named("pc_b"))
+                    } else {
+                        Some(port.named("we_b"))
+                    }
+                }
+                "en" => Some(port.named("we")),
+                "clk" => {
+                    if i == 2 {
+                        Some(port.named("sense_en"))
+                    } else {
+                        Some(port)
+                    }
+                }
+                _ => None,
+            },
+            PortConflictStrategy::Merge,
+        )?;
+        ctx.add_ports(tiler.ports().cloned())?;
         ctx.draw(tiler)?;
-
-        let hspan = Span::new(0, pc.brect().width());
-        let tracks = FixedTracks::from_centered_tracks(CenteredTrackParams {
-            line: 330,
-            space: 320,
-            num: 2,
-            span: hspan,
-            lower_boundary: Boundary::HalfSpace,
-            upper_boundary: Boundary::HalfSpace,
-            grid: 5,
-        });
-
-        let layers = ctx.layers();
-        let m2 = layers.get(Selector::Metal(2))?;
-        let m3 = layers.get(Selector::Metal(3))?;
-        let vspan = ctx.brect().vspan();
-
-        // let track_vspans = |track: TapTrack| -> substrate::error::Result<Vec<Span>> {
-        //     use TapTrack::*;
-        //     Ok(match track {
-        //         Vdd | Vss => vec![vspan],
-        //     })
-        // };
-
-        // for (i, track) in tracks.iter().enumerate() {
-        //     let name = TapTrack::from(i);
-        //     for vspan in track_vspans(name)? {
-        //         let rect = Rect::from_spans(track, vspan);
-        //         let mut port = CellPort::new(match name {
-        //             TapTrack::Vdd => "vdd",
-        //             TapTrack::Vss => "vss",
-        //         });
-        //         port.add(m3, subgeom::Shape::Rect(rect));
-        //         ctx.merge_port(port);
-        //         ctx.draw_rect(m3, rect);
-        //     }
-        // }
-
-        // let mut connect =
-        //     |inst: &Instance, port: &str, track: TapTrack| -> substrate::error::Result<()> {
-        //         let idx = track.into();
-        //         let port = inst.port(port)?;
-        //         for shape in port.shapes(m2) {
-        //             let target_vspan = shape.brect().vspan();
-        //             let viap = ViaParams::builder()
-        //                 .layers(m2, m3)
-        //                 .geometry(
-        //                     Rect::from_spans(hspan, target_vspan),
-        //                     Rect::from_spans(tracks.index(idx), vspan),
-        //                 )
-        //                 .build();
-        //             let via = ctx.instantiate::<Via>(&viap)?;
-        //             ctx.draw(via)?;
-        //         }
-        //         Ok(())
-        //     };
-
-        // connect(&pc, "vdd", TapTrack::Vdd)?;
-        // connect(&rmux, "vdd", TapTrack::Vdd)?;
-        // connect(&wmux, "vss", TapTrack::Vss)?;
-        // connect(&sa, "vdd", TapTrack::Vdd)?;
-        // connect(&sa, "vss", TapTrack::Vss)?;
-        // connect(&buf, "vdd", TapTrack::Vdd)?;
-        // connect(&buf, "vss", TapTrack::Vss)?;
-        // connect(&dff, "vdd", TapTrack::Vdd)?;
-        // connect(&dff, "vss", TapTrack::Vss)?;
-        // connect(&wmask_dff, "vdd", TapTrack::Vdd)?;
-        // connect(&wmask_dff, "vss", TapTrack::Vss)?;
 
         Ok(())
     }
@@ -782,9 +820,10 @@ impl Component for DffCol {
             );
 
             let port = if vdd { "vpwr" } else { "vgnd" };
+            let m1_rect = dff.port(port)?.largest_rect(m1)?;
             let viap = ViaParams::builder()
                 .layers(m1, m2)
-                .geometry(dff.port(port)?.largest_rect(m1)?, power_stripe)
+                .geometry(m1_rect, power_stripe)
                 .expand(ViaExpansion::LongerDirection)
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;
@@ -794,11 +833,16 @@ impl Component for DffCol {
 
             let port = if vdd { "vdd" } else { "vss" };
             ctx.merge_port(CellPort::with_shape(port, m2, power_stripe));
+            ctx.merge_port(CellPort::with_shape(port, m1, m1_rect));
         }
         ctx.draw_rect(
             outline,
             dff.brect().with_hspan(hspan).expand_dir(Dir::Vert, 1270),
         );
+
+        for port in ["q", "q_n", "clk", "reset_b", "d"] {
+            ctx.merge_port(dff.port(port)?.into_cell_port());
+        }
         ctx.draw(dff)?;
         Ok(())
     }
