@@ -22,9 +22,9 @@ use substrate::layout::Draw;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 use substrate::pdk::stdcell::StdCell;
 
-use subgeom::{Corner, Dir, Point, Rect, Side, Span};
-
 use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch};
+use subgeom::transform::Translate;
+use subgeom::{Corner, Dir, Point, Rect, Side, Span};
 
 impl ControlLogicReplicaV2 {
     pub(crate) fn layout(
@@ -36,33 +36,28 @@ impl ControlLogicReplicaV2 {
 
         let stdcells = ctx.inner().std_cell_db();
         let db = ctx.mos_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
-        let inv = lib.try_cell_named("sky130_fd_sc_hd__inv_2")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let inv = lib.try_cell_named("sky130_fd_sc_hs__inv_2")?;
         let inv = ctx.instantiate::<StdCell>(&inv.id())?;
-        let tap = lib.try_cell_named("sky130_fd_sc_hd__tap_2")?;
+        let tap = lib.try_cell_named("sky130_fd_sc_hs__tap_2")?;
         let tap = ctx.instantiate::<StdCell>(&tap.id())?;
         let tap = LayerBbox::new(tap, outline);
-        let and = lib.try_cell_named("sky130_fd_sc_hd__and2_2")?;
-        let and = ctx.instantiate::<StdCell>(&and.id())?;
-        let mux = lib.try_cell_named("sky130_fd_sc_hd__mux2_2")?;
-        let mux = ctx.instantiate::<StdCell>(&mux.id())?;
-        let bufbuf = lib.try_cell_named("sky130_fd_sc_hd__bufbuf_8")?;
-        let bufbuf = ctx.instantiate::<StdCell>(&bufbuf.id())?;
+        let and2 = lib.try_cell_named("sky130_fd_sc_hs__and2_2")?;
+        let and2 = ctx.instantiate::<StdCell>(&and2.id())?;
+        let and2_med = lib.try_cell_named("sky130_fd_sc_hs__and2_4")?;
+        let and2_med = ctx.instantiate::<StdCell>(&and2_med.id())?;
+        let nand2 = lib.try_cell_named("sky130_fd_sc_hs__nand2_4")?;
+        let nand2 = ctx.instantiate::<StdCell>(&nand2.id())?;
+        let nor2 = lib.try_cell_named("sky130_fd_sc_hs__nor2_4")?;
+        let nor2 = ctx.instantiate::<StdCell>(&nor2.id())?;
+        let mux2 = lib.try_cell_named("sky130_fd_sc_hs__mux2_4")?;
+        let mux2 = ctx.instantiate::<StdCell>(&mux2.id())?;
+        let buf = lib.try_cell_named("sky130_fd_sc_hs__buf_16")?;
+        let buf = ctx.instantiate::<StdCell>(&buf.id())?;
+        let biginv = lib.try_cell_named("sky130_fd_sc_hs__inv_16")?;
+        let biginv = ctx.instantiate::<StdCell>(&biginv.id())?;
         let edge_detector = ctx.instantiate::<EdgeDetector>(&NoParams)?;
         let sr_latch = ctx.instantiate::<SrLatch>(&NoParams)?;
-        let nmos = db.default_nmos().unwrap();
-        let mut dummy_bl_pulldown = ctx.instantiate::<LayoutMos>(&LayoutMosParams {
-            skip_sd_metal: vec![vec![]],
-            deep_nwell: false,
-            contact_strategy: GateContactStrategy::SingleSide,
-            devices: vec![MosParams {
-                w: 420,
-                l: 150,
-                m: 1,
-                nf: 1,
-                id: nmos.id(),
-            }],
-        })?;
 
         let mut rows = ArrayTiler::builder();
         rows.mode(AlignMode::Left).alt_mode(AlignMode::Beneath);
@@ -107,68 +102,49 @@ impl ControlLogicReplicaV2 {
 
         rows.push(LayerBbox::new(
             create_row(&[
-                ("inv_clk", &ctx.instantiate::<InvChain>(&2)?),
+                ("reset_inv", &biginv),
+                ("clk_gate", &and2),
                 ("clk_pulse", &edge_detector),
-                ("decoder_replica", &ctx.instantiate::<InvChain>(&8)?),
-                ("inv_rbl", &inv),
-                ("and_sense_en", &and),
-                ("inv_we", &inv),
+                ("clk_pulse_buf", &buf),
+                ("clk_pulse_inv", &biginv),
             ])?,
             outline,
         ));
 
         let mut row = create_row(&[
-            ("mux_wl_en_rst", &mux),
-            ("mux_pc_set", &mux),
-            ("wl_ctl", &sr_latch),
-            ("sae_ctl", &sr_latch),
-            ("pc_ctl", &sr_latch),
-            ("wr_drv_ctl", &sr_latch),
-            ("sae_set", &and),
+            ("clkp_delay", &ctx.instantiate::<InvChain>(&3)?),
+            ("clkpd_inv", &inv),
+            ("clkpd_delay", &ctx.instantiate::<InvChain>(&7)?),
+            ("mux_wlen_rst", &mux2),
+            ("decoder_replica_delay", &ctx.instantiate::<InvChain>(&6)?),
         ])?;
         row.set_orientation(Named::ReflectVert);
         rows.push(LayerBbox::new(row, outline));
 
         rows.push(LayerBbox::new(
             create_row(&[
-                ("wr_drv_set", &and),
-                ("sae_buf", &bufbuf),
-                ("wl_en_buf", &bufbuf),
-                ("wbl_pulldown_en", &and),
+                ("inv_we", &inv),
+                ("inv_rbl", &inv),
+                ("wlen_grst", &nor2),
+                ("wrdrven_grst", &nor2),
+                ("clkp_grst", &nor2),
+                ("nand_sense_en", &nand2),
+                ("nand_wlendb_web", &nand2),
+                ("and_wlen", &and2_med),
+                ("wlen_q_delay", &ctx.instantiate::<InvChain>(&3)?),
+                ("rwl_buf", &buf),
             ])?,
             outline,
         ));
 
         let mut row = create_row(&[
-            ("sae_buf2", &bufbuf),
-            ("pc_b_buf", &bufbuf),
-            ("wl_en_write_rst_buf", &ctx.instantiate::<InvChain>(&5)?),
+            ("saen_ctl", &sr_latch),
+            ("pc_ctl", &sr_latch),
+            ("wrdrven_set", &nand2),
+            ("wrdrven_ctl", &sr_latch),
         ])?;
         row.set_orientation(Named::ReflectVert);
         rows.push(LayerBbox::new(row, outline));
-
-        rows.push(LayerBbox::new(
-            create_row(&[("wr_drv_buf", &bufbuf), ("pc_b_buf2", &bufbuf)])?,
-            outline,
-        ));
-
-        let inv_chain_data: Vec<(String, usize)> = [
-            ("pc_read_set_buf", 8),
-            ("sense_en_delay", 2),
-            ("wr_drv_set_decoder_delay_replica", 24),
-            ("pc_write_set_buf", 4),
-        ]
-        .into_iter()
-        .map(|(name, n)| (name.to_string(), n))
-        .collect();
-
-        let inv_chains = ctx.instantiate::<InvChains>(&InvChainsParams {
-            chains: inv_chain_data,
-            wrap_cutoff: 24,
-            flipped: true,
-        })?;
-
-        rows.push(LayerBbox::new(inv_chains, outline));
 
         let mut rows = rows.build();
         rows.expose_ports(
@@ -193,21 +169,6 @@ impl ControlLogicReplicaV2 {
         )?;
         let mut group = rows.generate()?;
 
-        dummy_bl_pulldown.align_top(group.brect());
-        dummy_bl_pulldown.align(AlignMode::ToTheRight, group.brect(), 600);
-
-        let mut pulldown_group = Group::new();
-        pulldown_group.add(dummy_bl_pulldown);
-        pulldown_group.expose_ports(
-            |port: CellPort, _| {
-                let name = format!("dummy_bl_pulldown_{}", port.name());
-                Some(port.named(name))
-            },
-            PortConflictStrategy::Error,
-        )?;
-        group.add_ports(pulldown_group.ports())?;
-        group.add_group(pulldown_group);
-
         self.route(ctx, &group)?;
 
         ctx.add_ports(
@@ -225,6 +186,7 @@ impl ControlLogicReplicaV2 {
         ctx: &mut substrate::layout::context::LayoutCtx,
         group: &Group,
     ) -> substrate::error::Result<()> {
+        return Ok(());
         let layers = ctx.layers();
         let m0 = layers.get(Selector::Metal(0))?;
         let m1 = layers.get(Selector::Metal(1))?;
@@ -1380,8 +1342,8 @@ impl Component for InvChains {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
-        let tap = lib.try_cell_named("sky130_fd_sc_hd__tap_2")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let tap = lib.try_cell_named("sky130_fd_sc_hs__tap_2")?;
         let tap = ctx.instantiate::<StdCell>(&tap.id())?;
 
         let layers = ctx.layers();
@@ -1570,10 +1532,12 @@ impl SrLatch {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
-        let nor = lib.try_cell_named("sky130_fd_sc_hd__nor2_2")?;
-        let nor = ctx.instantiate::<StdCell>(&nor.id())?;
-        let nor_hflip = nor.with_orientation(Named::ReflectHoriz);
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let nand2 = lib.try_cell_named("sky130_fd_sc_hs__nand2_8")?;
+        let nand2 = ctx.instantiate::<StdCell>(&nand2.id())?;
+        let nand2_hflip = nand2.with_orientation(Named::ReflectHoriz);
+        let inv = lib.try_cell_named("sky130_fd_sc_hs__inv_2")?;
+        let inv = ctx.instantiate::<StdCell>(&inv.id())?;
 
         let layers = ctx.inner().layers();
         let outline = layers.get(Selector::Name("outline"))?;
@@ -1581,8 +1545,9 @@ impl SrLatch {
         let m1 = layers.get(Selector::Metal(1))?;
         let grid = ctx.pdk().layout_grid();
 
-        let nor = LayerBbox::new(nor, outline);
-        let nor_hflip = LayerBbox::new(nor_hflip, outline);
+        let nand2 = LayerBbox::new(nand2, outline);
+        let nand2_hflip = LayerBbox::new(nand2_hflip, outline);
+        let inv = LayerBbox::new(inv, outline);
         let mut via = ctx.instantiate::<Via>(
             &ViaParams::builder()
                 .layers(m0, m1)
@@ -1596,8 +1561,10 @@ impl SrLatch {
 
         let mut row = new_row();
 
-        row.push(nor);
-        row.push(nor_hflip);
+        row.push(nand2);
+        row.push(nand2_hflip);
+        row.push(inv.clone());
+        row.push(inv);
 
         let mut row = row.build();
         row.expose_ports(
@@ -1610,6 +1577,10 @@ impl SrLatch {
         let a1 = row.port_map().port(PortId::new("a", 1))?;
         let b1 = row.port_map().port(PortId::new("b", 1))?;
         let y1 = row.port_map().port(PortId::new("y", 1))?;
+        let aq0b = row.port_map().port(PortId::new("a", 2))?;
+        let yq = row.port_map().port(PortId::new("y", 2))?;
+        let aq0 = row.port_map().port(PortId::new("a", 3))?;
+        let yqb = row.port_map().port(PortId::new("y", 3))?;
 
         via.align_centers_gridded(b0.largest_rect(m0)?, grid);
         via.align_left(b0.largest_rect(m0)?);
@@ -1619,18 +1590,35 @@ impl SrLatch {
         via.align_bottom(y0.largest_rect(m0)?);
         let y0_via = via.clone();
 
-        via.align_centers_gridded(b1.largest_rect(m0)?, grid);
         via.align_left(b1.largest_rect(m0)?);
+        via.align_bottom(b1.largest_rect(m0)?);
         let b1_via = via.clone();
 
         via.align_centers_gridded(y1.largest_rect(m0)?, grid);
         via.align_top(y1.largest_rect(m0)?);
         let y1_via = via.clone();
 
+        via.align_centers_gridded(aq0.largest_rect(m0)?, grid);
+        via.align_bottom(aq0.largest_rect(m0)?);
+        let aq0_via = via.clone();
+
+        via.align_centers_gridded(aq0b.largest_rect(m0)?, grid);
+        via.align_top(aq0b.largest_rect(m0)?);
+        via.translate(Point::new(0, -40));
+        let aq0b_via = via.clone();
+
         ctx.draw(
             ElbowJog::builder()
                 .src(y0_via.layer_bbox(m1).into_rect().edge(Side::Right))
                 .dst(b1_via.brect().center())
+                .layer(m1)
+                .build()
+                .unwrap(),
+        )?;
+        ctx.draw(
+            ElbowJog::builder()
+                .src(y0_via.layer_bbox(m1).into_rect().edge(Side::Right))
+                .dst(aq0_via.brect().center())
                 .layer(m1)
                 .build()
                 .unwrap(),
@@ -1644,25 +1632,33 @@ impl SrLatch {
                 .build()
                 .unwrap(),
         )?;
+        ctx.draw(
+            ElbowJog::builder()
+                .src(y1_via.layer_bbox(m1).into_rect().edge(Side::Left))
+                .dst(aq0b_via.brect().center())
+                .layer(m1)
+                .build()
+                .unwrap(),
+        )?;
 
         ctx.draw(b0_via)?;
         ctx.draw(y0_via)?;
         ctx.draw(b1_via)?;
         ctx.draw(y1_via)?;
+        ctx.draw(aq0_via)?;
+        ctx.draw(aq0b_via)?;
 
-        ctx.add_port(a0.clone().with_id("r"))?;
-        ctx.add_port(y0.clone().with_id("q"))?;
-        ctx.add_port(a1.clone().with_id("s"))?;
-        ctx.add_port(y1.clone().with_id("q_b"))?;
+        ctx.add_port(a0.clone().with_id("sb"))?;
+        ctx.add_port(yq.clone().with_id("q"))?;
+        ctx.add_port(a1.clone().with_id("rb"))?;
+        ctx.add_port(yqb.clone().with_id("qb"))?;
 
-        let vpwr0 = row.port_map().port(PortId::new("vpwr", 0))?;
-        let vgnd0 = row.port_map().port(PortId::new("vgnd", 0))?;
-        let vpwr1 = row.port_map().port(PortId::new("vpwr", 1))?;
-        let vgnd1 = row.port_map().port(PortId::new("vgnd", 1))?;
-        ctx.merge_port(vpwr0.clone().with_id("vdd"));
-        ctx.merge_port(vgnd0.clone().with_id("vss"));
-        ctx.merge_port(vpwr1.clone().with_id("vdd"));
-        ctx.merge_port(vgnd1.clone().with_id("vss"));
+        for i in 0..4 {
+            let vpwr = row.port_map().port(PortId::new("vpwr", i))?;
+            let vgnd = row.port_map().port(PortId::new("vgnd", i))?;
+            ctx.merge_port(vpwr.clone().with_id("vdd"));
+            ctx.merge_port(vgnd.clone().with_id("vss"));
+        }
 
         ctx.draw(row)?;
 
@@ -1676,10 +1672,10 @@ impl InvChain {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
-        let inv = lib.try_cell_named("sky130_fd_sc_hd__inv_2")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let inv = lib.try_cell_named("sky130_fd_sc_hs__inv_2")?;
         let inv = ctx.instantiate::<StdCell>(&inv.id())?;
-        let tap = lib.try_cell_named("sky130_fd_sc_hd__tap_2")?;
+        let tap = lib.try_cell_named("sky130_fd_sc_hs__tap_2")?;
         let tap = ctx.instantiate::<StdCell>(&tap.id())?;
 
         let layers = ctx.layers();
@@ -1768,8 +1764,8 @@ impl EdgeDetector {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
-        let and = lib.try_cell_named("sky130_fd_sc_hd__and2_4")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let and = lib.try_cell_named("sky130_fd_sc_hs__and2_4")?;
         let and = ctx.instantiate::<StdCell>(&and.id())?;
 
         let layers = ctx.layers();

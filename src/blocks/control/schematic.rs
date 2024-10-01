@@ -53,7 +53,6 @@ impl ControlLogicReplicaV2 {
         let nand2 = lib.try_cell_named("sky130_fd_sc_hs__nand2_4")?;
         let nor2 = lib.try_cell_named("sky130_fd_sc_hs__nor2_4")?;
         let mux2 = lib.try_cell_named("sky130_fd_sc_hs__mux2_4")?;
-        let buf_small = lib.try_cell_named("sky130_fd_sc_hs__buf_8")?;
         let buf = lib.try_cell_named("sky130_fd_sc_hs__buf_16")?;
         let biginv = lib.try_cell_named("sky130_fd_sc_hs__inv_16")?;
 
@@ -244,7 +243,7 @@ impl ControlLogicReplicaV2 {
                 ("VGND", vss),
                 ("VNB", vss),
             ])
-            .named("and_sense_en")
+            .named("nand_sense_en")
             .add_to(ctx);
         ctx.instantiate::<StdCell>(&nand2.id())?
             .with_connections([
