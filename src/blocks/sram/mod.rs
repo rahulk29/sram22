@@ -209,7 +209,7 @@ impl Component for Sram {
         let rings = ring.cell().get_metadata::<SupplyRings>();
         let straps = sram.cell().get_metadata::<PlacedStraps>();
 
-        for (layer, dir) in [(m2, Dir::Horiz), (m3, Dir::Vert)] {
+        for (layer, dir) in [(m1, Dir::Vert), (m2, Dir::Horiz)] {
             for strap in straps.on_layer(layer) {
                 let ring = match strap.net {
                     SingleSupplyNet::Vss => rings.vss,
@@ -232,22 +232,31 @@ impl Component for Sram {
                     .with(!dir, strap.rect.span(!dir))
                     .build();
 
-                let below = if layer == m2 { m1 } else { m2 };
-
                 if strap.upper_boundary {
                     let target = ring.dir_rects(!dir)[1];
+
+                    let (below_rect, above_rect) = if layer == m2 {
+                        (target, r)
+                    } else {
+                        (r, target)
+                    };
                     let viap = ViaParams::builder()
-                        .layers(below, layer)
-                        .geometry(target, r)
+                        .layers(m1, m2)
+                        .geometry(below_rect, above_rect)
                         .expand(ViaExpansion::LongerDirection)
                         .build();
                     ctx.instantiate::<Via>(&viap)?.add_to(ctx)?;
                 }
                 if strap.lower_boundary {
                     let target = ring.dir_rects(!dir)[0];
+                    let (below_rect, above_rect) = if layer == m2 {
+                        (target, r)
+                    } else {
+                        (r, target)
+                    };
                     let viap = ViaParams::builder()
-                        .layers(below, layer)
-                        .geometry(target, r)
+                        .layers(m1, m2)
+                        .geometry(below_rect, above_rect)
                         .expand(ViaExpansion::LongerDirection)
                         .build();
                     ctx.instantiate::<Via>(&viap)?.add_to(ctx)?;
@@ -266,26 +275,26 @@ impl Component for Sram {
         ctx.draw(ring)?;
 
         // Route pins to edge of guard ring
-        let groups = self.params.cols() / self.params.mux_ratio();
-        for (pin, width) in [
-            ("dout", groups),
-            ("din", groups),
-            ("wmask", self.params.wmask_width()),
-            ("addr", self.params.addr_width()),
-            ("we", 1),
-            ("clk", 1),
-        ] {
-            for i in 0..width {
-                let port_id = PortId::new(pin, i);
-                let rect = sram.port(port_id.clone())?.largest_rect(m3)?;
-                let rect = rect.with_vspan(
-                    rect.vspan()
-                        .add_point(ctx.bbox().into_rect().side(subgeom::Side::Bot)),
-                );
-                ctx.draw_rect(m3, rect);
-                ctx.add_port(CellPort::builder().id(port_id).add(m3, rect).build())?;
-            }
-        }
+        // let groups = self.params.cols() / self.params.mux_ratio();
+        // for (pin, width) in [
+        //     ("dout", groups),
+        //     ("din", groups),
+        //     ("wmask", self.params.wmask_width()),
+        //     ("addr", self.params.addr_width()),
+        //     ("we", 1),
+        //     ("clk", 1),
+        // ] {
+        //     for i in 0..width {
+        //         let port_id = PortId::new(pin, i);
+        //         let rect = sram.port(port_id.clone())?.largest_rect(m3)?;
+        //         let rect = rect.with_vspan(
+        //             rect.vspan()
+        //                 .add_point(ctx.bbox().into_rect().side(subgeom::Side::Bot)),
+        //         );
+        //         ctx.draw_rect(m3, rect);
+        //         ctx.add_port(CellPort::builder().id(port_id).add(m3, rect).build())?;
+        //     }
+        // }
 
         Ok(())
     }
@@ -394,13 +403,13 @@ pub(crate) mod tests {
                 ctx.write_schematic_to_file::<Sram>(&$params, &spice_path)
                     .expect("failed to write schematic");
 
-                // let gds_path = out_gds(&work_dir, "layout");
-                // ctx.write_layout::<Sram>(&$params, &gds_path)
-                //     .expect("failed to write layout");
+                let gds_path = out_gds(&work_dir, "layout");
+                ctx.write_layout::<Sram>(&$params, &gds_path)
+                    .expect("failed to write layout");
 
-                // let verilog_path = out_verilog(&work_dir, &*$params.name());
-                // save_1rw_verilog(&verilog_path,&*$params.name(), &$params)
-                //     .expect("failed to write behavioral model");
+                let verilog_path = out_verilog(&work_dir, &*$params.name());
+                save_1rw_verilog(&verilog_path,&*$params.name(), &$params)
+                    .expect("failed to write behavioral model");
 
                 #[cfg(feature = "commercial")]
                 {
@@ -446,43 +455,43 @@ pub(crate) mod tests {
                     //     opts,
                     // }).expect("failed to run pex");
 
-                    let short = true;
-                    let short_str = if short { "short" } else { "long" };
-                    let corners = ctx.corner_db();
-                    let mut handles = Vec::new();
-                    for vdd in [1.8] {
-                        for corner in corners.corners() {
-                            let corner = corner.clone();
-                            let params = $params.clone();
-                            // let pex_netlist = Some(pex_netlist_path.clone());
-                            let work_dir = work_dir.clone();
-                            handles.push(std::thread::spawn(move || {
-                                let ctx = setup_ctx();
-                                let tb = crate::blocks::sram::testbench::tb_params(params, vdd, short, None);
-                                let work_dir = work_dir.join(format!(
-                                    "{}_{:.2}_{}",
-                                    corner.name(),
-                                    vdd,
-                                    short_str
-                                ));
-                                ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
-                                    &tb,
-                                    &work_dir,
-                                    corner.clone(),
-                                )
-                                .expect("failed to run simulation");
-                                println!(
-                                    "Simulated corner {} with Vdd = {}, short = {}",
-                                    corner.name(),
-                                    vdd,
-                                    short
-                                );
-                            }));
-                        }
-                    }
-                    for handle in handles {
-                        handle.join().expect("failed to join thread");
-                    }
+                    // let short = true;
+                    // let short_str = if short { "short" } else { "long" };
+                    // let corners = ctx.corner_db();
+                    // let mut handles = Vec::new();
+                    // for vdd in [1.8] {
+                    //     for corner in corners.corners() {
+                    //         let corner = corner.clone();
+                    //         let params = $params.clone();
+                    //         // let pex_netlist = Some(pex_netlist_path.clone());
+                    //         let work_dir = work_dir.clone();
+                    //         handles.push(std::thread::spawn(move || {
+                    //             let ctx = setup_ctx();
+                    //             let tb = crate::blocks::sram::testbench::tb_params(params, vdd, short, None);
+                    //             let work_dir = work_dir.join(format!(
+                    //                 "{}_{:.2}_{}",
+                    //                 corner.name(),
+                    //                 vdd,
+                    //                 short_str
+                    //             ));
+                    //             ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
+                    //                 &tb,
+                    //                 &work_dir,
+                    //                 corner.clone(),
+                    //             )
+                    //             .expect("failed to run simulation");
+                    //             println!(
+                    //                 "Simulated corner {} with Vdd = {}, short = {}",
+                    //                 corner.name(),
+                    //                 vdd,
+                    //                 short
+                    //             );
+                    //         }));
+                    //     }
+                    // }
+                    // for handle in handles {
+                    //     handle.join().expect("failed to join thread");
+                    // }
 
                     // crate::abs::run_abstract(
                     //     &work_dir,

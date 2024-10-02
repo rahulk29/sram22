@@ -633,7 +633,7 @@ impl Predecoder {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
         let dsn = ctx
             .inner()
-            .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
+            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
         let node = &self.params.tree.root;
         let child_sizes = if node.children.is_empty() {
             (0..node.num.ilog2()).map(|_| 2).collect()
@@ -648,8 +648,8 @@ impl Predecoder {
             child_sizes,
         };
         let mut inst = ctx.instantiate::<DecoderStage>(&params)?;
-        inst.place(Corner::LowerLeft, Point::zero());
-        ctx.add_ports(inst.ports_starting_with("decode")).unwrap();
+        inst.place(Corner::LowerRight, Point::zero());
+        ctx.add_ports(inst.ports_starting_with("y")).unwrap();
         if node.children.is_empty() {
             ctx.add_ports(inst.ports_starting_with("predecode"))
                 .unwrap();
@@ -663,8 +663,8 @@ impl Predecoder {
             let mut child = ctx.instantiate::<Predecoder>(&DecoderParams {
                 tree: super::DecoderTree { root: node.clone() },
             })?;
-            child.place(Corner::UpperLeft, Point::new(x, 0));
-            x += child.brect().width() + dsn.width * dsn.tap_period as i64;
+            child.place(Corner::UpperRight, Point::new(x, 0));
+            x -= child.brect().width() + dsn.width;
             ctx.merge_port(child.port("vdd")?);
             ctx.merge_port(child.port("vss")?);
 
@@ -682,10 +682,14 @@ impl Predecoder {
             }
 
             for j in 0..node.num {
-                let src = child.port(PortId::new("decode", j))?.largest_rect(dsn.li)?;
+                let src = child
+                    .port(PortId::new("y", j))?
+                    .largest_rect(dsn.li)
+                    .unwrap();
                 let dst = inst
                     .port(format!("predecode_{i}_{j}"))?
-                    .largest_rect(dsn.stripe_metal)?;
+                    .largest_rect(dsn.stripe_metal)
+                    .unwrap();
                 let rect =
                     Rect::from_spans(src.hspan(), Span::new(src.top() - src.width(), src.top()));
                 let jog = OffsetJog::builder()
@@ -737,7 +741,7 @@ impl DecoderStage {
     ) -> substrate::error::Result<()> {
         let dsn = ctx
             .inner()
-            .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
+            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
         decoder_stage_layout(ctx, &self.params, &dsn, RoutingStyle::Decoder)
     }
 }

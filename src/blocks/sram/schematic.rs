@@ -336,8 +336,6 @@ impl SramInner {
                 ("reset_b", reset_b),
                 ("vdd", vdd),
                 ("vss", vss),
-                ("dummy_bl", dummy_bl),
-                ("dummy_br", dummy_br),
                 ("bl", bl),
                 ("br", br),
                 ("pc_b", pc_b),

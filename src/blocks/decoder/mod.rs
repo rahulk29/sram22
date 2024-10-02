@@ -151,7 +151,7 @@ impl Component for AddrGate {
     ) -> substrate::error::Result<()> {
         let dsn = ctx
             .inner()
-            .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
+            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
         let params = DecoderStageParams {
             max_width: None,
             gate: self.params.gate,
@@ -374,7 +374,7 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
     lp.size_with_opts(OptimizerOpts {
         lr: 1e10,
         lr_decay: 0.999995,
-        max_iter: 10_000_000,
+        max_iter: 10,
     });
 
     let mut cnode: Option<&mut TreeNode> = None;

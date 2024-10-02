@@ -4,12 +4,15 @@ use substrate::component::{Component, NoParams};
 use substrate::data::SubstrateCtx;
 use substrate::index::IndexOwned;
 use substrate::layout::cell::CellPort;
+use substrate::layout::layers::selector::Selector;
+use substrate::layout::layers::LayerBoundBox;
 use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::ArrayTiler;
+use substrate::layout::placement::tile::RectBbox;
 use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 
-use super::macros::Dff;
+use super::columns::layout::{DffCol, TappedDff};
 
 pub mod layout;
 pub mod schematic;
@@ -180,10 +183,15 @@ impl Component for DffArray {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let dff = ctx.instantiate::<Dff>(&NoParams)?;
+        let layers = ctx.layers();
+        let outline = layers.get(Selector::Name("outline"))?;
+        let dff = ctx.instantiate::<TappedDff>(&NoParams)?;
         let mut tiler = ArrayTiler::builder()
-            .mode(AlignMode::ToTheRight)
-            .push_num(dff, self.n)
+            .mode(AlignMode::Beneath)
+            .push_num(
+                RectBbox::new(dff.clone(), dff.layer_bbox(outline).into_rect()),
+                self.n,
+            )
             .build();
 
         tiler.expose_ports(

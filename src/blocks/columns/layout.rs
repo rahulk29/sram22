@@ -842,9 +842,9 @@ impl Component for ColumnCent {
     }
 }
 
-pub struct DffCol;
+pub struct TappedDff;
 
-impl Component for DffCol {
+impl Component for TappedDff {
     type Params = NoParams;
     fn new(
         _params: &Self::Params,
@@ -853,7 +853,7 @@ impl Component for DffCol {
         Ok(Self)
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("dff_col")
+        arcstr::literal!("tapped_dff")
     }
 
     fn layout(
@@ -914,6 +914,61 @@ impl Component for DffCol {
                 m0_bbox.with_hspan(m0_bbox.hspan().add_point(bbox.hspan().point(side))),
             );
 
+            let port = if vdd { "vpwr" } else { "vgnd" };
+            let m1_rect = dff.port(port)?.largest_rect(m1)?;
+
+            let port = if vdd { "vdd" } else { "vss" };
+            ctx.merge_port(CellPort::with_shape(port, m1, m1_rect));
+        }
+        for port in ["q", "q_n", "clk", "reset_b", "d"] {
+            ctx.merge_port(dff.port(port)?.into_cell_port());
+        }
+        ctx.draw(dff)?;
+        Ok(())
+    }
+}
+
+pub struct DffCol;
+
+impl Component for DffCol {
+    type Params = NoParams;
+    fn new(
+        _params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self)
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("dff_col")
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let dff = ctx.instantiate::<TappedDff>(&NoParams)?;
+        let layers = ctx.layers();
+        let nwell = layers.get(Selector::Name("nwell"))?;
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+        let psdm = layers.get(Selector::Name("psdm"))?;
+        let outline = layers.get(Selector::Name("outline"))?;
+        let tap = layers.get(Selector::Name("tap"))?;
+        let m0 = layers.get(Selector::Metal(0))?;
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+
+        let pc = ctx
+            .inner()
+            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+
+        let bbox = dff.layer_bbox(outline).into_rect();
+
+        let hspan = Span::from_center_span_gridded(
+            bbox.center().x,
+            4 * pc.width + pc.tap_width,
+            ctx.pdk().layout_grid(),
+        );
+        for (side, vdd) in [(Sign::Neg, true), (Sign::Pos, false)] {
             let power_stripe = Rect::from_spans(
                 hspan,
                 Span::from_center_span_gridded(
@@ -923,7 +978,7 @@ impl Component for DffCol {
                 ),
             );
 
-            let port = if vdd { "vpwr" } else { "vgnd" };
+            let port = if vdd { "vdd" } else { "vss" };
             let m1_rect = dff.port(port)?.largest_rect(m1)?;
             let viap = ViaParams::builder()
                 .layers(m1, m2)
@@ -935,7 +990,6 @@ impl Component for DffCol {
 
             ctx.draw_rect(m2, power_stripe);
 
-            let port = if vdd { "vdd" } else { "vss" };
             ctx.merge_port(CellPort::with_shape(port, m2, power_stripe));
             ctx.merge_port(CellPort::with_shape(port, m1, m1_rect));
         }
