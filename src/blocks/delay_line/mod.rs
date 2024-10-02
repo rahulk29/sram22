@@ -268,7 +268,8 @@ impl Component for TristateInvDelayLine {
         let mut tstate = ctx.instantiate::<TristateInv>(&self.params.tristate_inv)?;
         let tap = ctx
             .instantiate::<DecoderTap>(&DecoderGateParams {
-                gate: Some(super::gate::GateParams::Inv(self.params.inv)),
+                gate: super::gate::GateParams::Inv(self.params.inv),
+                filler: false,
                 dsn: (*dsn).clone(),
             })?
             .with_orientation(Named::R90Cw);

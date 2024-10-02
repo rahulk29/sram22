@@ -4,6 +4,7 @@ use substrate::component::Component;
 use substrate::layout::context::LayoutCtx;
 use substrate::schematic::context::SchematicCtx;
 
+use super::gate::PrimitiveGateParams;
 use super::precharge::PrechargeParams;
 use super::tgatemux::TGateMuxParams;
 use super::wrdriver::WriteDriverParams;
@@ -17,6 +18,7 @@ pub struct ColParams {
     pub pc: PrechargeParams,
     pub mux: TGateMuxParams,
     pub wrdriver: WriteDriverParams,
+    pub buf: PrimitiveGateParams,
     pub cols: usize,
     pub include_wmask: bool,
     pub wmask_granularity: usize,
@@ -37,6 +39,10 @@ impl ColParams {
 }
 
 pub struct ColPeripherals {
+    params: ColParams,
+}
+
+pub struct WmaskPeripherals {
     params: ColParams,
 }
 
@@ -61,6 +67,29 @@ impl Component for ColPeripherals {
 
     fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
         self.schematic(ctx)
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        self.layout(ctx)
+    }
+}
+
+impl Component for WmaskPeripherals {
+    type Params = ColParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("wmask_peripherals")
     }
 
     fn layout(
@@ -130,10 +159,17 @@ mod tests {
         equalizer_width: 1_200,
     };
 
+    const DIFF_BUF_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+        nwidth: 1_200,
+        pwidth: 2_000,
+        length: 150,
+    };
+
     const COL_WMASK_PARAMS: ColParams = ColParams {
         pc: PRECHARGE_PARAMS,
         wrdriver: WRITE_DRIVER_PARAMS,
         mux: MUX_PARAMS,
+        buf: DIFF_BUF_PARAMS,
         cols: 16,
         include_wmask: true,
         wmask_granularity: 2,
@@ -143,6 +179,7 @@ mod tests {
         pc: PRECHARGE_PARAMS,
         wrdriver: WRITE_DRIVER_PARAMS,
         mux: MUX_PARAMS,
+        buf: DIFF_BUF_PARAMS,
         cols: 128,
         include_wmask: false,
         wmask_granularity: 8,
@@ -228,26 +265,9 @@ mod tests {
                 output.summary,
                 substrate::verification::drc::DrcSummary::Pass
             ));
-        }
-    }
-
-    #[test]
-    fn test_col_peripherals_lvs() {
-        let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_col_peripherals_lvs");
-        ctx.write_layout::<ColPeripheralsLvs>(&COL_WMASK_PARAMS, out_gds(&work_dir, "layout"))
-            .expect("failed to write layout");
-        ctx.write_schematic_to_file::<ColPeripheralsLvs>(
-            &COL_WMASK_PARAMS,
-            out_spice(&work_dir, "netlist"),
-        )
-        .expect("failed to write schematic");
-
-        #[cfg(feature = "commercial")]
-        {
             let lvs_work_dir = work_dir.join("lvs");
             let output = ctx
-                .write_lvs::<ColPeripheralsLvs>(&COL_WMASK_PARAMS, lvs_work_dir)
+                .write_lvs::<ColPeripherals>(&COL_WMASK_PARAMS, lvs_work_dir)
                 .expect("failed to run LVS");
             assert!(matches!(
                 output.summary,

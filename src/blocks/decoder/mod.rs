@@ -702,7 +702,7 @@ mod tests {
             .expect("failed to run design script");
 
         let params = DecoderGateParams {
-            gate: Some(GateParams::And2(AndParams {
+            gate: GateParams::And2(AndParams {
                 nand: PrimitiveGateParams {
                     nwidth: 2_000,
                     pwidth: 2_000,
@@ -713,7 +713,8 @@ mod tests {
                     pwidth: 2_000,
                     length: 150,
                 },
-            })),
+            }),
+            filler: false,
             dsn: (*dsn).clone(),
         };
 

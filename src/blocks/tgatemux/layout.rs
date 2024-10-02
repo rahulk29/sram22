@@ -1,4 +1,3 @@
-use std::fs::metadata;
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
 use subgeom::{Dir, Point, Rect, Side, Span};

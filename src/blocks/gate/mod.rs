@@ -8,10 +8,8 @@ use substrate::layout::layers::selector::Selector;
 use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::ArrayTiler;
 
-use super::decoder::layout::{
-    decoder_stage_layout, DecoderGate, DecoderGateParams, DecoderTap, RoutingStyle,
-};
-use super::decoder::{self, DecoderStageParams};
+use super::decoder::layout::{DecoderGate, DecoderGateParams, DecoderTap};
+use super::decoder::{self};
 
 pub mod layout;
 pub mod schematic;
@@ -338,7 +336,8 @@ impl Component for TappedGate {
         let psdm = layers.get(Selector::Name("psdm"))?;
         let nsdm = layers.get(Selector::Name("nsdm"))?;
         let decoder_params = DecoderGateParams {
-            gate: Some(self.params),
+            gate: self.params,
+            filler: false,
             dsn: decoder::layout::PhysicalDesign {
                 width: 1_580,
                 tap_width: 1_580,

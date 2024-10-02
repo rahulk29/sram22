@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use codegen::hard_macro;
 
 use subgeom::bbox::BoundBox;
-use subgeom::{Rect, Sign, Span};
+use subgeom::{Rect, Span};
 use substrate::component::{Component, NoParams, View};
 use substrate::data::SubstrateCtx;
 use substrate::layout::cell::{CellPort, Port};
@@ -82,7 +82,7 @@ pub struct SenseAmpCent;
 impl Component for SenseAmpCent {
     type Params = NoParams;
     fn new(
-        params: &Self::Params,
+        _params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         Ok(Self)
@@ -128,11 +128,13 @@ impl Component for SenseAmpCent {
         let nspan = sa.layer_bbox(nsdm).into_rect().vspan();
         let pspan = sa.layer_bbox(psdm).into_rect().vspan();
 
-        for (span, vdd) in [(nspan, true), (pspan, false)] {
+        for (span, vdd) in [(pspan, true), (nspan, false)] {
             let r = Rect::from_spans(hspan, span).shrink(200);
             let viap = ViaParams::builder().layers(tap, m0).geometry(r, r).build();
             let via = ctx.instantiate::<Via>(&viap)?;
-            ctx.draw(via)?;
+            ctx.draw_ref(&via)?;
+            let sdm_rect = via.layer_bbox(tap).into_rect().expand(130);
+            ctx.draw_rect(if vdd { nsdm } else { psdm }, sdm_rect);
 
             let pspan = sa
                 .port(if vdd { "vdd" } else { "vss" })?
@@ -146,7 +148,7 @@ impl Component for SenseAmpCent {
 
             let viap = ViaParams::builder()
                 .layers(m1, m2)
-                .geometry(via.layer_bbox(m1), power_stripe)
+                .geometry(via.layer_bbox(m1).into_rect(), power_stripe)
                 .expand(ViaExpansion::LongerDirection)
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;

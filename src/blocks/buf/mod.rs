@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 
 use super::gate::PrimitiveGateParams;
@@ -16,9 +15,7 @@ impl Component for DiffBuf {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("diff_buf")

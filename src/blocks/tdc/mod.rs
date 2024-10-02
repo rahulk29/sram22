@@ -485,7 +485,8 @@ impl Component for TdcCell {
             abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
         };
         let decoder_gate = DecoderGateParams {
-            gate: Some(GateParams::Inv(self.params.inv)),
+            gate: GateParams::Inv(self.params.inv),
+            filler: false,
             dsn,
         };
 
