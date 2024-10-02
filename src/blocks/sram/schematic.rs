@@ -98,7 +98,6 @@ impl SramInner {
                 "sense_en_b",
                 "sense_en",
             ]);
-        let [decrepstart, decrepend] = ctx.signals(["decrepstart", "decrepend"]);
 
         let wl_cap = (self.params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL;
         let tree = DecoderTree::new(self.params.row_bits(), wl_cap);
@@ -170,23 +169,12 @@ impl SramInner {
                 ("pc_b", pc_b0),
                 ("wlen", wl_en0),
                 ("wrdrven", write_driver_en0),
-                ("decrepstart", decrepstart),
-                ("decrepend", decrepend),
                 ("saen", sense_en0),
                 ("vdd", vdd),
                 ("vss", vss),
             ])
             .named("control_logic");
         control_logic.add_to(ctx);
-        ctx.instantiate::<InvChain>(&20)?
-            .with_connections([
-                ("din", decrepstart),
-                ("dout", decrepend),
-                ("vdd", vdd),
-                ("vss", vss),
-            ])
-            .named("decoder_replica")
-            .add_to(ctx);
 
         let col_sel_buf_b = ctx.bus("col_sel_buf_b", col_sel.width());
         let col_sel_buf = ctx.bus("col_sel_buf", col_sel.width());
