@@ -377,8 +377,8 @@ impl SrLatch {
         let mut nand_reset = nand_set.clone();
 
         nand_set.connect_all([
-            ("A", sb),
-            ("B", q0b),
+            ("A", q0b),
+            ("B", sb),
             ("Y", q0),
             ("VPWR", vdd),
             ("VPB", vdd),
@@ -389,8 +389,8 @@ impl SrLatch {
         ctx.add_instance(nand_set);
 
         nand_reset.connect_all([
-            ("A", rb),
-            ("B", q0),
+            ("A", q0),
+            ("B", rb),
             ("Y", q0b),
             ("VPWR", vdd),
             ("VPB", vdd),
