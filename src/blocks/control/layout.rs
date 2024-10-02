@@ -255,7 +255,8 @@ impl ControlLogicReplicaV2 {
 
         for layer in [m1, m2] {
             for shape in group.shapes_on(layer) {
-                router.block(layer, shape.brect());
+                let rect = shape.brect().expand(40);
+                router.block(layer, rect);
             }
         }
 
@@ -295,7 +296,7 @@ impl ControlLogicReplicaV2 {
         for i in 0..num_bot_pins {
             let vtrack = vtracks.index(vtrack_start + 2 * (i as i64) + left_offset);
             bot_pins.push(Rect::from_spans(vtrack, htrack));
-            ctx.draw_rect(m1, bot_pins[i]);
+            ctx.draw_rect(m2, bot_pins[i]);
         }
 
         router.block(
@@ -950,7 +951,7 @@ impl ControlLogicReplicaV2 {
         router.route_with_net(ctx, m1, wlend_out, m1, wlend_in, "wlend")?;
         router.route_with_net(ctx, m1, wlen_out, m2, wlen_pin, "wlen")?;
         router.route_with_net(ctx, m1, saen_out, m2, saen_pin, "saen")?;
-        router.route_with_net(ctx, m1, wrdrven_out, m2, wrdrven_pin, "wrdrven")?;
+        router.route_with_net(ctx, m2, wrdrven_pin, m1, wrdrven_out, "wrdrven")?;
         router.route_with_net(ctx, m2, rbl_pin, m1, rbl_in, "rbl")?;
         router.route_with_net(
             ctx,
