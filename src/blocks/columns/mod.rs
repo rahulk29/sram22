@@ -261,14 +261,14 @@ mod tests {
 
         #[cfg(feature = "commercial")]
         {
-            // let drc_work_dir = work_dir.join("drc");
-            // let output = ctx
-            //     .write_drc::<ColPeripherals>(&COL_WMASK_PARAMS, drc_work_dir)
-            //     .expect("failed to run DRC");
-            // assert!(matches!(
-            //     output.summary,
-            //     substrate::verification::drc::DrcSummary::Pass
-            // ));
+            let drc_work_dir = work_dir.join("drc");
+            let output = ctx
+                .write_drc::<ColPeripherals>(&COL_WMASK_PARAMS, drc_work_dir)
+                .expect("failed to run DRC");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::drc::DrcSummary::Pass
+            ));
             let lvs_work_dir = work_dir.join("lvs");
             let output = ctx
                 .write_lvs::<ColPeripherals>(&COL_WMASK_PARAMS, lvs_work_dir)
