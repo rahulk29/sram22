@@ -9,15 +9,13 @@ use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch};
 impl ControlLogicReplicaV2 {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
         // PORTS
-        let [clk, ce, we, reset_b, decrepend] = ctx.ports(
-            ["clk", "ce", "we", "reset_b", "decrepend"],
-            Direction::Input,
-        );
-        let [saen, pc_b, rwl, wlen, wrdrven, decrepstart] = ctx.ports(
-            ["saen", "pc_b", "rwl", "wlen", "wrdrven", "decrepstart"],
+        let [clk, ce, we, reset_b, rbl] =
+            ctx.ports(["clk", "ce", "we", "reset_b", "rbl"], Direction::Input);
+        let [saen, pc_b, rwl, wlen, wrdrven] = ctx.ports(
+            ["saen", "pc_b", "rwl", "wlen", "wrdrven"],
             Direction::Output,
         );
-        let [rbl, vdd, vss] = ctx.ports(["rbl", "vdd", "vss"], Direction::InOut);
+        let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
 
         // SIGNALS
         let [clk_buf, clkp0, clkp, clkp_b, clkpd, clkpd_b, clkpdd, clkp_grst_b] = ctx.signals([
@@ -30,6 +28,7 @@ impl ControlLogicReplicaV2 {
             "clkpdd",
             "clkp_grst_b",
         ]);
+        let [decrepstart, decrepend] = ctx.signals(["decrepstart", "decrepend"]);
         let [wlen_grst_b, wlen_rst_decoderd, wlen_b, wlen_q, wlend_b, wlend] = ctx.signals([
             "wlen_grst_b",
             "wlen_rst_decoderd",
@@ -53,7 +52,6 @@ impl ControlLogicReplicaV2 {
         let nand2 = lib.try_cell_named("sky130_fd_sc_hs__nand2_4")?;
         let nor2 = lib.try_cell_named("sky130_fd_sc_hs__nor2_4")?;
         let mux2 = lib.try_cell_named("sky130_fd_sc_hs__mux2_4")?;
-        let buf_small = lib.try_cell_named("sky130_fd_sc_hs__buf_8")?;
         let buf = lib.try_cell_named("sky130_fd_sc_hs__buf_16")?;
         let biginv = lib.try_cell_named("sky130_fd_sc_hs__inv_16")?;
 
@@ -155,6 +153,15 @@ impl ControlLogicReplicaV2 {
             ])
             .named("mux_wlen_rst")
             .add_to(ctx);
+        ctx.instantiate::<InvChain>(&16)?
+            .with_connections([
+                ("din", decrepstart),
+                ("dout", decrepend),
+                ("vdd", vdd),
+                ("vss", vss),
+            ])
+            .named("decoder_replica")
+            .add_to(ctx);
         ctx.instantiate::<InvChain>(&6)?
             .with_connections([
                 ("din", decrepend),
@@ -244,7 +251,7 @@ impl ControlLogicReplicaV2 {
                 ("VGND", vss),
                 ("VNB", vss),
             ])
-            .named("and_sense_en")
+            .named("nand_sense_en")
             .add_to(ctx);
         ctx.instantiate::<StdCell>(&nand2.id())?
             .with_connections([
@@ -370,8 +377,8 @@ impl SrLatch {
         let mut nand_reset = nand_set.clone();
 
         nand_set.connect_all([
-            ("A", sb),
-            ("B", q0b),
+            ("A", q0b),
+            ("B", sb),
             ("Y", q0),
             ("VPWR", vdd),
             ("VPB", vdd),
@@ -382,8 +389,8 @@ impl SrLatch {
         ctx.add_instance(nand_set);
 
         nand_reset.connect_all([
-            ("A", rb),
-            ("B", q0),
+            ("A", q0),
+            ("B", rb),
             ("Y", q0b),
             ("VPWR", vdd),
             ("VPB", vdd),
