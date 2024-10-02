@@ -9,12 +9,10 @@ use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch};
 impl ControlLogicReplicaV2 {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
         // PORTS
-        let [clk, ce, we, reset_b, decrepend, rbl] = ctx.ports(
-            ["clk", "ce", "we", "reset_b", "decrepend", "rbl"],
-            Direction::Input,
-        );
-        let [saen, pc_b, rwl, wlen, wrdrven, decrepstart] = ctx.ports(
-            ["saen", "pc_b", "rwl", "wlen", "wrdrven", "decrepstart"],
+        let [clk, ce, we, reset_b, rbl] =
+            ctx.ports(["clk", "ce", "we", "reset_b", "rbl"], Direction::Input);
+        let [saen, pc_b, rwl, wlen, wrdrven] = ctx.ports(
+            ["saen", "pc_b", "rwl", "wlen", "wrdrven"],
             Direction::Output,
         );
         let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
@@ -30,6 +28,7 @@ impl ControlLogicReplicaV2 {
             "clkpdd",
             "clkp_grst_b",
         ]);
+        let [decrepstart, decrepend] = ctx.signals(["decrepstart", "decrepend"]);
         let [wlen_grst_b, wlen_rst_decoderd, wlen_b, wlen_q, wlend_b, wlend] = ctx.signals([
             "wlen_grst_b",
             "wlen_rst_decoderd",
@@ -153,6 +152,15 @@ impl ControlLogicReplicaV2 {
                 ("VNB", vss),
             ])
             .named("mux_wlen_rst")
+            .add_to(ctx);
+        ctx.instantiate::<InvChain>(&16)?
+            .with_connections([
+                ("din", decrepstart),
+                ("dout", decrepend),
+                ("vdd", vdd),
+                ("vss", vss),
+            ])
+            .named("decoder_replica")
             .add_to(ctx);
         ctx.instantiate::<InvChain>(&6)?
             .with_connections([
