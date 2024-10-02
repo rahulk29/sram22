@@ -32,6 +32,7 @@ pub struct DecoderStage {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DecoderParams {
+    pub max_width: Option<i64>,
     pub tree: DecoderTree,
 }
 
@@ -658,7 +659,10 @@ mod tests {
         let work_dir = test_work_dir("test_decoder_4bit");
 
         let tree = DecoderTree::new(4, 150e-15);
-        let params = DecoderParams { tree };
+        let params = DecoderParams {
+            max_width: None,
+            tree,
+        };
 
         ctx.write_schematic_to_file::<Decoder>(&params, out_spice(work_dir, "netlist"))
             .expect("failed to write schematic");
@@ -728,7 +732,10 @@ mod tests {
         let work_dir = test_work_dir("test_predecoder_4");
 
         let tree = DecoderTree::new(4, 150e-15);
-        let params = DecoderParams { tree };
+        let params = DecoderParams {
+            max_width: None,
+            tree,
+        };
 
         ctx.write_layout::<Predecoder>(&params, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
@@ -740,7 +747,10 @@ mod tests {
         let work_dir = test_work_dir("test_predecoder_6");
 
         let tree = DecoderTree::new(6, 150e-15);
-        let params = DecoderParams { tree };
+        let params = DecoderParams {
+            max_width: None,
+            tree,
+        };
 
         ctx.write_layout::<Predecoder>(&params, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");

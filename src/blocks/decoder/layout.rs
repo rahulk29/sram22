@@ -9,7 +9,7 @@ use substrate::index::IndexOwned;
 
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
-use subgeom::{Corner, Dir, Point, Rect, Sign, Span};
+use subgeom::{Corner, Dir, Point, Rect, Side, Sign, Span};
 use substrate::layout::cell::{CellPort, Element, Flatten, Port, PortConflictStrategy, PortId};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::via::{Via, ViaParams};
@@ -81,7 +81,7 @@ pub(crate) fn calculate_folding(
             for params in primitive_gate_params.iter().chain(params.invs.iter()) {
                 let ff = std::cmp::min(
                     std::cmp::max(
-                        std::cmp::min(params.pwidth, params.nwidth) as usize / 840,
+                        std::cmp::min(params.pwidth, params.nwidth) as usize / 960,
                         1,
                     ),
                     folding_factor_limit,
@@ -634,16 +634,27 @@ impl Predecoder {
         let dsn = ctx
             .inner()
             .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
-        let node = &self.params.tree.root;
+        let mut node = &self.params.tree.root;
+        let mut invs = vec![];
+
+        let num_children = node.children.len();
+        while num_children == 1 {
+            if let GateParams::Inv(params) | GateParams::FoldedInv(params) = node.gate {
+                invs.push(params);
+                node = &node.children[0];
+            } else {
+                break;
+            }
+        }
         let child_sizes = if node.children.is_empty() {
             (0..node.num.ilog2()).map(|_| 2).collect()
         } else {
             node.children.iter().map(|n| n.num).collect()
         };
         let params = DecoderStageParams {
-            max_width: None,
+            max_width: self.params.max_width,
             gate: node.gate,
-            invs: vec![],
+            invs,
             num: node.num,
             child_sizes,
         };
@@ -661,10 +672,17 @@ impl Predecoder {
         let mut next_addr = (0, 0);
         for (i, node) in node.children.iter().enumerate() {
             let mut child = ctx.instantiate::<Predecoder>(&DecoderParams {
+                max_width: self
+                    .params
+                    .max_width
+                    .map(|width| width / num_children as i64),
                 tree: super::DecoderTree { root: node.clone() },
             })?;
-            child.place(Corner::UpperRight, Point::new(x, 0));
-            x -= child.brect().width() + dsn.width;
+            child.place(Corner::UpperRight, Point::new(x, -340));
+            x -= (child.brect().width() as usize)
+                .div_ceil(dsn.width as usize * dsn.tap_period + dsn.tap_width as usize)
+                as i64
+                * (dsn.width * dsn.tap_period as i64 + dsn.tap_width);
             ctx.merge_port(child.port("vdd")?);
             ctx.merge_port(child.port("vss")?);
 
@@ -686,17 +704,19 @@ impl Predecoder {
                     .port(PortId::new("y", j))?
                     .largest_rect(dsn.li)
                     .unwrap();
+                let src = src.expand_side(Side::Top, 340);
                 let dst = inst
                     .port(format!("predecode_{i}_{j}"))?
                     .largest_rect(dsn.stripe_metal)
                     .unwrap();
+                ctx.draw_rect(dsn.li, src);
                 let rect =
-                    Rect::from_spans(src.hspan(), Span::new(src.top() - src.width(), src.top()));
+                    Rect::from_spans(src.hspan(), Span::with_stop_and_length(src.top(), 170));
                 let jog = OffsetJog::builder()
                     .dir(Dir::Horiz)
                     .sign(if j % 2 == 0 { Sign::Pos } else { Sign::Neg })
                     .src(rect)
-                    .space(335)
+                    .space(450)
                     .dst(dst.top())
                     .layer(dsn.li)
                     .build()

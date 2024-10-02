@@ -56,7 +56,10 @@ impl Component for DecoderCriticalPathTb {
             .add_to(ctx);
 
         let tree = DecoderTree::new(params.bits, 64. * WORDLINE_CAP_PER_CELL);
-        let decoder_params = DecoderParams { tree };
+        let decoder_params = DecoderParams {
+            max_width: None,
+            tree,
+        };
         ctx.instantiate::<Decoder>(&decoder_params)?
             .with_connections([
                 ("vdd", vdd),

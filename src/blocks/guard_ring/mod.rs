@@ -6,7 +6,7 @@ use substrate::component::Component;
 use substrate::layout::cell::CellPort;
 use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::layers::selector::Selector;
-use substrate::layout::layers::LayerKey;
+use substrate::layout::layers::{LayerBoundBox, LayerKey};
 
 pub struct GuardRing {
     params: GuardRingParams,
@@ -168,9 +168,14 @@ impl Component for GuardRing {
             }
             for rh in ring.inner_hrects() {
                 let r = rh.shrink(340);
-                for (bot, top) in via_pairs {
+                for &(bot, top) in via_pairs[..1].iter() {
                     let viap = ViaParams::builder().layers(bot, top).geometry(r, r).build();
                     let via = ctx.instantiate::<Via>(&viap)?;
+                    ctx.merge_port(CellPort::with_shape(
+                        port_name,
+                        top,
+                        via.layer_bbox(top).into_rect(),
+                    ));
                     ctx.draw(via)?;
                 }
             }

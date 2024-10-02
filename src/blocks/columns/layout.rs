@@ -321,8 +321,22 @@ impl ColPeripherals {
         for port in ["vdd", "vss", "pc_b", "sense_en", "clk", "reset_b"] {
             ctx.merge_port(grid_tiler.port_map().port(port)?.clone());
         }
-        for port in ["vdd", "vss", "clk", "reset_b", "we"] {
+        for port in ["clk", "reset_b", "we"] {
             ctx.merge_port(wmask_peripherals.port(port)?.into_cell_port());
+        }
+        for port in ["vdd", "vss"] {
+            for layer in [m1, m2] {
+                for rect in wmask_peripherals
+                    .port(port)?
+                    .shapes(layer)
+                    .filter_map(|shape| shape.as_rect())
+                    .filter(|rect| rect.height() < 5000)
+                {
+                    let full_span_port = rect.with_hspan(ctx.brect().hspan());
+                    ctx.draw_rect(layer, full_span_port);
+                    ctx.merge_port(CellPort::with_shape(port, layer, full_span_port));
+                }
+            }
         }
         for i in 0..self.params.mux_ratio() {
             for port in ["sel", "sel_b"] {

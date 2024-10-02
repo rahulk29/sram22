@@ -187,11 +187,8 @@ impl Component for DffArray {
         let outline = layers.get(Selector::Name("outline"))?;
         let dff = ctx.instantiate::<TappedDff>(&NoParams)?;
         let mut tiler = ArrayTiler::builder()
-            .mode(AlignMode::Beneath)
-            .push_num(
-                RectBbox::new(dff.clone(), dff.layer_bbox(outline).into_rect()),
-                self.n,
-            )
+            .mode(AlignMode::ToTheRight)
+            .push_num(dff, self.n)
             .build();
 
         tiler.expose_ports(

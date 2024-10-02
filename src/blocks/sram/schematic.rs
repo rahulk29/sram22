@@ -123,7 +123,10 @@ impl SramInner {
         .named("addr_gate")
         .add_to(ctx);
 
-        let decoder_params = DecoderParams { tree };
+        let decoder_params = DecoderParams {
+            max_width: None,
+            tree,
+        };
 
         ctx.instantiate::<Decoder>(&decoder_params)?
             .with_connections([
@@ -143,6 +146,7 @@ impl SramInner {
             READ_MUX_INPUT_CAP * (self.params.cols() / self.params.mux_ratio()) as f64,
         );
         let col_decoder_params = DecoderParams {
+            max_width: None,
             tree: col_tree.clone(),
         };
 
@@ -407,7 +411,7 @@ fn buffer_chain_num_stages(cl: f64) -> usize {
     stages
 }
 
-fn fanout_buffer_stage(cl: f64) -> DecoderStageParams {
+pub fn fanout_buffer_stage(cl: f64) -> DecoderStageParams {
     let stages = buffer_chain_num_stages(cl);
     let invs = InverterGateTreeNode::buffer(stages)
         .elaborate()

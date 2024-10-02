@@ -195,9 +195,9 @@ impl Component for Sram {
         let brect = sram.brect();
         ctx.draw_ref(&sram)?;
 
+        let m0 = ctx.layers().get(Selector::Metal(0))?;
         let m1 = ctx.layers().get(Selector::Metal(1))?;
         let m2 = ctx.layers().get(Selector::Metal(2))?;
-        let m3 = ctx.layers().get(Selector::Metal(3))?;
         let params = GuardRingParams {
             enclosure: brect.expand(1_000),
             h_metal: m2,
@@ -232,9 +232,14 @@ impl Component for Sram {
                     .with(!dir, strap.rect.span(!dir))
                     .build();
 
+                let mut targets = Vec::new();
                 if strap.upper_boundary {
-                    let target = ring.dir_rects(!dir)[1];
-
+                    targets.push(ring.dir_rects(!dir)[1]);
+                }
+                if strap.lower_boundary {
+                    targets.push(ring.dir_rects(!dir)[0]);
+                }
+                for target in targets {
                     let (below_rect, above_rect) = if layer == m2 {
                         (target, r)
                     } else {
@@ -247,19 +252,22 @@ impl Component for Sram {
                         .build();
                     ctx.instantiate::<Via>(&viap)?.add_to(ctx)?;
                 }
-                if strap.lower_boundary {
-                    let target = ring.dir_rects(!dir)[0];
-                    let (below_rect, above_rect) = if layer == m2 {
-                        (target, r)
-                    } else {
-                        (r, target)
-                    };
-                    let viap = ViaParams::builder()
-                        .layers(m1, m2)
-                        .geometry(below_rect, above_rect)
-                        .expand(ViaExpansion::LongerDirection)
-                        .build();
-                    ctx.instantiate::<Via>(&viap)?.add_to(ctx)?;
+                if layer == m1 {
+                    let mut targets = Vec::new();
+                    if strap.upper_boundary {
+                        targets.push(ring.inner_hrects()[1]);
+                    }
+                    if strap.lower_boundary {
+                        targets.push(ring.inner_hrects()[0]);
+                    }
+                    for target in targets {
+                        let viap = ViaParams::builder()
+                            .layers(m0, m1)
+                            .geometry(target, r)
+                            .expand(ViaExpansion::LongerDirection)
+                            .build();
+                        ctx.instantiate::<Via>(&viap)?.add_to(ctx)?;
+                    }
                 }
                 ctx.draw_rect(layer, r);
             }
@@ -413,14 +421,14 @@ pub(crate) mod tests {
 
                 #[cfg(feature = "commercial")]
                 {
-                    // let drc_work_dir = work_dir.join("drc");
-                    // let output = ctx
-                    //     .write_drc::<Sram>(&$params, drc_work_dir)
-                    //     .expect("failed to run DRC");
-                    // assert!(matches!(
-                    //     output.summary,
-                    //     substrate::verification::drc::DrcSummary::Pass
-                    // ));
+                    let drc_work_dir = work_dir.join("drc");
+                    let output = ctx
+                        .write_drc::<Sram>(&$params, drc_work_dir)
+                        .expect("failed to run DRC");
+                    assert!(matches!(
+                        output.summary,
+                        substrate::verification::drc::DrcSummary::Pass
+                    ));
 
                     // let lvs_work_dir = work_dir.join("lvs");
                     // let output = ctx
