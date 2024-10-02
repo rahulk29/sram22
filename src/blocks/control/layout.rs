@@ -434,9 +434,10 @@ impl ControlLogicReplicaV2 {
         let wlend_in = group.port_map().port("and_wlen_b")?.largest_rect(m0)?;
         let mut via = via01.clone();
         via.align_centers_gridded(wlend_in.bbox(), grid);
+        via.align_right(wlend_in.bbox());
         let wlend_in = router.expand_to_grid(
             via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Corner(Corner::LowerLeft),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
         ctx.draw(via)?;
         ctx.draw_rect(m1, wlend_in);
