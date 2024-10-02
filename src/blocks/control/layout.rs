@@ -1488,7 +1488,7 @@ impl EdgeDetector {
         let mut dout_via = via.with_orientation(Named::R90);
         dout_via.align_centers_gridded(dout.bbox(), grid);
         dout_via.align_centers_vertically_gridded(b_via.bbox(), grid);
-        dout_via.translate(Point::new(0, -380));
+        dout_via.translate(Point::new(0, -340));
         row.add(dout_via.clone());
 
         row.add_group(
