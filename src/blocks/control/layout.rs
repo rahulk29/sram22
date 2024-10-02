@@ -477,7 +477,7 @@ impl ControlLogicReplicaV2 {
         via.align_centers_gridded(pin.bbox(), grid);
         let clkp_b_in_1 = router.expand_to_grid(
             via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Corner(Corner::UpperRight),
+            ExpandToGridStrategy::Side(Side::Right),
         );
         ctx.draw(via)?;
         ctx.draw_rect(m1, clkp_b_in_1);
@@ -934,11 +934,11 @@ impl ControlLogicReplicaV2 {
         router.route_with_net(ctx, m1, clkp_out, m1, clkp_in, "clkp")?;
         router.route_with_net(ctx, m1, clkp_grstb_out, m1, clkp_grstb_in, "clkp_grst_b")?;
         router.route_with_net(ctx, m1, wlendb_out, m1, wlendb_in, "wlend_b")?;
+        router.route_with_net(ctx, m1, wlend_out, m1, wlend_in, "wlend")?;
         router.route_with_net(ctx, m1, wlen_out, m1, wlen_pin, "wlen")?;
         router.route_with_net(ctx, m1, saen_out, m1, saen_pin, "saen")?;
         router.route_with_net(ctx, m1, wrdrven_out, m1, wrdrven_pin, "wrdrven")?;
         router.route_with_net(ctx, m1, rwl_out, m1, rwl_pin, "rwl")?;
-        router.route_with_net(ctx, m1, wlend_out, m1, wlend_in, "wlend_b")?;
         router.route_with_net(ctx, m1, rbl_pin, m1, rbl_in, "rbl")?;
         router.route_with_net(
             ctx,
@@ -1262,6 +1262,7 @@ impl SrLatch {
 
         via.align_centers_gridded(y1.largest_rect(m0)?, grid);
         via.align_top(y1.largest_rect(m0)?);
+        via.translate(Point::new(0, 100));
         let y1_via = via.clone();
 
         via.align_centers_gridded(aq0.largest_rect(m0)?, grid);
