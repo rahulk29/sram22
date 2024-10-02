@@ -1,4 +1,4 @@
-use crate::blocks::decoder::sizing::{Tree, ValueTree};
+use crate::blocks::decoder::sizing::{path_map_tree, Tree, ValueTree};
 use crate::blocks::decoder::{
     gate_model, gate_params, primitive_gate_model, primitive_gate_params, TreeNode,
 };
@@ -51,6 +51,18 @@ impl InverterGateTreeNode {
     pub fn elaborate(&self) -> GateTreeNode {
         elaborate_inner(self, self.n_invs, self.n_branching)
     }
+
+    pub fn buffer(stages: usize) -> Self {
+        assert!(stages >= 2);
+        assert_eq!(stages % 2, 0);
+        Self {
+            gate: PrimitiveGateType::Inv,
+            id: 1,
+            n_invs: stages - 1,
+            n_branching: 1,
+            children: vec![],
+        }
+    }
 }
 
 fn elaborate_inner(node: &InverterGateTreeNode, n_invs: usize, n_branching: usize) -> GateTreeNode {
@@ -68,6 +80,31 @@ fn elaborate_inner(node: &InverterGateTreeNode, n_invs: usize, n_branching: usiz
             n_branching,
             children: vec![elaborate_inner(node, n_invs - 1, 1)],
         }
+    }
+}
+
+impl GateTreeNode {
+    pub fn size(&self, cl: f64) -> SizedGateTreeNode {
+        path_map_tree(self, &size_path, &cl)
+    }
+}
+
+impl SizedGateTreeNode {
+    pub fn as_inv_chain(&self) -> Vec<PrimitiveGateParams> {
+        let mut invs = Vec::new();
+        let mut node = self;
+
+        loop {
+            assert_eq!(node.gate_type, PrimitiveGateType::Inv);
+            invs.push(node.gate);
+            if node.children.is_empty() {
+                break;
+            }
+            assert_eq!(node.children.len(), 1);
+            node = &node.children[0];
+        }
+
+        invs.iter().copied().rev().collect()
     }
 }
 

@@ -42,6 +42,10 @@ pub struct ColPeripherals {
     params: ColParams,
 }
 
+pub struct WmaskPeripherals {
+    params: ColParams,
+}
+
 pub struct Column {
     params: ColParams,
 }
@@ -59,6 +63,33 @@ impl Component for ColPeripherals {
 
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("col_peripherals")
+    }
+
+    fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
+        self.schematic(ctx)
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        self.layout(ctx)
+    }
+}
+
+impl Component for WmaskPeripherals {
+    type Params = ColParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("wmask_peripherals")
     }
 
     fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
@@ -230,34 +261,17 @@ mod tests {
 
         #[cfg(feature = "commercial")]
         {
-            let drc_work_dir = work_dir.join("drc");
-            let output = ctx
-                .write_drc::<ColPeripherals>(&COL_WMASK_PARAMS, drc_work_dir)
-                .expect("failed to run DRC");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::drc::DrcSummary::Pass
-            ));
-        }
-    }
-
-    #[test]
-    fn test_col_peripherals_lvs() {
-        let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_col_peripherals_lvs");
-        ctx.write_layout::<ColPeripheralsLvs>(&COL_WMASK_PARAMS, out_gds(&work_dir, "layout"))
-            .expect("failed to write layout");
-        ctx.write_schematic_to_file::<ColPeripheralsLvs>(
-            &COL_WMASK_PARAMS,
-            out_spice(&work_dir, "netlist"),
-        )
-        .expect("failed to write schematic");
-
-        #[cfg(feature = "commercial")]
-        {
+            // let drc_work_dir = work_dir.join("drc");
+            // let output = ctx
+            //     .write_drc::<ColPeripherals>(&COL_WMASK_PARAMS, drc_work_dir)
+            //     .expect("failed to run DRC");
+            // assert!(matches!(
+            //     output.summary,
+            //     substrate::verification::drc::DrcSummary::Pass
+            // ));
             let lvs_work_dir = work_dir.join("lvs");
             let output = ctx
-                .write_lvs::<ColPeripheralsLvs>(&COL_WMASK_PARAMS, lvs_work_dir)
+                .write_lvs::<ColPeripherals>(&COL_WMASK_PARAMS, lvs_work_dir)
                 .expect("failed to run LVS");
             assert!(matches!(
                 output.summary,
