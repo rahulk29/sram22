@@ -10,11 +10,9 @@ use crate::blocks::control::DffArray;
 use crate::blocks::decoder::layout::LastBitDecoderStage;
 use crate::blocks::decoder::DecoderStageParams;
 use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams};
-use crate::blocks::macros::{Dff, SenseAmp};
+use crate::blocks::macros::SenseAmp;
 use crate::blocks::precharge::Precharge;
-use crate::blocks::rmux::{ReadMux, ReadMuxParams};
 use crate::blocks::tgatemux::TGateMux;
-use crate::blocks::wmux::{WriteMux, WriteMuxParams};
 use crate::blocks::wrdriver::WriteDriver;
 
 use super::{ColPeripherals, Column};

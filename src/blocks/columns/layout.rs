@@ -1,42 +1,36 @@
 use std::collections::HashMap;
 
 use grid::Grid;
-use serde::{Deserialize, Serialize};
-use subgeom::bbox::{Bbox, BoundBox};
+use serde::Serialize;
+use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
 use subgeom::transform::Translate;
 use subgeom::{Dir, Rect, Side, Sign, Span};
 use substrate::component::{Component, NoParams};
 use substrate::error::Result;
-use substrate::index::IndexOwned;
 use substrate::into_vec;
-use substrate::layout::cell::{CellPort, Element, Instance, Port, PortConflictStrategy, PortId};
+use substrate::layout::cell::{CellPort, Port, PortConflictStrategy, PortId};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
-use substrate::layout::layers::{LayerBoundBox, LayerPurpose, LayerSpec};
+use substrate::layout::layers::LayerBoundBox;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::placement::grid::GridTiler;
 use substrate::layout::placement::tile::{OptionTile, Pad, Padding, RectBbox, Tile};
 use substrate::layout::routing::manual::jog::{OffsetJog, SJog};
-use substrate::layout::routing::tracks::{Boundary, CenteredTrackParams, FixedTracks};
-use substrate::layout::{Draw, DrawRef};
+use substrate::layout::DrawRef;
 use substrate::pdk::stdcell::StdCell;
 
 use crate::blocks::buf::layout::DiffBufCent;
 use crate::blocks::buf::DiffBuf;
 use crate::blocks::columns::Column;
 use crate::blocks::decoder::layout::LastBitDecoderStage;
-use crate::blocks::decoder::{DecoderStage, DecoderStageParams};
+use crate::blocks::decoder::DecoderStageParams;
 use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams};
 use crate::blocks::macros::{SenseAmp, SenseAmpCent};
 use crate::blocks::precharge::layout::{PrechargeCent, PrechargeEnd, PrechargeEndParams};
 use crate::blocks::precharge::Precharge;
-use crate::blocks::rmux::{ReadMux, ReadMuxCent, ReadMuxEnd, ReadMuxParams};
-use crate::blocks::tgatemux::{TGateMux, TGateMuxCent, TGateMuxEnd, TGateMuxGroup, TGateMuxParams};
-use crate::blocks::wmux::{
-    WriteMux, WriteMuxCent, WriteMuxCentParams, WriteMuxEnd, WriteMuxEndParams, WriteMuxParams,
-};
+use crate::blocks::tgatemux::{TGateMuxCent, TGateMuxEnd, TGateMuxGroup};
 use crate::blocks::wrdriver::layout::WriteDriverCent;
 use crate::blocks::wrdriver::WriteDriver;
 
@@ -138,20 +132,6 @@ impl ColPeripherals {
             },
             PortConflictStrategy::Merge,
         )?;
-
-        // for port_name in ["vdd", "vss", "sense_en"] {
-        //     let bboxes = grid_tiler.port_map().port(port_name)?.shapes(m2).fold(
-        //         HashMap::new(),
-        //         |mut acc, shape| {
-        //             let entry = acc.entry(shape.brect().vspan()).or_insert(Bbox::empty());
-        //             *entry = entry.union(shape.bbox());
-        //             acc
-        //         },
-        //     );
-        //     for bbox in bboxes.values() {
-        //         ctx.merge_port(CellPort::with_shape(port_name, m2, bbox.into_rect()));
-        //     }
-        // }
 
         let group = grid_tiler.draw_ref()?;
 
@@ -493,14 +473,6 @@ impl WmaskPeripherals {
             let via = ctx.instantiate::<Via>(&viap)?;
             ctx.draw(via)?;
 
-            // let viap = ViaParams::builder()
-            //     .layers(m1, m2)
-            //     .geometry(m1_rect, wmask_in)
-            //     .expand(ViaExpansion::LongerDirection)
-            //     .build();
-            // let via = ctx.instantiate::<Via>(&viap)?;
-            // ctx.draw(via)?;
-
             ctx.add_port(
                 wmask_grid_tiler
                     .port_map()
@@ -793,72 +765,6 @@ pub struct ColumnCent {
     params: ColCentParams,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Serialize, Deserialize)]
-pub enum TapTrack {
-    Vdd,
-    Vss,
-}
-
-impl From<usize> for TapTrack {
-    fn from(value: usize) -> Self {
-        use TapTrack::*;
-        match value {
-            0 => Vdd,
-            1 => Vss,
-            _ => panic!("invalid `TapTrack` index"),
-        }
-    }
-}
-
-impl From<TapTrack> for usize {
-    fn from(value: TapTrack) -> usize {
-        use TapTrack::*;
-        match value {
-            Vdd => 0,
-            Vss => 1,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Serialize, Deserialize)]
-pub enum CellTrack {
-    ReadP,
-    ReadN,
-    DataIn,
-    Data,
-    DataB,
-    Wmask,
-}
-
-impl From<usize> for CellTrack {
-    fn from(value: usize) -> Self {
-        use CellTrack::*;
-        match value {
-            0 => ReadP,
-            1 => ReadN,
-            2 => DataIn,
-            3 => Data,
-            4 => DataB,
-            5 => Wmask,
-            _ => panic!("invalid `CellTrack` index"),
-        }
-    }
-}
-
-impl From<CellTrack> for usize {
-    fn from(value: CellTrack) -> Self {
-        use CellTrack::*;
-        match value {
-            ReadP => 0,
-            ReadN => 1,
-            DataIn => 2,
-            Data => 3,
-            DataB => 4,
-            Wmask => 5,
-        }
-    }
-}
-
 impl Component for ColumnCent {
     type Params = ColCentParams;
     fn new(
@@ -941,7 +847,7 @@ pub struct DffCol;
 impl Component for DffCol {
     type Params = NoParams;
     fn new(
-        params: &Self::Params,
+        _params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         Ok(Self)
@@ -957,7 +863,7 @@ impl Component for DffCol {
         let stdcells = ctx.inner().std_cell_db();
         let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
         let dff = lib.try_cell_named("sky130_fd_sc_hs__dfrbp_2")?;
-        let mut dff = ctx
+        let dff = ctx
             .instantiate::<StdCell>(&dff.id())?
             .with_orientation(Named::R90);
         let layers = ctx.layers();
@@ -1091,13 +997,7 @@ impl Component for DffColCent {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let layers = ctx.layers();
-        let nwell = layers.get(Selector::Name("nwell"))?;
-        let nsdm = layers.get(Selector::Name("nsdm"))?;
-        let psdm = layers.get(Selector::Name("psdm"))?;
         let outline = layers.get(Selector::Name("outline"))?;
-        let tap = layers.get(Selector::Name("tap"))?;
-        let m0 = layers.get(Selector::Metal(0))?;
-        let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
 
         let dff = ctx.instantiate::<DffCol>(&NoParams)?;

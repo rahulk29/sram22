@@ -92,10 +92,6 @@ impl Component for WmaskPeripherals {
         arcstr::literal!("wmask_peripherals")
     }
 
-    fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
-        self.schematic(ctx)
-    }
-
     fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,

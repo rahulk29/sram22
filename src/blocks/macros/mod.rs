@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use codegen::hard_macro;
 
 use subgeom::bbox::BoundBox;
-use subgeom::{Rect, Sign, Span};
+use subgeom::{Rect, Span};
 use substrate::component::{Component, NoParams, View};
 use substrate::data::SubstrateCtx;
 use substrate::layout::cell::{CellPort, Port};
@@ -82,7 +82,7 @@ pub struct SenseAmpCent;
 impl Component for SenseAmpCent {
     type Params = NoParams;
     fn new(
-        params: &Self::Params,
+        _params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         Ok(Self)
