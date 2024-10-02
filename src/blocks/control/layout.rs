@@ -45,7 +45,8 @@ impl ControlLogicReplicaV2 {
         let and2 = lib.try_cell_named("sky130_fd_sc_hs__and2_2")?;
         let and2 = ctx.instantiate::<StdCell>(&and2.id())?;
         let and2_med = lib.try_cell_named("sky130_fd_sc_hs__and2_4")?;
-        let and2_med = ctx.instantiate::<StdCell>(&and2_med.id())?;
+        let mut and2_med = ctx.instantiate::<StdCell>(&and2_med.id())?;
+        and2_med.reflect_horiz_anchored();
         let nand2 = lib.try_cell_named("sky130_fd_sc_hs__nand2_4")?;
         let nand2 = ctx.instantiate::<StdCell>(&nand2.id())?;
         let nor2 = lib.try_cell_named("sky130_fd_sc_hs__nor2_4")?;
@@ -133,9 +134,9 @@ impl ControlLogicReplicaV2 {
                 ("wrdrven_grst", &nor2),
                 ("clkp_grst", &nor2),
                 ("nand_sense_en", &nand2),
+                ("wlen_q_delay", &ctx.instantiate::<InvChain>(&3)?),
                 ("nand_wlendb_web", &nand2),
                 ("and_wlen", &and2_med),
-                ("wlen_q_delay", &ctx.instantiate::<InvChain>(&3)?),
                 ("rwl_buf", &buf),
             ])?,
             outline,
@@ -143,12 +144,19 @@ impl ControlLogicReplicaV2 {
 
         let mut row = create_row(&[
             ("saen_ctl", &sr_latch),
-            ("pc_ctl", &sr_latch),
             ("wrdrven_set", &nand2),
             ("wrdrven_ctl", &sr_latch),
         ])?;
         row.set_orientation(Named::ReflectVert);
         rows.push(LayerBbox::new(row, outline));
+
+        rows.push(LayerBbox::new(
+            create_row(&[
+                ("decoder_replica", &ctx.instantiate::<InvChain>(&16)?),
+                ("pc_ctl", &sr_latch),
+            ])?,
+            outline,
+        ));
 
         let mut rows = rows.build();
         rows.expose_ports(
@@ -252,8 +260,8 @@ impl ControlLogicReplicaV2 {
         }
 
         // Pins
-        let (num_input_pins, clk_idx, we_idx) = (6usize, 0, 1);
-        let num_output_pins = 6usize;
+        let (num_input_pins, clk_idx, we_idx) = (5usize, 0, 1);
+        let num_output_pins = 5usize;
         let mut input_rects = Vec::new();
         let mut output_rects = Vec::new();
         let top_offset = 2;
@@ -304,9 +312,7 @@ impl ControlLogicReplicaV2 {
         router.occupy(m1, we_pin, "we")?;
         let resetb_pin = input_rects[3];
         router.occupy(m1, resetb_pin, "reset_b")?;
-        let decrepend_pin = input_rects[4];
-        router.occupy(m1, decrepend_pin, "decrepend")?;
-        let rbl_pin = input_rects[5];
+        let rbl_pin = input_rects[4];
         router.occupy(m1, rbl_pin, "rbl")?;
 
         let pc_b_pin = output_rects[0];
@@ -315,12 +321,10 @@ impl ControlLogicReplicaV2 {
         router.occupy(m1, rwl_pin, "rwl")?;
         let wlen_pin = output_rects[2];
         router.occupy(m1, wlen_pin, "wlen")?;
-        let write_driver_en_pin = output_rects[3];
-        router.occupy(m1, write_driver_en_pin, "wrdrven")?;
+        let wrdrven_pin = output_rects[3];
+        router.occupy(m1, wrdrven_pin, "wrdrven")?;
         let saen_pin = output_rects[4];
         router.occupy(m1, saen_pin, "saen")?;
-        let decrepstart_pin = output_rects[5];
-        router.occupy(m1, decrepstart_pin, "decrepstart")?;
 
         // reset_b -> reset_inv.y
         let resetb_in = group.port_map().port("reset_inv_a")?.largest_rect(m1)?;
@@ -353,7 +357,19 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, ce_in);
         router.occupy(m1, ce_in, "ce")?;
 
-        // reset
+        // rbl -> inv_rbl.a
+        let pin = group.port_map().port("inv_rbl_a")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(pin.bbox(), grid);
+        let rbl_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, rbl_in);
+        router.occupy(m1, rbl_in, "rbl")?;
+
+        // reset out
         let reset_out = group.port_map().port("reset_inv_y")?.largest_rect(m1)?;
         let reset_out =
             router.expand_to_grid(reset_out, ExpandToGridStrategy::Corner(Corner::UpperRight));
@@ -370,6 +386,61 @@ impl ControlLogicReplicaV2 {
                 Span::from_center_span_gridded(clk_pulse_in.vspan().center(), 180, 10),
             ),
         );
+
+        // wlen_q_delay.dout -> nand_wlendb_web.a
+        let wlendb_out = group
+            .port_map()
+            .port("wlen_q_delay_dout")?
+            .largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(wlendb_out.bbox(), grid);
+        let wlendb_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::LowerLeft),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wlendb_out);
+        router.occupy(m1, wlendb_out, "wlend_b")?;
+
+        let wlendb_in = group
+            .port_map()
+            .port("nand_wlendb_web_a")?
+            .largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(wlendb_in.bbox(), grid);
+        let wlendb_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::LowerLeft),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wlendb_in);
+        router.occupy(m1, wlendb_in, "wlend_b")?;
+
+        // nand_wlendb_web.y -> and_wlen.b
+        let wlend_out = group
+            .port_map()
+            .port("nand_wlendb_web_y")?
+            .largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(wlend_out.bbox(), grid);
+        let wlend_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::LowerLeft),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wlend_out);
+        router.occupy(m1, wlend_out, "wlend")?;
+
+        let wlend_in = group.port_map().port("and_wlen_b")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(wlend_in.bbox(), grid);
+        let wlend_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::LowerLeft),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wlend_in);
+        router.occupy(m1, wlend_in, "wlend")?;
 
         // clk_pulse.dout -> clk_pulse_buf.a
         let src = group.port_map().port("clk_pulse_dout")?.largest_rect(m0)?;
@@ -400,6 +471,18 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, clkp_b_in);
         router.occupy(m1, clkp_b_in, "clkp_b")?;
 
+        // clkp_b -> pc_ctl.rb
+        let pin = group.port_map().port("pc_ctl_rb")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(pin.bbox(), grid);
+        let clkp_b_in_1 = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, clkp_b_in_1);
+        router.occupy(m1, clkp_b_in_1, "clkp_b")?;
+
         // clkp_delay.dout -> wrdrven_set.a
         let clkpd_out = group.port_map().port("clkp_delay_dout")?.largest_rect(m0)?;
         let mut via = via01.clone();
@@ -422,6 +505,59 @@ impl ControlLogicReplicaV2 {
         ctx.draw(via)?;
         ctx.draw_rect(m1, clkpd_in);
         router.occupy(m1, clkpd_in, "clkpd")?;
+
+        let mut snap_pins = |net: &str, pins: &[&str]| -> substrate::error::Result<Vec<Rect>> {
+            let mut out_pins = Vec::with_capacity(pins.len());
+            for &pin in pins {
+                let port = group.port_map().port(pin)?.largest_rect(m0)?;
+                let mut via = via01.clone();
+                via.align_centers_gridded(port.bbox(), grid);
+                let port = router.expand_to_grid(
+                    via.layer_bbox(m1).into_rect(),
+                    ExpandToGridStrategy::Corner(Corner::UpperRight),
+                );
+                ctx.draw(via)?;
+                ctx.draw_rect(m1, port);
+                router.occupy(m1, port, net)?;
+                out_pins.push(port);
+            }
+            Ok(out_pins)
+        };
+
+        // we_b
+        let we_b_ins = snap_pins("we_b", &["nand_sense_en_a", "nand_wlendb_web_b"])?;
+
+        // wlen_q
+        let wlen_qs = snap_pins(
+            "wlen_q",
+            &["wl_ctl_q", "and_wlen_a", "wlen_q_delay_din", "rwl_buf_a"],
+        )?;
+
+        // saen_set_bs
+        let saen_set_bs = snap_pins("saen_set_b", &["nand_sense_en_y", "saen_ctl_sb"])?;
+
+        // clkpd_b
+        let clkpd_bs = snap_pins("clkpd_b", &["clkpd_inv_y", "wl_ctl_sb"])?;
+
+        // wrdrven_grst_b
+        let wrdrven_grst_bs = snap_pins("wrdrven_grst_b", &["wrdrven_grst_y", "wrdrven_ctl_rb"])?;
+
+        // decrepstart
+        let decrepstarts = snap_pins(
+            "decrepstart",
+            &["mux_wlen_rst_x", "decoder_replica_din", "wlen_grst_a"],
+        )?;
+
+        // decrepend
+        let decrepends = snap_pins(
+            "decrepend",
+            &[
+                "decoder_replica_dout",
+                "decoder_replica_delay_din",
+                "wrdrven_grst_a",
+                "nand_sense_en_b",
+            ],
+        )?;
 
         // we -> wrdrven_set.b
         let we_in_1 = group.port_map().port("wrdrven_set_b")?.largest_rect(m0)?;
@@ -516,10 +652,88 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, rect);
         router.occupy(m1, rect, "clkpdd")?;
 
-        // we -> mux_wlen_rst.s
-        let we_in_mux = group.port_map().port("mux_wlen_rst_s")?.largest_rect(m0)?;
+        // rwl_buf.x
+        let pin = group.port_map().port("rwl_buf_x")?.largest_rect(m1)?;
+        let rwl_out = router.expand_to_grid(pin, ExpandToGridStrategy::Corner(Corner::UpperRight));
+        ctx.draw_rect(m1, rwl_out);
+        router.occupy(m1, rwl_out, "rwl")?;
+
+        // and_wlen.x
+        let pin = group.port_map().port("and_wlen_x")?.largest_rect(m0)?;
         let mut via = via01.clone();
-        via.align_centers_gridded(we_in_mux.bbox(), grid);
+        via.align_centers_gridded(pin.bbox(), grid);
+        let wlen_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wlen_out);
+        router.occupy(m1, wlen_out, "wlen")?;
+
+        // saen_ctl.q
+        let pin = group.port_map().port("saen_ctl_q")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(pin.bbox(), grid);
+        let saen_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, saen_out);
+        router.occupy(m1, saen_out, "saen")?;
+
+        // wrdrven_ctl.q
+        let pin = group.port_map().port("wrdrven_ctl_q")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(pin.bbox(), grid);
+        let wrdrven_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wrdrven_out);
+        router.occupy(m1, wrdrven_out, "wrdrven")?;
+
+        // pc_ctl.qb
+        let pin = group.port_map().port("pc_ctl_qb")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(pin.bbox(), grid);
+        let pc_b_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, pc_b_out);
+        router.occupy(m1, pc_b_out, "pc_b")?;
+
+        // inv_we.a
+        let we_in_inv = group.port_map().port("inv_we_a")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(we_in_inv.bbox(), grid);
+        let we_in_inv = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, we_in_inv);
+        router.occupy(m1, we_in_inv, "we")?;
+
+        // inv_we.y
+        let port = group.port_map().port("inv_we_y")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(port.bbox(), grid);
+        let we_b_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, we_b_out);
+        router.occupy(m1, we_b_out, "we_b")?;
+
+        // we -> mux_wlen_rst.s
+        let we_in = group.port_map().port("mux_wlen_rst_s")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(we_in.bbox(), grid);
         let we_in = router.expand_to_grid(
             via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Corner(Corner::UpperRight),
@@ -602,6 +816,22 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, wlen_rst_decoderd_in);
         router.occupy(m1, wlen_rst_decoderd_in, "wlen_rst_decoderd")?;
 
+        // reset
+        let mut resets = Vec::new();
+        for pin in ["wlen_grst_b", "pc_set_b", "wrdrven_grst_b", "clkp_grst_b"] {
+            let in_pin = group.port_map().port(pin)?.largest_rect(m0)?;
+            let mut via = via01.clone();
+            via.align_centers_gridded(in_pin.bbox(), grid);
+            let in_pin = router.expand_to_grid(
+                via.layer_bbox(m1).into_rect(),
+                ExpandToGridStrategy::Corner(Corner::UpperRight),
+            );
+            ctx.draw(via)?;
+            ctx.draw_rect(m1, in_pin);
+            router.occupy(m1, in_pin, "reset")?;
+            resets.push(in_pin);
+        }
+
         // clkp
         let clkp_out = group.port_map().port("clk_pulse_buf_x")?.largest_rect(m1)?;
         let clkp_out =
@@ -621,7 +851,7 @@ impl ControlLogicReplicaV2 {
         router.occupy(m1, clkp_in, "clkp")?;
 
         // clkp_grst_b
-        let clkp_grstb_out = group.port_map().port("clkp_grst_a")?.largest_rect(m0)?;
+        let clkp_grstb_out = group.port_map().port("clkp_grst_y")?.largest_rect(m0)?;
         let mut via = via01.clone();
         via.align_centers_gridded(clkp_grstb_out.bbox(), grid);
         let clkp_grstb_out = router.expand_to_grid(
@@ -655,17 +885,61 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, pc_setb_out);
         router.occupy(m1, pc_setb_out, "pc_set_b")?;
 
+        let pin = group.port_map().port("pc_ctl_sb")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(pin.bbox(), grid);
+        let pc_setb_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, pc_setb_in);
+        router.occupy(m1, pc_setb_in, "pc_set_b")?;
+
         router.route_with_net(ctx, m1, clk_pin, m1, clk_in, "clk")?;
         router.route_with_net(ctx, m1, ce_pin, m1, ce_in, "ce")?;
+        router.route_with_net(ctx, m1, pc_b_out, m1, pc_b_pin, "pc_b")?;
         router.route_with_net(ctx, m1, resetb_pin, m1, resetb_in, "reset_b")?;
         router.route_with_net(ctx, m1, clkp_b_out, m1, clkp_b_in, "clkp_b")?;
+        router.route_with_net(ctx, m1, clkp_b_out, m1, clkp_b_in_1, "clkp_b")?;
         router.route_with_net(ctx, m1, clkpd_out, m1, clkpd_in, "clkpd")?;
+        router.route_with_net(ctx, m1, pc_setb_out, m1, pc_setb_in, "pc_set_b")?;
+        for reset_in in resets {
+            router.route_with_net(ctx, m1, reset_out, m1, reset_in, "reset")?;
+        }
+        for we_b_in in we_b_ins {
+            router.route_with_net(ctx, m1, we_b_out, m1, we_b_in, "we_b")?;
+        }
+        let mut route_pins = |pins: &[(&str, &[Rect])]| -> substrate::error::Result<()> {
+            for (net, rects) in pins {
+                for dst in &rects[1..] {
+                    router.route_with_net(ctx, m1, rects[0], m1, *dst, net)?;
+                }
+            }
+            Ok(())
+        };
+        route_pins(&[
+            ("wlen_q", &wlen_qs),
+            ("decrepstart", &decrepstarts),
+            ("decrepend", &decrepends),
+            ("wrdrven_grst_b", &wrdrven_grst_bs),
+            ("clkpd_b", &clkpd_bs),
+            ("saen_set_b", &saen_set_bs),
+        ])?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in, "we")?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in_1, "we")?;
+        router.route_with_net(ctx, m1, we_pin, m1, we_in_inv, "we")?;
         router.route_with_net(ctx, m1, rbl_b_out, m1, rbl_b_in, "rbl_b")?;
         router.route_with_net(ctx, m1, wlen_grstb_out, m1, wlen_grstb_in, "wlen_grst_b")?;
         router.route_with_net(ctx, m1, clkp_out, m1, clkp_in, "clkp")?;
         router.route_with_net(ctx, m1, clkp_grstb_out, m1, clkp_grstb_in, "clkp_grst_b")?;
+        router.route_with_net(ctx, m1, wlendb_out, m1, wlendb_in, "wlend_b")?;
+        router.route_with_net(ctx, m1, wlen_out, m1, wlen_pin, "wlen")?;
+        router.route_with_net(ctx, m1, saen_out, m1, saen_pin, "saen")?;
+        router.route_with_net(ctx, m1, wrdrven_out, m1, wrdrven_pin, "wrdrven")?;
+        router.route_with_net(ctx, m1, rwl_out, m1, rwl_pin, "rwl")?;
+        router.route_with_net(ctx, m1, wlend_out, m1, wlend_in, "wlend_b")?;
+        router.route_with_net(ctx, m1, rbl_pin, m1, rbl_in, "rbl")?;
         router.route_with_net(
             ctx,
             m1,
@@ -688,14 +962,14 @@ impl ControlLogicReplicaV2 {
         ctx.add_port(CellPort::with_shape("clk", m1, clk_pin))?;
         ctx.add_port(CellPort::with_shape("ce", m1, ce_pin))?;
         ctx.add_port(CellPort::with_shape("we", m1, we_pin))?;
+        ctx.add_port(CellPort::with_shape("reset_b", m1, resetb_pin))?;
         ctx.add_port(CellPort::with_shape("pc_b", m1, pc_b_pin))?;
         ctx.add_port(CellPort::with_shape("rbl", m1, rbl_pin))?;
-        ctx.add_port(CellPort::with_shape(
-            "write_driver_en",
-            m1,
-            write_driver_en_pin,
-        ))?;
+        ctx.add_port(CellPort::with_shape("wrdrven", m1, wrdrven_pin))?;
         ctx.add_port(CellPort::with_shape("saen", m1, saen_pin))?;
+
+        ctx.add_port(CellPort::with_shape("wlen", m1, wlen_pin))?;
+        ctx.add_port(CellPort::with_shape("rwl", m1, rwl_pin))?;
 
         Ok(())
     }
