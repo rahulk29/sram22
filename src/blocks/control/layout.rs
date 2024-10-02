@@ -1253,7 +1253,7 @@ impl SrLatch {
 
         via.align_centers_gridded(y0.largest_rect(m0)?, grid);
         via.align_bottom(y0.largest_rect(m0)?);
-        via.translate(Point::new(0, -320));
+        via.translate(Point::new(0, -360));
         let y0_via = via.clone();
 
         via.align_left(a1.largest_rect(m0)?);
