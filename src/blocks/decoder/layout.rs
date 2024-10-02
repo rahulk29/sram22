@@ -26,10 +26,10 @@ use substrate::layout::routing::manual::jog::OffsetJog;
 use substrate::layout::routing::tracks::UniformTracks;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
-use substrate::schematic::signal::{Signal, Slice};
+use substrate::schematic::signal::Slice;
 use substrate::script::Script;
 
-use crate::blocks::gate::{Gate, GateParams, PrimitiveGateParams};
+use crate::blocks::gate::{Gate, GateParams};
 
 use super::{DecoderParams, DecoderStage, DecoderStageParams, Predecoder};
 
@@ -94,8 +94,8 @@ pub(crate) fn calculate_folding(
                     primitive_gate_params
                         .into_iter()
                         .skip(1)
-                        .chain(params.invs.clone().into_iter())
-                        .map(|inv| GateParams::FoldedInv(inv)),
+                        .chain(params.invs.clone())
+                        .map(GateParams::FoldedInv),
                 )
                 .collect();
 
@@ -103,13 +103,7 @@ pub(crate) fn calculate_folding(
         } else {
             (
                 std::iter::once(params.gate)
-                    .chain(
-                        params
-                            .invs
-                            .clone()
-                            .into_iter()
-                            .map(|inv| GateParams::FoldedInv(inv)),
-                    )
+                    .chain(params.invs.clone().into_iter().map(GateParams::FoldedInv))
                     .collect(),
                 1,
                 vec![1; 1 + params.invs.len()],
@@ -130,7 +124,7 @@ pub(crate) fn decoder_stage_schematic(
 ) -> Result<()> {
     let FoldingParams {
         gate_params,
-        max_folding_factor,
+        max_folding_factor: _,
         folding_factors,
     } = calculate_folding(params, dsn);
     let num_stages = gate_params.len();
@@ -210,12 +204,10 @@ pub(crate) fn decoder_stage_schematic(
                             gate.connect(ports[1], inn.index(i));
                         }
                     }
+                } else if stage == num_stages - 1 {
+                    gate.connect("a", y_b.unwrap().index(i));
                 } else {
-                    if stage == num_stages - 1 {
-                        gate.connect("a", y_b.unwrap().index(i));
-                    } else {
-                        gate.connect("a", x[stage - 1].index(i));
-                    }
+                    gate.connect("a", x[stage - 1].index(i));
                 }
                 gate.add_to(ctx);
             }
@@ -263,15 +255,13 @@ pub(crate) fn decoder_stage_layout(
                 } else {
                     stage_tiler.push(filler_gate.clone());
                 }
-                if (max_folding_factor as usize * i + j as usize) % dsn.tap_period
-                    == dsn.tap_period - 1
-                {
+                if (max_folding_factor * i + j) % dsn.tap_period == dsn.tap_period - 1 {
                     stage_tiler.push(tap.clone());
                 }
             }
         }
 
-        if (params.num * max_folding_factor as usize) % dsn.tap_period != 0 {
+        if (params.num * max_folding_factor) % dsn.tap_period != 0 {
             stage_tiler.push(tap.clone());
         }
 
@@ -452,16 +442,14 @@ pub(crate) fn decoder_stage_layout(
                         .clone()
                         .with_id(PortId::new(arcstr::format!("y_b"), n)),
                 )?;
-            } else {
-                if let GateParams::And2(_) | GateParams::And3(_) = &gate_params[0] {
-                    ctx.add_port(
-                        tiler
-                            .port_map()
-                            .port(PortId::new("y_b", n * folding_factor * num_stages))?
-                            .clone()
-                            .with_id(PortId::new(arcstr::format!("y_b"), n)),
-                    )?;
-                }
+            } else if let GateParams::And2(_) | GateParams::And3(_) = &gate_params[0] {
+                ctx.add_port(
+                    tiler
+                        .port_map()
+                        .port(PortId::new("y_b", n * folding_factor * num_stages))?
+                        .clone()
+                        .with_id(PortId::new(arcstr::format!("y_b"), n)),
+                )?;
             }
         }
     }

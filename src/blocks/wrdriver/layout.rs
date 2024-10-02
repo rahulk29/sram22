@@ -1,31 +1,19 @@
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
-use subgeom::{Dir, Point, Rect, Side, Sign, Span};
+use subgeom::{Dir, Rect, Span};
 use substrate::component::{Component, NoParams};
-use substrate::index::IndexOwned;
-use substrate::layout::cell::{CellPort, Port, PortId};
-use substrate::layout::context::LayoutCtx;
-use substrate::layout::elements::mos::LayoutMos;
+use substrate::layout::cell::{CellPort, Port};
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
 
 use substrate::layout::placement::align::{AlignMode, AlignRect};
-use substrate::layout::placement::place_bbox::PlaceBbox;
-use substrate::layout::routing::manual::jog::{OffsetJog, SJog};
-
-use substrate::layout::routing::tracks::{Boundary, FixedTracks};
-use substrate::pdk::mos::query::Query;
-use substrate::pdk::mos::spec::MosKind;
-use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 
 use crate::blocks::delay_line::tristate::TristateInv;
-use crate::blocks::gate::{And2, AndParams, PrimitiveGateParams};
+use crate::blocks::gate::PrimitiveGateParams;
 use crate::blocks::macros::SenseAmp;
 
 use super::{WriteDriver, WriteDriverParams};
-
-use derive_builder::Builder;
 
 pub const POWER_HEIGHT: i64 = 800;
 

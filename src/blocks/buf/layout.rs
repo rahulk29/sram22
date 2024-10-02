@@ -1,22 +1,13 @@
-use derive_builder::Builder;
-
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
-use subgeom::transform::Transform;
-use subgeom::{Corner, Dims, Dir, ExpandMode, Point, Rect, Span};
+use subgeom::{Rect, Span};
 use substrate::component::{Component, NoParams};
-use substrate::layout::cell::{CellPort, Instance, Port};
+use substrate::layout::cell::{CellPort, Port};
 use substrate::layout::context::LayoutCtx;
-use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
-use substrate::layout::placement::place_bbox::PlaceBbox;
-use substrate::layout::routing::manual::jog::SJog;
-use substrate::pdk::mos::query::Query;
-use substrate::pdk::mos::spec::MosKind;
-use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 
 use crate::blocks::gate::{FoldedInv, PrimitiveGateParams};
 use crate::blocks::macros::SenseAmp;
@@ -150,9 +141,7 @@ impl Component for DiffBufCent {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("diff_buf_cent")

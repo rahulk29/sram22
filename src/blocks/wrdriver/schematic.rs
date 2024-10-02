@@ -1,7 +1,7 @@
 use substrate::schematic::circuit::Direction;
 
 use crate::blocks::delay_line::tristate::TristateInv;
-use crate::blocks::gate::{And2, AndParams, PrimitiveGateParams};
+use crate::blocks::gate::PrimitiveGateParams;
 
 use super::WriteDriver;
 

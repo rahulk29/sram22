@@ -1,5 +1,4 @@
 use serde::Serialize;
-use subgeom::bbox::BoundBox;
 use substrate::component::Component;
 use substrate::layout::cell::{CellPort, PortConflictStrategy};
 use substrate::layout::placement::align::AlignMode;
@@ -225,13 +224,6 @@ impl Component for TGateMuxGroup {
 
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("tgate_mux_group")
-    }
-
-    fn schematic(
-        &self,
-        ctx: &mut substrate::schematic::context::SchematicCtx,
-    ) -> substrate::error::Result<()> {
-        todo!()
     }
 
     fn layout(
