@@ -400,6 +400,64 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, clkp_b_in);
         router.occupy(m1, clkp_b_in, "clkp_b")?;
 
+        // clkp_delay.dout -> wrdrven_set.a
+        let clkpd_out = group.port_map().port("clkp_delay_dout")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(clkpd_out.bbox(), grid);
+        let clkpd_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, clkpd_out);
+        router.occupy(m1, clkpd_out, "clkpd")?;
+
+        let clkpd_in = group.port_map().port("wrdrven_set_a")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(clkpd_in.bbox(), grid);
+        let clkpd_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, clkpd_in);
+        router.occupy(m1, clkpd_in, "clkpd")?;
+
+        // we -> wrdrven_set.b
+        let we_in_1 = group.port_map().port("wrdrven_set_b")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(we_in_1.bbox(), grid);
+        let we_in_1 = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, we_in_1);
+        router.occupy(m1, we_in_1, "we")?;
+
+        // wrdrven_set.y -> wrdrven_ctl.sb
+        let wrdrven_set_out = group.port_map().port("wrdrven_set_y")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(wrdrven_set_out.bbox(), grid);
+        let wrdrven_set_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wrdrven_set_out);
+        router.occupy(m1, wrdrven_set_out, "wrdrven_set_b")?;
+
+        let wrdrven_set_in = group.port_map().port("wrdrven_ctl_sb")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(wrdrven_set_in.bbox(), grid);
+        let wrdrven_set_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wrdrven_set_in);
+        router.occupy(m1, wrdrven_set_in, "wrdrven_set_b")?;
+
         // clk_pulse_buf.x -> clk_pulse_inv.a
         let src = group.port_map().port("clk_pulse_buf_x")?.largest_rect(m1)?;
         let dst = group.port_map().port("clk_pulse_inv_a")?.largest_rect(m1)?;
@@ -412,9 +470,10 @@ impl ControlLogicReplicaV2 {
             .dir(Dir::Horiz)
             .build()
             .unwrap();
+        router.block(m1, jog.r1());
+        router.block(m1, jog.r2());
+        router.block(m1, jog.r3());
         ctx.draw(jog)?;
-
-        // TODO clk_pulse_inv.y -> clkp_delay.din
 
         // clkp_delay.dout -> clkpd_inv.a
         let src = group.port_map().port("clkp_delay_dout")?.largest_rect(m0)?;
@@ -600,11 +659,21 @@ impl ControlLogicReplicaV2 {
         router.route_with_net(ctx, m1, ce_pin, m1, ce_in, "ce")?;
         router.route_with_net(ctx, m1, resetb_pin, m1, resetb_in, "reset_b")?;
         router.route_with_net(ctx, m1, clkp_b_out, m1, clkp_b_in, "clkp_b")?;
+        router.route_with_net(ctx, m1, clkpd_out, m1, clkpd_in, "clkpd")?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in, "we")?;
+        router.route_with_net(ctx, m1, we_pin, m1, we_in_1, "we")?;
         router.route_with_net(ctx, m1, rbl_b_out, m1, rbl_b_in, "rbl_b")?;
         router.route_with_net(ctx, m1, wlen_grstb_out, m1, wlen_grstb_in, "wlen_grst_b")?;
         router.route_with_net(ctx, m1, clkp_out, m1, clkp_in, "clkp")?;
         router.route_with_net(ctx, m1, clkp_grstb_out, m1, clkp_grstb_in, "clkp_grst_b")?;
+        router.route_with_net(
+            ctx,
+            m1,
+            wrdrven_set_out,
+            m1,
+            wrdrven_set_in,
+            "wrdrven_set_b",
+        )?;
         router.route_with_net(
             ctx,
             m1,
@@ -904,17 +973,18 @@ impl SrLatch {
         let aq0 = row.port_map().port(PortId::new("a", 3))?;
         let yqb = row.port_map().port(PortId::new("y", 3))?;
 
-        via.align_centers_gridded(b0.largest_rect(m0)?, grid);
-        via.align_left(b0.largest_rect(m0)?);
-        let b0_via = via.clone();
+        via.align_left(a0.largest_rect(m0)?);
+        via.align_top(a0.largest_rect(m0)?);
+        let a0_via = via.clone();
 
         via.align_centers_gridded(y0.largest_rect(m0)?, grid);
         via.align_bottom(y0.largest_rect(m0)?);
+        via.translate(Point::new(0, -320));
         let y0_via = via.clone();
 
-        via.align_left(b1.largest_rect(m0)?);
-        via.align_bottom(b1.largest_rect(m0)?);
-        let b1_via = via.clone();
+        via.align_left(a1.largest_rect(m0)?);
+        via.align_bottom(a1.largest_rect(m0)?);
+        let a1_via = via.clone();
 
         via.align_centers_gridded(y1.largest_rect(m0)?, grid);
         via.align_top(y1.largest_rect(m0)?);
@@ -932,7 +1002,7 @@ impl SrLatch {
         ctx.draw(
             ElbowJog::builder()
                 .src(y0_via.layer_bbox(m1).into_rect().edge(Side::Right))
-                .dst(b1_via.brect().center())
+                .dst(a1_via.brect().center())
                 .layer(m1)
                 .build()
                 .unwrap(),
@@ -949,7 +1019,7 @@ impl SrLatch {
         ctx.draw(
             ElbowJog::builder()
                 .src(y1_via.layer_bbox(m1).into_rect().edge(Side::Left))
-                .dst(b0_via.brect().center())
+                .dst(a0_via.brect().center())
                 .layer(m1)
                 .build()
                 .unwrap(),
@@ -963,16 +1033,16 @@ impl SrLatch {
                 .unwrap(),
         )?;
 
-        ctx.draw(b0_via)?;
+        ctx.draw(a0_via)?;
         ctx.draw(y0_via)?;
-        ctx.draw(b1_via)?;
+        ctx.draw(a1_via)?;
         ctx.draw(y1_via)?;
         ctx.draw(aq0_via)?;
         ctx.draw(aq0b_via)?;
 
-        ctx.add_port(a0.clone().with_id("sb"))?;
+        ctx.add_port(b0.clone().with_id("sb"))?;
         ctx.add_port(yq.clone().with_id("q"))?;
-        ctx.add_port(a1.clone().with_id("rb"))?;
+        ctx.add_port(b1.clone().with_id("rb"))?;
         ctx.add_port(yqb.clone().with_id("qb"))?;
 
         for i in 0..4 {
