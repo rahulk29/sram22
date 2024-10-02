@@ -1,8 +1,8 @@
 use serde::Serialize;
 use substrate::component::Component;
 
-mod layout;
-mod schematic;
+pub mod layout;
+pub mod schematic;
 
 pub struct WriteDriver {
     params: WriteDriverParams,

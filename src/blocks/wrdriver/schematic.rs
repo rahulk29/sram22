@@ -10,38 +10,14 @@ impl WriteDriver {
         &self,
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
-        let we = ctx.port("we", Direction::Input);
-        let wmask = ctx.port("wmask", Direction::Input);
+        let en = ctx.port("en", Direction::Input);
+        let en_b = ctx.port("en_b", Direction::Input);
         let data = ctx.port("data", Direction::Input);
         let data_b = ctx.port("data_b", Direction::Input);
         let bl = ctx.port("bl", Direction::InOut);
         let br = ctx.port("br", Direction::InOut);
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
-        let [en, en_b] = ctx.signals(["en", "en_b"]);
-
-        ctx.instantiate::<And2>(&AndParams {
-            nand: crate::blocks::gate::PrimitiveGateParams {
-                nwidth: self.params.nwidth_logic,
-                pwidth: self.params.pwidth_logic,
-                length: self.params.length,
-            },
-            inv: crate::blocks::gate::PrimitiveGateParams {
-                nwidth: self.params.nwidth_logic,
-                pwidth: self.params.pwidth_logic,
-                length: self.params.length,
-            },
-        })?
-        .with_connections([
-            ("vdd", vdd),
-            ("a", we),
-            ("b", wmask),
-            ("y", en),
-            ("yb", en_b),
-            ("vss", vss),
-        ])
-        .named("and_ctl")
-        .add_to(ctx);
 
         ctx.instantiate::<TristateInv>(&PrimitiveGateParams {
             pwidth: self.params.pwidth_driver,

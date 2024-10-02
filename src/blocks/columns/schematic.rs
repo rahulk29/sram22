@@ -7,6 +7,9 @@ use substrate::schematic::context::SchematicCtx;
 
 use crate::blocks::buf::DiffBuf;
 use crate::blocks::control::DffArray;
+use crate::blocks::decoder::layout::LastBitDecoderStage;
+use crate::blocks::decoder::DecoderStageParams;
+use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams};
 use crate::blocks::macros::{Dff, SenseAmp};
 use crate::blocks::precharge::Precharge;
 use crate::blocks::rmux::{ReadMux, ReadMuxParams};
@@ -28,8 +31,6 @@ impl ColPeripherals {
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
         let sense_en = ctx.port("sense_en", Direction::Input);
-        let dummy_bl = ctx.port("dummy_bl", Direction::InOut);
-        let dummy_br = ctx.port("dummy_br", Direction::InOut);
         let bl = ctx.bus_port("bl", cols, Direction::InOut);
         let br = ctx.bus_port("br", cols, Direction::InOut);
         let pc_b = ctx.port("pc_b", Direction::Input);
@@ -40,15 +41,12 @@ impl ColPeripherals {
         let din = ctx.bus_port("din", word_length, Direction::Input);
         let dout = ctx.bus_port("dout", word_length, Direction::Output);
 
-        let wmask_in0 = ctx.bus("wmask_in0", wmask_bits);
         let wmask_in = ctx.bus("wmask_in", wmask_bits);
         let wmask_in_b = ctx.bus("wmask_in_b", wmask_bits);
-        let [dummy_bl_noconn, dummy_br_noconn] =
-            ctx.signals(["dummy_bl_noconn", "dummy_br_noconn"]);
-
-        let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
-        let bufbuf = lib.try_cell_named("sky130_fd_sc_hs__bufbuf_16")?;
+        let we_i = ctx.bus("we_i", wmask_bits);
+        let we_ib = ctx.bus("we_ib", wmask_bits);
+        let [dummy_bl, dummy_br, dummy_bl_noconn, dummy_br_noconn] =
+            ctx.signals(["dummy_bl", "dummy_br", "dummy_bl_noconn", "dummy_br_noconn"]);
 
         ctx.instantiate::<DffArray>(&wmask_bits)?
             .with_connections([
@@ -57,25 +55,46 @@ impl ColPeripherals {
                 ("clk", clk),
                 ("rb", reset_b),
                 ("d", wmask),
-                ("q", wmask_in0),
+                ("q", wmask_in),
                 ("qn", wmask_in_b),
             ])
             .named("wmask_dffs")
             .add_to(ctx);
 
+        let pc_design = ctx
+            .inner()
+            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+        let wmask_unit_width = self.params.wmask_granularity as i64
+            * (pc_design.width * self.params.mux_ratio() as i64 + pc_design.tap_width);
         for i in 0..wmask_bits {
-            for _ in 0..3 {
-                ctx.instantiate::<StdCell>(&bufbuf.id())?
-                    .with_connections([
-                        ("A", wmask_in0.index(i)),
-                        ("X", wmask_in.index(i)),
-                        ("VPWR", vdd),
-                        ("VPB", vdd),
-                        ("VGND", vss),
-                        ("VNB", vss),
-                    ])
-                    .add_to(ctx);
-            }
+            ctx.instantiate::<LastBitDecoderStage>(&DecoderStageParams {
+                max_width: Some(wmask_unit_width),
+                gate: GateParams::And2(AndParams {
+                    inv: PrimitiveGateParams {
+                        nwidth: 10000,
+                        pwidth: 10000,
+                        length: 150,
+                    },
+                    nand: PrimitiveGateParams {
+                        nwidth: 2000,
+                        pwidth: 2000,
+                        length: 150,
+                    },
+                }),
+                invs: vec![],
+                num: 1,
+                child_sizes: vec![1, 1],
+            })?
+            .with_connections([
+                ("predecode_0_0", we),
+                ("predecode_1_0", wmask_in.index(i)),
+                ("y", we_i.index(i)),
+                ("y_b", we_ib.index(i)),
+                ("vdd", vdd),
+                ("vss", vss),
+            ])
+            .named(arcstr::format!("wmask_and_{i}"))
+            .add_to(ctx);
         }
 
         for i in 0..word_length {
@@ -83,15 +102,16 @@ impl ColPeripherals {
             ctx.instantiate::<Column>(&self.params)?
                 .with_connections([
                     ("clk", &clk),
+                    ("reset_b", &reset_b),
                     ("vdd", &vdd),
                     ("vss", &vss),
-                    ("bl", &bl.index(range.clone())),
-                    ("br", &br.index(range)),
                     ("pc_b", &pc_b),
                     ("sel", &sel),
                     ("sel_b", &sel_b),
-                    ("we", &we),
-                    ("wmask", &wmask_in.index(i / self.params.wmask_granularity)),
+                    ("bl", &bl.index(range.clone())),
+                    ("br", &br.index(range)),
+                    ("we", &we_i.index(i / self.params.wmask_granularity)),
+                    ("we_b", &we_ib.index(i / self.params.wmask_granularity)),
                     ("din", &din.index(i)),
                     ("dout", &dout.index(i)),
                     ("sense_en", &sense_en),
@@ -127,6 +147,7 @@ impl ColPeripherals {
 impl Column {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
         let clk = ctx.port("clk", Direction::Input);
+        let reset_b = ctx.port("reset_b", Direction::Input);
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
         let bl = ctx.bus_port("bl", self.params.mux_ratio(), Direction::InOut);
@@ -135,7 +156,7 @@ impl Column {
         let sel = ctx.bus_port("sel", self.params.mux_ratio(), Direction::Input);
         let sel_b = ctx.bus_port("sel_b", self.params.mux_ratio(), Direction::Input);
         let we = ctx.port("we", Direction::Input);
-        let wmask = ctx.port("wmask", Direction::Input);
+        let we_b = ctx.port("we_b", Direction::Input);
         let din = ctx.port("din", Direction::Input);
         let dout = ctx.port("dout", Direction::Output);
         let sense_en = ctx.port("sense_en", Direction::Input);
@@ -150,6 +171,10 @@ impl Column {
 
         let mux_ratio = self.params.mux_ratio();
         let pc = ctx.instantiate::<Precharge>(&self.params.pc)?;
+
+        let stdcells = ctx.inner().std_cell_db();
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let dfrtp = lib.try_cell_named("sky130_fd_sc_hs__dfrbp_2")?;
 
         for i in 0..mux_ratio {
             let bl_i = bl.index(i);
@@ -177,8 +202,8 @@ impl Column {
 
         let mut wrdrv = ctx.instantiate::<WriteDriver>(&self.params.wrdriver)?;
         wrdrv.connect_all([
-            ("we", &we),
-            ("wmask", &wmask),
+            ("en", &we),
+            ("en_b", &we_b),
             ("data", &q),
             ("data_b", &q_b),
             ("bl", &bl_out),
@@ -202,26 +227,29 @@ impl Column {
         sa.set_name("sense_amp");
         ctx.add_instance(sa);
 
-        // let mut buf = ctx.instantiate::<DiffBuf>(&self.params.buf)?;
-        // buf.connect_all([
-        //     ("vdd", &vdd),
-        //     ("vss", &vss),
-        //     ("din1", &sa_outp),
-        //     ("din2", &sa_outn),
-        //     ("dout1", &dout),
-        //     ("dout2", &diff_buf_outn),
-        // ]);
-        // buf.set_name("buf");
-        // ctx.add_instance(buf);
+        let mut buf = ctx.instantiate::<DiffBuf>(&self.params.buf)?;
+        buf.connect_all([
+            ("vdd", &vdd),
+            ("vss", &vss),
+            ("din1", &sa_outp),
+            ("din2", &sa_outn),
+            ("dout1", &dout),
+            ("dout2", &diff_buf_outn),
+        ]);
+        buf.set_name("buf");
+        ctx.add_instance(buf);
 
-        let mut dff = ctx.instantiate::<Dff>(&NoParams)?;
+        let mut dff = ctx.instantiate::<StdCell>(&dfrtp.id())?;
         dff.connect_all([
-            ("VDD", &vdd),
-            ("GND", &vss),
-            ("CLK", &clk),
-            ("D", &din),
-            ("Q", &q),
-            ("Q_N", &q_b),
+            ("VPWR", vdd),
+            ("VGND", vss),
+            ("VNB", vss),
+            ("VPB", vdd),
+            ("CLK", clk),
+            ("RESET_B", reset_b),
+            ("D", din),
+            ("Q", q),
+            ("Q_N", q_b),
         ]);
         dff.set_name("dff");
         ctx.add_instance(dff);

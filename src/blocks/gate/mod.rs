@@ -338,7 +338,8 @@ impl Component for TappedGate {
         let psdm = layers.get(Selector::Name("psdm"))?;
         let nsdm = layers.get(Selector::Name("nsdm"))?;
         let decoder_params = DecoderGateParams {
-            gate: Some(self.params),
+            gate: self.params,
+            filler: false,
             dsn: decoder::layout::PhysicalDesign {
                 width: 1_580,
                 tap_width: 1_580,
