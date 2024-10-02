@@ -1480,7 +1480,7 @@ impl EdgeDetector {
 
         let b = row.port_map().port(PortId::new("b", 1))?.largest_rect(m0)?;
         let mut b_via = via.with_orientation(Named::R90);
-        b_via.align_centers_gridded(b.bbox(), grid);
+        b_via.align_left(b.bbox());
         b_via.align_bottom(b.bbox());
         row.add(b_via.clone());
 
@@ -1500,10 +1500,17 @@ impl EdgeDetector {
                 .unwrap()
                 .draw()?,
         );
+        let src = dout_via.layer_bbox(m1).into_rect().edge(Side::Right);
+        let len = src.span().length();
         row.add_group(
             ElbowJog::builder()
-                .src(dout_via.layer_bbox(m1).into_rect().edge(Side::Right))
-                .dst(b_via.brect().center())
+                .src(src)
+                .dst(
+                    b_via
+                        .brect()
+                        .center()
+                        .translated(Point::new(-(290 - len) / 2, 0)),
+                )
                 .layer(m1)
                 .build()
                 .unwrap()
