@@ -9,15 +9,15 @@ use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch};
 impl ControlLogicReplicaV2 {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
         // PORTS
-        let [clk, ce, we, reset_b, decrepend] = ctx.ports(
-            ["clk", "ce", "we", "reset_b", "decrepend"],
+        let [clk, ce, we, reset_b, decrepend, rbl] = ctx.ports(
+            ["clk", "ce", "we", "reset_b", "decrepend", "rbl"],
             Direction::Input,
         );
         let [saen, pc_b, rwl, wlen, wrdrven, decrepstart] = ctx.ports(
             ["saen", "pc_b", "rwl", "wlen", "wrdrven", "decrepstart"],
             Direction::Output,
         );
-        let [rbl, vdd, vss] = ctx.ports(["rbl", "vdd", "vss"], Direction::InOut);
+        let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
 
         // SIGNALS
         let [clk_buf, clkp0, clkp, clkp_b, clkpd, clkpd_b, clkpdd, clkp_grst_b] = ctx.signals([
