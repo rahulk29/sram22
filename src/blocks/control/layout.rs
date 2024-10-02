@@ -260,23 +260,25 @@ impl ControlLogicReplicaV2 {
         }
 
         // Pins
-        let (num_input_pins, clk_idx, we_idx) = (5usize, 0, 1);
-        let num_output_pins = 5usize;
-        let mut input_rects = Vec::new();
-        let mut output_rects = Vec::new();
+        let num_left_pins = 4;
+        let num_bot_pins = 6;
+        let mut left_pins = Vec::new();
+        let mut bot_pins = Vec::new();
         let top_offset = 2;
+        let left_offset = 50;
 
         let htracks = router.track_info(m1).tracks().clone();
         let htrack_start = htracks.track_with_loc(TrackLocator::EndsBefore, group.brect().top());
         let vtracks = router.track_info(m2).tracks().clone();
+        let vtrack_start = vtracks.track_with_loc(TrackLocator::EndsBefore, group.brect().left());
 
-        // Input pins
+        // left pins
         let vtrack = vtracks
             .index(vtracks.track_with_loc(TrackLocator::EndsBefore, group.brect().left() - 3_200));
-        for i in 0..num_input_pins {
+        for i in 0..num_left_pins {
             let htrack = htracks.index(htrack_start - 2 * (i as i64) - top_offset);
-            input_rects.push(Rect::from_spans(vtrack, htrack));
-            ctx.draw_rect(m1, input_rects[i]);
+            left_pins.push(Rect::from_spans(vtrack, htrack));
+            ctx.draw_rect(m1, left_pins[i]);
         }
 
         router.block(
@@ -287,44 +289,44 @@ impl ControlLogicReplicaV2 {
             ),
         );
 
-        // Output pins
-        let vtrack = vtracks
-            .index(8 + vtracks.track_with_loc(TrackLocator::StartsAfter, group.brect().right()));
-        for i in 0..num_output_pins {
-            let htrack = htracks.index(htrack_start - 2 * (i as i64) - top_offset);
-            output_rects.push(Rect::from_spans(vtrack, htrack));
-            ctx.draw_rect(m1, output_rects[i]);
+        // bot pins
+        let htrack = htracks
+            .index(htracks.track_with_loc(TrackLocator::EndsBefore, group.brect().bottom()) - 8);
+        for i in 0..num_bot_pins {
+            let vtrack = vtracks.index(vtrack_start + 2 * (i as i64) + left_offset);
+            bot_pins.push(Rect::from_spans(vtrack, htrack));
+            ctx.draw_rect(m1, bot_pins[i]);
         }
 
         router.block(
-            m2,
+            m1,
             Rect::from_spans(
-                vtrack.expand(true, 2000).expand(false, 140),
-                group.brect().vspan(),
+                group.brect().hspan(),
+                htrack.expand(true, 140).expand(false, 2000),
             ),
         );
 
-        let clk_pin = input_rects[0];
+        let clk_pin = left_pins[0];
         router.occupy(m1, clk_pin, "clk")?;
-        let ce_pin = input_rects[1];
+        let ce_pin = left_pins[1];
         router.occupy(m1, ce_pin, "ce")?;
-        let we_pin = input_rects[2];
+        let we_pin = left_pins[2];
         router.occupy(m1, we_pin, "we")?;
-        let resetb_pin = input_rects[3];
+        let resetb_pin = left_pins[3];
         router.occupy(m1, resetb_pin, "reset_b")?;
-        let rbl_pin = input_rects[4];
-        router.occupy(m1, rbl_pin, "rbl")?;
 
-        let pc_b_pin = output_rects[0];
-        router.occupy(m1, pc_b_pin, "pc_b")?;
-        let rwl_pin = output_rects[1];
-        router.occupy(m1, rwl_pin, "rwl")?;
-        let wlen_pin = output_rects[2];
-        router.occupy(m1, wlen_pin, "wlen")?;
-        let wrdrven_pin = output_rects[3];
-        router.occupy(m1, wrdrven_pin, "wrdrven")?;
-        let saen_pin = output_rects[4];
-        router.occupy(m1, saen_pin, "saen")?;
+        let rbl_pin = bot_pins[0];
+        router.occupy(m2, rbl_pin, "rbl")?;
+        let rwl_pin = bot_pins[1];
+        router.occupy(m2, rwl_pin, "rwl")?;
+        let pc_b_pin = bot_pins[2];
+        router.occupy(m2, pc_b_pin, "pc_b")?;
+        let wlen_pin = bot_pins[3];
+        router.occupy(m2, wlen_pin, "wlen")?;
+        let wrdrven_pin = bot_pins[4];
+        router.occupy(m2, wrdrven_pin, "wrdrven")?;
+        let saen_pin = bot_pins[5];
+        router.occupy(m2, saen_pin, "saen")?;
 
         // reset_b -> reset_inv.y
         let resetb_in = group.port_map().port("reset_inv_a")?.largest_rect(m1)?;
@@ -908,7 +910,7 @@ impl ControlLogicReplicaV2 {
 
         router.route_with_net(ctx, m1, clk_pin, m1, clk_in, "clk")?;
         router.route_with_net(ctx, m1, ce_pin, m1, ce_in, "ce")?;
-        router.route_with_net(ctx, m1, pc_b_out, m1, pc_b_pin, "pc_b")?;
+        router.route_with_net(ctx, m1, pc_b_out, m2, pc_b_pin, "pc_b")?;
         router.route_with_net(ctx, m1, resetb_pin, m1, resetb_in, "reset_b")?;
         router.route_with_net(ctx, m1, clkp_b_out, m1, clkp_b_in, "clkp_b")?;
         router.route_with_net(ctx, m1, clkp_b_out, m1, clkp_b_in_1, "clkp_b")?;
@@ -940,16 +942,16 @@ impl ControlLogicReplicaV2 {
         router.route_with_net(ctx, m1, we_pin, m1, we_in_1, "we")?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in_inv, "we")?;
         router.route_with_net(ctx, m1, rbl_b_out, m1, rbl_b_in, "rbl_b")?;
-        router.route_with_net(ctx, m1, rwl_out, m1, rwl_pin, "rwl")?;
+        router.route_with_net(ctx, m1, rwl_out, m2, rwl_pin, "rwl")?;
         router.route_with_net(ctx, m1, wlen_grstb_out, m1, wlen_grstb_in, "wlen_grst_b")?;
         router.route_with_net(ctx, m1, clkp_out, m1, clkp_in, "clkp")?;
         router.route_with_net(ctx, m1, clkp_grstb_out, m1, clkp_grstb_in, "clkp_grst_b")?;
         router.route_with_net(ctx, m1, wlendb_out, m1, wlendb_in, "wlend_b")?;
         router.route_with_net(ctx, m1, wlend_out, m1, wlend_in, "wlend")?;
-        router.route_with_net(ctx, m1, wlen_out, m1, wlen_pin, "wlen")?;
-        router.route_with_net(ctx, m1, saen_out, m1, saen_pin, "saen")?;
-        router.route_with_net(ctx, m1, wrdrven_out, m1, wrdrven_pin, "wrdrven")?;
-        router.route_with_net(ctx, m1, rbl_pin, m1, rbl_in, "rbl")?;
+        router.route_with_net(ctx, m1, wlen_out, m2, wlen_pin, "wlen")?;
+        router.route_with_net(ctx, m1, saen_out, m2, saen_pin, "saen")?;
+        router.route_with_net(ctx, m1, wrdrven_out, m2, wrdrven_pin, "wrdrven")?;
+        router.route_with_net(ctx, m2, rbl_pin, m1, rbl_in, "rbl")?;
         router.route_with_net(
             ctx,
             m1,
@@ -973,13 +975,13 @@ impl ControlLogicReplicaV2 {
         ctx.add_port(CellPort::with_shape("ce", m1, ce_pin))?;
         ctx.add_port(CellPort::with_shape("we", m1, we_pin))?;
         ctx.add_port(CellPort::with_shape("reset_b", m1, resetb_pin))?;
-        ctx.add_port(CellPort::with_shape("pc_b", m1, pc_b_pin))?;
-        ctx.add_port(CellPort::with_shape("rbl", m1, rbl_pin))?;
-        ctx.add_port(CellPort::with_shape("wrdrven", m1, wrdrven_pin))?;
-        ctx.add_port(CellPort::with_shape("saen", m1, saen_pin))?;
 
-        ctx.add_port(CellPort::with_shape("wlen", m1, wlen_pin))?;
-        ctx.add_port(CellPort::with_shape("rwl", m1, rwl_pin))?;
+        ctx.add_port(CellPort::with_shape("pc_b", m2, pc_b_pin))?;
+        ctx.add_port(CellPort::with_shape("rbl", m2, rbl_pin))?;
+        ctx.add_port(CellPort::with_shape("wrdrven", m2, wrdrven_pin))?;
+        ctx.add_port(CellPort::with_shape("saen", m2, saen_pin))?;
+        ctx.add_port(CellPort::with_shape("wlen", m2, wlen_pin))?;
+        ctx.add_port(CellPort::with_shape("rwl", m2, rwl_pin))?;
 
         Ok(())
     }
