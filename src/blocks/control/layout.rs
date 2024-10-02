@@ -507,6 +507,17 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, clkpd_in);
         router.occupy(m1, clkpd_in, "clkpd")?;
 
+        let port = group.port_map().port("wl_ctl_q")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(port.bbox(), grid);
+        let wl_ctl_q_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wl_ctl_q_out);
+        router.occupy(m1, wl_ctl_q_out, "wlen_q")?;
+
         let mut snap_pins = |net: &str, pins: &[&str]| -> substrate::error::Result<Vec<Rect>> {
             let mut out_pins = Vec::with_capacity(pins.len());
             for &pin in pins {
@@ -529,10 +540,8 @@ impl ControlLogicReplicaV2 {
         let we_b_ins = snap_pins("we_b", &["nand_sense_en_a", "nand_wlendb_web_b"])?;
 
         // wlen_q
-        let wlen_qs = snap_pins(
-            "wlen_q",
-            &["wl_ctl_q", "and_wlen_a", "wlen_q_delay_din", "rwl_buf_a"],
-        )?;
+        let mut wlen_qs = snap_pins("wlen_q", &["and_wlen_a", "wlen_q_delay_din", "rwl_buf_a"])?;
+        wlen_qs.push(wl_ctl_q_out);
 
         // saen_set_bs
         let saen_set_bs = snap_pins("saen_set_b", &["nand_sense_en_y", "saen_ctl_sb"])?;
