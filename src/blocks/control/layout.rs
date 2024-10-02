@@ -931,6 +931,7 @@ impl ControlLogicReplicaV2 {
         router.route_with_net(ctx, m1, we_pin, m1, we_in_1, "we")?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in_inv, "we")?;
         router.route_with_net(ctx, m1, rbl_b_out, m1, rbl_b_in, "rbl_b")?;
+        router.route_with_net(ctx, m1, rwl_out, m1, rwl_pin, "rwl")?;
         router.route_with_net(ctx, m1, wlen_grstb_out, m1, wlen_grstb_in, "wlen_grst_b")?;
         router.route_with_net(ctx, m1, clkp_out, m1, clkp_in, "clkp")?;
         router.route_with_net(ctx, m1, clkp_grstb_out, m1, clkp_grstb_in, "clkp_grst_b")?;
@@ -939,7 +940,6 @@ impl ControlLogicReplicaV2 {
         router.route_with_net(ctx, m1, wlen_out, m1, wlen_pin, "wlen")?;
         router.route_with_net(ctx, m1, saen_out, m1, saen_pin, "saen")?;
         router.route_with_net(ctx, m1, wrdrven_out, m1, wrdrven_pin, "wrdrven")?;
-        router.route_with_net(ctx, m1, rwl_out, m1, rwl_pin, "rwl")?;
         router.route_with_net(ctx, m1, rbl_pin, m1, rbl_in, "rbl")?;
         router.route_with_net(
             ctx,
@@ -1343,6 +1343,8 @@ impl InvChain {
         let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
         let inv = lib.try_cell_named("sky130_fd_sc_hs__inv_2")?;
         let inv = ctx.instantiate::<StdCell>(&inv.id())?;
+        let inv_end = lib.try_cell_named("sky130_fd_sc_hs__inv_4")?;
+        let inv_end = ctx.instantiate::<StdCell>(&inv_end.id())?;
         let tap = lib.try_cell_named("sky130_fd_sc_hs__tap_2")?;
         let tap = ctx.instantiate::<StdCell>(&tap.id())?;
 
@@ -1355,10 +1357,12 @@ impl InvChain {
         let num_groups = self.n.div_ceil(group_size);
         for i in 0..num_groups {
             if i == num_groups - 1 {
+                let rem = self.n - (num_groups - 1) * group_size;
                 row.push_num(
                     LayerBbox::new(inv.clone(), outline),
-                    self.n - (num_groups - 1) * group_size,
+                    rem.checked_sub(1).unwrap(),
                 );
+                row.push(LayerBbox::new(inv_end.clone(), outline));
             } else {
                 row.push_num(LayerBbox::new(inv.clone(), outline), group_size);
                 row.push(LayerBbox::new(tap.clone(), outline));
