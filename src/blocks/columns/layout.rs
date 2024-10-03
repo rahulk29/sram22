@@ -934,6 +934,33 @@ impl Component for TappedDff {
             let port = if vdd { "vdd" } else { "vss" };
             ctx.merge_port(CellPort::with_shape(port, m1, m1_rect));
         }
+
+        // Route clock/reset to metal 2 tracks.
+        let clk_rect = dff.port("clk")?.largest_rect(m0)?;
+        let clk_rect = clk_rect.with_hspan(clk_rect.hspan().shrink(Sign::Neg, 220));
+        let viap = ViaParams::builder()
+            .layers(m0, m1)
+            .geometry(clk_rect, clk_rect)
+            .expand(ViaExpansion::LongerDirection)
+            .build();
+        let via = ctx.instantiate::<Via>(&viap)?;
+        ctx.draw_ref(&via)?;
+        for (port, geometry) in [
+            ("clk", via.layer_bbox(m1).into_rect()),
+            ("reset_b", dff.port("reset_b")?.largest_rect(m1)?),
+        ] {
+            let viap = ViaParams::builder()
+                .layers(m1, m2)
+                .geometry(geometry, geometry)
+                .expand(ViaExpansion::LongerDirection)
+                .build();
+            let via = ctx.instantiate::<Via>(&viap)?;
+            ctx.draw_ref(&via)?;
+            let stripe = Rect::from_spans(hspan, via.layer_bbox(m2).into_rect().vspan());
+            ctx.draw_rect(m2, stripe);
+            ctx.add_port(CellPort::with_shape(port, m2, stripe))?;
+        }
+
         for port in ["q", "q_n", "clk", "reset_b", "d"] {
             ctx.merge_port(dff.port(port)?.into_cell_port());
         }
@@ -1011,32 +1038,6 @@ impl Component for DffCol {
             outline,
             dff.brect().with_hspan(hspan).expand_dir(Dir::Vert, 1270),
         );
-
-        // Route clock/reset to metal 2 tracks.
-        let clk_rect = dff.port("clk")?.largest_rect(m0)?;
-        let clk_rect = clk_rect.with_hspan(clk_rect.hspan().shrink(Sign::Neg, 220));
-        let viap = ViaParams::builder()
-            .layers(m0, m1)
-            .geometry(clk_rect, clk_rect)
-            .expand(ViaExpansion::LongerDirection)
-            .build();
-        let via = ctx.instantiate::<Via>(&viap)?;
-        ctx.draw_ref(&via)?;
-        for (port, geometry) in [
-            ("clk", via.layer_bbox(m1).into_rect()),
-            ("reset_b", dff.port("reset_b")?.largest_rect(m1)?),
-        ] {
-            let viap = ViaParams::builder()
-                .layers(m1, m2)
-                .geometry(geometry, geometry)
-                .expand(ViaExpansion::LongerDirection)
-                .build();
-            let via = ctx.instantiate::<Via>(&viap)?;
-            ctx.draw_ref(&via)?;
-            let stripe = Rect::from_spans(hspan, via.layer_bbox(m2).into_rect().vspan());
-            ctx.draw_rect(m2, stripe);
-            ctx.add_port(CellPort::with_shape(port, m2, stripe))?;
-        }
 
         for port in ["q", "q_n", "clk", "reset_b", "d"] {
             ctx.merge_port(dff.port(port)?.into_cell_port());

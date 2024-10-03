@@ -193,7 +193,7 @@ impl Component for DffArray {
 
         tiler.expose_ports(
             |port: CellPort, i| {
-                if ["vdd", "vss"].contains(&port.name().as_ref()) {
+                if ["vdd", "vss", "clk", "reset_b"].contains(&port.name().as_ref()) {
                     Some(port)
                 } else {
                     let port = port.with_index(i);
