@@ -370,7 +370,7 @@ impl SramInner {
     }
 }
 
-fn buffer_chain_num_stages(cl: f64) -> usize {
+pub(crate) fn buffer_chain_num_stages(cl: f64) -> usize {
     let fo = cl / INV_MODEL.cin;
     if fo < 2.0 {
         return 2;
@@ -382,7 +382,7 @@ fn buffer_chain_num_stages(cl: f64) -> usize {
     stages
 }
 
-fn inverter_chain_num_stages(cl: f64) -> usize {
+pub(crate) fn inverter_chain_num_stages(cl: f64) -> usize {
     let fo = cl / INV_MODEL.cin;
     if fo < 4.0 {
         return 1;
@@ -395,7 +395,7 @@ fn inverter_chain_num_stages(cl: f64) -> usize {
     stages
 }
 
-fn fanout_buffer_stage(cl: f64) -> DecoderStageParams {
+pub(crate) fn fanout_buffer_stage(cl: f64) -> DecoderStageParams {
     let stages = buffer_chain_num_stages(cl);
     let invs = InverterGateTreeNode::buffer(stages)
         .elaborate()
@@ -410,7 +410,7 @@ fn fanout_buffer_stage(cl: f64) -> DecoderStageParams {
     }
 }
 
-fn fanout_buffer_stage_with_inverted_output(cl: f64) -> DecoderStageParams {
+pub(crate) fn fanout_buffer_stage_with_inverted_output(cl: f64) -> DecoderStageParams {
     let stages = inverter_chain_num_stages(cl);
     let mut invs = InverterGateTreeNode::inverter(stages)
         .elaborate()
