@@ -176,30 +176,17 @@ impl SramInner {
             .named("control_logic");
         control_logic.add_to(ctx);
 
-        let col_sel_buf_b = ctx.bus("col_sel_buf_b", col_sel.width());
-        let col_sel_buf = ctx.bus("col_sel_buf", col_sel.width());
         for i in 0..self.params.mux_ratio() {
-            let buffer = fanout_buffer_stage(50e-15);
+            let buffer = fanout_buffer_stage_with_inverted_output(50e-15);
             ctx.instantiate::<LastBitDecoderStage>(&buffer)?
                 .with_connections([
                     ("vdd", vdd),
                     ("vss", vss),
                     ("y", col_sel.index(i)),
-                    ("y_b", col_sel_buf_b.index(i)),
+                    ("y_b", col_sel_b.index(i)),
                     ("predecode_0_0", col_sel0.index(i)),
                 ])
                 .named(format!("col_sel_buf_{i}"))
-                .add_to(ctx);
-            let buffer = fanout_buffer_stage(50e-15);
-            ctx.instantiate::<LastBitDecoderStage>(&buffer)?
-                .with_connections([
-                    ("vdd", vdd),
-                    ("vss", vss),
-                    ("y", col_sel_b.index(i)),
-                    ("y_b", col_sel_buf.index(i)),
-                    ("predecode_0_0", col_sel0_b.index(i)),
-                ])
-                .named(format!("col_sel_b_buf_{i}"))
                 .add_to(ctx);
         }
 
@@ -391,9 +378,22 @@ fn buffer_chain_num_stages(cl: f64) -> usize {
         return 2;
     }
     let stages = 2 * (fo.log(3.0) / 2.0).round() as usize;
-    let res = if stages == 0 { 2 } else { stages };
+    let stages = if stages == 0 { 2 } else { stages };
 
     assert_eq!(stages % 2, 0);
+    stages
+}
+
+fn inverter_chain_num_stages(cl: f64) -> usize {
+    let fo = cl / INV_MODEL.cin;
+    if fo < 4.0 {
+        return 1;
+    }
+    // round to odd
+    let stages = 2 * ((fo.log(3.0) - 1.0) / 2.0).round() as usize + 1;
+    let stages = if stages == 0 { 1 } else { stages };
+
+    assert_eq!(stages % 2, 1);
     stages
 }
 
@@ -403,6 +403,22 @@ fn fanout_buffer_stage(cl: f64) -> DecoderStageParams {
         .elaborate()
         .size(cl)
         .as_inv_chain();
+    DecoderStageParams {
+        max_width: None,
+        gate: GateParams::Inv(invs[0]),
+        invs: invs.into_iter().skip(1).collect(),
+        num: 1,
+        child_sizes: vec![1],
+    }
+}
+
+fn fanout_buffer_stage_with_inverted_output(cl: f64) -> DecoderStageParams {
+    let stages = inverter_chain_num_stages(cl);
+    let mut invs = InverterGateTreeNode::inverter(stages)
+        .elaborate()
+        .size(cl)
+        .as_inv_chain();
+    invs.push(invs.last().unwrap().clone());
     DecoderStageParams {
         max_width: None,
         gate: GateParams::Inv(invs[0]),
