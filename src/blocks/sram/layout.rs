@@ -2,6 +2,7 @@ use std::collections::{HashMap, VecDeque};
 
 use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
+use subgeom::transform::Translate;
 use subgeom::{Corner, Dir, Point, Rect, Shape, Side, Sign, Span};
 use substrate::component::{Component, NoParams};
 use substrate::error::Result;
@@ -130,11 +131,11 @@ impl SramInner {
         let col_tree = DecoderTree::new(self.params.col_select_bits(), 128e-15); // TODO
         let col_decoder_params = DecoderParams {
             max_width: Some(
-                cols.port(PortId::new("sel_b", self.params.col_select_bits() - 1))?
+                cols.port(PortId::new("sel_b", self.params.mux_ratio() - 1))?
                     .largest_rect(m2)?
                     .vspan()
                     .union(
-                        cols.port(PortId::new("sel", self.params.col_select_bits() - 1))?
+                        cols.port(PortId::new("sel", self.params.mux_ratio() - 1))?
                             .largest_rect(m2)?
                             .vspan(),
                     )
@@ -145,7 +146,7 @@ impl SramInner {
 
         let mut col_dec = ctx
             .instantiate::<Predecoder>(&col_decoder_params)?
-            .with_orientation(Named::R90Cw);
+            .with_orientation(Named::FlipYx);
         let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?;
 
         let pc_b_buffer = DecoderStageParams {
@@ -203,12 +204,14 @@ impl SramInner {
         decoder.align_to_the_left_of(bitcells.bbox(), 6_000);
         decoder.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
         pc_b_buffer.align_bottom(cols.port("pc_b")?.largest_rect(m2)?);
+        pc_b_buffer.translate(Point::new(0, 1_000));
         pc_b_buffer.align_to_the_left_of(cols.bbox(), 6_000);
         col_dec.align_bottom(
-            cols.port(PortId::new("sel_b", self.params.col_select_bits() - 1))?
+            cols.port(PortId::new("sel_b", self.params.mux_ratio() - 1))?
                 .largest_rect(m2)?,
         );
         col_dec.align_to_the_left_of(cols.bbox(), 6_000);
+        col_dec.translate(Point::new(0, 1_000));
         sense_en_buffer.align_top(cols.port("sense_en")?.largest_rect(m2)?);
         sense_en_buffer.align_to_the_left_of(cols.bbox(), 6_000);
         write_driver_en_buffer.align_beneath(sense_en_buffer.bbox(), 4_000);
@@ -446,39 +449,39 @@ impl SramInner {
         }
 
         // Route column decoders to mux.
-        let tracks = router.track_info(m1).tracks();
+        let tracks = router.track_info(m1).tracks().clone();
         let track_idx = tracks.track_with_loc(TrackLocator::StartsAfter, col_dec.brect().right());
-        for i in 0..self.params.col_select_bits() {
+        for i in 0..self.params.mux_ratio() {
             for j in 0..2 {
                 let (y_name, sel_name) = if j == 0 {
                     ("y", "sel")
                 } else {
                     ("y_b", "sel_b")
                 };
-                let y = addr_gate.port(PortId::new(y_name, i))?.largest_rect(m0)?;
-                let sel = decoder.port(PortId::new(sel_name, i))?.largest_rect(m1)?;
-                let track_rect =
-                    Rect::from_spans(tracks.index(track_idx + i), y.vspan().union(sel.vspan()));
+                let y = col_dec.port(PortId::new(y_name, i))?.largest_rect(m0)?;
+                let sel = cols.port(PortId::new(sel_name, i))?.largest_rect(m2)?;
+                let track_span = tracks.index(track_idx + i as i64);
 
                 let rect = if j == 0 {
-                    y.with_hspan(y.hspan().union(track_rect.hspan()))
+                    y.with_hspan(y.hspan().union(track_span))
                 } else {
                     let jog = OffsetJog::builder()
                         .dir(subgeom::Dir::Horiz)
                         .sign(subgeom::Sign::Pos)
                         .src(y)
-                        .dst(y.top() + 340)
+                        .dst(y.bottom() - 340)
                         .layer(m0)
                         .space(170)
                         .build()
                         .unwrap();
                     let rect = Rect::from_spans(
-                        jog.r2().hspan().union(track_rect.hspan()),
-                        Span::with_start_and_length(y.top() + 170, 170),
+                        jog.r2().hspan().union(track_span),
+                        Span::with_start_and_length(jog.r2().bottom(), 170),
                     );
                     ctx.draw(jog)?;
                     rect
                 };
+                let track_rect = Rect::from_spans(track_span, rect.vspan().union(sel.vspan()));
                 ctx.draw_rect(m0, rect);
                 let via = ctx.instantiate::<Via>(
                     &ViaParams::builder()
@@ -488,36 +491,17 @@ impl SramInner {
                 )?;
                 ctx.draw_ref(&via)?;
                 let m2_rect = Rect::from_spans(track_rect.hspan().union(sel.hspan()), sel.vspan());
-                ctx.draw_rect(m1, m1_rect);
+                ctx.draw_rect(m1, track_rect);
                 ctx.draw_rect(m2, m2_rect);
                 let via = ctx.instantiate::<Via>(
                     &ViaParams::builder()
                         .layers(m1, m2)
-                        .geometry(m1_rect, m2_rect)
+                        .geometry(track_rect, m2_rect)
                         .build(),
                 )?;
                 ctx.draw_ref(&via)?;
-                router.block(m1, m1_rect);
+                router.block(m1, track_rect);
                 router.block(m2, m2_rect);
-
-                // Route on m2 to the appropriate predecoder port and via down.
-                let vspan = if track.start() > predecode_port.vspan().stop() {
-                    Span::new(predecode_port.vspan().stop() - 320, track.stop())
-                } else if track.stop() < predecode_port.vspan().start() {
-                    Span::new(track.start(), predecode_port.vspan().start() + 320)
-                } else {
-                    track
-                };
-                let vert_m2_rect = Rect::from_spans(predecode_port.hspan(), vspan);
-                ctx.draw_rect(m2, vert_m2_rect);
-                router.block(m2, vert_m2_rect);
-                let via = ctx.instantiate::<Via>(
-                    &ViaParams::builder()
-                        .layers(m1, m2)
-                        .geometry(predecode_port, vert_m2_rect)
-                        .build(),
-                )?;
-                ctx.draw_ref(&via)?;
             }
         }
 
