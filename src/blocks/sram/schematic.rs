@@ -191,7 +191,7 @@ impl SramInner {
         }
 
         // TODO: estimate load capacitances
-        let pc_b_buffer = fanout_buffer_stage(500e-15);
+        let pc_b_buffer = fanout_buffer_stage(2000e-15);
         ctx.instantiate::<LastBitDecoderStage>(&pc_b_buffer)?
             .with_connections([
                 ("vdd", vdd),
@@ -213,7 +213,7 @@ impl SramInner {
             ])
             .named("wlen_buffer")
             .add_to(ctx);
-        let write_driver_en_buffer = fanout_buffer_stage(50e-15);
+        let write_driver_en_buffer = fanout_buffer_stage(2000e-15);
         ctx.instantiate::<LastBitDecoderStage>(&write_driver_en_buffer)?
             .with_connections([
                 ("vdd", vdd),
