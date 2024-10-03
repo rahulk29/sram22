@@ -16,15 +16,15 @@ use substrate::layout::placement::array::{ArrayTiler, ArrayTilerBuilder};
 use substrate::layout::placement::tile::LayerBbox;
 use substrate::layout::routing::auto::grid::ExpandToGridStrategy;
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
-use substrate::layout::routing::manual::jog::ElbowJog;
+use substrate::layout::routing::manual::jog::{ElbowJog, SJog};
 use substrate::layout::routing::tracks::TrackLocator;
 use substrate::layout::Draw;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 use substrate::pdk::stdcell::StdCell;
 
-use subgeom::{Corner, Dir, Point, Rect, Side, Span};
-
 use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch};
+use subgeom::transform::Translate;
+use subgeom::{Corner, Dir, Point, Rect, Side, Span};
 
 impl ControlLogicReplicaV2 {
     pub(crate) fn layout(
@@ -36,33 +36,31 @@ impl ControlLogicReplicaV2 {
 
         let stdcells = ctx.inner().std_cell_db();
         let db = ctx.mos_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
-        let inv = lib.try_cell_named("sky130_fd_sc_hd__inv_2")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let inv = lib.try_cell_named("sky130_fd_sc_hs__inv_2")?;
         let inv = ctx.instantiate::<StdCell>(&inv.id())?;
-        let tap = lib.try_cell_named("sky130_fd_sc_hd__tap_2")?;
+        let tap = lib.try_cell_named("sky130_fd_sc_hs__tap_2")?;
         let tap = ctx.instantiate::<StdCell>(&tap.id())?;
         let tap = LayerBbox::new(tap, outline);
-        let and = lib.try_cell_named("sky130_fd_sc_hd__and2_2")?;
-        let and = ctx.instantiate::<StdCell>(&and.id())?;
-        let mux = lib.try_cell_named("sky130_fd_sc_hd__mux2_2")?;
-        let mux = ctx.instantiate::<StdCell>(&mux.id())?;
-        let bufbuf = lib.try_cell_named("sky130_fd_sc_hd__bufbuf_8")?;
-        let bufbuf = ctx.instantiate::<StdCell>(&bufbuf.id())?;
+        let and2 = lib.try_cell_named("sky130_fd_sc_hs__and2_2")?;
+        let and2 = ctx.instantiate::<StdCell>(&and2.id())?;
+        let and2_med = lib.try_cell_named("sky130_fd_sc_hs__and2_4")?;
+        let mut and2_med = ctx.instantiate::<StdCell>(&and2_med.id())?;
+        and2_med.reflect_horiz_anchored();
+        let nand2 = lib.try_cell_named("sky130_fd_sc_hs__nand2_4")?;
+        let nand2 = ctx.instantiate::<StdCell>(&nand2.id())?;
+        let nor2 = lib.try_cell_named("sky130_fd_sc_hs__nor2_4")?;
+        let nor2 = ctx.instantiate::<StdCell>(&nor2.id())?;
+        let mux2 = lib.try_cell_named("sky130_fd_sc_hs__mux2_4")?;
+        let mut mux2 = ctx.instantiate::<StdCell>(&mux2.id())?;
+        mux2.reflect_horiz_anchored();
+        let buf = lib.try_cell_named("sky130_fd_sc_hs__buf_16")?;
+        let mut buf = ctx.instantiate::<StdCell>(&buf.id())?;
+        buf.reflect_horiz_anchored();
+        let biginv = lib.try_cell_named("sky130_fd_sc_hs__inv_16")?;
+        let biginv = ctx.instantiate::<StdCell>(&biginv.id())?;
         let edge_detector = ctx.instantiate::<EdgeDetector>(&NoParams)?;
         let sr_latch = ctx.instantiate::<SrLatch>(&NoParams)?;
-        let nmos = db.default_nmos().unwrap();
-        let mut dummy_bl_pulldown = ctx.instantiate::<LayoutMos>(&LayoutMosParams {
-            skip_sd_metal: vec![vec![]],
-            deep_nwell: false,
-            contact_strategy: GateContactStrategy::SingleSide,
-            devices: vec![MosParams {
-                w: 420,
-                l: 150,
-                m: 1,
-                nf: 1,
-                id: nmos.id(),
-            }],
-        })?;
 
         let mut rows = ArrayTiler::builder();
         rows.mode(AlignMode::Left).alt_mode(AlignMode::Beneath);
@@ -107,68 +105,58 @@ impl ControlLogicReplicaV2 {
 
         rows.push(LayerBbox::new(
             create_row(&[
-                ("inv_clk", &ctx.instantiate::<InvChain>(&2)?),
+                ("reset_inv", &biginv),
+                ("clk_gate", &and2),
                 ("clk_pulse", &edge_detector),
-                ("decoder_replica", &ctx.instantiate::<InvChain>(&8)?),
-                ("inv_rbl", &inv),
-                ("and_sense_en", &and),
-                ("inv_we", &inv),
+                ("clk_pulse_buf", &buf),
+                ("clk_pulse_inv", &biginv),
             ])?,
             outline,
         ));
 
         let mut row = create_row(&[
-            ("mux_wl_en_rst", &mux),
-            ("mux_pc_set", &mux),
+            ("inv_rbl", &inv),
+            ("clkp_delay", &ctx.instantiate::<InvChain>(&3)?),
+            ("clkpd_inv", &inv),
+            ("clkpd_delay", &ctx.instantiate::<InvChain>(&7)?),
+            ("mux_wlen_rst", &mux2),
+            ("decoder_replica_delay", &ctx.instantiate::<InvChain>(&6)?),
             ("wl_ctl", &sr_latch),
-            ("sae_ctl", &sr_latch),
-            ("pc_ctl", &sr_latch),
-            ("wr_drv_ctl", &sr_latch),
-            ("sae_set", &and),
         ])?;
         row.set_orientation(Named::ReflectVert);
         rows.push(LayerBbox::new(row, outline));
 
         rows.push(LayerBbox::new(
             create_row(&[
-                ("wr_drv_set", &and),
-                ("sae_buf", &bufbuf),
-                ("wl_en_buf", &bufbuf),
-                ("wbl_pulldown_en", &and),
+                ("inv_we", &inv),
+                ("wlen_grst", &nor2),
+                ("pc_set", &nor2),
+                ("wrdrven_grst", &nor2),
+                ("clkp_grst", &nor2),
+                ("nand_sense_en", &nand2),
+                ("wlen_q_delay", &ctx.instantiate::<InvChain>(&3)?),
+                ("nand_wlendb_web", &nand2),
+                ("and_wlen", &and2_med),
+                ("rwl_buf", &buf),
             ])?,
             outline,
         ));
 
         let mut row = create_row(&[
-            ("sae_buf2", &bufbuf),
-            ("pc_b_buf", &bufbuf),
-            ("wl_en_write_rst_buf", &ctx.instantiate::<InvChain>(&5)?),
+            ("saen_ctl", &sr_latch),
+            ("wrdrven_set", &nand2),
+            ("wrdrven_ctl", &sr_latch),
         ])?;
         row.set_orientation(Named::ReflectVert);
         rows.push(LayerBbox::new(row, outline));
 
         rows.push(LayerBbox::new(
-            create_row(&[("wr_drv_buf", &bufbuf), ("pc_b_buf2", &bufbuf)])?,
+            create_row(&[
+                ("decoder_replica", &ctx.instantiate::<InvChain>(&16)?),
+                ("pc_ctl", &sr_latch),
+            ])?,
             outline,
         ));
-
-        let inv_chain_data: Vec<(String, usize)> = [
-            ("pc_read_set_buf", 8),
-            ("sense_en_delay", 2),
-            ("wr_drv_set_decoder_delay_replica", 24),
-            ("pc_write_set_buf", 4),
-        ]
-        .into_iter()
-        .map(|(name, n)| (name.to_string(), n))
-        .collect();
-
-        let inv_chains = ctx.instantiate::<InvChains>(&InvChainsParams {
-            chains: inv_chain_data,
-            wrap_cutoff: 24,
-            flipped: true,
-        })?;
-
-        rows.push(LayerBbox::new(inv_chains, outline));
 
         let mut rows = rows.build();
         rows.expose_ports(
@@ -192,21 +180,6 @@ impl ControlLogicReplicaV2 {
             PortConflictStrategy::Merge,
         )?;
         let mut group = rows.generate()?;
-
-        dummy_bl_pulldown.align_top(group.brect());
-        dummy_bl_pulldown.align(AlignMode::ToTheRight, group.brect(), 600);
-
-        let mut pulldown_group = Group::new();
-        pulldown_group.add(dummy_bl_pulldown);
-        pulldown_group.expose_ports(
-            |port: CellPort, _| {
-                let name = format!("dummy_bl_pulldown_{}", port.name());
-                Some(port.named(name))
-            },
-            PortConflictStrategy::Error,
-        )?;
-        group.add_ports(pulldown_group.ports())?;
-        group.add_group(pulldown_group);
 
         self.route(ctx, &group)?;
 
@@ -282,28 +255,31 @@ impl ControlLogicReplicaV2 {
 
         for layer in [m1, m2] {
             for shape in group.shapes_on(layer) {
-                router.block(layer, shape.brect());
+                let rect = shape.brect().expand(40);
+                router.block(layer, rect);
             }
         }
 
         // Pins
-        let (num_input_pins, clk_idx, we_idx) = (2usize, 0, 1);
-        let num_output_pins = 7usize;
-        let mut input_rects = Vec::new();
-        let mut output_rects = Vec::new();
+        let num_left_pins = 4;
+        let num_bot_pins = 6;
+        let mut left_pins = Vec::new();
+        let mut bot_pins = Vec::new();
         let top_offset = 2;
+        let left_offset = 50;
 
         let htracks = router.track_info(m1).tracks().clone();
         let htrack_start = htracks.track_with_loc(TrackLocator::EndsBefore, group.brect().top());
         let vtracks = router.track_info(m2).tracks().clone();
+        let vtrack_start = vtracks.track_with_loc(TrackLocator::EndsBefore, group.brect().left());
 
-        // Input pins
-        let vtrack =
-            vtracks.index(vtracks.track_with_loc(TrackLocator::EndsBefore, group.brect().left()));
-        for i in 0..num_input_pins {
+        // left pins
+        let vtrack = vtracks
+            .index(vtracks.track_with_loc(TrackLocator::EndsBefore, group.brect().left() - 3_200));
+        for i in 0..num_left_pins {
             let htrack = htracks.index(htrack_start - 2 * (i as i64) - top_offset);
-            input_rects.push(Rect::from_spans(vtrack, htrack));
-            ctx.draw_rect(m1, input_rects[i]);
+            left_pins.push(Rect::from_spans(vtrack, htrack));
+            ctx.draw_rect(m1, left_pins[i]);
         }
 
         router.block(
@@ -314,1035 +290,699 @@ impl ControlLogicReplicaV2 {
             ),
         );
 
-        // Output pins
-        let vtrack = vtracks
-            .index(8 + vtracks.track_with_loc(TrackLocator::StartsAfter, group.brect().right()));
-        for i in 0..num_output_pins {
-            let htrack = htracks.index(htrack_start - 2 * (i as i64) - top_offset);
-            output_rects.push(Rect::from_spans(vtrack, htrack));
-            ctx.draw_rect(m1, output_rects[i]);
+        // bot pins
+        let htrack = htracks
+            .index(htracks.track_with_loc(TrackLocator::EndsBefore, group.brect().bottom()) - 8);
+        for i in 0..num_bot_pins {
+            let vtrack = vtracks.index(vtrack_start + 2 * (i as i64) + left_offset);
+            bot_pins.push(Rect::from_spans(vtrack, htrack));
+            ctx.draw_rect(m2, bot_pins[i]);
         }
 
         router.block(
-            m2,
+            m1,
             Rect::from_spans(
-                vtrack.expand(true, 2000).expand(false, 140),
-                group.brect().vspan(),
+                group.brect().hspan(),
+                htrack.expand(true, 140).expand(false, 2000),
             ),
         );
 
-        let sae_muxed = input_rects[0];
-        router.occupy(m1, sae_muxed, "sae_muxed")?;
-        let sae_int = input_rects[1];
-        router.occupy(m1, sae_int, "sae_int")?;
-        let clk_pin = input_rects[clk_idx];
+        let clk_pin = left_pins[0];
         router.occupy(m1, clk_pin, "clk")?;
-        let we_pin = input_rects[we_idx];
+        let ce_pin = left_pins[1];
+        router.occupy(m1, ce_pin, "ce")?;
+        let we_pin = left_pins[2];
         router.occupy(m1, we_pin, "we")?;
+        let resetb_pin = left_pins[3];
+        router.occupy(m1, resetb_pin, "reset_b")?;
 
-        let pc_b_pin = output_rects[0];
-        router.occupy(m1, pc_b_pin, "pc_b")?;
-        let wl_en0_pin = output_rects[1];
-        router.occupy(m1, wl_en0_pin, "wl_en0")?;
-        let wl_en_pin = output_rects[2];
-        router.occupy(m1, wl_en_pin, "wl_en")?;
-        let write_driver_en_pin = output_rects[3];
-        router.occupy(m1, write_driver_en_pin, "write_driver_en")?;
-        let sense_en_pin = output_rects[4];
-        router.occupy(m1, sense_en_pin, "sense_en")?;
-        let rbl_pin = output_rects[5];
-        router.occupy(m1, rbl_pin, "rbl")?;
-        let dummy_bl_pin = output_rects[6];
-        router.occupy(m1, dummy_bl_pin, "dummy_bl")?;
+        let rbl_pin = bot_pins[0];
+        router.occupy(m2, rbl_pin, "rbl")?;
+        let rwl_pin = bot_pins[1];
+        router.occupy(m2, rwl_pin, "rwl")?;
+        let pc_b_pin = bot_pins[2];
+        router.occupy(m2, pc_b_pin, "pc_b")?;
+        let wlen_pin = bot_pins[3];
+        router.occupy(m2, wlen_pin, "wlen")?;
+        let wrdrven_pin = bot_pins[4];
+        router.occupy(m2, wrdrven_pin, "wrdrven")?;
+        let saen_pin = bot_pins[5];
+        router.occupy(m2, saen_pin, "saen")?;
 
-        // inv_clk -> clk_pulse
-        let clk_buf_out = group.port_map().port("inv_clk_dout")?.largest_rect(m0)?;
-        let clk_buf_in = group.port_map().port("clk_pulse_din")?.largest_rect(m0)?;
+        // reset_b -> reset_inv.y
+        let resetb_in = group.port_map().port("reset_inv_a")?.largest_rect(m1)?;
+        let resetb_in =
+            router.expand_to_grid(resetb_in, ExpandToGridStrategy::Corner(Corner::LowerLeft));
+        ctx.draw_rect(m1, resetb_in);
+        router.occupy(m1, resetb_in, "reset_b")?;
+
+        // clk -> clk_gate.a
+        let clk_in = group.port_map().port("clk_gate_a")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(clk_in.bbox(), grid);
+        let clk_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::LowerLeft),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, clk_in);
+        router.occupy(m1, clk_in, "clk")?;
+
+        // ce -> clk_gate.b
+        let ce_in = group.port_map().port("clk_gate_b")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(ce_in.bbox(), grid);
+        let ce_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, ce_in);
+        router.occupy(m1, ce_in, "ce")?;
+
+        // rbl -> inv_rbl.a
+        let pin = group.port_map().port("inv_rbl_a")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(pin.bbox(), grid);
+        let rbl_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperLeft),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, rbl_in);
+        router.occupy(m1, rbl_in, "rbl")?;
+
+        // reset out
+        let reset_out = group.port_map().port("reset_inv_y")?.largest_rect(m1)?;
+        let reset_out =
+            router.expand_to_grid(reset_out, ExpandToGridStrategy::Corner(Corner::UpperRight));
+        ctx.draw_rect(m1, reset_out);
+        router.occupy(m1, reset_out, "reset")?;
+
+        // clk_gate.x -> clk_pulse.din
+        let clk_gate_out = group.port_map().port("clk_gate_x")?.largest_rect(m0)?;
+        let clk_pulse_in = group.port_map().port("clk_pulse_din")?.largest_rect(m0)?;
         ctx.draw_rect(
             m0,
             Rect::from_spans(
-                clk_buf_in.hspan().union(clk_buf_out.hspan()),
-                Span::with_start_and_length(clk_buf_in.bottom(), 170),
+                Span::new(clk_gate_out.right(), clk_pulse_in.left()),
+                Span::from_center_span_gridded(clk_pulse_in.vspan().center(), 180, 10),
             ),
         );
 
-        // clk_pulse -> decoder_replica
-        let clkp_out = group.port_map().port("clk_pulse_dout")?.largest_rect(m0)?;
-        let clkp_in = group
+        // wlen_q_delay.dout -> nand_wlendb_web.a
+        let wlendb_out = group
             .port_map()
-            .port("decoder_replica_din")?
+            .port("wlen_q_delay_dout")?
             .largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(wlendb_out.bbox(), grid);
+        let wlendb_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::LowerLeft),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wlendb_out);
+        router.occupy(m1, wlendb_out, "wlend_b")?;
+
+        let wlendb_in = group
+            .port_map()
+            .port("nand_wlendb_web_a")?
+            .largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(wlendb_in.bbox(), grid);
+        let wlendb_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::LowerLeft),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wlendb_in);
+        router.occupy(m1, wlendb_in, "wlend_b")?;
+
+        // nand_wlendb_web.y -> and_wlen.b
+        let wlend_out = group
+            .port_map()
+            .port("nand_wlendb_web_y")?
+            .largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(wlend_out.bbox(), grid);
+        let wlend_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::LowerLeft),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wlend_out);
+        router.occupy(m1, wlend_out, "wlend")?;
+
+        let wlend_in = group.port_map().port("and_wlen_b")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(wlend_in.bbox(), grid);
+        via.align_right(wlend_in.bbox());
+        let wlend_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wlend_in);
+        router.occupy(m1, wlend_in, "wlend")?;
+
+        // clk_pulse.dout -> clk_pulse_buf.a
+        let src = group.port_map().port("clk_pulse_dout")?.largest_rect(m0)?;
+        let dst = group.port_map().port("clk_pulse_buf_a")?.largest_rect(m0)?;
         ctx.draw_rect(
             m0,
             Rect::from_spans(
-                clkp_in.hspan().union(clkp_out.hspan()),
-                Span::with_start_and_length(clkp_in.bottom(), 170),
+                Span::new(src.right(), dst.left()),
+                Span::from_center_span_gridded(dst.vspan().center(), 180, 10),
             ),
         );
 
-        // clk_pulse -> sae_ctl/pc_ctl/wr_drv_set
-        let mut clkp_out_via = via01.clone();
-        clkp_out_via.align_centers_gridded(clkp_out.brect(), grid);
-        let clkp_out = router.expand_to_grid(
-            clkp_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Side(Side::Left),
-        );
-        ctx.draw(clkp_out_via)?;
-        ctx.draw_rect(m1, clkp_out);
-        router.occupy(m1, clkp_out, "clkp")?;
+        // clk_pulse_inv.y -> clkp_delay.din
+        let clkp_b_out = group.port_map().port("clk_pulse_inv_y")?.largest_rect(m1)?;
+        let clkp_b_out =
+            router.expand_to_grid(clkp_b_out, ExpandToGridStrategy::Corner(Corner::UpperRight));
+        ctx.draw_rect(m1, clkp_b_out);
+        router.occupy(m1, clkp_b_out, "clkp_b")?;
 
-        let clkp_in_1 = group.port_map().port("sae_ctl_r")?.largest_rect(m0)?;
-        let mut clkp_in_1_via = via01.clone();
-        clkp_in_1_via.align_centers_gridded(clkp_in_1.bbox(), grid);
-        clkp_in_1_via.align_left(clkp_in_1.bbox());
-        let clkp_in_1 = router.expand_to_grid(
-            clkp_in_1_via.layer_bbox(m1).into_rect(),
+        let clkp_b_in = group.port_map().port("clkp_delay_din")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(clkp_b_in.bbox(), grid);
+        let clkp_b_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
-        ctx.draw(clkp_in_1_via)?;
-        ctx.draw_rect(m1, clkp_in_1);
-        router.occupy(m1, clkp_in_1, "clkp")?;
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, clkp_b_in);
+        router.occupy(m1, clkp_b_in, "clkp_b")?;
 
-        let clkp_in_2 = group.port_map().port("pc_ctl_r")?.largest_rect(m0)?;
-        let mut clkp_in_2_via = via01.clone();
-        clkp_in_2_via.align_centers_gridded(clkp_in_2.bbox(), grid);
-        clkp_in_2_via.align_left(clkp_in_2.bbox());
-        let clkp_in_2 = router.expand_to_grid(
-            clkp_in_2_via.layer_bbox(m1).into_rect(),
+        // clkp_b -> pc_ctl.rb
+        let pin = group.port_map().port("pc_ctl_rb")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(pin.bbox(), grid);
+        let clkp_b_in_1 = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Side(Side::Right),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, clkp_b_in_1);
+        router.occupy(m1, clkp_b_in_1, "clkp_b")?;
+
+        // clkp_delay.dout -> wrdrven_set.a
+        let clkpd_out = group.port_map().port("clkp_delay_dout")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(clkpd_out.bbox(), grid);
+        let clkpd_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
-        ctx.draw(clkp_in_2_via)?;
-        ctx.draw_rect(m1, clkp_in_2);
-        router.occupy(m1, clkp_in_2, "clkp")?;
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, clkpd_out);
+        router.occupy(m1, clkpd_out, "clkpd")?;
 
-        let clkp_in_3 = group.port_map().port("wr_drv_set_a")?.largest_rect(m0)?;
-        let mut clkp_in_3_via = via01.with_orientation(Named::R90);
-        clkp_in_3_via.align_centers_gridded(clkp_in_3.bbox(), grid);
-        clkp_in_3_via.align_top(clkp_in_3.bbox());
-        let clkp_in_3 = router.expand_to_grid(
-            clkp_in_3_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Side(Side::Top),
+        let clkpd_in = group.port_map().port("wrdrven_set_a")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(clkpd_in.bbox(), grid);
+        let clkpd_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
-        ctx.draw(clkp_in_3_via)?;
-        ctx.draw_rect(m1, clkp_in_3);
-        router.occupy(m1, clkp_in_3, "clkp")?;
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, clkpd_in);
+        router.occupy(m1, clkpd_in, "clkpd")?;
 
-        // decoder_replica -> wl_ctl
-        let wl_en_set_out = group
+        let port = group.port_map().port("wl_ctl_q")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(port.bbox(), grid);
+        let wl_ctl_q_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wl_ctl_q_out);
+        router.occupy(m1, wl_ctl_q_out, "wlen_q")?;
+
+        let mut snap_pins = |net: &str, pins: &[&str]| -> substrate::error::Result<Vec<Rect>> {
+            let mut out_pins = Vec::with_capacity(pins.len());
+            for &pin in pins {
+                let port = group.port_map().port(pin)?.largest_rect(m0)?;
+                let mut via = via01.clone();
+                via.align_centers_gridded(port.bbox(), grid);
+                let port = router.expand_to_grid(
+                    via.layer_bbox(m1).into_rect(),
+                    ExpandToGridStrategy::Corner(Corner::UpperRight),
+                );
+                ctx.draw(via)?;
+                ctx.draw_rect(m1, port);
+                router.occupy(m1, port, net)?;
+                out_pins.push(port);
+            }
+            Ok(out_pins)
+        };
+
+        // we_b
+        let we_b_ins = snap_pins("we_b", &["nand_sense_en_a", "nand_wlendb_web_b"])?;
+
+        // wlen_q
+        let mut wlen_qs = snap_pins("wlen_q", &["and_wlen_a", "wlen_q_delay_din", "rwl_buf_a"])?;
+        wlen_qs.push(wl_ctl_q_out);
+
+        // saen_set_bs
+        let saen_set_bs = snap_pins("saen_set_b", &["nand_sense_en_y", "saen_ctl_sb"])?;
+
+        // clkpd_b
+        let clkpd_bs = snap_pins("clkpd_b", &["clkpd_inv_y", "wl_ctl_sb"])?;
+
+        // wrdrven_grst_b
+        let wrdrven_grst_bs = snap_pins("wrdrven_grst_b", &["wrdrven_grst_y", "wrdrven_ctl_rb"])?;
+
+        // decrepstart
+        let decrepstarts = snap_pins(
+            "decrepstart",
+            &["mux_wlen_rst_x", "decoder_replica_din", "wlen_grst_a"],
+        )?;
+
+        // decrepend
+        let decrepends = snap_pins(
+            "decrepend",
+            &[
+                "decoder_replica_dout",
+                "decoder_replica_delay_din",
+                "wrdrven_grst_a",
+                "nand_sense_en_b",
+            ],
+        )?;
+
+        // we -> wrdrven_set.b
+        let we_in_1 = group.port_map().port("wrdrven_set_b")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(we_in_1.bbox(), grid);
+        let we_in_1 = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, we_in_1);
+        router.occupy(m1, we_in_1, "we")?;
+
+        // wrdrven_set.y -> wrdrven_ctl.sb
+        let wrdrven_set_out = group.port_map().port("wrdrven_set_y")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(wrdrven_set_out.bbox(), grid);
+        let wrdrven_set_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wrdrven_set_out);
+        router.occupy(m1, wrdrven_set_out, "wrdrven_set_b")?;
+
+        let wrdrven_set_in = group.port_map().port("wrdrven_ctl_sb")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(wrdrven_set_in.bbox(), grid);
+        let wrdrven_set_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wrdrven_set_in);
+        router.occupy(m1, wrdrven_set_in, "wrdrven_set_b")?;
+
+        // clk_pulse_buf.x -> clk_pulse_inv.a
+        let src = group.port_map().port("clk_pulse_buf_x")?.largest_rect(m1)?;
+        let dst = group.port_map().port("clk_pulse_inv_a")?.largest_rect(m1)?;
+        let jog = SJog::builder()
+            .src(src)
+            .dst(dst)
+            .width(230)
+            .grid(10)
+            .layer(m1)
+            .dir(Dir::Horiz)
+            .build()
+            .unwrap();
+        router.block(m1, jog.r1());
+        router.block(m1, jog.r2());
+        router.block(m1, jog.r3());
+        ctx.draw(jog)?;
+
+        // clkp_delay.dout -> clkpd_inv.a
+        let src = group.port_map().port("clkp_delay_dout")?.largest_rect(m0)?;
+        let dst = group.port_map().port("clkpd_inv_a")?.largest_rect(m0)?;
+        ctx.draw_rect(
+            m0,
+            Rect::from_spans(
+                Span::new(src.right(), dst.left()),
+                Span::from_center_span_gridded(dst.vspan().center(), 180, 10),
+            ),
+        );
+
+        // clkpd_inv.y -> clkpd_delay.din
+        let src = group.port_map().port("clkpd_inv_y")?.largest_rect(m0)?;
+        let dst = group.port_map().port("clkpd_delay_din")?.largest_rect(m0)?;
+        ctx.draw_rect(
+            m0,
+            Rect::from_spans(
+                Span::new(src.right(), dst.left()),
+                Span::from_center_span_gridded(dst.vspan().center(), 180, 10),
+            ),
+        );
+
+        // clkpd_delay.dout -> mux_wlen_rst.a1
+        let src = group
             .port_map()
-            .port("decoder_replica_dout")?
+            .port("clkpd_delay_dout")?
             .largest_rect(m0)?;
-        let mut wl_en_set_out_via = via01.clone();
-        wl_en_set_out_via.align_centers_gridded(wl_en_set_out.bbox(), grid);
-        let wl_en_set_out = router.expand_to_grid(
-            wl_en_set_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Side(Side::Left),
+        let dst = group.port_map().port("mux_wlen_rst_a1")?.largest_rect(m0)?;
+        let mut clkpdd_out_via = via01.clone();
+        clkpdd_out_via.align_centers_gridded(src, grid);
+        let mut clkpdd_in_via = via01.clone();
+        clkpdd_in_via.align_centers_gridded(dst, grid);
+        let rect = clkpdd_out_via
+            .layer_bbox(m1)
+            .union(clkpdd_in_via.layer_bbox(m1))
+            .into_rect();
+        ctx.draw(clkpdd_out_via)?;
+        ctx.draw(clkpdd_in_via)?;
+        ctx.draw_rect(m1, rect);
+        router.occupy(m1, rect, "clkpdd")?;
+
+        // rwl_buf.x
+        let pin = group.port_map().port("rwl_buf_x")?.largest_rect(m1)?;
+        let rwl_out = router.expand_to_grid(pin, ExpandToGridStrategy::Corner(Corner::UpperRight));
+        ctx.draw_rect(m1, rwl_out);
+        router.occupy(m1, rwl_out, "rwl")?;
+
+        // and_wlen.x
+        let pin = group.port_map().port("and_wlen_x")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(pin.bbox(), grid);
+        let wlen_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
-        ctx.draw(wl_en_set_out_via)?;
-        ctx.draw_rect(m1, wl_en_set_out);
-        router.occupy(m1, wl_en_set_out, "wl_en_set")?;
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wlen_out);
+        router.occupy(m1, wlen_out, "wlen")?;
 
-        let wl_en_set_in = group.port_map().port("wl_ctl_s")?.largest_rect(m0)?;
-        let mut wl_en_set_in_via = via01.with_orientation(Named::R90);
-        wl_en_set_in_via.align_centers_gridded(wl_en_set_in.bbox(), grid);
-        wl_en_set_in_via.align_left(wl_en_set_in.bbox());
-        let wl_en_set_in = router.expand_to_grid(
-            wl_en_set_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+        // saen_ctl.q
+        let pin = group.port_map().port("saen_ctl_q")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(pin.bbox(), grid);
+        let saen_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
-        ctx.draw(wl_en_set_in_via)?;
-        ctx.draw_rect(m1, wl_en_set_in);
-        router.occupy(m1, wl_en_set_in, "wl_en_set")?;
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, saen_out);
+        router.occupy(m1, saen_out, "saen")?;
 
-        // inv_we -> and_sense_en/sae_set
-        let we_b_out = group.port_map().port("inv_we_y")?.largest_rect(m0)?;
-        let we_b_in_1 = group.port_map().port("and_sense_en_b")?.largest_rect(m0)?;
+        // wrdrven_ctl.q
+        let pin = group.port_map().port("wrdrven_ctl_q")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(pin.bbox(), grid);
+        let wrdrven_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wrdrven_out);
+        router.occupy(m1, wrdrven_out, "wrdrven")?;
 
-        let mut we_b_out_via = via01.clone();
-        we_b_out_via.align_centers_gridded(we_b_out.bbox(), grid);
-        we_b_out_via.align_centers_vertically_gridded(we_b_in_1.bbox(), grid);
+        // pc_ctl.qb
+        let pin = group.port_map().port("pc_ctl_qb")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(pin.bbox(), grid);
+        let pc_b_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, pc_b_out);
+        router.occupy(m1, pc_b_out, "pc_b")?;
+
+        // inv_we.a
+        let we_in_inv = group.port_map().port("inv_we_a")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(we_in_inv.bbox(), grid);
+        let we_in_inv = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::LowerLeft),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, we_in_inv);
+        router.occupy(m1, we_in_inv, "we")?;
+
+        // inv_we.y
+        let port = group.port_map().port("inv_we_y")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(port.bbox(), grid);
         let we_b_out = router.expand_to_grid(
-            we_b_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Side(Side::Top),
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
-        ctx.draw(we_b_out_via)?;
+        ctx.draw(via)?;
         ctx.draw_rect(m1, we_b_out);
         router.occupy(m1, we_b_out, "we_b")?;
 
-        let mut we_b_in_1_via = via01.with_orientation(Named::R90);
-        we_b_in_1_via.align_centers_gridded(we_b_in_1.bbox(), grid);
-        let we_b_in_1 = router.expand_to_grid(
-            we_b_in_1_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+        // we -> mux_wlen_rst.s
+        let we_in = group.port_map().port("mux_wlen_rst_s")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(we_in.bbox(), grid);
+        let we_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
-        ctx.draw(we_b_in_1_via)?;
-        ctx.draw_rect(m1, we_b_in_1);
-        router.occupy(m1, we_b_in_1, "we_b")?;
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, we_in);
+        router.occupy(m1, we_in, "we")?;
 
-        let we_b_in_2 = group.port_map().port("sae_set_a")?.largest_rect(m0)?;
-        let mut we_b_in_2_via = via01.with_orientation(Named::R90);
-        we_b_in_2_via.align_centers_gridded(we_b_in_2.bbox(), grid);
-        we_b_in_2_via.align_top(we_b_in_2.bbox());
-        let we_b_in_2 = router.expand_to_grid(
-            we_b_in_2_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(we_b_in_2_via)?;
-        ctx.draw_rect(m1, we_b_in_2);
-        router.occupy(m1, we_b_in_2, "we_b")?;
-
-        // inv_rbl -> and_sense_en
+        // inv_rbl.y -> mux_wlen_rst.a0
         let rbl_b_out = group.port_map().port("inv_rbl_y")?.largest_rect(m0)?;
-        let rbl_b_in = group.port_map().port("and_sense_en_a")?.largest_rect(m0)?;
-        ctx.draw_rect(
-            m0,
-            Rect::from_spans(
-                rbl_b_out.hspan().union(rbl_b_in.hspan()),
-                Span::with_start_and_length(rbl_b_in.bottom(), 170),
-            ),
-        );
-
-        // inv_rbl -> pc_read_set_buf/mux_wl_en_rst
         let mut rbl_b_out_via = via01.clone();
         rbl_b_out_via.align_centers_gridded(rbl_b_out.bbox(), grid);
         let rbl_b_out = router.expand_to_grid(
             rbl_b_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
         ctx.draw(rbl_b_out_via)?;
         ctx.draw_rect(m1, rbl_b_out);
         router.occupy(m1, rbl_b_out, "rbl_b")?;
 
-        let rbl_b_in_2 = group
-            .port_map()
-            .port("pc_read_set_buf_din")?
-            .largest_rect(m0)?;
-        let mut rbl_b_in_2_via = via01.with_orientation(Named::R90);
-        rbl_b_in_2_via.align_centers_gridded(rbl_b_in_2.bbox(), grid);
-        let rbl_b_in_2 = router.expand_to_grid(
-            rbl_b_in_2_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(rbl_b_in_2_via)?;
-        ctx.draw_rect(m1, rbl_b_in_2);
-        router.occupy(m1, rbl_b_in_2, "rbl_b")?;
-
-        let rbl_b_in_3 = group
-            .port_map()
-            .port("mux_wl_en_rst_a0")?
-            .largest_rect(m0)?;
-        let mut rbl_b_in_3_via = via01.clone();
-        rbl_b_in_3_via.align_centers_gridded(rbl_b_in_3.bbox(), grid);
-        rbl_b_in_3_via.align_left(rbl_b_in_3.bbox());
-        let rbl_b_in_3 = router.expand_to_grid(
-            rbl_b_in_3_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(rbl_b_in_3_via)?;
-        ctx.draw_rect(m1, rbl_b_in_3);
-        router.occupy(m1, rbl_b_in_3, "rbl_b")?;
-
-        let rbl_b_in_4 = group.port_map().port("sae_set_b")?.largest_rect(m0)?;
-        let mut rbl_b_in_4_via = via01.with_orientation(Named::R90);
-        rbl_b_in_4_via.align_centers_gridded(rbl_b_in_4.bbox(), grid);
-        let rbl_b_in_4 = router.expand_to_grid(
-            rbl_b_in_4_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(rbl_b_in_4_via)?;
-        ctx.draw_rect(m1, rbl_b_in_4);
-        router.occupy(m1, rbl_b_in_4, "rbl_b")?;
-
-        // pc_read_set_buf -> mux_pc_set
-        let pc_read_set_out = group
-            .port_map()
-            .port("pc_read_set_buf_dout")?
-            .largest_rect(m0)?;
-        let mut pc_read_set_out_via = via01.clone();
-        pc_read_set_out_via.align_centers_gridded(pc_read_set_out.bbox(), grid);
-        let pc_read_set_out = router.expand_to_grid(
-            pc_read_set_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(pc_read_set_out_via)?;
-        ctx.draw_rect(m1, pc_read_set_out);
-        router.occupy(m1, pc_read_set_out, "pc_read_set")?;
-
-        let pc_read_set_in = group.port_map().port("mux_pc_set_a0")?.largest_rect(m0)?;
-        let mut pc_read_set_in_via = via01.clone();
-        pc_read_set_in_via.align_centers_gridded(pc_read_set_in.bbox(), grid);
-        pc_read_set_in_via.align_left(pc_read_set_in.bbox());
-        let pc_read_set_in = router.expand_to_grid(
-            pc_read_set_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(pc_read_set_in_via)?;
-        ctx.draw_rect(m1, pc_read_set_in);
-        router.occupy(m1, pc_read_set_in, "pc_read_set")?;
-
-        // and_sense_en -> sense_en_delay
-        let sense_en_set0_out = group.port_map().port("and_sense_en_x")?.largest_rect(m0)?;
-        let mut sense_en_set0_out_via = via01.clone();
-        sense_en_set0_out_via.align_centers_gridded(sense_en_set0_out, grid);
-        sense_en_set0_out_via.align(AlignMode::Bottom, sense_en_set0_out, 200);
-        let sense_en_set0_out = router.expand_to_grid(
-            sense_en_set0_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(sense_en_set0_out_via)?;
-        ctx.draw_rect(m1, sense_en_set0_out);
-        router.occupy(m1, sense_en_set0_out, "sense_en_set0")?;
-
-        let sense_en_set0_in = group
-            .port_map()
-            .port("sense_en_delay_din")?
-            .largest_rect(m0)?;
-        let mut sense_en_set0_in_via = via01.clone();
-        sense_en_set0_in_via.align_centers_gridded(sense_en_set0_in.bbox(), grid);
-        let sense_en_set0_in = router.expand_to_grid(
-            sense_en_set0_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(sense_en_set0_in_via)?;
-        ctx.draw_rect(m1, sense_en_set0_in);
-        router.occupy(m1, sense_en_set0_in, "sense_en_set0")?;
-
-        // sense_en_delay -> sae_ctl
-        let sense_en_set_out = group
-            .port_map()
-            .port("sense_en_delay_dout")?
-            .largest_rect(m0)?;
-        let mut sense_en_set_out_via = via01.clone();
-        sense_en_set_out_via.align_centers_gridded(sense_en_set_out.bbox(), grid);
-        let sense_en_set_out = router.expand_to_grid(
-            sense_en_set_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(sense_en_set_out_via)?;
-        ctx.draw_rect(m1, sense_en_set_out);
-        router.occupy(m1, sense_en_set_out, "sense_en_set")?;
-
-        let sense_en_set_in = group.port_map().port("sae_ctl_s")?.largest_rect(m0)?;
-        let mut sense_en_set_in_via = via01.with_orientation(Named::R90);
-        sense_en_set_in_via.align_centers_gridded(sense_en_set_in.bbox(), grid);
-        sense_en_set_in_via.align_left(sense_en_set_in.bbox());
-        let sense_en_set_in = router.expand_to_grid(
-            sense_en_set_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(sense_en_set_in_via)?;
-        ctx.draw_rect(m1, sense_en_set_in);
-        router.occupy(m1, sense_en_set_in, "sense_en_set")?;
-
-        // mux_wl_en_rst -> wl_ctl
-        let wl_en_rst_out = group.port_map().port("mux_wl_en_rst_x")?.largest_rect(m0)?;
-        let mut wl_en_rst_out_via = via01.clone();
-        wl_en_rst_out_via.align_centers_gridded(wl_en_rst_out.bbox(), grid);
-        let wl_en_rst_out = router.expand_to_grid(
-            wl_en_rst_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(wl_en_rst_out_via)?;
-        ctx.draw_rect(m1, wl_en_rst_out);
-        router.occupy(m1, wl_en_rst_out, "wl_en_rst")?;
-
-        let wl_en_rst_in = group.port_map().port("wl_ctl_r")?.largest_rect(m0)?;
-        let mut wl_en_rst_in_via = via01.with_orientation(Named::R90);
-        wl_en_rst_in_via.align_centers_gridded(wl_en_rst_in.bbox(), grid);
-        wl_en_rst_in_via.align_left(wl_en_rst_in.bbox());
-        let wl_en_rst_in = router.expand_to_grid(
-            wl_en_rst_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(wl_en_rst_in_via)?;
-        ctx.draw_rect(m1, wl_en_rst_in);
-        router.occupy(m1, wl_en_rst_in, "wl_en_rst")?;
-
-        // wl_ctl -> wl_en_buf
-        let wl_en0_out = group.port_map().port("wl_ctl_q")?.largest_rect(m0)?;
-        let mut wl_en0_out_via = via12.with_orientation(Named::R90);
-        wl_en0_out_via.align_centers_gridded(wl_en0_out.bbox(), grid);
-        wl_en0_out_via.align_top(wl_en0_out.bbox());
-        let wl_en0_out = router.expand_to_grid(
-            wl_en0_out_via.layer_bbox(m2).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(wl_en0_out_via)?;
-        ctx.draw_rect(m2, wl_en0_out);
-        router.occupy(m2, wl_en0_out, "wl_en0")?;
-
-        let wl_en0_in = group.port_map().port("wl_en_buf_a")?.largest_rect(m0)?;
-        let mut wl_en0_in_via = via01.with_orientation(Named::R90);
-        wl_en0_in_via.align_centers_gridded(wl_en0_in.bbox(), grid);
-        let wl_en0_in = router.expand_to_grid(
-            wl_en0_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(wl_en0_in_via)?;
-        ctx.draw_rect(m1, wl_en0_in);
-        router.occupy(m1, wl_en0_in, "wl_en0")?;
-
-        // sae_ctl -> sae_buf/sae_buf2
-        let sense_en0_out = group.port_map().port("sae_ctl_q")?.largest_rect(m0)?;
-        let mut sense_en0_out_via = via12.with_orientation(Named::R90);
-        sense_en0_out_via.align_centers_gridded(sense_en0_out.bbox(), grid);
-        sense_en0_out_via.align_top(sense_en0_out.bbox());
-        let sense_en0_out = router.expand_to_grid(
-            sense_en0_out_via.layer_bbox(m2).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(sense_en0_out_via)?;
-        ctx.draw_rect(m2, sense_en0_out);
-
-        let sense_en0_in_1 = group.port_map().port("sae_buf_a")?.largest_rect(m0)?;
-        let mut sense_en0_in_1_via = via01.with_orientation(Named::R90);
-        sense_en0_in_1_via.align_centers_gridded(sense_en0_in_1.bbox(), grid);
-        let sense_en0_in_1 = router.expand_to_grid(
-            sense_en0_in_1_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(sense_en0_in_1_via)?;
-        ctx.draw_rect(m1, sense_en0_in_1);
-
-        let sense_en0_in_2 = group.port_map().port("sae_buf2_a")?.largest_rect(m0)?;
-        let mut sense_en0_in_2_via = via01.with_orientation(Named::R90);
-        sense_en0_in_2_via.align_centers_gridded(sense_en0_in_2.bbox(), grid);
-        let sense_en0_in_2 = router.expand_to_grid(
-            sense_en0_in_2_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(sense_en0_in_2_via)?;
-        ctx.draw_rect(m1, sense_en0_in_2);
-        let (sense_en0_out_net, sense_en0_in_net) = ("sense_en0", "sense_en0");
-        router.occupy(m2, sense_en0_out, sense_en0_out_net)?;
-        router.occupy(m1, sense_en0_in_1, sense_en0_in_net)?;
-        router.occupy(m1, sense_en0_in_2, sense_en0_in_net)?;
-
-        // mux_pc_set -> pc_ctl
-        let pc_set_out = group.port_map().port("mux_pc_set_x")?.largest_rect(m0)?;
-        let mut pc_set_out_via = via01.clone();
-        pc_set_out_via.align_centers_gridded(pc_set_out.bbox(), grid);
-        let pc_set_out = router.expand_to_grid(
-            pc_set_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(pc_set_out_via)?;
-        ctx.draw_rect(m1, pc_set_out);
-        router.occupy(m1, pc_set_out, "pc_set")?;
-
-        let pc_set_in = group.port_map().port("pc_ctl_s")?.largest_rect(m0)?;
-        let mut pc_set_in_via = via01.with_orientation(Named::R90);
-        pc_set_in_via.align_centers_gridded(pc_set_in.bbox(), grid);
-        pc_set_in_via.align_left(pc_set_in.bbox());
-        let pc_set_in = router.expand_to_grid(
-            pc_set_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(pc_set_in_via)?;
-        ctx.draw_rect(m1, pc_set_in);
-        router.occupy(m1, pc_set_in, "pc_set")?;
-
-        // pc_write_set_buf -> mux_pc_set
-        let pc_write_set_out = group
-            .port_map()
-            .port("pc_write_set_buf_dout")?
-            .largest_rect(m0)?;
-        let mut pc_write_set_out_via = via01.clone();
-        pc_write_set_out_via.align_centers_gridded(pc_write_set_out.bbox(), grid);
-        let pc_write_set_out = router.expand_to_grid(
-            pc_write_set_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(pc_write_set_out_via)?;
-        ctx.draw_rect(m1, pc_write_set_out);
-        router.occupy(m1, pc_write_set_out, "pc_write_set")?;
-
-        let pc_write_set_in = group.port_map().port("mux_pc_set_a1")?.largest_rect(m0)?;
-        let mut pc_write_set_in_via = via01.clone();
-        pc_write_set_in_via.align_centers_gridded(pc_write_set_in.bbox(), grid);
-        pc_write_set_in_via.align_top(pc_write_set_in.bbox());
-        let pc_write_set_in = router.expand_to_grid(
-            pc_write_set_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(pc_write_set_in_via)?;
-        ctx.draw_rect(m1, pc_write_set_in);
-        router.occupy(m1, pc_write_set_in, "pc_write_set")?;
-
-        // pc_ctl -> pc_b_buf/pc_b_buf2
-        let pc_b0_out = group.port_map().port("pc_ctl_q_b")?.largest_rect(m0)?;
-        let mut pc_b0_out_via = via12.with_orientation(Named::R90);
-        pc_b0_out_via.align_centers_gridded(pc_b0_out.bbox(), grid);
-        pc_b0_out_via.align_bottom(pc_b0_out.bbox());
-        let pc_b0_out = router.expand_to_grid(
-            pc_b0_out_via.layer_bbox(m2).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(pc_b0_out_via)?;
-        ctx.draw_rect(m2, pc_b0_out);
-        router.occupy(m2, pc_b0_out, "pc_b0")?;
-
-        let pc_b0_in_1 = group.port_map().port("pc_b_buf_a")?.largest_rect(m0)?;
-        let mut pc_b0_in_1_via = via01.with_orientation(Named::R90);
-        pc_b0_in_1_via.align_centers_gridded(pc_b0_in_1.bbox(), grid);
-        let pc_b0_in_1 = router.expand_to_grid(
-            pc_b0_in_1_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(pc_b0_in_1_via)?;
-        ctx.draw_rect(m1, pc_b0_in_1);
-        router.occupy(m1, pc_b0_in_1, "pc_b0")?;
-
-        let pc_b0_in_2 = group.port_map().port("pc_b_buf2_a")?.largest_rect(m0)?;
-        let mut pc_b0_in_2_via = via01.with_orientation(Named::R90);
-        pc_b0_in_2_via.align_centers_gridded(pc_b0_in_2.bbox(), grid);
-        let pc_b0_in_2 = router.expand_to_grid(
-            pc_b0_in_2_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(pc_b0_in_2_via)?;
-        ctx.draw_rect(m1, pc_b0_in_2);
-        router.occupy(m1, pc_b0_in_2, "pc_b0")?;
-
-        // wr_drv_set_decoder_delay_replica -> wr_drv_ctl
-        let wr_drv_set_out = group
-            .port_map()
-            .port("wr_drv_set_decoder_delay_replica_dout")?
-            .largest_rect(m0)?;
-        let mut wr_drv_set_out_via = via01.clone();
-        wr_drv_set_out_via.align_centers_gridded(wr_drv_set_out.bbox(), grid);
-        let wr_drv_set_out = router.expand_to_grid(
-            wr_drv_set_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(wr_drv_set_out_via)?;
-        ctx.draw_rect(m1, wr_drv_set_out);
-        router.occupy(m1, wr_drv_set_out, "wr_drv_set")?;
-
-        let wr_drv_set_in = group.port_map().port("wr_drv_ctl_s")?.largest_rect(m0)?;
-        let mut wr_drv_set_in_via = via01.with_orientation(Named::R90);
-        wr_drv_set_in_via.align_centers_gridded(wr_drv_set_in.bbox(), grid);
-        wr_drv_set_in_via.align_left(wr_drv_set_in.bbox());
-        let wr_drv_set_in = router.expand_to_grid(
-            wr_drv_set_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(wr_drv_set_in_via)?;
-        ctx.draw_rect(m1, wr_drv_set_in);
-        router.occupy(m1, wr_drv_set_in, "wr_drv_set")?;
-
-        // wr_drv_set -> wr_drv_set_decoder_delay_replica
-        let wr_drv_set_undelayed_out = group.port_map().port("wr_drv_set_x")?.largest_rect(m0)?;
-        let mut wr_drv_set_undelayed_out_via = via01.clone();
-        wr_drv_set_undelayed_out_via.align_centers_gridded(wr_drv_set_undelayed_out.bbox(), grid);
-        let wr_drv_set_undelayed_out = router.expand_to_grid(
-            wr_drv_set_undelayed_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(wr_drv_set_undelayed_out_via)?;
-        ctx.draw_rect(m1, wr_drv_set_undelayed_out);
-        router.occupy(m1, wr_drv_set_undelayed_out, "wr_drv_set_undelayed")?;
-
-        let wr_drv_set_undelayed_in = group
-            .port_map()
-            .port("wr_drv_set_decoder_delay_replica_din")?
-            .largest_rect(m0)?;
-        let mut wr_drv_set_undelayed_in_via = via01.with_orientation(Named::R90);
-        wr_drv_set_undelayed_in_via.align_centers_gridded(wr_drv_set_undelayed_in.bbox(), grid);
-        let wr_drv_set_undelayed_in = router.expand_to_grid(
-            wr_drv_set_undelayed_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(wr_drv_set_undelayed_in_via)?;
-        ctx.draw_rect(m1, wr_drv_set_undelayed_in);
-        router.occupy(m1, wr_drv_set_undelayed_in, "wr_drv_set_undelayed")?;
-
-        // wl_en_write_rst_buf -> pc_write_set_buf/mux_wl_en_rst/wr_drv_ctl
-        let wl_en_write_rst_out = group
-            .port_map()
-            .port("wl_en_write_rst_buf_dout")?
-            .largest_rect(m0)?;
-        let mut wl_en_write_rst_out_via = via01.clone();
-        wl_en_write_rst_out_via.align_centers_gridded(wl_en_write_rst_out.bbox(), grid);
-        let wl_en_write_rst_out = router.expand_to_grid(
-            wl_en_write_rst_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(wl_en_write_rst_out_via)?;
-        ctx.draw_rect(m1, wl_en_write_rst_out);
-        router.occupy(m1, wl_en_write_rst_out, "wl_en_write_rst")?;
-
-        let wl_en_write_rst_in_1 = group
-            .port_map()
-            .port("pc_write_set_buf_din")?
-            .largest_rect(m0)?;
-        let mut wl_en_write_rst_in_1_via = via01.with_orientation(Named::R90);
-        wl_en_write_rst_in_1_via.align_centers_gridded(wl_en_write_rst_in_1.bbox(), grid);
-        let wl_en_write_rst_in_1 = router.expand_to_grid(
-            wl_en_write_rst_in_1_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(wl_en_write_rst_in_1_via)?;
-        ctx.draw_rect(m1, wl_en_write_rst_in_1);
-        router.occupy(m1, wl_en_write_rst_in_1, "wl_en_write_rst")?;
-
-        let wl_en_write_rst_in_2 = group
-            .port_map()
-            .port("mux_wl_en_rst_a1")?
-            .largest_rect(m0)?;
-        let mut wl_en_write_rst_in_2_via = via01.clone();
-        wl_en_write_rst_in_2_via.align_centers_gridded(wl_en_write_rst_in_2.bbox(), grid);
-        wl_en_write_rst_in_2_via.align_top(wl_en_write_rst_in_2.bbox());
-        let wl_en_write_rst_in_2 = router.expand_to_grid(
-            wl_en_write_rst_in_2_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(wl_en_write_rst_in_2_via)?;
-        ctx.draw_rect(m1, wl_en_write_rst_in_2);
-        router.occupy(m1, wl_en_write_rst_in_2, "wl_en_write_rst")?;
-
-        let wl_en_write_rst_in_3 = group.port_map().port("wr_drv_ctl_r")?.largest_rect(m0)?;
-        let mut wl_en_write_rst_in_3_via = via01.with_orientation(Named::R90);
-        wl_en_write_rst_in_3_via.align_centers_gridded(wl_en_write_rst_in_3.bbox(), grid);
-        wl_en_write_rst_in_3_via.align_left(wl_en_write_rst_in_3.bbox());
-        let wl_en_write_rst_in_3 = router.expand_to_grid(
-            wl_en_write_rst_in_3_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(wl_en_write_rst_in_3_via)?;
-        ctx.draw_rect(m1, wl_en_write_rst_in_3);
-        router.occupy(m1, wl_en_write_rst_in_3, "wl_en_write_rst")?;
-
-        // wr_drv_ctl -> wr_drv_buf
-        let write_driver_en0_out = group.port_map().port("wr_drv_ctl_q")?.largest_rect(m0)?;
-        let mut write_driver_en0_out_via = via12.with_orientation(Named::R90);
-        write_driver_en0_out_via.align_centers_gridded(write_driver_en0_out.bbox(), grid);
-        write_driver_en0_out_via.align_top(write_driver_en0_out.bbox());
-        let write_driver_en0_out = router.expand_to_grid(
-            write_driver_en0_out_via.layer_bbox(m2).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(write_driver_en0_out_via)?;
-        ctx.draw_rect(m2, write_driver_en0_out);
-        router.occupy(m2, write_driver_en0_out, "write_driver_en0")?;
-
-        let write_driver_en0_in = group.port_map().port("wr_drv_buf_a")?.largest_rect(m0)?;
-        let mut write_driver_en0_in_via = via01.with_orientation(Named::R90);
-        write_driver_en0_in_via.align_centers_gridded(write_driver_en0_in.bbox(), grid);
-        let write_driver_en0_in = router.expand_to_grid(
-            write_driver_en0_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Side(Side::Right),
-        );
-        ctx.draw(write_driver_en0_in_via)?;
-        ctx.draw_rect(m1, write_driver_en0_in);
-        router.occupy(m1, write_driver_en0_in, "write_driver_en0")?;
-
-        // clk_pin -> inv_clk
-        let clk_in = group.port_map().port("inv_clk_din")?.largest_rect(m0)?;
-        let edge = clk_in.edge(Side::Left);
-        ctx.draw(
-            ElbowJog::builder()
-                .src(
-                    clk_in
-                        .edge(Side::Left)
-                        .with_span(edge.span().shrink_all(40)),
-                )
-                .dst(clk_pin.center())
-                .layer(m0)
-                .build()
-                .unwrap(),
-        )?;
-
-        let mut clk_pin_via = via01.with_orientation(Named::R90);
-        clk_pin_via.align_centers_gridded(clk_pin, grid);
-        ctx.draw(clk_pin_via)?;
-
-        // we_pin -> inv_we/mux_wl_en_rst/mux_pc_set/wr_drv_set
-        let we_in_1 = group.port_map().port("inv_we_a")?.largest_rect(m0)?;
-        let mut we_in_1_via = via01.with_orientation(Named::R90);
-        we_in_1_via.align_centers_gridded(we_in_1.bbox(), grid);
-        let we_in_1 = router.expand_to_grid(
-            we_in_1_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Side(Side::Left),
-        );
-        ctx.draw(we_in_1_via)?;
-        ctx.draw_rect(m1, we_in_1);
-        router.occupy(m1, we_in_1, "we")?;
-
-        let we_in_2 = group.port_map().port("mux_wl_en_rst_s")?.largest_rect(m0)?;
-        let mut we_in_2_via = via01.clone();
-        we_in_2_via.align_centers_gridded(we_in_2.bbox(), grid);
-        we_in_2_via.align_bottom(we_in_2.bbox());
-        let we_in_2 = router.expand_to_grid(
-            we_in_2_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(we_in_2_via)?;
-        ctx.draw_rect(m1, we_in_2);
-        router.occupy(m1, we_in_2, "we")?;
-
-        let we_in_3 = group.port_map().port("mux_pc_set_s")?.largest_rect(m0)?;
-        let mut we_in_3_via = via01.clone();
-        we_in_3_via.align_centers_gridded(we_in_3.bbox(), grid);
-        we_in_3_via.align_bottom(we_in_3.bbox());
-        let we_in_3 = router.expand_to_grid(
-            we_in_3_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(we_in_3_via)?;
-        ctx.draw_rect(m1, we_in_3);
-        router.occupy(m1, we_in_3, "we")?;
-
-        let we_in_4 = group.port_map().port("wr_drv_set_b")?.largest_rect(m0)?;
-        let mut we_in_4_via = via01.with_orientation(Named::R90);
-        we_in_4_via.align_centers_gridded(we_in_4.bbox(), grid);
-        let we_in_4 = router.expand_to_grid(
-            we_in_4_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(we_in_4_via)?;
-        ctx.draw_rect(m1, we_in_4);
-        router.occupy(m1, we_in_4, "we")?;
-
-        // pc_b_buf/pc_b_buf2 -> pc_b_pin
-        let pc_b_out_1 = group.port_map().port("pc_b_buf_x")?.largest_rect(m0)?;
-        let mut pc_b_out_1_via = via01.clone();
-        pc_b_out_1_via.align_centers_gridded(pc_b_out_1.bbox(), grid);
-        let pc_b_out_1 = router.expand_to_grid(
-            pc_b_out_1_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Side(Side::Left),
-        );
-        ctx.draw(pc_b_out_1_via)?;
-        ctx.draw_rect(m1, pc_b_out_1);
-        router.occupy(m1, pc_b_out_1, "pc_b")?;
-
-        let pc_b_out_2 = group.port_map().port("pc_b_buf2_x")?.largest_rect(m0)?;
-        let mut pc_b_out_2_via = via01.clone();
-        pc_b_out_2_via.align_centers_gridded(pc_b_out_2.bbox(), grid);
-        let pc_b_out_2 = router.expand_to_grid(
-            pc_b_out_2_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Corner(Corner::LowerLeft),
-        );
-        ctx.draw(pc_b_out_2_via)?;
-        ctx.draw_rect(m1, pc_b_out_2);
-        // router.occupy(m1, pc_b_out_2, "pc_b")?;
-        router.block(m1, pc_b_out_2);
-
-        // wl_ctl -> wl_en0_pin
-        let wl_en0_out = group.port_map().port("wl_ctl_q")?.largest_rect(m0)?;
-        let mut wl_en0_out_via = via12.with_orientation(Named::R90);
-        wl_en0_out_via.align_centers_gridded(wl_en0_out.bbox(), grid);
-        wl_en0_out_via.align_top(wl_en0_out.bbox());
-        let wl_en0_out = router.expand_to_grid(
-            wl_en0_out_via.layer_bbox(m2).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(wl_en0_out_via)?;
-        ctx.draw_rect(m2, wl_en0_out);
-        router.occupy(m2, wl_en0_out, "wl_en0")?;
-
-        // wl_en_buf -> wl_en_pin/wbl_pulldown_en
-        let wl_en_out = group.port_map().port("wl_en_buf_x")?.largest_rect(m0)?;
-        let mut wl_en_out_via = via01.clone();
-        wl_en_out_via.align_centers_gridded(wl_en_out.bbox(), grid);
-        let wl_en_out = router.expand_to_grid(
-            wl_en_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Side(Side::Left),
-        );
-        ctx.draw(wl_en_out_via)?;
-        ctx.draw_rect(m1, wl_en_out);
-        // router.occupy(m1, wl_en_out, "wl_en")?;
-        router.block(m1, wl_en_out);
-
-        let wl_en_in = group
-            .port_map()
-            .port("wbl_pulldown_en_a")?
-            .largest_rect(m0)?;
-        let mut wl_en_in_via = via01.with_orientation(Named::R90);
-        wl_en_in_via.align_centers_gridded(wl_en_in.bbox(), grid);
-        wl_en_in_via.align_top(wl_en_in.bbox());
-        let wl_en_in = router.expand_to_grid(
-            wl_en_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Side(Side::Top),
-        );
-        ctx.draw(wl_en_in_via)?;
-        ctx.draw_rect(m1, wl_en_in);
-        router.occupy(m1, wl_en_in, "wl_en")?;
-
-        // wr_drv_buf -> write_driver_en_pin/wbl_pulldown_en
-        let write_driver_en_out = group.port_map().port("wr_drv_buf_x")?.largest_rect(m0)?;
-        let mut write_driver_en_out_via = via01.clone();
-        write_driver_en_out_via.align_centers_gridded(write_driver_en_out.bbox(), grid);
-        let write_driver_en_out = router.expand_to_grid(
-            write_driver_en_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(write_driver_en_out_via)?;
-        ctx.draw_rect(m1, write_driver_en_out);
-        router.occupy(m1, write_driver_en_out, "write_driver_en")?;
-
-        let write_driver_en_in = group
-            .port_map()
-            .port("wbl_pulldown_en_b")?
-            .largest_rect(m0)?;
-        let mut write_driver_en_in_via = via01.with_orientation(Named::R90);
-        write_driver_en_in_via.align_centers_gridded(write_driver_en_in.bbox(), grid);
-        let write_driver_en_in = router.expand_to_grid(
-            write_driver_en_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
-        );
-        ctx.draw(write_driver_en_in_via)?;
-        ctx.draw_rect(m1, write_driver_en_in);
-        router.occupy(m1, write_driver_en_in, "write_driver_en")?;
-
-        // sae_buf/sae_buf2 -> sense_en_pin
-        let sense_en_out_1 = group.port_map().port("sae_buf_x")?.largest_rect(m0)?;
-        let mut sense_en_out_1_via = via01.clone();
-        sense_en_out_1_via.align_centers_gridded(sense_en_out_1.bbox(), grid);
-        let sense_en_out_1 = router.expand_to_grid(
-            sense_en_out_1_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Side(Side::Left),
-        );
-        ctx.draw(sense_en_out_1_via)?;
-        ctx.draw_rect(m1, sense_en_out_1);
-        router.occupy(m1, sense_en_out_1, "sense_en")?;
-
-        let sense_en_out_2 = group.port_map().port("sae_buf2_x")?.largest_rect(m0)?;
-        let mut sense_en_out_2_via = via01.clone();
-        sense_en_out_2_via.align_centers_gridded(sense_en_out_2.bbox(), grid);
-        let sense_en_out_2 = router.expand_to_grid(
-            sense_en_out_2_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Corner(Corner::UpperLeft),
-        );
-        ctx.draw(sense_en_out_2_via)?;
-        ctx.draw_rect(m1, sense_en_out_2);
-        // router.occupy(m1, sense_en_out_2, "sense_en")?;
-        router.block(m1, sense_en_out_2);
-
-        // rbl_pin -> inv_rbl
-        let rbl_in = group.port_map().port("inv_rbl_a")?.largest_rect(m0)?;
-        let mut rbl_in_via = via01.with_orientation(Named::R90);
-        rbl_in_via.align_centers_gridded(rbl_in.bbox(), grid);
-        let rbl_in = router.expand_to_grid(
-            rbl_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Side(Side::Left),
-        );
-        ctx.draw(rbl_in_via)?;
-        ctx.draw_rect(m1, rbl_in);
-        // router.occupy(m1, rbl_in, "rbl")?;
-        router.block(m1, rbl_in);
-
-        // dummy_bl_pin -> inv_dummy_bl
-        let dummy_bl_in = group
-            .port_map()
-            .port("wl_en_write_rst_buf_din")?
-            .largest_rect(m0)?;
-        let mut dummy_bl_in_via = via01.with_orientation(Named::R90);
-        dummy_bl_in_via.align_centers_gridded(dummy_bl_in.bbox(), grid);
-        let dummy_bl_in = router.expand_to_grid(
-            dummy_bl_in_via.layer_bbox(m1).into_rect(),
+        let rbl_b_in = group.port_map().port("mux_wlen_rst_a0")?.largest_rect(m0)?;
+        let mut rbl_b_in_via = via01.clone();
+        rbl_b_in_via.align_centers_gridded(rbl_b_in.bbox(), grid);
+        let rbl_b_in = router.expand_to_grid(
+            rbl_b_in_via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
-        ctx.draw(dummy_bl_in_via)?;
-        ctx.draw_rect(m1, dummy_bl_in);
-        router.occupy(m1, dummy_bl_in, "dummy_bl")?;
+        ctx.draw(rbl_b_in_via)?;
+        ctx.draw_rect(m1, rbl_b_in);
+        router.occupy(m1, rbl_b_in, "rbl_b")?;
 
-        // wbl_pulldown_en -> dummy_bl_pulldown
-        let wbl_pulldown_en_out = group
-            .port_map()
-            .port("wbl_pulldown_en_x")?
-            .largest_rect(m0)?;
-        let mut wbl_pulldown_en_out_via = via01.clone();
-        wbl_pulldown_en_out_via.align_centers_gridded(wbl_pulldown_en_out.bbox(), grid);
-        let wbl_pulldown_en_out = router.expand_to_grid(
-            wbl_pulldown_en_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+        // TODO mux_wlen_rst.x -> decrepstart
+        // TODO decrepend -> decoder_replica_delay.din
+
+        // wlen_grst_b
+        let wlen_grstb_out = group.port_map().port("wlen_grst_y")?.largest_rect(m0)?;
+        let mut wlen_grstb_out_via = via01.clone();
+        wlen_grstb_out_via.align_centers_gridded(wlen_grstb_out.bbox(), grid);
+        let wlen_grstb_out = router.expand_to_grid(
+            wlen_grstb_out_via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
-        ctx.draw(wbl_pulldown_en_out_via)?;
-        ctx.draw_rect(m1, wbl_pulldown_en_out);
-        router.occupy(m1, wbl_pulldown_en_out, "wbl_pulldown_en")?;
-
-        let wbl_pulldown_en_in = group
-            .port_map()
-            .port("dummy_bl_pulldown_gate_0")?
-            .largest_rect(m0)?;
-        let mut wbl_pulldown_en_in_via = via01.with_orientation(Named::R90);
-        wbl_pulldown_en_in_via.align_centers_gridded(wbl_pulldown_en_in.bbox(), grid);
-        let wbl_pulldown_en_in = router.expand_to_grid(
-            wbl_pulldown_en_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Minimum,
+        ctx.draw(wlen_grstb_out_via)?;
+        ctx.draw_rect(m1, wlen_grstb_out);
+        router.occupy(m1, wlen_grstb_out, "wlen_grst_b")?;
+        let wlen_grstb_in = group.port_map().port("wl_ctl_rb")?.largest_rect(m0)?;
+        let mut wlen_grstb_in_via = via01.clone();
+        wlen_grstb_in_via.align_centers_gridded(wlen_grstb_in.bbox(), grid);
+        let wlen_grstb_in = router.expand_to_grid(
+            wlen_grstb_in_via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
-        ctx.draw(wbl_pulldown_en_in_via)?;
-        ctx.draw_rect(m1, wbl_pulldown_en_in);
-        router.occupy(m1, wbl_pulldown_en_in, "wbl_pulldown_en")?;
+        ctx.draw(wlen_grstb_in_via)?;
+        ctx.draw_rect(m1, wlen_grstb_in);
+        router.occupy(m1, wlen_grstb_in, "wlen_grst_b")?;
 
-        // dummy_bl_pulldown -> dummy_bl_pin
-        let dummy_bl_out = group
+        // wlen_rst_decoderd
+        let wlen_rst_decoderd_out = group
             .port_map()
-            .port("dummy_bl_pulldown_sd_0_0")?
+            .port("decoder_replica_delay_dout")?
             .largest_rect(m0)?;
-        let mut dummy_bl_out_via = via01.with_orientation(Named::R90);
-        dummy_bl_out_via.align_centers_gridded(dummy_bl_out.bbox(), grid);
-        let dummy_bl_out = router.expand_to_grid(
-            dummy_bl_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Side(Side::Bot),
+        let mut wlen_rst_decoderd_out_via = via01.clone();
+        wlen_rst_decoderd_out_via.align_centers_gridded(wlen_rst_decoderd_out.bbox(), grid);
+        let wlen_rst_decoderd_out = router.expand_to_grid(
+            wlen_rst_decoderd_out_via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
-        ctx.draw(dummy_bl_out_via)?;
-        ctx.draw_rect(m1, dummy_bl_out);
-        router.occupy(m1, dummy_bl_out, "dummy_bl")?;
+        ctx.draw(wlen_rst_decoderd_out_via)?;
+        ctx.draw_rect(m1, wlen_rst_decoderd_out);
+        router.occupy(m1, wlen_rst_decoderd_out, "wlen_rst_decoderd")?;
 
-        // dummy_bl_pulldown -> vss
-        let dummy_bl_vss = group
-            .port_map()
-            .port("dummy_bl_pulldown_sd_0_1")?
-            .largest_rect(m0)?;
-        let mut dummy_bl_vss_via = via01.with_orientation(Named::R90);
-        dummy_bl_vss_via.align_centers_gridded(dummy_bl_vss.bbox(), grid);
-        let dummy_bl_vss = router.expand_to_grid(
-            dummy_bl_vss_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Side(Side::Top),
+        let wlen_rst_decoderd_in = group.port_map().port("pc_set_a")?.largest_rect(m0)?;
+        let mut wlen_rst_decoderd_in_via = via01.clone();
+        wlen_rst_decoderd_in_via.align_centers_gridded(wlen_rst_decoderd_in.bbox(), grid);
+        let wlen_rst_decoderd_in = router.expand_to_grid(
+            wlen_rst_decoderd_in_via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
-        ctx.draw(dummy_bl_vss_via)?;
-        ctx.draw_rect(m1, dummy_bl_vss);
-        router.occupy(m1, dummy_bl_vss, "vss")?;
+        ctx.draw(wlen_rst_decoderd_in_via)?;
+        ctx.draw_rect(m1, wlen_rst_decoderd_in);
+        router.occupy(m1, wlen_rst_decoderd_in, "wlen_rst_decoderd")?;
 
-        router.route_with_net(ctx, m1, clkp_out, m1, clkp_in_1, "clkp")?;
-        router.route_with_net(ctx, m1, clkp_out, m1, clkp_in_2, "clkp")?;
-        router.route_with_net(ctx, m1, clkp_out, m1, clkp_in_3, "clkp")?;
-        router.route_with_net(ctx, m1, wl_en_set_out, m1, wl_en_set_in, "wl_en_set")?;
-        router.route_with_net(ctx, m1, we_b_out, m1, we_b_in_1, "we_b")?;
-        router.route_with_net(ctx, m1, we_b_out, m1, we_b_in_2, "we_b")?;
-        router.route_with_net(ctx, m1, rbl_b_out, m1, rbl_b_in_2, "rbl_b")?;
-        router.route_with_net(ctx, m1, rbl_b_out, m1, rbl_b_in_3, "rbl_b")?;
-        router.route_with_net(ctx, m1, rbl_b_out, m1, rbl_b_in_4, "rbl_b")?;
-        router.route_with_net(ctx, m1, pc_read_set_out, m1, pc_read_set_in, "pc_read_set")?;
-        router.route_with_net(
-            ctx,
-            m1,
-            sense_en_set0_out,
-            m1,
-            sense_en_set0_in,
-            "sense_en_set0",
-        )?;
-        router.route_with_net(
-            ctx,
-            m1,
-            sense_en_set_out,
-            m1,
-            sense_en_set_in,
-            "sense_en_set",
-        )?;
-        router.route_with_net(ctx, m1, wl_en_rst_out, m1, wl_en_rst_in, "wl_en_rst")?;
-        router.route_with_net(ctx, m2, wl_en0_out, m1, wl_en0_in, "wl_en0")?;
-        router.route_with_net(ctx, m2, sense_en0_out, m1, sense_en0_in_1, "sense_en0")?;
-        router.route_with_net(ctx, m2, sense_en0_out, m1, sense_en0_in_2, "sense_en0")?;
-        router.route_with_net(ctx, m1, pc_set_out, m1, pc_set_in, "pc_set")?;
-        router.route_with_net(
-            ctx,
-            m1,
-            pc_write_set_out,
-            m1,
-            pc_write_set_in,
-            "pc_write_set",
-        )?;
-        router.route_with_net(ctx, m2, pc_b0_out, m1, pc_b0_in_1, "pc_b0")?;
-        router.route_with_net(ctx, m2, pc_b0_out, m1, pc_b0_in_2, "pc_b0")?;
-        router.route_with_net(ctx, m1, wr_drv_set_out, m1, wr_drv_set_in, "wr_drv_set")?;
-        router.route_with_net(
-            ctx,
-            m1,
-            wr_drv_set_undelayed_out,
-            m1,
-            wr_drv_set_undelayed_in,
-            "wr_drv_set_undelayed",
-        )?;
-        router.route_with_net(
-            ctx,
-            m1,
-            wl_en_write_rst_out,
-            m1,
-            wl_en_write_rst_in_1,
-            "wl_en_write_rst",
-        )?;
-        router.route_with_net(
-            ctx,
-            m1,
-            wl_en_write_rst_out,
-            m1,
-            wl_en_write_rst_in_2,
-            "wl_en_write_rst",
-        )?;
-        router.route_with_net(
-            ctx,
-            m1,
-            wl_en_write_rst_out,
-            m1,
-            wl_en_write_rst_in_3,
-            "wl_en_write_rst",
-        )?;
-        router.route_with_net(
-            ctx,
-            m2,
-            write_driver_en0_out,
-            m1,
-            write_driver_en0_in,
-            "write_driver_en0",
-        )?;
-        router.route_with_net(ctx, m1, sense_en_out_1, m1, sense_en_pin, "sense_en")?;
-        router.route_with_net(ctx, m1, sense_en_out_2, m1, sense_en_pin, "sense_en")?;
+        // reset
+        let mut resets = Vec::new();
+        for pin in ["wlen_grst_b", "pc_set_b", "wrdrven_grst_b", "clkp_grst_b"] {
+            let in_pin = group.port_map().port(pin)?.largest_rect(m0)?;
+            let mut via = via01.clone();
+            via.align_centers_gridded(in_pin.bbox(), grid);
+            let in_pin = router.expand_to_grid(
+                via.layer_bbox(m1).into_rect(),
+                ExpandToGridStrategy::Corner(Corner::UpperRight),
+            );
+            ctx.draw(via)?;
+            ctx.draw_rect(m1, in_pin);
+            router.occupy(m1, in_pin, "reset")?;
+            resets.push(in_pin);
+        }
+
+        // clkp
+        let clkp_out = group.port_map().port("clk_pulse_buf_x")?.largest_rect(m1)?;
+        let clkp_out =
+            router.expand_to_grid(clkp_out, ExpandToGridStrategy::Corner(Corner::UpperRight));
+        ctx.draw_rect(m1, clkp_out);
+        router.occupy(m1, clkp_out, "clkp")?;
+
+        let clkp_in = group.port_map().port("clkp_grst_a")?.largest_rect(m0)?;
+        let mut clkp_in_via = via01.clone();
+        clkp_in_via.align_centers_gridded(clkp_in.bbox(), grid);
+        let clkp_in = router.expand_to_grid(
+            clkp_in_via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(clkp_in_via)?;
+        ctx.draw_rect(m1, clkp_in);
+        router.occupy(m1, clkp_in, "clkp")?;
+
+        // clkp_grst_b
+        let clkp_grstb_out = group.port_map().port("clkp_grst_y")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(clkp_grstb_out.bbox(), grid);
+        let clkp_grstb_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, clkp_grstb_out);
+        router.occupy(m1, clkp_grstb_out, "clkp_grst_b")?;
+
+        let clkp_grstb_in = group.port_map().port("saen_ctl_rb")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(clkp_grstb_in.bbox(), grid);
+        let clkp_grstb_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, clkp_grstb_in);
+        router.occupy(m1, clkp_grstb_in, "clkp_grst_b")?;
+
+        // pc_set_b
+        let pc_setb_out = group.port_map().port("pc_set_y")?.largest_rect(m0)?;
+        let mut pc_setb_out_via = via01.clone();
+        pc_setb_out_via.align_centers_gridded(pc_setb_out.bbox(), grid);
+        let pc_setb_out = router.expand_to_grid(
+            pc_setb_out_via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(pc_setb_out_via)?;
+        ctx.draw_rect(m1, pc_setb_out);
+        router.occupy(m1, pc_setb_out, "pc_set_b")?;
+
+        let pin = group.port_map().port("pc_ctl_sb")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(pin.bbox(), grid);
+        let pc_setb_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, pc_setb_in);
+        router.occupy(m1, pc_setb_in, "pc_set_b")?;
+
+        router.route_with_net(ctx, m1, clk_pin, m1, clk_in, "clk")?;
+        router.route_with_net(ctx, m1, ce_pin, m1, ce_in, "ce")?;
+        router.route_with_net(ctx, m1, pc_b_out, m2, pc_b_pin, "pc_b")?;
+        router.route_with_net(ctx, m1, resetb_pin, m1, resetb_in, "reset_b")?;
+        router.route_with_net(ctx, m1, clkp_b_out, m1, clkp_b_in, "clkp_b")?;
+        router.route_with_net(ctx, m1, clkp_b_out, m1, clkp_b_in_1, "clkp_b")?;
+        router.route_with_net(ctx, m1, clkpd_out, m1, clkpd_in, "clkpd")?;
+        router.route_with_net(ctx, m1, pc_setb_out, m1, pc_setb_in, "pc_set_b")?;
+        for reset_in in resets {
+            router.route_with_net(ctx, m1, reset_out, m1, reset_in, "reset")?;
+        }
+        for we_b_in in we_b_ins {
+            router.route_with_net(ctx, m1, we_b_out, m1, we_b_in, "we_b")?;
+        }
+        let mut route_pins = |pins: &[(&str, &[Rect])]| -> substrate::error::Result<()> {
+            for (net, rects) in pins {
+                for dst in &rects[1..] {
+                    router.route_with_net(ctx, m1, rects[0], m1, *dst, net)?;
+                }
+            }
+            Ok(())
+        };
+        route_pins(&[
+            ("wlen_q", &wlen_qs),
+            ("decrepstart", &decrepstarts),
+            ("decrepend", &decrepends),
+            ("wrdrven_grst_b", &wrdrven_grst_bs),
+            ("clkpd_b", &clkpd_bs),
+            ("saen_set_b", &saen_set_bs),
+        ])?;
+        router.route_with_net(ctx, m1, we_pin, m1, we_in, "we")?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in_1, "we")?;
-        router.route_with_net(ctx, m1, we_pin, m1, we_in_2, "we")?;
-        router.route_with_net(ctx, m1, we_pin, m1, we_in_3, "we")?;
-        router.route_with_net(ctx, m1, we_pin, m1, we_in_4, "we")?;
-        router.route_with_net(ctx, m1, pc_b_out_1, m1, pc_b_pin, "pc_b")?;
-        router.route_with_net(ctx, m1, pc_b_out_2, m1, pc_b_pin, "pc_b")?;
-        router.route_with_net(ctx, m2, wl_en0_out, m1, wl_en0_pin, "wl_en0")?;
-        router.route_with_net(ctx, m1, wl_en_out, m1, wl_en_in, "wl_en")?;
-        router.route_with_net(ctx, m1, wl_en_out, m1, wl_en_pin, "wl_en")?;
+        router.route_with_net(ctx, m1, we_pin, m1, we_in_inv, "we")?;
+        router.route_with_net(ctx, m1, rbl_b_out, m1, rbl_b_in, "rbl_b")?;
+        router.route_with_net(ctx, m1, rwl_out, m2, rwl_pin, "rwl")?;
+        router.route_with_net(ctx, m1, wlen_grstb_out, m1, wlen_grstb_in, "wlen_grst_b")?;
+        router.route_with_net(ctx, m1, clkp_out, m1, clkp_in, "clkp")?;
+        router.route_with_net(ctx, m1, clkp_grstb_out, m1, clkp_grstb_in, "clkp_grst_b")?;
+        router.route_with_net(ctx, m1, wlendb_out, m1, wlendb_in, "wlend_b")?;
+        router.route_with_net(ctx, m1, wlend_out, m1, wlend_in, "wlend")?;
+        router.route_with_net(ctx, m1, wlen_out, m2, wlen_pin, "wlen")?;
+        router.route_with_net(ctx, m1, saen_out, m2, saen_pin, "saen")?;
+        router.route_with_net(ctx, m2, wrdrven_pin, m1, wrdrven_out, "wrdrven")?;
+        router.route_with_net(ctx, m2, rbl_pin, m1, rbl_in, "rbl")?;
         router.route_with_net(
             ctx,
             m1,
-            write_driver_en_out,
+            wrdrven_set_out,
             m1,
-            write_driver_en_in,
-            "write_driver_en",
+            wrdrven_set_in,
+            "wrdrven_set_b",
         )?;
         router.route_with_net(
             ctx,
             m1,
-            write_driver_en_out,
+            wlen_rst_decoderd_out,
             m1,
-            write_driver_en_pin,
-            "write_driver_en",
+            wlen_rst_decoderd_in,
+            "wlen_rst_decoderd",
         )?;
-        router.route_with_net(
-            ctx,
-            m1,
-            wbl_pulldown_en_out,
-            m1,
-            wbl_pulldown_en_in,
-            "wbl_pulldown_en",
-        )?;
-        router.route_with_net(ctx, m1, dummy_bl_in, m1, dummy_bl_pin, "dummy_bl")?;
-        router.route_with_net(ctx, m1, dummy_bl_out, m1, dummy_bl_pin, "dummy_bl")?;
-        router.route_with_net(ctx, m1, vss_rect, m1, dummy_bl_vss, "vss")?;
-        router.route_with_net(ctx, m1, rbl_in, m1, rbl_pin, "rbl")?;
 
         ctx.draw(router)?;
 
         ctx.add_port(CellPort::with_shape("clk", m1, clk_pin))?;
+        ctx.add_port(CellPort::with_shape("ce", m1, ce_pin))?;
         ctx.add_port(CellPort::with_shape("we", m1, we_pin))?;
-        ctx.add_port(CellPort::with_shape("pc_b", m1, pc_b_pin))?;
-        ctx.add_port(CellPort::with_shape("wl_en0", m1, wl_en0_pin))?;
-        ctx.add_port(CellPort::with_shape("wl_en", m1, wl_en_pin))?;
-        ctx.add_port(CellPort::with_shape(
-            "write_driver_en",
-            m1,
-            write_driver_en_pin,
-        ))?;
-        ctx.add_port(CellPort::with_shape("sense_en", m1, sense_en_pin))?;
-        ctx.add_port(CellPort::with_shape("rbl", m1, rbl_pin))?;
-        ctx.add_port(CellPort::with_shape("dummy_bl", m1, dummy_bl_pin))?;
+        ctx.add_port(CellPort::with_shape("reset_b", m1, resetb_pin))?;
+
+        ctx.add_port(CellPort::with_shape("pc_b", m2, pc_b_pin))?;
+        ctx.add_port(CellPort::with_shape("rbl", m2, rbl_pin))?;
+        ctx.add_port(CellPort::with_shape("wrdrven", m2, wrdrven_pin))?;
+        ctx.add_port(CellPort::with_shape("saen", m2, saen_pin))?;
+        ctx.add_port(CellPort::with_shape("wlen", m2, wlen_pin))?;
+        ctx.add_port(CellPort::with_shape("rwl", m2, rwl_pin))?;
 
         Ok(())
     }
@@ -1380,8 +1020,8 @@ impl Component for InvChains {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
-        let tap = lib.try_cell_named("sky130_fd_sc_hd__tap_2")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let tap = lib.try_cell_named("sky130_fd_sc_hs__tap_2")?;
         let tap = ctx.instantiate::<StdCell>(&tap.id())?;
 
         let layers = ctx.layers();
@@ -1570,10 +1210,12 @@ impl SrLatch {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
-        let nor = lib.try_cell_named("sky130_fd_sc_hd__nor2_2")?;
-        let nor = ctx.instantiate::<StdCell>(&nor.id())?;
-        let nor_hflip = nor.with_orientation(Named::ReflectHoriz);
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let nand2 = lib.try_cell_named("sky130_fd_sc_hs__nand2_8")?;
+        let nand2 = ctx.instantiate::<StdCell>(&nand2.id())?;
+        let nand2_hflip = nand2.with_orientation(Named::ReflectHoriz);
+        let inv = lib.try_cell_named("sky130_fd_sc_hs__inv_2")?;
+        let inv = ctx.instantiate::<StdCell>(&inv.id())?;
 
         let layers = ctx.inner().layers();
         let outline = layers.get(Selector::Name("outline"))?;
@@ -1581,8 +1223,9 @@ impl SrLatch {
         let m1 = layers.get(Selector::Metal(1))?;
         let grid = ctx.pdk().layout_grid();
 
-        let nor = LayerBbox::new(nor, outline);
-        let nor_hflip = LayerBbox::new(nor_hflip, outline);
+        let nand2 = LayerBbox::new(nand2, outline);
+        let nand2_hflip = LayerBbox::new(nand2_hflip, outline);
+        let inv = LayerBbox::new(inv, outline);
         let mut via = ctx.instantiate::<Via>(
             &ViaParams::builder()
                 .layers(m0, m1)
@@ -1596,8 +1239,10 @@ impl SrLatch {
 
         let mut row = new_row();
 
-        row.push(nor);
-        row.push(nor_hflip);
+        row.push(nand2);
+        row.push(nand2_hflip);
+        row.push(inv.clone());
+        row.push(inv);
 
         let mut row = row.build();
         row.expose_ports(
@@ -1610,27 +1255,50 @@ impl SrLatch {
         let a1 = row.port_map().port(PortId::new("a", 1))?;
         let b1 = row.port_map().port(PortId::new("b", 1))?;
         let y1 = row.port_map().port(PortId::new("y", 1))?;
+        let aq0b = row.port_map().port(PortId::new("a", 2))?;
+        let yq = row.port_map().port(PortId::new("y", 2))?;
+        let aq0 = row.port_map().port(PortId::new("a", 3))?;
+        let yqb = row.port_map().port(PortId::new("y", 3))?;
 
-        via.align_centers_gridded(b0.largest_rect(m0)?, grid);
-        via.align_left(b0.largest_rect(m0)?);
-        let b0_via = via.clone();
+        via.align_left(a0.largest_rect(m0)?);
+        via.align_top(a0.largest_rect(m0)?);
+        let a0_via = via.clone();
 
         via.align_centers_gridded(y0.largest_rect(m0)?, grid);
         via.align_bottom(y0.largest_rect(m0)?);
+        via.translate(Point::new(0, -360));
         let y0_via = via.clone();
 
-        via.align_centers_gridded(b1.largest_rect(m0)?, grid);
-        via.align_left(b1.largest_rect(m0)?);
-        let b1_via = via.clone();
+        via.align_left(a1.largest_rect(m0)?);
+        via.align_bottom(a1.largest_rect(m0)?);
+        let a1_via = via.clone();
 
         via.align_centers_gridded(y1.largest_rect(m0)?, grid);
         via.align_top(y1.largest_rect(m0)?);
+        via.translate(Point::new(0, 100));
         let y1_via = via.clone();
+
+        via.align_centers_gridded(aq0.largest_rect(m0)?, grid);
+        via.align_bottom(aq0.largest_rect(m0)?);
+        let aq0_via = via.clone();
+
+        via.align_top(aq0b.largest_rect(m0)?);
+        via.align_left(aq0b.largest_rect(m0)?);
+        via.translate(Point::new(0, -40));
+        let aq0b_via = via.clone();
 
         ctx.draw(
             ElbowJog::builder()
                 .src(y0_via.layer_bbox(m1).into_rect().edge(Side::Right))
-                .dst(b1_via.brect().center())
+                .dst(a1_via.brect().center())
+                .layer(m1)
+                .build()
+                .unwrap(),
+        )?;
+        ctx.draw(
+            ElbowJog::builder()
+                .src(y0_via.layer_bbox(m1).into_rect().edge(Side::Right))
+                .dst(aq0_via.brect().center())
                 .layer(m1)
                 .build()
                 .unwrap(),
@@ -1639,30 +1307,38 @@ impl SrLatch {
         ctx.draw(
             ElbowJog::builder()
                 .src(y1_via.layer_bbox(m1).into_rect().edge(Side::Left))
-                .dst(b0_via.brect().center())
+                .dst(a0_via.brect().center())
+                .layer(m1)
+                .build()
+                .unwrap(),
+        )?;
+        ctx.draw(
+            ElbowJog::builder()
+                .src(y1_via.layer_bbox(m1).into_rect().edge(Side::Left))
+                .dst(aq0b_via.brect().center())
                 .layer(m1)
                 .build()
                 .unwrap(),
         )?;
 
-        ctx.draw(b0_via)?;
+        ctx.draw(a0_via)?;
         ctx.draw(y0_via)?;
-        ctx.draw(b1_via)?;
+        ctx.draw(a1_via)?;
         ctx.draw(y1_via)?;
+        ctx.draw(aq0_via)?;
+        ctx.draw(aq0b_via)?;
 
-        ctx.add_port(a0.clone().with_id("r"))?;
-        ctx.add_port(y0.clone().with_id("q"))?;
-        ctx.add_port(a1.clone().with_id("s"))?;
-        ctx.add_port(y1.clone().with_id("q_b"))?;
+        ctx.add_port(b0.clone().with_id("sb"))?;
+        ctx.add_port(yq.clone().with_id("q"))?;
+        ctx.add_port(b1.clone().with_id("rb"))?;
+        ctx.add_port(yqb.clone().with_id("qb"))?;
 
-        let vpwr0 = row.port_map().port(PortId::new("vpwr", 0))?;
-        let vgnd0 = row.port_map().port(PortId::new("vgnd", 0))?;
-        let vpwr1 = row.port_map().port(PortId::new("vpwr", 1))?;
-        let vgnd1 = row.port_map().port(PortId::new("vgnd", 1))?;
-        ctx.merge_port(vpwr0.clone().with_id("vdd"));
-        ctx.merge_port(vgnd0.clone().with_id("vss"));
-        ctx.merge_port(vpwr1.clone().with_id("vdd"));
-        ctx.merge_port(vgnd1.clone().with_id("vss"));
+        for i in 0..4 {
+            let vpwr = row.port_map().port(PortId::new("vpwr", i))?;
+            let vgnd = row.port_map().port(PortId::new("vgnd", i))?;
+            ctx.merge_port(vpwr.clone().with_id("vdd"));
+            ctx.merge_port(vgnd.clone().with_id("vss"));
+        }
 
         ctx.draw(row)?;
 
@@ -1676,10 +1352,12 @@ impl InvChain {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
-        let inv = lib.try_cell_named("sky130_fd_sc_hd__inv_2")?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let inv = lib.try_cell_named("sky130_fd_sc_hs__inv_2")?;
         let inv = ctx.instantiate::<StdCell>(&inv.id())?;
-        let tap = lib.try_cell_named("sky130_fd_sc_hd__tap_2")?;
+        let inv_end = lib.try_cell_named("sky130_fd_sc_hs__inv_4")?;
+        let inv_end = ctx.instantiate::<StdCell>(&inv_end.id())?;
+        let tap = lib.try_cell_named("sky130_fd_sc_hs__tap_2")?;
         let tap = ctx.instantiate::<StdCell>(&tap.id())?;
 
         let layers = ctx.layers();
@@ -1691,10 +1369,12 @@ impl InvChain {
         let num_groups = self.n.div_ceil(group_size);
         for i in 0..num_groups {
             if i == num_groups - 1 {
+                let rem = self.n - (num_groups - 1) * group_size;
                 row.push_num(
                     LayerBbox::new(inv.clone(), outline),
-                    self.n - (num_groups - 1) * group_size,
+                    rem.checked_sub(1).unwrap(),
                 );
+                row.push(LayerBbox::new(inv_end.clone(), outline));
             } else {
                 row.push_num(LayerBbox::new(inv.clone(), outline), group_size);
                 row.push(LayerBbox::new(tap.clone(), outline));
@@ -1722,11 +1402,7 @@ impl InvChain {
                 m0,
                 Rect::from_spans(
                     a.hspan().union(y.hspan()),
-                    if i % group_size == group_size - 1 {
-                        Span::with_start_and_length(a.bottom(), 170)
-                    } else {
-                        a.vspan()
-                    },
+                    Span::from_center_span_gridded(a.center().y, 170, 10),
                 ),
             );
         }
@@ -1768,9 +1444,10 @@ impl EdgeDetector {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
-        let and = lib.try_cell_named("sky130_fd_sc_hd__and2_4")?;
-        let and = ctx.instantiate::<StdCell>(&and.id())?;
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let and = lib.try_cell_named("sky130_fd_sc_hs__and2_4")?;
+        let mut and = ctx.instantiate::<StdCell>(&and.id())?;
+        and.reflect_horiz_anchored();
 
         let layers = ctx.layers();
         let outline = layers.get(Selector::Name("outline"))?;
@@ -1815,7 +1492,7 @@ impl EdgeDetector {
 
         let b = row.port_map().port(PortId::new("b", 1))?.largest_rect(m0)?;
         let mut b_via = via.with_orientation(Named::R90);
-        b_via.align_centers_gridded(b.bbox(), grid);
+        b_via.align_left(b.bbox());
         b_via.align_bottom(b.bbox());
         row.add(b_via.clone());
 
@@ -1823,6 +1500,7 @@ impl EdgeDetector {
         let mut dout_via = via.with_orientation(Named::R90);
         dout_via.align_centers_gridded(dout.bbox(), grid);
         dout_via.align_centers_vertically_gridded(b_via.bbox(), grid);
+        dout_via.translate(Point::new(0, -340));
         row.add(dout_via.clone());
 
         row.add_group(
@@ -1834,8 +1512,22 @@ impl EdgeDetector {
                 .unwrap()
                 .draw()?,
         );
-
-        row.add_rect(m1, dout_via.bbox().union(b_via.bbox()).into_rect());
+        let src = dout_via.layer_bbox(m1).into_rect().edge(Side::Right);
+        let len = src.span().length();
+        row.add_group(
+            ElbowJog::builder()
+                .src(src)
+                .dst(
+                    b_via
+                        .brect()
+                        .center()
+                        .translated(Point::new(-(290 - len) / 2, 0)),
+                )
+                .layer(m1)
+                .build()
+                .unwrap()
+                .draw()?,
+        );
 
         ctx.add_port(row.port_map().port("din")?.clone())?;
         ctx.add_port(

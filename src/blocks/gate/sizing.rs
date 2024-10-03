@@ -63,6 +63,18 @@ impl InverterGateTreeNode {
             children: vec![],
         }
     }
+
+    pub fn inverter(stages: usize) -> Self {
+        assert!(stages >= 1);
+        assert_eq!(stages % 2, 1);
+        Self {
+            gate: PrimitiveGateType::Inv,
+            id: 1,
+            n_invs: stages - 1,
+            n_branching: 1,
+            children: vec![],
+        }
+    }
 }
 
 fn elaborate_inner(node: &InverterGateTreeNode, n_invs: usize, n_branching: usize) -> GateTreeNode {
