@@ -50,7 +50,7 @@ impl TGateMux {
             id: pmos_id,
         })?;
         mpbr.connect_all([("d", &br_out), ("g", &sel_b), ("s", &br), ("b", &vdd)]);
-        mpbr.set_name("MBR");
+        mpbr.set_name("MPBR");
         ctx.add_instance(mpbr);
 
         let mut mnbl = ctx.instantiate::<SchematicMos>(&MosParams {

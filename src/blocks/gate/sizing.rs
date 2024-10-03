@@ -10,14 +10,14 @@ use substrate::logic::delay::{LogicPath, OptimizerOpts};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct InverterGateTreeNode {
-    gate: PrimitiveGateType,
-    id: u64,
+    pub(crate) gate: PrimitiveGateType,
+    pub(crate) id: u64,
     /// The number of inverters placed after `gate`.
-    n_invs: usize,
+    pub(crate) n_invs: usize,
     /// The number of gates in the next stage
     /// that the final gate associated to this node drives.
-    n_branching: usize,
-    children: Vec<InverterGateTreeNode>,
+    pub(crate) n_branching: usize,
+    pub(crate) children: Vec<InverterGateTreeNode>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -117,6 +117,22 @@ impl SizedGateTreeNode {
         }
 
         invs.iter().copied().rev().collect()
+    }
+
+    pub fn as_chain(&self) -> Vec<PrimitiveGateParams> {
+        let mut sizes = Vec::new();
+        let mut node = self;
+
+        loop {
+            sizes.push(node.gate);
+            if node.children.is_empty() {
+                break;
+            }
+            assert_eq!(node.children.len(), 1);
+            node = &node.children[0];
+        }
+
+        sizes.iter().copied().rev().collect()
     }
 }
 

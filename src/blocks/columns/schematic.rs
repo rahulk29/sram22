@@ -9,9 +9,11 @@ use crate::blocks::buf::DiffBuf;
 use crate::blocks::control::DffArray;
 use crate::blocks::decoder::layout::LastBitDecoderStage;
 use crate::blocks::decoder::DecoderStageParams;
-use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams};
+use crate::blocks::gate::sizing::InverterGateTreeNode;
+use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams, PrimitiveGateType};
 use crate::blocks::macros::SenseAmp;
 use crate::blocks::precharge::Precharge;
+use crate::blocks::sram::schematic::inverter_chain_num_stages;
 use crate::blocks::tgatemux::TGateMux;
 use crate::blocks::wrdriver::WriteDriver;
 
@@ -64,22 +66,23 @@ impl ColPeripherals {
             .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
         let wmask_unit_width = self.params.wmask_granularity as i64
             * (pc_design.width * self.params.mux_ratio() as i64 + pc_design.tap_width);
+        let wmask_buffer_stages = inverter_chain_num_stages(100e-15);
+        let wmask_buffer_gates = InverterGateTreeNode {
+            gate: PrimitiveGateType::Nand2,
+            id: 1,
+            n_invs: wmask_buffer_stages,
+            n_branching: 1,
+            children: vec![],
+        }
+        .elaborate()
+        .size(100e-15)
+        .as_chain();
+
         for i in 0..wmask_bits {
             ctx.instantiate::<LastBitDecoderStage>(&DecoderStageParams {
                 max_width: Some(wmask_unit_width),
-                gate: GateParams::And2(AndParams {
-                    inv: PrimitiveGateParams {
-                        nwidth: 10000,
-                        pwidth: 10000,
-                        length: 150,
-                    },
-                    nand: PrimitiveGateParams {
-                        nwidth: 2000,
-                        pwidth: 2000,
-                        length: 150,
-                    },
-                }),
-                invs: vec![],
+                gate: GateParams::Nand2(wmask_buffer_gates[0]),
+                invs: wmask_buffer_gates.iter().copied().skip(1).collect(),
                 num: 1,
                 child_sizes: vec![1, 1],
             })?
