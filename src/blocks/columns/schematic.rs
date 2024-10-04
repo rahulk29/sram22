@@ -66,7 +66,8 @@ impl ColPeripherals {
             .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
         let wmask_unit_width = self.params.wmask_granularity as i64
             * (pc_design.width * self.params.mux_ratio() as i64 + pc_design.tap_width);
-        let wmask_buffer_stages = inverter_chain_num_stages(100e-15);
+        let cl = 1000e-15;
+        let wmask_buffer_stages = inverter_chain_num_stages(cl);
         let wmask_buffer_gates = InverterGateTreeNode {
             gate: PrimitiveGateType::Nand2,
             id: 1,
@@ -75,7 +76,7 @@ impl ColPeripherals {
             children: vec![],
         }
         .elaborate()
-        .size(100e-15)
+        .size(cl)
         .as_chain();
 
         for i in 0..wmask_bits {
