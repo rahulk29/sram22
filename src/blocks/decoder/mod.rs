@@ -237,7 +237,7 @@ impl DecoderTree {
         let plan = plan_decoder(bits, true, false);
         let depth = plan.depth();
         let plan = if stages > depth {
-            let invs = max(2, (stages - depth) / 2) * 2;
+            let invs = max(1, (stages - depth) / 2) * 2;
             assert_eq!(invs % 2, 0);
             println!("adding {invs} inverters to decoder tree");
             plan.with_invs(invs)
