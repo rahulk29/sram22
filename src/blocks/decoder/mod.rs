@@ -4,6 +4,7 @@ use self::layout::{
 };
 use crate::blocks::decoder::sizing::{path_map_tree, Tree, ValueTree};
 use serde::{Deserialize, Serialize};
+use std::cmp::max;
 use subgeom::snap_to_grid;
 use substrate::component::{Component, NoParams};
 use substrate::index::IndexOwned;
@@ -232,8 +233,18 @@ impl Component for WmuxDriver {
 
 impl DecoderTree {
     pub fn new(bits: usize, cload: f64) -> Self {
+        let stages = (cload / INV_MODEL.cin).log(3.0).round() as usize;
         let plan = plan_decoder(bits, true, false);
-        let mut root = size_decoder(&plan, cload);
+        let depth = plan.depth();
+        let plan = if stages > depth {
+            let invs = max(2, (stages - depth) / 2) * 2;
+            assert_eq!(invs % 2, 0);
+            println!("adding {invs} inverters to decoder tree");
+            plan.with_invs(invs)
+        } else {
+            plan
+        };
+        let root = size_decoder(&plan, cload);
         DecoderTree { root }
     }
 }
@@ -504,21 +515,7 @@ fn plan_decoder(bits: usize, top: bool, skew_rising: bool) -> PlanTreeNode {
             skew_rising,
         };
 
-        if top {
-            PlanTreeNode {
-                gate: GateType::Inv,
-                num: node.num,
-                children: vec![PlanTreeNode {
-                    gate: GateType::Inv,
-                    num: node.num,
-                    children: vec![node],
-                    skew_rising,
-                }],
-                skew_rising,
-            }
-        } else {
-            node
-        }
+        node
     }
 }
 
@@ -573,6 +570,30 @@ impl TreeNode {
             .unwrap_or(0.0);
 
         delay
+    }
+}
+
+impl PlanTreeNode {
+    pub fn with_invs(self, invs: usize) -> Self {
+        if invs == 0 {
+            self
+        } else {
+            PlanTreeNode {
+                gate: GateType::Inv,
+                num: self.num,
+                skew_rising: self.skew_rising,
+                children: vec![self.with_invs(invs - 1)],
+            }
+        }
+    }
+
+    pub fn depth(&self) -> usize {
+        1 + self
+            .children
+            .iter()
+            .map(|c| c.depth())
+            .max()
+            .unwrap_or_default()
     }
 }
 
