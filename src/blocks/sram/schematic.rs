@@ -33,13 +33,20 @@ impl SramInner {
         let din = ctx.bus_port("din", self.params.data_width(), Direction::Input);
         let dout = ctx.bus_port("dout", self.params.data_width(), Direction::Output);
 
-        let [addr_in0, addr_in, addr_in0_b, addr_in_b] = ctx.buses(
-            ["addr_in0", "addr_in", "addr_in0_b", "addr_in_b"],
-            self.params.addr_width(),
-        );
+        let [addr_in, addr_in_b] = ctx.buses(["addr_in", "addr_in_b"], self.params.addr_width());
 
-        let [addr_gated, addr_b_gated] =
-            ctx.buses(["addr_gated", "addr_b_gated"], self.params.row_bits());
+        let [addr_gated0, addr_gated, addr_gated_b, addr_b_gated0, addr_b_gated, addr_b_gated_b] =
+            ctx.buses(
+                [
+                    "addr_gated0",
+                    "addr_gated",
+                    "addr_gated_b",
+                    "addr_b_gated0",
+                    "addr_b_gated",
+                    "addr_b_gated_b",
+                ],
+                self.params.row_bits(),
+            );
 
         let bl = ctx.bus("bl", self.params.cols());
         let br = ctx.bus("br", self.params.cols());
@@ -112,8 +119,8 @@ impl SramInner {
             ("vss", vss),
             ("addr", addr_in.index(self.params.col_select_bits()..)),
             ("addr_b", addr_in_b.index(self.params.col_select_bits()..)),
-            ("addr_gated", addr_gated),
-            ("addr_b_gated", addr_b_gated),
+            ("addr_gated", addr_gated0),
+            ("addr_b_gated", addr_b_gated0),
             ("en", wl_en),
         ])
         .named("addr_gate")
@@ -248,8 +255,8 @@ impl SramInner {
         ctx.instantiate::<DffArray>(&num_dffs)?
             .with_connections([("vdd", vdd), ("vss", vss), ("clk", clk), ("rb", reset_b)])
             .with_connection("d", Signal::new(vec![addr, we, ce]))
-            .with_connection("q", Signal::new(vec![addr_in0, we_in, ce_in]))
-            .with_connection("qn", Signal::new(vec![addr_in0_b, we_in_b, ce_in_b]))
+            .with_connection("q", Signal::new(vec![addr_in, we_in, ce_in]))
+            .with_connection("qn", Signal::new(vec![addr_in_b, we_in_b, ce_in_b]))
             .named("addr_we_ce_dffs")
             .add_to(ctx);
 
@@ -261,22 +268,22 @@ impl SramInner {
                 .with_connections([
                     ("vdd", vdd),
                     ("vss", vss),
-                    ("y", addr_in.index(i)),
-                    ("y_b", addr_in_b_buf.index(i)),
-                    ("predecode_0_0", addr_in0.index(i)),
+                    ("y", addr_gated.index(i)),
+                    ("y_b", addr_gated_b.index(i)),
+                    ("predecode_0_0", addr_gated0.index(i)),
                 ])
-                .named(format!("addr_in_buffer_{i}"))
+                .named(format!("addr_gated_buffer_{i}"))
                 .add_to(ctx);
             let buffer = fanout_buffer_stage(50e-15);
             ctx.instantiate::<LastBitDecoderStage>(&buffer)?
                 .with_connections([
                     ("vdd", vdd),
                     ("vss", vss),
-                    ("y", addr_in_b.index(i)),
-                    ("y_b", addr_in_buf.index(i)),
-                    ("predecode_0_0", addr_in0_b.index(i)),
+                    ("y", addr_b_gated.index(i)),
+                    ("y_b", addr_b_gated_b.index(i)),
+                    ("predecode_0_0", addr_b_gated0.index(i)),
                 ])
-                .named(format!("addr_inb_buffer_{i}"))
+                .named(format!("addr_b_gated_buffer_{i}"))
                 .add_to(ctx);
         }
 
