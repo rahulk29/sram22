@@ -232,7 +232,7 @@ impl SramInner {
             ])
             .named("write_driver_en_buffer")
             .add_to(ctx);
-        let sense_en_buffer = fanout_buffer_stage(50e-15);
+        let sense_en_buffer = fanout_buffer_stage(800e-15);
         ctx.instantiate::<LastBitDecoderStage>(&sense_en_buffer)?
             .with_connections([
                 ("vdd", vdd),
