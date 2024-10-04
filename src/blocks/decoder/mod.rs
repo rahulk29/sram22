@@ -561,7 +561,8 @@ impl TreeNode {
             };
             delay += model.res / scale * (model.cout * scale + cin_next);
         }
-        self.children
+        delay += self
+            .children
             .iter()
             .enumerate()
             .map(|(i, child)| child.time_constant(self.value_for_child(i)))
