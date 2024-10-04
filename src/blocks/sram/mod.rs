@@ -12,8 +12,22 @@ use substrate::layout::routing::auto::straps::PlacedStraps;
 use substrate::layout::straps::SingleSupplyNet;
 #[cfg(test)]
 use substrate::schematic::netlist::NetlistPurpose;
+use substrate::script::Script;
 
+use self::schematic::fanout_buffer_stage;
+
+use super::bitcell_array::replica::ReplicaCellArrayParams;
+use super::bitcell_array::SpCellArrayParams;
+use super::columns::{ColParams, ColPeripherals};
+use super::decoder::{
+    AddrGateParams, DecoderParams, DecoderStageParams, DecoderTree, INV_PARAMS, NAND2_PARAMS,
+};
+use super::gate::{AndParams, GateParams, PrimitiveGateParams};
 use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
+use super::precharge::layout::ReplicaPrechargeParams;
+use super::precharge::PrechargeParams;
+use super::tgatemux::TGateMuxParams;
+use super::wrdriver::WriteDriverParams;
 
 pub mod layout;
 pub mod schematic;
@@ -135,6 +149,150 @@ impl SramParams {
             self.mux_ratio as u8,
             self.wmask_granularity()
         )
+    }
+
+    pub(crate) fn col_params(&self) -> ColParams {
+        ColParams {
+            pc: PrechargeParams {
+                length: 150,
+                pull_up_width: 2_000,
+                equalizer_width: 1_200,
+            },
+            wrdriver: WriteDriverParams {
+                length: 150,
+                pwidth_driver: 10_000,
+                nwidth_driver: 10_000,
+            },
+            mux: TGateMuxParams {
+                length: 150,
+                pwidth: 4_000,
+                nwidth: 4_000,
+                mux_ratio: self.mux_ratio(),
+                idx: 0,
+            },
+            buf: PrimitiveGateParams {
+                nwidth: 1_200,
+                pwidth: 2_000,
+                length: 150,
+            },
+            cols: self.cols(),
+            wmask_granularity: self.wmask_granularity(),
+            include_wmask: true,
+        }
+    }
+}
+
+pub struct SramPhysicalDesignScript;
+
+pub struct SramPhysicalDesign {
+    bitcells: SpCellArrayParams,
+    row_decoder: DecoderParams,
+    addr_gate: AddrGateParams,
+    col_decoder: DecoderParams,
+    pc_b_buffer: DecoderStageParams,
+    wlen_buffer: DecoderStageParams,
+    write_driver_en_buffer: DecoderStageParams,
+    sense_en_buffer: DecoderStageParams,
+    num_dffs: usize,
+    rbl_wl_index: usize,
+    rbl: ReplicaCellArrayParams,
+    replica_pc: ReplicaPrechargeParams,
+    col_params: ColParams,
+}
+
+impl Script for SramPhysicalDesignScript {
+    type Params = SramParams;
+    type Output = SramPhysicalDesign;
+
+    fn run(
+        params: &Self::Params,
+        ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self::Output> {
+        let layers = ctx.layers();
+        let m2 = layers.get(Selector::Metal(2))?;
+        let wl_cap = (params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL;
+        let col_params = params.col_params();
+        let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
+        let rbl_rows = ((params.rows() / 12) + 1) * 2;
+        let rbl_wl_index = rbl_rows / 2;
+        let wrdrven_saen_width = cols
+            .port("sense_en")?
+            .largest_rect(m2)?
+            .vspan()
+            .add_point(cols.brect().bottom())
+            .length()
+            / 2;
+        Ok(Self::Output {
+            bitcells: SpCellArrayParams {
+                rows: params.rows(),
+                cols: params.cols(),
+                mux_ratio: params.mux_ratio(),
+            },
+            row_decoder: DecoderParams {
+                max_width: None,
+                tree: DecoderTree::new(params.row_bits(), wl_cap),
+            },
+            addr_gate: AddrGateParams {
+                // TODO fix, should be minimum sized AND2 unless sized elsewhere
+                gate: GateParams::And2(AndParams {
+                    nand: NAND2_PARAMS,
+                    inv: INV_PARAMS,
+                }),
+                num: 2 * params.row_bits(),
+            },
+            // TODO: change decoder tree to provide correct fanout for inverted output
+            col_decoder: DecoderParams {
+                max_width: Some(
+                    cols.port(PortId::new("sel_b", params.mux_ratio() - 1))?
+                        .largest_rect(m2)?
+                        .vspan()
+                        .union(
+                            cols.port(PortId::new("sel", params.mux_ratio() - 1))?
+                                .largest_rect(m2)?
+                                .vspan(),
+                        )
+                        .length(),
+                ),
+                // TODO use tgate mux input cap
+                tree: DecoderTree::new(
+                    params.col_select_bits(),
+                    READ_MUX_INPUT_CAP * (params.cols() / params.mux_ratio()) as f64,
+                ),
+            },
+            pc_b_buffer: DecoderStageParams {
+                max_width: Some(
+                    cols.port("pc_b")?
+                        .largest_rect(m2)?
+                        .vspan()
+                        .add_point(cols.brect().top())
+                        .length(),
+                ),
+                ..fanout_buffer_stage(50e-15)
+            },
+            wlen_buffer: DecoderStageParams {
+                max_width: None,
+                ..fanout_buffer_stage(50e-15)
+            },
+            write_driver_en_buffer: DecoderStageParams {
+                max_width: Some(wrdrven_saen_width),
+                ..fanout_buffer_stage(50e-15)
+            },
+            sense_en_buffer: DecoderStageParams {
+                max_width: Some(wrdrven_saen_width),
+                ..fanout_buffer_stage(50e-15)
+            },
+            num_dffs: params.addr_width() + 2,
+            rbl_wl_index,
+            rbl: ReplicaCellArrayParams {
+                rows: rbl_rows,
+                cols: 2,
+            },
+            replica_pc: ReplicaPrechargeParams {
+                cols: 2,
+                inner: col_params.pc.clone(),
+            },
+            col_params,
+        })
     }
 }
 
@@ -283,26 +441,27 @@ impl Component for Sram {
         ctx.draw(ring)?;
 
         // Route pins to edge of guard ring
-        // let groups = self.params.cols() / self.params.mux_ratio();
-        // for (pin, width) in [
-        //     ("dout", groups),
-        //     ("din", groups),
-        //     ("wmask", self.params.wmask_width()),
-        //     ("addr", self.params.addr_width()),
-        //     ("we", 1),
-        //     ("clk", 1),
-        // ] {
-        //     for i in 0..width {
-        //         let port_id = PortId::new(pin, i);
-        //         let rect = sram.port(port_id.clone())?.largest_rect(m3)?;
-        //         let rect = rect.with_vspan(
-        //             rect.vspan()
-        //                 .add_point(ctx.bbox().into_rect().side(subgeom::Side::Bot)),
-        //         );
-        //         ctx.draw_rect(m3, rect);
-        //         ctx.add_port(CellPort::builder().id(port_id).add(m3, rect).build())?;
-        //     }
-        // }
+        for (pin, width) in [
+            ("dout", self.params.data_width()),
+            ("din", self.params.data_width()),
+            ("wmask", self.params.wmask_width()),
+            ("addr", self.params.addr_width()),
+            ("we", 1),
+            ("ce", 1),
+            ("clk", 1),
+            ("reset_b", 1),
+        ] {
+            for i in 0..width {
+                let port_id = PortId::new(pin, i);
+                let rect = sram.port(port_id.clone())?.largest_rect(m1)?;
+                let rect = rect.with_vspan(
+                    rect.vspan()
+                        .add_point(ctx.bbox().into_rect().side(subgeom::Side::Bot)),
+                );
+                ctx.draw_rect(m1, rect);
+                ctx.add_port(CellPort::builder().id(port_id).add(m1, rect).build())?;
+            }
+        }
 
         Ok(())
     }

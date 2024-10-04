@@ -21,10 +21,13 @@ use crate::blocks::precharge::{Precharge, PrechargeParams};
 use crate::blocks::tgatemux::TGateMuxParams;
 use crate::blocks::wrdriver::WriteDriverParams;
 
-use super::{SramInner, READ_MUX_INPUT_CAP, WORDLINE_CAP_PER_CELL};
+use super::{SramInner, SramPhysicalDesignScript, READ_MUX_INPUT_CAP, WORDLINE_CAP_PER_CELL};
 
 impl SramInner {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
+        let dsn = ctx
+            .inner()
+            .run_script::<SramPhysicalDesignScript>(&self.params)?;
         let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
         let [clk, we, ce, reset_b] = ctx.ports(["clk", "we", "ce", "reset_b"], Direction::Input);
 
@@ -100,34 +103,23 @@ impl SramInner {
             ]);
 
         let wl_cap = (self.params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL;
-        let tree = DecoderTree::new(self.params.row_bits(), wl_cap);
 
-        ctx.instantiate::<AddrGate>(&AddrGateParams {
-            gate: GateParams::And2(AndParams {
-                // TODO fix this
-                nand: NAND2_PARAMS,
-                inv: INV_PARAMS,
-            }),
-            num: self.params.row_bits(),
-        })?
-        .with_connections([
-            ("vdd", vdd),
-            ("vss", vss),
-            ("addr", addr_in.index(self.params.col_select_bits()..)),
-            ("addr_b", addr_in_b.index(self.params.col_select_bits()..)),
-            ("addr_gated", addr_gated),
-            ("addr_b_gated", addr_b_gated),
-            ("en", wl_en),
-        ])
-        .named("addr_gate")
-        .add_to(ctx);
+        ctx.instantiate::<AddrGate>(&dsn.addr_gate)?
+            .with_connections([("vdd", vdd), ("vss", vss), ("wl_en", wl_en)])
+            .with_connections([
+                (
+                    "in",
+                    Signal::new(vec![
+                        addr_in.index(self.params.col_select_bits()..),
+                        addr_in_b.index(self.params.col_select_bits()..),
+                    ]),
+                ),
+                ("y", Signal::new(vec![addr_gated, addr_b_gated])),
+            ])
+            .named("addr_gate")
+            .add_to(ctx);
 
-        let decoder_params = DecoderParams {
-            max_width: None,
-            tree,
-        };
-
-        ctx.instantiate::<Decoder>(&decoder_params)?
+        ctx.instantiate::<Decoder>(&dsn.row_decoder)?
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
@@ -139,17 +131,7 @@ impl SramInner {
             .named("decoder")
             .add_to(ctx);
 
-        // TODO add wmux driver input capacitance
-        let col_tree = DecoderTree::new(
-            self.params.col_select_bits(),
-            READ_MUX_INPUT_CAP * (self.params.cols() / self.params.mux_ratio()) as f64,
-        );
-        let col_decoder_params = DecoderParams {
-            max_width: None,
-            tree: col_tree.clone(),
-        };
-
-        ctx.instantiate::<Decoder>(&col_decoder_params)?
+        ctx.instantiate::<Decoder>(&dsn.col_decoder)?
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
@@ -180,23 +162,8 @@ impl SramInner {
             .named("control_logic");
         control_logic.add_to(ctx);
 
-        for i in 0..self.params.mux_ratio() {
-            let buffer = fanout_buffer_stage_with_inverted_output(50e-15);
-            ctx.instantiate::<LastBitDecoderStage>(&buffer)?
-                .with_connections([
-                    ("vdd", vdd),
-                    ("vss", vss),
-                    ("y", col_sel.index(i)),
-                    ("y_b", col_sel_b.index(i)),
-                    ("predecode_0_0", col_sel0.index(i)),
-                ])
-                .named(format!("col_sel_buf_{i}"))
-                .add_to(ctx);
-        }
-
         // TODO: estimate load capacitances
-        let pc_b_buffer = fanout_buffer_stage(50e-15);
-        ctx.instantiate::<LastBitDecoderStage>(&pc_b_buffer)?
+        ctx.instantiate::<LastBitDecoderStage>(&dsn.pc_b_buffer)?
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
@@ -206,8 +173,7 @@ impl SramInner {
             ])
             .named("pc_b_buffer")
             .add_to(ctx);
-        let wlen_buffer = fanout_buffer_stage(50e-15);
-        ctx.instantiate::<LastBitDecoderStage>(&wlen_buffer)?
+        ctx.instantiate::<LastBitDecoderStage>(&dsn.wlen_buffer)?
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
@@ -217,8 +183,7 @@ impl SramInner {
             ])
             .named("wlen_buffer")
             .add_to(ctx);
-        let write_driver_en_buffer = fanout_buffer_stage(50e-15);
-        ctx.instantiate::<LastBitDecoderStage>(&write_driver_en_buffer)?
+        ctx.instantiate::<LastBitDecoderStage>(&dsn.write_driver_en_buffer)?
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
@@ -228,8 +193,7 @@ impl SramInner {
             ])
             .named("write_driver_en_buffer")
             .add_to(ctx);
-        let sense_en_buffer = fanout_buffer_stage(50e-15);
-        ctx.instantiate::<LastBitDecoderStage>(&sense_en_buffer)?
+        ctx.instantiate::<LastBitDecoderStage>(&dsn.sense_en_buffer)?
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
@@ -240,76 +204,39 @@ impl SramInner {
             .named("sense_en_buffer")
             .add_to(ctx);
 
-        let num_dffs = self.params.addr_width() + 2;
-        ctx.instantiate::<DffArray>(&num_dffs)?
+        ctx.instantiate::<DffArray>(&dsn.num_dffs)?
             .with_connections([("vdd", vdd), ("vss", vss), ("clk", clk), ("rb", reset_b)])
             .with_connection("d", Signal::new(vec![addr, we, ce]))
-            .with_connection("q", Signal::new(vec![addr_in0, we_in, ce_in]))
-            .with_connection("qn", Signal::new(vec![addr_in0_b, we_in_b, ce_in_b]))
+            .with_connection("q", Signal::new(vec![addr_in, we_in, ce_in]))
+            .with_connection("qn", Signal::new(vec![addr_in_b, we_in_b, ce_in_b]))
             .named("addr_we_ce_dffs")
             .add_to(ctx);
 
-        let addr_in_b_buf = ctx.bus("addr_in_b_buf", self.params.addr_width());
-        let addr_in_buf = ctx.bus("addr_in_buf", self.params.addr_width());
-        for i in 0..self.params.addr_width() {
-            let buffer = fanout_buffer_stage(50e-15);
-            ctx.instantiate::<LastBitDecoderStage>(&buffer)?
-                .with_connections([
-                    ("vdd", vdd),
-                    ("vss", vss),
-                    ("y", addr_in.index(i)),
-                    ("y_b", addr_in_b_buf.index(i)),
-                    ("predecode_0_0", addr_in0.index(i)),
-                ])
-                .named(format!("addr_in_buffer_{i}"))
-                .add_to(ctx);
-            let buffer = fanout_buffer_stage(50e-15);
-            ctx.instantiate::<LastBitDecoderStage>(&buffer)?
-                .with_connections([
-                    ("vdd", vdd),
-                    ("vss", vss),
-                    ("y", addr_in_b.index(i)),
-                    ("y_b", addr_in_buf.index(i)),
-                    ("predecode_0_0", addr_in0_b.index(i)),
-                ])
-                .named(format!("addr_inb_buffer_{i}"))
-                .add_to(ctx);
-        }
+        ctx.instantiate::<SpCellArray>(&dsn.bitcells)?
+            .with_connections([
+                ("vdd", vdd),
+                ("vss", vss),
+                ("dummy_bl", dummy_bl),
+                ("dummy_br", dummy_br),
+                ("bl", bl),
+                ("br", br),
+                ("wl", wl),
+            ])
+            .named("bitcell_array")
+            .add_to(ctx);
 
-        ctx.instantiate::<SpCellArray>(&SpCellArrayParams {
-            rows: self.params.rows(),
-            cols: self.params.cols(),
-            mux_ratio: self.params.mux_ratio(),
-        })?
-        .with_connections([
-            ("vdd", vdd),
-            ("vss", vss),
-            ("dummy_bl", dummy_bl),
-            ("dummy_br", dummy_br),
-            ("bl", bl),
-            ("br", br),
-            ("wl", wl),
-        ])
-        .named("bitcell_array")
-        .add_to(ctx);
+        ctx.instantiate::<ReplicaCellArray>(&dsn.rbl)?
+            .with_connections([
+                ("vdd", vdd),
+                ("vss", vss),
+                ("rbl", rbl),
+                ("rbr", rbr),
+                ("rwl", rwl),
+            ])
+            .named("replica_bitcell_array")
+            .add_to(ctx);
 
-        let replica_rows = ((self.params.rows() / 12) + 1) * 2;
-
-        ctx.instantiate::<ReplicaCellArray>(&ReplicaCellArrayParams {
-            rows: replica_rows,
-            cols: 2,
-        })?
-        .with_connections([
-            ("vdd", vdd),
-            ("vss", vss),
-            ("rbl", rbl),
-            ("rbr", rbr),
-            ("rwl", rwl),
-        ])
-        .named("replica_bitcell_array")
-        .add_to(ctx);
-
-        ctx.instantiate::<ColPeripherals>(&self.col_params())?
+        ctx.instantiate::<ColPeripherals>(&dsn.col_params)?
             .with_connections([
                 ("clk", clk),
                 ("reset_b", reset_b),
@@ -329,48 +256,14 @@ impl SramInner {
             .named("col_circuitry")
             .add_to(ctx);
 
-        for i in 0..2 {
-            ctx.instantiate::<Precharge>(&self.col_params().pc)?
+        for i in 0..dsn.replica_pc.cols {
+            ctx.instantiate::<Precharge>(&dsn.col_params.pc)?
                 .with_connections([("vdd", vdd), ("bl", rbl), ("br", rbr), ("en_b", pc_b0)])
                 .named(format!("replica_precharge_{i}"))
                 .add_to(ctx);
         }
 
         Ok(())
-    }
-
-    pub(crate) fn col_params(&self) -> ColParams {
-        ColParams {
-            pc: PrechargeParams {
-                length: 150,
-                pull_up_width: 2_000,
-                equalizer_width: 1_200,
-            },
-            wrdriver: WriteDriverParams {
-                length: 150,
-                pwidth_driver: 10_000,
-                nwidth_driver: 10_000,
-                pwidth_logic: 3_000,
-                nwidth_logic: 3_000,
-            },
-            mux: TGateMuxParams {
-                length: 150,
-                pwidth: 4_000,
-                nwidth: 4_000,
-                mux_ratio: self.params.mux_ratio(),
-                idx: 0,
-            },
-            buf: PrimitiveGateParams {
-                nwidth: 1_200,
-                pwidth: 2_000,
-                length: 150,
-            },
-            cols: self.params.cols(),
-            wmask_granularity: self.params.cols()
-                / self.params.mux_ratio()
-                / self.params.wmask_width(),
-            include_wmask: true,
-        }
     }
 }
 

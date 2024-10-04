@@ -1,6 +1,6 @@
 use self::layout::{
-    decoder_stage_layout, LastBitDecoderPhysicalDesignScript, PredecoderPhysicalDesignScript,
-    RoutingStyle,
+    decoder_stage_layout, decoder_stage_schematic, LastBitDecoderPhysicalDesignScript,
+    PredecoderPhysicalDesignScript, RoutingStyle,
 };
 use crate::blocks::decoder::sizing::{path_map_tree, Tree, ValueTree};
 use serde::{Deserialize, Serialize};
@@ -19,10 +19,6 @@ pub mod sim;
 pub mod sizing;
 
 pub struct Decoder {
-    params: DecoderParams,
-}
-
-pub struct Predecoder {
     params: DecoderParams,
 }
 
@@ -108,42 +104,17 @@ impl Component for AddrGate {
         &self,
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
-        let n = self.params.num;
-        let vdd = ctx.port("vdd", Direction::InOut);
-        let addr = ctx.bus_port("addr", n, Direction::Input);
-        let addr_b = ctx.bus_port("addr_b", n, Direction::Input);
-        let en = ctx.port("en", Direction::Input);
-        let y = ctx.bus_port("addr_gated", n, Direction::Output);
-        let yb = ctx.bus_port("addr_b_gated", n, Direction::Output);
-        let vss = ctx.port("vss", Direction::InOut);
-
-        let [int1, int2] = ctx.buses(["int1", "int2"], n);
-
-        for i in 0..n {
-            ctx.instantiate::<Gate>(&self.params.gate)?
-                .with_connections([
-                    ("vdd", vdd),
-                    ("a", addr.index(i)),
-                    ("b", en),
-                    ("y", y.index(i)),
-                    ("yb", int1.index(i)),
-                    ("vss", vss),
-                ])
-                .named(format!("addr_gate_{i}"))
-                .add_to(ctx);
-            ctx.instantiate::<Gate>(&self.params.gate)?
-                .with_connections([
-                    ("vdd", vdd),
-                    ("a", addr_b.index(i)),
-                    ("b", en),
-                    ("y", yb.index(i)),
-                    ("yb", int2.index(i)),
-                    ("vss", vss),
-                ])
-                .named(format!("addr_b_gate_{i}"))
-                .add_to(ctx);
-        }
-        Ok(())
+        let dsn = ctx
+            .inner()
+            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
+        let params = DecoderStageParams {
+            max_width: None,
+            gate: self.params.gate,
+            invs: vec![],
+            num: self.params.num,
+            child_sizes: vec![],
+        };
+        decoder_stage_schematic(ctx, &params, &dsn, RoutingStyle::Driver)
     }
 
     fn layout(
@@ -161,73 +132,6 @@ impl Component for AddrGate {
             child_sizes: vec![],
         };
         decoder_stage_layout(ctx, &params, &dsn, RoutingStyle::Driver)
-    }
-}
-pub struct WmuxDriver {
-    params: DecoderStageParams,
-}
-
-impl Component for WmuxDriver {
-    type Params = DecoderStageParams;
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        let gate = match params.gate {
-            params @ GateParams::And2(_) => params,
-            GateParams::And3(params) => GateParams::And2(params),
-            _ => panic!("Unsupported wmux driver gate"),
-        };
-        Ok(Self {
-            params: DecoderStageParams {
-                max_width: None,
-                gate,
-                invs: vec![],
-                num: params.num,
-                child_sizes: params.child_sizes.clone(),
-            },
-        })
-    }
-
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("wmux_driver")
-    }
-
-    fn schematic(
-        &self,
-        ctx: &mut substrate::schematic::context::SchematicCtx,
-    ) -> substrate::error::Result<()> {
-        let n = self.params.num;
-        let vdd = ctx.port("vdd", Direction::InOut);
-        let input = ctx.bus_port("in", n, Direction::Input);
-        let en = ctx.port("en", Direction::Input);
-        let y = ctx.bus_port("decode", n, Direction::Output);
-        let yb = ctx.bus_port("decode_b", n, Direction::Output);
-        let vss = ctx.port("vss", Direction::InOut);
-        for i in 0..n {
-            ctx.instantiate::<Gate>(&self.params.gate)?
-                .with_connections([
-                    ("vdd", vdd),
-                    ("a", input.index(i)),
-                    ("b", en),
-                    ("y", y.index(i)),
-                    ("yb", yb.index(i)),
-                    ("vss", vss),
-                ])
-                .named(format!("gate_{i}"))
-                .add_to(ctx);
-        }
-        Ok(())
-    }
-
-    fn layout(
-        &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
-    ) -> substrate::error::Result<()> {
-        let dsn = ctx
-            .inner()
-            .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
-        decoder_stage_layout(ctx, &self.params, &dsn, RoutingStyle::Driver)
     }
 }
 
@@ -583,21 +487,6 @@ impl Component for Decoder {
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
         self.schematic(ctx)
-    }
-}
-
-impl Component for Predecoder {
-    type Params = DecoderParams;
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
-    }
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("predecoder")
     }
 
     fn layout(

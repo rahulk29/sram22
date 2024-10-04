@@ -31,7 +31,7 @@ use substrate::script::Script;
 
 use crate::blocks::gate::{Gate, GateParams};
 
-use super::{DecoderParams, DecoderStage, DecoderStageParams, Predecoder};
+use super::{Decoder, DecoderParams, DecoderStage, DecoderStageParams, Predecoder};
 
 pub struct LastBitDecoderStage {
     params: DecoderStageParams,
@@ -629,7 +629,7 @@ impl Component for LastBitDecoderStage {
     }
 }
 
-impl Predecoder {
+impl Decoder {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
         let dsn = ctx
             .inner()
@@ -1070,64 +1070,45 @@ pub struct PhysicalDesign {
     pub(crate) abut_layers: HashSet<LayerKey>,
 }
 
-pub struct PredecoderPhysicalDesignScript;
-
-impl Script for PredecoderPhysicalDesignScript {
-    type Params = NoParams;
-    type Output = PhysicalDesign;
-
-    fn run(
-        _params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self::Output> {
-        let layers = ctx.layers();
-        let li = layers.get(Selector::Metal(0))?;
-        let stripe_metal = layers.get(Selector::Metal(2))?;
-        let wire_metal = layers.get(Selector::Metal(1))?;
-        let via_metals = vec![layers.get(Selector::Metal(1))?];
-        let nwell = layers.get(Selector::Name("nwell"))?;
-        let psdm = layers.get(Selector::Name("psdm"))?;
-        let nsdm = layers.get(Selector::Name("nsdm"))?;
-        Ok(Self::Output {
-            width: 2_000,
-            tap_width: 790,
-            tap_period: 2,
-            stripe_metal,
-            wire_metal,
-            via_metals,
-            li,
-            line: 320,
-            space: 160,
-            rail_width: 320,
-            abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
-        })
-    }
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub enum DecoderStyle {
+    RowMatched,
+    Horizontal,
+    Vertical,
 }
 
-pub struct LastBitDecoderPhysicalDesignScript;
+pub struct DecoderPhysicalDesignScript;
 
-impl Script for LastBitDecoderPhysicalDesignScript {
-    type Params = NoParams;
+impl Script for DecoderPhysicalDesignScript {
+    type Params = DecoderStyle;
     type Output = PhysicalDesign;
 
     fn run(
-        _params: &Self::Params,
+        params: &Self::Params,
         ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self::Output> {
         let layers = ctx.layers();
         let li = layers.get(Selector::Metal(0))?;
-        let stripe_metal = layers.get(Selector::Metal(1))?;
-        let wire_metal = layers.get(Selector::Metal(2))?;
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+        let (stripe_metal, wire_metal, via_metals) = match params {
+            DecoderStyle::RowMatched | DecoderStyle::Horizontal => (m1, m2, vec![]),
+            DecoderStyle::Vertical => (m2, m1, vec![m1]),
+        };
         let nwell = layers.get(Selector::Name("nwell"))?;
         let psdm = layers.get(Selector::Name("psdm"))?;
         let nsdm = layers.get(Selector::Name("nsdm"))?;
+        let (width, tap_width) = match params {
+            DecoderStyle::RowMatched => (1_580, 1_580),
+            DecoderStyle::Horizontal | DecoderStyle::Vertical => (2_000, 790),
+        };
         Ok(Self::Output {
-            width: 1_580,
-            tap_width: 1_580,
+            width,
+            tap_width,
             tap_period: 4,
             stripe_metal,
             wire_metal,
-            via_metals: vec![],
+            via_metals,
             li,
             line: 320,
             space: 160,

@@ -13,8 +13,6 @@ pub struct WriteDriverParams {
     pub length: i64,
     pub pwidth_driver: i64,
     pub nwidth_driver: i64,
-    pub pwidth_logic: i64,
-    pub nwidth_logic: i64,
 }
 
 impl Component for WriteDriver {
@@ -59,8 +57,6 @@ mod tests {
         length: 150,
         pwidth_driver: 2_000,
         nwidth_driver: 2_000,
-        pwidth_logic: 2_000,
-        nwidth_logic: 2_000,
     };
 
     #[test]
