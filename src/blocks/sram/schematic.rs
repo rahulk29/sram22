@@ -163,6 +163,7 @@ impl SramInner {
         ) / 2.0)
             .round() as usize
             * 2;
+        assert_eq!(decoder_delay_invs % 2, 0);
         let control_logic = ctx
             .instantiate::<ControlLogicReplicaV2>(&ControlLogicParams { decoder_delay_invs })?
             .with_connections([
