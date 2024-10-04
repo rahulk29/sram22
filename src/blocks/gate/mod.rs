@@ -249,6 +249,24 @@ impl GateParams {
             GateParams::Nor2(x) => *x,
         }
     }
+
+    pub fn primitive_gates(&self) -> Vec<(PrimitiveGateType, PrimitiveGateParams)> {
+        match self {
+            GateParams::And2(x) => vec![
+                (PrimitiveGateType::Nand2, x.nand),
+                (PrimitiveGateType::Inv, x.inv),
+            ],
+            GateParams::And3(x) => vec![
+                (PrimitiveGateType::Nand3, x.nand),
+                (PrimitiveGateType::Inv, x.inv),
+            ],
+            GateParams::Inv(x) => vec![(PrimitiveGateType::Inv, *x)],
+            GateParams::FoldedInv(x) => vec![(PrimitiveGateType::Inv, *x)],
+            GateParams::Nand2(x) => vec![(PrimitiveGateType::Nand2, *x)],
+            GateParams::Nand3(x) => vec![(PrimitiveGateType::Nand3, *x)],
+            GateParams::Nor2(x) => vec![(PrimitiveGateType::Nor2, *x)],
+        }
+    }
 }
 
 macro_rules! call_gate_fn {

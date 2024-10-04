@@ -542,6 +542,36 @@ fn partition_bits(bits: usize, top: bool) -> Vec<usize> {
     }
 }
 
+pub struct DelaySummary {}
+
+impl TreeNode {
+    pub fn time_constant(&self, cl: f64) -> f64 {
+        let mut delay = 0.0;
+        let gates = self.gate.primitive_gates();
+        for (i, (gt, params)) in self.gate.primitive_gates().iter().enumerate() {
+            let model = primitive_gate_model(*gt);
+            let scale = params.nwidth as f64 / (primitive_gate_params(*gt).nwidth as f64);
+            let cin_next = if i == gates.len() - 1 {
+                cl
+            } else {
+                let (ngt, nparams) = gates[i + 1];
+                let model = primitive_gate_model(ngt);
+                let nscale = nparams.nwidth as f64 / (primitive_gate_params(ngt).nwidth as f64);
+                nscale * model.cin
+            };
+            delay += model.res / scale * (model.cout * scale + cin_next);
+        }
+        self.children
+            .iter()
+            .enumerate()
+            .map(|(i, child)| child.time_constant(self.value_for_child(i)))
+            .reduce(f64::max)
+            .unwrap_or(0.0);
+
+        delay
+    }
+}
+
 pub(crate) fn get_idxs(mut num: usize, bases: &[usize]) -> Vec<usize> {
     let products = bases
         .iter()

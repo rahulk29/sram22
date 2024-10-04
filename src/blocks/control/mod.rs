@@ -1,5 +1,5 @@
 use arcstr::ArcStr;
-
+use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams};
 use substrate::data::SubstrateCtx;
 use substrate::index::IndexOwned;
@@ -15,15 +15,23 @@ pub mod layout;
 pub mod schematic;
 pub mod testbench;
 
-pub struct ControlLogicReplicaV2;
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct ControlLogicReplicaV2 {
+    params: ControlLogicParams,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct ControlLogicParams {
+    pub decoder_delay_invs: usize,
+}
 
 impl Component for ControlLogicReplicaV2 {
-    type Params = NoParams;
+    type Params = ControlLogicParams;
     fn new(
-        _params: &Self::Params,
+        params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self)
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("control_logic_replica_v2")
@@ -212,7 +220,11 @@ pub mod test {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
-    use super::{ControlLogicReplicaV2, EdgeDetector, SrLatch};
+    use super::{ControlLogicParams, ControlLogicReplicaV2, EdgeDetector, SrLatch};
+
+    const CONTROL_LOGIC_PARAMS: ControlLogicParams = ControlLogicParams {
+        decoder_delay_invs: 20,
+    };
 
     #[test]
     fn test_control_logic_replica_v2() {
@@ -220,19 +232,22 @@ pub mod test {
         let work_dir = test_work_dir("test_control_logic_replica_v2");
 
         ctx.write_schematic_to_file::<ControlLogicReplicaV2>(
-            &NoParams,
+            &CONTROL_LOGIC_PARAMS,
             out_spice(&work_dir, "netlist"),
         )
         .expect("failed to write schematic");
 
-        ctx.write_layout::<ControlLogicReplicaV2>(&NoParams, out_gds(&work_dir, "layout"))
-            .expect("failed to write layout");
+        ctx.write_layout::<ControlLogicReplicaV2>(
+            &CONTROL_LOGIC_PARAMS,
+            out_gds(&work_dir, "layout"),
+        )
+        .expect("failed to write layout");
 
         #[cfg(feature = "commercial")]
         {
             let drc_work_dir = work_dir.join("drc");
             let output = ctx
-                .write_drc::<ControlLogicReplicaV2>(&NoParams, drc_work_dir)
+                .write_drc::<ControlLogicReplicaV2>(&CONTROL_LOGIC_PARAMS, drc_work_dir)
                 .expect("failed to run DRC");
             assert!(matches!(
                 output.summary,
@@ -240,7 +255,7 @@ pub mod test {
             ));
             let lvs_work_dir = work_dir.join("lvs");
             let output = ctx
-                .write_lvs::<ControlLogicReplicaV2>(&NoParams, lvs_work_dir)
+                .write_lvs::<ControlLogicReplicaV2>(&CONTROL_LOGIC_PARAMS, lvs_work_dir)
                 .expect("failed to run LVS");
             assert!(matches!(
                 output.summary,

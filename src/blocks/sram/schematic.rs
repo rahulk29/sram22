@@ -9,7 +9,7 @@ use substrate::schematic::signal::Signal;
 use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
 use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::blocks::columns::{ColParams, ColPeripherals};
-use crate::blocks::control::{ControlLogicReplicaV2, DffArray, InvChain};
+use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2, DffArray, InvChain};
 use crate::blocks::decoder::layout::LastBitDecoderStage;
 use crate::blocks::decoder::{
     AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderStageParams, DecoderTree, INV_MODEL,
@@ -99,9 +99,6 @@ impl SramInner {
                 "sense_en",
             ]);
 
-        let wl_cap = (self.params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL;
-        let tree = DecoderTree::new(self.params.row_bits(), wl_cap);
-
         ctx.instantiate::<AddrGate>(&AddrGateParams {
             gate: GateParams::And2(AndParams {
                 // TODO fix this
@@ -122,6 +119,8 @@ impl SramInner {
         .named("addr_gate")
         .add_to(ctx);
 
+        let wl_cap = (self.params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL;
+        let tree = DecoderTree::new(self.params.row_bits(), wl_cap);
         let decoder_params = DecoderParams { tree };
 
         ctx.instantiate::<Decoder>(&decoder_params)?
@@ -157,8 +156,15 @@ impl SramInner {
             .named("column_decoder")
             .add_to(ctx);
 
+        let decoder_delay_invs = (f64::max(
+            6.0,
+            decoder_params.tree.root.time_constant(wl_cap)
+                / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)),
+        ) / 2.0)
+            .round() as usize
+            * 2;
         let control_logic = ctx
-            .instantiate::<ControlLogicReplicaV2>(&NoParams)?
+            .instantiate::<ControlLogicReplicaV2>(&ControlLogicParams { decoder_delay_invs })?
             .with_connections([
                 ("clk", clk),
                 ("we", we_in),
