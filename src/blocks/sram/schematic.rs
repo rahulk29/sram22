@@ -210,7 +210,7 @@ impl SramInner {
             ])
             .named("pc_b_buffer")
             .add_to(ctx);
-        let wlen_buffer = fanout_buffer_stage(100e-15);
+        let wlen_buffer = fanout_buffer_stage(400e-15);
         ctx.instantiate::<LastBitDecoderStage>(&wlen_buffer)?
             .with_connections([
                 ("vdd", vdd),
