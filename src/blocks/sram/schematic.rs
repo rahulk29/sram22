@@ -157,12 +157,13 @@ impl SramInner {
             .add_to(ctx);
 
         let decoder_delay_invs = (f64::max(
-            6.0,
-            decoder_params.tree.root.time_constant(wl_cap)
+            4.0,
+            1.1 * decoder_params.tree.root.time_constant(wl_cap)
                 / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)),
         ) / 2.0)
             .round() as usize
-            * 2;
+            * 2
+            + 2;
         assert_eq!(decoder_delay_invs % 2, 0);
         let control_logic = ctx
             .instantiate::<ControlLogicReplicaV2>(&ControlLogicParams { decoder_delay_invs })?
