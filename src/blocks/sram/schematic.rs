@@ -127,7 +127,7 @@ impl SramInner {
         .add_to(ctx);
 
         let wl_cap = (self.params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL;
-        let tree = DecoderTree::new(self.params.row_bits(), wl_cap);
+        let tree = DecoderTree::new(self.params.row_bits(), 4.*wl_cap);
         let decoder_params = DecoderParams { tree };
 
         ctx.instantiate::<Decoder>(&decoder_params)?
