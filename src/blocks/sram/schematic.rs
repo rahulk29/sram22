@@ -260,9 +260,7 @@ impl SramInner {
             .named("addr_we_ce_dffs")
             .add_to(ctx);
 
-        let addr_in_b_buf = ctx.bus("addr_in_b_buf", self.params.addr_width());
-        let addr_in_buf = ctx.bus("addr_in_buf", self.params.addr_width());
-        for i in 0..self.params.addr_width() {
+        for i in 0..self.params.row_bits() {
             let buffer = fanout_buffer_stage(50e-15);
             ctx.instantiate::<LastBitDecoderStage>(&buffer)?
                 .with_connections([
