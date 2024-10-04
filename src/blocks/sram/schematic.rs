@@ -185,7 +185,7 @@ impl SramInner {
         control_logic.add_to(ctx);
 
         for i in 0..self.params.mux_ratio() {
-            let buffer = fanout_buffer_stage_with_inverted_output(50e-15);
+            let buffer = fanout_buffer_stage_with_inverted_output(400e-15);
             ctx.instantiate::<LastBitDecoderStage>(&buffer)?
                 .with_connections([
                     ("vdd", vdd),
