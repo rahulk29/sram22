@@ -153,7 +153,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("mux_wlen_rst")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&20)?
+        ctx.instantiate::<InvChain>(&self.params.decoder_delay_invs)?
             .with_connections([
                 ("din", decrepstart),
                 ("dout", decrepend),

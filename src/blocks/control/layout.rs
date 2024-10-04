@@ -152,7 +152,10 @@ impl ControlLogicReplicaV2 {
 
         rows.push(LayerBbox::new(
             create_row(&[
-                ("decoder_replica", &ctx.instantiate::<InvChain>(&20)?),
+                (
+                    "decoder_replica",
+                    &ctx.instantiate::<InvChain>(&self.params.decoder_delay_invs)?,
+                ),
                 ("pc_ctl", &sr_latch),
             ])?,
             outline,
