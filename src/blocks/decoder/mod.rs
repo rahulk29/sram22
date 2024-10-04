@@ -246,21 +246,24 @@ fn size_decoder(tree: &PlanTreeNode, cwl: f64) -> TreeNode {
 pub(crate) const INV_MODEL: GateModel = GateModel {
     res: 1422.118502462849,
     cin: 0.000000000000004482092764998187,
-    cout: 0.0000000004387405174617657,
+    cout: 0.0,
+    // cout: 0.0000000004387405174617657,
 };
 
 /// The on-resistance and capacitances of a 1x NAND2 gate ([`NAND2_PARAMS`]).
 pub(crate) const NAND2_MODEL: GateModel = GateModel {
     res: 1478.364147093855,
     cin: 0.000000000000005389581112035269,
-    cout: 0.0000000002743620195248461,
+    cout: 0.0,
+    // cout: 0.0000000002743620195248461,
 };
 
 /// The on-resistance and capacitances of a 1x NAND3 gate ([`NAND3_PARAMS`]).
 pub(crate) const NAND3_MODEL: GateModel = GateModel {
     res: 1478.037783669641,
     cin: 0.000000000000006217130454627972,
-    cout: 0.000000000216366152882086,
+    cout: 0.0,
+    // cout: 0.000000000216366152882086,
 };
 
 /// The on-resistance and capacitances of a 1x NOR2 gate ([`NOR2_PARAMS`]).
