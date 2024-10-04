@@ -1,4 +1,3 @@
-use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
 use substrate::pdk::stdcell::StdCell;
