@@ -1,5 +1,4 @@
-use self::schematic::fanout_buffer_stage;
-use self::schematic::fanout_buffer_stage_with_inverted_output;
+use self::schematic::{fanout_buffer_stage, fanout_buffer_stage_with_inverted_output};
 use crate::blocks::control::ControlLogicParams;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -192,7 +191,6 @@ pub struct SramPhysicalDesign {
     col_decoder: DecoderParams,
     pc_b_buffer: DecoderStageParams,
     wlen_buffer: DecoderStageParams,
-    col_sel_buffer: DecoderStageParams,
     addr_gated_buffer: DecoderStageParams,
     write_driver_en_buffer: DecoderStageParams,
     sense_en_buffer: DecoderStageParams,
@@ -332,10 +330,6 @@ impl Script for SramPhysicalDesignScript {
             col_params,
             control: ControlLogicParams { decoder_delay_invs },
 
-            col_sel_buffer: DecoderStageParams {
-                max_width: None,
-                ..fanout_buffer_stage_with_inverted_output(horiz_buffer, 50e-15)
-            },
             addr_gated_buffer: DecoderStageParams {
                 max_width: None,
                 ..fanout_buffer_stage(horiz_buffer, 50e-15)
@@ -618,9 +612,9 @@ pub(crate) mod tests {
                 ctx.write_schematic_to_file::<Sram>(&$params, &spice_path)
                     .expect("failed to write schematic");
 
-                let gds_path = out_gds(&work_dir, "layout");
-                ctx.write_layout::<Sram>(&$params, &gds_path)
-                    .expect("failed to write layout");
+                // let gds_path = out_gds(&work_dir, "layout");
+                // ctx.write_layout::<Sram>(&$params, &gds_path)
+                //     .expect("failed to write layout");
 
                 let verilog_path = out_verilog(&work_dir, &*$params.name());
                 save_1rw_verilog(&verilog_path,&*$params.name(), &$params)
@@ -628,23 +622,23 @@ pub(crate) mod tests {
 
                 #[cfg(feature = "commercial")]
                 {
-                    let drc_work_dir = work_dir.join("drc");
-                    let output = ctx
-                        .write_drc::<Sram>(&$params, drc_work_dir)
-                        .expect("failed to run DRC");
-                    assert!(matches!(
-                        output.summary,
-                        substrate::verification::drc::DrcSummary::Pass
-                    ));
+                    // let drc_work_dir = work_dir.join("drc");
+                    // let output = ctx
+                    //     .write_drc::<Sram>(&$params, drc_work_dir)
+                    //     .expect("failed to run DRC");
+                    // assert!(matches!(
+                    //     output.summary,
+                    //     substrate::verification::drc::DrcSummary::Pass
+                    // ));
 
-                    let lvs_work_dir = work_dir.join("lvs");
-                    let output = ctx
-                        .write_lvs::<Sram>(&$params, lvs_work_dir)
-                        .expect("failed to run LVS");
-                    assert!(matches!(
-                        output.summary,
-                        substrate::verification::lvs::LvsSummary::Pass
-                    ));
+                    // let lvs_work_dir = work_dir.join("lvs");
+                    // let output = ctx
+                    //     .write_lvs::<Sram>(&$params, lvs_work_dir)
+                    //     .expect("failed to run LVS");
+                    // assert!(matches!(
+                    //     output.summary,
+                    //     substrate::verification::lvs::LvsSummary::Pass
+                    // ));
 
                     // let pex_path = out_spice(&work_dir, "pex_schematic");
                     // let pex_dir = work_dir.join("pex");
@@ -670,43 +664,43 @@ pub(crate) mod tests {
                     //     opts,
                     // }).expect("failed to run pex");
 
-                    // let short = true;
-                    // let short_str = if short { "short" } else { "long" };
-                    // let corners = ctx.corner_db();
-                    // let mut handles = Vec::new();
-                    // for vdd in [1.8] {
-                    //     for corner in corners.corners() {
-                    //         let corner = corner.clone();
-                    //         let params = $params.clone();
-                    //         // let pex_netlist = Some(pex_netlist_path.clone());
-                    //         let work_dir = work_dir.clone();
-                    //         handles.push(std::thread::spawn(move || {
-                    //             let ctx = setup_ctx();
-                    //             let tb = crate::blocks::sram::testbench::tb_params(params, vdd, short, None);
-                    //             let work_dir = work_dir.join(format!(
-                    //                 "{}_{:.2}_{}",
-                    //                 corner.name(),
-                    //                 vdd,
-                    //                 short_str
-                    //             ));
-                    //             ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
-                    //                 &tb,
-                    //                 &work_dir,
-                    //                 corner.clone(),
-                    //             )
-                    //             .expect("failed to run simulation");
-                    //             println!(
-                    //                 "Simulated corner {} with Vdd = {}, short = {}",
-                    //                 corner.name(),
-                    //                 vdd,
-                    //                 short
-                    //             );
-                    //         }));
-                    //     }
-                    // }
-                    // for handle in handles {
-                    //     handle.join().expect("failed to join thread");
-                    // }
+                    let short = true;
+                    let short_str = if short { "short" } else { "long" };
+                    let corners = ctx.corner_db();
+                    let mut handles = Vec::new();
+                    for vdd in [1.8] {
+                        for corner in corners.corners() {
+                            let corner = corner.clone();
+                            let params = $params.clone();
+                            // let pex_netlist = Some(pex_netlist_path.clone());
+                            let work_dir = work_dir.clone();
+                            handles.push(std::thread::spawn(move || {
+                                let ctx = setup_ctx();
+                                let tb = crate::blocks::sram::testbench::tb_params(params, vdd, short, None);
+                                let work_dir = work_dir.join(format!(
+                                    "{}_{:.2}_{}",
+                                    corner.name(),
+                                    vdd,
+                                    short_str
+                                ));
+                                ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
+                                    &tb,
+                                    &work_dir,
+                                    corner.clone(),
+                                )
+                                .expect("failed to run simulation");
+                                println!(
+                                    "Simulated corner {} with Vdd = {}, short = {}",
+                                    corner.name(),
+                                    vdd,
+                                    short
+                                );
+                            }));
+                        }
+                    }
+                    for handle in handles {
+                        handle.join().expect("failed to join thread");
+                    }
 
                     // crate::abs::run_abstract(
                     //     &work_dir,

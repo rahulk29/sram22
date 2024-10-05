@@ -56,9 +56,7 @@ impl SramInner {
         let wl = ctx.bus("wl", self.params.rows());
         let wl_b = ctx.bus("wl_b", self.params.rows());
 
-        let col_sel0 = ctx.bus("col_sel0", self.params.mux_ratio());
         let col_sel = ctx.bus("col_sel", self.params.mux_ratio());
-        let col_sel0_b = ctx.bus("col_sel0_b", self.params.mux_ratio());
         let col_sel_b = ctx.bus("col_sel_b", self.params.mux_ratio());
 
         let stdcells = ctx.inner().std_cell_db();
@@ -184,7 +182,7 @@ impl SramInner {
                 ("rbl", rbl),
                 ("rwl", rwl),
                 ("pc_b", pc_b0),
-                ("wlen", wl_en),
+                ("wlen", wl_en0),
                 ("wrdrven", write_driver_en0),
                 ("saen", sense_en0),
                 ("vdd", vdd),
@@ -192,19 +190,6 @@ impl SramInner {
             ])
             .named("control_logic");
         control_logic.add_to(ctx);
-
-        for i in 0..self.params.mux_ratio() {
-            ctx.instantiate::<DecoderStage>(&dsn.col_sel_buffer)?
-                .with_connections([
-                    ("vdd", vdd),
-                    ("vss", vss),
-                    ("y", col_sel.index(i)),
-                    ("y_b", col_sel_b.index(i)),
-                    ("predecode_0_0", col_sel0.index(i)),
-                ])
-                .named(format!("col_sel_buf_{i}"))
-                .add_to(ctx);
-        }
 
         ctx.instantiate::<DecoderStage>(&dsn.pc_b_buffer)?
             .with_connections([
