@@ -235,8 +235,8 @@ impl DecoderTree {
     pub fn new(bits: usize, cload: f64) -> Self {
         let plan = plan_decoder(bits, true, false);
         let stages = (cload / INV_MODEL.cin * plan.le_b()).log(4.).round() as usize;
-        println!("target num stages = {stages}");
         let depth = plan.min_depth();
+        println!("target num stages = {stages}, current min num stages = {depth}");
         let plan = if stages > depth {
             let invs = max(1, (stages - depth) / 2) * 2;
             assert_eq!(invs % 2, 0);
@@ -589,21 +589,23 @@ impl PlanTreeNode {
     }
 
     pub fn max_depth(&self) -> usize {
-        1 + self
-            .children
-            .iter()
-            .map(|c| c.max_depth())
-            .max()
-            .unwrap_or_default()
+        self.gate.primitive_gates().len()
+            + self
+                .children
+                .iter()
+                .map(|c| c.max_depth())
+                .max()
+                .unwrap_or_default()
     }
 
     pub fn min_depth(&self) -> usize {
-        1 + self
-            .children
-            .iter()
-            .map(|c| c.min_depth())
-            .min()
-            .unwrap_or_default()
+        self.gate.primitive_gates().len()
+            + self
+                .children
+                .iter()
+                .map(|c| c.min_depth())
+                .min()
+                .unwrap_or_default()
     }
 
     /// An analytical estimate of the worst-case LE * B
