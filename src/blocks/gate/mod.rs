@@ -149,6 +149,18 @@ impl GateType {
     pub fn is_nand(&self) -> bool {
         matches!(self, GateType::Nand2 | GateType::Nand3)
     }
+
+    pub fn logical_effort(&self) -> f64 {
+        match *self {
+            GateType::And2 => 4. / 3.,
+            GateType::And3 => 5. / 3.,
+            GateType::Inv => 1.,
+            GateType::FoldedInv => 1.,
+            GateType::Nand2 => 4. / 3.,
+            GateType::Nand3 => 5. / 3.,
+            GateType::Nor2 => 5. / 3.,
+        }
+    }
 }
 
 impl PrimitiveGateParams {

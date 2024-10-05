@@ -233,11 +233,12 @@ impl Component for WmuxDriver {
 
 impl DecoderTree {
     pub fn new(bits: usize, cload: f64) -> Self {
-        let stages = (cload / INV_MODEL.cin).log(3.0).round() as usize;
         let plan = plan_decoder(bits, true, false);
-        let depth = plan.depth();
+        let stages = (cload / INV_MODEL.cin * plan.le_b()).log(4.).round() as usize;
+        println!("target num stages = {stages}");
+        let depth = plan.min_depth();
         let plan = if stages > depth {
-            let invs = max(2, (stages - depth) / 2) * 2;
+            let invs = max(1, (stages - depth) / 2) * 2;
             assert_eq!(invs % 2, 0);
             println!("adding {invs} inverters to decoder tree");
             plan.with_invs(invs)
@@ -587,13 +588,34 @@ impl PlanTreeNode {
         }
     }
 
-    pub fn depth(&self) -> usize {
+    pub fn max_depth(&self) -> usize {
         1 + self
             .children
             .iter()
-            .map(|c| c.depth())
+            .map(|c| c.max_depth())
             .max()
             .unwrap_or_default()
+    }
+
+    pub fn min_depth(&self) -> usize {
+        1 + self
+            .children
+            .iter()
+            .map(|c| c.min_depth())
+            .min()
+            .unwrap_or_default()
+    }
+
+    /// An analytical estimate of the worst-case LE * B
+    /// across all paths through the decoder.
+    pub fn le_b(&self) -> f64 {
+        self.gate.logical_effort()
+            * self
+                .children
+                .iter()
+                .map(|c| c.le_b() * (self.num / c.num) as f64)
+                .reduce(f64::max)
+                .unwrap_or(1.)
     }
 }
 
