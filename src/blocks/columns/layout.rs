@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use grid::Grid;
 use serde::Serialize;
@@ -24,8 +24,10 @@ use substrate::pdk::stdcell::StdCell;
 use crate::blocks::buf::layout::DiffBufCent;
 use crate::blocks::buf::DiffBuf;
 use crate::blocks::columns::Column;
-use crate::blocks::decoder::layout::LastBitDecoderStage;
-use crate::blocks::decoder::DecoderStageParams;
+use crate::blocks::decoder::layout::{
+    DecoderStyle, LastBitDecoderStage, PhysicalDesignParams, RoutingStyle,
+};
+use crate::blocks::decoder::{DecoderStage, DecoderStageParams};
 use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams};
 use crate::blocks::macros::{SenseAmp, SenseAmpCent};
 use crate::blocks::precharge::layout::{PrechargeCent, PrechargeEnd, PrechargeEndParams};
@@ -319,10 +321,36 @@ impl ColPeripherals {
         ctx.draw_ref(&pc_end)?;
 
         for port in ["vdd", "vss", "pc_b", "sense_en", "clk", "reset_b"] {
-            ctx.merge_port(grid_tiler.port_map().port(port)?.clone());
+            let spans = grid_tiler
+                .port_map()
+                .port(port)
+                .unwrap()
+                .shapes(m2)
+                .filter_map(|shape| shape.as_rect())
+                .map(|rect| rect.vspan())
+                .collect::<HashSet<_>>();
+            for span in spans {
+                let rect = Rect::from_spans(ctx.brect().hspan(), span);
+                ctx.draw_rect(m2, rect);
+                ctx.merge_port(CellPort::with_shape(port, m2, rect));
+            }
         }
-        for port in ["vdd", "vss", "clk", "reset_b", "we"] {
+        for port in ["clk", "reset_b", "we"] {
             ctx.merge_port(wmask_peripherals.port(port)?.into_cell_port());
+        }
+        for port in ["vdd", "vss"] {
+            for layer in [m1, m2] {
+                for rect in wmask_peripherals
+                    .port(port)?
+                    .shapes(layer)
+                    .filter_map(|shape| shape.as_rect())
+                    .filter(|rect| rect.height() < 5000)
+                {
+                    let full_span_port = rect.with_hspan(ctx.brect().hspan());
+                    ctx.draw_rect(layer, full_span_port);
+                    ctx.merge_port(CellPort::with_shape(port, layer, full_span_port));
+                }
+            }
         }
         for i in 0..self.params.mux_ratio() {
             for port in ["sel", "sel_b"] {
@@ -353,7 +381,12 @@ impl WmaskPeripherals {
         let wmask_unit_width = self.params.wmask_granularity as i64
             * (pc_design.width * self.params.mux_ratio() as i64 + pc_design.tap_width);
 
-        let nand_stage = ctx.instantiate::<LastBitDecoderStage>(&DecoderStageParams {
+        let nand_stage = ctx.instantiate::<DecoderStage>(&DecoderStageParams {
+            pd: PhysicalDesignParams {
+                style: DecoderStyle::Minimum,
+                dir: Dir::Horiz,
+            },
+            routing_style: RoutingStyle::Decoder,
             max_width: Some(wmask_unit_width),
             gate: GateParams::And2(AndParams {
                 inv: PrimitiveGateParams {
@@ -842,9 +875,9 @@ impl Component for ColumnCent {
     }
 }
 
-pub struct DffCol;
+pub struct TappedDff;
 
-impl Component for DffCol {
+impl Component for TappedDff {
     type Params = NoParams;
     fn new(
         _params: &Self::Params,
@@ -853,7 +886,7 @@ impl Component for DffCol {
         Ok(Self)
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("dff_col")
+        arcstr::literal!("tapped_dff")
     }
 
     fn layout(
@@ -914,35 +947,12 @@ impl Component for DffCol {
                 m0_bbox.with_hspan(m0_bbox.hspan().add_point(bbox.hspan().point(side))),
             );
 
-            let power_stripe = Rect::from_spans(
-                hspan,
-                Span::from_center_span_gridded(
-                    bbox.center().y + side.as_int() * 1870,
-                    1800,
-                    ctx.pdk().layout_grid(),
-                ),
-            );
-
             let port = if vdd { "vpwr" } else { "vgnd" };
             let m1_rect = dff.port(port)?.largest_rect(m1)?;
-            let viap = ViaParams::builder()
-                .layers(m1, m2)
-                .geometry(m1_rect, power_stripe)
-                .expand(ViaExpansion::LongerDirection)
-                .build();
-            let via = ctx.instantiate::<Via>(&viap)?;
-            ctx.draw(via)?;
-
-            ctx.draw_rect(m2, power_stripe);
 
             let port = if vdd { "vdd" } else { "vss" };
-            ctx.merge_port(CellPort::with_shape(port, m2, power_stripe));
             ctx.merge_port(CellPort::with_shape(port, m1, m1_rect));
         }
-        ctx.draw_rect(
-            outline,
-            dff.brect().with_hspan(hspan).expand_dir(Dir::Vert, 1270),
-        );
 
         // Route clock/reset to metal 2 tracks.
         let clk_rect = dff.port("clk")?.largest_rect(m0)?;
@@ -969,6 +979,84 @@ impl Component for DffCol {
             ctx.draw_rect(m2, stripe);
             ctx.add_port(CellPort::with_shape(port, m2, stripe))?;
         }
+
+        for port in ["q", "q_n", "clk", "reset_b", "d"] {
+            ctx.merge_port(dff.port(port)?.into_cell_port());
+        }
+        ctx.draw(dff)?;
+        Ok(())
+    }
+}
+
+pub struct DffCol;
+
+impl Component for DffCol {
+    type Params = NoParams;
+    fn new(
+        _params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self)
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("dff_col")
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let dff = ctx.instantiate::<TappedDff>(&NoParams)?;
+        let layers = ctx.layers();
+        let nwell = layers.get(Selector::Name("nwell"))?;
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+        let psdm = layers.get(Selector::Name("psdm"))?;
+        let outline = layers.get(Selector::Name("outline"))?;
+        let tap = layers.get(Selector::Name("tap"))?;
+        let m0 = layers.get(Selector::Metal(0))?;
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+
+        let pc = ctx
+            .inner()
+            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+
+        let bbox = dff.layer_bbox(outline).into_rect();
+
+        let hspan = Span::from_center_span_gridded(
+            bbox.center().x,
+            4 * pc.width + pc.tap_width,
+            ctx.pdk().layout_grid(),
+        );
+        for (side, vdd) in [(Sign::Neg, true), (Sign::Pos, false)] {
+            let power_stripe = Rect::from_spans(
+                hspan,
+                Span::from_center_span_gridded(
+                    bbox.center().y + side.as_int() * 1870,
+                    1800,
+                    ctx.pdk().layout_grid(),
+                ),
+            );
+
+            let port = if vdd { "vdd" } else { "vss" };
+            let m1_rect = dff.port(port)?.largest_rect(m1)?;
+            let viap = ViaParams::builder()
+                .layers(m1, m2)
+                .geometry(m1_rect, power_stripe)
+                .expand(ViaExpansion::LongerDirection)
+                .build();
+            let via = ctx.instantiate::<Via>(&viap)?;
+            ctx.draw(via)?;
+
+            ctx.draw_rect(m2, power_stripe);
+
+            ctx.merge_port(CellPort::with_shape(port, m2, power_stripe));
+            ctx.merge_port(CellPort::with_shape(port, m1, m1_rect));
+        }
+        ctx.draw_rect(
+            outline,
+            dff.brect().with_hspan(hspan).expand_dir(Dir::Vert, 1270),
+        );
 
         for port in ["q", "q_n", "clk", "reset_b", "d"] {
             ctx.merge_port(dff.port(port)?.into_cell_port());

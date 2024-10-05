@@ -9,7 +9,7 @@ use substrate::index::IndexOwned;
 
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
-use subgeom::{Corner, Dir, Point, Rect, Sign, Span};
+use subgeom::{Corner, Dir, Point, Rect, Side, Sign, Span};
 use substrate::layout::cell::{CellPort, Element, Flatten, Port, PortConflictStrategy, PortId};
 use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::via::{Via, ViaParams};
@@ -31,12 +31,13 @@ use substrate::script::Script;
 
 use crate::blocks::gate::{Gate, GateParams};
 
-use super::{DecoderParams, DecoderStage, DecoderStageParams, Predecoder};
+use super::{Decoder, DecoderParams, DecoderStage, DecoderStageParams};
 
 pub struct LastBitDecoderStage {
     params: DecoderStageParams,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum RoutingStyle {
     Decoder,
     Driver,
@@ -81,7 +82,7 @@ pub(crate) fn calculate_folding(
             for params in primitive_gate_params.iter().chain(params.invs.iter()) {
                 let ff = std::cmp::min(
                     std::cmp::max(
-                        std::cmp::min(params.pwidth, params.nwidth) as usize / 840,
+                        std::cmp::min(params.pwidth, params.nwidth) as usize / 960,
                         1,
                     ),
                     folding_factor_limit,
@@ -185,9 +186,12 @@ pub(crate) fn decoder_stage_schematic(
                     } else if stage < num_stages - 1 {
                         gate.connect("y", x[stage].index(i));
                     }
+                    if gate_params.gate_type().is_and() {
+                        gate.connect("yb", ctx.signal(format!("y_b_noconn_{stage}_{i}_{j}")));
+                    }
                 } else {
                     if gate_params.gate_type().is_and() {
-                        gate.connect("y_b", y_b.unwrap().index(i));
+                        gate.connect("yb", y_b.unwrap().index(i));
                     }
                     gate.connect("y", y.index(i));
                 }
@@ -596,60 +600,40 @@ pub(crate) fn decoder_stage_layout(
     Ok(())
 }
 
-impl Component for LastBitDecoderStage {
-    type Params = DecoderStageParams;
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
-    }
-
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("last_bit_decoder_stage")
-    }
-
-    fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
-        let dsn = ctx
-            .inner()
-            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
-        decoder_stage_schematic(ctx, &self.params, &dsn, RoutingStyle::Decoder)
-    }
-
-    fn layout(
-        &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
-    ) -> substrate::error::Result<()> {
-        let dsn = ctx
-            .inner()
-            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
-        decoder_stage_layout(ctx, &self.params, &dsn, RoutingStyle::Decoder)
-    }
-}
-
-impl Predecoder {
+impl Decoder {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
         let dsn = ctx
             .inner()
-            .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
-        let node = &self.params.tree.root;
+            .run_script::<DecoderPhysicalDesignScript>(&self.params.pd)?;
+        let mut node = &self.params.tree.root;
+        let mut invs = vec![];
+
+        let num_children = node.children.len();
+        while num_children == 1 {
+            if let GateParams::Inv(params) | GateParams::FoldedInv(params) = node.gate {
+                invs.push(params);
+                node = &node.children[0];
+            } else {
+                break;
+            }
+        }
         let child_sizes = if node.children.is_empty() {
             (0..node.num.ilog2()).map(|_| 2).collect()
         } else {
             node.children.iter().map(|n| n.num).collect()
         };
         let params = DecoderStageParams {
-            max_width: None,
+            pd: self.params.pd,
+            routing_style: RoutingStyle::Decoder,
+            max_width: self.params.max_width,
             gate: node.gate,
-            invs: vec![],
+            invs,
             num: node.num,
             child_sizes,
         };
         let mut inst = ctx.instantiate::<DecoderStage>(&params)?;
-        inst.place(Corner::LowerLeft, Point::zero());
-        ctx.add_ports(inst.ports_starting_with("decode")).unwrap();
+        inst.place(Corner::LowerRight, Point::zero());
+        ctx.add_ports(inst.ports_starting_with("y")).unwrap();
         if node.children.is_empty() {
             ctx.add_ports(inst.ports_starting_with("predecode"))
                 .unwrap();
@@ -660,11 +644,19 @@ impl Predecoder {
         let mut x = 0;
         let mut next_addr = (0, 0);
         for (i, node) in node.children.iter().enumerate() {
-            let mut child = ctx.instantiate::<Predecoder>(&DecoderParams {
+            let mut child = ctx.instantiate::<Decoder>(&DecoderParams {
+                pd: self.params.pd,
+                max_width: self
+                    .params
+                    .max_width
+                    .map(|width| width / num_children as i64),
                 tree: super::DecoderTree { root: node.clone() },
             })?;
-            child.place(Corner::UpperLeft, Point::new(x, 0));
-            x += child.brect().width() + dsn.width * dsn.tap_period as i64;
+            child.place(Corner::UpperRight, Point::new(x, -340));
+            x -= (child.brect().width() as usize)
+                .div_ceil(dsn.width as usize * dsn.tap_period + dsn.tap_width as usize)
+                as i64
+                * (dsn.width * dsn.tap_period as i64 + dsn.tap_width);
             ctx.merge_port(child.port("vdd")?);
             ctx.merge_port(child.port("vss")?);
 
@@ -682,17 +674,23 @@ impl Predecoder {
             }
 
             for j in 0..node.num {
-                let src = child.port(PortId::new("decode", j))?.largest_rect(dsn.li)?;
+                let src = child
+                    .port(PortId::new("y", j))?
+                    .largest_rect(dsn.li)
+                    .unwrap();
+                let src = src.expand_side(Side::Top, 340);
                 let dst = inst
                     .port(format!("predecode_{i}_{j}"))?
-                    .largest_rect(dsn.stripe_metal)?;
+                    .largest_rect(dsn.stripe_metal)
+                    .unwrap();
+                ctx.draw_rect(dsn.li, src);
                 let rect =
-                    Rect::from_spans(src.hspan(), Span::new(src.top() - src.width(), src.top()));
+                    Rect::from_spans(src.hspan(), Span::with_stop_and_length(src.top(), 170));
                 let jog = OffsetJog::builder()
                     .dir(Dir::Horiz)
                     .sign(if j % 2 == 0 { Sign::Pos } else { Sign::Neg })
                     .src(rect)
-                    .space(335)
+                    .space(450)
                     .dst(dst.top())
                     .layer(dsn.li)
                     .build()
@@ -737,8 +735,8 @@ impl DecoderStage {
     ) -> substrate::error::Result<()> {
         let dsn = ctx
             .inner()
-            .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
-        decoder_stage_layout(ctx, &self.params, &dsn, RoutingStyle::Decoder)
+            .run_script::<DecoderPhysicalDesignScript>(&self.params.pd)?;
+        decoder_stage_layout(ctx, &self.params, &dsn, self.params.routing_style)
     }
 }
 
@@ -931,7 +929,7 @@ impl Component for DecoderTap {
             }
         }
 
-        let hspan = hspan.shrink_all(65);
+        let hspan = hspan.shrink_all(170);
 
         if let Some(spans) = gate_spans.abutted_layers.get(&nsdm) {
             for vspan in spans {
@@ -1046,64 +1044,55 @@ pub struct PhysicalDesign {
     pub(crate) abut_layers: HashSet<LayerKey>,
 }
 
-pub struct PredecoderPhysicalDesignScript;
-
-impl Script for PredecoderPhysicalDesignScript {
-    type Params = NoParams;
-    type Output = PhysicalDesign;
-
-    fn run(
-        _params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self::Output> {
-        let layers = ctx.layers();
-        let li = layers.get(Selector::Metal(0))?;
-        let stripe_metal = layers.get(Selector::Metal(2))?;
-        let wire_metal = layers.get(Selector::Metal(1))?;
-        let via_metals = vec![layers.get(Selector::Metal(1))?];
-        let nwell = layers.get(Selector::Name("nwell"))?;
-        let psdm = layers.get(Selector::Name("psdm"))?;
-        let nsdm = layers.get(Selector::Name("nsdm"))?;
-        Ok(Self::Output {
-            width: 2_000,
-            tap_width: 790,
-            tap_period: 2,
-            stripe_metal,
-            wire_metal,
-            via_metals,
-            li,
-            line: 320,
-            space: 160,
-            rail_width: 320,
-            abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
-        })
-    }
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub enum DecoderStyle {
+    /// For bitcell array row decoder.
+    RowMatched,
+    /// Accomodates larger gates without expanding, but less efficient for smaller gates.
+    Relaxed,
+    /// Sized for smaller gates, expands for larger gates.
+    Minimum,
 }
 
-pub struct LastBitDecoderPhysicalDesignScript;
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct PhysicalDesignParams {
+    pub dir: Dir,
+    pub style: DecoderStyle,
+}
 
-impl Script for LastBitDecoderPhysicalDesignScript {
-    type Params = NoParams;
+pub struct DecoderPhysicalDesignScript;
+
+impl Script for DecoderPhysicalDesignScript {
+    type Params = PhysicalDesignParams;
     type Output = PhysicalDesign;
 
     fn run(
-        _params: &Self::Params,
+        params: &Self::Params,
         ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self::Output> {
         let layers = ctx.layers();
         let li = layers.get(Selector::Metal(0))?;
-        let stripe_metal = layers.get(Selector::Metal(1))?;
-        let wire_metal = layers.get(Selector::Metal(2))?;
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+        let (stripe_metal, wire_metal, via_metals) = match params.dir {
+            Dir::Horiz => (m1, m2, vec![]),
+            Dir::Vert => (m2, m1, vec![m1]),
+        };
         let nwell = layers.get(Selector::Name("nwell"))?;
         let psdm = layers.get(Selector::Name("psdm"))?;
         let nsdm = layers.get(Selector::Name("nsdm"))?;
+        let (width, tap_width) = match params.style {
+            DecoderStyle::RowMatched => (1_580, 1_580),
+            DecoderStyle::Relaxed => (2_000, 1_000),
+            DecoderStyle::Minimum => (1_470, 1_000),
+        };
         Ok(Self::Output {
-            width: 1_580,
-            tap_width: 1_580,
+            width,
+            tap_width,
             tap_period: 4,
             stripe_metal,
             wire_metal,
-            via_metals: vec![],
+            via_metals,
             li,
             line: 320,
             space: 160,

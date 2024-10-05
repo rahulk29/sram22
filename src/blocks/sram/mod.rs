@@ -10,10 +10,21 @@ use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::routing::auto::straps::PlacedStraps;
 use substrate::layout::straps::SingleSupplyNet;
-#[cfg(test)]
-use substrate::schematic::netlist::NetlistPurpose;
+use substrate::script::Script;
 
+use self::schematic::fanout_buffer_stage;
+
+use super::bitcell_array::replica::ReplicaCellArrayParams;
+use super::bitcell_array::SpCellArrayParams;
+use super::columns::{ColParams, ColPeripherals};
+use super::decoder::layout::{DecoderStyle, PhysicalDesignParams, RoutingStyle};
+use super::decoder::{DecoderParams, DecoderStageParams, DecoderTree, INV_PARAMS, NAND2_PARAMS};
+use super::gate::{AndParams, GateParams, PrimitiveGateParams};
 use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
+use super::precharge::layout::ReplicaPrechargeParams;
+use super::precharge::PrechargeParams;
+use super::tgatemux::TGateMuxParams;
+use super::wrdriver::WriteDriverParams;
 
 pub mod layout;
 pub mod schematic;
@@ -136,6 +147,174 @@ impl SramParams {
             self.wmask_granularity()
         )
     }
+
+    pub(crate) fn col_params(&self) -> ColParams {
+        ColParams {
+            pc: PrechargeParams {
+                length: 150,
+                pull_up_width: 2_000,
+                equalizer_width: 1_200,
+            },
+            wrdriver: WriteDriverParams {
+                length: 150,
+                pwidth_driver: 10_000,
+                nwidth_driver: 10_000,
+            },
+            mux: TGateMuxParams {
+                length: 150,
+                pwidth: 4_000,
+                nwidth: 4_000,
+                mux_ratio: self.mux_ratio(),
+                idx: 0,
+            },
+            buf: PrimitiveGateParams {
+                nwidth: 1_200,
+                pwidth: 2_000,
+                length: 150,
+            },
+            cols: self.cols(),
+            wmask_granularity: self.wmask_granularity(),
+            include_wmask: true,
+        }
+    }
+}
+
+pub struct SramPhysicalDesignScript;
+
+pub struct SramPhysicalDesign {
+    bitcells: SpCellArrayParams,
+    row_decoder: DecoderParams,
+    addr_gate: DecoderStageParams,
+    col_decoder: DecoderParams,
+    pc_b_buffer: DecoderStageParams,
+    wlen_buffer: DecoderStageParams,
+    write_driver_en_buffer: DecoderStageParams,
+    sense_en_buffer: DecoderStageParams,
+    num_dffs: usize,
+    rbl_wl_index: usize,
+    rbl: ReplicaCellArrayParams,
+    replica_pc: ReplicaPrechargeParams,
+    col_params: ColParams,
+}
+
+impl Script for SramPhysicalDesignScript {
+    type Params = SramParams;
+    type Output = SramPhysicalDesign;
+
+    fn run(
+        params: &Self::Params,
+        ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self::Output> {
+        let layers = ctx.layers();
+        let m2 = layers.get(Selector::Metal(2))?;
+        let wl_cap = (params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL;
+        let col_params = params.col_params();
+        let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
+        let rbl_rows = ((params.rows() / 12) + 1) * 2;
+        let rbl_wl_index = rbl_rows / 2;
+        let wrdrven_saen_width = cols
+            .port("sense_en")?
+            .largest_rect(m2)?
+            .vspan()
+            .add_point(cols.brect().bottom())
+            .length()
+            / 2;
+        let horiz_buffer = PhysicalDesignParams {
+            style: DecoderStyle::Minimum,
+            dir: Dir::Horiz,
+        };
+        let vert_buffer = PhysicalDesignParams {
+            style: DecoderStyle::Minimum,
+            dir: Dir::Horiz,
+        };
+        Ok(Self::Output {
+            bitcells: SpCellArrayParams {
+                rows: params.rows(),
+                cols: params.cols(),
+                mux_ratio: params.mux_ratio(),
+            },
+            row_decoder: DecoderParams {
+                pd: PhysicalDesignParams {
+                    style: DecoderStyle::RowMatched,
+                    dir: Dir::Horiz,
+                },
+                max_width: None,
+                tree: DecoderTree::new(params.row_bits(), wl_cap),
+            },
+            addr_gate: DecoderStageParams {
+                pd: PhysicalDesignParams {
+                    style: DecoderStyle::Minimum,
+                    dir: Dir::Horiz,
+                },
+                routing_style: RoutingStyle::Driver,
+                max_width: None,
+                invs: vec![],
+                // TODO fix, should be minimum sized AND2 unless sized elsewhere
+                gate: GateParams::And2(AndParams {
+                    nand: NAND2_PARAMS,
+                    inv: INV_PARAMS,
+                }),
+                num: 2 * params.row_bits(),
+                child_sizes: vec![],
+            },
+            // TODO: change decoder tree to provide correct fanout for inverted output
+            col_decoder: DecoderParams {
+                pd: PhysicalDesignParams {
+                    style: DecoderStyle::Relaxed,
+                    dir: Dir::Horiz,
+                },
+                max_width: Some(
+                    cols.port(PortId::new("sel_b", params.mux_ratio() - 1))?
+                        .largest_rect(m2)?
+                        .vspan()
+                        .union(
+                            cols.port(PortId::new("sel", params.mux_ratio() - 1))?
+                                .largest_rect(m2)?
+                                .vspan(),
+                        )
+                        .length(),
+                ),
+                // TODO use tgate mux input cap
+                tree: DecoderTree::new(
+                    params.col_select_bits(),
+                    READ_MUX_INPUT_CAP * (params.cols() / params.mux_ratio()) as f64,
+                ),
+            },
+            pc_b_buffer: DecoderStageParams {
+                max_width: Some(
+                    cols.port("pc_b")?
+                        .largest_rect(m2)?
+                        .vspan()
+                        .add_point(cols.brect().top())
+                        .length(),
+                ),
+                ..fanout_buffer_stage(horiz_buffer, 50e-15)
+            },
+            wlen_buffer: DecoderStageParams {
+                max_width: None,
+                ..fanout_buffer_stage(vert_buffer, 50e-15)
+            },
+            write_driver_en_buffer: DecoderStageParams {
+                max_width: Some(wrdrven_saen_width),
+                ..fanout_buffer_stage(horiz_buffer, 50e-15)
+            },
+            sense_en_buffer: DecoderStageParams {
+                max_width: Some(wrdrven_saen_width),
+                ..fanout_buffer_stage(horiz_buffer, 50e-15)
+            },
+            num_dffs: params.addr_width() + 2,
+            rbl_wl_index,
+            rbl: ReplicaCellArrayParams {
+                rows: rbl_rows,
+                cols: 2,
+            },
+            replica_pc: ReplicaPrechargeParams {
+                cols: 2,
+                inner: col_params.pc.clone(),
+            },
+            col_params,
+        })
+    }
 }
 
 impl Component for SramInner {
@@ -195,9 +374,9 @@ impl Component for Sram {
         let brect = sram.brect();
         ctx.draw_ref(&sram)?;
 
+        let m0 = ctx.layers().get(Selector::Metal(0))?;
         let m1 = ctx.layers().get(Selector::Metal(1))?;
         let m2 = ctx.layers().get(Selector::Metal(2))?;
-        let m3 = ctx.layers().get(Selector::Metal(3))?;
         let params = GuardRingParams {
             enclosure: brect.expand(1_000),
             h_metal: m2,
@@ -209,7 +388,7 @@ impl Component for Sram {
         let rings = ring.cell().get_metadata::<SupplyRings>();
         let straps = sram.cell().get_metadata::<PlacedStraps>();
 
-        for (layer, dir) in [(m2, Dir::Horiz), (m3, Dir::Vert)] {
+        for (layer, dir) in [(m1, Dir::Vert), (m2, Dir::Horiz)] {
             for strap in straps.on_layer(layer) {
                 let ring = match strap.net {
                     SingleSupplyNet::Vss => rings.vss,
@@ -232,25 +411,42 @@ impl Component for Sram {
                     .with(!dir, strap.rect.span(!dir))
                     .build();
 
-                let below = if layer == m2 { m1 } else { m2 };
-
+                let mut targets = Vec::new();
                 if strap.upper_boundary {
-                    let target = ring.dir_rects(!dir)[1];
+                    targets.push(ring.dir_rects(!dir)[1]);
+                }
+                if strap.lower_boundary {
+                    targets.push(ring.dir_rects(!dir)[0]);
+                }
+                for target in targets {
+                    let (below_rect, above_rect) = if layer == m2 {
+                        (target, r)
+                    } else {
+                        (r, target)
+                    };
                     let viap = ViaParams::builder()
-                        .layers(below, layer)
-                        .geometry(target, r)
+                        .layers(m1, m2)
+                        .geometry(below_rect, above_rect)
                         .expand(ViaExpansion::LongerDirection)
                         .build();
                     ctx.instantiate::<Via>(&viap)?.add_to(ctx)?;
                 }
-                if strap.lower_boundary {
-                    let target = ring.dir_rects(!dir)[0];
-                    let viap = ViaParams::builder()
-                        .layers(below, layer)
-                        .geometry(target, r)
-                        .expand(ViaExpansion::LongerDirection)
-                        .build();
-                    ctx.instantiate::<Via>(&viap)?.add_to(ctx)?;
+                if layer == m1 {
+                    let mut targets = Vec::new();
+                    if strap.upper_boundary {
+                        targets.push(ring.inner_hrects()[1]);
+                    }
+                    if strap.lower_boundary {
+                        targets.push(ring.inner_hrects()[0]);
+                    }
+                    for target in targets {
+                        let viap = ViaParams::builder()
+                            .layers(m0, m1)
+                            .geometry(target, r)
+                            .expand(ViaExpansion::LongerDirection)
+                            .build();
+                        ctx.instantiate::<Via>(&viap)?.add_to(ctx)?;
+                    }
                 }
                 ctx.draw_rect(layer, r);
             }
@@ -266,24 +462,25 @@ impl Component for Sram {
         ctx.draw(ring)?;
 
         // Route pins to edge of guard ring
-        let groups = self.params.cols() / self.params.mux_ratio();
         for (pin, width) in [
-            ("dout", groups),
-            ("din", groups),
+            ("dout", self.params.data_width()),
+            ("din", self.params.data_width()),
             ("wmask", self.params.wmask_width()),
             ("addr", self.params.addr_width()),
             ("we", 1),
+            ("ce", 1),
             ("clk", 1),
+            ("reset_b", 1),
         ] {
             for i in 0..width {
                 let port_id = PortId::new(pin, i);
-                let rect = sram.port(port_id.clone())?.largest_rect(m3)?;
+                let rect = sram.port(port_id.clone())?.largest_rect(m1)?;
                 let rect = rect.with_vspan(
                     rect.vspan()
                         .add_point(ctx.bbox().into_rect().side(subgeom::Side::Bot)),
                 );
-                ctx.draw_rect(m3, rect);
-                ctx.add_port(CellPort::builder().id(port_id).add(m3, rect).build())?;
+                ctx.draw_rect(m1, rect);
+                ctx.add_port(CellPort::builder().id(port_id).add(m1, rect).build())?;
             }
         }
 
@@ -394,33 +591,33 @@ pub(crate) mod tests {
                 ctx.write_schematic_to_file::<Sram>(&$params, &spice_path)
                     .expect("failed to write schematic");
 
-                // let gds_path = out_gds(&work_dir, "layout");
-                // ctx.write_layout::<Sram>(&$params, &gds_path)
-                //     .expect("failed to write layout");
+                let gds_path = out_gds(&work_dir, "layout");
+                ctx.write_layout::<Sram>(&$params, &gds_path)
+                    .expect("failed to write layout");
 
-                // let verilog_path = out_verilog(&work_dir, &*$params.name());
-                // save_1rw_verilog(&verilog_path,&*$params.name(), &$params)
-                //     .expect("failed to write behavioral model");
+                let verilog_path = out_verilog(&work_dir, &*$params.name());
+                save_1rw_verilog(&verilog_path,&*$params.name(), &$params)
+                    .expect("failed to write behavioral model");
 
                 #[cfg(feature = "commercial")]
                 {
-                    // let drc_work_dir = work_dir.join("drc");
-                    // let output = ctx
-                    //     .write_drc::<Sram>(&$params, drc_work_dir)
-                    //     .expect("failed to run DRC");
-                    // assert!(matches!(
-                    //     output.summary,
-                    //     substrate::verification::drc::DrcSummary::Pass
-                    // ));
+                    let drc_work_dir = work_dir.join("drc");
+                    let output = ctx
+                        .write_drc::<Sram>(&$params, drc_work_dir)
+                        .expect("failed to run DRC");
+                    assert!(matches!(
+                        output.summary,
+                        substrate::verification::drc::DrcSummary::Pass
+                    ));
 
-                    // let lvs_work_dir = work_dir.join("lvs");
-                    // let output = ctx
-                    //     .write_lvs::<Sram>(&$params, lvs_work_dir)
-                    //     .expect("failed to run LVS");
-                    // assert!(matches!(
-                    //     output.summary,
-                    //     substrate::verification::lvs::LvsSummary::Pass
-                    // ));
+                    let lvs_work_dir = work_dir.join("lvs");
+                    let output = ctx
+                        .write_lvs::<Sram>(&$params, lvs_work_dir)
+                        .expect("failed to run LVS");
+                    assert!(matches!(
+                        output.summary,
+                        substrate::verification::lvs::LvsSummary::Pass
+                    ));
 
                     // let pex_path = out_spice(&work_dir, "pex_schematic");
                     // let pex_dir = work_dir.join("pex");
@@ -446,43 +643,43 @@ pub(crate) mod tests {
                     //     opts,
                     // }).expect("failed to run pex");
 
-                    let short = true;
-                    let short_str = if short { "short" } else { "long" };
-                    let corners = ctx.corner_db();
-                    let mut handles = Vec::new();
-                    for vdd in [1.8] {
-                        for corner in corners.corners() {
-                            let corner = corner.clone();
-                            let params = $params.clone();
-                            // let pex_netlist = Some(pex_netlist_path.clone());
-                            let work_dir = work_dir.clone();
-                            handles.push(std::thread::spawn(move || {
-                                let ctx = setup_ctx();
-                                let tb = crate::blocks::sram::testbench::tb_params(params, vdd, short, None);
-                                let work_dir = work_dir.join(format!(
-                                    "{}_{:.2}_{}",
-                                    corner.name(),
-                                    vdd,
-                                    short_str
-                                ));
-                                ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
-                                    &tb,
-                                    &work_dir,
-                                    corner.clone(),
-                                )
-                                .expect("failed to run simulation");
-                                println!(
-                                    "Simulated corner {} with Vdd = {}, short = {}",
-                                    corner.name(),
-                                    vdd,
-                                    short
-                                );
-                            }));
-                        }
-                    }
-                    for handle in handles {
-                        handle.join().expect("failed to join thread");
-                    }
+                    // let short = true;
+                    // let short_str = if short { "short" } else { "long" };
+                    // let corners = ctx.corner_db();
+                    // let mut handles = Vec::new();
+                    // for vdd in [1.8] {
+                    //     for corner in corners.corners() {
+                    //         let corner = corner.clone();
+                    //         let params = $params.clone();
+                    //         // let pex_netlist = Some(pex_netlist_path.clone());
+                    //         let work_dir = work_dir.clone();
+                    //         handles.push(std::thread::spawn(move || {
+                    //             let ctx = setup_ctx();
+                    //             let tb = crate::blocks::sram::testbench::tb_params(params, vdd, short, None);
+                    //             let work_dir = work_dir.join(format!(
+                    //                 "{}_{:.2}_{}",
+                    //                 corner.name(),
+                    //                 vdd,
+                    //                 short_str
+                    //             ));
+                    //             ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
+                    //                 &tb,
+                    //                 &work_dir,
+                    //                 corner.clone(),
+                    //             )
+                    //             .expect("failed to run simulation");
+                    //             println!(
+                    //                 "Simulated corner {} with Vdd = {}, short = {}",
+                    //                 corner.name(),
+                    //                 vdd,
+                    //                 short
+                    //             );
+                    //         }));
+                    //     }
+                    // }
+                    // for handle in handles {
+                    //     handle.join().expect("failed to join thread");
+                    // }
 
                     // crate::abs::run_abstract(
                     //     &work_dir,

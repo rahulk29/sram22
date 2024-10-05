@@ -143,8 +143,6 @@ mod tests {
         length: 150,
         pwidth_driver: 3_000,
         nwidth_driver: 3_000,
-        pwidth_logic: 3_000,
-        nwidth_logic: 3_000,
     };
     const MUX_PARAMS: TGateMuxParams = TGateMuxParams {
         length: 150,
