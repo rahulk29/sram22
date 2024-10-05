@@ -303,19 +303,19 @@ impl Script for SramPhysicalDesignScript {
                         .add_point(cols.brect().top())
                         .length(),
                 ),
-                ..fanout_buffer_stage(horiz_buffer, 50e-15)
+                ..fanout_buffer_stage(horiz_buffer, 2000e-15)
             },
             wlen_buffer: DecoderStageParams {
                 max_width: None,
-                ..fanout_buffer_stage(vert_buffer, 50e-15)
+                ..fanout_buffer_stage(vert_buffer, 500e-15)
             },
             write_driver_en_buffer: DecoderStageParams {
                 max_width: Some(wrdrven_saen_width),
-                ..fanout_buffer_stage(horiz_buffer, 50e-15)
+                ..fanout_buffer_stage(horiz_buffer, 500e-15)
             },
             sense_en_buffer: DecoderStageParams {
                 max_width: Some(wrdrven_saen_width),
-                ..fanout_buffer_stage(horiz_buffer, 50e-15)
+                ..fanout_buffer_stage(horiz_buffer, 500e-15)
             },
             num_dffs: params.addr_width() + 2,
             rbl_wl_index,
@@ -332,7 +332,7 @@ impl Script for SramPhysicalDesignScript {
 
             addr_gated_buffer: DecoderStageParams {
                 max_width: None,
-                ..fanout_buffer_stage(horiz_buffer, 50e-15)
+                ..fanout_buffer_stage(horiz_buffer, 500e-15)
             },
         })
     }
