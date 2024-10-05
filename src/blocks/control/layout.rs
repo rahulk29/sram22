@@ -338,7 +338,6 @@ impl ControlLogicReplicaV2 {
         for i in 0..num_top_pins {
             let vtrack = vtracks.index(vtrack_start + 2 * (i as i64) + left_offset);
             top_pins.push(Rect::from_spans(vtrack, htrack));
-            ctx.draw_rect(m2, top_pins[i]);
         }
 
         router.block(
@@ -358,7 +357,20 @@ impl ControlLogicReplicaV2 {
         let resetb_pin = left_pins[3];
         router.occupy(m1, resetb_pin, "reset_b")?;
 
-        let rwl_pin = top_pins[0];
+        // Move RWL to be inline with buffer output.
+        let vtrack = vtracks.index(
+            vtracks.track_with_loc(
+                TrackLocator::Nearest,
+                group
+                    .port_map()
+                    .port("rwl_buf_x")?
+                    .largest_rect(m1)?
+                    .center()
+                    .x,
+            ),
+        );
+        let rwl_pin = top_pins[0].with_hspan(vtrack);
+        ctx.draw_rect(m2, rwl_pin);
         router.occupy(m2, rwl_pin, "rwl")?;
 
         let wrdrven_pin = bot_pins[0];

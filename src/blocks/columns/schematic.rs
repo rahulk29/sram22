@@ -1,3 +1,4 @@
+use subgeom::Dir;
 use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
@@ -7,10 +8,10 @@ use substrate::schematic::context::SchematicCtx;
 
 use crate::blocks::buf::DiffBuf;
 use crate::blocks::control::DffArray;
-use crate::blocks::decoder::layout::LastBitDecoderStage;
-use crate::blocks::decoder::DecoderStageParams;
+use crate::blocks::decoder::layout::{DecoderStyle, PhysicalDesignParams, RoutingStyle};
+use crate::blocks::decoder::{DecoderStage, DecoderStageParams};
 use crate::blocks::gate::sizing::InverterGateTreeNode;
-use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams, PrimitiveGateType};
+use crate::blocks::gate::{GateParams, PrimitiveGateType};
 use crate::blocks::macros::SenseAmp;
 use crate::blocks::precharge::Precharge;
 use crate::blocks::sram::schematic::inverter_chain_num_stages;
@@ -80,7 +81,12 @@ impl ColPeripherals {
         .as_chain();
 
         for i in 0..wmask_bits {
-            ctx.instantiate::<LastBitDecoderStage>(&DecoderStageParams {
+            ctx.instantiate::<DecoderStage>(&DecoderStageParams {
+                pd: PhysicalDesignParams {
+                    style: DecoderStyle::Minimum,
+                    dir: Dir::Horiz,
+                },
+                routing_style: RoutingStyle::Decoder,
                 max_width: Some(wmask_unit_width),
                 gate: GateParams::Nand2(wmask_buffer_gates[0]),
                 invs: wmask_buffer_gates.iter().copied().skip(1).collect(),

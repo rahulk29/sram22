@@ -166,8 +166,8 @@ impl GateType {
 impl PrimitiveGateParams {
     pub fn scale(&self, factor: f64) -> Self {
         Self {
-            nwidth: ((self.nwidth as f64) * factor).round() as i64,
-            pwidth: ((self.pwidth as f64) * factor).round() as i64,
+            nwidth: ((self.nwidth as f64) * factor / 10.).round() as i64 * 10,
+            pwidth: ((self.pwidth as f64) * factor / 10.).round() as i64 * 10,
             length: self.length,
         }
     }
