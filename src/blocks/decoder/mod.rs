@@ -220,7 +220,7 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
     lp.size_with_opts(OptimizerOpts {
         lr: 1e10,
         lr_decay: 0.999995,
-        max_iter: 10,
+        max_iter: 10_000_000,
     });
 
     let mut cnode: Option<&mut TreeNode> = None;
