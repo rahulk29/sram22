@@ -10,8 +10,6 @@ use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::routing::auto::straps::PlacedStraps;
 use substrate::layout::straps::SingleSupplyNet;
-#[cfg(test)]
-use substrate::schematic::netlist::NetlistPurpose;
 use substrate::script::Script;
 
 use self::schematic::fanout_buffer_stage;
@@ -19,9 +17,8 @@ use self::schematic::fanout_buffer_stage;
 use super::bitcell_array::replica::ReplicaCellArrayParams;
 use super::bitcell_array::SpCellArrayParams;
 use super::columns::{ColParams, ColPeripherals};
-use super::decoder::{
-    AddrGateParams, DecoderParams, DecoderStageParams, DecoderTree, INV_PARAMS, NAND2_PARAMS,
-};
+use super::decoder::layout::{DecoderStyle, PhysicalDesignParams, RoutingStyle};
+use super::decoder::{DecoderParams, DecoderStageParams, DecoderTree, INV_PARAMS, NAND2_PARAMS};
 use super::gate::{AndParams, GateParams, PrimitiveGateParams};
 use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
 use super::precharge::layout::ReplicaPrechargeParams;
@@ -187,7 +184,7 @@ pub struct SramPhysicalDesignScript;
 pub struct SramPhysicalDesign {
     bitcells: SpCellArrayParams,
     row_decoder: DecoderParams,
-    addr_gate: AddrGateParams,
+    addr_gate: DecoderStageParams,
     col_decoder: DecoderParams,
     pc_b_buffer: DecoderStageParams,
     wlen_buffer: DecoderStageParams,
@@ -222,6 +219,14 @@ impl Script for SramPhysicalDesignScript {
             .add_point(cols.brect().bottom())
             .length()
             / 2;
+        let horiz_buffer = PhysicalDesignParams {
+            style: DecoderStyle::Minimum,
+            dir: Dir::Horiz,
+        };
+        let vert_buffer = PhysicalDesignParams {
+            style: DecoderStyle::Minimum,
+            dir: Dir::Horiz,
+        };
         Ok(Self::Output {
             bitcells: SpCellArrayParams {
                 rows: params.rows(),
@@ -229,19 +234,35 @@ impl Script for SramPhysicalDesignScript {
                 mux_ratio: params.mux_ratio(),
             },
             row_decoder: DecoderParams {
+                pd: PhysicalDesignParams {
+                    style: DecoderStyle::RowMatched,
+                    dir: Dir::Horiz,
+                },
                 max_width: None,
                 tree: DecoderTree::new(params.row_bits(), wl_cap),
             },
-            addr_gate: AddrGateParams {
+            addr_gate: DecoderStageParams {
+                pd: PhysicalDesignParams {
+                    style: DecoderStyle::Minimum,
+                    dir: Dir::Horiz,
+                },
+                routing_style: RoutingStyle::Driver,
+                max_width: None,
+                invs: vec![],
                 // TODO fix, should be minimum sized AND2 unless sized elsewhere
                 gate: GateParams::And2(AndParams {
                     nand: NAND2_PARAMS,
                     inv: INV_PARAMS,
                 }),
                 num: 2 * params.row_bits(),
+                child_sizes: vec![],
             },
             // TODO: change decoder tree to provide correct fanout for inverted output
             col_decoder: DecoderParams {
+                pd: PhysicalDesignParams {
+                    style: DecoderStyle::Relaxed,
+                    dir: Dir::Horiz,
+                },
                 max_width: Some(
                     cols.port(PortId::new("sel_b", params.mux_ratio() - 1))?
                         .largest_rect(m2)?
@@ -267,19 +288,19 @@ impl Script for SramPhysicalDesignScript {
                         .add_point(cols.brect().top())
                         .length(),
                 ),
-                ..fanout_buffer_stage(50e-15)
+                ..fanout_buffer_stage(horiz_buffer, 50e-15)
             },
             wlen_buffer: DecoderStageParams {
                 max_width: None,
-                ..fanout_buffer_stage(50e-15)
+                ..fanout_buffer_stage(vert_buffer, 50e-15)
             },
             write_driver_en_buffer: DecoderStageParams {
                 max_width: Some(wrdrven_saen_width),
-                ..fanout_buffer_stage(50e-15)
+                ..fanout_buffer_stage(horiz_buffer, 50e-15)
             },
             sense_en_buffer: DecoderStageParams {
                 max_width: Some(wrdrven_saen_width),
-                ..fanout_buffer_stage(50e-15)
+                ..fanout_buffer_stage(horiz_buffer, 50e-15)
             },
             num_dffs: params.addr_width() + 2,
             rbl_wl_index,
@@ -589,14 +610,14 @@ pub(crate) mod tests {
                         substrate::verification::drc::DrcSummary::Pass
                     ));
 
-                    // let lvs_work_dir = work_dir.join("lvs");
-                    // let output = ctx
-                    //     .write_lvs::<Sram>(&$params, lvs_work_dir)
-                    //     .expect("failed to run LVS");
-                    // assert!(matches!(
-                    //     output.summary,
-                    //     substrate::verification::lvs::LvsSummary::Pass
-                    // ));
+                    let lvs_work_dir = work_dir.join("lvs");
+                    let output = ctx
+                        .write_lvs::<Sram>(&$params, lvs_work_dir)
+                        .expect("failed to run LVS");
+                    assert!(matches!(
+                        output.summary,
+                        substrate::verification::lvs::LvsSummary::Pass
+                    ));
 
                     // let pex_path = out_spice(&work_dir, "pex_schematic");
                     // let pex_dir = work_dir.join("pex");

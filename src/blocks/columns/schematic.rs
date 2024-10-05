@@ -1,3 +1,4 @@
+use subgeom::Dir;
 use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
@@ -7,8 +8,10 @@ use substrate::schematic::context::SchematicCtx;
 
 use crate::blocks::buf::DiffBuf;
 use crate::blocks::control::DffArray;
-use crate::blocks::decoder::layout::LastBitDecoderStage;
-use crate::blocks::decoder::DecoderStageParams;
+use crate::blocks::decoder::layout::{
+    DecoderStyle, LastBitDecoderStage, PhysicalDesignParams, RoutingStyle,
+};
+use crate::blocks::decoder::{DecoderStage, DecoderStageParams};
 use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams};
 use crate::blocks::macros::SenseAmp;
 use crate::blocks::precharge::Precharge;
@@ -65,7 +68,12 @@ impl ColPeripherals {
         let wmask_unit_width = self.params.wmask_granularity as i64
             * (pc_design.width * self.params.mux_ratio() as i64 + pc_design.tap_width);
         for i in 0..wmask_bits {
-            ctx.instantiate::<LastBitDecoderStage>(&DecoderStageParams {
+            ctx.instantiate::<DecoderStage>(&DecoderStageParams {
+                pd: PhysicalDesignParams {
+                    style: DecoderStyle::Minimum,
+                    dir: Dir::Horiz,
+                },
+                routing_style: RoutingStyle::Decoder,
                 max_width: Some(wmask_unit_width),
                 gate: GateParams::And2(AndParams {
                     inv: PrimitiveGateParams {

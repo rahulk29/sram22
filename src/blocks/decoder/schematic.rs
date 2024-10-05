@@ -1,12 +1,14 @@
 use std::collections::VecDeque;
 
+use itertools::Itertools;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 use substrate::schematic::signal::{Signal, Slice};
 
 use substrate::index::IndexOwned;
 
-use super::{Decoder, DecoderStage, DecoderStageParams, TreeNode};
+use super::layout::{decoder_stage_schematic, DecoderPhysicalDesignScript, RoutingStyle};
+use super::{Decoder, DecoderParams, DecoderStage, DecoderStageParams, TreeNode};
 use crate::blocks::decoder::get_idxs;
 use crate::blocks::gate::{And2, And3, GateParams, Inv};
 use crate::clog2;
@@ -18,63 +20,100 @@ impl Decoder {
 
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
-        let addr = ctx.bus_port("addr", in_bits, Direction::Input);
-        let addr_b = ctx.bus_port("addr_b", in_bits, Direction::Input);
-        let decode = ctx.bus_port("decode", out_bits, Direction::Output);
-        let decode_b = ctx.bus_port("decode_b", out_bits, Direction::Output);
         let port_names = ["a", "b", "c"];
+        let dsn = ctx
+            .inner()
+            .run_script::<DecoderPhysicalDesignScript>(&self.params.pd)?;
+        let mut node = &self.params.tree.root;
+        let mut invs = vec![];
 
-        // Initialize all gates in the decoder tree using BFS.
-        let mut queue = VecDeque::<(Option<Slice>, &TreeNode)>::new();
-        queue.push_back((None, &self.params.tree.root));
-        let mut ctr = 0;
-
-        while let Some((output_port, node)) = queue.pop_front() {
-            ctr += 1;
-            let gate_size = node.gate.num_inputs();
-            let mut stage = ctx.instantiate::<DecoderStage>(&DecoderStageParams {
-                max_width: None,
-                gate: node.gate,
-                invs: vec![],
-                num: node.num,
-                child_sizes: (0..gate_size)
-                    .map(|i| node.children.get(i).map(|child| child.num).unwrap_or(2))
-                    .collect(),
-            })?;
-            stage.connect_all([("vdd", &vdd), ("vss", &vss)]);
-
-            if let Some(output_port) = output_port {
-                stage.connect("decode", output_port);
-                if gate_size > 1 {
-                    let unused_wire = ctx.bus(format!("unused_{ctr}"), output_port.width());
-                    stage.connect("decode_b", unused_wire);
-                }
+        let num_children = node.children.len();
+        while num_children == 1 {
+            if let GateParams::Inv(params) | GateParams::FoldedInv(params) = node.gate {
+                invs.push(params);
+                node = &node.children[0];
             } else {
-                stage.connect("decode", decode);
-                if gate_size > 1 {
-                    stage.connect("decode_b", decode_b);
+                break;
+            }
+        }
+        let child_sizes = if node.children.is_empty() {
+            (0..node.num.ilog2()).map(|_| 2).collect()
+        } else {
+            node.children.iter().map(|n| n.num).collect()
+        };
+        let params = DecoderStageParams {
+            pd: self.params.pd,
+            routing_style: RoutingStyle::Decoder,
+            max_width: self.params.max_width,
+            gate: node.gate,
+            invs,
+            num: node.num,
+            child_sizes,
+        };
+        let mut inst = ctx
+            .instantiate::<DecoderStage>(&params)?
+            .with_connections([("vdd", vdd), ("vss", vss)]);
+        ctx.bubble_filter_map(&mut inst, |port| {
+            port.name().starts_with("y").then_some(port.name().into())
+        });
+        if node.children.is_empty() {
+            ctx.bubble_filter_map(&mut inst, |port| {
+                port.name()
+                    .starts_with("predecode")
+                    .then_some(port.name().into())
+            });
+        }
+
+        let mut next_addr = (0, 0);
+        for (i, node) in node.children.iter().enumerate() {
+            let mut child = ctx
+                .instantiate::<Decoder>(&DecoderParams {
+                    pd: self.params.pd,
+                    max_width: self
+                        .params
+                        .max_width
+                        .map(|width| width / num_children as i64),
+                    tree: super::DecoderTree { root: node.clone() },
+                })?
+                .with_connections([("vdd", vdd), ("vss", vss)]);
+
+            let ports = child.ports()?.collect_vec();
+            for child_port in ports
+                .into_iter()
+                .filter_map(|port| {
+                    if port.name().starts_with("predecode") {
+                        Some(port)
+                    } else {
+                        None
+                    }
+                })
+                .sorted_unstable_by(|a, b| a.name().cmp(b.name()))
+            {
+                let port = ctx.port(
+                    format!("predecode_{}_{}", next_addr.0, next_addr.1),
+                    Direction::Input,
+                );
+                child.connect(child_port.name().clone(), port);
+                if next_addr.1 > 0 {
+                    next_addr = (next_addr.0 + 1, 0);
+                } else {
+                    next_addr = (next_addr.0, 1);
                 }
             }
 
-            for (i, &port_name) in port_names.iter().enumerate().take(gate_size) {
-                let input_signal = if let Some(child) = node.children.get(i) {
-                    let input_bus = if output_port.is_none() && gate_size == 1 {
-                        // the root stage must be an inverter
-                        decode_b
-                    } else {
-                        ctx.bus(format!("{port_name}_{ctr}"), child.num)
-                    };
-                    queue.push_back((Some(input_bus), child));
-                    input_bus.into()
-                } else {
-                    assert!(in_bits >= 1);
-                    in_bits -= 1;
-                    Signal::new(vec![addr_b.index(in_bits), addr.index(in_bits)])
-                };
-                stage.connect(port_name, input_signal);
+            let conn = ctx.bus(format!("child_conn_{i}"), node.num);
+            let noconn = ctx.bus(format!("child_noconn_{i}"), node.num);
+
+            child.connect("y", conn);
+            if child.port("y_b").is_ok() {
+                child.connect("y_b", noconn);
             }
-            ctx.add_instance(stage);
+            for j in 0..node.num {
+                inst.connect(format!("predecode_{i}_{j}"), conn.index(j));
+            }
+            ctx.add_instance(child);
         }
+        ctx.add_instance(inst);
 
         Ok(())
     }
@@ -82,57 +121,9 @@ impl Decoder {
 
 impl DecoderStage {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
-        let num = self.params.num;
-
-        let vdd = ctx.port("vdd", Direction::InOut);
-        let vss = ctx.port("vss", Direction::InOut);
-        let decode = ctx.bus_port("decode", num, Direction::Output);
-        let decode_b = if !self.params.gate.gate_type().is_inv() {
-            Some(ctx.bus_port("decode_b", num, Direction::Output))
-        } else {
-            None
-        };
-        let port_names = [
-            arcstr::literal!("a"),
-            arcstr::literal!("b"),
-            arcstr::literal!("c"),
-        ];
-
-        // Instantiate gate.
-        let (gate, gate_size) = match self.params.gate {
-            GateParams::And2(params) => (ctx.instantiate::<And2>(&params)?, 2),
-            GateParams::And3(params) => (ctx.instantiate::<And3>(&params)?, 3),
-            GateParams::Inv(params) => (ctx.instantiate::<Inv>(&params)?, 1),
-            _ => unreachable!(),
-        };
-
-        assert_eq!(self.params.child_sizes.len(), gate_size);
-        assert_eq!(self.params.child_sizes.iter().product::<usize>(), num);
-
-        let input_ports = (0..gate_size)
-            .map(|i| {
-                ctx.bus_port(
-                    port_names[i].clone(),
-                    self.params.child_sizes[i],
-                    Direction::Input,
-                )
-            })
-            .collect::<Vec<Slice>>();
-
-        for i in 0..num {
-            let idxs = get_idxs(i, &self.params.child_sizes);
-
-            let mut gate = gate.clone();
-            gate.connect_all([("vdd", &vdd), ("vss", &vss), ("y", &decode.index(i))]);
-            if let Some(ref decode_b) = decode_b {
-                gate.connect("yb", decode_b.index(i))
-            }
-            for j in 0..gate_size {
-                gate.connect(port_names[j].clone(), input_ports[j].index(idxs[j]));
-            }
-            ctx.add_instance(gate);
-        }
-
-        Ok(())
+        let dsn = ctx
+            .inner()
+            .run_script::<DecoderPhysicalDesignScript>(&self.params.pd)?;
+        decoder_stage_schematic(ctx, &self.params, &dsn, self.params.routing_style)
     }
 }

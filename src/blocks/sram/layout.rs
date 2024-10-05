@@ -30,10 +30,8 @@ use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayPa
 use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::blocks::columns::ColPeripherals;
 use crate::blocks::control::{ControlLogicReplicaV2, DffArray};
-use crate::blocks::decoder::layout::LastBitDecoderStage;
 use crate::blocks::decoder::{
-    AddrGate, AddrGateParams, DecoderParams, DecoderStageParams, DecoderTree, Predecoder,
-    WmuxDriver, INV_PARAMS, NAND2_PARAMS,
+    Decoder, DecoderParams, DecoderStage, DecoderStageParams, DecoderTree, INV_PARAMS, NAND2_PARAMS,
 };
 use crate::blocks::gate::{AndParams, GateParams};
 use crate::blocks::precharge::layout::{ReplicaPrecharge, ReplicaPrechargeParams};
@@ -108,28 +106,28 @@ impl SramInner {
         let bitcells = ctx.instantiate::<SpCellArray>(&dsn.bitcells)?;
         let mut cols = ctx.instantiate::<ColPeripherals>(&dsn.col_params)?;
         let mut decoder = ctx
-            .instantiate::<Predecoder>(&dsn.row_decoder)?
+            .instantiate::<Decoder>(&dsn.row_decoder)?
             .with_orientation(Named::R90Cw);
         let mut addr_gate = ctx
-            .instantiate::<AddrGate>(&dsn.addr_gate)?
+            .instantiate::<DecoderStage>(&dsn.addr_gate)?
             .with_orientation(Named::FlipYx);
 
         let mut col_dec = ctx
-            .instantiate::<Predecoder>(&dsn.col_decoder)?
+            .instantiate::<Decoder>(&dsn.col_decoder)?
             .with_orientation(Named::FlipYx);
         let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?;
 
         let mut pc_b_buffer = ctx
-            .instantiate::<LastBitDecoderStage>(&dsn.pc_b_buffer)?
+            .instantiate::<DecoderStage>(&dsn.pc_b_buffer)?
             .with_orientation(Named::R90Cw);
         let mut wl_en_buffer = ctx
-            .instantiate::<LastBitDecoderStage>(&dsn.wlen_buffer)?
+            .instantiate::<DecoderStage>(&dsn.wlen_buffer)?
             .with_orientation(Named::R90Cw);
         let mut write_driver_en_buffer = ctx
-            .instantiate::<LastBitDecoderStage>(&dsn.write_driver_en_buffer)?
+            .instantiate::<DecoderStage>(&dsn.write_driver_en_buffer)?
             .with_orientation(Named::R90Cw);
         let mut sense_en_buffer = ctx
-            .instantiate::<LastBitDecoderStage>(&dsn.sense_en_buffer)?
+            .instantiate::<DecoderStage>(&dsn.sense_en_buffer)?
             .with_orientation(Named::R90Cw);
 
         let mut dffs = ctx.instantiate::<DffArray>(&dsn.num_dffs)?;
@@ -156,7 +154,10 @@ impl SramInner {
         sense_en_buffer.align_to_the_left_of(cols.bbox(), 6_000);
         write_driver_en_buffer.align_beneath(sense_en_buffer.bbox(), 4_000);
         write_driver_en_buffer.align_to_the_left_of(cols.bbox(), 6_000);
-        addr_gate.align_to_the_left_of(decoder.bbox(), 700 + 1_400 * self.params.row_bits() as i64);
+        addr_gate.align_to_the_left_of(
+            decoder.bbox(),
+            700 + 1_400 * self.params.addr_width() as i64,
+        );
         addr_gate.align_bottom(decoder.bbox());
         let buffer_bbox = col_dec
             .bbox()
@@ -255,7 +256,7 @@ impl SramInner {
         }
 
         // Route DFF input signals to pins on bounding box of SRAM
-        for i in 0..num_dffs {
+        for i in 0..dsn.num_dffs {
             let src = dffs.port(PortId::new("d", i))?.largest_rect(m0)?;
             let expanded_rect =
                 router.expand_to_layer_grid(src, m1, ExpandToGridStrategy::Side(Side::Bot));
@@ -269,9 +270,9 @@ impl SramInner {
             ctx.draw_rect(m1, m1_rect);
             ctx.add_port(
                 CellPort::builder()
-                    .id(if i == num_dffs - 1 {
+                    .id(if i == dsn.num_dffs - 1 {
                         "we".into()
-                    } else if i == num_dffs - 2 {
+                    } else if i == dsn.num_dffs - 2 {
                         "ce".into()
                     } else {
                         PortId::new("addr", self.params.addr_width() - i - 1)
@@ -397,6 +398,42 @@ impl SramInner {
             }
         }
 
+        // Route wordline driver to bitcell array
+        for i in 0..self.params.rows() {
+            let src = decoder.port(PortId::new("y", i))?.largest_rect(m0)?;
+            let src = src.with_hspan(Span::with_stop_and_length(src.right(), 170));
+            let dst = bitcells.port(PortId::new("wl", i))?.largest_rect(m2)?;
+            let jog = SJog::builder()
+                .src(src)
+                .dst(dst)
+                .dir(Dir::Horiz)
+                .layer(m2)
+                .width(170)
+                .l1(0)
+                .grid(ctx.pdk().layout_grid())
+                .build()
+                .unwrap();
+            let jog_group = jog.draw()?;
+            router.block(m2, jog_group.bbox().into_rect());
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m0, m1)
+                    .geometry(src, src)
+                    .build(),
+            )?;
+            router.block(m1, via.bbox().into_rect());
+            ctx.draw(via)?;
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m1, m2)
+                    .geometry(src, src)
+                    .build(),
+            )?;
+            router.block(m1, via.bbox().into_rect());
+            ctx.draw(via)?;
+            ctx.draw(jog_group)?;
+        }
+
         // Route column decoders to mux.
         let tracks = router.track_info(m1).tracks();
         let track_idx = tracks.track_with_loc(TrackLocator::StartsAfter, col_dec.brect().right());
@@ -459,10 +496,11 @@ impl SramInner {
         let m2_tracks = router.track_info(m2).tracks();
         let dff_m2_track_idx =
             m2_tracks.track_with_loc(TrackLocator::StartsAfter, dffs.brect().top());
-        let m2_clk_track = m2_tracks.index(dff_m2_track_idx);
-        let m2_reset_b_track = m2_tracks.index(dff_m2_track_idx + 1);
-        let m2_ce_track = m2_tracks.index(dff_m2_track_idx + 2);
-        let m2_we_track = m2_tracks.index(dff_m2_track_idx + 3);
+        let control_m2_track_idx = dff_m2_track_idx + 2 * self.params.row_bits() as i64;
+        let m2_clk_track = m2_tracks.index(control_m2_track_idx);
+        let m2_reset_b_track = m2_tracks.index(control_m2_track_idx + 1);
+        let m2_ce_track = m2_tracks.index(control_m2_track_idx + 2);
+        let m2_we_track = m2_tracks.index(control_m2_track_idx + 3);
 
         // Route clk and reset_b
         let m1_tracks = router.track_info(m1).tracks();
@@ -493,6 +531,13 @@ impl SramInner {
 
             let m1_pin = Rect::from_spans(m1_track, m2_track.add_point(router_bbox.bottom()));
             ctx.add_port(CellPort::with_shape(port, m1, m1_pin))?;
+            let via = ctx.instantiate::<Via>(
+                &ViaParams::builder()
+                    .layers(m1, m2)
+                    .geometry(m1_pin, m2_rect)
+                    .build(),
+            )?;
+            ctx.draw(via)?;
 
             for inst in [&dffs, &cols] {
                 for port_rect in inst
@@ -525,8 +570,8 @@ impl SramInner {
 
         // Route ce and we to DFFs.
         for (port, m2_track, dff_idx) in [
-            ("ce", m2_ce_track, num_dffs - 2),
-            ("we", m2_we_track, num_dffs - 1),
+            ("ce", m2_ce_track, dsn.num_dffs - 2),
+            ("we", m2_we_track, dsn.num_dffs - 1),
         ] {
             let control_port = control.port(port)?.largest_rect(m1)?;
             let dff_port = dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?;
@@ -572,9 +617,22 @@ impl SramInner {
             ctx.draw(via)?;
         }
 
+        // Route replica cell array to replica precharge
+        for i in 0..2 {
+            for port_name in ["bl", "br"] {
+                let src = rbl.port(PortId::new(port_name, i))?.largest_rect(m1)?;
+                let dst = replica_pc
+                    .port(PortId::new(&format!("{}_in", port_name), i))?
+                    .largest_rect(m1)?;
+                ctx.draw_rect(m1, src.bbox().union(dst.bbox()).into_rect());
+            }
+        }
+
         // Route replica wordline.
         let control_rwl_rect = control.port("rwl")?.largest_rect(m2)?;
-        let array_rwl_rect = rbl.port("wl")?.largest_rect(m2)?;
+        let array_rwl_rect = rbl
+            .port(PortId::new("wl", dsn.rbl_wl_index))?
+            .largest_rect(m2)?;
         let m1_tracks = router.track_info(m1).tracks();
         let m1_track = m1_tracks
             .index(m1_tracks.track_with_loc(TrackLocator::EndsBefore, control_rwl_rect.right()));
@@ -615,7 +673,7 @@ impl SramInner {
             m2_tracks.track_with_loc(TrackLocator::StartsAfter, control_rbl_rect.bottom());
         let m2_rbl_track = m2_tracks.index(m2_track_idx);
         let m2_pc_b_track = m2_tracks.index(m2_track_idx + 1);
-        let m2_wlen_track = m2_tracks.index(m2_track_idx + 1);
+        let m2_wlen_track = m2_tracks.index(m2_track_idx + 2);
         let m1_tracks = router.track_info(m1).tracks();
         let m1_track_idx =
             m1_tracks.track_with_loc(TrackLocator::StartsAfter, array_rbl_rect.right());
@@ -783,13 +841,12 @@ impl SramInner {
         for i in 0..self.params.col_select_bits() {
             for j in 0..2 {
                 let idx = 2 * i + j;
+                let dff_idx = dsn.num_dffs - i - 3;
                 let port_rect = col_dec
                     .port(format!("predecode_{i}_{j}"))?
                     .largest_rect(m1)?;
                 let dff_port = if j == 0 {
-                    let rect = dffs
-                        .port(PortId::new("q", num_dffs - i - 3))?
-                        .largest_rect(m0)?;
+                    let rect = dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?;
                     let tracks = router.track_info(m1).tracks();
                     let track_span =
                         tracks.index(tracks.track_with_loc(TrackLocator::EndsBefore, rect.right()));
@@ -807,7 +864,7 @@ impl SramInner {
                     m1_rect
                 } else {
                     let rect = dffs
-                        .port(PortId::new("q_n", num_dffs - i - 3))?
+                        .port(PortId::new("q_n", dff_idx))?
                         .first_rect(m0, Side::Left)?;
                     let tracks = router.track_info(m1).tracks();
                     let track_span =
@@ -831,7 +888,7 @@ impl SramInner {
                     m2_tracks.track_with_loc(TrackLocator::StartsAfter, port_rect.bottom())
                         + idx as i64,
                 );
-                let m2_track_b = m2_tracks.index(dff_m2_track_idx + 4 + idx as i64);
+                let m2_track_b = m2_tracks.index(dff_m2_track_idx + idx as i64);
                 let m1_tracks = router.track_info(m1).tracks();
                 let m1_track = m1_tracks.index(buffer_m1_track_idx - 2 - idx as i64);
 
@@ -866,14 +923,10 @@ impl SramInner {
         for i in 0..self.params.row_bits() {
             for j in 0..2 {
                 let idx = 2 * i + j;
+                let dff_idx = dsn.num_dffs - i - 3 - self.params.col_select_bits();
                 let port_rect = addr_gate.port(PortId::new("in", idx))?.largest_rect(m0)?;
                 let dff_port = if j == 0 {
-                    let rect = dffs
-                        .port(PortId::new(
-                            "q",
-                            num_dffs - i - 3 - self.params.col_select_bits(),
-                        ))?
-                        .largest_rect(m0)?;
+                    let rect = dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?;
                     let tracks = router.track_info(m1).tracks();
                     let track_span =
                         tracks.index(tracks.track_with_loc(TrackLocator::EndsBefore, rect.right()));
@@ -891,7 +944,7 @@ impl SramInner {
                     m1_rect
                 } else {
                     let rect = dffs
-                        .port(PortId::new("q_n", num_dffs - i - 3))?
+                        .port(PortId::new("q_n", dff_idx))?
                         .first_rect(m0, Side::Left)?;
                     let tracks = router.track_info(m1).tracks();
                     let track_span =
@@ -911,7 +964,9 @@ impl SramInner {
                 };
 
                 let m2_tracks = router.track_info(m2).tracks();
-                let m2_track = m2_tracks.index(dff_m2_track_idx + 4 + idx as i64);
+                let m2_track = m2_tracks.index(
+                    dff_m2_track_idx + 2 * self.params.col_select_bits() as i64 + idx as i64,
+                );
                 let m1_tracks = router.track_info(m1).tracks();
                 let m1_track_idx = m1_tracks.track_with_loc(
                     TrackLocator::EndsBefore,
@@ -1046,8 +1101,8 @@ impl SramInner {
                 )
             })
             .collect();
-        for i in 0..rbl_rows {
-            if i != rbl_wl_index {
+        for i in 0..dsn.rbl.rows {
+            if i != dsn.rbl_wl_index {
                 port_ids.push((PortId::new("wl", i), SingleSupplyNet::Vss));
             }
         }

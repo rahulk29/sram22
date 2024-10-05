@@ -31,12 +31,13 @@ use substrate::script::Script;
 
 use crate::blocks::gate::{Gate, GateParams};
 
-use super::{Decoder, DecoderParams, DecoderStage, DecoderStageParams, Predecoder};
+use super::{Decoder, DecoderParams, DecoderStage, DecoderStageParams};
 
 pub struct LastBitDecoderStage {
     params: DecoderStageParams,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum RoutingStyle {
     Decoder,
     Driver,
@@ -185,9 +186,12 @@ pub(crate) fn decoder_stage_schematic(
                     } else if stage < num_stages - 1 {
                         gate.connect("y", x[stage].index(i));
                     }
+                    if gate_params.gate_type().is_and() {
+                        gate.connect("yb", ctx.signal(format!("y_b_noconn_{stage}_{i}_{j}")));
+                    }
                 } else {
                     if gate_params.gate_type().is_and() {
-                        gate.connect("y_b", y_b.unwrap().index(i));
+                        gate.connect("yb", y_b.unwrap().index(i));
                     }
                     gate.connect("y", y.index(i));
                 }
@@ -596,44 +600,11 @@ pub(crate) fn decoder_stage_layout(
     Ok(())
 }
 
-impl Component for LastBitDecoderStage {
-    type Params = DecoderStageParams;
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
-    }
-
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("last_bit_decoder_stage")
-    }
-
-    fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
-        let dsn = ctx
-            .inner()
-            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
-        decoder_stage_schematic(ctx, &self.params, &dsn, RoutingStyle::Decoder)
-    }
-
-    fn layout(
-        &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
-    ) -> substrate::error::Result<()> {
-        let dsn = ctx
-            .inner()
-            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
-        decoder_stage_layout(ctx, &self.params, &dsn, RoutingStyle::Decoder)
-    }
-}
-
 impl Decoder {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
         let dsn = ctx
             .inner()
-            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
+            .run_script::<DecoderPhysicalDesignScript>(&self.params.pd)?;
         let mut node = &self.params.tree.root;
         let mut invs = vec![];
 
@@ -652,6 +623,8 @@ impl Decoder {
             node.children.iter().map(|n| n.num).collect()
         };
         let params = DecoderStageParams {
+            pd: self.params.pd,
+            routing_style: RoutingStyle::Decoder,
             max_width: self.params.max_width,
             gate: node.gate,
             invs,
@@ -671,7 +644,8 @@ impl Decoder {
         let mut x = 0;
         let mut next_addr = (0, 0);
         for (i, node) in node.children.iter().enumerate() {
-            let mut child = ctx.instantiate::<Predecoder>(&DecoderParams {
+            let mut child = ctx.instantiate::<Decoder>(&DecoderParams {
+                pd: self.params.pd,
                 max_width: self
                     .params
                     .max_width
@@ -761,8 +735,8 @@ impl DecoderStage {
     ) -> substrate::error::Result<()> {
         let dsn = ctx
             .inner()
-            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
-        decoder_stage_layout(ctx, &self.params, &dsn, RoutingStyle::Decoder)
+            .run_script::<DecoderPhysicalDesignScript>(&self.params.pd)?;
+        decoder_stage_layout(ctx, &self.params, &dsn, self.params.routing_style)
     }
 }
 
@@ -1072,15 +1046,24 @@ pub struct PhysicalDesign {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum DecoderStyle {
+    /// For bitcell array row decoder.
     RowMatched,
-    Horizontal,
-    Vertical,
+    /// Accomodates larger gates without expanding, but less efficient for smaller gates.
+    Relaxed,
+    /// Sized for smaller gates, expands for larger gates.
+    Minimum,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct PhysicalDesignParams {
+    pub dir: Dir,
+    pub style: DecoderStyle,
 }
 
 pub struct DecoderPhysicalDesignScript;
 
 impl Script for DecoderPhysicalDesignScript {
-    type Params = DecoderStyle;
+    type Params = PhysicalDesignParams;
     type Output = PhysicalDesign;
 
     fn run(
@@ -1091,16 +1074,17 @@ impl Script for DecoderPhysicalDesignScript {
         let li = layers.get(Selector::Metal(0))?;
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
-        let (stripe_metal, wire_metal, via_metals) = match params {
-            DecoderStyle::RowMatched | DecoderStyle::Horizontal => (m1, m2, vec![]),
-            DecoderStyle::Vertical => (m2, m1, vec![m1]),
+        let (stripe_metal, wire_metal, via_metals) = match params.dir {
+            Dir::Horiz => (m1, m2, vec![]),
+            Dir::Vert => (m2, m1, vec![m1]),
         };
         let nwell = layers.get(Selector::Name("nwell"))?;
         let psdm = layers.get(Selector::Name("psdm"))?;
         let nsdm = layers.get(Selector::Name("nsdm"))?;
-        let (width, tap_width) = match params {
+        let (width, tap_width) = match params.style {
             DecoderStyle::RowMatched => (1_580, 1_580),
-            DecoderStyle::Horizontal | DecoderStyle::Vertical => (2_000, 790),
+            DecoderStyle::Relaxed => (2_000, 1_000),
+            DecoderStyle::Minimum => (1_470, 1_000),
         };
         Ok(Self::Output {
             width,

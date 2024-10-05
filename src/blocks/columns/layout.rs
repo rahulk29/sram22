@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use grid::Grid;
 use serde::Serialize;
@@ -24,8 +24,10 @@ use substrate::pdk::stdcell::StdCell;
 use crate::blocks::buf::layout::DiffBufCent;
 use crate::blocks::buf::DiffBuf;
 use crate::blocks::columns::Column;
-use crate::blocks::decoder::layout::LastBitDecoderStage;
-use crate::blocks::decoder::DecoderStageParams;
+use crate::blocks::decoder::layout::{
+    DecoderStyle, LastBitDecoderStage, PhysicalDesignParams, RoutingStyle,
+};
+use crate::blocks::decoder::{DecoderStage, DecoderStageParams};
 use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams};
 use crate::blocks::macros::{SenseAmp, SenseAmpCent};
 use crate::blocks::precharge::layout::{PrechargeCent, PrechargeEnd, PrechargeEndParams};
@@ -319,7 +321,19 @@ impl ColPeripherals {
         ctx.draw_ref(&pc_end)?;
 
         for port in ["vdd", "vss", "pc_b", "sense_en", "clk", "reset_b"] {
-            ctx.merge_port(grid_tiler.port_map().port(port)?.clone());
+            let spans = grid_tiler
+                .port_map()
+                .port(port)
+                .unwrap()
+                .shapes(m2)
+                .filter_map(|shape| shape.as_rect())
+                .map(|rect| rect.vspan())
+                .collect::<HashSet<_>>();
+            for span in spans {
+                let rect = Rect::from_spans(ctx.brect().hspan(), span);
+                ctx.draw_rect(m2, rect);
+                ctx.merge_port(CellPort::with_shape(port, m2, rect));
+            }
         }
         for port in ["clk", "reset_b", "we"] {
             ctx.merge_port(wmask_peripherals.port(port)?.into_cell_port());
@@ -367,7 +381,12 @@ impl WmaskPeripherals {
         let wmask_unit_width = self.params.wmask_granularity as i64
             * (pc_design.width * self.params.mux_ratio() as i64 + pc_design.tap_width);
 
-        let nand_stage = ctx.instantiate::<LastBitDecoderStage>(&DecoderStageParams {
+        let nand_stage = ctx.instantiate::<DecoderStage>(&DecoderStageParams {
+            pd: PhysicalDesignParams {
+                style: DecoderStyle::Minimum,
+                dir: Dir::Horiz,
+            },
+            routing_style: RoutingStyle::Decoder,
             max_width: Some(wmask_unit_width),
             gate: GateParams::And2(AndParams {
                 inv: PrimitiveGateParams {

@@ -10,10 +10,10 @@ use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayPa
 use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::blocks::columns::{ColParams, ColPeripherals};
 use crate::blocks::control::{ControlLogicReplicaV2, DffArray, InvChain};
-use crate::blocks::decoder::layout::LastBitDecoderStage;
+use crate::blocks::decoder::layout::{DecoderStyle, PhysicalDesignParams, RoutingStyle};
 use crate::blocks::decoder::{
-    AddrGate, AddrGateParams, Decoder, DecoderParams, DecoderStageParams, DecoderTree, INV_MODEL,
-    INV_PARAMS, NAND2_PARAMS,
+    Decoder, DecoderParams, DecoderStage, DecoderStageParams, DecoderTree, INV_MODEL, INV_PARAMS,
+    NAND2_PARAMS,
 };
 use crate::blocks::gate::sizing::InverterGateTreeNode;
 use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams};
@@ -43,6 +43,7 @@ impl SramInner {
 
         let [addr_gated, addr_b_gated] =
             ctx.buses(["addr_gated", "addr_b_gated"], self.params.row_bits());
+        let addr_gate_y_b_noconn = ctx.bus("addr_gate_y_b_noconn", 2 * self.params.row_bits());
 
         let bl = ctx.bus("bl", self.params.cols());
         let br = ctx.bus("br", self.params.cols());
@@ -59,23 +60,23 @@ impl SramInner {
 
         let diode = lib.try_cell_named("sky130_fd_sc_hs__diode_2")?;
 
-        for (port, width) in [
-            (dout, self.params.data_width()),
-            (din, self.params.data_width()),
-            (wmask, self.params.wmask_width()),
-        ] {
-            for i in 0..width {
-                ctx.instantiate::<StdCell>(&diode.id())?
-                    .with_connections([
-                        ("DIODE", port.index(i)),
-                        ("VPWR", vdd),
-                        ("VPB", vdd),
-                        ("VGND", vss),
-                        ("VNB", vss),
-                    ])
-                    .add_to(ctx);
-            }
-        }
+        // for (port, width) in [
+        //     (dout, self.params.data_width()),
+        //     (din, self.params.data_width()),
+        //     (wmask, self.params.wmask_width()),
+        // ] {
+        //     for i in 0..width {
+        //         ctx.instantiate::<StdCell>(&diode.id())?
+        //             .with_connections([
+        //                 ("DIODE", port.index(i)),
+        //                 ("VPWR", vdd),
+        //                 ("VPB", vdd),
+        //                 ("VGND", vss),
+        //                 ("VNB", vss),
+        //             ])
+        //             .add_to(ctx);
+        //     }
+        // }
 
         let [we_in, we_in_b, ce_in, ce_in_b, dummy_bl, dummy_br, rwl, rbl, rbr, pc_b0, pc, pc_b, wl_en0, wl_en_b, wl_en, write_driver_en0, write_driver_en_b, write_driver_en, sense_en0, sense_en_b, sense_en] =
             ctx.signals([
@@ -102,10 +103,13 @@ impl SramInner {
                 "sense_en",
             ]);
 
-        let wl_cap = (self.params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL;
-
-        ctx.instantiate::<AddrGate>(&dsn.addr_gate)?
-            .with_connections([("vdd", vdd), ("vss", vss), ("wl_en", wl_en)])
+        ctx.instantiate::<DecoderStage>(&dsn.addr_gate)?
+            .with_connections([
+                ("vdd", vdd),
+                ("vss", vss),
+                ("wl_en", wl_en),
+                ("y_b", addr_gate_y_b_noconn),
+            ])
             .with_connections([
                 (
                     "in",
@@ -119,29 +123,46 @@ impl SramInner {
             .named("addr_gate")
             .add_to(ctx);
 
-        ctx.instantiate::<Decoder>(&dsn.row_decoder)?
-            .with_connections([
-                ("vdd", vdd),
-                ("vss", vss),
-                ("addr", addr_gated),
-                ("addr_b", addr_b_gated),
-                ("decode", wl),
-                ("decode_b", wl_b),
-            ])
-            .named("decoder")
-            .add_to(ctx);
+        let mut row_decoder = ctx
+            .instantiate::<Decoder>(&dsn.row_decoder)?
+            .with_connections([("vdd", vdd), ("vss", vss), ("y", wl), ("y_b", wl_b)])
+            .named("decoder");
+        for i in 0..self.params.row_bits() {
+            for j in 0..2 {
+                row_decoder.connect(
+                    format!("predecode_{i}_{j}"),
+                    if j == 0 {
+                        addr_gated.index(i)
+                    } else {
+                        addr_b_gated.index(i)
+                    },
+                );
+            }
+        }
+        ctx.add_instance(row_decoder);
 
-        ctx.instantiate::<Decoder>(&dsn.col_decoder)?
+        let mut col_decoder = ctx
+            .instantiate::<Decoder>(&dsn.col_decoder)?
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
-                ("addr", addr_in.index(0..self.params.col_select_bits())),
-                ("addr_b", addr_in_b.index(0..self.params.col_select_bits())),
-                ("decode", col_sel0),
-                ("decode_b", col_sel0_b),
+                ("y", col_sel),
+                ("y_b", col_sel_b),
             ])
-            .named("column_decoder")
-            .add_to(ctx);
+            .named("column_decoder");
+        for i in 0..self.params.col_select_bits() {
+            for j in 0..2 {
+                col_decoder.connect(
+                    format!("predecode_{i}_{j}"),
+                    if j == 0 {
+                        addr_in.index(i)
+                    } else {
+                        addr_in_b.index(i)
+                    },
+                );
+            }
+        }
+        ctx.add_instance(col_decoder);
 
         let control_logic = ctx
             .instantiate::<ControlLogicReplicaV2>(&NoParams)?
@@ -153,7 +174,7 @@ impl SramInner {
                 ("rbl", rbl),
                 ("rwl", rwl),
                 ("pc_b", pc_b0),
-                ("wlen", wl_en0),
+                ("wlen", wl_en),
                 ("wrdrven", write_driver_en0),
                 ("saen", sense_en0),
                 ("vdd", vdd),
@@ -163,7 +184,7 @@ impl SramInner {
         control_logic.add_to(ctx);
 
         // TODO: estimate load capacitances
-        ctx.instantiate::<LastBitDecoderStage>(&dsn.pc_b_buffer)?
+        ctx.instantiate::<DecoderStage>(&dsn.pc_b_buffer)?
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
@@ -173,17 +194,17 @@ impl SramInner {
             ])
             .named("pc_b_buffer")
             .add_to(ctx);
-        ctx.instantiate::<LastBitDecoderStage>(&dsn.wlen_buffer)?
-            .with_connections([
-                ("vdd", vdd),
-                ("vss", vss),
-                ("y", wl_en),
-                ("y_b", wl_en_b),
-                ("predecode_0_0", wl_en0),
-            ])
-            .named("wlen_buffer")
-            .add_to(ctx);
-        ctx.instantiate::<LastBitDecoderStage>(&dsn.write_driver_en_buffer)?
+        // ctx.instantiate::<DecoderStage>(&dsn.wlen_buffer)?
+        //     .with_connections([
+        //         ("vdd", vdd),
+        //         ("vss", vss),
+        //         ("y", wl_en),
+        //         ("y_b", wl_en_b),
+        //         ("predecode_0_0", wl_en0),
+        //     ])
+        //     .named("wlen_buffer")
+        //     .add_to(ctx);
+        ctx.instantiate::<DecoderStage>(&dsn.write_driver_en_buffer)?
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
@@ -193,7 +214,7 @@ impl SramInner {
             ])
             .named("write_driver_en_buffer")
             .add_to(ctx);
-        ctx.instantiate::<LastBitDecoderStage>(&dsn.sense_en_buffer)?
+        ctx.instantiate::<DecoderStage>(&dsn.sense_en_buffer)?
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
@@ -292,13 +313,15 @@ fn inverter_chain_num_stages(cl: f64) -> usize {
     stages
 }
 
-pub fn fanout_buffer_stage(cl: f64) -> DecoderStageParams {
+pub fn fanout_buffer_stage(pd: PhysicalDesignParams, cl: f64) -> DecoderStageParams {
     let stages = buffer_chain_num_stages(cl);
     let invs = InverterGateTreeNode::buffer(stages)
         .elaborate()
         .size(cl)
         .as_inv_chain();
     DecoderStageParams {
+        pd,
+        routing_style: RoutingStyle::Decoder,
         max_width: None,
         gate: GateParams::Inv(invs[0]),
         invs: invs.into_iter().skip(1).collect(),
@@ -307,7 +330,10 @@ pub fn fanout_buffer_stage(cl: f64) -> DecoderStageParams {
     }
 }
 
-fn fanout_buffer_stage_with_inverted_output(cl: f64) -> DecoderStageParams {
+fn fanout_buffer_stage_with_inverted_output(
+    pd: PhysicalDesignParams,
+    cl: f64,
+) -> DecoderStageParams {
     let stages = inverter_chain_num_stages(cl);
     let mut invs = InverterGateTreeNode::inverter(stages)
         .elaborate()
@@ -315,6 +341,8 @@ fn fanout_buffer_stage_with_inverted_output(cl: f64) -> DecoderStageParams {
         .as_inv_chain();
     invs.push(invs.last().unwrap().clone());
     DecoderStageParams {
+        pd,
+        routing_style: RoutingStyle::Decoder,
         max_width: None,
         gate: GateParams::Inv(invs[0]),
         invs: invs.into_iter().skip(1).collect(),

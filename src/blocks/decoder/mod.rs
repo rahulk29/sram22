@@ -1,14 +1,9 @@
-use self::layout::{
-    decoder_stage_layout, decoder_stage_schematic, LastBitDecoderPhysicalDesignScript,
-    PredecoderPhysicalDesignScript, RoutingStyle,
-};
+use self::layout::{PhysicalDesignParams, RoutingStyle};
 use crate::blocks::decoder::sizing::{path_map_tree, Tree, ValueTree};
 use serde::{Deserialize, Serialize};
 use subgeom::snap_to_grid;
-use substrate::component::{Component, NoParams};
-use substrate::index::IndexOwned;
+use substrate::component::Component;
 use substrate::logic::delay::{GateModel, LogicPath, OptimizerOpts};
-use substrate::schematic::circuit::Direction;
 
 use super::gate::{AndParams, Gate, GateParams, GateType, PrimitiveGateParams, PrimitiveGateType};
 
@@ -28,12 +23,15 @@ pub struct DecoderStage {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DecoderParams {
+    pub pd: PhysicalDesignParams,
     pub max_width: Option<i64>,
     pub tree: DecoderTree,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DecoderStageParams {
+    pub pd: PhysicalDesignParams,
+    pub routing_style: RoutingStyle,
     pub max_width: Option<i64>,
     pub gate: GateParams,
     pub invs: Vec<PrimitiveGateParams>,
@@ -61,78 +59,6 @@ struct PlanTreeNode {
     num: usize,
     children: Vec<PlanTreeNode>,
     skew_rising: bool,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct AddrGateParams {
-    pub gate: GateParams,
-    pub num: usize,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct AddrGate {
-    params: AddrGateParams,
-}
-
-impl Component for AddrGate {
-    type Params = AddrGateParams;
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        let gate = match params.gate {
-            params @ GateParams::And2(_) => params,
-            GateParams::And3(params) => GateParams::And2(params),
-            x => panic!(
-                "address gating must be performed by AND gates, got {:?}",
-                x.gate_type()
-            ),
-        };
-        Ok(Self {
-            params: AddrGateParams {
-                gate,
-                num: params.num,
-            },
-        })
-    }
-
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("addr_gate")
-    }
-
-    fn schematic(
-        &self,
-        ctx: &mut substrate::schematic::context::SchematicCtx,
-    ) -> substrate::error::Result<()> {
-        let dsn = ctx
-            .inner()
-            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
-        let params = DecoderStageParams {
-            max_width: None,
-            gate: self.params.gate,
-            invs: vec![],
-            num: self.params.num,
-            child_sizes: vec![],
-        };
-        decoder_stage_schematic(ctx, &params, &dsn, RoutingStyle::Driver)
-    }
-
-    fn layout(
-        &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
-    ) -> substrate::error::Result<()> {
-        let dsn = ctx
-            .inner()
-            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
-        let params = DecoderStageParams {
-            max_width: None,
-            gate: self.params.gate,
-            invs: vec![],
-            num: self.params.num,
-            child_sizes: vec![],
-        };
-        decoder_stage_layout(ctx, &params, &dsn, RoutingStyle::Driver)
-    }
 }
 
 impl DecoderTree {
@@ -530,6 +456,7 @@ impl Component for DecoderStage {
 #[cfg(test)]
 mod tests {
 
+    use subgeom::Dir;
     use substrate::component::NoParams;
 
     use crate::blocks::gate::AndParams;
@@ -538,7 +465,7 @@ mod tests {
     use crate::tests::test_work_dir;
 
     use super::layout::{
-        DecoderGate, DecoderGateParams, LastBitDecoderPhysicalDesignScript, LastBitDecoderStage,
+        DecoderGate, DecoderGateParams, DecoderPhysicalDesignScript, DecoderStyle,
     };
     use super::*;
 
@@ -549,6 +476,10 @@ mod tests {
 
         let tree = DecoderTree::new(4, 150e-15);
         let params = DecoderParams {
+            pd: PhysicalDesignParams {
+                style: DecoderStyle::RowMatched,
+                dir: Dir::Horiz,
+            },
             max_width: None,
             tree,
         };
@@ -563,6 +494,11 @@ mod tests {
         let work_dir = test_work_dir("test_decoder_stage_4");
 
         let params = DecoderStageParams {
+            pd: PhysicalDesignParams {
+                style: DecoderStyle::RowMatched,
+                dir: Dir::Horiz,
+            },
+            routing_style: RoutingStyle::Decoder,
             max_width: None,
             gate: GateParams::And2(AndParams {
                 nand: PrimitiveGateParams {
@@ -591,7 +527,10 @@ mod tests {
         let work_dir = test_work_dir("test_decoder_gate");
 
         let dsn = ctx
-            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)
+            .run_script::<DecoderPhysicalDesignScript>(&PhysicalDesignParams {
+                style: DecoderStyle::RowMatched,
+                dir: Dir::Horiz,
+            })
             .expect("failed to run design script");
 
         let params = DecoderGateParams {
@@ -613,100 +552,5 @@ mod tests {
 
         ctx.write_layout::<DecoderGate>(&params, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
-    }
-
-    #[test]
-    fn test_predecoder_4() {
-        let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_predecoder_4");
-
-        let tree = DecoderTree::new(4, 150e-15);
-        let params = DecoderParams {
-            max_width: None,
-            tree,
-        };
-
-        ctx.write_layout::<Predecoder>(&params, out_gds(work_dir, "layout"))
-            .expect("failed to write layout");
-    }
-
-    #[test]
-    fn test_predecoder_6() {
-        let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_predecoder_6");
-
-        let tree = DecoderTree::new(6, 150e-15);
-        let params = DecoderParams {
-            max_width: None,
-            tree,
-        };
-
-        ctx.write_layout::<Predecoder>(&params, out_gds(&work_dir, "layout"))
-            .expect("failed to write layout");
-        #[cfg(feature = "commercial")]
-        {
-            let output = ctx
-                .write_drc::<Predecoder>(&params, work_dir.join("drc"))
-                .expect("failed to run drc");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::drc::DrcSummary::Pass
-            ));
-        }
-    }
-
-    #[test]
-    fn test_last_bit_decoder_stage() {
-        let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_last_bit_decoder_4");
-
-        let params = DecoderStageParams {
-            max_width: Some(70_000),
-            gate: GateParams::And2(AndParams {
-                nand: PrimitiveGateParams {
-                    nwidth: 3_000,
-                    pwidth: 1_200,
-                    length: 150,
-                },
-                inv: PrimitiveGateParams {
-                    nwidth: 2_000,
-                    pwidth: 2_000,
-                    length: 150,
-                },
-            }),
-            invs: vec![PrimitiveGateParams {
-                nwidth: 2_000,
-                pwidth: 2_000,
-                length: 150,
-            }],
-            num: 16,
-            child_sizes: vec![4, 4],
-        };
-
-        let spice_path = out_spice(&work_dir, "schematic");
-        ctx.write_schematic_to_file::<LastBitDecoderStage>(&params, &spice_path)
-            .expect("failed to write schematic");
-
-        ctx.write_layout::<LastBitDecoderStage>(&params, out_gds(&work_dir, "layout"))
-            .expect("failed to write layout");
-        #[cfg(feature = "commercial")]
-        {
-            let output = ctx
-                .write_drc::<LastBitDecoderStage>(&params, work_dir.join("drc"))
-                .expect("failed to run drc");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::drc::DrcSummary::Pass
-            ));
-
-            let lvs_work_dir = work_dir.join("lvs");
-            let output = ctx
-                .write_lvs::<LastBitDecoderStage>(&params, lvs_work_dir)
-                .expect("failed to run LVS");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::lvs::LvsSummary::Pass
-            ));
-        }
     }
 }
