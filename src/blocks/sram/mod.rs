@@ -264,14 +264,10 @@ impl Script for SramPhysicalDesignScript {
                     dir: Dir::Horiz,
                 },
                 max_width: Some(
-                    cols.port(PortId::new("sel_b", params.mux_ratio() - 1))?
+                    cols.port(PortId::new("sel_b", 0))?
                         .largest_rect(m2)?
                         .vspan()
-                        .union(
-                            cols.port(PortId::new("sel", params.mux_ratio() - 1))?
-                                .largest_rect(m2)?
-                                .vspan(),
-                        )
+                        .union(cols.port(PortId::new("sel", 0))?.largest_rect(m2)?.vspan())
                         .length(),
                 ),
                 // TODO use tgate mux input cap

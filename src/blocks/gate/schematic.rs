@@ -60,7 +60,7 @@ impl And3 {
         ]);
         ctx.add_instance(nand);
 
-        let mut inv = ctx.instantiate::<Inv>(&self.params.inv)?;
+        let mut inv = ctx.instantiate::<FoldedInv>(&self.params.inv)?;
         inv.connect_all([("vdd", &vdd), ("a", &yb), ("y", &y), ("vss", &vss)]);
         ctx.add_instance(inv);
 

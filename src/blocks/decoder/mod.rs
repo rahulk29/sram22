@@ -512,13 +512,38 @@ mod tests {
                     length: 150,
                 },
             }),
-            invs: vec![],
+            invs: vec![PrimitiveGateParams {
+                nwidth: 2_000,
+                pwidth: 2_000,
+                length: 150,
+            }],
             num: 4,
             child_sizes: vec![2, 2],
         };
 
         ctx.write_layout::<DecoderStage>(&params, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
+
+        #[cfg(feature = "commercial")]
+        {
+            let drc_work_dir = work_dir.join("drc");
+            let output = ctx
+                .write_drc::<DecoderStage>(&params, drc_work_dir)
+                .expect("failed to run DRC");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::drc::DrcSummary::Pass
+            ));
+
+            let lvs_work_dir = work_dir.join("lvs");
+            let output = ctx
+                .write_lvs::<DecoderStage>(&params, lvs_work_dir)
+                .expect("failed to run LVS");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::lvs::LvsSummary::Pass
+            ));
+        }
     }
 
     #[test]
