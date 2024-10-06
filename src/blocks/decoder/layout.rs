@@ -49,6 +49,19 @@ pub(crate) struct FoldingParams {
     folding_factors: Vec<usize>,
 }
 
+/// Doubles the width if needed to accomodate NAND3 gates.
+pub(crate) fn expand_width(gate: &GateParams, dsn: &mut PhysicalDesign) {
+    if dsn.width < 1_900 && matches!(gate, GateParams::And3(_) | GateParams::Nand3(_)) {
+        assert_eq!(
+            dsn.tap_period % 2,
+            0,
+            "tap period must be even for expansion"
+        );
+        dsn.width = 2 * dsn.width;
+        dsn.tap_period = dsn.tap_period / 2;
+    }
+}
+
 pub(crate) fn calculate_folding(
     params: &DecoderStageParams,
     dsn: &PhysicalDesign,
@@ -70,13 +83,16 @@ pub(crate) fn calculate_folding(
                 GateParams::Nand3(params) => (GateParams::Nand3(params), vec![params]),
                 GateParams::Nor2(params) => (GateParams::Nor2(params), vec![params]),
             };
-            let folding_factor_limit = (max_width as usize
-                - dsn.tap_width as usize
-                    * ((max_width as usize)
-                        .div_ceil(dsn.tap_period * dsn.width as usize + dsn.tap_width as usize)
-                        + 1))
-                / params.num
-                / dsn.width as usize;
+            let folding_factor_limit = std::cmp::max(
+                (max_width as usize
+                    - dsn.tap_width as usize
+                        * ((max_width as usize).div_ceil(
+                            dsn.tap_period * dsn.width as usize + dsn.tap_width as usize,
+                        ) + 1))
+                    / params.num
+                    / dsn.width as usize,
+                1,
+            );
             let mut max_folding_factor = 0;
             let mut folding_factors = vec![];
             for params in primitive_gate_params.iter().chain(params.invs.iter()) {
@@ -123,11 +139,13 @@ pub(crate) fn decoder_stage_schematic(
     dsn: &PhysicalDesign,
     routing_style: RoutingStyle,
 ) -> Result<()> {
+    let mut dsn = (*dsn).clone();
+    expand_width(&params.gate, &mut dsn);
     let FoldingParams {
         gate_params,
         max_folding_factor: _,
         folding_factors,
-    } = calculate_folding(params, dsn);
+    } = calculate_folding(params, &dsn);
     let num_stages = gate_params.len();
     let vdd = ctx.port("vdd", Direction::InOut);
     let vss = ctx.port("vss", Direction::InOut);
@@ -226,12 +244,14 @@ pub(crate) fn decoder_stage_layout(
     dsn: &PhysicalDesign,
     routing_style: RoutingStyle,
 ) -> Result<()> {
+    let mut dsn = (*dsn).clone();
+    expand_width(&params.gate, &mut dsn);
     // TODO: Parameter validation
     let FoldingParams {
         gate_params,
         max_folding_factor,
         folding_factors,
-    } = calculate_folding(params, dsn);
+    } = calculate_folding(params, &dsn);
 
     let mut tiler = ArrayTiler::builder();
     let num_stages = gate_params.len();
@@ -240,7 +260,7 @@ pub(crate) fn decoder_stage_layout(
         let decoder_params = DecoderGateParams {
             gate: gate.scale(1. / (folding_factor as f64)),
             filler: false,
-            dsn: (*dsn).clone(),
+            dsn: dsn.clone(),
         };
         let gate = ctx.instantiate::<DecoderGate>(&decoder_params)?;
         let filler_gate = ctx.instantiate::<DecoderGate>(&DecoderGateParams {
@@ -600,11 +620,16 @@ pub(crate) fn decoder_stage_layout(
     Ok(())
 }
 
+struct Metadata {
+    final_stage_width: i64,
+}
+
 impl Decoder {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
-        let dsn = ctx
+        let mut dsn = (*ctx
             .inner()
-            .run_script::<DecoderPhysicalDesignScript>(&self.params.pd)?;
+            .run_script::<DecoderPhysicalDesignScript>(&self.params.pd)?)
+        .clone();
         let mut node = &self.params.tree.root;
         let mut invs = vec![];
 
@@ -622,6 +647,10 @@ impl Decoder {
         } else {
             node.children.iter().map(|n| n.num).collect()
         };
+        expand_width(&node.gate, &mut dsn);
+        ctx.set_metadata(Metadata {
+            final_stage_width: dsn.width,
+        });
         let params = DecoderStageParams {
             pd: self.params.pd,
             routing_style: RoutingStyle::Decoder,
@@ -673,6 +702,7 @@ impl Decoder {
                 }
             }
 
+            let final_stage_width = child.cell().get_metadata::<Metadata>().final_stage_width;
             for j in 0..node.num {
                 let src = child
                     .port(PortId::new("y", j))?
@@ -688,9 +718,9 @@ impl Decoder {
                     Rect::from_spans(src.hspan(), Span::with_stop_and_length(src.top(), 170));
                 let jog = OffsetJog::builder()
                     .dir(Dir::Horiz)
-                    .sign(if j % 2 == 0 { Sign::Pos } else { Sign::Neg })
+                    .sign(Sign::Neg)
                     .src(rect)
-                    .space(450)
+                    .space(final_stage_width / 2 - 170)
                     .dst(dst.top())
                     .layer(dsn.li)
                     .build()
@@ -1083,7 +1113,7 @@ impl Script for DecoderPhysicalDesignScript {
         let nsdm = layers.get(Selector::Name("nsdm"))?;
         let (width, tap_width) = match params.style {
             DecoderStyle::RowMatched => (1_580, 1_580),
-            DecoderStyle::Relaxed => (2_000, 1_000),
+            DecoderStyle::Relaxed => (1_900, 1_000),
             DecoderStyle::Minimum => (1_470, 1_000),
         };
         Ok(Self::Output {

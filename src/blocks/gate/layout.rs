@@ -74,25 +74,30 @@ impl And3 {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let nand = ctx.instantiate::<Nand3>(&self.params.nand)?;
-        let mut inv = ctx.instantiate::<Inv>(&self.params.inv)?;
+        let mut inv = ctx.instantiate::<FoldedInv>(&self.params.inv)?;
 
         inv.align_to_the_right_of(nand.bbox(), 300);
         inv.align_centers_vertically_gridded(nand.bbox(), ctx.pdk().layout_grid());
 
         let m0 = nand.port("y")?.any_layer();
-        let dst = inv.port("a")?.largest_rect(m0)?;
-        let jog = OffsetJog::builder()
-            .dir(subgeom::Dir::Horiz)
-            .sign(subgeom::Sign::Pos)
-            .src(nand.port("y")?.largest_rect(m0)?)
-            .dst(dst.bottom())
-            .layer(m0)
-            .space(170)
-            .build()
-            .unwrap();
-        let rect = Rect::from_spans(Span::new(jog.r2().left(), dst.right()), dst.vspan());
-        ctx.draw(jog)?;
-        ctx.draw_rect(m0, rect);
+        for dst in inv
+            .port("a")?
+            .shapes(m0)
+            .filter_map(|shape| shape.as_rect())
+        {
+            let jog = OffsetJog::builder()
+                .dir(subgeom::Dir::Horiz)
+                .sign(subgeom::Sign::Pos)
+                .src(nand.port("y")?.largest_rect(m0)?)
+                .dst(dst.bottom())
+                .layer(m0)
+                .space(170)
+                .build()
+                .unwrap();
+            let rect = Rect::from_spans(Span::new(jog.r2().left(), dst.right()), dst.vspan());
+            ctx.draw(jog)?;
+            ctx.draw_rect(m0, rect);
+        }
 
         ctx.add_port(
             nand.port("vdd")?

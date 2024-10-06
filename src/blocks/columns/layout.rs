@@ -422,13 +422,14 @@ impl WmaskPeripherals {
         }
         grid.push_row(row);
         let mut row = vec![];
+        let offset = (self.params.mux_ratio() - 4) / 2;
         for _ in 0..self.params.wmask_bits() {
             let wmask_dff_brect = wmask_dff.layer_bbox(outline).into_rect();
             row.push(
                 RectBbox::new(
                     wmask_dff.clone(),
                     wmask_dff_brect.with_hspan(Span::with_start_and_length(
-                        wmask_dff_brect.left(),
+                        wmask_dff_brect.left() - offset as i64 * pc_design.width,
                         wmask_unit_width,
                     )),
                 )
@@ -560,8 +561,12 @@ impl Column {
         let bbox = Rect::from_spans(pc.brect().hspan(), sa.brect().vspan());
 
         let mut row = Vec::new();
+        let offset = (mux_ratio - 4) / 2;
+        for _ in 0..offset {
+            row.push(None.into());
+        }
         row.push(OptionTile::new(Tile::from(RectBbox::new(sa.clone(), bbox))));
-        for _ in 0..mux_ratio - 1 {
+        for _ in offset + 1..mux_ratio {
             row.push(None.into());
         }
         grid.push_row(row);
@@ -573,11 +578,14 @@ impl Column {
         );
 
         let mut row = Vec::new();
+        for _ in 0..offset {
+            row.push(None.into());
+        }
         row.push(OptionTile::new(Tile::from(RectBbox::new(
             wrdrv.clone(),
             bbox,
         ))));
-        for _ in 0..mux_ratio - 1 {
+        for _ in offset + 1..mux_ratio {
             row.push(None.into());
         }
         grid.push_row(row);
@@ -589,11 +597,14 @@ impl Column {
         );
 
         let mut row = Vec::new();
+        for _ in 0..offset {
+            row.push(None.into());
+        }
         row.push(OptionTile::new(Tile::from(RectBbox::new(
             buf.clone(),
             bbox,
         ))));
-        for _ in 0..mux_ratio - 1 {
+        for _ in offset + 1..mux_ratio {
             row.push(None.into());
         }
         grid.push_row(row);
@@ -608,11 +619,14 @@ impl Column {
         );
 
         let mut row = Vec::new();
+        for _ in 0..offset {
+            row.push(None.into());
+        }
         row.push(OptionTile::new(Tile::from(RectBbox::new(
             dff.clone(),
             bbox,
         ))));
-        for _ in 0..mux_ratio - 1 {
+        for _ in offset + 1..mux_ratio {
             row.push(None.into());
         }
         grid.push_row(row);
@@ -620,10 +634,10 @@ impl Column {
         let mut tiler = GridTiler::new(grid);
         pc.translate(tiler.translation(0, 0));
         mux.translate(tiler.translation(1, 0));
-        sa.translate(tiler.translation(2, 0));
-        wrdrv.translate(tiler.translation(3, 0));
-        buf.translate(tiler.translation(4, 0));
-        dff.translate(tiler.translation(5, 0));
+        sa.translate(tiler.translation(2, offset));
+        wrdrv.translate(tiler.translation(3, offset));
+        buf.translate(tiler.translation(4, offset));
+        dff.translate(tiler.translation(5, offset));
         tiler.expose_ports(
             |port: CellPort, (i, j)| match port.name().as_str() {
                 "br_in" => Some(port.named("br").with_index(j)),
@@ -654,6 +668,7 @@ impl Column {
         let m0 = layers.get(Selector::Metal(0))?;
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
+        let nwell = layers.get(Selector::Name("nwell"))?;
 
         // Route sense amp inputs to bitlines.
         for (tgate_port, sa_port) in [("bl_out", "inp"), ("br_out", "inn")] {
@@ -781,6 +796,13 @@ impl Column {
             ctx.add_port(CellPort::builder().id(in_port).add(m1, m1_rect).build())?;
             ctx.draw_rect(m2, m2_rect);
             ctx.draw(via)?;
+        }
+
+        // Expand nwells
+        for inst in [&sa, &wrdrv, &buf] {
+            for shape in inst.shapes_on(nwell) {
+                ctx.draw_rect(nwell, shape.brect().with_hspan(ctx.brect().hspan()));
+            }
         }
 
         Ok(())
