@@ -77,6 +77,7 @@ impl DecoderTree {
             plan
         };
         let root = size_decoder(&plan, cload);
+        println!("decoder tree = {root:#?}");
         DecoderTree { root }
     }
 }
