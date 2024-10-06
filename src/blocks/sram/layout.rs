@@ -101,48 +101,67 @@ fn get_layer(dir: Dir, ctx: &LayoutCtx) -> Result<LayerKey> {
 }
 
 fn draw_route(
-    start: Span,
-    end: Span,
+    start: Rect,
+    end: Rect,
     dir: Dir,
     tracks: Vec<i64>,
     router: &mut GreedyRouter,
     ctx: &mut LayoutCtx,
 ) -> Result<()> {
-    let mut spans = vec![start];
+    let mut spans = vec![start.span(dir)];
     spans.extend(tracks.into_iter().enumerate().map(|(i, track)| {
         router
             .track_info(get_layer(if i % 2 == 0 { !dir } else { dir }, ctx).unwrap())
             .tracks()
             .index(track)
     }));
-    spans.push(end);
+    spans.push(end.span(if tracks.len() % 2 == 0 { !dir } else { dir }));
     let mut curr_dir = dir;
-    let mut prev_rect = None;
+    let mut prev_rect = Some(start);
     for spans in spans.windows(3) {
         let (prev_track_span, curr_track_span, next_track_span) = (spans[0], spans[1], spans[2]);
-        let curr_layer = get_layer(curr_dir, ctx)?;
-        let next_layer = get_layer(!curr_dir, ctx)?;
-        let rect = Rect::span_builder()
-            .with(curr_dir, prev_track_span.union(next_track_span))
-            .with(!curr_dir, curr_track_span)
-            .build();
-        ctx.draw_rect(curr_layer, rect);
-        router.block(curr_layer, rect);
-        if let Some(prev_rect) = prev_rect {
-            let (bot_rect, top_rect, bot_layer, top_layer) = match curr_dir {
-                Dir::Horiz => (prev_rect, rect, next_layer, curr_layer),
-                Dir::Vert => (rect, prev_rect, curr_layer, next_layer),
-            };
-            let via = ctx.instantiate::<Via>(
-                &ViaParams::builder()
-                    .layers(bot_layer, top_layer)
-                    .geometry(bot_rect, top_rect)
-                    .build(),
-            )?;
-            ctx.draw(via)?;
+        if prev_track_span == next_track_span {
+            prev_rect = None;
+        } else {
+            let curr_layer = get_layer(curr_dir, ctx)?;
+            let next_layer = get_layer(!curr_dir, ctx)?;
+            let rect = Rect::span_builder()
+                .with(curr_dir, prev_track_span.union(next_track_span))
+                .with(!curr_dir, curr_track_span)
+                .build();
+            ctx.draw_rect(curr_layer, rect);
+            router.block(curr_layer, rect);
+            if let Some(prev_rect) = prev_rect {
+                let (bot_rect, top_rect, bot_layer, top_layer) = match curr_dir {
+                    Dir::Horiz => (prev_rect, rect, next_layer, curr_layer),
+                    Dir::Vert => (rect, prev_rect, curr_layer, next_layer),
+                };
+                let via = ctx.instantiate::<Via>(
+                    &ViaParams::builder()
+                        .layers(bot_layer, top_layer)
+                        .geometry(bot_rect, top_rect)
+                        .build(),
+                )?;
+                ctx.draw(via)?;
+            }
+            prev_rect = Some(rect);
         }
         curr_dir = !curr_dir;
-        prev_rect = Some(rect);
+    }
+    if let Some(prev_rect) = prev_rect {
+        let curr_layer = get_layer(curr_dir, ctx)?;
+        let next_layer = get_layer(!curr_dir, ctx)?;
+        let (bot_rect, top_rect, bot_layer, top_layer) = match curr_dir {
+            Dir::Horiz => (prev_rect, end, next_layer, curr_layer),
+            Dir::Vert => (end, prev_rect, curr_layer, next_layer),
+        };
+        let via = ctx.instantiate::<Via>(
+            &ViaParams::builder()
+                .layers(bot_layer, top_layer)
+                .geometry(bot_rect, top_rect)
+                .build(),
+        )?;
+        ctx.draw(via)?;
     }
     Ok(())
 }
@@ -187,13 +206,20 @@ impl SramInner {
             .instantiate::<ReplicaPrecharge>(&dsn.replica_pc)?
             .with_orientation(Named::ReflectVert);
 
-        // Align column peripherals under bitcell array.
-        cols.align_beneath(bitcells.bbox(), 4_000);
-        cols.align_centers_horizontally_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
-
         // Align row decoders to left of bitcell array.
         decoder.align_to_the_left_of(bitcells.bbox(), 6_000);
         decoder.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
+
+        // Align address gate to the left of the row decoder.
+        addr_gate.align_to_the_left_of(
+            decoder.bbox(),
+            700 + 1_400 * self.params.addr_width() as i64,
+        );
+        addr_gate.align_bottom(decoder.bbox());
+
+        // Align column peripherals under bitcell array.
+        cols.align_beneath(bitcells.bbox(), 4_000);
+        cols.align_centers_horizontally_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
 
         // Align pc_b buffer with pc_b port of column peripherals.
         pc_b_buffer.align_bottom(cols.port("pc_b")?.largest_rect(m2)?);
@@ -210,6 +236,8 @@ impl SramInner {
             std::cmp::max(6_000, 1_400 + 700 * self.params.mux_ratio() as i64),
         );
         col_dec.translate(Point::new(0, -1_000));
+
+        // Align sense_en buffer as close to column peripheral sense_en port as possible.
         sense_en_buffer.align_beneath(
             col_dec.brect().expand(4_000).with_vspan(
                 col_dec
@@ -220,13 +248,13 @@ impl SramInner {
             0,
         );
         sense_en_buffer.align_to_the_left_of(cols.bbox(), 6_000);
+
+        // Align write driver underneath sense_en buffer.
         write_driver_en_buffer.align_beneath(sense_en_buffer.bbox(), 4_000);
         write_driver_en_buffer.align_to_the_left_of(cols.bbox(), 6_000);
-        addr_gate.align_to_the_left_of(
-            decoder.bbox(),
-            700 + 1_400 * self.params.addr_width() as i64,
-        );
-        addr_gate.align_bottom(decoder.bbox());
+
+        // Align control logic to the left of all of the buffers and column decoder that border
+        // column peripherals.
         let buffer_bbox = col_dec
             .bbox()
             .union(sense_en_buffer.bbox())
@@ -239,10 +267,15 @@ impl SramInner {
             buffer_bbox,
             2_100 + 1_400 * self.params.col_select_bits() as i64,
         );
+
+        // Align replica bitcell array to left of control logic, with replica precharge
+        // aligned to top of control logic.
         rbl.align_to_the_left_of(control.bbox(), 7_000);
         replica_pc.align_beneath(decoder.bbox(), 4_000);
         replica_pc.align_centers_horizontally_gridded(rbl.bbox(), ctx.pdk().layout_grid());
         rbl.align_beneath(replica_pc.bbox(), 4_000);
+
+        // Align DFFs to the left of column peripherals and underneath all other objects.
         dffs.align_to_the_left_of(cols.bbox(), 8_000);
         dffs.align_beneath(
             control
@@ -252,6 +285,7 @@ impl SramInner {
             3_500 + 1_400 * self.params.row_bits() as i64,
         );
 
+        // Draw instances.
         ctx.draw_ref(&bitcells)?;
         ctx.draw_ref(&cols)?;
         ctx.draw_ref(&decoder)?;
@@ -265,15 +299,7 @@ impl SramInner {
         ctx.draw_ref(&rbl)?;
         ctx.draw_ref(&replica_pc)?;
 
-        // Route precharges to bitcell array
-        for i in 0..self.params.cols() {
-            for port_name in ["bl", "br"] {
-                let src = cols.port(PortId::new(port_name, i))?.largest_rect(m1)?;
-                let dst = bitcells.port(PortId::new(port_name, i))?.largest_rect(m1)?;
-                ctx.draw_rect(m1, src.union(dst.bbox()).into_rect());
-            }
-        }
-
+        // Set up autorouter for automatic strap placement.
         let router_bbox = ctx
             .brect()
             .expand(8 * 680)
@@ -299,6 +325,7 @@ impl SramInner {
             ],
         });
 
+        // Block appropriate areas in router for each instance.
         for inst in [
             &addr_gate,
             &decoder,
@@ -318,17 +345,24 @@ impl SramInner {
             }
         }
 
+        // Block entirety of bounding box for bitcells, replica bitcells, and column peripherals.
         for inst in [&bitcells, &rbl, &cols] {
             router.block(m1, inst.brect().expand_dir(Dir::Vert, 6_000));
             router.block(m2, inst.brect().expand_dir(Dir::Horiz, 6_000));
         }
 
-        // Route DFF input signals to pins on bounding box of SRAM
+        // Route precharges to bitcell array.
+        for i in 0..self.params.cols() {
+            for port_name in ["bl", "br"] {
+                let src = cols.port(PortId::new(port_name, i))?.largest_rect(m1)?;
+                let dst = bitcells.port(PortId::new(port_name, i))?.largest_rect(m1)?;
+                ctx.draw_rect(m1, src.union(dst.bbox()).into_rect());
+            }
+        }
+
+        // Route DFF input signals to pins on bounding box of SRAM on m1.
         for i in 0..dsn.num_dffs {
             let src = dffs.port(PortId::new("d", i))?.largest_rect(m0)?;
-            let expanded_rect =
-                router.expand_to_layer_grid(src, m1, ExpandToGridStrategy::Side(Side::Bot));
-            ctx.draw_rect(m1, expanded_rect);
             let tracks = router.track_info(m1).tracks();
             let track_span =
                 tracks.index(tracks.track_with_loc(TrackLocator::Nearest, src.center().x));
@@ -351,20 +385,25 @@ impl SramInner {
             let via = ctx.instantiate::<Via>(
                 &ViaParams::builder()
                     .layers(m0, m1)
-                    .geometry(src, expanded_rect)
+                    .geometry(src, src)
                     .build(),
             )?;
+            let expanded_rect = via.layer_bbox(m1).into_rect();
+            let expanded_rect = expanded_rect.with_hspan(expanded_rect.hspan().union(track_span));
             ctx.draw(via)?;
+            ctx.draw_rect(m1, expanded_rect);
             router.block(m1, expanded_rect);
             router.block(m1, m1_rect);
         }
 
+        // Route address gate to predecoders.
         let addr_gate_m1_track_idx = router
             .track_info(m1)
             .tracks()
             .track_with_loc(TrackLocator::StartsAfter, addr_gate.brect().right() + 700);
+        // Maps predecoder port spans to the previous m2 track used to connect to the input bus.
+        // Increments each time a track is used.
         let mut m2_prev_track = HashMap::new();
-        // Route address gate to predecoders.
         for i in 0..self.params.row_bits() {
             for j in 0..2 {
                 let idx = 2 * i + j;
@@ -373,6 +412,9 @@ impl SramInner {
                     .port(format!("predecode_{}_{}", i, j))?
                     .largest_rect(m1)?;
 
+                // Choose the track to use to connect to the predecoder input bus.
+                // If bus has already been connected to, use next track.
+                // Otherwise, use bottom most track contained by the bus's vertical span.
                 let m2_track_final_idx = *m2_prev_track
                     .entry(predecode_port.vspan())
                     .and_modify(|v| *v += 1)
@@ -382,10 +424,12 @@ impl SramInner {
                             .tracks()
                             .track_with_loc(TrackLocator::StartsAfter, predecode_port.bottom()),
                     );
-                let tracks = router.track_info(m2).tracks();
-                let track_idx = tracks.track_with_loc(TrackLocator::Nearest, y.top());
-                let track = tracks.index(track_idx);
 
+                // Jog the address gate output port to the nearest m2 track.
+                let m2_tracks = router.track_info(m2).tracks();
+                let m2_track_idx = m2_tracks.track_with_loc(TrackLocator::Nearest, y.top());
+                let m2_track = m2_tracks.index(m2_track_idx);
+                // Expand port to make space for via.
                 let rect = y.expand_side(Side::Right, 340);
                 ctx.draw_rect(m0, rect);
                 let via_rect = rect.with_hspan(Span::with_stop_and_length(rect.right(), 340));
@@ -396,64 +440,28 @@ impl SramInner {
                         .build(),
                 )?;
                 ctx.draw_ref(&via)?;
+                // Expand m1 rect of via to overlap with m2 track.
                 let m1_rect = via.layer_bbox(m1).into_rect();
-                let m1_rect = m1_rect.with_vspan(m1_rect.vspan().union(track));
-
-                let m1_track =
-                    router
-                        .track_info(m1)
-                        .tracks()
-                        .index(if m2_track_final_idx < track_idx {
-                            addr_gate_m1_track_idx + idx as i64
-                        } else {
-                            addr_gate_m1_track_idx + 2 * self.params.row_bits() as i64
-                                - 1
-                                - idx as i64
-                        });
-                let m2_rect = Rect::from_spans(m1_rect.hspan().union(m1_track), track);
+                let m1_rect = m1_rect.with_vspan(m1_rect.vspan().union(m2_track));
                 ctx.draw_rect(m1, m1_rect);
-                ctx.draw_rect(m2, m2_rect);
-                let via = ctx.instantiate::<Via>(
-                    &ViaParams::builder()
-                        .layers(m1, m2)
-                        .geometry(m1_rect, m2_rect)
-                        .build(),
-                )?;
-                ctx.draw_ref(&via)?;
                 router.block(m1, m1_rect);
-                router.block(m2, m2_rect);
 
-                let m2_track = router.track_info(m2).tracks().index(m2_track_final_idx);
-                let m2_rect_final =
-                    Rect::from_spans(m1_track.union(predecode_port.hspan()), m2_track);
-                ctx.draw_rect(m2, m2_rect_final);
-                if m2_track_final_idx != track_idx {
-                    let m1_rect = Rect::from_spans(m1_track, track.union(m2_track));
-                    ctx.draw_rect(m1, m1_rect);
-                    let via = ctx.instantiate::<Via>(
-                        &ViaParams::builder()
-                            .layers(m1, m2)
-                            .geometry(m1_rect, m2_rect)
-                            .build(),
-                    )?;
-                    ctx.draw_ref(&via)?;
-                    let via = ctx.instantiate::<Via>(
-                        &ViaParams::builder()
-                            .layers(m1, m2)
-                            .geometry(m1_rect, m2_rect_final)
-                            .build(),
-                    )?;
-                    ctx.draw_ref(&via)?;
-                    router.block(m1, m1_rect);
-                }
-                let via = ctx.instantiate::<Via>(
-                    &ViaParams::builder()
-                        .layers(m1, m2)
-                        .geometry(predecode_port, m2_rect_final)
-                        .build(),
+                // Determine m1 track to jog the signal vertically. If the signal needs to jog
+                // downwards, need the m1 track number to increase as we move upward through
+                // the address gate outputs.
+                let m1_track_idx = if m2_track_final_idx < m2_track_idx {
+                    addr_gate_m1_track_idx + idx as i64
+                } else {
+                    addr_gate_m1_track_idx + 2 * self.params.row_bits() as i64 - 1 - idx as i64
+                };
+                draw_route(
+                    m1_rect,
+                    predecode_port,
+                    Dir::Horiz,
+                    vec![m2_track_idx, m1_track_idx, m2_track_final_idx],
+                    &mut router,
+                    ctx,
                 )?;
-                ctx.draw_ref(&via)?;
-                router.block(m2, m2_rect_final);
             }
         }
 

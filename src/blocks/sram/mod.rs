@@ -242,14 +242,17 @@ impl Script for SramPhysicalDesignScript {
         };
 
         let col_dec_inst = ctx.instantiate_layout::<Decoder>(&col_decoder)?;
-        let wrdrven_saen_width = cols
+        let sel_span = cols
             .port(PortId::new("sel", params.mux_ratio() - 1))?
             .largest_rect(m2)?
-            .vspan()
-            .add_point(cols.brect().bottom())
-            .length()
-            / 2
-            - col_dec_inst.brect().height();
+            .vspan();
+        let wrdrven_saen_width = sel_span.add_point(cols.brect().bottom()).length() / 2
+            - std::cmp::max(
+                col_dec_inst.brect().height(),
+                sel_span
+                    .union(cols.port("sense_en")?.largest_rect(m2)?.vspan())
+                    .length(),
+            );
         Ok(Self::Output {
             bitcells: SpCellArrayParams {
                 rows: params.rows(),
