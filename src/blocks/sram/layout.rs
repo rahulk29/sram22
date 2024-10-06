@@ -108,18 +108,22 @@ fn draw_route(
     router: &mut GreedyRouter,
     ctx: &mut LayoutCtx,
 ) -> Result<()> {
-    let mut curr_span = start;
+    let mut spans = vec![start];
+    spans.extend(tracks.into_iter().enumerate().map(|(i, track)| {
+        router
+            .track_info(get_layer(if i % 2 == 0 { !dir } else { dir }, ctx).unwrap())
+            .tracks()
+            .index(track)
+    }));
+    spans.push(end);
     let mut curr_dir = dir;
     let mut prev_rect = None;
-    for tracks in tracks.windows(2) {
-        let curr_track = tracks[0];
-        let next_track = tracks[1];
+    for spans in spans.windows(3) {
+        let (prev_track_span, curr_track_span, next_track_span) = (spans[0], spans[1], spans[2]);
         let curr_layer = get_layer(curr_dir, ctx)?;
         let next_layer = get_layer(!curr_dir, ctx)?;
-        let curr_track_span = router.track_info(curr_layer).tracks().index(curr_track);
-        let next_track_span = router.track_info(next_layer).tracks().index(next_track);
         let rect = Rect::span_builder()
-            .with(curr_dir, curr_span.union(next_track_span))
+            .with(curr_dir, prev_track_span.union(next_track_span))
             .with(!curr_dir, curr_track_span)
             .build();
         ctx.draw_rect(curr_layer, rect);
@@ -137,6 +141,8 @@ fn draw_route(
             )?;
             ctx.draw(via)?;
         }
+        curr_dir = !curr_dir;
+        prev_rect = Some(rect);
     }
     Ok(())
 }
@@ -159,12 +165,10 @@ impl SramInner {
         let mut addr_gate = ctx
             .instantiate::<DecoderStage>(&dsn.addr_gate)?
             .with_orientation(Named::FlipYx);
-
         let mut col_dec = ctx
             .instantiate::<Decoder>(&dsn.col_decoder)?
             .with_orientation(Named::FlipYx);
         let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?;
-
         let mut pc_b_buffer = ctx
             .instantiate::<DecoderStage>(&dsn.pc_b_buffer)?
             .with_orientation(Named::R90Cw);
@@ -177,26 +181,44 @@ impl SramInner {
         let mut sense_en_buffer = ctx
             .instantiate::<DecoderStage>(&dsn.sense_en_buffer)?
             .with_orientation(Named::R90Cw);
-
         let mut dffs = ctx.instantiate::<DffArray>(&dsn.num_dffs)?;
-
         let mut rbl = ctx.instantiate::<ReplicaCellArray>(&dsn.rbl)?;
         let mut replica_pc = ctx
             .instantiate::<ReplicaPrecharge>(&dsn.replica_pc)?
             .with_orientation(Named::ReflectVert);
 
+        // Align column peripherals under bitcell array.
         cols.align_beneath(bitcells.bbox(), 4_000);
         cols.align_centers_horizontally_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
+
+        // Align row decoders to left of bitcell array.
         decoder.align_to_the_left_of(bitcells.bbox(), 6_000);
         decoder.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
+
+        // Align pc_b buffer with pc_b port of column peripherals.
         pc_b_buffer.align_bottom(cols.port("pc_b")?.largest_rect(m2)?);
         pc_b_buffer.translate(Point::new(0, 1_000));
         pc_b_buffer.align_to_the_left_of(cols.bbox(), 6_000);
-        // TODO: Need to enforce TGateMux taller than coldec
-        col_dec.align_bottom(cols.port(PortId::new("sel_b", 0))?.largest_rect(m2)?);
-        col_dec.align_to_the_left_of(cols.bbox(), 6_000);
-        col_dec.translate(Point::new(0, 1_000));
-        sense_en_buffer.align_top(cols.port("sense_en")?.largest_rect(m2)?);
+
+        // Align column decoder to topmost column mux select port.
+        col_dec.align_top(
+            cols.port(PortId::new("sel", self.params.mux_ratio() - 1))?
+                .largest_rect(m2)?,
+        );
+        col_dec.align_to_the_left_of(
+            cols.bbox(),
+            std::cmp::max(6_000, 1_400 + 700 * self.params.mux_ratio() as i64),
+        );
+        col_dec.translate(Point::new(0, -1_000));
+        sense_en_buffer.align_beneath(
+            col_dec.brect().expand(4_000).with_vspan(
+                col_dec
+                    .brect()
+                    .vspan()
+                    .add_point(cols.port("sense_en")?.largest_rect(m2)?.top()),
+            ),
+            0,
+        );
         sense_en_buffer.align_to_the_left_of(cols.bbox(), 6_000);
         write_driver_en_buffer.align_beneath(sense_en_buffer.bbox(), 4_000);
         write_driver_en_buffer.align_to_the_left_of(cols.bbox(), 6_000);
@@ -444,7 +466,8 @@ impl SramInner {
             let y = buffer.port("y")?.largest_rect(m0)?;
             let col_port = cols.port(signal)?.largest_rect(layer)?;
             let tracks = router.track_info(m1).tracks();
-            let track_idx = tracks.track_with_loc(TrackLocator::StartsAfter, y.right());
+            let track_idx =
+                tracks.track_with_loc(TrackLocator::EndsBefore, cols.brect().left() - 300);
             let track = tracks.index(track_idx);
 
             let rect = y.with_hspan(y.hspan().union(track));
@@ -532,7 +555,17 @@ impl SramInner {
                 let y = col_dec.port(PortId::new(y_name, i))?.largest_rect(m0)?;
                 let sel = cols.port(PortId::new(sel_name, i))?.largest_rect(m2)?;
                 let tracks = router.track_info(m1).tracks();
-                let track_span = tracks.index(track_idx + i as i64);
+                let track_span = tracks.index(
+                    track_idx
+                        + i as i64
+                        + if (j == 0 && y.top() < sel.top())
+                            || (j == 1 && y.bottom() > sel.bottom())
+                        {
+                            1
+                        } else {
+                            0
+                        },
+                );
 
                 let rect = if j == 0 {
                     y.with_hspan(y.hspan().union(track_span))

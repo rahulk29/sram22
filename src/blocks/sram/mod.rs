@@ -18,7 +18,9 @@ use super::bitcell_array::replica::ReplicaCellArrayParams;
 use super::bitcell_array::SpCellArrayParams;
 use super::columns::{ColParams, ColPeripherals};
 use super::decoder::layout::{DecoderStyle, PhysicalDesignParams, RoutingStyle};
-use super::decoder::{DecoderParams, DecoderStageParams, DecoderTree, INV_PARAMS, NAND2_PARAMS};
+use super::decoder::{
+    Decoder, DecoderParams, DecoderStage, DecoderStageParams, DecoderTree, INV_PARAMS, NAND2_PARAMS,
+};
 use super::gate::{AndParams, GateParams, PrimitiveGateParams};
 use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
 use super::precharge::layout::ReplicaPrechargeParams;
@@ -212,13 +214,6 @@ impl Script for SramPhysicalDesignScript {
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
         let rbl_rows = ((params.rows() / 12) + 1) * 2;
         let rbl_wl_index = rbl_rows / 2;
-        let wrdrven_saen_width = cols
-            .port("sense_en")?
-            .largest_rect(m2)?
-            .vspan()
-            .add_point(cols.brect().bottom())
-            .length()
-            / 2;
         let horiz_buffer = PhysicalDesignParams {
             style: DecoderStyle::Minimum,
             dir: Dir::Horiz,
@@ -227,6 +222,34 @@ impl Script for SramPhysicalDesignScript {
             style: DecoderStyle::Minimum,
             dir: Dir::Horiz,
         };
+        let col_decoder = DecoderParams {
+            pd: PhysicalDesignParams {
+                style: DecoderStyle::Relaxed,
+                dir: Dir::Horiz,
+            },
+            max_width: Some(
+                cols.port(PortId::new("sel_b", 0))?
+                    .largest_rect(m2)?
+                    .vspan()
+                    .union(cols.port(PortId::new("sel", 0))?.largest_rect(m2)?.vspan())
+                    .length(),
+            ),
+            // TODO use tgate mux input cap
+            tree: DecoderTree::new(
+                params.col_select_bits(),
+                READ_MUX_INPUT_CAP * (params.cols() / params.mux_ratio()) as f64,
+            ),
+        };
+
+        let col_dec_inst = ctx.instantiate_layout::<Decoder>(&col_decoder)?;
+        let wrdrven_saen_width = cols
+            .port(PortId::new("sel", params.mux_ratio() - 1))?
+            .largest_rect(m2)?
+            .vspan()
+            .add_point(cols.brect().bottom())
+            .length()
+            / 2
+            - col_dec_inst.brect().height();
         Ok(Self::Output {
             bitcells: SpCellArrayParams {
                 rows: params.rows(),
@@ -258,24 +281,7 @@ impl Script for SramPhysicalDesignScript {
                 child_sizes: vec![],
             },
             // TODO: change decoder tree to provide correct fanout for inverted output
-            col_decoder: DecoderParams {
-                pd: PhysicalDesignParams {
-                    style: DecoderStyle::Relaxed,
-                    dir: Dir::Horiz,
-                },
-                max_width: Some(
-                    cols.port(PortId::new("sel_b", 0))?
-                        .largest_rect(m2)?
-                        .vspan()
-                        .union(cols.port(PortId::new("sel", 0))?.largest_rect(m2)?.vspan())
-                        .length(),
-                ),
-                // TODO use tgate mux input cap
-                tree: DecoderTree::new(
-                    params.col_select_bits(),
-                    READ_MUX_INPUT_CAP * (params.cols() / params.mux_ratio()) as f64,
-                ),
-            },
+            col_decoder,
             pc_b_buffer: DecoderStageParams {
                 max_width: Some(
                     cols.port("pc_b")?
