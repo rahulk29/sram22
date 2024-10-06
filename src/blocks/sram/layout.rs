@@ -111,11 +111,13 @@ fn draw_route(
     let mut curr_span = start;
     let mut curr_dir = dir;
     let mut prev_rect = None;
-    for [curr_track, next_track] in tracks.windows(2) {
+    for tracks in tracks.windows(2) {
+        let curr_track = tracks[0];
+        let next_track = tracks[1];
         let curr_layer = get_layer(curr_dir, ctx)?;
         let next_layer = get_layer(!curr_dir, ctx)?;
-        let curr_track_span = router.track_info(curr_layer).tracks().index(*curr_track);
-        let next_track_span = router.track_info(next_layer).tracks().index(*next_track);
+        let curr_track_span = router.track_info(curr_layer).tracks().index(curr_track);
+        let next_track_span = router.track_info(next_layer).tracks().index(next_track);
         let rect = Rect::span_builder()
             .with(curr_dir, curr_span.union(next_track_span))
             .with(!curr_dir, curr_track_span)

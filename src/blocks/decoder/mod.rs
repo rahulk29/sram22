@@ -521,7 +521,9 @@ mod tests {
             child_sizes: vec![2, 2],
         };
 
-        ctx.write_layout::<DecoderStage>(&params, out_gds(work_dir, "layout"))
+        ctx.write_schematic_to_file::<DecoderStage>(&params, out_spice(&work_dir, "netlist"))
+            .expect("failed to write netlist");
+        ctx.write_layout::<DecoderStage>(&params, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
 
         #[cfg(feature = "commercial")]
