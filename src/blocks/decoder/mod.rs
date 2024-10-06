@@ -65,7 +65,7 @@ struct PlanTreeNode {
 impl DecoderTree {
     pub fn new(bits: usize, cload: f64) -> Self {
         let plan = plan_decoder(bits, true, false);
-        let stages = (cload / INV_MODEL.cin * plan.le_b()).log(4.).round() as usize;
+        let stages = (cload / INV_MODEL.cin * plan.le_b()).log(3.).round() as usize;
         let depth = plan.min_depth();
         println!("target num stages = {stages}, current min num stages = {depth}");
         let plan = if stages > depth {
