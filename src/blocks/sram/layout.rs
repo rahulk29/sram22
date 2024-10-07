@@ -93,6 +93,9 @@ impl Component for TappedDiode {
     }
 }
 
+/// Returns the layer used for routing in the provided direction.
+///
+/// The SRAM top level only uses m1 and m2 for vertical and horizontal routing, respectively.
 fn get_layer(dir: Dir, ctx: &LayoutCtx) -> Result<LayerKey> {
     ctx.layers().get(Selector::Metal(match dir {
         Dir::Horiz => 2,
@@ -100,6 +103,7 @@ fn get_layer(dir: Dir, ctx: &LayoutCtx) -> Result<LayerKey> {
     }))
 }
 
+/// Draws a route from `start` to `end` using the provided `tracks`.
 fn draw_route(
     start: Rect,
     end: Rect,
@@ -109,11 +113,11 @@ fn draw_route(
     ctx: &mut LayoutCtx,
 ) -> Result<()> {
     let mut spans = vec![start.span(dir)];
-    spans.extend(tracks.into_iter().enumerate().map(|(i, track)| {
+    spans.extend(tracks.iter().enumerate().map(|(i, track)| {
         router
-            .track_info(get_layer(if i % 2 == 0 { !dir } else { dir }, ctx).unwrap())
+            .track_info(get_layer(if i % 2 == 0 { dir } else { !dir }, ctx).unwrap())
             .tracks()
-            .index(track)
+            .index(*track)
     }));
     spans.push(end.span(if tracks.len() % 2 == 0 { !dir } else { dir }));
     let mut curr_dir = dir;
