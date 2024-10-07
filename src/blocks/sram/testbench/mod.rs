@@ -355,6 +355,24 @@ impl Component for SramTestbench {
     }
 }
 
+fn bits0101(width: usize) -> Vec<bool> {
+    alternating_bits(width, true)
+}
+
+fn bits1010(width: usize) -> Vec<bool> {
+    alternating_bits(width, false)
+}
+
+fn alternating_bits(width: usize, start: bool) -> Vec<bool> {
+    let mut bit = start;
+    let mut bits = Vec::with_capacity(width);
+    for _ in 0..width {
+        bits.push(bit);
+        bit = !bit;
+    }
+    bits
+}
+
 pub fn tb_params(
     params: SramParams,
     vdd: f64,
@@ -378,11 +396,11 @@ pub fn tb_params(
         Op::Reset,
         Op::Write {
             addr: addr1.clone(),
-            data: BitSignal::from_u128(bit_pattern1, data_width),
+            data: BitSignal::from_vec(bits0101(data_width)),
         },
         Op::Write {
             addr: addr2.clone(),
-            data: BitSignal::from_u128(bit_pattern2, data_width),
+            data: BitSignal::from_vec(bits1010(data_width)),
         },
         Op::Read {
             addr: addr1.clone(),
@@ -396,7 +414,7 @@ pub fn tb_params(
             let bits = (i % 2) * bit_pattern2 + (1 - (i % 2)) * bit_pattern1 + i + 1;
             ops.push(Op::Write {
                 addr: BitSignal::from_u128(i, addr_width),
-                data: BitSignal::from_u128(bits, data_width),
+                data: BitSignal::from_u128_padded(bits, data_width),
             });
         }
         for i in 0..16 {
@@ -410,8 +428,11 @@ pub fn tb_params(
                 let bits = (1 - (i % 2)) * bit_pattern2 + (i % 2) * bit_pattern1 + i + 1;
                 ops.push(Op::WriteMasked {
                     addr: BitSignal::from_u128(i, addr_width),
-                    data: BitSignal::from_u128(bits, data_width),
-                    mask: BitSignal::from_u128(bit_pattern1 + i * 0b10110010111, wmask_width),
+                    data: BitSignal::from_u128_padded(bits, data_width),
+                    mask: BitSignal::from_u128_padded(
+                        bit_pattern1 + i * 0b10110010111,
+                        wmask_width,
+                    ),
                 });
             }
             for i in 0..16 {
