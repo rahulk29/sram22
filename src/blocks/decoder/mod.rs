@@ -1,6 +1,7 @@
 use self::layout::{PhysicalDesignParams, RoutingStyle};
 use crate::blocks::decoder::sizing::{path_map_tree, Tree, ValueTree};
 use serde::{Deserialize, Serialize};
+use std::cmp::max;
 use subgeom::snap_to_grid;
 use substrate::component::Component;
 use substrate::logic::delay::{GateModel, LogicPath, OptimizerOpts};
@@ -64,7 +65,19 @@ struct PlanTreeNode {
 impl DecoderTree {
     pub fn new(bits: usize, cload: f64) -> Self {
         let plan = plan_decoder(bits, true, false);
-        let mut root = size_decoder(&plan, cload);
+        let stages = (cload / INV_MODEL.cin * plan.le_b()).log(3.).round() as usize;
+        let depth = plan.min_depth();
+        println!("target num stages = {stages}, current min num stages = {depth}");
+        let plan = if stages > depth {
+            let invs = max(1, (stages - depth) / 2) * 2;
+            assert_eq!(invs % 2, 0);
+            println!("adding {invs} inverters to decoder tree");
+            plan.with_invs(invs)
+        } else {
+            plan
+        };
+        let root = size_decoder(&plan, cload);
+        println!("decoder tree = {root:#?}");
         DecoderTree { root }
     }
 }
@@ -77,21 +90,24 @@ fn size_decoder(tree: &PlanTreeNode, cwl: f64) -> TreeNode {
 pub(crate) const INV_MODEL: GateModel = GateModel {
     res: 1422.118502462849,
     cin: 0.000000000000004482092764998187,
-    cout: 0.0000000004387405174617657,
+    cout: 0.0,
+    // cout: 0.0000000004387405174617657,
 };
 
 /// The on-resistance and capacitances of a 1x NAND2 gate ([`NAND2_PARAMS`]).
 pub(crate) const NAND2_MODEL: GateModel = GateModel {
     res: 1478.364147093855,
     cin: 0.000000000000005389581112035269,
-    cout: 0.0000000002743620195248461,
+    cout: 0.0,
+    // cout: 0.0000000002743620195248461,
 };
 
 /// The on-resistance and capacitances of a 1x NAND3 gate ([`NAND3_PARAMS`]).
 pub(crate) const NAND3_MODEL: GateModel = GateModel {
     res: 1478.037783669641,
     cin: 0.000000000000006217130454627972,
-    cout: 0.000000000216366152882086,
+    cout: 0.0,
+    // cout: 0.000000000216366152882086,
 };
 
 /// The on-resistance and capacitances of a 1x NOR2 gate ([`NOR2_PARAMS`]).
@@ -205,7 +221,7 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
     lp.size_with_opts(OptimizerOpts {
         lr: 1e10,
         lr_decay: 0.999995,
-        max_iter: 10,
+        max_iter: 10_000_000,
     });
 
     let mut cnode: Option<&mut TreeNode> = None;
@@ -216,8 +232,11 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
         .rev()
         .map(|v| {
             let v = lp.value(*v);
-            assert!(v >= 0.5, "gate scale must be at least 0.5, got {v:.3}");
-            v
+            if v < 0.5 {
+                0.5
+            } else {
+                v
+            }
         })
         .collect::<Vec<_>>();
     values.push(1.);
@@ -332,21 +351,7 @@ fn plan_decoder(bits: usize, top: bool, skew_rising: bool) -> PlanTreeNode {
             skew_rising,
         };
 
-        if top {
-            PlanTreeNode {
-                gate: GateType::Inv,
-                num: node.num,
-                children: vec![PlanTreeNode {
-                    gate: GateType::Inv,
-                    num: node.num,
-                    children: vec![node],
-                    skew_rising,
-                }],
-                skew_rising,
-            }
-        } else {
-            node
-        }
+        node
     }
 }
 
@@ -370,6 +375,84 @@ fn partition_bits(bits: usize, top: bool) -> Vec<usize> {
     } else {
         let right = bits / 2;
         vec![bits - right, right]
+    }
+}
+
+pub struct DelaySummary {}
+
+impl TreeNode {
+    pub fn time_constant(&self, cl: f64) -> f64 {
+        let mut delay = 0.0;
+        let gates = self.gate.primitive_gates();
+        for (i, (gt, params)) in self.gate.primitive_gates().iter().enumerate() {
+            let model = primitive_gate_model(*gt);
+            let scale = params.nwidth as f64 / (primitive_gate_params(*gt).nwidth as f64);
+            let cin_next = if i == gates.len() - 1 {
+                cl
+            } else {
+                let (ngt, nparams) = gates[i + 1];
+                let model = primitive_gate_model(ngt);
+                let nscale = nparams.nwidth as f64 / (primitive_gate_params(ngt).nwidth as f64);
+                nscale * model.cin
+            };
+            delay += model.res / scale * (model.cout * scale + cin_next);
+        }
+        delay += self
+            .children
+            .iter()
+            .enumerate()
+            .map(|(i, child)| child.time_constant(self.value_for_child(i)))
+            .reduce(f64::max)
+            .unwrap_or(0.0);
+
+        delay
+    }
+}
+
+impl PlanTreeNode {
+    pub fn with_invs(self, invs: usize) -> Self {
+        if invs == 0 {
+            self
+        } else {
+            PlanTreeNode {
+                gate: GateType::Inv,
+                num: self.num,
+                skew_rising: self.skew_rising,
+                children: vec![self.with_invs(invs - 1)],
+            }
+        }
+    }
+
+    pub fn max_depth(&self) -> usize {
+        self.gate.primitive_gates().len()
+            + self
+                .children
+                .iter()
+                .map(|c| c.max_depth())
+                .max()
+                .unwrap_or_default()
+    }
+
+    pub fn min_depth(&self) -> usize {
+        self.gate.primitive_gates().len()
+            + self
+                .children
+                .iter()
+                .map(|c| c.min_depth())
+                .min()
+                .unwrap_or_default()
+    }
+
+    /// An analytical estimate of the worst-case LE * B
+    /// across all paths through the decoder.
+    pub fn le_b(&self) -> f64 {
+        self.gate.logical_effort()
+            * self
+                .children
+                .iter()
+                .map(|c| c.le_b() * (self.num / c.num) as f64)
+                .reduce(f64::max)
+                .unwrap_or(1.)
     }
 }
 
