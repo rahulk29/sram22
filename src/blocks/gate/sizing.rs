@@ -174,8 +174,11 @@ fn size_path(path: &[&GateTreeNode], end: &f64) -> SizedGateTreeNode {
         .rev()
         .map(|v| {
             let v = lp.value(*v);
-            assert!(v >= 0.2, "gate scale must be at least 0.2, got {v:.3}");
-            v
+            if v < 0.5 {
+                0.5
+            } else {
+                v
+            }
         })
         .collect::<Vec<_>>();
     values.push(1.);

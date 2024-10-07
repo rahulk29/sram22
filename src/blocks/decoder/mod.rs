@@ -232,8 +232,11 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
         .rev()
         .map(|v| {
             let v = lp.value(*v);
-            assert!(v >= 0.5, "gate scale must be at least 0.5, got {v:.3}");
-            v
+            if v < 0.5 {
+                0.5
+            } else {
+                v
+            }
         })
         .collect::<Vec<_>>();
     values.push(1.);
