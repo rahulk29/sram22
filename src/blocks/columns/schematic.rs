@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use subgeom::Dir;
 use substrate::component::NoParams;
 use substrate::error::Result;
@@ -21,6 +22,24 @@ use crate::blocks::wrdriver::WriteDriver;
 use super::{ColPeripherals, Column};
 
 impl ColPeripherals {
+    pub fn io(&self) -> HashMap<&'static str, usize> {
+        HashMap::from([
+            ("clk", 1),
+            ("reset_b", 1),
+            ("vdd", 1),
+            ("vss", 1),
+            ("bl", self.params.mux_ratio()),
+            ("br", self.params.mux_ratio()),
+            ("pc_b", 1),
+            ("sel", self.params.mux_ratio()),
+            ("sel_b", self.params.mux_ratio()),
+            ("we", 1),
+            ("wmask", self.params.wmask_bits()),
+            ("din", self.params.word_length()),
+            ("dout", self.params.word_length()),
+        ])
+    }
+
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
         let cols = self.params.cols;
         let mux_ratio = self.params.mux_ratio();

@@ -39,7 +39,7 @@ impl ColParams {
 }
 
 pub struct ColPeripherals {
-    params: ColParams,
+    pub(crate) params: ColParams,
 }
 
 pub struct WmaskPeripherals {
@@ -126,15 +126,19 @@ impl Component for Column {
 
 #[cfg(test)]
 mod tests {
-
-    use arcstr::ArcStr;
-    use subgeom::bbox::{Bbox, BoundBox};
-    use substrate::layout::cell::{CellPort, Port, PortId};
-    use substrate::layout::layers::selector::Selector;
-
+    use crate::blocks::bitcell_array::{
+        SpCellArrayParams, SpCellArrayWithGuardRing, SpCellArrayWithGuardRingParams,
+    };
+    use crate::measure::impedance::AcImpedanceTbNode;
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
+    use arcstr::ArcStr;
+    use std::collections::HashMap;
+    use subgeom::bbox::{Bbox, BoundBox};
+    use substrate::layout::cell::{CellPort, Port, PortId};
+    use substrate::layout::layers::selector::Selector;
+    use substrate::schematic::netlist::NetlistPurpose;
 
     use super::layout::{ColCentParams, ColumnCent};
     use super::*;
@@ -320,5 +324,96 @@ mod tests {
             out_gds(work_dir, "layout"),
         )
         .expect("failed to write layout");
+    }
+
+    fn col_peripherals_default_conns() -> HashMap<&'static str, Vec<AcImpedanceTbNode>> {
+        let dut = ColPeripherals { params: COL_PARAMS };
+        let io = dut.io();
+        HashMap::from_iter(io.iter().map(|(&k, &v)| {
+            let conn = match k {
+                "clk" => AcImpedanceTbNode::Vdd,
+                "reset_b" => AcImpedanceTbNode::Vdd,
+                "vdd" => AcImpedanceTbNode::Vdd,
+                "vss" => AcImpedanceTbNode::Vdd,
+                "bl" => AcImpedanceTbNode::Vdd,
+                "br" => AcImpedanceTbNode::Vdd,
+                "pc_b" => AcImpedanceTbNode::Vdd,
+                "sel" => AcImpedanceTbNode::Vss,
+                "sel_b" => AcImpedanceTbNode::Vdd,
+                "we" => AcImpedanceTbNode::Vss,
+                "wmask" => AcImpedanceTbNode::Vdd,
+                "din" => AcImpedanceTbNode::Vss,
+                "dout" => AcImpedanceTbNode::Vdd,
+                x => panic!("unexpected signal {x}"),
+            };
+            (k, vec![conn; v])
+        }))
+    }
+
+    #[test]
+    #[cfg(feature = "commercial")]
+    #[ignore = "slow"]
+    fn test_columns_cap() {
+        use crate::measure::impedance::{
+            AcImpedanceTbNode, AcImpedanceTbParams, AcImpedanceTestbench,
+        };
+
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_columns_cap");
+        let params = COL_PARAMS;
+
+        let pex_path = out_spice(&work_dir, "pex_schematic");
+        let pex_dir = work_dir.join("pex");
+        let pex_level = calibre::pex::PexLevel::Rc;
+        let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+        ctx.write_schematic_to_file_for_purpose::<ColPeripherals>(
+            &params,
+            &pex_path,
+            NetlistPurpose::Pex,
+        )
+        .expect("failed to write pex source netlist");
+        let mut opts = std::collections::HashMap::with_capacity(1);
+        opts.insert("level".into(), pex_level.as_str().into());
+
+        let gds_path = out_gds(&work_dir, "layout");
+        ctx.write_layout::<ColPeripherals>(&params, &gds_path)
+            .expect("failed to write layout");
+
+        ctx.run_pex(substrate::verification::pex::PexInput {
+            work_dir: pex_dir,
+            layout_path: gds_path.clone(),
+            layout_cell_name: arcstr::literal!("col_peripherals"),
+            layout_format: substrate::layout::LayoutFormat::Gds,
+            source_paths: vec![pex_path],
+            source_cell_name: arcstr::literal!("col_peripherals"),
+            pex_netlist_path: pex_netlist_path.clone(),
+            ground_net: "vss".to_string(),
+            opts,
+        })
+        .expect("failed to run pex");
+
+        let mut conns = col_peripherals_default_conns();
+        conns.get_mut("sel").unwrap()[0] = AcImpedanceTbNode::Vmeas;
+
+        let sim_dir = work_dir.join("ac_sim");
+        let cap_ac = ctx
+            .write_simulation::<AcImpedanceTestbench<ColPeripherals>>(
+                &AcImpedanceTbParams {
+                    vdd: 1.8,
+                    fstart: 100.,
+                    fstop: 100e6,
+                    points: 10,
+                    dut: params,
+                    pex_netlist: Some(pex_netlist_path.clone()),
+                    vmeas_conn: AcImpedanceTbNode::Vdd,
+                    connections: HashMap::from_iter(
+                        conns.into_iter().map(|(k, v)| (arcstr::literal!(k), v)),
+                    ),
+                },
+                &sim_dir,
+            )
+            .expect("failed to write simulation");
+
+        println!("Csel[0] = {}", cap_ac.max_freq_cap());
     }
 }
