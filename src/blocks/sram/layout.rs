@@ -637,7 +637,7 @@ impl SramInner {
         let m2_we_track_idx = control_m2_track_idx + 3;
 
         let m2_track_conn_idx =
-            m2_tracks.track_with_loc(TrackLocator::EndsBefore, dffs.brect().bottom());
+            m2_tracks.track_with_loc(TrackLocator::EndsBefore, cols.brect().bottom());
         let m2_track_clk_conn = m2_track_conn_idx;
         let m2_track_reset_b_conn = m2_track_conn_idx - 1;
 
