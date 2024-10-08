@@ -94,9 +94,15 @@ pub fn setup_ctx() -> SubstrateCtx {
                 .build()
                 .unwrap(),
         )
-        .lvs_tool(CalibreLvs::new(PathBuf::from(
-            crate::verification::calibre::SKY130_LVS_RULES_PATH,
-        )))
+        .lvs_tool(
+            CalibreLvs::builder()
+                .rules_file(PathBuf::from(
+                    crate::verification::calibre::SKY130_LVS_RULES_PATH,
+                ))
+                .layerprops(PathBuf::from(SKY130_LAYERPROPS_PATH))
+                .build()
+                .unwrap(),
+        )
         .pex_tool(CalibrePex::new(PathBuf::from(
             crate::verification::calibre::SKY130_PEX_RULES_PATH,
         )));

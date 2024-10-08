@@ -8,9 +8,7 @@ use substrate::schematic::context::SchematicCtx;
 
 use crate::blocks::buf::DiffBuf;
 use crate::blocks::control::DffArray;
-use crate::blocks::decoder::layout::{
-    DecoderStyle, LastBitDecoderStage, PhysicalDesignParams, RoutingStyle,
-};
+use crate::blocks::decoder::layout::{DecoderStyle, PhysicalDesignParams, RoutingStyle};
 use crate::blocks::decoder::{DecoderStage, DecoderStageParams};
 use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams};
 use crate::blocks::macros::SenseAmp;

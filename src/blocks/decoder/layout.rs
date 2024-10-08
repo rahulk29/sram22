@@ -33,10 +33,6 @@ use crate::blocks::gate::{Gate, GateParams};
 
 use super::{Decoder, DecoderParams, DecoderStage, DecoderStageParams};
 
-pub struct LastBitDecoderStage {
-    params: DecoderStageParams,
-}
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum RoutingStyle {
     Decoder,

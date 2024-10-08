@@ -57,10 +57,6 @@ pub struct Nor2 {
     params: PrimitiveGateParams,
 }
 
-pub struct GateTree {
-    params: GateTreeParams,
-}
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
 pub struct AndParams {
     pub nand: PrimitiveGateParams,
@@ -103,26 +99,6 @@ pub struct PrimitiveGateParams {
     pub nwidth: i64,
     pub pwidth: i64,
     pub length: i64,
-}
-
-pub struct GateTreeParams {
-    max_width: i64,
-    dir: subgeom::Dir,
-    nodes: Vec<GateTreeNodeParams>,
-    interstage_buses: Vec<Vec<ArcStr>>,
-}
-
-pub struct GateTreeNodeParams {
-    max_width: i64,
-    width: i64,
-    tap_width: i64,
-    tap_period: usize,
-    dir: subgeom::Dir,
-    line: i64,
-    space: i64,
-    params: GateParams,
-    invs: Vec<PrimitiveGateParams>,
-    conns: Vec<HashMap<ArcStr, ArcStr>>,
 }
 
 impl GateType {
