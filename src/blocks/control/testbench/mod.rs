@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use substrate::component::{Component, NoParams};
+use substrate::component::Component;
 use substrate::pdk::mos::query::Query;
 use substrate::pdk::mos::spec::MosKind;
 use substrate::pdk::mos::MosParams;

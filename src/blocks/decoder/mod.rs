@@ -2,7 +2,6 @@ use crate::blocks::decoder::sizing::{path_map_tree, Tree, ValueTree};
 use serde::{Deserialize, Serialize};
 use std::cmp::max;
 use std::collections::HashSet;
-use std::sync::Arc;
 use subgeom::{snap_to_grid, Dir};
 use substrate::component::Component;
 use substrate::layout::layers::selector::Selector;
@@ -427,16 +426,6 @@ impl PlanTreeNode {
         }
     }
 
-    pub fn max_depth(&self) -> usize {
-        self.gate.primitive_gates().len()
-            + self
-                .children
-                .iter()
-                .map(|c| c.max_depth())
-                .max()
-                .unwrap_or_default()
-    }
-
     pub fn min_depth(&self) -> usize {
         self.gate.primitive_gates().len()
             + self
@@ -458,26 +447,6 @@ impl PlanTreeNode {
                 .reduce(f64::max)
                 .unwrap_or(1.)
     }
-}
-
-pub(crate) fn get_idxs(mut num: usize, bases: &[usize]) -> Vec<usize> {
-    let products = bases
-        .iter()
-        .rev()
-        .scan(1, |state, &elem| {
-            let val = *state;
-            *state *= elem;
-            Some(val)
-        })
-        .collect::<Vec<_>>();
-    let mut idxs = Vec::with_capacity(bases.len());
-
-    for i in 0..bases.len() {
-        let j = products.len() - i - 1;
-        idxs.push(num / products[j]);
-        num %= products[j];
-    }
-    idxs
 }
 
 impl Component for Decoder {

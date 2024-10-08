@@ -1,6 +1,5 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
-use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 use substrate::layout::cell::{CellPort, PortConflictStrategy};
@@ -9,7 +8,7 @@ use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::ArrayTiler;
 
 use super::decoder::layout::{DecoderGate, DecoderGateParams, DecoderTap};
-use super::decoder::{self, DecoderPhysicalDesign};
+use super::decoder::DecoderPhysicalDesign;
 
 pub mod layout;
 pub mod schematic;

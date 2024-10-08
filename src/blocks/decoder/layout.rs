@@ -1,8 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::iter::Extend;
 
 use itertools::Itertools;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use substrate::component::Component;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
@@ -24,7 +24,6 @@ use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::routing::manual::jog::OffsetJog;
 use substrate::layout::routing::tracks::UniformTracks;
-use substrate::schematic::context::SchematicCtx;
 
 use crate::blocks::gate::{Gate, GateParams};
 

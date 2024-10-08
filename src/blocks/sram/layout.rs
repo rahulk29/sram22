@@ -1,9 +1,9 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
-use subgeom::bbox::{Bbox, BoundBox};
+use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
 use subgeom::transform::Translate;
-use subgeom::{Corner, Dir, Point, Rect, Shape, Side, Sign, Span};
+use subgeom::{Dir, Point, Rect, Shape, Side, Sign, Span};
 use substrate::component::{Component, NoParams};
 use substrate::error::Result;
 use substrate::index::IndexOwned;

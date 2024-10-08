@@ -56,11 +56,6 @@ pub fn bus_bit(name: &str, index: usize) -> String {
     format!("{name}[{index}]")
 }
 
-#[inline]
-pub(crate) fn clog2(x: usize) -> usize {
-    (x as f64).log2().ceil() as usize
-}
-
 pub fn setup_ctx() -> SubstrateCtx {
     #[cfg(not(feature = "commercial"))]
     let simulator = Ngspice::new(SimulatorOpts::default()).unwrap();
