@@ -415,6 +415,6 @@ mod tests {
             )
             .expect("failed to write simulation");
 
-        println!("Csel[0] = {}", cap_ac.max_freq_cap());
+        println!("Csel[0] = {}fF", 1e15 * cap_ac.max_freq_cap());
     }
 }
