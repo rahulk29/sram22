@@ -58,7 +58,7 @@ impl ColPeripherals {
         let mut pc = ctx.instantiate::<Precharge>(&self.params.pc)?;
         let mut pc_end = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
             via_top: false,
-            inner: self.params.pc.clone(),
+            inner: self.params.pc,
         })?;
 
         let col = ctx.instantiate::<Column>(&ColParams {

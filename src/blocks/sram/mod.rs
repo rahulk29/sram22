@@ -346,7 +346,7 @@ impl Script for SramPhysicalDesignScript {
             },
             replica_pc: ReplicaPrechargeParams {
                 cols: 2,
-                inner: col_params.pc.clone(),
+                inner: col_params.pc,
             },
             col_params,
             control: ControlLogicParams { decoder_delay_invs },
@@ -581,7 +581,7 @@ impl Component for SramPex {
 pub(crate) mod tests {
 
     use self::verilog::save_1rw_verilog;
-    use crate::paths::{out_gds, out_spice, out_verilog};
+    use crate::paths::{out_spice, out_verilog};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 

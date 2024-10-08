@@ -1,16 +1,7 @@
 use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams};
-use substrate::data::SubstrateCtx;
-use substrate::index::IndexOwned;
-use substrate::layout::cell::CellPort;
-use substrate::layout::layers::selector::Selector;
-use substrate::layout::placement::align::AlignMode;
-use substrate::layout::placement::array::ArrayTiler;
-use substrate::pdk::stdcell::StdCell;
-use substrate::schematic::circuit::Direction;
 
-use super::columns::layout::TappedDff;
 
 pub mod layout;
 pub mod schematic;

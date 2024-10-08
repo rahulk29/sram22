@@ -2,7 +2,7 @@ use serde::Serialize;
 use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
 use subgeom::{Dir, Point, Rect, Side, Sign, Span};
-use substrate::component::{Component, NoParams};
+use substrate::component::Component;
 use substrate::index::IndexOwned;
 use substrate::layout::cell::{CellPort, Port, PortConflictStrategy, PortId};
 use substrate::layout::elements::mos::LayoutMos;
@@ -261,7 +261,7 @@ impl Component for PrechargeCent {
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         Ok(Self {
-            params: params.clone(),
+            params: *params,
         })
     }
     fn name(&self) -> arcstr::ArcStr {
@@ -532,12 +532,12 @@ impl Component for ReplicaPrecharge {
         let pc = ctx.instantiate::<Precharge>(&self.params.inner)?;
         let mut pc_end_top = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
             via_top: true,
-            inner: self.params.inner.clone(),
+            inner: self.params.inner,
         })?;
         pc_end_top.set_orientation(Named::ReflectHoriz);
         let pc_end_bot = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
             via_top: false,
-            inner: self.params.inner.clone(),
+            inner: self.params.inner,
         })?;
 
         let mut tiler = ArrayTiler::builder();

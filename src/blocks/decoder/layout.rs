@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::iter::Extend;
 
 use itertools::Itertools;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use substrate::component::Component;
 use substrate::error::Result;
 use substrate::index::IndexOwned;

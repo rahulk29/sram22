@@ -36,7 +36,7 @@ impl Component for Precharge {
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         Ok(Self {
-            params: params.clone(),
+            params: *params,
         })
     }
     fn name(&self) -> arcstr::ArcStr {

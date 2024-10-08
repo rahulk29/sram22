@@ -623,8 +623,8 @@ impl Script for DecoderStagePhysicalDesignScript {
                 0,
                 "tap period must be even for expansion"
             );
-            dsn.width = 2 * dsn.width;
-            dsn.tap_period = dsn.tap_period / 2;
+            dsn.width *= 2;
+            dsn.tap_period /= 2;
         }
         let (gate_params, max_folding_factor, folding_factors) =
             if let Some(max_width) = params.max_width {
