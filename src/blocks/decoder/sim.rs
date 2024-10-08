@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use super::layout::{DecoderStyle, PhysicalDesign, PhysicalDesignParams};
-use super::{Decoder, DecoderParams, DecoderTree};
+use super::{Decoder, DecoderParams, DecoderPhysicalDesignParams, DecoderStyle, DecoderTree};
 use crate::blocks::sram::WORDLINE_CAP_PER_CELL;
 use serde::{Deserialize, Serialize};
 use subgeom::Dir;
@@ -59,7 +58,7 @@ impl Component for DecoderCriticalPathTb {
 
         let tree = DecoderTree::new(params.bits, 64. * WORDLINE_CAP_PER_CELL);
         let decoder_params = DecoderParams {
-            pd: PhysicalDesignParams {
+            pd: DecoderPhysicalDesignParams {
                 style: DecoderStyle::RowMatched,
                 dir: Dir::Horiz,
             },

@@ -1,9 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::iter::Extend;
 
 use itertools::Itertools;
-use serde::{Deserialize, Serialize};
-use substrate::component::{Component, NoParams};
+use serde::Serialize;
+use substrate::component::Component;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
 
@@ -24,601 +24,14 @@ use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::routing::manual::jog::OffsetJog;
 use substrate::layout::routing::tracks::UniformTracks;
-use substrate::schematic::circuit::Direction;
-use substrate::schematic::context::SchematicCtx;
-use substrate::schematic::signal::Slice;
-use substrate::script::Script;
 
 use crate::blocks::gate::{Gate, GateParams};
 
-use super::{Decoder, DecoderParams, DecoderStage, DecoderStageParams};
-
-pub struct LastBitDecoderStage {
-    params: DecoderStageParams,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub enum RoutingStyle {
-    Decoder,
-    Driver,
-}
-
-pub(crate) struct FoldingParams {
-    gate_params: Vec<GateParams>,
-    max_folding_factor: usize,
-    folding_factors: Vec<usize>,
-}
-
-/// Doubles the width if needed to accomodate NAND3 gates.
-pub(crate) fn expand_width(gate: &GateParams, dsn: &mut PhysicalDesign) {
-    if dsn.width < 1_900 && matches!(gate, GateParams::And3(_) | GateParams::Nand3(_)) {
-        assert_eq!(
-            dsn.tap_period % 2,
-            0,
-            "tap period must be even for expansion"
-        );
-        dsn.width = 2 * dsn.width;
-        dsn.tap_period = dsn.tap_period / 2;
-    }
-}
-
-pub(crate) fn calculate_folding(
-    params: &DecoderStageParams,
-    dsn: &PhysicalDesign,
-) -> FoldingParams {
-    let (gate_params, max_folding_factor, folding_factors) =
-        if let Some(max_width) = params.max_width {
-            let (gate_params, primitive_gate_params) = match params.gate {
-                GateParams::And2(params) => (
-                    GateParams::Nand2(params.nand),
-                    vec![params.nand, params.inv],
-                ),
-                GateParams::And3(params) => (
-                    GateParams::Nand3(params.nand),
-                    vec![params.nand, params.inv],
-                ),
-                GateParams::Inv(params) => (GateParams::Inv(params), vec![params]),
-                GateParams::FoldedInv(params) => (GateParams::FoldedInv(params), vec![params]),
-                GateParams::Nand2(params) => (GateParams::Nand2(params), vec![params]),
-                GateParams::Nand3(params) => (GateParams::Nand3(params), vec![params]),
-                GateParams::Nor2(params) => (GateParams::Nor2(params), vec![params]),
-            };
-            let folding_factor_limit = std::cmp::max(
-                (max_width as usize
-                    - dsn.tap_width as usize
-                        * ((max_width as usize).div_ceil(
-                            dsn.tap_period * dsn.width as usize + dsn.tap_width as usize,
-                        ) + 1))
-                    / params.num
-                    / dsn.width as usize,
-                1,
-            );
-            let mut max_folding_factor = 0;
-            let mut folding_factors = vec![];
-            for params in primitive_gate_params.iter().chain(params.invs.iter()) {
-                let ff = std::cmp::min(
-                    std::cmp::max(
-                        std::cmp::min(params.pwidth, params.nwidth) as usize / 960,
-                        1,
-                    ),
-                    folding_factor_limit,
-                );
-                max_folding_factor = std::cmp::max(ff, max_folding_factor);
-                folding_factors.push(ff);
-            }
-            let gate_params: Vec<GateParams> = std::iter::once(gate_params)
-                .chain(
-                    primitive_gate_params
-                        .into_iter()
-                        .skip(1)
-                        .chain(params.invs.clone())
-                        .map(GateParams::FoldedInv),
-                )
-                .collect();
-
-            (gate_params, max_folding_factor, folding_factors)
-        } else {
-            (
-                std::iter::once(params.gate)
-                    .chain(params.invs.clone().into_iter().map(GateParams::FoldedInv))
-                    .collect(),
-                1,
-                vec![1; 1 + params.invs.len()],
-            )
-        };
-    FoldingParams {
-        gate_params,
-        max_folding_factor,
-        folding_factors,
-    }
-}
-
-pub(crate) fn decoder_stage_schematic(
-    ctx: &mut SchematicCtx,
-    params: &DecoderStageParams,
-    dsn: &PhysicalDesign,
-    routing_style: RoutingStyle,
-) -> Result<()> {
-    let mut dsn = (*dsn).clone();
-    expand_width(&params.gate, &mut dsn);
-    let FoldingParams {
-        gate_params,
-        max_folding_factor: _,
-        folding_factors,
-    } = calculate_folding(params, &dsn);
-    let num_stages = gate_params.len();
-    let vdd = ctx.port("vdd", Direction::InOut);
-    let vss = ctx.port("vss", Direction::InOut);
-    let y = ctx.bus_port("y", params.num, Direction::Output);
-    let y_b = if num_stages > 1 || gate_params[0].gate_type().is_and() {
-        Some(ctx.bus_port("y_b", params.num, Direction::Output))
-    } else {
-        None
-    };
-
-    enum DecoderIO {
-        Decoder { predecode: Vec<Vec<Slice>> },
-        Driver { wl_en: Slice, inn: Slice },
-    }
-    let io = match routing_style {
-        RoutingStyle::Decoder => {
-            let mut predecode = Vec::new();
-            for (i, s) in params.child_sizes.iter().copied().enumerate() {
-                predecode.push(Vec::new());
-                for j in 0..s {
-                    predecode
-                        .last_mut()
-                        .unwrap()
-                        .push(ctx.port(arcstr::format!("predecode_{i}_{j}"), Direction::Input));
-                }
-            }
-            DecoderIO::Decoder { predecode }
-        }
-        RoutingStyle::Driver => DecoderIO::Driver {
-            wl_en: ctx.port("wl_en", Direction::Input),
-            inn: ctx.bus_port("in", params.num, Direction::Input),
-        },
-    };
-    let x: Vec<_> = (0..num_stages - 1)
-        .map(|i| ctx.bus(format!("x_{i}"), params.num))
-        .collect();
-
-    let ports = ["a", "b", "c", "d"];
-    for (stage, (gate, &folding_factor)) in
-        gate_params.iter().zip(folding_factors.iter()).enumerate()
-    {
-        let gate_params = gate.scale(1. / (folding_factor as f64));
-
-        for i in 0..params.num {
-            for j in 0..folding_factor {
-                let mut gate = ctx
-                    .instantiate::<Gate>(&gate_params)?
-                    .with_connections([("vdd", vdd), ("vss", vss)])
-                    .named(format!("gate_{}_{}_{}", stage, i, j));
-
-                if num_stages > 1 {
-                    if stage == num_stages - 2 {
-                        gate.connect("y", y_b.unwrap().index(i));
-                    } else if stage == num_stages - 1 {
-                        gate.connect("y", y.index(i));
-                    } else if stage < num_stages - 1 {
-                        gate.connect("y", x[stage].index(i));
-                    }
-                    if gate_params.gate_type().is_and() {
-                        gate.connect("yb", ctx.signal(format!("y_b_noconn_{stage}_{i}_{j}")));
-                    }
-                } else {
-                    if gate_params.gate_type().is_and() {
-                        gate.connect("yb", y_b.unwrap().index(i));
-                    }
-                    gate.connect("y", y.index(i));
-                }
-                if stage == 0 {
-                    match &io {
-                        DecoderIO::Decoder { predecode } => {
-                            let idxs = base_indices(i, &params.child_sizes);
-                            for (i, j) in idxs.into_iter().enumerate() {
-                                gate.connect(ports[i], predecode[i][j]);
-                            }
-                        }
-                        DecoderIO::Driver { wl_en, inn } => {
-                            gate.connect(ports[0], wl_en);
-                            gate.connect(ports[1], inn.index(i));
-                        }
-                    }
-                } else if stage == num_stages - 1 {
-                    gate.connect("a", y_b.unwrap().index(i));
-                } else {
-                    gate.connect("a", x[stage - 1].index(i));
-                }
-                gate.add_to(ctx);
-            }
-        }
-    }
-    Ok(())
-}
-
-pub(crate) fn decoder_stage_layout(
-    ctx: &mut LayoutCtx,
-    params: &DecoderStageParams,
-    dsn: &PhysicalDesign,
-    routing_style: RoutingStyle,
-) -> Result<()> {
-    let mut dsn = (*dsn).clone();
-    expand_width(&params.gate, &mut dsn);
-    // TODO: Parameter validation
-    let FoldingParams {
-        gate_params,
-        max_folding_factor,
-        folding_factors,
-    } = calculate_folding(params, &dsn);
-
-    let mut tiler = ArrayTiler::builder();
-    let num_stages = gate_params.len();
-
-    for (gate, &folding_factor) in gate_params.iter().zip(folding_factors.iter()) {
-        let decoder_params = DecoderGateParams {
-            gate: gate.scale(1. / (folding_factor as f64)),
-            filler: false,
-            dsn: dsn.clone(),
-        };
-        let gate = ctx.instantiate::<DecoderGate>(&decoder_params)?;
-        let filler_gate = ctx.instantiate::<DecoderGate>(&DecoderGateParams {
-            filler: true,
-            ..decoder_params.clone()
-        })?;
-        let tap = ctx.instantiate::<DecoderTap>(&decoder_params)?;
-
-        let mut stage_tiler = ArrayTiler::builder();
-
-        stage_tiler.push(tap.clone());
-        for i in 0..params.num {
-            for j in 0..max_folding_factor {
-                if j < folding_factor {
-                    stage_tiler.push(gate.clone());
-                } else {
-                    stage_tiler.push(filler_gate.clone());
-                }
-                if (max_folding_factor * i + j) % dsn.tap_period == dsn.tap_period - 1 {
-                    stage_tiler.push(tap.clone());
-                }
-            }
-        }
-
-        if (params.num * max_folding_factor) % dsn.tap_period != 0 {
-            stage_tiler.push(tap.clone());
-        }
-
-        let mut stage_tiler = stage_tiler
-            .mode(AlignMode::ToTheRight)
-            .alt_mode(AlignMode::CenterVertical)
-            .build();
-
-        stage_tiler.expose_ports(
-            |port: CellPort, i| {
-                let idx = if i > 0 {
-                    i - (i / (dsn.tap_period + 1) + 1)
-                } else {
-                    0
-                };
-                match port.id().name().as_ref() {
-                    "vdd" | "vss" => Some(port),
-                    _ => Some(port.with_index(idx)),
-                }
-            },
-            PortConflictStrategy::Merge,
-        )?;
-
-        let stage_group = stage_tiler.draw_ref()?;
-        tiler.push(stage_group);
-    }
-
-    let mut tiler = tiler
-        .mode(AlignMode::Above)
-        .space(300)
-        .alt_mode(AlignMode::CenterHorizontal)
-        .build();
-
-    tiler.expose_ports(
-        |port: CellPort, i| {
-            let idx = port.id().index();
-            match port.name().as_ref() {
-                "vdd" | "vss" => Some(port),
-                _ => Some(port.with_index(idx * num_stages + i)),
-            }
-        },
-        PortConflictStrategy::Merge,
-    )?;
-
-    for stage in 0..num_stages - 1 {
-        let folding_factor = folding_factors[stage];
-        for i in 0..params.num {
-            let inv_in: Vec<_> = tiler
-                .port_map()
-                .port(PortId::new(
-                    "a",
-                    i * folding_factors[stage + 1] * num_stages + stage + 1,
-                ))?
-                .shapes(dsn.li)
-                .filter_map(|shape| shape.as_rect())
-                .collect();
-            let gate_out = tiler
-                .port_map()
-                .port(PortId::new("y", i * folding_factor * num_stages + stage))?
-                .largest_rect(dsn.li)?;
-            for j in 0..folding_factor {
-                let src = tiler
-                    .port_map()
-                    .port(PortId::new(
-                        "y",
-                        (i * folding_factor + j) * num_stages + stage,
-                    ))?
-                    .largest_rect(dsn.li)?;
-                for inv_in in &inv_in {
-                    let jog = OffsetJog::builder()
-                        .dir(subgeom::Dir::Vert)
-                        .sign(subgeom::Sign::Pos)
-                        .src(src)
-                        .dst(inv_in.left())
-                        .layer(dsn.li)
-                        .space(170)
-                        .build()
-                        .unwrap();
-                    let rect = Rect::from_spans(
-                        inv_in.hspan(),
-                        Span::new(jog.r2().bottom(), inv_in.top()),
-                    );
-                    ctx.draw(jog)?;
-                    ctx.draw_rect(dsn.li, rect);
-                }
-            }
-            for j in 0..folding_factors[stage + 1] {
-                for dst in tiler
-                    .port_map()
-                    .port(PortId::new(
-                        "a",
-                        (i * folding_factors[stage + 1] + j) * num_stages + stage + 1,
-                    ))?
-                    .shapes(dsn.li)
-                    .filter_map(|shape| shape.as_rect())
-                {
-                    let jog = OffsetJog::builder()
-                        .dir(subgeom::Dir::Vert)
-                        .sign(subgeom::Sign::Pos)
-                        .src(gate_out)
-                        .dst(dst.left())
-                        .layer(dsn.li)
-                        .space(170)
-                        .build()
-                        .unwrap();
-                    let rect =
-                        Rect::from_spans(dst.hspan(), Span::new(jog.r2().bottom(), dst.top()));
-                    ctx.draw(jog)?;
-                    ctx.draw_rect(dsn.li, rect);
-                }
-            }
-        }
-    }
-    ctx.add_ports(
-        tiler
-            .ports()
-            .cloned()
-            .filter_map(|port| match port.name().as_str() {
-                "vdd" | "vss" => Some(port),
-                _ => None,
-            }),
-    )
-    .unwrap();
-
-    ctx.draw_ref(&tiler)?;
-
-    // expose decoder outputs
-    {
-        let folding_factor = folding_factors[num_stages - 1];
-        for n in 0..params.num {
-            // connect folded outputs
-            if folding_factor > 1 {
-                let left_port = tiler
-                    .port_map()
-                    .port(PortId::new(
-                        "y",
-                        n * folding_factor * num_stages + num_stages - 1,
-                    ))?
-                    .largest_rect(dsn.li)?;
-                for k in 0..folding_factor {
-                    let port = tiler
-                        .port_map()
-                        .port(PortId::new(
-                            "y",
-                            (n * folding_factor + k) * num_stages + num_stages - 1,
-                        ))?
-                        .largest_rect(dsn.li)?;
-                    let jog = OffsetJog::builder()
-                        .dir(subgeom::Dir::Vert)
-                        .sign(subgeom::Sign::Pos)
-                        .src(port)
-                        .dst(left_port.left())
-                        .layer(dsn.li)
-                        .space(170)
-                        .build()
-                        .unwrap();
-                    ctx.draw(jog)?;
-                }
-            }
-            ctx.add_port(
-                tiler
-                    .port_map()
-                    .port(PortId::new(
-                        "y",
-                        n * folding_factor * num_stages + num_stages - 1,
-                    ))?
-                    .clone()
-                    .with_id(PortId::new(arcstr::format!("y"), n)),
-            )?;
-            if num_stages > 1 {
-                ctx.add_port(
-                    tiler
-                        .port_map()
-                        .port(PortId::new(
-                            "y",
-                            n * folding_factor * num_stages + num_stages - 2,
-                        ))?
-                        .clone()
-                        .with_id(PortId::new(arcstr::format!("y_b"), n)),
-                )?;
-            } else if let GateParams::And2(_) | GateParams::And3(_) = &gate_params[0] {
-                ctx.add_port(
-                    tiler
-                        .port_map()
-                        .port(PortId::new("y_b", n * folding_factor * num_stages))?
-                        .clone()
-                        .with_id(PortId::new(arcstr::format!("y_b"), n)),
-                )?;
-            }
-        }
-    }
-
-    let folding_factor = folding_factors[0];
-    let tracks = UniformTracks::builder()
-        .line(dsn.line)
-        .space(dsn.space)
-        .start(ctx.brect().bottom())
-        .sign(Sign::Neg)
-        .build()
-        .unwrap();
-    let hspan = ctx.brect().hspan();
-    let mut child_tracks = Vec::new();
-    let mut idx = 0usize;
-    match routing_style {
-        RoutingStyle::Decoder => {
-            for (i, s) in params.child_sizes.iter().copied().enumerate() {
-                child_tracks.push(Vec::new());
-                for j in 0..s {
-                    let tr = tracks.index(idx);
-                    let rect = Rect::from_spans(hspan, tr);
-                    ctx.draw_rect(dsn.stripe_metal, rect);
-                    ctx.add_port(CellPort::with_shape(
-                        arcstr::format!("predecode_{i}_{j}"),
-                        dsn.stripe_metal,
-                        rect,
-                    ))
-                    .unwrap();
-                    idx += 1;
-                    child_tracks[i].push(rect);
-                }
-            }
-        }
-        RoutingStyle::Driver => {
-            let tr = tracks.index(0usize);
-            let rect = Rect::from_spans(hspan, tr);
-            child_tracks.push(vec![rect]);
-            ctx.draw_rect(dsn.stripe_metal, rect);
-            ctx.add_port(CellPort::with_shape(
-                arcstr::literal!("wl_en"),
-                dsn.stripe_metal,
-                rect,
-            ))
-            .unwrap();
-        }
-    }
-
-    let mut via_metals = Vec::new();
-    via_metals.push(dsn.li);
-    via_metals.extend(dsn.via_metals.clone());
-    via_metals.push(dsn.stripe_metal);
-    let ports = ["a", "b", "c", "d"];
-
-    for n in 0..params.num {
-        match routing_style {
-            RoutingStyle::Decoder => {
-                let idxs = base_indices(n, &params.child_sizes);
-                for (i, j) in idxs.into_iter().enumerate() {
-                    for k in 0..folding_factors[0] {
-                        // connect to child_tracks[i][j].
-                        let port = tiler
-                            .port_map()
-                            .port(PortId::new(
-                                ports[i],
-                                (n * folding_factors[0] + k) * num_stages,
-                            ))?
-                            .largest_rect(dsn.li)?;
-                        let track = child_tracks[i][j];
-
-                        let bot = Rect::from_spans(port.hspan(), track.vspan());
-
-                        let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
-                            rect: bot,
-                            via_metals: via_metals.clone(),
-                        })?;
-
-                        ctx.draw_ref(&via)?;
-
-                        ctx.draw_rect(
-                            dsn.li,
-                            Rect::from_spans(port.hspan(), port.vspan().union(via.brect().vspan())),
-                        );
-                    }
-                }
-            }
-            RoutingStyle::Driver => {
-                for k in 0..folding_factor {
-                    // connect to child_tracks[0][0].
-                    let port = tiler
-                        .port_map()
-                        .port(PortId::new(ports[0], (n * folding_factor + k) * num_stages))?
-                        .largest_rect(dsn.li)?;
-                    let track = child_tracks[0][0];
-
-                    let bot = Rect::from_spans(port.hspan(), track.vspan());
-
-                    let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
-                        rect: bot,
-                        via_metals: via_metals.clone(),
-                    })?;
-
-                    ctx.draw_ref(&via)?;
-
-                    ctx.draw_rect(
-                        dsn.li,
-                        Rect::from_spans(port.hspan(), port.vspan().union(via.brect().vspan())),
-                    );
-                }
-
-                // connect folded gates
-                if folding_factor > 1 {
-                    let left_port = tiler
-                        .port_map()
-                        .port(PortId::new(ports[1], n * folding_factor * num_stages))?
-                        .largest_rect(dsn.li)?;
-                    for k in 0..folding_factor {
-                        let port = tiler
-                            .port_map()
-                            .port(PortId::new(ports[1], (n * folding_factor + k) * num_stages))?
-                            .largest_rect(dsn.li)?;
-                        let jog = OffsetJog::builder()
-                            .dir(subgeom::Dir::Vert)
-                            .sign(subgeom::Sign::Neg)
-                            .src(left_port)
-                            .dst(port.right())
-                            .layer(dsn.li)
-                            .space(170)
-                            .build()
-                            .unwrap();
-                        ctx.draw(jog)?;
-                    }
-                }
-                ctx.add_port(
-                    tiler
-                        .port_map()
-                        .port(PortId::new(ports[1], n * folding_factor * num_stages))?
-                        .clone()
-                        .with_id(PortId::new(arcstr::format!("in"), n)),
-                )?;
-            }
-        };
-    }
-    Ok(())
-}
+use super::{
+    base_indices, Decoder, DecoderParams, DecoderPhysicalDesign, DecoderPhysicalDesignScript,
+    DecoderStage, DecoderStageParams, DecoderStagePhysicalDesign, DecoderStagePhysicalDesignScript,
+    RoutingStyle,
+};
 
 struct Metadata {
     final_stage_width: i64,
@@ -626,10 +39,9 @@ struct Metadata {
 
 impl Decoder {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
-        let mut dsn = (*ctx
+        let dsn = ctx
             .inner()
-            .run_script::<DecoderPhysicalDesignScript>(&self.params.pd)?)
-        .clone();
+            .run_script::<DecoderPhysicalDesignScript>(&self.params.pd)?;
         let mut node = &self.params.tree.root;
         let mut invs = vec![];
 
@@ -648,10 +60,6 @@ impl Decoder {
         } else {
             node.children.iter().map(|n| n.num).collect()
         };
-        expand_width(&node.gate, &mut dsn);
-        ctx.set_metadata(Metadata {
-            final_stage_width: dsn.width,
-        });
         let params = DecoderStageParams {
             pd: self.params.pd,
             routing_style: RoutingStyle::Decoder,
@@ -661,6 +69,12 @@ impl Decoder {
             num: node.num,
             child_sizes,
         };
+        let stage_dsn = ctx
+            .inner()
+            .run_script::<DecoderStagePhysicalDesignScript>(&params)?;
+        ctx.set_metadata(Metadata {
+            final_stage_width: stage_dsn.dsn.width,
+        });
         let mut inst = ctx.instantiate::<DecoderStage>(&params)?;
         inst.place(Corner::LowerRight, Point::zero());
         ctx.add_ports(inst.ports_starting_with("y")).unwrap();
@@ -750,24 +164,387 @@ impl Decoder {
     }
 }
 
-fn base_indices(mut i: usize, sizes: &[usize]) -> Vec<usize> {
-    let mut res = Vec::new();
-    for sz in sizes {
-        res.push(i % sz);
-        i /= sz;
-    }
-    res
-}
-
 impl DecoderStage {
     pub(crate) fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let dsn = ctx
+        let DecoderStagePhysicalDesign {
+            gate_params,
+            max_folding_factor,
+            folding_factors,
+            dsn,
+        } = &*ctx
             .inner()
-            .run_script::<DecoderPhysicalDesignScript>(&self.params.pd)?;
-        decoder_stage_layout(ctx, &self.params, &dsn, self.params.routing_style)
+            .run_script::<DecoderStagePhysicalDesignScript>(&self.params)?;
+        let mut tiler = ArrayTiler::builder();
+        let num_stages = gate_params.len();
+
+        for (gate, &folding_factor) in gate_params.iter().zip(folding_factors.iter()) {
+            let decoder_params = DecoderGateParams {
+                gate: gate.scale(1. / (folding_factor as f64)),
+                filler: false,
+                dsn: dsn.clone(),
+            };
+            let gate = ctx.instantiate::<DecoderGate>(&decoder_params)?;
+            let filler_gate = ctx.instantiate::<DecoderGate>(&DecoderGateParams {
+                filler: true,
+                ..decoder_params.clone()
+            })?;
+            let tap = ctx.instantiate::<DecoderTap>(&decoder_params)?;
+
+            let mut stage_tiler = ArrayTiler::builder();
+
+            stage_tiler.push(tap.clone());
+            for i in 0..self.params.num {
+                for j in 0..*max_folding_factor {
+                    if j < folding_factor {
+                        stage_tiler.push(gate.clone());
+                    } else {
+                        stage_tiler.push(filler_gate.clone());
+                    }
+                    if (max_folding_factor * i + j) % dsn.tap_period == dsn.tap_period - 1 {
+                        stage_tiler.push(tap.clone());
+                    }
+                }
+            }
+
+            if (self.params.num * max_folding_factor) % dsn.tap_period != 0 {
+                stage_tiler.push(tap.clone());
+            }
+
+            let mut stage_tiler = stage_tiler
+                .mode(AlignMode::ToTheRight)
+                .alt_mode(AlignMode::CenterVertical)
+                .build();
+
+            stage_tiler.expose_ports(
+                |port: CellPort, i| {
+                    let idx = if i > 0 {
+                        i - (i / (dsn.tap_period + 1) + 1)
+                    } else {
+                        0
+                    };
+                    match port.id().name().as_ref() {
+                        "vdd" | "vss" => Some(port),
+                        _ => Some(port.with_index(idx)),
+                    }
+                },
+                PortConflictStrategy::Merge,
+            )?;
+
+            let stage_group = stage_tiler.draw_ref()?;
+            tiler.push(stage_group);
+        }
+
+        let mut tiler = tiler
+            .mode(AlignMode::Above)
+            .space(300)
+            .alt_mode(AlignMode::CenterHorizontal)
+            .build();
+
+        tiler.expose_ports(
+            |port: CellPort, i| {
+                let idx = port.id().index();
+                match port.name().as_ref() {
+                    "vdd" | "vss" => Some(port),
+                    _ => Some(port.with_index(idx * num_stages + i)),
+                }
+            },
+            PortConflictStrategy::Merge,
+        )?;
+
+        for stage in 0..num_stages - 1 {
+            let folding_factor = folding_factors[stage];
+            for i in 0..self.params.num {
+                let inv_in: Vec<_> = tiler
+                    .port_map()
+                    .port(PortId::new(
+                        "a",
+                        i * folding_factors[stage + 1] * num_stages + stage + 1,
+                    ))?
+                    .shapes(dsn.li)
+                    .filter_map(|shape| shape.as_rect())
+                    .collect();
+                let gate_out = tiler
+                    .port_map()
+                    .port(PortId::new("y", i * folding_factor * num_stages + stage))?
+                    .largest_rect(dsn.li)?;
+                for j in 0..folding_factor {
+                    let src = tiler
+                        .port_map()
+                        .port(PortId::new(
+                            "y",
+                            (i * folding_factor + j) * num_stages + stage,
+                        ))?
+                        .largest_rect(dsn.li)?;
+                    for inv_in in &inv_in {
+                        let jog = OffsetJog::builder()
+                            .dir(subgeom::Dir::Vert)
+                            .sign(subgeom::Sign::Pos)
+                            .src(src)
+                            .dst(inv_in.left())
+                            .layer(dsn.li)
+                            .space(170)
+                            .build()
+                            .unwrap();
+                        let rect = Rect::from_spans(
+                            inv_in.hspan(),
+                            Span::new(jog.r2().bottom(), inv_in.top()),
+                        );
+                        ctx.draw(jog)?;
+                        ctx.draw_rect(dsn.li, rect);
+                    }
+                }
+                for j in 0..folding_factors[stage + 1] {
+                    for dst in tiler
+                        .port_map()
+                        .port(PortId::new(
+                            "a",
+                            (i * folding_factors[stage + 1] + j) * num_stages + stage + 1,
+                        ))?
+                        .shapes(dsn.li)
+                        .filter_map(|shape| shape.as_rect())
+                    {
+                        let jog = OffsetJog::builder()
+                            .dir(subgeom::Dir::Vert)
+                            .sign(subgeom::Sign::Pos)
+                            .src(gate_out)
+                            .dst(dst.left())
+                            .layer(dsn.li)
+                            .space(170)
+                            .build()
+                            .unwrap();
+                        let rect =
+                            Rect::from_spans(dst.hspan(), Span::new(jog.r2().bottom(), dst.top()));
+                        ctx.draw(jog)?;
+                        ctx.draw_rect(dsn.li, rect);
+                    }
+                }
+            }
+        }
+        ctx.add_ports(
+            tiler
+                .ports()
+                .cloned()
+                .filter_map(|port| match port.name().as_str() {
+                    "vdd" | "vss" => Some(port),
+                    _ => None,
+                }),
+        )
+        .unwrap();
+
+        ctx.draw_ref(&tiler)?;
+
+        // expose decoder outputs
+        {
+            let folding_factor = folding_factors[num_stages - 1];
+            for n in 0..self.params.num {
+                // connect folded outputs
+                if folding_factor > 1 {
+                    let left_port = tiler
+                        .port_map()
+                        .port(PortId::new(
+                            "y",
+                            n * folding_factor * num_stages + num_stages - 1,
+                        ))?
+                        .largest_rect(dsn.li)?;
+                    for k in 0..folding_factor {
+                        let port = tiler
+                            .port_map()
+                            .port(PortId::new(
+                                "y",
+                                (n * folding_factor + k) * num_stages + num_stages - 1,
+                            ))?
+                            .largest_rect(dsn.li)?;
+                        let jog = OffsetJog::builder()
+                            .dir(subgeom::Dir::Vert)
+                            .sign(subgeom::Sign::Pos)
+                            .src(port)
+                            .dst(left_port.left())
+                            .layer(dsn.li)
+                            .space(170)
+                            .build()
+                            .unwrap();
+                        ctx.draw(jog)?;
+                    }
+                }
+                ctx.add_port(
+                    tiler
+                        .port_map()
+                        .port(PortId::new(
+                            "y",
+                            n * folding_factor * num_stages + num_stages - 1,
+                        ))?
+                        .clone()
+                        .with_id(PortId::new(arcstr::format!("y"), n)),
+                )?;
+                if num_stages > 1 {
+                    ctx.add_port(
+                        tiler
+                            .port_map()
+                            .port(PortId::new(
+                                "y",
+                                n * folding_factor * num_stages + num_stages - 2,
+                            ))?
+                            .clone()
+                            .with_id(PortId::new(arcstr::format!("y_b"), n)),
+                    )?;
+                } else if let GateParams::And2(_) | GateParams::And3(_) = &gate_params[0] {
+                    ctx.add_port(
+                        tiler
+                            .port_map()
+                            .port(PortId::new("y_b", n * folding_factor * num_stages))?
+                            .clone()
+                            .with_id(PortId::new(arcstr::format!("y_b"), n)),
+                    )?;
+                }
+            }
+        }
+
+        let folding_factor = folding_factors[0];
+        let tracks = UniformTracks::builder()
+            .line(dsn.line)
+            .space(dsn.space)
+            .start(ctx.brect().bottom())
+            .sign(Sign::Neg)
+            .build()
+            .unwrap();
+        let hspan = ctx.brect().hspan();
+        let mut child_tracks = Vec::new();
+        let mut idx = 0usize;
+        match self.params.routing_style {
+            RoutingStyle::Decoder => {
+                for (i, s) in self.params.child_sizes.iter().copied().enumerate() {
+                    child_tracks.push(Vec::new());
+                    for j in 0..s {
+                        let tr = tracks.index(idx);
+                        let rect = Rect::from_spans(hspan, tr);
+                        ctx.draw_rect(dsn.stripe_metal, rect);
+                        ctx.add_port(CellPort::with_shape(
+                            arcstr::format!("predecode_{i}_{j}"),
+                            dsn.stripe_metal,
+                            rect,
+                        ))
+                        .unwrap();
+                        idx += 1;
+                        child_tracks[i].push(rect);
+                    }
+                }
+            }
+            RoutingStyle::Driver => {
+                let tr = tracks.index(0usize);
+                let rect = Rect::from_spans(hspan, tr);
+                child_tracks.push(vec![rect]);
+                ctx.draw_rect(dsn.stripe_metal, rect);
+                ctx.add_port(CellPort::with_shape(
+                    arcstr::literal!("wl_en"),
+                    dsn.stripe_metal,
+                    rect,
+                ))
+                .unwrap();
+            }
+        }
+
+        let mut via_metals = Vec::new();
+        via_metals.push(dsn.li);
+        via_metals.extend(dsn.via_metals.clone());
+        via_metals.push(dsn.stripe_metal);
+        let ports = ["a", "b", "c", "d"];
+
+        for n in 0..self.params.num {
+            match self.params.routing_style {
+                RoutingStyle::Decoder => {
+                    let idxs = base_indices(n, &self.params.child_sizes);
+                    for (i, j) in idxs.into_iter().enumerate() {
+                        for k in 0..folding_factors[0] {
+                            // connect to child_tracks[i][j].
+                            let port = tiler
+                                .port_map()
+                                .port(PortId::new(
+                                    ports[i],
+                                    (n * folding_factors[0] + k) * num_stages,
+                                ))?
+                                .largest_rect(dsn.li)?;
+                            let track = child_tracks[i][j];
+
+                            let bot = Rect::from_spans(port.hspan(), track.vspan());
+
+                            let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
+                                rect: bot,
+                                via_metals: via_metals.clone(),
+                            })?;
+
+                            ctx.draw_ref(&via)?;
+
+                            ctx.draw_rect(
+                                dsn.li,
+                                Rect::from_spans(
+                                    port.hspan(),
+                                    port.vspan().union(via.brect().vspan()),
+                                ),
+                            );
+                        }
+                    }
+                }
+                RoutingStyle::Driver => {
+                    for k in 0..folding_factor {
+                        // connect to child_tracks[0][0].
+                        let port = tiler
+                            .port_map()
+                            .port(PortId::new(ports[0], (n * folding_factor + k) * num_stages))?
+                            .largest_rect(dsn.li)?;
+                        let track = child_tracks[0][0];
+
+                        let bot = Rect::from_spans(port.hspan(), track.vspan());
+
+                        let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
+                            rect: bot,
+                            via_metals: via_metals.clone(),
+                        })?;
+
+                        ctx.draw_ref(&via)?;
+
+                        ctx.draw_rect(
+                            dsn.li,
+                            Rect::from_spans(port.hspan(), port.vspan().union(via.brect().vspan())),
+                        );
+                    }
+
+                    // connect folded gates
+                    if folding_factor > 1 {
+                        let left_port = tiler
+                            .port_map()
+                            .port(PortId::new(ports[1], n * folding_factor * num_stages))?
+                            .largest_rect(dsn.li)?;
+                        for k in 0..folding_factor {
+                            let port = tiler
+                                .port_map()
+                                .port(PortId::new(ports[1], (n * folding_factor + k) * num_stages))?
+                                .largest_rect(dsn.li)?;
+                            let jog = OffsetJog::builder()
+                                .dir(subgeom::Dir::Vert)
+                                .sign(subgeom::Sign::Neg)
+                                .src(left_port)
+                                .dst(port.right())
+                                .layer(dsn.li)
+                                .space(170)
+                                .build()
+                                .unwrap();
+                            ctx.draw(jog)?;
+                        }
+                    }
+                    ctx.add_port(
+                        tiler
+                            .port_map()
+                            .port(PortId::new(ports[1], n * folding_factor * num_stages))?
+                            .clone()
+                            .with_id(PortId::new(arcstr::format!("in"), n)),
+                    )?;
+                }
+            };
+        }
+        Ok(())
     }
 }
 
@@ -775,7 +552,7 @@ impl DecoderStage {
 pub struct DecoderGateParams {
     pub gate: GateParams,
     pub filler: bool,
-    pub dsn: PhysicalDesign,
+    pub dsn: DecoderPhysicalDesign,
 }
 
 pub struct DecoderGate {
@@ -1045,90 +822,5 @@ impl Component for DecoderVia {
             prev_layer = *metal;
         }
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct PhysicalDesign {
-    /// Width of a decoder cell.
-    pub(crate) width: i64,
-    /// Width of a decoder tap cell.
-    pub(crate) tap_width: i64,
-    /// Number of decoders on either side of each tap.
-    pub(crate) tap_period: usize,
-    /// The metal layer used for buses and power rails.
-    pub(crate) stripe_metal: LayerKey,
-    /// The metal layer used for connecting stripes to individual decoders.
-    pub(crate) wire_metal: LayerKey,
-    /// List of intermediate layers in via between (`li`)[PhysicalDesign::li] and
-    /// (`stripe_metal`)[PhysicalDesign::stripe_metal)
-    pub(crate) via_metals: Vec<LayerKey>,
-    /// The metal used to connect to MOS sources, drains, gates, and taps.
-    pub(crate) li: LayerKey,
-    /// Width of wires in bus.
-    pub(crate) line: i64,
-    /// Spacing between wires in bus.
-    pub(crate) space: i64,
-    /// Width of power rail.
-    pub(crate) rail_width: i64,
-    /// Layers that should be extended to the edge of decoder gates and tap cells.
-    pub(crate) abut_layers: HashSet<LayerKey>,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub enum DecoderStyle {
-    /// For bitcell array row decoder.
-    RowMatched,
-    /// Accomodates larger gates without expanding, but less efficient for smaller gates.
-    Relaxed,
-    /// Sized for smaller gates, expands for larger gates.
-    Minimum,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct PhysicalDesignParams {
-    pub dir: Dir,
-    pub style: DecoderStyle,
-}
-
-pub struct DecoderPhysicalDesignScript;
-
-impl Script for DecoderPhysicalDesignScript {
-    type Params = PhysicalDesignParams;
-    type Output = PhysicalDesign;
-
-    fn run(
-        params: &Self::Params,
-        ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self::Output> {
-        let layers = ctx.layers();
-        let li = layers.get(Selector::Metal(0))?;
-        let m1 = layers.get(Selector::Metal(1))?;
-        let m2 = layers.get(Selector::Metal(2))?;
-        let (stripe_metal, wire_metal, via_metals) = match params.dir {
-            Dir::Horiz => (m1, m2, vec![]),
-            Dir::Vert => (m2, m1, vec![m1]),
-        };
-        let nwell = layers.get(Selector::Name("nwell"))?;
-        let psdm = layers.get(Selector::Name("psdm"))?;
-        let nsdm = layers.get(Selector::Name("nsdm"))?;
-        let (width, tap_width) = match params.style {
-            DecoderStyle::RowMatched => (1_580, 1_580),
-            DecoderStyle::Relaxed => (1_900, 1_000),
-            DecoderStyle::Minimum => (1_470, 1_000),
-        };
-        Ok(Self::Output {
-            width,
-            tap_width,
-            tap_period: 4,
-            stripe_metal,
-            wire_metal,
-            via_metals,
-            li,
-            line: 320,
-            space: 160,
-            rail_width: 320,
-            abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
-        })
     }
 }

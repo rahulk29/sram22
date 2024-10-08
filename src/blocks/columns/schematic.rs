@@ -7,9 +7,9 @@ use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
 use crate::blocks::buf::DiffBuf;
-use crate::blocks::control::DffArray;
-use crate::blocks::decoder::layout::{DecoderStyle, PhysicalDesignParams, RoutingStyle};
-use crate::blocks::decoder::{DecoderStage, DecoderStageParams};
+use crate::blocks::decoder::{
+    DecoderPhysicalDesignParams, DecoderStage, DecoderStageParams, DecoderStyle, RoutingStyle,
+};
 use crate::blocks::gate::sizing::InverterGateTreeNode;
 use crate::blocks::gate::{GateParams, PrimitiveGateType};
 use crate::blocks::macros::SenseAmp;
@@ -18,6 +18,7 @@ use crate::blocks::sram::schematic::inverter_chain_num_stages;
 use crate::blocks::tgatemux::TGateMux;
 use crate::blocks::wrdriver::WriteDriver;
 
+use super::layout::DffArray;
 use super::{ColPeripherals, Column};
 
 impl ColPeripherals {
@@ -82,7 +83,7 @@ impl ColPeripherals {
 
         for i in 0..wmask_bits {
             ctx.instantiate::<DecoderStage>(&DecoderStageParams {
-                pd: PhysicalDesignParams {
+                pd: DecoderPhysicalDesignParams {
                     style: DecoderStyle::Minimum,
                     dir: Dir::Horiz,
                 },

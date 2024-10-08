@@ -1,10 +1,6 @@
 use crate::blocks::decoder::sizing::{path_map_tree, Tree, ValueTree};
-use crate::blocks::decoder::{
-    gate_model, gate_params, primitive_gate_model, primitive_gate_params, TreeNode,
-};
-use crate::blocks::gate::{
-    AndParams, Gate, GateParams, GateType, PrimitiveGateParams, PrimitiveGateType,
-};
+use crate::blocks::decoder::{primitive_gate_model, primitive_gate_params};
+use crate::blocks::gate::{PrimitiveGateParams, PrimitiveGateType};
 use serde::{Deserialize, Serialize};
 use substrate::logic::delay::{LogicPath, OptimizerOpts};
 

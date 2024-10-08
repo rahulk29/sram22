@@ -31,7 +31,8 @@ use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 
 use super::coarse_tdc::TappedRegister;
-use super::decoder::layout::{DecoderGateParams, DecoderTap, PhysicalDesign};
+use super::decoder::layout::{DecoderGateParams, DecoderTap};
+use super::decoder::DecoderPhysicalDesign;
 use super::gate::{GateParams, Inv, PrimitiveGateParams};
 
 pub mod tb;
@@ -471,7 +472,7 @@ impl Component for TdcCell {
                 )
                 .build(),
         )?;
-        let dsn = PhysicalDesign {
+        let dsn = DecoderPhysicalDesign {
             width: 2_000,
             tap_width: 790,
             tap_period: 2,
