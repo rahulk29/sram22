@@ -403,7 +403,7 @@ mod tests {
                     &AcImpedanceTbParams {
                         vdd: 1.8,
                         fstart: 100.,
-                        fstop: 100e6,
+                        fstop: 10e6,
                         points: 10,
                         dut: params.clone(),
                         pex_netlist: Some(pex_netlist_path.clone()),
