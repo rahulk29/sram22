@@ -25,15 +25,15 @@ pub struct ColParams {
 }
 
 impl ColParams {
-    fn mux_ratio(&self) -> usize {
+    pub const fn mux_ratio(&self) -> usize {
         self.mux.mux_ratio
     }
 
-    fn word_length(&self) -> usize {
+    pub const fn word_length(&self) -> usize {
         self.cols / self.mux_ratio()
     }
 
-    fn wmask_bits(&self) -> usize {
+    pub const fn wmask_bits(&self) -> usize {
         self.word_length() / self.wmask_granularity
     }
 }
@@ -124,11 +124,68 @@ impl Component for Column {
     }
 }
 
+pub const WRITE_DRIVER_PARAMS: WriteDriverParams = WriteDriverParams {
+    length: 150,
+    pwidth_driver: 3_000,
+    nwidth_driver: 3_000,
+};
+pub const MUX_PARAMS: TGateMuxParams = TGateMuxParams {
+    length: 150,
+    pwidth: 3_000,
+    nwidth: 3_000,
+    mux_ratio: 4,
+    idx: 2,
+};
+pub const PRECHARGE_PARAMS: PrechargeParams = PrechargeParams {
+    length: 150,
+    pull_up_width: 2_000,
+    equalizer_width: 1_200,
+};
+
+pub const DIFF_BUF_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+    nwidth: 1_200,
+    pwidth: 2_000,
+    length: 150,
+};
+
+pub const COL_WMASK_PARAMS: ColParams = ColParams {
+    pc: PRECHARGE_PARAMS,
+    wrdriver: WRITE_DRIVER_PARAMS,
+    mux: MUX_PARAMS,
+    buf: DIFF_BUF_PARAMS,
+    cols: 16,
+    include_wmask: true,
+    wmask_granularity: 2,
+};
+
+pub const COL_PARAMS: ColParams = ColParams {
+    pc: PRECHARGE_PARAMS,
+    wrdriver: WRITE_DRIVER_PARAMS,
+    mux: MUX_PARAMS,
+    buf: DIFF_BUF_PARAMS,
+    cols: 128,
+    include_wmask: false,
+    wmask_granularity: 8,
+};
+
+pub const COL_CAPACITANCES: ColCapacitances = ColCapacitances {
+    pc_b: 550.284e-15 / COL_PARAMS.cols as f64,
+    saen: 393.714e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
+    sel: 216.435e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
+    sel_b: 168.781e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
+    we: 37.922e-15 / COL_PARAMS.wmask_bits() as f64,
+};
+
+pub struct ColCapacitances {
+    pub saen: f64,
+    pub pc_b: f64,
+    pub sel: f64,
+    pub sel_b: f64,
+    pub we: f64,
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::blocks::bitcell_array::{
-        SpCellArrayParams, SpCellArrayWithGuardRing, SpCellArrayWithGuardRingParams,
-    };
     use crate::measure::impedance::AcImpedanceTbNode;
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
@@ -142,50 +199,6 @@ mod tests {
 
     use super::layout::{ColCentParams, ColumnCent};
     use super::*;
-
-    const WRITE_DRIVER_PARAMS: WriteDriverParams = WriteDriverParams {
-        length: 150,
-        pwidth_driver: 3_000,
-        nwidth_driver: 3_000,
-    };
-    const MUX_PARAMS: TGateMuxParams = TGateMuxParams {
-        length: 150,
-        pwidth: 3_000,
-        nwidth: 3_000,
-        mux_ratio: 4,
-        idx: 2,
-    };
-    const PRECHARGE_PARAMS: PrechargeParams = PrechargeParams {
-        length: 150,
-        pull_up_width: 2_000,
-        equalizer_width: 1_200,
-    };
-
-    const DIFF_BUF_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
-        nwidth: 1_200,
-        pwidth: 2_000,
-        length: 150,
-    };
-
-    const COL_WMASK_PARAMS: ColParams = ColParams {
-        pc: PRECHARGE_PARAMS,
-        wrdriver: WRITE_DRIVER_PARAMS,
-        mux: MUX_PARAMS,
-        buf: DIFF_BUF_PARAMS,
-        cols: 16,
-        include_wmask: true,
-        wmask_granularity: 2,
-    };
-
-    const COL_PARAMS: ColParams = ColParams {
-        pc: PRECHARGE_PARAMS,
-        wrdriver: WRITE_DRIVER_PARAMS,
-        mux: MUX_PARAMS,
-        buf: DIFF_BUF_PARAMS,
-        cols: 128,
-        include_wmask: false,
-        wmask_granularity: 8,
-    };
 
     struct ColPeripheralsLvs {
         params: ColParams,

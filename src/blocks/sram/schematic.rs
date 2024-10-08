@@ -20,7 +20,7 @@ use crate::blocks::precharge::{Precharge, PrechargeParams};
 use crate::blocks::tgatemux::TGateMuxParams;
 use crate::blocks::wrdriver::WriteDriverParams;
 
-use super::{SramInner, SramPhysicalDesignScript, READ_MUX_INPUT_CAP, WORDLINE_CAP_PER_CELL};
+use super::{SramInner, SramPhysicalDesignScript, WORDLINE_CAP_PER_CELL};
 
 impl SramInner {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {

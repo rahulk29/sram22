@@ -1,4 +1,5 @@
 use serde::Serialize;
+use subgeom::snap_to_grid;
 use substrate::component::Component;
 
 pub mod layout;
@@ -13,6 +14,19 @@ pub struct PrechargeParams {
     pub length: i64,
     pub pull_up_width: i64,
     pub equalizer_width: i64,
+}
+
+impl PrechargeParams {
+    pub fn scale(&self, scale: f64) -> Self {
+        let pull_up_width = snap_to_grid((self.pull_up_width as f64 * scale).round() as i64, 50);
+        let equalizer_width =
+            snap_to_grid((self.equalizer_width as f64 * scale).round() as i64, 50);
+        Self {
+            length: self.length,
+            pull_up_width,
+            equalizer_width,
+        }
+    }
 }
 
 impl Component for Precharge {

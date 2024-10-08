@@ -17,10 +17,11 @@ use substrate::script::Script;
 
 use super::bitcell_array::replica::ReplicaCellArrayParams;
 use super::bitcell_array::SpCellArrayParams;
-use super::columns::{ColParams, ColPeripherals};
+use super::columns::{ColParams, ColPeripherals, COL_CAPACITANCES, COL_PARAMS};
 use super::decoder::layout::{DecoderStyle, PhysicalDesignParams, RoutingStyle};
 use super::decoder::{
-    DecoderParams, DecoderStageParams, DecoderTree, INV_MODEL, INV_PARAMS, NAND2_PARAMS,
+    DecoderParams, DecoderStageParams, DecoderTree, INV_MODEL, INV_PARAMS, NAND2_MODEL,
+    NAND2_PARAMS,
 };
 use super::gate::{AndParams, GateParams, PrimitiveGateParams};
 use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
@@ -35,7 +36,7 @@ pub mod testbench;
 pub mod verilog;
 
 pub const WORDLINE_CAP_PER_CELL: f64 = 0.00000000000001472468276676486 / 12.;
-pub const READ_MUX_INPUT_CAP: f64 = WORDLINE_CAP_PER_CELL * 4.; // TODO
+pub const BITLINE_CAP_PER_CELL: f64 = 0.00000000000008859364177937068 / 128.;
 
 pub struct SramInner {
     params: SramParams,
@@ -152,24 +153,14 @@ impl SramParams {
     }
 
     pub(crate) fn col_params(&self) -> ColParams {
+        let bl_cap = (self.rows() + 4) as f64 * BITLINE_CAP_PER_CELL;
+        let pc_scale = f64::max(bl_cap / COL_CAPACITANCES.pc_b / 8.0, 0.4);
+        let mux_scale = f64::max(bl_cap / COL_CAPACITANCES.sel / 8.0, 0.2);
+        let wrdrvscale = f64::max(bl_cap / COL_CAPACITANCES.we / 16.0, 0.2);
         ColParams {
-            pc: PrechargeParams {
-                length: 150,
-                pull_up_width: 2_000,
-                equalizer_width: 1_200,
-            },
-            wrdriver: WriteDriverParams {
-                length: 150,
-                pwidth_driver: 10_000,
-                nwidth_driver: 10_000,
-            },
-            mux: TGateMuxParams {
-                length: 150,
-                pwidth: 4_000,
-                nwidth: 4_000,
-                mux_ratio: self.mux_ratio(),
-                idx: 0,
-            },
+            pc: COL_PARAMS.pc.scale(pc_scale),
+            wrdriver: COL_PARAMS.wrdriver.scale(wrdrvscale),
+            mux: COL_PARAMS.mux.scale(mux_scale),
             buf: PrimitiveGateParams {
                 nwidth: 1_200,
                 pwidth: 2_000,
@@ -217,6 +208,18 @@ impl Script for SramPhysicalDesignScript {
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
         let rbl_rows = ((params.rows() / 12) + 1) * 2;
         let rbl_wl_index = rbl_rows / 2;
+
+        let pc_b_cap =
+            COL_CAPACITANCES.pc_b * col_params.cols as f64 * col_params.pc.pull_up_width as f64
+                / COL_PARAMS.pc.pull_up_width as f64;
+        let wlen_cap = NAND2_MODEL.cin * (params.addr_width() * 2) as f64;
+        let wrdrven_cap = COL_CAPACITANCES.we * col_params.wmask_bits() as f64;
+        let saen_cap = COL_CAPACITANCES.saen * (col_params.cols / col_params.mux.mux_ratio) as f64;
+        let col_sel_cap =
+            COL_CAPACITANCES.sel * (col_params.cols / col_params.mux.mux_ratio) as f64;
+        let col_sel_b_cap =
+            COL_CAPACITANCES.sel_b * (col_params.cols / col_params.mux.mux_ratio) as f64;
+
         let wrdrven_saen_width = cols
             .port("sense_en")?
             .largest_rect(m2)?
@@ -285,11 +288,7 @@ impl Script for SramPhysicalDesignScript {
                         .union(cols.port(PortId::new("sel", 0))?.largest_rect(m2)?.vspan())
                         .length(),
                 ),
-                // TODO use tgate mux input cap
-                tree: DecoderTree::new(
-                    params.col_select_bits(),
-                    READ_MUX_INPUT_CAP * (params.cols() / params.mux_ratio()) as f64,
-                ),
+                tree: DecoderTree::new(params.col_select_bits(), col_sel_cap + col_sel_b_cap),
             },
             pc_b_buffer: DecoderStageParams {
                 max_width: Some(
@@ -299,19 +298,19 @@ impl Script for SramPhysicalDesignScript {
                         .add_point(cols.brect().top())
                         .length(),
                 ),
-                ..fanout_buffer_stage(horiz_buffer, 2000e-15)
+                ..fanout_buffer_stage(horiz_buffer, pc_b_cap)
             },
             wlen_buffer: DecoderStageParams {
                 max_width: None,
-                ..fanout_buffer_stage(vert_buffer, 500e-15)
+                ..fanout_buffer_stage(vert_buffer, wlen_cap)
             },
             write_driver_en_buffer: DecoderStageParams {
                 max_width: Some(wrdrven_saen_width),
-                ..fanout_buffer_stage(horiz_buffer, 500e-15)
+                ..fanout_buffer_stage(horiz_buffer, wrdrven_cap)
             },
             sense_en_buffer: DecoderStageParams {
                 max_width: Some(wrdrven_saen_width),
-                ..fanout_buffer_stage(horiz_buffer, 500e-15)
+                ..fanout_buffer_stage(horiz_buffer, saen_cap)
             },
             num_dffs: params.addr_width() + 2,
             rbl_wl_index,
