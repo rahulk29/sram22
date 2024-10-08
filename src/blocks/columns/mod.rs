@@ -393,28 +393,30 @@ mod tests {
         })
         .expect("failed to run pex");
 
-        let mut conns = col_peripherals_default_conns();
-        conns.get_mut("sel").unwrap()[0] = AcImpedanceTbNode::Vmeas;
+        for port in ["clk", "reset_b", "sense_en", "pc_b", "sel", "sel_b", "we"] {
+            let mut conns = col_peripherals_default_conns();
+            conns.get_mut(port).unwrap()[0] = AcImpedanceTbNode::Vmeas;
 
-        let sim_dir = work_dir.join("ac_sim");
-        let cap_ac = ctx
-            .write_simulation::<AcImpedanceTestbench<ColPeripherals>>(
-                &AcImpedanceTbParams {
-                    vdd: 1.8,
-                    fstart: 100.,
-                    fstop: 100e6,
-                    points: 10,
-                    dut: params,
-                    pex_netlist: Some(pex_netlist_path.clone()),
-                    vmeas_conn: AcImpedanceTbNode::Vdd,
-                    connections: HashMap::from_iter(
-                        conns.into_iter().map(|(k, v)| (ArcStr::from(k), v)),
-                    ),
-                },
-                &sim_dir,
-            )
-            .expect("failed to write simulation");
+            let sim_dir = work_dir.join(format!("{port}_cap"));
+            let cap_ac = ctx
+                .write_simulation::<AcImpedanceTestbench<ColPeripherals>>(
+                    &AcImpedanceTbParams {
+                        vdd: 1.8,
+                        fstart: 100.,
+                        fstop: 100e6,
+                        points: 10,
+                        dut: params.clone(),
+                        pex_netlist: Some(pex_netlist_path.clone()),
+                        vmeas_conn: AcImpedanceTbNode::Vdd,
+                        connections: HashMap::from_iter(
+                            conns.into_iter().map(|(k, v)| (ArcStr::from(k), v)),
+                        ),
+                    },
+                    &sim_dir,
+                )
+                .expect("failed to write simulation");
 
-        println!("Csel[0] = {}fF", 1e15 * cap_ac.max_freq_cap());
+            println!("C{port} = {}fF", 1e15 * cap_ac.max_freq_cap());
+        }
     }
 }
