@@ -1028,12 +1028,7 @@ impl Component for DffCol {
     ) -> substrate::error::Result<()> {
         let dff = ctx.instantiate::<TappedDff>(&NoParams)?;
         let layers = ctx.layers();
-        let nwell = layers.get(Selector::Name("nwell"))?;
-        let nsdm = layers.get(Selector::Name("nsdm"))?;
-        let psdm = layers.get(Selector::Name("psdm"))?;
         let outline = layers.get(Selector::Name("outline"))?;
-        let tap = layers.get(Selector::Name("tap"))?;
-        let m0 = layers.get(Selector::Metal(0))?;
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
 

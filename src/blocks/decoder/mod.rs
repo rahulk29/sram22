@@ -5,7 +5,7 @@ use subgeom::snap_to_grid;
 use substrate::component::Component;
 use substrate::logic::delay::{GateModel, LogicPath, OptimizerOpts};
 
-use super::gate::{AndParams, Gate, GateParams, GateType, PrimitiveGateParams, PrimitiveGateType};
+use super::gate::{AndParams, GateParams, GateType, PrimitiveGateParams, PrimitiveGateType};
 
 pub mod layout;
 pub mod schematic;
@@ -64,7 +64,7 @@ struct PlanTreeNode {
 impl DecoderTree {
     pub fn new(bits: usize, cload: f64) -> Self {
         let plan = plan_decoder(bits, true, false);
-        let mut root = size_decoder(&plan, cload);
+        let root = size_decoder(&plan, cload);
         DecoderTree { root }
     }
 }
