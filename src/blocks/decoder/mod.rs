@@ -6,7 +6,7 @@ use subgeom::snap_to_grid;
 use substrate::component::Component;
 use substrate::logic::delay::{GateModel, LogicPath, OptimizerOpts};
 
-use super::gate::{AndParams, Gate, GateParams, GateType, PrimitiveGateParams, PrimitiveGateType};
+use super::gate::{AndParams, GateParams, GateType, PrimitiveGateParams, PrimitiveGateType};
 
 pub mod layout;
 pub mod schematic;
@@ -344,14 +344,13 @@ fn plan_decoder(bits: usize, top: bool, skew_rising: bool) -> PlanTreeNode {
             .into_iter()
             .map(|x| plan_decoder(x, false, skew_rising))
             .collect::<Vec<_>>();
-        let node = PlanTreeNode {
+
+        PlanTreeNode {
             gate,
             num: 2usize.pow(bits as u32),
             children,
             skew_rising,
-        };
-
-        node
+        }
     }
 }
 
@@ -540,7 +539,6 @@ impl Component for DecoderStage {
 mod tests {
 
     use subgeom::Dir;
-    use substrate::component::NoParams;
 
     use crate::blocks::gate::AndParams;
     use crate::paths::{out_gds, out_spice};

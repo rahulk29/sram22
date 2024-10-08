@@ -1,9 +1,8 @@
-use self::schematic::{fanout_buffer_stage, fanout_buffer_stage_with_inverted_output};
+use self::schematic::fanout_buffer_stage;
 use crate::blocks::control::ControlLogicParams;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::path::PathBuf;
-use std::process::Output;
 use subgeom::bbox::BoundBox;
 use subgeom::{Dir, Rect, Span};
 use substrate::component::{error, Component};
@@ -26,9 +25,6 @@ use super::decoder::{
 use super::gate::{AndParams, GateParams, PrimitiveGateParams};
 use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
 use super::precharge::layout::ReplicaPrechargeParams;
-use super::precharge::PrechargeParams;
-use super::tgatemux::TGateMuxParams;
-use super::wrdriver::WriteDriverParams;
 
 pub mod layout;
 pub mod schematic;

@@ -1,4 +1,3 @@
-use crate::blocks::wrdriver::WriteDriverParams;
 use serde::Serialize;
 use subgeom::snap_to_grid;
 use substrate::component::Component;

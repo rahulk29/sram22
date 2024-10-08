@@ -3,7 +3,7 @@ use std::iter::Extend;
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use substrate::component::{Component, NoParams};
+use substrate::component::Component;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
 
@@ -57,8 +57,8 @@ pub(crate) fn expand_width(gate: &GateParams, dsn: &mut PhysicalDesign) {
             0,
             "tap period must be even for expansion"
         );
-        dsn.width = 2 * dsn.width;
-        dsn.tap_period = dsn.tap_period / 2;
+        dsn.width *= 2;
+        dsn.tap_period /= 2;
     }
 }
 

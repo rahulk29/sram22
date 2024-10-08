@@ -6,7 +6,6 @@ use substrate::component::{Component, NoParams};
 use substrate::data::SubstrateCtx;
 use substrate::index::IndexOwned;
 use substrate::layout::cell::{CellPort, Instance, Port, PortConflictStrategy, PortId};
-use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::group::Group;
 use substrate::layout::layers::selector::Selector;
@@ -19,7 +18,6 @@ use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerCo
 use substrate::layout::routing::manual::jog::{ElbowJog, SJog};
 use substrate::layout::routing::tracks::TrackLocator;
 use substrate::layout::Draw;
-use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 use substrate::pdk::stdcell::StdCell;
 
 use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch};
@@ -182,7 +180,7 @@ impl ControlLogicReplicaV2 {
             },
             PortConflictStrategy::Merge,
         )?;
-        let mut group = rows.generate()?;
+        let group = rows.generate()?;
 
         self.route(ctx, &group)?;
 

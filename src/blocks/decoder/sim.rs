@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::layout::{DecoderStyle, PhysicalDesign, PhysicalDesignParams};
+use super::layout::{DecoderStyle, PhysicalDesignParams};
 use super::{Decoder, DecoderParams, DecoderTree};
 use crate::blocks::sram::WORDLINE_CAP_PER_CELL;
 use serde::{Deserialize, Serialize};

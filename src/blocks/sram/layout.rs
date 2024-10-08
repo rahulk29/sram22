@@ -1,9 +1,9 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
-use subgeom::bbox::{Bbox, BoundBox};
+use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
 use subgeom::transform::Translate;
-use subgeom::{Corner, Dir, Point, Rect, Shape, Side, Sign, Span};
+use subgeom::{Dir, Point, Rect, Shape, Side, Sign, Span};
 use substrate::component::{Component, NoParams};
 use substrate::error::Result;
 use substrate::index::IndexOwned;
@@ -15,28 +15,22 @@ use substrate::layout::layers::{LayerBoundBox, LayerKey};
 use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::tile::LayerBbox;
-use substrate::layout::routing::auto::grid::{
-    ExpandToGridStrategy, JogToGrid, OffGridBusTranslation, OffGridBusTranslationStrategy,
-};
+use substrate::layout::routing::auto::grid::ExpandToGridStrategy;
 use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
-use substrate::layout::routing::manual::jog::{ElbowJog, OffsetJog, SJog};
-use substrate::layout::routing::tracks::{TrackLocator, UniformTracks};
+use substrate::layout::routing::manual::jog::{OffsetJog, SJog};
+use substrate::layout::routing::tracks::TrackLocator;
 use substrate::layout::straps::SingleSupplyNet;
 use substrate::layout::Draw;
 use substrate::pdk::stdcell::StdCell;
 
-use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
-use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
+use crate::blocks::bitcell_array::replica::ReplicaCellArray;
+use crate::blocks::bitcell_array::SpCellArray;
 use crate::blocks::columns::ColPeripherals;
 use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2, DffArray};
-use crate::blocks::decoder::{
-    Decoder, DecoderParams, DecoderStage, DecoderStageParams, DecoderTree, INV_PARAMS, NAND2_PARAMS,
-};
-use crate::blocks::gate::{AndParams, GateParams};
-use crate::blocks::precharge::layout::{ReplicaPrecharge, ReplicaPrechargeParams};
+use crate::blocks::decoder::{Decoder, DecoderStage};
+use crate::blocks::precharge::layout::ReplicaPrecharge;
 
-use super::schematic::fanout_buffer_stage;
 use super::{SramInner, SramPhysicalDesignScript};
 
 pub struct TappedDiode;
@@ -108,9 +102,9 @@ fn draw_route(
     router: &mut GreedyRouter,
     ctx: &mut LayoutCtx,
 ) -> Result<()> {
-    let mut curr_span = start;
-    let mut curr_dir = dir;
-    let mut prev_rect = None;
+    let curr_span = start;
+    let curr_dir = dir;
+    let prev_rect = None;
     for tracks in tracks.windows(2) {
         let curr_track = tracks[0];
         let next_track = tracks[1];
@@ -171,7 +165,7 @@ impl SramInner {
         let mut pc_b_buffer = ctx
             .instantiate::<DecoderStage>(&dsn.pc_b_buffer)?
             .with_orientation(Named::R90Cw);
-        let mut wl_en_buffer = ctx
+        let wl_en_buffer = ctx
             .instantiate::<DecoderStage>(&dsn.wlen_buffer)?
             .with_orientation(Named::R90Cw);
         let mut write_driver_en_buffer = ctx
@@ -710,7 +704,7 @@ impl SramInner {
             for port_name in ["bl", "br"] {
                 let src = rbl.port(PortId::new(port_name, i))?.largest_rect(m1)?;
                 let dst = replica_pc
-                    .port(PortId::new(&format!("{}_in", port_name), i))?
+                    .port(PortId::new(format!("{}_in", port_name), i))?
                     .largest_rect(m1)?;
                 ctx.draw_rect(m1, src.bbox().union(dst.bbox()).into_rect());
             }

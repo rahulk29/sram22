@@ -1,26 +1,20 @@
 use substrate::error::Result;
 use substrate::index::IndexOwned;
-use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 use substrate::schematic::signal::Signal;
 
-use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
-use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
-use crate::blocks::columns::{ColParams, ColPeripherals};
-use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2, DffArray, InvChain};
-use crate::blocks::decoder::layout::{LastBitDecoderStage, PhysicalDesignParams, RoutingStyle};
-use crate::blocks::decoder::{
-    Decoder, DecoderParams, DecoderStage, DecoderStageParams, DecoderTree, INV_MODEL, INV_PARAMS,
-    NAND2_PARAMS,
-};
+use crate::blocks::bitcell_array::replica::ReplicaCellArray;
+use crate::blocks::bitcell_array::SpCellArray;
+use crate::blocks::columns::ColPeripherals;
+use crate::blocks::control::{ControlLogicReplicaV2, DffArray};
+use crate::blocks::decoder::layout::{PhysicalDesignParams, RoutingStyle};
+use crate::blocks::decoder::{Decoder, DecoderStage, DecoderStageParams, INV_MODEL};
 use crate::blocks::gate::sizing::InverterGateTreeNode;
-use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams};
-use crate::blocks::precharge::{Precharge, PrechargeParams};
-use crate::blocks::tgatemux::TGateMuxParams;
-use crate::blocks::wrdriver::WriteDriverParams;
+use crate::blocks::gate::GateParams;
+use crate::blocks::precharge::Precharge;
 
-use super::{SramInner, SramPhysicalDesignScript, WORDLINE_CAP_PER_CELL};
+use super::{SramInner, SramPhysicalDesignScript};
 
 impl SramInner {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
@@ -371,7 +365,7 @@ pub fn fanout_buffer_stage_with_inverted_output(
         .elaborate()
         .size(cl)
         .as_inv_chain();
-    invs.push(invs.last().unwrap().clone());
+    invs.push(*invs.last().unwrap());
     DecoderStageParams {
         pd,
         routing_style: RoutingStyle::Decoder,

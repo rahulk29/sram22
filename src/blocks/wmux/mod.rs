@@ -348,7 +348,7 @@ mod tests {
                     fstop: 100e6,
                     points: 10,
                     vdd: 1.8,
-                    dut: params.clone(),
+                    dut: params,
                     pex_netlist: Some(pex_netlist_path.clone()),
                     vmeas_conn: AcImpedanceTbNode::Vdd,
                     connections: HashMap::from_iter([

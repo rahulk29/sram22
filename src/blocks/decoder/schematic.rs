@@ -1,22 +1,18 @@
-use std::collections::VecDeque;
-
 use itertools::Itertools;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
-use substrate::schematic::signal::{Signal, Slice};
 
 use substrate::index::IndexOwned;
 
 use super::layout::{decoder_stage_schematic, DecoderPhysicalDesignScript, RoutingStyle};
-use super::{Decoder, DecoderParams, DecoderStage, DecoderStageParams, TreeNode};
-use crate::blocks::decoder::get_idxs;
-use crate::blocks::gate::{And2, And3, GateParams, Inv};
+use super::{Decoder, DecoderParams, DecoderStage, DecoderStageParams};
+use crate::blocks::gate::GateParams;
 use crate::clog2;
 
 impl Decoder {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
         let out_bits = self.params.tree.root.num;
-        let mut in_bits = clog2(out_bits);
+        let in_bits = clog2(out_bits);
 
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
