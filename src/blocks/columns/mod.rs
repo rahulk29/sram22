@@ -407,7 +407,7 @@ mod tests {
                     pex_netlist: Some(pex_netlist_path.clone()),
                     vmeas_conn: AcImpedanceTbNode::Vdd,
                     connections: HashMap::from_iter(
-                        conns.into_iter().map(|(k, v)| (arcstr::literal!(k), v)),
+                        conns.into_iter().map(|(k, v)| (ArcStr::from(k), v)),
                     ),
                 },
                 &sim_dir,
