@@ -25,6 +25,7 @@ use super::gate::{AndParams, GateParams, PrimitiveGateParams};
 use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
 use super::precharge::layout::ReplicaPrechargeParams;
 use crate::blocks::columns::layout::DffArray;
+use crate::blocks::tgatemux::TGateMuxParams;
 
 pub mod layout;
 pub mod schematic;
@@ -170,7 +171,10 @@ impl SramParams {
         ColParams {
             pc: COL_PARAMS.pc.scale(pc_scale),
             wrdriver: COL_PARAMS.wrdriver.scale(wrdrvscale),
-            mux: COL_PARAMS.mux.scale(mux_scale),
+            mux: TGateMuxParams {
+                mux_ratio: self.mux_ratio(),
+                ..COL_PARAMS.mux.scale(mux_scale)
+            },
             buf: PrimitiveGateParams {
                 nwidth: 1_200,
                 pwidth: 2_000,
