@@ -7,7 +7,6 @@ use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
 use crate::blocks::buf::DiffBuf;
-use crate::blocks::control::DffArray;
 use crate::blocks::decoder::{
     DecoderPhysicalDesignParams, DecoderStage, DecoderStageParams, DecoderStyle, RoutingStyle,
 };
@@ -19,6 +18,7 @@ use crate::blocks::sram::schematic::inverter_chain_num_stages;
 use crate::blocks::tgatemux::TGateMux;
 use crate::blocks::wrdriver::WriteDriver;
 
+use super::layout::DffArray;
 use super::{ColPeripherals, Column};
 
 impl ColPeripherals {

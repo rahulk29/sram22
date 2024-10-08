@@ -1,10 +1,7 @@
-use self::schematic::fanout_buffer_stage;
-use crate::blocks::control::{ControlLogicParams, DffArray};
-use crate::blocks::decoder::{
-    DecoderPhysicalDesignParams, DecoderPhysicalDesignScript, DecoderStyle, RoutingStyle, INV_MODEL,
-};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
 use subgeom::bbox::BoundBox;
 use subgeom::{Dir, Rect, Span};
@@ -17,11 +14,12 @@ use substrate::layout::routing::auto::straps::PlacedStraps;
 use substrate::layout::straps::SingleSupplyNet;
 use substrate::script::Script;
 
+use self::schematic::fanout_buffer_stage;
 use super::bitcell_array::replica::ReplicaCellArrayParams;
 use super::bitcell_array::SpCellArrayParams;
 use super::columns::{ColParams, ColPeripherals};
 use super::decoder::{
-    Decoder, DecoderParams, DecoderStage, DecoderStageParams, DecoderTree, INV_PARAMS, NAND2_PARAMS,
+    Decoder, DecoderParams, DecoderStageParams, DecoderTree, INV_PARAMS, NAND2_PARAMS,
 };
 use super::gate::{AndParams, GateParams, PrimitiveGateParams};
 use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
@@ -29,6 +27,9 @@ use super::precharge::layout::ReplicaPrechargeParams;
 use super::precharge::PrechargeParams;
 use super::tgatemux::TGateMuxParams;
 use super::wrdriver::WriteDriverParams;
+use crate::blocks::columns::layout::DffArray;
+use crate::blocks::control::ControlLogicParams;
+use crate::blocks::decoder::{DecoderPhysicalDesignParams, DecoderStyle, RoutingStyle, INV_MODEL};
 
 pub mod layout;
 pub mod schematic;
@@ -37,6 +38,22 @@ pub mod verilog;
 
 pub const WORDLINE_CAP_PER_CELL: f64 = 0.00000000000001472468276676486 / 12.;
 pub const READ_MUX_INPUT_CAP: f64 = WORDLINE_CAP_PER_CELL * 4.; // TODO
+
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
+pub struct SramConfig {
+    pub num_words: usize,
+    pub data_width: usize,
+    pub mux_ratio: MuxRatio,
+    pub write_size: usize,
+    #[cfg(feature = "commercial")]
+    pub pex_level: Option<calibre::pex::PexLevel>,
+}
+
+pub fn parse_sram_config(path: impl AsRef<Path>) -> anyhow::Result<SramConfig> {
+    let contents = fs::read_to_string(path)?;
+    let data = toml::from_str(&contents)?;
+    Ok(data)
+}
 
 pub struct SramInner {
     params: SramParams,
@@ -94,11 +111,6 @@ impl SramParams {
     #[inline]
     pub fn row_bits(&self) -> usize {
         (self.num_words / self.mux_ratio as usize).ilog2() as usize
-    }
-
-    #[inline]
-    pub fn col_bits(&self) -> usize {
-        (self.data_width * self.mux_ratio as usize).ilog2() as usize
     }
 
     #[inline]

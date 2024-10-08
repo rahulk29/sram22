@@ -28,7 +28,6 @@ use tera::Tera;
 pub mod abs;
 pub mod blocks;
 pub mod cli;
-pub mod config;
 #[cfg(feature = "commercial")]
 pub mod liberate;
 pub mod measure;
@@ -36,8 +35,6 @@ pub mod paths;
 pub mod pex;
 pub mod plan;
 pub mod tech;
-#[cfg(test)]
-pub mod tests;
 pub mod verification;
 pub mod verilog;
 
@@ -123,4 +120,15 @@ pub fn setup_ctx() -> SubstrateCtx {
         .build();
 
     SubstrateCtx::from_config(cfg).unwrap()
+}
+
+#[cfg(test)]
+pub mod tests {
+    use std::path::PathBuf;
+
+    use super::BUILD_PATH;
+
+    pub(crate) fn test_work_dir(name: &str) -> PathBuf {
+        PathBuf::from(BUILD_PATH).join(name)
+    }
 }

@@ -6,8 +6,9 @@ use substrate::schematic::signal::Signal;
 
 use crate::blocks::bitcell_array::replica::ReplicaCellArray;
 use crate::blocks::bitcell_array::SpCellArray;
+use crate::blocks::columns::layout::DffArray;
 use crate::blocks::columns::ColPeripherals;
-use crate::blocks::control::{ControlLogicReplicaV2, DffArray};
+use crate::blocks::control::ControlLogicReplicaV2;
 use crate::blocks::decoder::{
     Decoder, DecoderPhysicalDesignParams, DecoderStage, DecoderStageParams, RoutingStyle, INV_MODEL,
 };

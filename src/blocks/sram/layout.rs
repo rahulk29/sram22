@@ -15,28 +15,23 @@ use substrate::layout::layers::{LayerBoundBox, LayerKey};
 use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::tile::LayerBbox;
-use substrate::layout::routing::auto::grid::{
-    ExpandToGridStrategy, JogToGrid, OffGridBusTranslation, OffGridBusTranslationStrategy,
-};
 use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
-use substrate::layout::routing::manual::jog::{ElbowJog, OffsetJog, SJog};
-use substrate::layout::routing::tracks::{TrackLocator, UniformTracks};
+use substrate::layout::routing::manual::jog::{OffsetJog, SJog};
+use substrate::layout::routing::tracks::TrackLocator;
 use substrate::layout::straps::SingleSupplyNet;
 use substrate::layout::Draw;
 use substrate::pdk::stdcell::StdCell;
 
-use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
-use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
+use crate::blocks::bitcell_array::replica::ReplicaCellArray;
+use crate::blocks::bitcell_array::SpCellArray;
+use crate::blocks::columns::layout::DffArray;
 use crate::blocks::columns::ColPeripherals;
-use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2, DffArray};
-use crate::blocks::decoder::{
-    Decoder, DecoderParams, DecoderStage, DecoderStageParams, DecoderTree, INV_PARAMS, NAND2_PARAMS,
-};
-use crate::blocks::gate::{AndParams, GateParams};
-use crate::blocks::precharge::layout::{ReplicaPrecharge, ReplicaPrechargeParams};
+use crate::blocks::control::ControlLogicReplicaV2;
+use crate::blocks::decoder::{Decoder, DecoderStage};
+use crate::blocks::gate::GateParams;
+use crate::blocks::precharge::layout::ReplicaPrecharge;
 
-use super::schematic::fanout_buffer_stage;
 use super::{SramInner, SramPhysicalDesignScript};
 
 /// Tapped diode, can be added to long m1 pins if needed.

@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use arcstr::ArcStr;
 use grid::Grid;
 use serde::Serialize;
 use subgeom::bbox::BoundBox;
@@ -7,7 +8,9 @@ use subgeom::orientation::Named;
 use subgeom::transform::Translate;
 use subgeom::{Dir, Rect, Side, Sign, Span};
 use substrate::component::{Component, NoParams};
+use substrate::data::SubstrateCtx;
 use substrate::error::Result;
+use substrate::index::IndexOwned;
 use substrate::into_vec;
 use substrate::layout::cell::{CellPort, Port, PortConflictStrategy, PortId};
 use substrate::layout::context::LayoutCtx;
@@ -15,11 +18,13 @@ use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
+use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::grid::GridTiler;
 use substrate::layout::placement::tile::{OptionTile, Pad, Padding, RectBbox, Tile};
 use substrate::layout::routing::manual::jog::{OffsetJog, SJog};
 use substrate::layout::DrawRef;
 use substrate::pdk::stdcell::StdCell;
+use substrate::schematic::circuit::Direction;
 
 use crate::blocks::buf::layout::DiffBufCent;
 use crate::blocks::buf::DiffBuf;
@@ -1078,6 +1083,81 @@ impl Component for DffCol {
             ctx.merge_port(dff.port(port)?.into_cell_port());
         }
         ctx.draw(dff)?;
+        Ok(())
+    }
+}
+
+pub struct DffArray {
+    n: usize,
+}
+
+impl Component for DffArray {
+    type Params = usize;
+    fn new(params: &Self::Params, _ctx: &SubstrateCtx) -> substrate::error::Result<Self> {
+        Ok(Self { n: *params })
+    }
+    fn name(&self) -> ArcStr {
+        arcstr::format!("dff_array_{}", self.n)
+    }
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        let n = self.n;
+        let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
+        let clk = ctx.port("clk", Direction::Input);
+        let rb = ctx.port("rb", Direction::Input);
+        let d = ctx.bus_port("d", n, Direction::Input);
+        let q = ctx.bus_port("q", n, Direction::Output);
+        let qn = ctx.bus_port("qn", n, Direction::Output);
+
+        let stdcells = ctx.inner().std_cell_db();
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let dfrtp = lib.try_cell_named("sky130_fd_sc_hs__dfrbp_2")?;
+
+        for i in 0..self.n {
+            ctx.instantiate::<StdCell>(&dfrtp.id())?
+                .with_connections([
+                    ("VPWR", vdd),
+                    ("VGND", vss),
+                    ("VNB", vss),
+                    ("VPB", vdd),
+                    ("CLK", clk),
+                    ("RESET_B", rb),
+                    ("D", d.index(i)),
+                    ("Q", q.index(i)),
+                    ("Q_N", qn.index(i)),
+                ])
+                .named(format!("dff_{i}"))
+                .add_to(ctx);
+        }
+
+        Ok(())
+    }
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let dff = ctx.instantiate::<TappedDff>(&NoParams)?;
+        let mut tiler = ArrayTiler::builder()
+            .mode(AlignMode::ToTheRight)
+            .push_num(dff, self.n)
+            .build();
+
+        tiler.expose_ports(
+            |port: CellPort, i| {
+                if ["vdd", "vss", "clk", "reset_b"].contains(&port.name().as_ref()) {
+                    Some(port)
+                } else {
+                    let port = port.with_index(i);
+                    Some(port)
+                }
+            },
+            substrate::layout::cell::PortConflictStrategy::Merge,
+        )?;
+        ctx.add_ports(tiler.ports().cloned()).unwrap();
+
+        ctx.draw(tiler)?;
         Ok(())
     }
 }
