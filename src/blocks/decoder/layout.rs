@@ -19,13 +19,17 @@ use substrate::layout::DrawRef;
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerKey;
 
+use crate::blocks::decoder::{
+    base_indices, Decoder, DecoderParams, DecoderPhysicalDesign, DecoderPhysicalDesignScript,
+    DecoderStage, DecoderStageParams, DecoderStagePhysicalDesign, DecoderStagePhysicalDesignScript,
+    RoutingStyle,
+};
+use crate::blocks::gate::{Gate, GateParams};
 use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::routing::manual::jog::OffsetJog;
 use substrate::layout::routing::tracks::UniformTracks;
-use crate::blocks::decoder::{base_indices, Decoder, DecoderParams, DecoderPhysicalDesign, DecoderPhysicalDesignScript, DecoderStage, DecoderStageParams, DecoderStagePhysicalDesign, DecoderStagePhysicalDesignScript, RoutingStyle};
-use crate::blocks::gate::{Gate, GateParams};
 
 struct Metadata {
     final_stage_width: i64,

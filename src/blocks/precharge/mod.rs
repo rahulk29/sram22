@@ -35,9 +35,7 @@ impl Component for Precharge {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: *params,
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("precharge")
@@ -73,7 +71,7 @@ mod tests {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_precharge");
 
-        let params = PRECHARGE_PARAMS.scale(1.66);
+        let params = PRECHARGE_PARAMS;
         ctx.write_layout::<Precharge>(&params, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
         ctx.write_schematic_to_file::<Precharge>(&params, out_spice(&work_dir, "netlist"))

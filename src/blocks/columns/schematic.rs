@@ -83,9 +83,7 @@ impl ColPeripherals {
             .named("wmask_dffs")
             .add_to(ctx);
 
-        let pc_design = ctx
-            .inner()
-            .run_script::<ColumnDesignScript>(&NoParams)?;
+        let pc_design = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
         let wmask_unit_width = self.params.wmask_granularity as i64
             * (pc_design.width * self.params.mux_ratio() as i64 + pc_design.tap_width);
         let cl = 1000e-15;

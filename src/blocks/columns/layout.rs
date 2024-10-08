@@ -51,9 +51,7 @@ impl ColPeripherals {
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
 
-        let pc_design = ctx
-            .inner()
-            .run_script::<ColumnDesignScript>(&NoParams)?;
+        let pc_design = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
 
         let mut pc = ctx.instantiate::<Precharge>(&self.params.pc)?;
         let mut pc_end = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
@@ -379,9 +377,7 @@ impl WmaskPeripherals {
         let m2 = layers.get(Selector::Metal(2))?;
         let outline = layers.get(Selector::Name("outline"))?;
 
-        let pc_design = ctx
-            .inner()
-            .run_script::<ColumnDesignScript>(&NoParams)?;
+        let pc_design = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
         let wmask_unit_width = self.params.wmask_granularity as i64
             * (pc_design.width * self.params.mux_ratio() as i64 + pc_design.tap_width);
 
@@ -525,9 +521,7 @@ impl WmaskPeripherals {
 
 impl Column {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
-        let pc_design = ctx
-            .inner()
-            .run_script::<ColumnDesignScript>(&NoParams)?;
+        let pc_design = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
         let mut dff = ctx.instantiate::<DffCol>(&NoParams)?;
         let layers = ctx.layers();
         let outline = layers.get(Selector::Name("outline"))?;
@@ -935,9 +929,7 @@ impl Component for TappedDff {
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
 
-        let pc = ctx
-            .inner()
-            .run_script::<ColumnDesignScript>(&NoParams)?;
+        let pc = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
 
         let bbox = dff.layer_bbox(outline).into_rect();
 
@@ -1038,9 +1030,7 @@ impl Component for DffCol {
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
 
-        let pc = ctx
-            .inner()
-            .run_script::<ColumnDesignScript>(&NoParams)?;
+        let pc = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
 
         let bbox = dff.layer_bbox(outline).into_rect();
 
@@ -1186,9 +1176,7 @@ impl Component for DffColCent {
 
         let dff = ctx.instantiate::<DffCol>(&NoParams)?;
 
-        let pc = ctx
-            .inner()
-            .run_script::<ColumnDesignScript>(&NoParams)?;
+        let pc = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
 
         let bbox = dff.layer_bbox(outline).into_rect();
 

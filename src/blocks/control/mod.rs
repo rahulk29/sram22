@@ -2,7 +2,6 @@ use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams};
 
-
 pub mod layout;
 pub mod schematic;
 pub mod testbench;

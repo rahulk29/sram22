@@ -193,7 +193,6 @@ pub struct ColumnDesignScript;
 
 pub struct ColumnPhysicalDesign {
     pub(crate) h_metal: LayerKey,
-    pub(crate) cut: i64,
     pub(crate) width: i64,
     pub(crate) in_tracks: FixedTracks,
     pub(crate) out_tracks: FixedTracks,
@@ -239,7 +238,6 @@ impl Script for ColumnDesignScript {
 
         Ok(ColumnPhysicalDesign {
             h_metal: m2,
-            cut: 1_920,
             width: 1_200,
             v_metal: m1,
             v_line: 140,

@@ -7,11 +7,11 @@ use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
 
-use substrate::layout::placement::align::{AlignMode, AlignRect};
 use crate::blocks::columns::ColumnDesignScript;
 use crate::blocks::delay_line::tristate::TristateInv;
 use crate::blocks::gate::PrimitiveGateParams;
 use crate::blocks::macros::SenseAmp;
+use substrate::layout::placement::align::{AlignMode, AlignRect};
 
 use super::{WriteDriver, WriteDriverParams};
 
@@ -241,9 +241,7 @@ impl Component for WriteDriverCent {
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
 
-        let pc = ctx
-            .inner()
-            .run_script::<ColumnDesignScript>(&NoParams)?;
+        let pc = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
 
         let sa = ctx.instantiate::<WriteDriver>(&self.params)?;
         let hspan = Span::new(0, pc.tap_width);

@@ -19,10 +19,10 @@ use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 
 use super::{TGateMux, TGateMuxCent, TGateMuxEnd, TGateMuxGroup, TGateMuxParams};
 
+use crate::blocks::columns::ColumnDesignScript;
 use derive_builder::Builder;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::placement::array::ArrayTiler;
-use crate::blocks::columns::ColumnDesignScript;
 
 const GATE_LINE: i64 = 320;
 const GATE_SPACE: i64 = 180;
@@ -32,9 +32,7 @@ impl TGateMux {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let pc = ctx
-            .inner()
-            .run_script::<ColumnDesignScript>(&NoParams)?;
+        let pc = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
 
         let db = ctx.mos_db();
         let pmos = db
@@ -362,9 +360,7 @@ impl TGateMuxCent {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let pc = ctx
-            .inner()
-            .run_script::<ColumnDesignScript>(&NoParams)?;
+        let pc = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
 
         tgate_mux_tap_layout(pc.tap_width, false, &self.params, ctx)?;
         Ok(())
@@ -377,9 +373,7 @@ fn tgate_mux_tap_layout(
     params: &TGateMuxParams,
     ctx: &mut LayoutCtx,
 ) -> substrate::error::Result<()> {
-    let pc = ctx
-        .inner()
-        .run_script::<ColumnDesignScript>(&NoParams)?;
+    let pc = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
 
     let mux = ctx.instantiate::<TGateMux>(params)?;
     let stripe_hspan = Span::new(-width, 2 * width);
@@ -531,9 +525,7 @@ impl TGateMuxEnd {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let pc = ctx
-            .inner()
-            .run_script::<ColumnDesignScript>(&NoParams)?;
+        let pc = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
         tgate_mux_tap_layout(pc.tap_width, true, &self.params, ctx)?;
         Ok(())
     }
@@ -544,9 +536,7 @@ impl TGateMuxGroup {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let pc = ctx
-            .inner()
-            .run_script::<ColumnDesignScript>(&NoParams)?;
+        let pc = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
 
         let params = TGateMuxParams {
             idx: 0,

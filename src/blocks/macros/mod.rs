@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use codegen::hard_macro;
 
+use crate::blocks::columns::ColumnDesignScript;
+use crate::tech::{external_gds_path, external_spice_path};
 use subgeom::bbox::BoundBox;
 use subgeom::{Rect, Span};
 use substrate::component::{Component, NoParams, View};
@@ -10,8 +12,6 @@ use substrate::layout::cell::{CellPort, Port};
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
-use crate::blocks::columns::ColumnDesignScript;
-use crate::tech::{external_gds_path, external_spice_path};
 
 fn path(_ctx: &SubstrateCtx, name: &str, view: View) -> Option<PathBuf> {
     match view {
@@ -112,9 +112,7 @@ impl Component for SenseAmpCent {
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
 
-        let pc = ctx
-            .inner()
-            .run_script::<ColumnDesignScript>(&NoParams)?;
+        let pc = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
 
         let sa = ctx.instantiate::<SenseAmp>(&NoParams)?;
         let hspan = Span::new(0, pc.tap_width);

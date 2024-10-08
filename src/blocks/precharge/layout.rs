@@ -55,7 +55,9 @@ impl Precharge {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&self.params)?;
+        let dsn = ctx
+            .inner()
+            .run_script::<PhysicalDesignScript>(&self.params)?;
         let db = ctx.mos_db();
         let mos = db
             .query(Query::builder().kind(MosKind::Pmos).build().unwrap())
@@ -260,9 +262,7 @@ impl Component for PrechargeCent {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: *params,
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("precharge_cent")
@@ -280,7 +280,9 @@ impl Component for PrechargeCent {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let pc = ctx.instantiate::<Precharge>(&self.params)?;
-        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&self.params)?;
+        let dsn = ctx
+            .inner()
+            .run_script::<PhysicalDesignScript>(&self.params)?;
         let meta = pc.cell().get_metadata::<Metadata>();
         let layers = ctx.layers();
 
@@ -402,7 +404,9 @@ impl Component for PrechargeEnd {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let pc = ctx.instantiate::<Precharge>(&self.params.inner)?;
-        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&self.params.inner)?;
+        let dsn = ctx
+            .inner()
+            .run_script::<PhysicalDesignScript>(&self.params.inner)?;
         let meta = pc.cell().get_metadata::<Metadata>();
         let layers = ctx.layers();
 
@@ -662,16 +666,17 @@ impl Script for PhysicalDesignScript {
         });
 
         let power_stripe = Span::with_start_and_length(
-            params.equalizer_width + params.pull_up_width + 900 + 270 + 270 / 2 - 2_400,
-            4_800,
+            params.equalizer_width + params.pull_up_width + 900 + 270 + 270 / 2 - 400,
+            800,
         );
         let gate_stripe = Span::new(0, 360);
+        let cut = 900 + params.equalizer_width;
 
         Ok(PhysicalDesign {
             power_stripe,
             gate_stripe,
             h_metal: m2,
-            cut: 1_920,
+            cut,
             width: 1_200,
             v_metal: m1,
             v_line: 140,
