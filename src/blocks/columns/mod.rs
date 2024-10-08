@@ -1,6 +1,6 @@
 //! Column peripheral circuitry.
 
-use substrate::component::Component;
+use substrate::component::{Component, NoParams};
 use substrate::layout::context::LayoutCtx;
 use substrate::schematic::context::SchematicCtx;
 
@@ -9,6 +9,11 @@ use super::precharge::PrechargeParams;
 use super::tgatemux::TGateMuxParams;
 use super::wrdriver::WriteDriverParams;
 use serde::Serialize;
+use subgeom::Span;
+use substrate::layout::layers::selector::Selector;
+use substrate::layout::layers::LayerKey;
+use substrate::layout::routing::tracks::{Boundary, CenteredTrackParams, FixedTracks};
+use substrate::script::Script;
 
 pub mod layout;
 pub mod schematic;
@@ -182,6 +187,70 @@ pub struct ColCapacitances {
     pub sel: f64,
     pub sel_b: f64,
     pub we: f64,
+}
+
+pub struct ColumnDesignScript;
+
+pub struct ColumnPhysicalDesign {
+    pub(crate) h_metal: LayerKey,
+    pub(crate) cut: i64,
+    pub(crate) width: i64,
+    // pub(crate) in_tracks: FixedTracks,
+    // pub(crate) out_tracks: FixedTracks,
+    pub(crate) v_metal: LayerKey,
+    pub(crate) v_line: i64,
+    pub(crate) v_space: i64,
+    pub(crate) m0: LayerKey,
+    pub(crate) grid: i64,
+    pub(crate) tap_width: i64,
+}
+
+impl Script for ColumnDesignScript {
+    type Params = NoParams;
+    type Output = ColumnPhysicalDesign;
+
+    fn run(
+        _params: &Self::Params,
+        ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self::Output> {
+        let layers = ctx.layers();
+        let m0 = layers.get(Selector::Metal(0))?;
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+
+        let in_tracks = FixedTracks::from_centered_tracks(CenteredTrackParams {
+            line: 140,
+            space: 230,
+            span: Span::new(0, 1_200),
+            num: 4,
+            lower_boundary: Boundary::HalfTrack,
+            upper_boundary: Boundary::HalfTrack,
+            grid: 5,
+        });
+        let out_tracks = FixedTracks::from_centered_tracks(CenteredTrackParams {
+            line: 140,
+            space: 230,
+            span: Span::new(0, 1_200),
+            num: 3,
+            lower_boundary: Boundary::HalfSpace,
+            upper_boundary: Boundary::HalfSpace,
+            grid: 5,
+        });
+
+        Ok(ColumnPhysicalDesign {
+            h_metal: m2,
+            cut: 1_920,
+            width: 1_200,
+            v_metal: m1,
+            v_line: 140,
+            v_space: 140,
+            // in_tracks,
+            // out_tracks,
+            grid: 5,
+            tap_width: 1_300,
+            m0,
+        })
+    }
 }
 
 #[cfg(test)]

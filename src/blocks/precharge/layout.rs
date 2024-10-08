@@ -630,11 +630,11 @@ pub struct PhysicalDesign {
 }
 
 impl Script for PhysicalDesignScript {
-    type Params = NoParams;
+    type Params = PrechargeParams;
     type Output = PhysicalDesign;
 
     fn run(
-        _params: &Self::Params,
+        params: &Self::Params,
         ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self::Output> {
         let layers = ctx.layers();
@@ -661,7 +661,10 @@ impl Script for PhysicalDesignScript {
             grid: 5,
         });
 
-        let power_stripe = Span::new(4_000, 4_800);
+        let power_stripe = Span::with_start_and_length(
+            params.equalizer_width + params.pull_up_width + 900 + 270 + 270 / 2 - 2_400,
+            4_800,
+        );
         let gate_stripe = Span::new(0, 360);
 
         Ok(PhysicalDesign {
