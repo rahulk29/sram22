@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use substrate::verification::simulation::testbench::Testbench;
 use substrate::verification::simulation::waveform::{TimeWaveform, Waveform};
 
-use super::{ControlLogicReplicaV2, InvChain};
+use super::{ControlLogicParams, ControlLogicReplicaV2, InvChain};
 
 #[derive(Debug, Clone, Builder, Serialize, Deserialize)]
 #[builder(derive(Debug))]
@@ -195,24 +195,26 @@ impl Component for ControlLogicTestbench {
         let waveforms = generate_waveforms(&self.params);
         let output_cap = SiValue::with_precision(self.params.c_load, SiPrefix::Femto);
 
-        ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?
-            .with_connections([
-                ("vdd", vdd),
-                ("vss", vss),
-                ("clk", clk),
-                ("we", we),
-                ("ce", ce),
-                ("reset", reset),
-                ("saen", saen),
-                ("pc_b", pc_b),
-                ("wlen", wlen),
-                ("wrdrven", wrdrven),
-                ("decrepstart", decrepstart),
-                ("decrepend", decrepend),
-                ("rbl", rbl),
-            ])
-            .named("dut")
-            .add_to(ctx);
+        ctx.instantiate::<ControlLogicReplicaV2>(&ControlLogicParams {
+            decoder_delay_invs: 20,
+        })?
+        .with_connections([
+            ("vdd", vdd),
+            ("vss", vss),
+            ("clk", clk),
+            ("we", we),
+            ("ce", ce),
+            ("reset", reset),
+            ("saen", saen),
+            ("pc_b", pc_b),
+            ("wlen", wlen),
+            ("wrdrven", wrdrven),
+            ("decrepstart", decrepstart),
+            ("decrepend", decrepend),
+            ("rbl", rbl),
+        ])
+        .named("dut")
+        .add_to(ctx);
 
         ctx.instantiate::<InvChain>(&8)?
             .with_connections([

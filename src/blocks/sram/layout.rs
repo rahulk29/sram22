@@ -29,7 +29,7 @@ use substrate::pdk::stdcell::StdCell;
 use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
 use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::blocks::columns::ColPeripherals;
-use crate::blocks::control::{ControlLogicReplicaV2, DffArray};
+use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2, DffArray};
 use crate::blocks::decoder::{
     Decoder, DecoderParams, DecoderStage, DecoderStageParams, DecoderTree, INV_PARAMS, NAND2_PARAMS,
 };
@@ -248,7 +248,8 @@ impl SramInner {
         let mut col_dec = ctx
             .instantiate::<Decoder>(&dsn.col_decoder)?
             .with_orientation(Named::FlipYx);
-        let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&NoParams)?;
+        let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&dsn.control)?;
+
         let mut pc_b_buffer = ctx
             .instantiate::<DecoderStage>(&dsn.pc_b_buffer)?
             .with_orientation(Named::R90Cw);

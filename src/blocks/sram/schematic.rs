@@ -1,4 +1,3 @@
-use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
 use substrate::pdk::stdcell::StdCell;
@@ -9,8 +8,8 @@ use substrate::schematic::signal::Signal;
 use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
 use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
 use crate::blocks::columns::{ColParams, ColPeripherals};
-use crate::blocks::control::{ControlLogicReplicaV2, DffArray, InvChain};
-use crate::blocks::decoder::layout::{DecoderStyle, PhysicalDesignParams, RoutingStyle};
+use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2, DffArray, InvChain};
+use crate::blocks::decoder::layout::{LastBitDecoderStage, PhysicalDesignParams, RoutingStyle};
 use crate::blocks::decoder::{
     Decoder, DecoderParams, DecoderStage, DecoderStageParams, DecoderTree, INV_MODEL, INV_PARAMS,
     NAND2_PARAMS,
@@ -36,13 +35,20 @@ impl SramInner {
         let din = ctx.bus_port("din", self.params.data_width(), Direction::Input);
         let dout = ctx.bus_port("dout", self.params.data_width(), Direction::Output);
 
-        let [addr_in0, addr_in, addr_in0_b, addr_in_b] = ctx.buses(
-            ["addr_in0", "addr_in", "addr_in0_b", "addr_in_b"],
-            self.params.addr_width(),
-        );
+        let [addr_in, addr_in_b] = ctx.buses(["addr_in", "addr_in_b"], self.params.addr_width());
 
-        let [addr_gated, addr_b_gated] =
-            ctx.buses(["addr_gated", "addr_b_gated"], self.params.row_bits());
+        let [addr_gated0, addr_gated, addr_gated_b, addr_b_gated0, addr_b_gated, addr_b_gated_b] =
+            ctx.buses(
+                [
+                    "addr_gated0",
+                    "addr_gated",
+                    "addr_gated_b",
+                    "addr_b_gated0",
+                    "addr_b_gated",
+                    "addr_b_gated_b",
+                ],
+                self.params.row_bits(),
+            );
         let addr_gate_y_b_noconn = ctx.bus("addr_gate_y_b_noconn", 2 * self.params.row_bits());
 
         let bl = ctx.bus("bl", self.params.cols());
@@ -50,9 +56,7 @@ impl SramInner {
         let wl = ctx.bus("wl", self.params.rows());
         let wl_b = ctx.bus("wl_b", self.params.rows());
 
-        let col_sel0 = ctx.bus("col_sel0", self.params.mux_ratio());
         let col_sel = ctx.bus("col_sel", self.params.mux_ratio());
-        let col_sel0_b = ctx.bus("col_sel0_b", self.params.mux_ratio());
         let col_sel_b = ctx.bus("col_sel_b", self.params.mux_ratio());
 
         let stdcells = ctx.inner().std_cell_db();
@@ -103,6 +107,10 @@ impl SramInner {
                 "sense_en",
             ]);
 
+        // let wl_cap = (self.params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL;
+        // let tree = DecoderTree::new(self.params.row_bits(), 4. * wl_cap);
+        // let decoder_params = DecoderParams { tree };
+
         ctx.instantiate::<DecoderStage>(&dsn.addr_gate)?
             .with_connections([
                 ("vdd", vdd),
@@ -118,7 +126,7 @@ impl SramInner {
                         addr_in_b.index(self.params.col_select_bits()..),
                     ]),
                 ),
-                ("y", Signal::new(vec![addr_gated, addr_b_gated])),
+                ("y", Signal::new(vec![addr_gated0, addr_b_gated0])),
             ])
             .named("addr_gate")
             .add_to(ctx);
@@ -165,7 +173,7 @@ impl SramInner {
         ctx.add_instance(col_decoder);
 
         let control_logic = ctx
-            .instantiate::<ControlLogicReplicaV2>(&NoParams)?
+            .instantiate::<ControlLogicReplicaV2>(&dsn.control)?
             .with_connections([
                 ("clk", clk),
                 ("we", we_in),
@@ -174,7 +182,7 @@ impl SramInner {
                 ("rbl", rbl),
                 ("rwl", rwl),
                 ("pc_b", pc_b0),
-                ("wlen", wl_en),
+                ("wlen", wl_en0),
                 ("wrdrven", write_driver_en0),
                 ("saen", sense_en0),
                 ("vdd", vdd),
@@ -183,7 +191,6 @@ impl SramInner {
             .named("control_logic");
         control_logic.add_to(ctx);
 
-        // TODO: estimate load capacitances
         ctx.instantiate::<DecoderStage>(&dsn.pc_b_buffer)?
             .with_connections([
                 ("vdd", vdd),
@@ -194,16 +201,18 @@ impl SramInner {
             ])
             .named("pc_b_buffer")
             .add_to(ctx);
-        // ctx.instantiate::<DecoderStage>(&dsn.wlen_buffer)?
-        //     .with_connections([
-        //         ("vdd", vdd),
-        //         ("vss", vss),
-        //         ("y", wl_en),
-        //         ("y_b", wl_en_b),
-        //         ("predecode_0_0", wl_en0),
-        //     ])
-        //     .named("wlen_buffer")
-        //     .add_to(ctx);
+
+        ctx.instantiate::<DecoderStage>(&dsn.wlen_buffer)?
+            .with_connections([
+                ("vdd", vdd),
+                ("vss", vss),
+                ("y", wl_en),
+                ("y_b", wl_en_b),
+                ("predecode_0_0", wl_en0),
+            ])
+            .named("wlen_buffer")
+            .add_to(ctx);
+
         ctx.instantiate::<DecoderStage>(&dsn.write_driver_en_buffer)?
             .with_connections([
                 ("vdd", vdd),
@@ -232,6 +241,29 @@ impl SramInner {
             .with_connection("qn", Signal::new(vec![addr_in_b, we_in_b, ce_in_b]))
             .named("addr_we_ce_dffs")
             .add_to(ctx);
+
+        for i in 0..self.params.row_bits() {
+            ctx.instantiate::<DecoderStage>(&dsn.addr_gated_buffer)?
+                .with_connections([
+                    ("vdd", vdd),
+                    ("vss", vss),
+                    ("y", addr_gated.index(i)),
+                    ("y_b", addr_gated_b.index(i)),
+                    ("predecode_0_0", addr_gated0.index(i)),
+                ])
+                .named(format!("addr_gated_buffer_{i}"))
+                .add_to(ctx);
+            ctx.instantiate::<DecoderStage>(&dsn.addr_gated_buffer)?
+                .with_connections([
+                    ("vdd", vdd),
+                    ("vss", vss),
+                    ("y", addr_b_gated.index(i)),
+                    ("y_b", addr_b_gated_b.index(i)),
+                    ("predecode_0_0", addr_b_gated0.index(i)),
+                ])
+                .named(format!("addr_b_gated_buffer_{i}"))
+                .add_to(ctx);
+        }
 
         ctx.instantiate::<SpCellArray>(&dsn.bitcells)?
             .with_connections([
@@ -288,7 +320,7 @@ impl SramInner {
     }
 }
 
-fn buffer_chain_num_stages(cl: f64) -> usize {
+pub(crate) fn buffer_chain_num_stages(cl: f64) -> usize {
     let fo = cl / INV_MODEL.cin;
     if fo < 2.0 {
         return 2;
@@ -300,7 +332,7 @@ fn buffer_chain_num_stages(cl: f64) -> usize {
     stages
 }
 
-fn inverter_chain_num_stages(cl: f64) -> usize {
+pub(crate) fn inverter_chain_num_stages(cl: f64) -> usize {
     let fo = cl / INV_MODEL.cin;
     if fo < 4.0 {
         return 1;
@@ -330,7 +362,7 @@ pub fn fanout_buffer_stage(pd: PhysicalDesignParams, cl: f64) -> DecoderStagePar
     }
 }
 
-fn fanout_buffer_stage_with_inverted_output(
+pub fn fanout_buffer_stage_with_inverted_output(
     pd: PhysicalDesignParams,
     cl: f64,
 ) -> DecoderStageParams {

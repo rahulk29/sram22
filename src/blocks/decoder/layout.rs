@@ -638,6 +638,7 @@ impl Decoder {
                 break;
             }
         }
+        invs.reverse();
         let child_sizes = if node.children.is_empty() {
             (0..node.num.ilog2()).map(|_| 2).collect()
         } else {

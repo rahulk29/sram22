@@ -125,6 +125,18 @@ impl GateType {
     pub fn is_nand(&self) -> bool {
         matches!(self, GateType::Nand2 | GateType::Nand3)
     }
+
+    pub fn logical_effort(&self) -> f64 {
+        match *self {
+            GateType::And2 => 4. / 3.,
+            GateType::And3 => 5. / 3.,
+            GateType::Inv => 1.,
+            GateType::FoldedInv => 1.,
+            GateType::Nand2 => 4. / 3.,
+            GateType::Nand3 => 5. / 3.,
+            GateType::Nor2 => 5. / 3.,
+        }
+    }
 }
 
 impl PrimitiveGateParams {
@@ -223,6 +235,24 @@ impl GateParams {
             GateParams::Nand2(x) => *x,
             GateParams::Nand3(x) => *x,
             GateParams::Nor2(x) => *x,
+        }
+    }
+
+    pub fn primitive_gates(&self) -> Vec<(PrimitiveGateType, PrimitiveGateParams)> {
+        match self {
+            GateParams::And2(x) => vec![
+                (PrimitiveGateType::Nand2, x.nand),
+                (PrimitiveGateType::Inv, x.inv),
+            ],
+            GateParams::And3(x) => vec![
+                (PrimitiveGateType::Nand3, x.nand),
+                (PrimitiveGateType::Inv, x.inv),
+            ],
+            GateParams::Inv(x) => vec![(PrimitiveGateType::Inv, *x)],
+            GateParams::FoldedInv(x) => vec![(PrimitiveGateType::Inv, *x)],
+            GateParams::Nand2(x) => vec![(PrimitiveGateType::Nand2, *x)],
+            GateParams::Nand3(x) => vec![(PrimitiveGateType::Nand3, *x)],
+            GateParams::Nor2(x) => vec![(PrimitiveGateType::Nor2, *x)],
         }
     }
 }

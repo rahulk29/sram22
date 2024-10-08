@@ -118,7 +118,7 @@ impl ControlLogicReplicaV2 {
             ("inv_rbl", &inv),
             ("clkp_delay", &ctx.instantiate::<InvChain>(&3)?),
             ("clkpd_inv", &inv),
-            ("clkpd_delay", &ctx.instantiate::<InvChain>(&7)?),
+            ("clkpd_delay", &ctx.instantiate::<InvChain>(&11)?),
             ("mux_wlen_rst", &mux2),
             ("decoder_replica_delay", &ctx.instantiate::<InvChain>(&6)?),
             ("wl_ctl", &sr_latch),
@@ -152,7 +152,10 @@ impl ControlLogicReplicaV2 {
 
         rows.push(LayerBbox::new(
             create_row(&[
-                ("decoder_replica", &ctx.instantiate::<InvChain>(&16)?),
+                (
+                    "decoder_replica",
+                    &ctx.instantiate::<InvChain>(&self.params.decoder_delay_invs)?,
+                ),
                 ("pc_ctl", &sr_latch),
             ])?,
             outline,
