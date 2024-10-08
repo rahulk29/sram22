@@ -601,7 +601,16 @@ impl SramInner {
                         .dir(subgeom::Dir::Horiz)
                         .sign(subgeom::Sign::Pos)
                         .src(y)
-                        .dst(y.bottom() - 340)
+                        .dst(
+                            if matches!(
+                                dsn.col_decoder.tree.root.children[0].gate,
+                                GateParams::FoldedInv(_) | GateParams::Inv(_)
+                            ) {
+                                y.bottom() - 770
+                            } else {
+                                y.bottom() - 340
+                            },
+                        )
                         .layer(m0)
                         .space(170)
                         .build()

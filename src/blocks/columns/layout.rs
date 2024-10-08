@@ -24,8 +24,9 @@ use substrate::pdk::stdcell::StdCell;
 use crate::blocks::buf::layout::DiffBufCent;
 use crate::blocks::buf::DiffBuf;
 use crate::blocks::columns::Column;
-use crate::blocks::decoder::layout::{DecoderStyle, PhysicalDesignParams, RoutingStyle};
-use crate::blocks::decoder::{DecoderStage, DecoderStageParams};
+use crate::blocks::decoder::{
+    DecoderPhysicalDesignParams, DecoderStage, DecoderStageParams, DecoderStyle, RoutingStyle,
+};
 use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams};
 use crate::blocks::macros::{SenseAmp, SenseAmpCent};
 use crate::blocks::precharge::layout::{PrechargeCent, PrechargeEnd, PrechargeEndParams};
@@ -380,7 +381,7 @@ impl WmaskPeripherals {
             * (pc_design.width * self.params.mux_ratio() as i64 + pc_design.tap_width);
 
         let nand_stage = ctx.instantiate::<DecoderStage>(&DecoderStageParams {
-            pd: PhysicalDesignParams {
+            pd: DecoderPhysicalDesignParams {
                 style: DecoderStyle::Minimum,
                 dir: Dir::Horiz,
             },

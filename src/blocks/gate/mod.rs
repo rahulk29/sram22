@@ -9,7 +9,7 @@ use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::ArrayTiler;
 
 use super::decoder::layout::{DecoderGate, DecoderGateParams, DecoderTap};
-use super::decoder::{self};
+use super::decoder::{self, DecoderPhysicalDesign};
 
 pub mod layout;
 pub mod schematic;
@@ -344,7 +344,7 @@ impl Component for TappedGate {
         let decoder_params = DecoderGateParams {
             gate: self.params,
             filler: false,
-            dsn: decoder::layout::PhysicalDesign {
+            dsn: DecoderPhysicalDesign {
                 width: 1_580,
                 tap_width: 1_580,
                 tap_period: 1,

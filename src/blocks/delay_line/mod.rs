@@ -27,7 +27,8 @@ use substrate::script::Script;
 use self::transmission::TransmissionGate;
 use self::tristate::{TristateBuf, TristateBufParams, TristateInv};
 
-use super::decoder::layout::{DecoderGateParams, DecoderTap, PhysicalDesign};
+use super::decoder::layout::{DecoderGateParams, DecoderTap};
+use super::decoder::DecoderPhysicalDesign;
 use super::gate::{Inv, PrimitiveGateParams};
 
 pub mod tb;
@@ -688,7 +689,7 @@ pub struct DelayLineTapDesignScript;
 
 impl Script for DelayLineTapDesignScript {
     type Params = NoParams;
-    type Output = PhysicalDesign;
+    type Output = DecoderPhysicalDesign;
 
     fn run(
         _params: &Self::Params,
