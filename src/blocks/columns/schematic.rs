@@ -28,6 +28,7 @@ impl ColPeripherals {
             ("reset_b", 1),
             ("vdd", 1),
             ("vss", 1),
+            ("sense_en", 1),
             ("bl", self.params.mux_ratio()),
             ("br", self.params.mux_ratio()),
             ("pc_b", 1),

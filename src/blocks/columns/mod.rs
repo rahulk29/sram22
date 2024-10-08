@@ -335,6 +335,7 @@ mod tests {
                 "reset_b" => AcImpedanceTbNode::Vdd,
                 "vdd" => AcImpedanceTbNode::Vdd,
                 "vss" => AcImpedanceTbNode::Vdd,
+                "sense_en" => AcImpedanceTbNode::Vss,
                 "bl" => AcImpedanceTbNode::Vdd,
                 "br" => AcImpedanceTbNode::Vdd,
                 "pc_b" => AcImpedanceTbNode::Vdd,
