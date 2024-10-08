@@ -7,9 +7,9 @@ use substrate::schematic::signal::Signal;
 use crate::blocks::bitcell_array::replica::ReplicaCellArray;
 use crate::blocks::bitcell_array::SpCellArray;
 use crate::blocks::columns::ColPeripherals;
-use crate::blocks::control::{ControlLogicReplicaV2, DffArray};
-use crate::blocks::decoder::layout::{PhysicalDesignParams, RoutingStyle};
-use crate::blocks::decoder::{Decoder, DecoderStage, DecoderStageParams, INV_MODEL};
+use crate::blocks::columns::layout::DffArray;
+use crate::blocks::control::{ControlLogicReplicaV2};
+use crate::blocks::decoder::{Decoder, DecoderPhysicalDesignParams, DecoderStage, DecoderStageParams, RoutingStyle, INV_MODEL};
 use crate::blocks::gate::sizing::InverterGateTreeNode;
 use crate::blocks::gate::GateParams;
 use crate::blocks::precharge::Precharge;
@@ -53,11 +53,12 @@ impl SramInner {
         let col_sel = ctx.bus("col_sel", self.params.mux_ratio());
         let col_sel_b = ctx.bus("col_sel_b", self.params.mux_ratio());
 
-        let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
-
-        let diode = lib.try_cell_named("sky130_fd_sc_hs__diode_2")?;
-
+        // If needed, added antenna diodes to m1 pins.
+        //
+        // let stdcells = ctx.inner().std_cell_db();
+        // let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        // let diode = lib.try_cell_named("sky130_fd_sc_hs__diode_2")?;
+        //
         // for (port, width) in [
         //     (dout, self.params.data_width()),
         //     (din, self.params.data_width()),
@@ -339,7 +340,7 @@ pub(crate) fn inverter_chain_num_stages(cl: f64) -> usize {
     stages
 }
 
-pub fn fanout_buffer_stage(pd: PhysicalDesignParams, cl: f64) -> DecoderStageParams {
+pub fn fanout_buffer_stage(pd: DecoderPhysicalDesignParams, cl: f64) -> DecoderStageParams {
     let stages = buffer_chain_num_stages(cl);
     let invs = InverterGateTreeNode::buffer(stages)
         .elaborate()
@@ -357,7 +358,7 @@ pub fn fanout_buffer_stage(pd: PhysicalDesignParams, cl: f64) -> DecoderStagePar
 }
 
 pub fn fanout_buffer_stage_with_inverted_output(
-    pd: PhysicalDesignParams,
+    pd: DecoderPhysicalDesignParams,
     cl: f64,
 ) -> DecoderStageParams {
     let stages = inverter_chain_num_stages(cl);

@@ -8,9 +8,9 @@ use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
 use crate::blocks::buf::DiffBuf;
-use crate::blocks::control::DffArray;
-use crate::blocks::decoder::layout::{DecoderStyle, PhysicalDesignParams, RoutingStyle};
-use crate::blocks::decoder::{DecoderStage, DecoderStageParams};
+use crate::blocks::decoder::{
+    DecoderPhysicalDesignParams, DecoderStage, DecoderStageParams, DecoderStyle, RoutingStyle,
+};
 use crate::blocks::gate::sizing::InverterGateTreeNode;
 use crate::blocks::gate::{GateParams, PrimitiveGateType};
 use crate::blocks::macros::SenseAmp;
@@ -19,7 +19,8 @@ use crate::blocks::sram::schematic::inverter_chain_num_stages;
 use crate::blocks::tgatemux::TGateMux;
 use crate::blocks::wrdriver::WriteDriver;
 
-use super::{ColPeripherals, Column};
+use super::layout::DffArray;
+use super::{ColPeripherals, Column, ColumnDesignScript};
 
 impl ColPeripherals {
     pub fn io(&self) -> HashMap<&'static str, usize> {
@@ -84,7 +85,7 @@ impl ColPeripherals {
 
         let pc_design = ctx
             .inner()
-            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+            .run_script::<ColumnDesignScript>(&NoParams)?;
         let wmask_unit_width = self.params.wmask_granularity as i64
             * (pc_design.width * self.params.mux_ratio() as i64 + pc_design.tap_width);
         let cl = 1000e-15;
@@ -102,7 +103,7 @@ impl ColPeripherals {
 
         for i in 0..wmask_bits {
             ctx.instantiate::<DecoderStage>(&DecoderStageParams {
-                pd: PhysicalDesignParams {
+                pd: DecoderPhysicalDesignParams {
                     style: DecoderStyle::Minimum,
                     dir: Dir::Horiz,
                 },

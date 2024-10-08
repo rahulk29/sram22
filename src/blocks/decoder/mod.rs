@@ -1,10 +1,13 @@
-use self::layout::{PhysicalDesignParams, RoutingStyle};
 use crate::blocks::decoder::sizing::{path_map_tree, Tree, ValueTree};
 use serde::{Deserialize, Serialize};
 use std::cmp::max;
-use subgeom::snap_to_grid;
+use std::collections::HashSet;
+use subgeom::{snap_to_grid, Dir};
 use substrate::component::Component;
+use substrate::layout::layers::selector::Selector;
+use substrate::layout::layers::LayerKey;
 use substrate::logic::delay::{GateModel, LogicPath, OptimizerOpts};
+use substrate::script::Script;
 
 use super::gate::{AndParams, GateParams, GateType, PrimitiveGateParams, PrimitiveGateType};
 
@@ -24,14 +27,14 @@ pub struct DecoderStage {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DecoderParams {
-    pub pd: PhysicalDesignParams,
+    pub pd: DecoderPhysicalDesignParams,
     pub max_width: Option<i64>,
     pub tree: DecoderTree,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DecoderStageParams {
-    pub pd: PhysicalDesignParams,
+    pub pd: DecoderPhysicalDesignParams,
     pub routing_style: RoutingStyle,
     pub max_width: Option<i64>,
     pub gate: GateParams,
@@ -422,16 +425,6 @@ impl PlanTreeNode {
         }
     }
 
-    pub fn max_depth(&self) -> usize {
-        self.gate.primitive_gates().len()
-            + self
-                .children
-                .iter()
-                .map(|c| c.max_depth())
-                .max()
-                .unwrap_or_default()
-    }
-
     pub fn min_depth(&self) -> usize {
         self.gate.primitive_gates().len()
             + self
@@ -453,26 +446,6 @@ impl PlanTreeNode {
                 .reduce(f64::max)
                 .unwrap_or(1.)
     }
-}
-
-pub(crate) fn get_idxs(mut num: usize, bases: &[usize]) -> Vec<usize> {
-    let products = bases
-        .iter()
-        .rev()
-        .scan(1, |state, &elem| {
-            let val = *state;
-            *state *= elem;
-            Some(val)
-        })
-        .collect::<Vec<_>>();
-    let mut idxs = Vec::with_capacity(bases.len());
-
-    for i in 0..bases.len() {
-        let j = products.len() - i - 1;
-        idxs.push(num / products[j]);
-        num %= products[j];
-    }
-    idxs
 }
 
 impl Component for Decoder {
@@ -535,6 +508,202 @@ impl Component for DecoderStage {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub enum RoutingStyle {
+    Decoder,
+    Driver,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub enum DecoderStyle {
+    /// For bitcell array row decoder.
+    RowMatched,
+    /// Accomodates larger gates without expanding, but less efficient for smaller gates.
+    Relaxed,
+    /// Sized for smaller gates, expands for larger gates.
+    Minimum,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct DecoderPhysicalDesignParams {
+    pub dir: Dir,
+    pub style: DecoderStyle,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct DecoderPhysicalDesign {
+    /// Width of a decoder cell.
+    pub(crate) width: i64,
+    /// Width of a decoder tap cell.
+    pub(crate) tap_width: i64,
+    /// Number of decoders on either side of each tap.
+    pub(crate) tap_period: usize,
+    /// The metal layer used for buses and power rails.
+    pub(crate) stripe_metal: LayerKey,
+    /// The metal layer used for connecting stripes to individual decoders.
+    pub(crate) wire_metal: LayerKey,
+    /// List of intermediate layers in via between (`li`)[PhysicalDesign::li] and
+    /// (`stripe_metal`)[PhysicalDesign::stripe_metal)
+    pub(crate) via_metals: Vec<LayerKey>,
+    /// The metal used to connect to MOS sources, drains, gates, and taps.
+    pub(crate) li: LayerKey,
+    /// Width of wires in bus.
+    pub(crate) line: i64,
+    /// Spacing between wires in bus.
+    pub(crate) space: i64,
+    /// Width of power rail.
+    pub(crate) rail_width: i64,
+    /// Layers that should be extended to the edge of decoder gates and tap cells.
+    pub(crate) abut_layers: HashSet<LayerKey>,
+}
+
+pub struct DecoderPhysicalDesignScript;
+
+impl Script for DecoderPhysicalDesignScript {
+    type Params = DecoderPhysicalDesignParams;
+    type Output = DecoderPhysicalDesign;
+
+    fn run(
+        params: &Self::Params,
+        ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self::Output> {
+        let layers = ctx.layers();
+        let li = layers.get(Selector::Metal(0))?;
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+        let (stripe_metal, wire_metal, via_metals) = match params.dir {
+            Dir::Horiz => (m1, m2, vec![]),
+            Dir::Vert => (m2, m1, vec![m1]),
+        };
+        let nwell = layers.get(Selector::Name("nwell"))?;
+        let psdm = layers.get(Selector::Name("psdm"))?;
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+        let (width, tap_width) = match params.style {
+            DecoderStyle::RowMatched => (1_580, 1_580),
+            DecoderStyle::Relaxed => (1_900, 1_000),
+            DecoderStyle::Minimum => (1_470, 1_000),
+        };
+        Ok(Self::Output {
+            width,
+            tap_width,
+            tap_period: 4,
+            stripe_metal,
+            wire_metal,
+            via_metals,
+            li,
+            line: 320,
+            space: 160,
+            rail_width: 320,
+            abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
+        })
+    }
+}
+
+pub struct DecoderStagePhysicalDesign {
+    gate_params: Vec<GateParams>,
+    max_folding_factor: usize,
+    folding_factors: Vec<usize>,
+    dsn: DecoderPhysicalDesign,
+}
+
+pub struct DecoderStagePhysicalDesignScript;
+
+impl Script for DecoderStagePhysicalDesignScript {
+    type Params = DecoderStageParams;
+    type Output = DecoderStagePhysicalDesign;
+
+    fn run(
+        params: &Self::Params,
+        ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self::Output> {
+        let mut dsn = (*ctx.run_script::<DecoderPhysicalDesignScript>(&params.pd)?).clone();
+        if dsn.width < 1_900 && matches!(params.gate, GateParams::And3(_) | GateParams::Nand3(_)) {
+            assert_eq!(
+                dsn.tap_period % 2,
+                0,
+                "tap period must be even for expansion"
+            );
+            dsn.width = 2 * dsn.width;
+            dsn.tap_period = dsn.tap_period / 2;
+        }
+        let (gate_params, max_folding_factor, folding_factors) =
+            if let Some(max_width) = params.max_width {
+                let (gate_params, primitive_gate_params) = match params.gate {
+                    GateParams::And2(params) => (
+                        GateParams::Nand2(params.nand),
+                        vec![params.nand, params.inv],
+                    ),
+                    GateParams::And3(params) => (
+                        GateParams::Nand3(params.nand),
+                        vec![params.nand, params.inv],
+                    ),
+                    GateParams::Inv(params) => (GateParams::Inv(params), vec![params]),
+                    GateParams::FoldedInv(params) => (GateParams::FoldedInv(params), vec![params]),
+                    GateParams::Nand2(params) => (GateParams::Nand2(params), vec![params]),
+                    GateParams::Nand3(params) => (GateParams::Nand3(params), vec![params]),
+                    GateParams::Nor2(params) => (GateParams::Nor2(params), vec![params]),
+                };
+                let folding_factor_limit = std::cmp::max(
+                    (max_width as usize
+                        - dsn.tap_width as usize
+                            * ((max_width as usize).div_ceil(
+                                dsn.tap_period * dsn.width as usize + dsn.tap_width as usize,
+                            ) + 1))
+                        / params.num
+                        / dsn.width as usize,
+                    1,
+                );
+                let mut max_folding_factor = 0;
+                let mut folding_factors = vec![];
+                for params in primitive_gate_params.iter().chain(params.invs.iter()) {
+                    let ff = std::cmp::min(
+                        std::cmp::max(
+                            std::cmp::min(params.pwidth, params.nwidth) as usize / 960,
+                            1,
+                        ),
+                        folding_factor_limit,
+                    );
+                    max_folding_factor = std::cmp::max(ff, max_folding_factor);
+                    folding_factors.push(ff);
+                }
+                let gate_params: Vec<GateParams> = std::iter::once(gate_params)
+                    .chain(
+                        primitive_gate_params
+                            .into_iter()
+                            .skip(1)
+                            .chain(params.invs.clone())
+                            .map(GateParams::FoldedInv),
+                    )
+                    .collect();
+
+                (gate_params, max_folding_factor, folding_factors)
+            } else {
+                (
+                    std::iter::once(params.gate)
+                        .chain(params.invs.clone().into_iter().map(GateParams::FoldedInv))
+                        .collect(),
+                    1,
+                    vec![1; 1 + params.invs.len()],
+                )
+            };
+        Ok(DecoderStagePhysicalDesign {
+            gate_params,
+            max_folding_factor,
+            folding_factors,
+            dsn,
+        })
+    }
+}
+
+pub(crate) fn base_indices(mut i: usize, sizes: &[usize]) -> Vec<usize> {
+    let mut res = Vec::new();
+    for sz in sizes {
+        res.push(i % sz);
+        i /= sz;
+    }
+    res
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -545,9 +714,7 @@ mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
-    use super::layout::{
-        DecoderGate, DecoderGateParams, DecoderPhysicalDesignScript, DecoderStyle,
-    };
+    use super::layout::{DecoderGate, DecoderGateParams};
     use super::*;
 
     #[test]
@@ -557,7 +724,7 @@ mod tests {
 
         let tree = DecoderTree::new(4, 150e-15);
         let params = DecoderParams {
-            pd: PhysicalDesignParams {
+            pd: DecoderPhysicalDesignParams {
                 style: DecoderStyle::RowMatched,
                 dir: Dir::Horiz,
             },
@@ -575,7 +742,7 @@ mod tests {
         let work_dir = test_work_dir("test_decoder_stage_4");
 
         let params = DecoderStageParams {
-            pd: PhysicalDesignParams {
+            pd: DecoderPhysicalDesignParams {
                 style: DecoderStyle::RowMatched,
                 dir: Dir::Horiz,
             },
@@ -635,7 +802,7 @@ mod tests {
         let work_dir = test_work_dir("test_decoder_gate");
 
         let dsn = ctx
-            .run_script::<DecoderPhysicalDesignScript>(&PhysicalDesignParams {
+            .run_script::<DecoderPhysicalDesignScript>(&DecoderPhysicalDesignParams {
                 style: DecoderStyle::RowMatched,
                 dir: Dir::Horiz,
             })

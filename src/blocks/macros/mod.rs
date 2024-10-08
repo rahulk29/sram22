@@ -10,7 +10,7 @@ use substrate::layout::cell::{CellPort, Port};
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
-
+use crate::blocks::columns::ColumnDesignScript;
 use crate::tech::{external_gds_path, external_spice_path};
 
 fn path(_ctx: &SubstrateCtx, name: &str, view: View) -> Option<PathBuf> {
@@ -114,7 +114,7 @@ impl Component for SenseAmpCent {
 
         let pc = ctx
             .inner()
-            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+            .run_script::<ColumnDesignScript>(&NoParams)?;
 
         let sa = ctx.instantiate::<SenseAmp>(&NoParams)?;
         let hspan = Span::new(0, pc.tap_width);

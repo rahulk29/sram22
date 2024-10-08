@@ -2,7 +2,7 @@ use self::schematic::fanout_buffer_stage;
 use crate::blocks::control::ControlLogicParams;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use subgeom::bbox::BoundBox;
 use subgeom::{Dir, Rect, Span};
 use substrate::component::{error, Component};
@@ -17,14 +17,11 @@ use substrate::script::Script;
 use super::bitcell_array::replica::ReplicaCellArrayParams;
 use super::bitcell_array::SpCellArrayParams;
 use super::columns::{ColParams, ColPeripherals, COL_CAPACITANCES, COL_PARAMS};
-use super::decoder::layout::{DecoderStyle, PhysicalDesignParams, RoutingStyle};
-use super::decoder::{
-    DecoderParams, DecoderStageParams, DecoderTree, INV_MODEL, INV_PARAMS, NAND2_MODEL,
-    NAND2_PARAMS,
-};
+use super::decoder::{Decoder, DecoderParams, DecoderPhysicalDesignParams, DecoderStageParams, DecoderStyle, DecoderTree, RoutingStyle, INV_MODEL, INV_PARAMS, NAND2_MODEL, NAND2_PARAMS};
 use super::gate::{AndParams, GateParams, PrimitiveGateParams};
 use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
 use super::precharge::layout::ReplicaPrechargeParams;
+use crate::blocks::columns::layout::DffArray;
 
 pub mod layout;
 pub mod schematic;
@@ -33,6 +30,22 @@ pub mod verilog;
 
 pub const WORDLINE_CAP_PER_CELL: f64 = 0.00000000000001472468276676486 / 12.;
 pub const BITLINE_CAP_PER_CELL: f64 = 0.00000000000008859364177937068 / 128.;
+
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
+pub struct SramConfig {
+    pub num_words: usize,
+    pub data_width: usize,
+    pub mux_ratio: MuxRatio,
+    pub write_size: usize,
+    #[cfg(feature = "commercial")]
+    pub pex_level: Option<calibre::pex::PexLevel>,
+}
+
+pub fn parse_sram_config(path: impl AsRef<Path>) -> anyhow::Result<SramConfig> {
+    let contents = std::fs::read_to_string(path)?;
+    let data = toml::from_str(&contents)?;
+    Ok(data)
+}
 
 pub struct SramInner {
     params: SramParams,
@@ -90,11 +103,6 @@ impl SramParams {
     #[inline]
     pub fn row_bits(&self) -> usize {
         (self.num_words / self.mux_ratio as usize).ilog2() as usize
-    }
-
-    #[inline]
-    pub fn col_bits(&self) -> usize {
-        (self.data_width * self.mux_ratio as usize).ilog2() as usize
     }
 
     #[inline]
@@ -219,21 +227,54 @@ impl Script for SramPhysicalDesignScript {
         let col_sel_b_cap =
             COL_CAPACITANCES.sel_b * (col_params.cols / col_params.mux.mux_ratio) as f64;
 
-        let wrdrven_saen_width = cols
-            .port("sense_en")?
+        let horiz_buffer = DecoderPhysicalDesignParams {
+            style: DecoderStyle::Minimum,
+            dir: Dir::Horiz,
+        };
+        let vert_buffer = DecoderPhysicalDesignParams {
+            style: DecoderStyle::Minimum,
+            dir: Dir::Horiz,
+        };
+        let col_decoder = DecoderParams {
+            pd: DecoderPhysicalDesignParams {
+                style: DecoderStyle::Relaxed,
+                dir: Dir::Horiz,
+            },
+            max_width: Some(
+                cols.port(PortId::new("sel_b", params.mux_ratio() - 1))?
+                    .largest_rect(m2)?
+                    .vspan()
+                    .union(
+                        cols.port(PortId::new("sel", params.mux_ratio() - 1))?
+                            .largest_rect(m2)?
+                            .vspan(),
+                    )
+                    .length(),
+            ),
+            // TODO use tgate mux input cap
+            tree: DecoderTree::new(
+                params.col_select_bits(),
+                col_sel_cap + col_sel_b_cap,
+            ),
+        };
+
+        let col_dec_inst = ctx.instantiate_layout::<Decoder>(&col_decoder)?;
+        let num_dffs = params.addr_width() + 2;
+        let dffs_inst = ctx.instantiate_layout::<DffArray>(&num_dffs)?;
+        let sel_span = cols
+            .port(PortId::new("sel", params.mux_ratio() - 1))?
             .largest_rect(m2)?
-            .vspan()
-            .add_point(cols.brect().bottom())
-            .length()
+            .vspan();
+        let wrdrven_saen_width = (sel_span.add_point(cols.brect().bottom()).length()
+            - std::cmp::max(
+                col_dec_inst.brect().height(),
+                sel_span
+                    .union(cols.port("sense_en")?.largest_rect(m2)?.vspan())
+                    .length(),
+            )
+            - dffs_inst.brect().vspan().length())
             / 2;
-        let horiz_buffer = PhysicalDesignParams {
-            style: DecoderStyle::Minimum,
-            dir: Dir::Horiz,
-        };
-        let vert_buffer = PhysicalDesignParams {
-            style: DecoderStyle::Minimum,
-            dir: Dir::Horiz,
-        };
+        println!("wrdrven_saen_width: {wrdrven_saen_width}");
         let row_decoder_tree = DecoderTree::new(params.row_bits(), wl_cap);
         let decoder_delay_invs = (f64::max(
             4.0,
@@ -251,15 +292,15 @@ impl Script for SramPhysicalDesignScript {
                 mux_ratio: params.mux_ratio(),
             },
             row_decoder: DecoderParams {
-                pd: PhysicalDesignParams {
+                pd: DecoderPhysicalDesignParams {
                     style: DecoderStyle::RowMatched,
                     dir: Dir::Horiz,
                 },
                 max_width: None,
-                tree: DecoderTree::new(params.row_bits(), wl_cap),
+                tree: row_decoder_tree,
             },
             addr_gate: DecoderStageParams {
-                pd: PhysicalDesignParams {
+                pd: DecoderPhysicalDesignParams {
                     style: DecoderStyle::Minimum,
                     dir: Dir::Horiz,
                 },
@@ -274,21 +315,7 @@ impl Script for SramPhysicalDesignScript {
                 num: 2 * params.row_bits(),
                 child_sizes: vec![],
             },
-            // TODO: change decoder tree to provide correct fanout for inverted output
-            col_decoder: DecoderParams {
-                pd: PhysicalDesignParams {
-                    style: DecoderStyle::Relaxed,
-                    dir: Dir::Horiz,
-                },
-                max_width: Some(
-                    cols.port(PortId::new("sel_b", 0))?
-                        .largest_rect(m2)?
-                        .vspan()
-                        .union(cols.port(PortId::new("sel", 0))?.largest_rect(m2)?.vspan())
-                        .length(),
-                ),
-                tree: DecoderTree::new(params.col_select_bits(), col_sel_cap + col_sel_b_cap),
-            },
+            col_decoder,
             pc_b_buffer: DecoderStageParams {
                 max_width: Some(
                     cols.port("pc_b")?
@@ -311,7 +338,7 @@ impl Script for SramPhysicalDesignScript {
                 max_width: Some(wrdrven_saen_width),
                 ..fanout_buffer_stage(horiz_buffer, saen_cap)
             },
-            num_dffs: params.addr_width() + 2,
+            num_dffs,
             rbl_wl_index,
             rbl: ReplicaCellArrayParams {
                 rows: rbl_rows,
@@ -616,14 +643,14 @@ pub(crate) mod tests {
 
                 #[cfg(feature = "commercial")]
                 {
-                    // let drc_work_dir = work_dir.join("drc");
-                    // let output = ctx
-                    //     .write_drc::<Sram>(&$params, drc_work_dir)
-                    //     .expect("failed to run DRC");
-                    // assert!(matches!(
-                    //     output.summary,
-                    //     substrate::verification::drc::DrcSummary::Pass
-                    // ));
+                    let drc_work_dir = work_dir.join("drc");
+                    let output = ctx
+                        .write_drc::<Sram>(&$params, drc_work_dir)
+                        .expect("failed to run DRC");
+                    assert!(matches!(
+                        output.summary,
+                        substrate::verification::drc::DrcSummary::Pass
+                    ));
 
                     // let lvs_work_dir = work_dir.join("lvs");
                     // let output = ctx

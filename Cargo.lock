@@ -213,7 +213,7 @@ dependencies = [
 [[package]]
 name = "calibre"
 version = "0.1.0"
-source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git?branch=master#348f4fc5c747357d4854fe253d4a08c63d22f689"
+source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git?branch=master#8b931e1b007ad59aa9bc5fa9d327e86617d9ebc7"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -1837,7 +1837,7 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 [[package]]
 name = "sub_calibre"
 version = "0.0.1"
-source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rohankumar/substrate_mentor_plugins.git?branch=main#ddebb84cd0a68841de4cd1951ac2d621c0c03d35"
+source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rohankumar/substrate_mentor_plugins.git?branch=main#45e342efc0ca3737367709a51ca3af09938987c0"
 dependencies = [
  "arcstr",
  "calibre 0.1.0",

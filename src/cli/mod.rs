@@ -4,9 +4,9 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
+use crate::blocks::sram::parse_sram_config;
 use crate::cli::args::Args;
 use crate::cli::progress::StepContext;
-use crate::config::sram::parse_sram_config;
 use crate::plan::extract::ExtractionResult;
 use crate::plan::{execute_plan, generate_plan, ExecutePlanParams, TaskKey};
 use crate::Result;

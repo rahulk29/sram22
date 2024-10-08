@@ -1,6 +1,5 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
-use arcstr::ArcStr;
 use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 use substrate::layout::cell::{CellPort, PortConflictStrategy};
@@ -9,7 +8,7 @@ use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::ArrayTiler;
 
 use super::decoder::layout::{DecoderGate, DecoderGateParams, DecoderTap};
-use super::decoder::{self};
+use super::decoder::DecoderPhysicalDesign;
 
 pub mod layout;
 pub mod schematic;
@@ -57,10 +56,6 @@ pub struct Nor2 {
     params: PrimitiveGateParams,
 }
 
-pub struct GateTree {
-    params: GateTreeParams,
-}
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
 pub struct AndParams {
     pub nand: PrimitiveGateParams,
@@ -103,26 +98,6 @@ pub struct PrimitiveGateParams {
     pub nwidth: i64,
     pub pwidth: i64,
     pub length: i64,
-}
-
-pub struct GateTreeParams {
-    max_width: i64,
-    dir: subgeom::Dir,
-    nodes: Vec<GateTreeNodeParams>,
-    interstage_buses: Vec<Vec<ArcStr>>,
-}
-
-pub struct GateTreeNodeParams {
-    max_width: i64,
-    width: i64,
-    tap_width: i64,
-    tap_period: usize,
-    dir: subgeom::Dir,
-    line: i64,
-    space: i64,
-    params: GateParams,
-    invs: Vec<PrimitiveGateParams>,
-    conns: Vec<HashMap<ArcStr, ArcStr>>,
 }
 
 impl GateType {
@@ -368,7 +343,7 @@ impl Component for TappedGate {
         let decoder_params = DecoderGateParams {
             gate: self.params,
             filler: false,
-            dsn: decoder::layout::PhysicalDesign {
+            dsn: DecoderPhysicalDesign {
                 width: 1_580,
                 tap_width: 1_580,
                 tap_period: 1,

@@ -8,7 +8,7 @@ use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
-
+use crate::blocks::columns::ColumnDesignScript;
 use crate::blocks::gate::{FoldedInv, PrimitiveGateParams};
 use crate::blocks::macros::SenseAmp;
 
@@ -162,7 +162,7 @@ impl Component for DiffBufCent {
 
         let pc = ctx
             .inner()
-            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+            .run_script::<ColumnDesignScript>(&NoParams)?;
 
         let buf = ctx.instantiate::<DiffBuf>(&self.params)?;
         let hspan = Span::new(0, pc.tap_width);

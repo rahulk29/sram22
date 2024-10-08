@@ -1,7 +1,6 @@
 use crate::blocks::sram::verilog::save_1rw_verilog;
-use crate::blocks::sram::{Sram, SramParams};
+use crate::blocks::sram::{Sram, SramConfig, SramParams};
 use crate::cli::progress::StepContext;
-use crate::config::sram::SramConfig;
 use crate::paths::{out_gds, out_spice, out_verilog};
 use crate::plan::extract::ExtractionResult;
 use crate::{setup_ctx, Result};

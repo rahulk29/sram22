@@ -55,7 +55,7 @@ impl Precharge {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&NoParams)?;
+        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&self.params)?;
         let db = ctx.mos_db();
         let mos = db
             .query(Query::builder().kind(MosKind::Pmos).build().unwrap())
@@ -280,7 +280,7 @@ impl Component for PrechargeCent {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let pc = ctx.instantiate::<Precharge>(&self.params)?;
-        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&NoParams)?;
+        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&self.params)?;
         let meta = pc.cell().get_metadata::<Metadata>();
         let layers = ctx.layers();
 
@@ -402,7 +402,7 @@ impl Component for PrechargeEnd {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let pc = ctx.instantiate::<Precharge>(&self.params.inner)?;
-        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&NoParams)?;
+        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&self.params.inner)?;
         let meta = pc.cell().get_metadata::<Metadata>();
         let layers = ctx.layers();
 

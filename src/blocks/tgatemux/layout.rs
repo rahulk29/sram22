@@ -22,6 +22,7 @@ use super::{TGateMux, TGateMuxCent, TGateMuxEnd, TGateMuxGroup, TGateMuxParams};
 use derive_builder::Builder;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::placement::array::ArrayTiler;
+use crate::blocks::columns::ColumnDesignScript;
 
 const GATE_LINE: i64 = 320;
 const GATE_SPACE: i64 = 180;
@@ -33,7 +34,7 @@ impl TGateMux {
     ) -> substrate::error::Result<()> {
         let pc = ctx
             .inner()
-            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+            .run_script::<ColumnDesignScript>(&NoParams)?;
 
         let db = ctx.mos_db();
         let pmos = db
@@ -363,7 +364,7 @@ impl TGateMuxCent {
     ) -> substrate::error::Result<()> {
         let pc = ctx
             .inner()
-            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+            .run_script::<ColumnDesignScript>(&NoParams)?;
 
         tgate_mux_tap_layout(pc.tap_width, false, &self.params, ctx)?;
         Ok(())
@@ -378,7 +379,7 @@ fn tgate_mux_tap_layout(
 ) -> substrate::error::Result<()> {
     let pc = ctx
         .inner()
-        .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+        .run_script::<ColumnDesignScript>(&NoParams)?;
 
     let mux = ctx.instantiate::<TGateMux>(params)?;
     let stripe_hspan = Span::new(-width, 2 * width);
@@ -532,7 +533,7 @@ impl TGateMuxEnd {
     ) -> substrate::error::Result<()> {
         let pc = ctx
             .inner()
-            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+            .run_script::<ColumnDesignScript>(&NoParams)?;
         tgate_mux_tap_layout(pc.tap_width, true, &self.params, ctx)?;
         Ok(())
     }
@@ -545,7 +546,7 @@ impl TGateMuxGroup {
     ) -> substrate::error::Result<()> {
         let pc = ctx
             .inner()
-            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+            .run_script::<ColumnDesignScript>(&NoParams)?;
 
         let params = TGateMuxParams {
             idx: 0,
