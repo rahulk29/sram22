@@ -80,7 +80,6 @@ impl DecoderTree {
             plan
         };
         let root = size_decoder(&plan, cload);
-        println!("decoder tree = {root:#?}");
         DecoderTree { root }
     }
 }
@@ -347,14 +346,13 @@ fn plan_decoder(bits: usize, top: bool, skew_rising: bool) -> PlanTreeNode {
             .into_iter()
             .map(|x| plan_decoder(x, false, skew_rising))
             .collect::<Vec<_>>();
-        let node = PlanTreeNode {
+
+        PlanTreeNode {
             gate,
             num: 2usize.pow(bits as u32),
             children,
             skew_rising,
-        };
-
-        node
+        }
     }
 }
 
@@ -624,8 +622,8 @@ impl Script for DecoderStagePhysicalDesignScript {
                 0,
                 "tap period must be even for expansion"
             );
-            dsn.width = 2 * dsn.width;
-            dsn.tap_period = dsn.tap_period / 2;
+            dsn.width *= 2;
+            dsn.tap_period /= 2;
         }
         let (gate_params, max_folding_factor, folding_factors) =
             if let Some(max_width) = params.max_width {

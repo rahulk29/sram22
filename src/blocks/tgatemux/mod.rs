@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use subgeom::snap_to_grid;
 use substrate::component::Component;
 use substrate::layout::cell::{CellPort, PortConflictStrategy};
 use substrate::layout::placement::align::AlignMode;
@@ -28,6 +29,20 @@ pub struct TGateMuxParams {
     pub nwidth: i64,
     pub mux_ratio: usize,
     pub idx: usize,
+}
+
+impl TGateMuxParams {
+    pub fn scale(&self, scale: f64) -> Self {
+        let pwidth = snap_to_grid((self.pwidth as f64 * scale).round() as i64, 50);
+        let nwidth = snap_to_grid((self.nwidth as f64 * scale).round() as i64, 50);
+        Self {
+            length: self.length,
+            pwidth,
+            nwidth,
+            mux_ratio: self.mux_ratio,
+            idx: self.idx,
+        }
+    }
 }
 
 pub struct TappedTGateMux {

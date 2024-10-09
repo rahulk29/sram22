@@ -249,7 +249,7 @@ impl Tree for SizedGateTreeNode {
 }
 
 impl ValueTree<f64> for SizedGateTreeNode {
-    fn value_for_child(&self, idx: usize) -> f64 {
+    fn value_for_child(&self, _idx: usize) -> f64 {
         let model = primitive_gate_model(self.gate_type);
         model.cin * self.gate.nwidth as f64 / (primitive_gate_params(self.gate_type).nwidth as f64)
     }
