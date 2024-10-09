@@ -1,19 +1,24 @@
 //! Column peripheral circuitry.
 
-use substrate::component::Component;
+use subgeom::Dir;
+use substrate::component::{Component, NoParams};
 use substrate::layout::context::LayoutCtx;
 use substrate::schematic::context::SchematicCtx;
+use substrate::script::Script;
 
-use super::gate::PrimitiveGateParams;
+use super::decoder::{DecoderPhysicalDesignParams, DecoderStageParams, DecoderStyle, RoutingStyle};
+use super::gate::sizing::InverterGateTreeNode;
+use super::gate::{GateParams, PrimitiveGateParams, PrimitiveGateType};
 use super::precharge::PrechargeParams;
+use super::sram::schematic::inverter_chain_num_stages;
 use super::tgatemux::TGateMuxParams;
 use super::wrdriver::WriteDriverParams;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub mod layout;
 pub mod schematic;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ColParams {
     pub pc: PrechargeParams,
     pub mux: TGateMuxParams,
@@ -121,6 +126,56 @@ impl Component for Column {
 
     fn layout(&self, ctx: &mut LayoutCtx) -> substrate::error::Result<()> {
         self.layout(ctx)
+    }
+}
+
+pub struct ColumnsPhysicalDesignScript;
+
+pub struct ColumnsPhysicalDesign {
+    wmask_unit_width: i64,
+    nand: DecoderStageParams,
+}
+
+impl Script for ColumnsPhysicalDesignScript {
+    type Params = ColParams;
+    type Output = ColumnsPhysicalDesign;
+
+    fn run(
+        params: &Self::Params,
+        ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self::Output> {
+        let pc_design =
+            ctx.run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+        let wmask_unit_width = params.wmask_granularity as i64
+            * (pc_design.width * params.mux_ratio() as i64 + pc_design.tap_width);
+        let cl = 1000e-15;
+        let wmask_buffer_stages = inverter_chain_num_stages(cl);
+        let wmask_buffer_gates = InverterGateTreeNode {
+            gate: PrimitiveGateType::Nand2,
+            id: 1,
+            n_invs: wmask_buffer_stages,
+            n_branching: 1,
+            children: vec![],
+        }
+        .elaborate()
+        .size(cl)
+        .as_chain();
+
+        Ok(ColumnsPhysicalDesign {
+            wmask_unit_width,
+            nand: DecoderStageParams {
+                pd: DecoderPhysicalDesignParams {
+                    style: DecoderStyle::Minimum,
+                    dir: Dir::Horiz,
+                },
+                routing_style: RoutingStyle::Decoder,
+                max_width: Some(wmask_unit_width),
+                gate: GateParams::Nand2(wmask_buffer_gates[0]),
+                invs: wmask_buffer_gates.iter().copied().skip(1).collect(),
+                num: 1,
+                child_sizes: vec![1, 1],
+            },
+        })
     }
 }
 

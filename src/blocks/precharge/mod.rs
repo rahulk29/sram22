@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 
 pub mod layout;
@@ -8,7 +8,7 @@ pub struct Precharge {
     params: PrechargeParams,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PrechargeParams {
     pub length: i64,
     pub pull_up_width: i64,

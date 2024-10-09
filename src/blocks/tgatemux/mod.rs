@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 use substrate::layout::cell::{CellPort, PortConflictStrategy};
 use substrate::layout::placement::align::AlignMode;
@@ -21,7 +21,7 @@ pub struct TGateMuxEnd {
     params: TGateMuxParams,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TGateMuxParams {
     pub length: i64,
     pub pwidth: i64,

@@ -28,7 +28,10 @@ use super::tgatemux::TGateMuxParams;
 use super::wrdriver::WriteDriverParams;
 use crate::blocks::columns::layout::DffArray;
 use crate::blocks::control::ControlLogicParams;
-use crate::blocks::decoder::{DecoderPhysicalDesignParams, DecoderStyle, RoutingStyle, INV_MODEL};
+use crate::blocks::decoder::{
+    DecoderPhysicalDesignParams, DecoderStage, DecoderStyle, RoutingStyle, INV_MODEL,
+};
+use crate::blocks::precharge::layout::PhysicalDesign;
 
 pub mod layout;
 pub mod schematic;
@@ -203,7 +206,6 @@ pub struct SramPhysicalDesign {
     col_decoder: DecoderParams,
     pc_b_buffer: DecoderStageParams,
     wlen_buffer: DecoderStageParams,
-    addr_gated_buffer: DecoderStageParams,
     write_driver_en_buffer: DecoderStageParams,
     sense_en_buffer: DecoderStageParams,
     num_dffs: usize,
@@ -222,61 +224,100 @@ impl Script for SramPhysicalDesignScript {
         params: &Self::Params,
         ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self::Output> {
-        let layers = ctx.layers();
-        let m2 = layers.get(Selector::Metal(2))?;
         let wl_cap = (params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL;
         let col_params = params.col_params();
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
         let rbl_rows = ((params.rows() / 12) + 1) * 2;
         let rbl_wl_index = rbl_rows / 2;
+
+        let addr_gate = DecoderStageParams {
+            pd: DecoderPhysicalDesignParams {
+                style: DecoderStyle::Minimum,
+                dir: Dir::Horiz,
+            },
+            routing_style: RoutingStyle::Driver,
+            max_width: None,
+            invs: vec![],
+            // TODO fix, should be minimum sized AND2 unless sized elsewhere
+            gate: GateParams::And2(AndParams {
+                nand: NAND2_PARAMS,
+                inv: INV_PARAMS,
+            }),
+            num: 2 * params.row_bits(),
+            child_sizes: vec![],
+        };
+        let addr_gate_inst = ctx.instantiate_layout::<DecoderStage>(&addr_gate)?;
+
         let horiz_buffer = DecoderPhysicalDesignParams {
             style: DecoderStyle::Minimum,
             dir: Dir::Horiz,
         };
         let vert_buffer = DecoderPhysicalDesignParams {
             style: DecoderStyle::Minimum,
-            dir: Dir::Horiz,
+            dir: Dir::Vert,
         };
-        let col_decoder = DecoderParams {
+
+        // Figure out the best width allocation to equalize lengths of the various buffers.
+        let mut pc_b_buffer = DecoderStageParams {
+            max_width: None,
+            ..fanout_buffer_stage(horiz_buffer, 2000e-15)
+        };
+        let mut col_decoder = DecoderParams {
             pd: DecoderPhysicalDesignParams {
                 style: DecoderStyle::Relaxed,
                 dir: Dir::Horiz,
             },
-            max_width: Some(
-                cols.port(PortId::new("sel_b", params.mux_ratio() - 1))?
-                    .largest_rect(m2)?
-                    .vspan()
-                    .union(
-                        cols.port(PortId::new("sel", params.mux_ratio() - 1))?
-                            .largest_rect(m2)?
-                            .vspan(),
-                    )
-                    .length(),
-            ),
+            max_width: None,
             // TODO use tgate mux input cap
             tree: DecoderTree::new(
                 params.col_select_bits(),
                 READ_MUX_INPUT_CAP * (params.cols() / params.mux_ratio()) as f64,
             ),
         };
+        let mut sense_en_buffer = DecoderStageParams {
+            max_width: None,
+            ..fanout_buffer_stage(horiz_buffer, 500e-15)
+        };
+        let mut write_driver_en_buffer = DecoderStageParams {
+            max_width: None,
+            ..fanout_buffer_stage(horiz_buffer, 500e-15)
+        };
 
         let col_dec_inst = ctx.instantiate_layout::<Decoder>(&col_decoder)?;
+        let pc_b_buffer_inst = ctx.instantiate_layout::<DecoderStage>(&pc_b_buffer)?;
+        let sense_en_buffer_inst = ctx.instantiate_layout::<DecoderStage>(&sense_en_buffer)?;
+        let write_driver_en_buffer_inst =
+            ctx.instantiate_layout::<DecoderStage>(&write_driver_en_buffer)?;
+        let col_dec_wh = col_dec_inst.brect().width() * col_dec_inst.brect().height();
+        let pc_b_buffer_wh = pc_b_buffer_inst.brect().width() * pc_b_buffer_inst.brect().height();
+        let sense_en_buffer_wh =
+            sense_en_buffer_inst.brect().width() * sense_en_buffer_inst.brect().height();
+        let write_driver_en_buffer_wh = write_driver_en_buffer_inst.brect().width()
+            * write_driver_en_buffer_inst.brect().height();
+        let mut total_wh =
+            col_dec_wh + pc_b_buffer_wh + sense_en_buffer_wh + write_driver_en_buffer_wh;
         let num_dffs = params.addr_width() + 2;
         let dffs_inst = ctx.instantiate_layout::<DffArray>(&num_dffs)?;
-        let sel_span = cols
-            .port(PortId::new("sel", params.mux_ratio() - 1))?
-            .largest_rect(m2)?
-            .vspan();
-        let wrdrven_saen_width = (sel_span.add_point(cols.brect().bottom()).length()
-            - std::cmp::max(
-                col_dec_inst.brect().height(),
-                sel_span
-                    .union(cols.port("sense_en")?.largest_rect(m2)?.vspan())
-                    .length(),
-            )
-            - dffs_inst.brect().vspan().length())
-            / 2;
-        println!("wrdrven_saen_width: {wrdrven_saen_width}");
+
+        let mut available_height = cols.brect().height()
+            - dffs_inst.brect().height()
+            - 3_500
+            - 1_400 * params.addr_width() as i64;
+        let col_dec_max_width = std::cmp::max(
+            available_height * col_dec_wh / total_wh,
+            col_dec_inst.brect().height(),
+        );
+        available_height -= col_dec_max_width;
+        total_wh -= col_dec_wh;
+        let pc_b_buffer_max_width = available_height * pc_b_buffer_wh / total_wh;
+        let sense_en_buffer_max_width = available_height * sense_en_buffer_wh / total_wh;
+        let write_driver_en_buffer_max_width =
+            available_height * write_driver_en_buffer_wh / total_wh;
+        col_decoder.max_width = Some(col_dec_max_width);
+        pc_b_buffer.max_width = Some(pc_b_buffer_max_width);
+        sense_en_buffer.max_width = Some(sense_en_buffer_max_width);
+        write_driver_en_buffer.max_width = Some(write_driver_en_buffer_max_width);
+
         let row_decoder_tree = DecoderTree::new(params.row_bits(), wl_cap);
         let decoder_delay_invs = (f64::max(
             4.0,
@@ -301,46 +342,16 @@ impl Script for SramPhysicalDesignScript {
                 max_width: None,
                 tree: row_decoder_tree,
             },
-            addr_gate: DecoderStageParams {
-                pd: DecoderPhysicalDesignParams {
-                    style: DecoderStyle::Minimum,
-                    dir: Dir::Horiz,
-                },
-                routing_style: RoutingStyle::Driver,
-                max_width: None,
-                invs: vec![],
-                // TODO fix, should be minimum sized AND2 unless sized elsewhere
-                gate: GateParams::And2(AndParams {
-                    nand: NAND2_PARAMS,
-                    inv: INV_PARAMS,
-                }),
-                num: 2 * params.row_bits(),
-                child_sizes: vec![],
-            },
+            addr_gate,
             // TODO: change decoder tree to provide correct fanout for inverted output
             col_decoder,
-            pc_b_buffer: DecoderStageParams {
-                max_width: Some(
-                    cols.port("pc_b")?
-                        .largest_rect(m2)?
-                        .vspan()
-                        .add_point(cols.brect().top())
-                        .length(),
-                ),
-                ..fanout_buffer_stage(horiz_buffer, 2000e-15)
-            },
+            pc_b_buffer,
             wlen_buffer: DecoderStageParams {
-                max_width: None,
+                max_width: Some(addr_gate_inst.brect().height()),
                 ..fanout_buffer_stage(vert_buffer, 500e-15)
             },
-            write_driver_en_buffer: DecoderStageParams {
-                max_width: Some(wrdrven_saen_width),
-                ..fanout_buffer_stage(horiz_buffer, 500e-15)
-            },
-            sense_en_buffer: DecoderStageParams {
-                max_width: Some(wrdrven_saen_width),
-                ..fanout_buffer_stage(horiz_buffer, 500e-15)
-            },
+            write_driver_en_buffer,
+            sense_en_buffer,
             num_dffs,
             rbl_wl_index,
             rbl: ReplicaCellArrayParams {
@@ -353,11 +364,6 @@ impl Script for SramPhysicalDesignScript {
             },
             col_params,
             control: ControlLogicParams { decoder_delay_invs },
-
-            addr_gated_buffer: DecoderStageParams {
-                max_width: None,
-                ..fanout_buffer_stage(horiz_buffer, 500e-15)
-            },
         })
     }
 }
@@ -655,14 +661,14 @@ pub(crate) mod tests {
                         substrate::verification::drc::DrcSummary::Pass
                     ));
 
-                    // let lvs_work_dir = work_dir.join("lvs");
-                    // let output = ctx
-                    //     .write_lvs::<Sram>(&$params, lvs_work_dir)
-                    //     .expect("failed to run LVS");
-                    // assert!(matches!(
-                    //     output.summary,
-                    //     substrate::verification::lvs::LvsSummary::Pass
-                    // ));
+                    let lvs_work_dir = work_dir.join("lvs");
+                    let output = ctx
+                        .write_lvs::<Sram>(&$params, lvs_work_dir)
+                        .expect("failed to run LVS");
+                    assert!(matches!(
+                        output.summary,
+                        substrate::verification::lvs::LvsSummary::Pass
+                    ));
 
                     // let pex_path = out_spice(&work_dir, "pex_schematic");
                     // let pex_dir = work_dir.join("pex");
@@ -688,43 +694,43 @@ pub(crate) mod tests {
                     //     opts,
                     // }).expect("failed to run pex");
 
-                    let short = true;
-                    let short_str = if short { "short" } else { "long" };
-                    let corners = ctx.corner_db();
-                    let mut handles = Vec::new();
-                    for vdd in [1.8] {
-                        for corner in corners.corners() {
-                            let corner = corner.clone();
-                            let params = $params.clone();
-                            // let pex_netlist = Some(pex_netlist_path.clone());
-                            let work_dir = work_dir.clone();
-                            handles.push(std::thread::spawn(move || {
-                                let ctx = setup_ctx();
-                                let tb = crate::blocks::sram::testbench::tb_params(params, vdd, short, None);
-                                let work_dir = work_dir.join(format!(
-                                    "{}_{:.2}_{}",
-                                    corner.name(),
-                                    vdd,
-                                    short_str
-                                ));
-                                ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
-                                    &tb,
-                                    &work_dir,
-                                    corner.clone(),
-                                )
-                                .expect("failed to run simulation");
-                                println!(
-                                    "Simulated corner {} with Vdd = {}, short = {}",
-                                    corner.name(),
-                                    vdd,
-                                    short
-                                );
-                            }));
-                        }
-                    }
-                    for handle in handles {
-                        handle.join().expect("failed to join thread");
-                    }
+                    // let short = true;
+                    // let short_str = if short { "short" } else { "long" };
+                    // let corners = ctx.corner_db();
+                    // let mut handles = Vec::new();
+                    // for vdd in [1.8] {
+                    //     for corner in corners.corners() {
+                    //         let corner = corner.clone();
+                    //         let params = $params.clone();
+                    //         // let pex_netlist = Some(pex_netlist_path.clone());
+                    //         let work_dir = work_dir.clone();
+                    //         handles.push(std::thread::spawn(move || {
+                    //             let ctx = setup_ctx();
+                    //             let tb = crate::blocks::sram::testbench::tb_params(params, vdd, short, None);
+                    //             let work_dir = work_dir.join(format!(
+                    //                 "{}_{:.2}_{}",
+                    //                 corner.name(),
+                    //                 vdd,
+                    //                 short_str
+                    //             ));
+                    //             ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
+                    //                 &tb,
+                    //                 &work_dir,
+                    //                 corner.clone(),
+                    //             )
+                    //             .expect("failed to run simulation");
+                    //             println!(
+                    //                 "Simulated corner {} with Vdd = {}, short = {}",
+                    //                 corner.name(),
+                    //                 vdd,
+                    //                 short
+                    //             );
+                    //         }));
+                    //     }
+                    // }
+                    // for handle in handles {
+                    //     handle.join().expect("failed to join thread");
+                    // }
 
                     // crate::abs::run_abstract(
                     //     &work_dir,

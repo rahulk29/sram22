@@ -36,11 +36,14 @@ use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams};
 use crate::blocks::macros::{SenseAmp, SenseAmpCent};
 use crate::blocks::precharge::layout::{PrechargeCent, PrechargeEnd, PrechargeEndParams};
 use crate::blocks::precharge::Precharge;
+use crate::blocks::sram::layout::draw_via;
 use crate::blocks::tgatemux::{TGateMuxCent, TGateMuxEnd, TGateMuxGroup};
 use crate::blocks::wrdriver::layout::WriteDriverCent;
 use crate::blocks::wrdriver::WriteDriver;
 
-use super::{ColParams, ColPeripherals, WmaskPeripherals};
+use super::{
+    ColParams, ColPeripherals, ColumnsPhysicalDesign, ColumnsPhysicalDesignScript, WmaskPeripherals,
+};
 
 static BOTTOM_PADDING: Padding = Padding::new(0, 0, 160, 0);
 
@@ -171,13 +174,7 @@ impl ColPeripherals {
             let intersect = Rect::from_spans(we_in.hspan(), jog.r2().vspan()).bbox();
             let m1_rect = we_in.bbox().union(intersect).into_rect();
             let m0_rect = jog.r2().bbox().union(intersect).into_rect();
-            let viap = ViaParams::builder()
-                .layers(m0, m1)
-                .geometry(m0_rect, m1_rect)
-                .expand(ViaExpansion::LongerDirection)
-                .build();
-            let via = ctx.instantiate::<Via>(&viap)?;
-            ctx.draw(via)?;
+            draw_via(m0, m0_rect, m1, m1_rect, ctx)?;
             ctx.draw_rect(m0, m0_rect);
             ctx.draw_rect(m1, m1_rect);
 
@@ -200,34 +197,16 @@ impl ColPeripherals {
                 .space(170)
                 .build()
                 .unwrap();
-            let intersect = Rect::from_spans(we_in.hspan(), jog.r2().vspan()).bbox();
+            let intersect = Rect::from_spans(we_in.hspan(), jog.r2().vspan());
             let m2_rect = we_in
                 .with_vspan(Span::with_start_and_length(we_in.bottom(), 300))
                 .bbox()
-                .union(intersect)
+                .union(intersect.bbox())
                 .into_rect();
-            let m0_rect = jog.r2().bbox().union(intersect).into_rect();
-            let viap = ViaParams::builder()
-                .layers(m0, m1)
-                .geometry(intersect, intersect)
-                .expand(ViaExpansion::LongerDirection)
-                .build();
-            let via = ctx.instantiate::<Via>(&viap)?;
-            ctx.draw_ref(&via)?;
-            let viap = ViaParams::builder()
-                .layers(m1, m2)
-                .geometry(via.layer_bbox(m1).into_rect(), m2_rect)
-                .expand(ViaExpansion::LongerDirection)
-                .build();
-            let via = ctx.instantiate::<Via>(&viap)?;
-            ctx.draw(via)?;
-            let viap = ViaParams::builder()
-                .layers(m1, m2)
-                .geometry(we_in, m2_rect)
-                .expand(ViaExpansion::LongerDirection)
-                .build();
-            let via = ctx.instantiate::<Via>(&viap)?;
-            ctx.draw(via)?;
+            let m0_rect = jog.r2().bbox().union(intersect.bbox()).into_rect();
+            let via = draw_via(m0, intersect, m1, intersect, ctx)?;
+            draw_via(m1, via.layer_bbox(m1).into_rect(), m2, m2_rect, ctx)?;
+            draw_via(m1, we_in, m2, m2_rect, ctx)?;
             ctx.draw_rect(m0, m0_rect);
             ctx.draw_rect(m2, m2_rect);
 
@@ -378,36 +357,20 @@ impl WmaskPeripherals {
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
         let outline = layers.get(Selector::Name("outline"))?;
+        let nwell = layers.get(Selector::Name("nwell"))?;
 
         let pc_design = ctx
             .inner()
             .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
-        let wmask_unit_width = self.params.wmask_granularity as i64
-            * (pc_design.width * self.params.mux_ratio() as i64 + pc_design.tap_width);
 
-        let nand_stage = ctx.instantiate::<DecoderStage>(&DecoderStageParams {
-            pd: DecoderPhysicalDesignParams {
-                style: DecoderStyle::Minimum,
-                dir: Dir::Horiz,
-            },
-            routing_style: RoutingStyle::Decoder,
-            max_width: Some(wmask_unit_width),
-            gate: GateParams::And2(AndParams {
-                inv: PrimitiveGateParams {
-                    nwidth: 10000,
-                    pwidth: 10000,
-                    length: 150,
-                },
-                nand: PrimitiveGateParams {
-                    nwidth: 2000,
-                    pwidth: 2000,
-                    length: 150,
-                },
-            }),
-            invs: vec![],
-            num: 1,
-            child_sizes: vec![1, 1],
-        })?;
+        let ColumnsPhysicalDesign {
+            wmask_unit_width,
+            nand,
+        } = &*ctx
+            .inner()
+            .run_script::<ColumnsPhysicalDesignScript>(&self.params)?;
+
+        let mut nand_stage = ctx.instantiate::<DecoderStage>(&nand)?;
         let wmask_dff = ctx.instantiate::<DffCol>(&NoParams)?;
 
         let mut grid = Grid::new(0, 0);
@@ -418,7 +381,7 @@ impl WmaskPeripherals {
                     nand_stage.clone(),
                     nand_stage.brect().with_hspan(Span::with_start_and_length(
                         nand_stage.brect().left(),
-                        wmask_unit_width,
+                        *wmask_unit_width,
                     )),
                 )
                 .into(),
@@ -434,7 +397,7 @@ impl WmaskPeripherals {
                     wmask_dff.clone(),
                     wmask_dff_brect.with_hspan(Span::with_start_and_length(
                         wmask_dff_brect.left() - offset as i64 * pc_design.width,
-                        wmask_unit_width,
+                        *wmask_unit_width,
                     )),
                 )
                 .into(),
@@ -442,6 +405,9 @@ impl WmaskPeripherals {
         }
         grid.push_row(row);
         let mut wmask_grid_tiler = GridTiler::new(grid);
+        let mut nand_stage_right = nand_stage.clone();
+        nand_stage.translate(wmask_grid_tiler.translation(0, 0));
+        nand_stage_right.translate(wmask_grid_tiler.translation(0, self.params.wmask_bits() - 1));
         wmask_grid_tiler.expose_ports(
             |port: CellPort, (_, j)| Some(port.with_index(j)),
             PortConflictStrategy::Merge,
@@ -517,6 +483,19 @@ impl WmaskPeripherals {
                     .port(PortId::new("d", i))?
                     .clone(),
             )?;
+        }
+        // Expand nwells
+        for shape in nand_stage.shapes_on(nwell) {
+            ctx.draw_rect(
+                nwell,
+                shape.brect().with_hspan(
+                    nand_stage
+                        .layer_bbox(nwell)
+                        .into_rect()
+                        .hspan()
+                        .union(nand_stage_right.layer_bbox(nwell).into_rect().hspan()),
+                ),
+            );
         }
 
         Ok(())
