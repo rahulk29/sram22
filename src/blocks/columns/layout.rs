@@ -1213,6 +1213,8 @@ impl Component for TappedColumn {
         ctx.draw(c)?;
         ctx.draw(right)?;
 
+        ctx.flatten();
+
         Ok(())
     }
 }
