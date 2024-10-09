@@ -219,7 +219,10 @@ impl DecoderStage {
             stage_tiler.expose_ports(
                 |port: CellPort, i| {
                     let idx = if i > 0 {
-                        i - (i / (dsn.tap_period + 1) + 1)
+                        let tmp = i - (i / (dsn.tap_period + 1) + 1);
+                        let num = tmp / max_folding_factor;
+                        let j = tmp % max_folding_factor;
+                        num * folding_factor + j
                     } else {
                         0
                     };
@@ -383,7 +386,7 @@ impl DecoderStage {
                             .port_map()
                             .port(PortId::new(
                                 "y",
-                                n * folding_factor * num_stages + num_stages - 2,
+                                n * folding_factors[num_stages - 2] * num_stages + num_stages - 2,
                             ))?
                             .clone()
                             .with_id(PortId::new(arcstr::format!("y_b"), n)),

@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use subgeom::snap_to_grid;
 use substrate::component::Component;
 
@@ -9,7 +9,7 @@ pub struct WriteDriver {
     params: WriteDriverParams,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct WriteDriverParams {
     pub length: i64,
     pub pwidth_driver: i64,

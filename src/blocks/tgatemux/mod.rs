@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use subgeom::snap_to_grid;
 use substrate::component::Component;
 use substrate::layout::cell::{CellPort, PortConflictStrategy};
@@ -22,7 +22,7 @@ pub struct TGateMuxEnd {
     params: TGateMuxParams,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TGateMuxParams {
     pub length: i64,
     pub pwidth: i64,

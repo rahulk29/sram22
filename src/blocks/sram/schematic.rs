@@ -104,10 +104,6 @@ impl SramInner {
                 "sense_en",
             ]);
 
-        // let wl_cap = (self.params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL;
-        // let tree = DecoderTree::new(self.params.row_bits(), 4. * wl_cap);
-        // let decoder_params = DecoderParams { tree };
-
         ctx.instantiate::<DecoderStage>(&dsn.addr_gate)?
             .with_connections([
                 ("vdd", vdd),
@@ -123,7 +119,7 @@ impl SramInner {
                         addr_in_b.index(self.params.col_select_bits()..),
                     ]),
                 ),
-                ("y", Signal::new(vec![addr_gated0, addr_b_gated0])),
+                ("y", Signal::new(vec![addr_gated, addr_b_gated])),
             ])
             .named("addr_gate")
             .add_to(ctx);
@@ -238,29 +234,6 @@ impl SramInner {
             .with_connection("qn", Signal::new(vec![addr_in_b, we_in_b, ce_in_b]))
             .named("addr_we_ce_dffs")
             .add_to(ctx);
-
-        for i in 0..self.params.row_bits() {
-            ctx.instantiate::<DecoderStage>(&dsn.addr_gated_buffer)?
-                .with_connections([
-                    ("vdd", vdd),
-                    ("vss", vss),
-                    ("y", addr_gated.index(i)),
-                    ("y_b", addr_gated_b.index(i)),
-                    ("predecode_0_0", addr_gated0.index(i)),
-                ])
-                .named(format!("addr_gated_buffer_{i}"))
-                .add_to(ctx);
-            ctx.instantiate::<DecoderStage>(&dsn.addr_gated_buffer)?
-                .with_connections([
-                    ("vdd", vdd),
-                    ("vss", vss),
-                    ("y", addr_b_gated.index(i)),
-                    ("y_b", addr_b_gated_b.index(i)),
-                    ("predecode_0_0", addr_b_gated0.index(i)),
-                ])
-                .named(format!("addr_b_gated_buffer_{i}"))
-                .add_to(ctx);
-        }
 
         ctx.instantiate::<SpCellArray>(&dsn.bitcells)?
             .with_connections([
