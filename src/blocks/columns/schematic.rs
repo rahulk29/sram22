@@ -143,6 +143,25 @@ impl ColPeripherals {
 }
 
 impl Column {
+    pub fn io(&self) -> HashMap<&'static str, usize> {
+        HashMap::from([
+            ("clk", 1),
+            ("reset_b", 1),
+            ("vdd", 1),
+            ("vss", 1),
+            ("bl", self.params.mux_ratio()),
+            ("br", self.params.mux_ratio()),
+            ("pc_b", 1),
+            ("sel", self.params.mux_ratio()),
+            ("sel_b", self.params.mux_ratio()),
+            ("we", 1),
+            ("we_b", 1),
+            ("din", 1),
+            ("dout", 1),
+            ("sense_en", 1),
+        ])
+    }
+
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
         let clk = ctx.port("clk", Direction::Input);
         let reset_b = ctx.port("reset_b", Direction::Input);

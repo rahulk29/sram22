@@ -514,6 +514,31 @@ mod tests {
         }))
     }
 
+    fn column_default_conns() -> HashMap<&'static str, Vec<AcImpedanceTbNode>> {
+        let col = Column { params: COL_PARAMS };
+        let io = col.io();
+        HashMap::from_iter(io.iter().map(|(&k, &v)| {
+            let conn = match k {
+                "clk" => AcImpedanceTbNode::Vdd,
+                "reset_b" => AcImpedanceTbNode::Vdd,
+                "vdd" => AcImpedanceTbNode::Vdd,
+                "vss" => AcImpedanceTbNode::Vdd,
+                "bl" => AcImpedanceTbNode::Vdd,
+                "br" => AcImpedanceTbNode::Vdd,
+                "pc_b" => AcImpedanceTbNode::Vdd,
+                "sel" => AcImpedanceTbNode::Vss,
+                "sel_b" => AcImpedanceTbNode::Vdd,
+                "we" => AcImpedanceTbNode::Vss,
+                "we_b" => AcImpedanceTbNode::Vss,
+                "din" => AcImpedanceTbNode::Vss,
+                "dout" => AcImpedanceTbNode::Vdd,
+                "sense_en" => AcImpedanceTbNode::Vss,
+                x => panic!("unexpected signal {x}"),
+            };
+            (k, vec![conn; v])
+        }))
+    }
+
     #[test]
     #[cfg(feature = "commercial")]
     #[ignore = "slow"]
@@ -558,6 +583,77 @@ mod tests {
 
         for port in ["clk", "reset_b", "sense_en", "pc_b", "sel", "sel_b", "we"] {
             let mut conns = col_peripherals_default_conns();
+            conns.get_mut(port).unwrap()[0] = AcImpedanceTbNode::Vmeas;
+
+            let sim_dir = work_dir.join(format!("{port}_cap"));
+            let cap_ac = ctx
+                .write_simulation::<AcImpedanceTestbench<ColPeripherals>>(
+                    &AcImpedanceTbParams {
+                        vdd: 1.8,
+                        fstart: 100.,
+                        fstop: 10e6,
+                        points: 10,
+                        dut: params.clone(),
+                        pex_netlist: Some(pex_netlist_path.clone()),
+                        vmeas_conn: AcImpedanceTbNode::Vdd,
+                        connections: HashMap::from_iter(
+                            conns.into_iter().map(|(k, v)| (ArcStr::from(k), v)),
+                        ),
+                    },
+                    &sim_dir,
+                )
+                .expect("failed to write simulation");
+
+            println!("C{port} = {}fF", 1e15 * cap_ac.max_freq_cap());
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "commercial")]
+    #[ignore = "slow"]
+    fn test_column_cap() {
+        use crate::measure::impedance::{
+            AcImpedanceTbNode, AcImpedanceTbParams, AcImpedanceTestbench,
+        };
+
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_column_cap");
+        let params = COL_PARAMS;
+
+        let pex_path = out_spice(&work_dir, "pex_schematic");
+        let pex_dir = work_dir.join("pex");
+        let pex_level = calibre::pex::PexLevel::Rc;
+        let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+        ctx.write_schematic_to_file_for_purpose::<TappedColumn>(
+            &params,
+            &pex_path,
+            NetlistPurpose::Pex,
+        )
+        .expect("failed to write pex source netlist");
+        let mut opts = std::collections::HashMap::with_capacity(1);
+        opts.insert("level".into(), pex_level.as_str().into());
+
+        let gds_path = out_gds(&work_dir, "layout");
+        ctx.write_layout::<TappedColumn>(&params, &gds_path)
+            .expect("failed to write layout");
+
+        ctx.run_pex(substrate::verification::pex::PexInput {
+            work_dir: pex_dir,
+            layout_path: gds_path.clone(),
+            layout_cell_name: arcstr::literal!("tapped_column"),
+            layout_format: substrate::layout::LayoutFormat::Gds,
+            source_paths: vec![pex_path],
+            source_cell_name: arcstr::literal!("tapped_column"),
+            pex_netlist_path: pex_netlist_path.clone(),
+            ground_net: "vss".to_string(),
+            opts,
+        })
+        .expect("failed to run pex");
+
+        for port in [
+            "clk", "reset_b", "pc_b", "sel", "sel_b", "we", "we_b", "sense_en",
+        ] {
+            let mut conns = column_default_conns();
             conns.get_mut(port).unwrap()[0] = AcImpedanceTbNode::Vmeas;
 
             let sim_dir = work_dir.join(format!("{port}_cap"));

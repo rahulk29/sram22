@@ -1169,7 +1169,7 @@ impl Component for DffColCent {
 }
 
 pub struct TappedColumn {
-    params: ColParams,
+    pub params: ColParams,
 }
 
 impl Component for TappedColumn {
