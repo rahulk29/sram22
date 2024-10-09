@@ -317,7 +317,7 @@ mod tests {
     use substrate::layout::layers::selector::Selector;
     use substrate::schematic::netlist::NetlistPurpose;
 
-    use super::layout::{ColCentParams, ColumnCent};
+    use super::layout::{ColCentParams, ColumnCent, TappedColumn};
     use super::*;
 
     struct ColPeripheralsLvs {
@@ -427,6 +427,36 @@ mod tests {
             .expect("failed to write layout");
         ctx.write_schematic_to_file::<Column>(&COL_PARAMS, out_spice(work_dir, "schematic"))
             .expect("failed to write layout");
+    }
+
+    #[test]
+    fn test_tapped_column_4() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_tapped_column_4");
+        ctx.write_layout::<TappedColumn>(&COL_PARAMS, out_gds(&work_dir, "layout"))
+            .expect("failed to write layout");
+        ctx.write_schematic_to_file::<TappedColumn>(&COL_PARAMS, out_spice(&work_dir, "schematic"))
+            .expect("failed to write layout");
+
+        #[cfg(feature = "commercial")]
+        {
+            let drc_work_dir = work_dir.join("drc");
+            let output = ctx
+                .write_drc::<TappedColumn>(&COL_PARAMS, drc_work_dir)
+                .expect("failed to run DRC");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::drc::DrcSummary::Pass
+            ));
+            let lvs_work_dir = work_dir.join("lvs");
+            let output = ctx
+                .write_lvs::<TappedColumn>(&COL_PARAMS, lvs_work_dir)
+                .expect("failed to run LVS");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::lvs::LvsSummary::Pass
+            ));
+        }
     }
 
     #[test]

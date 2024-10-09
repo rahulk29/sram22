@@ -590,7 +590,7 @@ pub(crate) mod tests {
 
     use self::testbench::TestSequence;
     use self::verilog::save_1rw_verilog;
-    use crate::paths::{out_spice, out_verilog};
+    use crate::paths::*;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 

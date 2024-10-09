@@ -1,5 +1,16 @@
 use std::collections::{HashMap, HashSet};
 
+use crate::blocks::buf::layout::DiffBufCent;
+use crate::blocks::buf::DiffBuf;
+use crate::blocks::columns::{Column, ColumnDesignScript};
+use crate::blocks::decoder::DecoderStage;
+use crate::blocks::macros::{SenseAmp, SenseAmpCent};
+use crate::blocks::precharge::layout::{PrechargeCent, PrechargeEnd, PrechargeEndParams};
+use crate::blocks::precharge::Precharge;
+use crate::blocks::sram::layout::draw_via;
+use crate::blocks::tgatemux::{TGateMuxCent, TGateMuxEnd, TGateMuxGroup};
+use crate::blocks::wrdriver::layout::WriteDriverCent;
+use crate::blocks::wrdriver::WriteDriver;
 use arcstr::ArcStr;
 use grid::Grid;
 use serde::Serialize;
@@ -25,18 +36,7 @@ use substrate::layout::routing::manual::jog::{OffsetJog, SJog};
 use substrate::layout::DrawRef;
 use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
-
-use crate::blocks::buf::layout::DiffBufCent;
-use crate::blocks::buf::DiffBuf;
-use crate::blocks::columns::{Column, ColumnDesignScript};
-use crate::blocks::decoder::DecoderStage;
-use crate::blocks::macros::{SenseAmp, SenseAmpCent};
-use crate::blocks::precharge::layout::{PrechargeCent, PrechargeEnd, PrechargeEndParams};
-use crate::blocks::precharge::Precharge;
-use crate::blocks::sram::layout::draw_via;
-use crate::blocks::tgatemux::{TGateMuxCent, TGateMuxEnd, TGateMuxGroup};
-use crate::blocks::wrdriver::layout::WriteDriverCent;
-use crate::blocks::wrdriver::WriteDriver;
+use substrate::schematic::context::SchematicCtx;
 
 use super::{
     ColParams, ColPeripherals, ColumnsPhysicalDesign, ColumnsPhysicalDesignScript, WmaskPeripherals,
@@ -1164,6 +1164,55 @@ impl Component for DffColCent {
             ctx.merge_port(CellPort::with_shape(port, m2, r));
         }
         ctx.draw_rect(outline, bbox.with_hspan(hspan));
+        Ok(())
+    }
+}
+
+pub struct TappedColumn {
+    params: ColParams,
+}
+
+impl Component for TappedColumn {
+    type Params = ColParams;
+
+    fn new(params: &Self::Params, ctx: &SubstrateCtx) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::literal!("tapped_column")
+    }
+
+    fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
+        let mut c = ctx.instantiate::<Column>(&self.params)?;
+        ctx.bubble_all_ports(&mut c);
+        ctx.add_instance(c);
+        Ok(())
+    }
+
+    fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
+        let c = ctx.instantiate::<Column>(&self.params)?;
+        let mut left = ctx.instantiate::<ColumnCent>(&ColCentParams {
+            col: self.params.clone(),
+            end: true,
+            cut_wmask: false,
+        })?;
+        let mut right = left.clone();
+        right.reflect_horiz_anchored();
+        left.align_to_the_left_of(&c, -650);
+        left.align_bottom(&c);
+        right.align_to_the_right_of(&c, -650);
+        right.align_bottom(&c);
+
+        ctx.draw(left)?;
+        ctx.draw(c)?;
+        ctx.draw(right)?;
+
         Ok(())
     }
 }
