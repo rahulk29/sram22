@@ -128,7 +128,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
     let mut clk = Waveform::with_initial_value(0f64);
     let mut ce = Waveform::with_initial_value(0f64);
     let mut we = Waveform::with_initial_value(0f64);
-    let mut reset_b = Waveform::with_initial_value(params.vdd);
+    let mut reset_b = Waveform::with_initial_value(0f64);
 
     let period = params.clk_period;
     let vdd = params.vdd;
@@ -154,7 +154,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 // Set chip enable low
                 ce.push_low(t_data, vdd, tf);
                 // Set reset high
-                reset_b.push_low(t_data, vdd, tf);
+                reset_b.push_low(t_data + period / 2., vdd, tf);
             }
             Op::None => {
                 // Set write enable low
@@ -576,11 +576,11 @@ impl Testbench for SramTestbench {
                 .unwrap(),
         );
 
-        let signals = (0..self.params.sram.data_width)
-            .map(|i| format!("dout[{i}]"))
-            .collect();
-        ctx.save(Save::Signals(signals));
-        // ctx.save(Save::All);
+        // let signals = (0..self.params.sram.data_width)
+        //     .map(|i| format!("dout[{i}]"))
+        //     .collect();
+        // ctx.save(Save::Signals(signals));
+        ctx.save(Save::All);
 
         let vdd = SiValue::with_precision(self.params.vdd, SiPrefix::Nano);
 
