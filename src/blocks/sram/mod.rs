@@ -638,9 +638,9 @@ pub(crate) mod tests {
                 ctx.write_schematic_to_file::<Sram>(&$params, &spice_path)
                     .expect("failed to write schematic");
 
-                // let gds_path = out_gds(&work_dir, "layout");
-                // ctx.write_layout::<Sram>(&$params, &gds_path)
-                //     .expect("failed to write layout");
+                let gds_path = out_gds(&work_dir, "layout");
+                ctx.write_layout::<Sram>(&$params, &gds_path)
+                    .expect("failed to write layout");
 
                 let verilog_path = out_verilog(&work_dir, &*$params.name());
                 save_1rw_verilog(&verilog_path,&*$params.name(), &$params)

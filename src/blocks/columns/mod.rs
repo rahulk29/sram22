@@ -94,7 +94,7 @@ impl Component for WmaskPeripherals {
     }
 
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("wmask_peripherals")
+        arcstr::literal!("peripherals_wmask")
     }
 
     fn layout(
