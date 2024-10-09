@@ -76,7 +76,7 @@ pub struct SramPexParams {
     pex_netlist: PathBuf,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct SramParams {
     wmask_granularity: usize,
     mux_ratio: MuxRatio,
@@ -584,6 +584,7 @@ impl Component for SramPex {
 #[cfg(test)]
 pub(crate) mod tests {
 
+    use self::testbench::TestSequence;
     use self::verilog::save_1rw_verilog;
     use crate::paths::{out_spice, out_verilog};
     use crate::setup_ctx;
@@ -689,8 +690,7 @@ pub(crate) mod tests {
                     //     opts,
                     // }).expect("failed to run pex");
 
-                    let short = true;
-                    let short_str = if short { "short" } else { "long" };
+                    let seq = TestSequence::MarchCm;
                     let corners = ctx.corner_db();
                     let mut handles = Vec::new();
                     for vdd in [1.8] {
@@ -701,12 +701,12 @@ pub(crate) mod tests {
                             let work_dir = work_dir.clone();
                             handles.push(std::thread::spawn(move || {
                                 let ctx = setup_ctx();
-                                let tb = crate::blocks::sram::testbench::tb_params(params, vdd, short, None);
+                                let tb = crate::blocks::sram::testbench::tb_params(params, vdd, seq, None);
                                 let work_dir = work_dir.join(format!(
                                     "{}_{:.2}_{}",
                                     corner.name(),
                                     vdd,
-                                    short_str
+                                    seq.as_str(),
                                 ));
                                 ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
                                     &tb,
@@ -715,10 +715,10 @@ pub(crate) mod tests {
                                 )
                                 .expect("failed to run simulation");
                                 println!(
-                                    "Simulated corner {} with Vdd = {}, short = {}",
+                                    "Simulated corner {} with Vdd = {}, seq = {}",
                                     corner.name(),
                                     vdd,
-                                    short
+                                    seq,
                                 );
                             }));
                         }
