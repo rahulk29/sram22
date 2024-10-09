@@ -9,7 +9,7 @@ use super::decoder::{DecoderPhysicalDesignParams, DecoderStageParams, DecoderSty
 use super::gate::sizing::InverterGateTreeNode;
 use super::gate::{GateParams, PrimitiveGateParams, PrimitiveGateType};
 use super::precharge::PrechargeParams;
-use super::sram::schematic::inverter_chain_num_stages;
+use super::sram::schematic::{buffer_chain_num_stages, inverter_chain_num_stages};
 use super::tgatemux::TGateMuxParams;
 use super::wrdriver::WriteDriverParams;
 use serde::{Deserialize, Serialize};
@@ -151,9 +151,15 @@ impl Script for ColumnsPhysicalDesignScript {
         let pc_design = ctx.run_script::<ColumnDesignScript>(&NoParams)?;
         let wmask_unit_width = params.wmask_granularity as i64
             * (pc_design.width * params.mux_ratio() as i64 + pc_design.tap_width);
-        let cl = 1000e-15;
-        let wmask_buffer_stages = inverter_chain_num_stages(cl);
-        let wmask_buffer_gates = InverterGateTreeNode {
+        let we_i_cap = params.wmask_granularity as f64
+            * COL_CAPACITANCES.we_i
+            * (params.wrdriver.pwidth_driver as f64 / COL_PARAMS.wrdriver.pwidth_driver as f64);
+        let we_ib_cap = params.wmask_granularity as f64
+            * COL_CAPACITANCES.we_ib
+            * (params.wrdriver.pwidth_driver as f64 / COL_PARAMS.wrdriver.pwidth_driver as f64);
+        let cl_max = f64::max(we_i_cap, we_ib_cap);
+        let wmask_buffer_stages = buffer_chain_num_stages(we_i_cap + we_ib_cap);
+        let mut wmask_buffer_gates = InverterGateTreeNode {
             gate: PrimitiveGateType::Nand2,
             id: 1,
             n_invs: wmask_buffer_stages,
@@ -161,8 +167,9 @@ impl Script for ColumnsPhysicalDesignScript {
             children: vec![],
         }
         .elaborate()
-        .size(cl)
+        .size(cl_max)
         .as_chain();
+        wmask_buffer_gates.push(wmask_buffer_gates.last().unwrap().clone());
 
         Ok(ColumnsPhysicalDesign {
             wmask_unit_width,
@@ -232,6 +239,8 @@ pub const COL_CAPACITANCES: ColCapacitances = ColCapacitances {
     sel: 216.435e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
     sel_b: 168.781e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
     we: 37.922e-15 / COL_PARAMS.wmask_bits() as f64,
+    we_i: 9.6971e-15,
+    we_ib: 10.2081e-15,
 };
 
 pub struct ColCapacitances {
@@ -240,6 +249,8 @@ pub struct ColCapacitances {
     pub sel: f64,
     pub sel_b: f64,
     pub we: f64,
+    pub we_i: f64,
+    pub we_ib: f64,
 }
 
 pub struct ColumnDesignScript;
