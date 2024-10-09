@@ -1209,11 +1209,19 @@ impl Component for TappedColumn {
         right.align_to_the_right_of(&c, -650);
         right.align_bottom(&c);
 
+        for p in c.ports() {
+            ctx.add_port(p)?
+        }
+        for p in left.ports() {
+            ctx.merge_port(p);
+        }
+        for p in right.ports() {
+            ctx.merge_port(p);
+        }
+
         ctx.draw(left)?;
         ctx.draw(c)?;
         ctx.draw(right)?;
-
-        ctx.flatten();
 
         Ok(())
     }
