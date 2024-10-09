@@ -694,42 +694,42 @@ pub(crate) mod tests {
                     //     opts,
                     // }).expect("failed to run pex");
 
-                    // let seq = TestSequence::MarchCm;
-                    // let corners = ctx.corner_db();
-                    // let mut handles = Vec::new();
-                    // for vdd in [1.8] {
-                    //     for corner in corners.corners() {
-                    //         let corner = corner.clone();
-                    //         let params = $params.clone();
-                    //         // let pex_netlist = Some(pex_netlist_path.clone());
-                    //         let work_dir = work_dir.clone();
-                    //         handles.push(std::thread::spawn(move || {
-                    //             let ctx = setup_ctx();
-                    //             let tb = crate::blocks::sram::testbench::tb_params(params, vdd, seq, None);
-                    //             let work_dir = work_dir.join(format!(
-                    //                 "{}_{:.2}_{}",
-                    //                 corner.name(),
-                    //                 vdd,
-                    //                 seq.as_str(),
-                    //             ));
-                    //             ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
-                    //                 &tb,
-                    //                 &work_dir,
-                    //                 corner.clone(),
-                    //             )
-                    //             .expect("failed to run simulation");
-                    //             println!(
-                    //                 "Simulated corner {} with Vdd = {}, seq = {}",
-                    //                 corner.name(),
-                    //                 vdd,
-                    //                 seq,
-                    //             );
-                    //         }));
-                    //     }
-                    // }
-                    // for handle in handles {
-                    //     handle.join().expect("failed to join thread");
-                    // }
+                    let seq = TestSequence::Short;
+                    let corners = ctx.corner_db();
+                    let mut handles = Vec::new();
+                    for vdd in [1.8] {
+                        for corner in corners.corners() {
+                            let corner = corner.clone();
+                            let params = $params.clone();
+                            // let pex_netlist = Some(pex_netlist_path.clone());
+                            let work_dir = work_dir.clone();
+                            handles.push(std::thread::spawn(move || {
+                                let ctx = setup_ctx();
+                                let tb = crate::blocks::sram::testbench::tb_params(params, vdd, seq, None);
+                                let work_dir = work_dir.join(format!(
+                                    "{}_{:.2}_{}",
+                                    corner.name(),
+                                    vdd,
+                                    seq.as_str(),
+                                ));
+                                ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
+                                    &tb,
+                                    &work_dir,
+                                    corner.clone(),
+                                )
+                                .expect("failed to run simulation");
+                                println!(
+                                    "Simulated corner {} with Vdd = {}, seq = {}",
+                                    corner.name(),
+                                    vdd,
+                                    seq,
+                                );
+                            }));
+                        }
+                    }
+                    for handle in handles {
+                        handle.join().expect("failed to join thread");
+                    }
 
                     // crate::abs::run_abstract(
                     //     &work_dir,
