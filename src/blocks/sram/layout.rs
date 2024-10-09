@@ -108,7 +108,7 @@ fn draw_rect(layer: LayerKey, rect: Rect, router: &mut GreedyRouter, ctx: &mut L
 // Draw via between two rects.
 //
 // Bottom layer must be provided first.
-fn draw_via(
+pub(crate) fn draw_via(
     layer1: LayerKey,
     rect1: Rect,
     layer2: LayerKey,
@@ -248,9 +248,7 @@ impl SramInner {
         let mut pc_b_buffer = ctx
             .instantiate::<DecoderStage>(&dsn.pc_b_buffer)?
             .with_orientation(Named::R90Cw);
-        let wl_en_buffer = ctx
-            .instantiate::<DecoderStage>(&dsn.wlen_buffer)?
-            .with_orientation(Named::R90Cw);
+        let mut wlen_buffer = ctx.instantiate::<DecoderStage>(&dsn.wlen_buffer)?;
         let mut write_driver_en_buffer = ctx
             .instantiate::<DecoderStage>(&dsn.write_driver_en_buffer)?
             .with_orientation(Named::R90Cw);
@@ -267,49 +265,45 @@ impl SramInner {
         decoder.align_to_the_left_of(bitcells.bbox(), 6_000);
         decoder.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
 
-        // Align address gate to the left of the row decoder.
+        // Align wlen buffer to the left of row decoder.
+
+        // Align wlen buffer and address gate to the left of the row decoder.
         //
         // Need enough vertical tracks to route outputs to decoder.
         addr_gate.align_to_the_left_of(decoder.bbox(), 700 + 1_400 * self.params.row_bits() as i64);
-        addr_gate.align_bottom(decoder.bbox());
+        wlen_buffer.align_right(addr_gate.bbox());
+        wlen_buffer.align_bottom(decoder.bbox());
+        addr_gate.align_above(wlen_buffer.bbox(), 2_000);
 
         // Align column peripherals under bitcell array.
         cols.align_beneath(bitcells.bbox(), 4_000);
         cols.align_centers_horizontally_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
 
         // Align pc_b buffer with pc_b port of column peripherals.
-        pc_b_buffer.align_bottom(cols.port("pc_b")?.largest_rect(m2)?);
+        //
+        // Need enough vertical tracks to route column decoder outputs to column mux, as well
+        // as buffer outputs to column control signals (sense_en, write_driver_en, clk, reset_b).
+        pc_b_buffer.align_top(cols.bbox());
         pc_b_buffer.translate(Point::new(0, 1_000));
-        pc_b_buffer.align_to_the_left_of(cols.bbox(), 6_000);
+        pc_b_buffer.align_to_the_left_of(
+            cols.bbox(),
+            std::cmp::max(
+                6_000,
+                1_400 + 700 * (2 * self.params.mux_ratio() + 4) as i64,
+            ),
+        );
 
         // Align column decoder to topmost column mux select port.
-        //
-        // Need enough vertical tracks to route outputs to column mux.
-        col_dec.align_top(
-            cols.port(PortId::new("sel", self.params.mux_ratio() - 1))?
-                .largest_rect(m2)?,
-        );
-        col_dec.align_to_the_left_of(
-            cols.bbox(),
-            std::cmp::max(6_000, 1_400 + 700 * self.params.mux_ratio() as i64),
-        );
-        col_dec.translate(Point::new(0, -1_000));
+        col_dec.align_beneath(pc_b_buffer.bbox(), 2_000);
+        col_dec.align_right(pc_b_buffer.bbox());
 
         // Align sense_en buffer as close to column peripheral sense_en port as possible.
-        sense_en_buffer.align_beneath(
-            col_dec.brect().expand(4_000).with_vspan(
-                col_dec
-                    .brect()
-                    .vspan()
-                    .add_point(cols.port("sense_en")?.largest_rect(m2)?.top()),
-            ),
-            0,
-        );
-        sense_en_buffer.align_to_the_left_of(cols.bbox(), 6_000);
+        sense_en_buffer.align_beneath(col_dec.brect(), 2_000);
+        sense_en_buffer.align_right(pc_b_buffer.bbox());
 
         // Align write driver underneath sense_en buffer.
-        write_driver_en_buffer.align_beneath(sense_en_buffer.bbox(), 4_000);
-        write_driver_en_buffer.align_to_the_left_of(cols.bbox(), 6_000);
+        write_driver_en_buffer.align_beneath(sense_en_buffer.bbox(), 2_000);
+        write_driver_en_buffer.align_right(pc_b_buffer.bbox());
 
         // Align control logic to the left of all of the buffers and column decoder that border
         // column peripherals.
@@ -334,7 +328,7 @@ impl SramInner {
         rbl.align_beneath(replica_pc.bbox(), 4_000);
 
         // Align DFFs to the left of column peripherals and underneath all other objects.
-        dffs.align_to_the_left_of(cols.bbox(), 8_000);
+        dffs.align_right(pc_b_buffer.bbox());
         dffs.align_beneath(
             control
                 .bbox()
@@ -348,6 +342,7 @@ impl SramInner {
         ctx.draw_ref(&cols)?;
         ctx.draw_ref(&decoder)?;
         ctx.draw_ref(&addr_gate)?;
+        ctx.draw_ref(&wlen_buffer)?;
         ctx.draw_ref(&pc_b_buffer)?;
         ctx.draw_ref(&col_dec)?;
         ctx.draw_ref(&sense_en_buffer)?;
@@ -391,6 +386,7 @@ impl SramInner {
             &decoder,
             &col_dec,
             &pc_b_buffer,
+            &wlen_buffer,
             &sense_en_buffer,
             &write_driver_en_buffer,
             &dffs,
@@ -514,16 +510,19 @@ impl SramInner {
         }
 
         // Route buffers to columns.
-        for (buffer, signal, layer) in [
+        for (i, (buffer, signal, layer)) in [
             (&pc_b_buffer, "pc_b", m2),
             (&sense_en_buffer, "sense_en", m2),
             (&write_driver_en_buffer, "we", m1),
-        ] {
+        ]
+        .into_iter()
+        .enumerate()
+        {
             let y = buffer.port("y")?.largest_rect(m0)?;
             let col_port = cols.port(signal)?.largest_rect(layer)?;
             let track_idx =
                 m1_tracks.track_with_loc(TrackLocator::EndsBefore, cols.brect().left() - 300);
-            let track = m1_tracks.index(track_idx);
+            let track = m1_tracks.index(track_idx - 1 - i as i64);
 
             let rect = y.with_hspan(y.hspan().union(track));
             ctx.draw_rect(m0, rect);
@@ -575,19 +574,10 @@ impl SramInner {
                 } else {
                     ("y_b", "sel_b")
                 };
+                let idx = 2 * i + j;
                 let y = col_dec.port(PortId::new(y_name, i))?.largest_rect(m0)?;
                 let sel = cols.port(PortId::new(sel_name, i))?.largest_rect(m2)?;
-                let track_span = m1_tracks.index(
-                    sel_track_idx
-                        + i as i64
-                        + if (j == 0 && y.top() < sel.top())
-                            || (j == 1 && y.bottom() > sel.bottom())
-                        {
-                            1
-                        } else {
-                            0
-                        },
-                );
+                let track_span = m1_tracks.index(sel_track_idx + idx as i64);
 
                 let rect = if j == 0 {
                     y.with_hspan(y.hspan().union(track_span))
@@ -644,12 +634,12 @@ impl SramInner {
         // Route clk and reset_b.
         // Connect clock ports from the left and clock ports on the right to separate
         // m1 tracks to prevent overlapping vias.
-        let m1_track_idx =
+        let m1_clk_track_left_idx =
             m1_tracks.track_with_loc(TrackLocator::StartsAfter, dffs.brect().right());
-        let m1_clk_track_left_idx = m1_track_idx;
-        let m1_clk_track_right_idx = m1_track_idx + 2;
-        let m1_reset_b_track_left_idx = m1_track_idx + 1;
-        let m1_reset_b_track_right_idx = m1_track_idx + 3;
+        let m1_clk_track_right_idx =
+            m1_tracks.track_with_loc(TrackLocator::EndsBefore, cols.brect().left() - 300);
+        let m1_reset_b_track_left_idx = m1_clk_track_left_idx + 1;
+        let m1_reset_b_track_right_idx = m1_clk_track_right_idx - 1;
 
         for (port, m1_track_left, m1_track_right, m2_track, m2_track_conn) in [
             (
@@ -804,17 +794,40 @@ impl SramInner {
 
         // Route wlen
         let control_wlen_rect = control.port("wlen")?.largest_rect(m1)?;
-        let decoder_wlen_rect = addr_gate.port("wl_en")?.largest_rect(m1)?;
+        let buffer_wlen_rect = wlen_buffer.port("predecode_0_0")?.largest_rect(m2)?;
+        let m1_wlen_track_idx =
+            m1_tracks.track_with_loc(TrackLocator::EndsBefore, buffer_wlen_rect.right());
         draw_route(
             m1,
             control_wlen_rect,
-            m1,
-            decoder_wlen_rect,
+            m2,
+            buffer_wlen_rect,
             Dir::Horiz,
-            vec![m2_wlen_track_idx],
+            vec![m2_wlen_track_idx, m1_wlen_track_idx],
             &mut router,
             ctx,
         )?;
+
+        let addr_gate_wlen_rect = addr_gate.port("wl_en")?.largest_rect(m1)?;
+        let y = wlen_buffer.port("y")?.largest_rect(m0)?;
+        let jog = OffsetJog::builder()
+            .dir(subgeom::Dir::Vert)
+            .sign(subgeom::Sign::Pos)
+            .src(y)
+            .dst(addr_gate_wlen_rect.left())
+            .layer(m0)
+            .space(170)
+            .build()
+            .unwrap();
+        let m0_rect = jog
+            .r2()
+            .with_hspan(jog.r2().hspan().union(addr_gate_wlen_rect.hspan()));
+        let m1_rect =
+            addr_gate_wlen_rect.with_vspan(jog.r2().vspan().union(addr_gate_wlen_rect.vspan()));
+        draw_via(m0, m0_rect, m1, m1_rect, ctx)?;
+        ctx.draw_rect(m0, m0_rect);
+        draw_rect(m1, m1_rect, &mut router, ctx);
+        ctx.draw(jog)?;
 
         // Route pc_b to main array.
         let pc_b_rect = pc_b_buffer.port("predecode_0_0")?.largest_rect(m1)?;
@@ -831,7 +844,7 @@ impl SramInner {
 
         // Route sense_en and write_driver_en.
         let m1_sense_en_track_idx =
-            m1_tracks.track_with_loc(TrackLocator::EndsBefore, buffer_bbox.left());
+            m1_tracks.track_with_loc(TrackLocator::EndsBefore, buffer_bbox.left() - 140);
         let m1_write_driver_en_track_idx = m1_sense_en_track_idx - 1;
 
         for (port, track, buf) in [
@@ -1091,7 +1104,7 @@ impl SramInner {
                         }
                         draw_rect(m2, rect, &mut router, ctx);
                         straps.add_target(
-                            layer,
+                            m2,
                             Target::new(
                                 match port_name {
                                     "vdd" => SingleSupplyNet::Vdd,

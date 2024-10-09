@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use subgeom::Dir;
 use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
@@ -8,19 +7,14 @@ use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
 use crate::blocks::buf::DiffBuf;
-use crate::blocks::decoder::{
-    DecoderPhysicalDesignParams, DecoderStage, DecoderStageParams, DecoderStyle, RoutingStyle,
-};
-use crate::blocks::gate::sizing::InverterGateTreeNode;
-use crate::blocks::gate::{GateParams, PrimitiveGateType};
+use crate::blocks::decoder::DecoderStage;
 use crate::blocks::macros::SenseAmp;
 use crate::blocks::precharge::Precharge;
-use crate::blocks::sram::schematic::inverter_chain_num_stages;
 use crate::blocks::tgatemux::TGateMux;
 use crate::blocks::wrdriver::WriteDriver;
 
 use super::layout::DffArray;
-use super::{ColPeripherals, Column, ColumnDesignScript};
+use super::{ColPeripherals, Column, ColumnsPhysicalDesign, ColumnsPhysicalDesignScript};
 
 impl ColPeripherals {
     pub fn io(&self) -> HashMap<&'static str, usize> {
@@ -83,45 +77,22 @@ impl ColPeripherals {
             .named("wmask_dffs")
             .add_to(ctx);
 
-        let pc_design = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
-        let wmask_unit_width = self.params.wmask_granularity as i64
-            * (pc_design.width * self.params.mux_ratio() as i64 + pc_design.tap_width);
-        let cl = 1000e-15;
-        let wmask_buffer_stages = inverter_chain_num_stages(cl);
-        let wmask_buffer_gates = InverterGateTreeNode {
-            gate: PrimitiveGateType::Nand2,
-            id: 1,
-            n_invs: wmask_buffer_stages,
-            n_branching: 1,
-            children: vec![],
-        }
-        .elaborate()
-        .size(cl)
-        .as_chain();
+        let ColumnsPhysicalDesign { nand, .. } = &*ctx
+            .inner()
+            .run_script::<ColumnsPhysicalDesignScript>(&self.params)?;
 
         for i in 0..wmask_bits {
-            ctx.instantiate::<DecoderStage>(&DecoderStageParams {
-                pd: DecoderPhysicalDesignParams {
-                    style: DecoderStyle::Minimum,
-                    dir: Dir::Horiz,
-                },
-                routing_style: RoutingStyle::Decoder,
-                max_width: Some(wmask_unit_width),
-                gate: GateParams::Nand2(wmask_buffer_gates[0]),
-                invs: wmask_buffer_gates.iter().copied().skip(1).collect(),
-                num: 1,
-                child_sizes: vec![1, 1],
-            })?
-            .with_connections([
-                ("predecode_0_0", we),
-                ("predecode_1_0", wmask_in.index(i)),
-                ("y", we_i.index(i)),
-                ("y_b", we_ib.index(i)),
-                ("vdd", vdd),
-                ("vss", vss),
-            ])
-            .named(arcstr::format!("wmask_and_{i}"))
-            .add_to(ctx);
+            ctx.instantiate::<DecoderStage>(&nand)?
+                .with_connections([
+                    ("predecode_0_0", we),
+                    ("predecode_1_0", wmask_in.index(i)),
+                    ("y", we_i.index(i)),
+                    ("y_b", we_ib.index(i)),
+                    ("vdd", vdd),
+                    ("vss", vss),
+                ])
+                .named(arcstr::format!("wmask_and_{i}"))
+                .add_to(ctx);
         }
 
         for i in 0..word_length {
