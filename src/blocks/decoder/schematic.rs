@@ -2,6 +2,7 @@ use itertools::Itertools;
 use substrate::index::IndexOwned;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
+
 use substrate::schematic::signal::Slice;
 
 use super::{

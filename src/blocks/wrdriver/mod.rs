@@ -1,4 +1,5 @@
 use serde::Serialize;
+use subgeom::snap_to_grid;
 use substrate::component::Component;
 
 pub mod layout;
@@ -13,6 +14,18 @@ pub struct WriteDriverParams {
     pub length: i64,
     pub pwidth_driver: i64,
     pub nwidth_driver: i64,
+}
+
+impl WriteDriverParams {
+    pub fn scale(&self, scale: f64) -> Self {
+        let pwidth_driver = snap_to_grid((self.pwidth_driver as f64 * scale).round() as i64, 50);
+        let nwidth_driver = snap_to_grid((self.nwidth_driver as f64 * scale).round() as i64, 50);
+        Self {
+            length: self.length,
+            pwidth_driver,
+            nwidth_driver,
+        }
+    }
 }
 
 impl Component for WriteDriver {

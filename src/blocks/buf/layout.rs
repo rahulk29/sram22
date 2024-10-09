@@ -1,3 +1,6 @@
+use crate::blocks::columns::ColumnDesignScript;
+use crate::blocks::gate::{FoldedInv, PrimitiveGateParams};
+use crate::blocks::macros::SenseAmp;
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
 use subgeom::{Rect, Span};
@@ -8,9 +11,6 @@ use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
-
-use crate::blocks::gate::{FoldedInv, PrimitiveGateParams};
-use crate::blocks::macros::SenseAmp;
 
 use super::DiffBuf;
 
@@ -160,9 +160,7 @@ impl Component for DiffBufCent {
         let m1 = layers.get(Selector::Metal(1))?;
         let m2 = layers.get(Selector::Metal(2))?;
 
-        let pc = ctx
-            .inner()
-            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+        let pc = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
 
         let buf = ctx.instantiate::<DiffBuf>(&self.params)?;
         let hspan = Span::new(0, pc.tap_width);

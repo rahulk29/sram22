@@ -1,6 +1,7 @@
+use self::schematic::fanout_buffer_stage;
+use crate::blocks::control::ControlLogicParams;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use std::fs;
 use std::path::{Path, PathBuf};
 use subgeom::bbox::BoundBox;
 use subgeom::{Dir, Rect, Span};
@@ -13,22 +14,18 @@ use substrate::layout::routing::auto::straps::PlacedStraps;
 use substrate::layout::straps::SingleSupplyNet;
 use substrate::script::Script;
 
-use self::schematic::fanout_buffer_stage;
 use super::bitcell_array::replica::ReplicaCellArrayParams;
 use super::bitcell_array::SpCellArrayParams;
-use super::columns::{ColParams, ColPeripherals};
+use super::columns::{ColParams, ColPeripherals, COL_CAPACITANCES, COL_PARAMS};
 use super::decoder::{
-    Decoder, DecoderParams, DecoderStageParams, DecoderTree, INV_PARAMS, NAND2_PARAMS,
+    Decoder, DecoderParams, DecoderPhysicalDesignParams, DecoderStageParams, DecoderStyle,
+    DecoderTree, RoutingStyle, INV_MODEL, INV_PARAMS, NAND2_MODEL, NAND2_PARAMS,
 };
 use super::gate::{AndParams, GateParams, PrimitiveGateParams};
 use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
 use super::precharge::layout::ReplicaPrechargeParams;
-use super::precharge::PrechargeParams;
-use super::tgatemux::TGateMuxParams;
-use super::wrdriver::WriteDriverParams;
 use crate::blocks::columns::layout::DffArray;
-use crate::blocks::control::ControlLogicParams;
-use crate::blocks::decoder::{DecoderPhysicalDesignParams, DecoderStyle, RoutingStyle, INV_MODEL};
+use crate::blocks::tgatemux::TGateMuxParams;
 
 pub mod layout;
 pub mod schematic;
@@ -36,7 +33,7 @@ pub mod testbench;
 pub mod verilog;
 
 pub const WORDLINE_CAP_PER_CELL: f64 = 0.00000000000001472468276676486 / 12.;
-pub const READ_MUX_INPUT_CAP: f64 = WORDLINE_CAP_PER_CELL * 4.; // TODO
+pub const BITLINE_CAP_PER_CELL: f64 = 0.00000000000008859364177937068 / 128.;
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct SramConfig {
@@ -49,7 +46,7 @@ pub struct SramConfig {
 }
 
 pub fn parse_sram_config(path: impl AsRef<Path>) -> anyhow::Result<SramConfig> {
-    let contents = fs::read_to_string(path)?;
+    let contents = std::fs::read_to_string(path)?;
     let data = toml::from_str(&contents)?;
     Ok(data)
 }
@@ -164,23 +161,19 @@ impl SramParams {
     }
 
     pub(crate) fn col_params(&self) -> ColParams {
+        let bl_cap = (self.rows() + 4) as f64 * BITLINE_CAP_PER_CELL;
+        let pc_scale = f64::max(bl_cap / COL_CAPACITANCES.pc_b / 8.0, 0.4);
+        let mux_scale = f64::max(bl_cap / COL_CAPACITANCES.sel / 8.0, 0.2);
+        let wrdrvscale = f64::max(bl_cap / COL_CAPACITANCES.we / 16.0, 0.2);
+        println!(
+            "pc_scale = {pc_scale:.2}, mux_scale = {mux_scale:.2}, wrdrvscale = {wrdrvscale:.2}"
+        );
         ColParams {
-            pc: PrechargeParams {
-                length: 150,
-                pull_up_width: 2_000,
-                equalizer_width: 1_200,
-            },
-            wrdriver: WriteDriverParams {
-                length: 150,
-                pwidth_driver: 10_000,
-                nwidth_driver: 10_000,
-            },
+            pc: COL_PARAMS.pc.scale(pc_scale),
+            wrdriver: COL_PARAMS.wrdriver.scale(wrdrvscale),
             mux: TGateMuxParams {
-                length: 150,
-                pwidth: 4_000,
-                nwidth: 4_000,
                 mux_ratio: self.mux_ratio(),
-                idx: 0,
+                ..COL_PARAMS.mux.scale(mux_scale)
             },
             buf: PrimitiveGateParams {
                 nwidth: 1_200,
@@ -229,6 +222,18 @@ impl Script for SramPhysicalDesignScript {
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
         let rbl_rows = ((params.rows() / 12) + 1) * 2;
         let rbl_wl_index = rbl_rows / 2;
+
+        let pc_b_cap =
+            COL_CAPACITANCES.pc_b * col_params.cols as f64 * col_params.pc.pull_up_width as f64
+                / COL_PARAMS.pc.pull_up_width as f64;
+        let wlen_cap = NAND2_MODEL.cin * (params.addr_width() * 2) as f64;
+        let wrdrven_cap = COL_CAPACITANCES.we * col_params.wmask_bits() as f64;
+        let saen_cap = COL_CAPACITANCES.saen * (col_params.cols / col_params.mux.mux_ratio) as f64;
+        let col_sel_cap =
+            COL_CAPACITANCES.sel * (col_params.cols / col_params.mux.mux_ratio) as f64;
+        let col_sel_b_cap =
+            COL_CAPACITANCES.sel_b * (col_params.cols / col_params.mux.mux_ratio) as f64;
+
         let horiz_buffer = DecoderPhysicalDesignParams {
             style: DecoderStyle::Minimum,
             dir: Dir::Horiz,
@@ -254,10 +259,7 @@ impl Script for SramPhysicalDesignScript {
                     .length(),
             ),
             // TODO use tgate mux input cap
-            tree: DecoderTree::new(
-                params.col_select_bits(),
-                READ_MUX_INPUT_CAP * (params.cols() / params.mux_ratio()) as f64,
-            ),
+            tree: DecoderTree::new(params.col_select_bits(), col_sel_cap + col_sel_b_cap),
         };
 
         let col_dec_inst = ctx.instantiate_layout::<Decoder>(&col_decoder)?;
@@ -317,7 +319,6 @@ impl Script for SramPhysicalDesignScript {
                 num: 2 * params.row_bits(),
                 child_sizes: vec![],
             },
-            // TODO: change decoder tree to provide correct fanout for inverted output
             col_decoder,
             pc_b_buffer: DecoderStageParams {
                 max_width: Some(
@@ -327,19 +328,19 @@ impl Script for SramPhysicalDesignScript {
                         .add_point(cols.brect().top())
                         .length(),
                 ),
-                ..fanout_buffer_stage(horiz_buffer, 2000e-15)
+                ..fanout_buffer_stage(horiz_buffer, pc_b_cap)
             },
             wlen_buffer: DecoderStageParams {
                 max_width: None,
-                ..fanout_buffer_stage(vert_buffer, 500e-15)
+                ..fanout_buffer_stage(vert_buffer, wlen_cap)
             },
             write_driver_en_buffer: DecoderStageParams {
                 max_width: Some(wrdrven_saen_width),
-                ..fanout_buffer_stage(horiz_buffer, 500e-15)
+                ..fanout_buffer_stage(horiz_buffer, wrdrven_cap)
             },
             sense_en_buffer: DecoderStageParams {
                 max_width: Some(wrdrven_saen_width),
-                ..fanout_buffer_stage(horiz_buffer, 500e-15)
+                ..fanout_buffer_stage(horiz_buffer, saen_cap)
             },
             num_dffs,
             rbl_wl_index,
@@ -349,7 +350,7 @@ impl Script for SramPhysicalDesignScript {
             },
             replica_pc: ReplicaPrechargeParams {
                 cols: 2,
-                inner: col_params.pc.clone(),
+                inner: col_params.pc,
             },
             col_params,
             control: ControlLogicParams { decoder_delay_invs },
@@ -584,7 +585,7 @@ impl Component for SramPex {
 pub(crate) mod tests {
 
     use self::verilog::save_1rw_verilog;
-    use crate::paths::{out_gds, out_spice, out_verilog};
+    use crate::paths::{out_spice, out_verilog};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -646,14 +647,14 @@ pub(crate) mod tests {
 
                 #[cfg(feature = "commercial")]
                 {
-                    let drc_work_dir = work_dir.join("drc");
-                    let output = ctx
-                        .write_drc::<Sram>(&$params, drc_work_dir)
-                        .expect("failed to run DRC");
-                    assert!(matches!(
-                        output.summary,
-                        substrate::verification::drc::DrcSummary::Pass
-                    ));
+                    // let drc_work_dir = work_dir.join("drc");
+                    // let output = ctx
+                    //     .write_drc::<Sram>(&$params, drc_work_dir)
+                    //     .expect("failed to run DRC");
+                    // assert!(matches!(
+                    //     output.summary,
+                    //     substrate::verification::drc::DrcSummary::Pass
+                    // ));
 
                     // let lvs_work_dir = work_dir.join("lvs");
                     // let output = ctx

@@ -248,7 +248,7 @@ impl SramInner {
         let mut pc_b_buffer = ctx
             .instantiate::<DecoderStage>(&dsn.pc_b_buffer)?
             .with_orientation(Named::R90Cw);
-        let mut wl_en_buffer = ctx
+        let wl_en_buffer = ctx
             .instantiate::<DecoderStage>(&dsn.wlen_buffer)?
             .with_orientation(Named::R90Cw);
         let mut write_driver_en_buffer = ctx
@@ -737,7 +737,7 @@ impl SramInner {
             for port_name in ["bl", "br"] {
                 let src = rbl.port(PortId::new(port_name, i))?.largest_rect(m1)?;
                 let dst = replica_pc
-                    .port(PortId::new(&format!("{}_in", port_name), i))?
+                    .port(PortId::new(format!("{}_in", port_name), i))?
                     .largest_rect(m1)?;
                 ctx.draw_rect(m1, src.bbox().union(dst.bbox()).into_rect());
             }

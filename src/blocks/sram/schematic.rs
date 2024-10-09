@@ -368,7 +368,7 @@ pub fn fanout_buffer_stage_with_inverted_output(
         .elaborate()
         .size(cl)
         .as_inv_chain();
-    invs.push(invs.last().unwrap().clone());
+    invs.push(*invs.last().unwrap());
     DecoderStageParams {
         pd,
         routing_style: RoutingStyle::Decoder,

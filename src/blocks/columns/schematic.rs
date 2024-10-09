@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use subgeom::Dir;
 use substrate::component::NoParams;
 use substrate::error::Result;
@@ -19,9 +20,28 @@ use crate::blocks::tgatemux::TGateMux;
 use crate::blocks::wrdriver::WriteDriver;
 
 use super::layout::DffArray;
-use super::{ColPeripherals, Column};
+use super::{ColPeripherals, Column, ColumnDesignScript};
 
 impl ColPeripherals {
+    pub fn io(&self) -> HashMap<&'static str, usize> {
+        HashMap::from([
+            ("clk", 1),
+            ("reset_b", 1),
+            ("vdd", 1),
+            ("vss", 1),
+            ("sense_en", 1),
+            ("bl", self.params.cols),
+            ("br", self.params.cols),
+            ("pc_b", 1),
+            ("sel", self.params.mux_ratio()),
+            ("sel_b", self.params.mux_ratio()),
+            ("we", 1),
+            ("wmask", self.params.wmask_bits()),
+            ("din", self.params.word_length()),
+            ("dout", self.params.word_length()),
+        ])
+    }
+
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
         let cols = self.params.cols;
         let mux_ratio = self.params.mux_ratio();
@@ -63,9 +83,7 @@ impl ColPeripherals {
             .named("wmask_dffs")
             .add_to(ctx);
 
-        let pc_design = ctx
-            .inner()
-            .run_script::<crate::blocks::precharge::layout::PhysicalDesignScript>(&NoParams)?;
+        let pc_design = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
         let wmask_unit_width = self.params.wmask_granularity as i64
             * (pc_design.width * self.params.mux_ratio() as i64 + pc_design.tap_width);
         let cl = 1000e-15;
