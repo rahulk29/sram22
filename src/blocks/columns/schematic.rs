@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use subgeom::Dir;
 use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
@@ -15,9 +14,7 @@ use crate::blocks::tgatemux::TGateMux;
 use crate::blocks::wrdriver::WriteDriver;
 
 use super::layout::DffArray;
-use super::{
-    ColPeripherals, Column, ColumnDesignScript, ColumnsPhysicalDesign, ColumnsPhysicalDesignScript,
-};
+use super::{ColPeripherals, Column, ColumnsPhysicalDesign, ColumnsPhysicalDesignScript};
 
 impl ColPeripherals {
     pub fn io(&self) -> HashMap<&'static str, usize> {

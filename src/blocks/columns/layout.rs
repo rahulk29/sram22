@@ -29,10 +29,7 @@ use substrate::schematic::circuit::Direction;
 use crate::blocks::buf::layout::DiffBufCent;
 use crate::blocks::buf::DiffBuf;
 use crate::blocks::columns::{Column, ColumnDesignScript};
-use crate::blocks::decoder::{
-    DecoderPhysicalDesignParams, DecoderStage, DecoderStageParams, DecoderStyle, RoutingStyle,
-};
-use crate::blocks::gate::{AndParams, GateParams, PrimitiveGateParams};
+use crate::blocks::decoder::DecoderStage;
 use crate::blocks::macros::{SenseAmp, SenseAmpCent};
 use crate::blocks::precharge::layout::{PrechargeCent, PrechargeEnd, PrechargeEndParams};
 use crate::blocks::precharge::Precharge;
@@ -358,8 +355,6 @@ impl WmaskPeripherals {
         let nwell = layers.get(Selector::Name("nwell"))?;
 
         let pc_design = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
-        let wmask_unit_width = self.params.wmask_granularity as i64
-            * (pc_design.width * self.params.mux_ratio() as i64 + pc_design.tap_width);
 
         let ColumnsPhysicalDesign {
             wmask_unit_width,

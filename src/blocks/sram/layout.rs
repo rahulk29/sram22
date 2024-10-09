@@ -280,30 +280,30 @@ impl SramInner {
         cols.align_centers_horizontally_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
 
         // Align pc_b buffer with pc_b port of column peripherals.
+        //
+        // Need enough vertical tracks to route column decoder outputs to column mux, as well
+        // as buffer outputs to column control signals (sense_en, write_driver_en, clk, reset_b).
         pc_b_buffer.align_top(cols.bbox());
         pc_b_buffer.translate(Point::new(0, 1_000));
-        pc_b_buffer.align_to_the_left_of(cols.bbox(), 6_000);
-
-        // Align column decoder to topmost column mux select port.
-        //
-        // Need enough vertical tracks to route outputs to column mux, as well
-        // as buffer outputs to column control signals.
-        col_dec.align_beneath(pc_b_buffer.bbox(), 2_000);
-        col_dec.align_to_the_left_of(
+        pc_b_buffer.align_to_the_left_of(
             cols.bbox(),
             std::cmp::max(
                 6_000,
-                1_400 + 700 * (2 * self.params.mux_ratio() + 3) as i64,
+                1_400 + 700 * (2 * self.params.mux_ratio() + 4) as i64,
             ),
         );
 
+        // Align column decoder to topmost column mux select port.
+        col_dec.align_beneath(pc_b_buffer.bbox(), 2_000);
+        col_dec.align_right(pc_b_buffer.bbox());
+
         // Align sense_en buffer as close to column peripheral sense_en port as possible.
         sense_en_buffer.align_beneath(col_dec.brect(), 2_000);
-        sense_en_buffer.align_to_the_left_of(cols.bbox(), 6_000);
+        sense_en_buffer.align_right(pc_b_buffer.bbox());
 
         // Align write driver underneath sense_en buffer.
         write_driver_en_buffer.align_beneath(sense_en_buffer.bbox(), 2_000);
-        write_driver_en_buffer.align_to_the_left_of(cols.bbox(), 6_000);
+        write_driver_en_buffer.align_right(pc_b_buffer.bbox());
 
         // Align control logic to the left of all of the buffers and column decoder that border
         // column peripherals.
@@ -328,7 +328,7 @@ impl SramInner {
         rbl.align_beneath(replica_pc.bbox(), 4_000);
 
         // Align DFFs to the left of column peripherals and underneath all other objects.
-        dffs.align_to_the_left_of(cols.bbox(), 8_000);
+        dffs.align_right(pc_b_buffer.bbox());
         dffs.align_beneath(
             control
                 .bbox()
@@ -522,7 +522,7 @@ impl SramInner {
             let col_port = cols.port(signal)?.largest_rect(layer)?;
             let track_idx =
                 m1_tracks.track_with_loc(TrackLocator::EndsBefore, cols.brect().left() - 300);
-            let track = m1_tracks.index(track_idx - i as i64);
+            let track = m1_tracks.index(track_idx - 1 - i as i64);
 
             let rect = y.with_hspan(y.hspan().union(track));
             ctx.draw_rect(m0, rect);
@@ -634,12 +634,12 @@ impl SramInner {
         // Route clk and reset_b.
         // Connect clock ports from the left and clock ports on the right to separate
         // m1 tracks to prevent overlapping vias.
-        let m1_track_idx =
+        let m1_clk_track_left_idx =
             m1_tracks.track_with_loc(TrackLocator::StartsAfter, dffs.brect().right());
-        let m1_clk_track_left_idx = m1_track_idx;
-        let m1_clk_track_right_idx = m1_track_idx + 2;
-        let m1_reset_b_track_left_idx = m1_track_idx + 1;
-        let m1_reset_b_track_right_idx = m1_track_idx + 3;
+        let m1_clk_track_right_idx =
+            m1_tracks.track_with_loc(TrackLocator::EndsBefore, cols.brect().left() - 300);
+        let m1_reset_b_track_left_idx = m1_clk_track_left_idx + 1;
+        let m1_reset_b_track_right_idx = m1_clk_track_right_idx - 1;
 
         for (port, m1_track_left, m1_track_right, m2_track, m2_track_conn) in [
             (
@@ -1104,7 +1104,7 @@ impl SramInner {
                         }
                         draw_rect(m2, rect, &mut router, ctx);
                         straps.add_target(
-                            layer,
+                            m2,
                             Target::new(
                                 match port_name {
                                     "vdd" => SingleSupplyNet::Vdd,

@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -373,10 +374,92 @@ fn alternating_bits(width: usize, start: bool) -> Vec<bool> {
     bits
 }
 
+pub fn march_cm_test(params: SramParams) -> Vec<Op> {
+    let n = params.num_words() as u64;
+    let aw = params.addr_width();
+    let dw = params.data_width();
+    (0..n)
+        .map(|i| Op::Write {
+            addr: BitSignal::from_u64(i, aw),
+            data: BitSignal::zeros(dw),
+        })
+        .chain((0..n).flat_map(|i| {
+            [
+                Op::Read {
+                    addr: BitSignal::from_u64(i, aw),
+                },
+                Op::Write {
+                    addr: BitSignal::from_u64(i, aw),
+                    data: BitSignal::ones(dw),
+                },
+            ]
+        }))
+        .chain((0..n).flat_map(|i| {
+            [
+                Op::Read {
+                    addr: BitSignal::from_u64(i, aw),
+                },
+                Op::Write {
+                    addr: BitSignal::from_u64(i, aw),
+                    data: BitSignal::zeros(dw),
+                },
+            ]
+        }))
+        .chain((0..n).rev().flat_map(|i| {
+            [
+                Op::Read {
+                    addr: BitSignal::from_u64(i, aw),
+                },
+                Op::Write {
+                    addr: BitSignal::from_u64(i, aw),
+                    data: BitSignal::ones(dw),
+                },
+            ]
+        }))
+        .chain((0..n).rev().flat_map(|i| {
+            [
+                Op::Read {
+                    addr: BitSignal::from_u64(i, aw),
+                },
+                Op::Write {
+                    addr: BitSignal::from_u64(i, aw),
+                    data: BitSignal::zeros(dw),
+                },
+            ]
+        }))
+        .chain((0..n).rev().map(|i| Op::Read {
+            addr: BitSignal::from_u64(i, aw),
+        }))
+        .collect::<Vec<_>>()
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum TestSequence {
+    Short,
+    Medium,
+    MarchCm,
+}
+
+impl TestSequence {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            TestSequence::Short => "short",
+            TestSequence::Medium => "medium",
+            TestSequence::MarchCm => "marchcm",
+        }
+    }
+}
+
+impl Display for TestSequence {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 pub fn tb_params(
     params: SramParams,
     vdd: f64,
-    short: bool,
+    sequence: TestSequence,
     pex_netlist: Option<PathBuf>,
 ) -> TbParams {
     let wmask_width = params.wmask_width();
@@ -392,7 +475,7 @@ pub fn tb_params(
     let addr1 = BitSignal::zeros(addr_width);
     let addr2 = BitSignal::ones(addr_width);
 
-    let mut ops = vec![
+    let mut short_ops = vec![
         Op::Reset,
         Op::Write {
             addr: addr1.clone(),
@@ -409,39 +492,45 @@ pub fn tb_params(
         Op::Read { addr: addr1 },
     ];
 
-    if !short {
-        for i in 0..16 {
-            let bits = (i % 2) * bit_pattern2 + (1 - (i % 2)) * bit_pattern1 + i + 1;
-            ops.push(Op::Write {
-                addr: BitSignal::from_u128(i, addr_width),
-                data: BitSignal::from_u128_padded(bits, data_width),
-            });
-        }
-        for i in 0..16 {
-            ops.push(Op::Read {
-                addr: BitSignal::from_u128(i, addr_width),
-            });
-        }
-
-        if wmask_width > 1 {
+    let ops = match sequence {
+        TestSequence::Short => short_ops,
+        TestSequence::Medium => {
             for i in 0..16 {
-                let bits = (1 - (i % 2)) * bit_pattern2 + (i % 2) * bit_pattern1 + i + 1;
-                ops.push(Op::WriteMasked {
+                let bits = (i % 2) * bit_pattern2 + (1 - (i % 2)) * bit_pattern1 + i + 1;
+                short_ops.push(Op::Write {
                     addr: BitSignal::from_u128(i, addr_width),
                     data: BitSignal::from_u128_padded(bits, data_width),
-                    mask: BitSignal::from_u128_padded(
-                        bit_pattern1 + i * 0b10110010111,
-                        wmask_width,
-                    ),
                 });
             }
             for i in 0..16 {
-                ops.push(Op::Read {
+                short_ops.push(Op::Read {
                     addr: BitSignal::from_u128(i, addr_width),
                 });
             }
+
+            if wmask_width > 1 {
+                for i in 0..16 {
+                    let bits = (1 - (i % 2)) * bit_pattern2 + (i % 2) * bit_pattern1 + i + 1;
+                    short_ops.push(Op::WriteMasked {
+                        addr: BitSignal::from_u128(i, addr_width),
+                        data: BitSignal::from_u128_padded(bits, data_width),
+                        mask: BitSignal::from_u128_padded(
+                            bit_pattern1 + i * 0b10110010111,
+                            wmask_width,
+                        ),
+                    });
+                }
+                for i in 0..16 {
+                    short_ops.push(Op::Read {
+                        addr: BitSignal::from_u128(i, addr_width),
+                    });
+                }
+            }
+
+            short_ops
         }
-    }
+        TestSequence::MarchCm => march_cm_test(params),
+    };
 
     let mut tb = TbParams::builder();
     let tb = tb
