@@ -11,6 +11,7 @@ use crate::blocks::columns::ColumnDesignScript;
 use crate::blocks::delay_line::tristate::TristateInv;
 use crate::blocks::gate::PrimitiveGateParams;
 use crate::blocks::macros::SenseAmp;
+use crate::blocks::sram::layout::draw_via;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
 
 use super::{WriteDriver, WriteDriverParams};
@@ -104,22 +105,21 @@ impl WriteDriver {
             ctx.draw_rect(m2, port_rect);
 
             if port == "en_b" {
-                let between_transistors = blinv.layer_bbox(nwell).into_rect().bottom();
-                let m1_rect = vias[1].layer_bbox(m1).into_rect();
-                let m1_rect = m1_rect.with_vspan(m1_rect.vspan().add_point(between_transistors));
-                ctx.draw_rect(m1, m1_rect);
-                let via_rect = m1_rect.with_vspan(Span::from_center_span_gridded(
-                    between_transistors,
-                    140,
+                let below_en = blinv.port("en_b")?.largest_rect(m0)?.center().x - 460;
+                let m1_rect = port_rect.with_hspan(Span::from_center_span_gridded(
+                    port_rect.center().x,
+                    240,
                     ctx.pdk().layout_grid(),
                 ));
-                let viap = ViaParams::builder()
-                    .layers(m1, m2)
-                    .geometry(via_rect, via_rect)
-                    .expand(ViaExpansion::LongerDirection)
-                    .build();
-                let via = ctx.instantiate::<Via>(&viap)?;
-                ctx.draw_ref(&via)?;
+                let m1_rect = m1_rect.with_vspan(m1_rect.vspan().add_point(below_en));
+                ctx.draw_rect(m1, m1_rect);
+                draw_via(m1, m1_rect, m2, port_rect, ctx)?;
+                let via_rect = m1_rect.with_vspan(Span::from_center_span_gridded(
+                    below_en,
+                    320,
+                    ctx.pdk().layout_grid(),
+                ));
+                let via = draw_via(m1, via_rect, m2, via_rect, ctx)?;
                 ctx.add_port(
                     CellPort::builder()
                         .id(port)
