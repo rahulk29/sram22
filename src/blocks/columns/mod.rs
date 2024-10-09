@@ -658,7 +658,7 @@ mod tests {
 
             let sim_dir = work_dir.join(format!("{port}_cap"));
             let cap_ac = ctx
-                .write_simulation::<AcImpedanceTestbench<ColPeripherals>>(
+                .write_simulation::<AcImpedanceTestbench<TappedColumn>>(
                     &AcImpedanceTbParams {
                         vdd: 1.8,
                         fstart: 100.,
