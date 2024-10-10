@@ -893,15 +893,15 @@ impl SramInner {
                     .port(format!("predecode_{i}_{j}"))?
                     .largest_rect(m1)?;
                 let rect = if j == 0 {
-                    dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?
-                } else {
                     dffs.port(PortId::new("q_n", dff_idx))?
                         .first_rect(m0, Side::Left)?
+                } else {
+                    dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?
                 };
                 let (loc, side) = if j == 0 {
-                    (TrackLocator::EndsBefore, Side::Right)
-                } else {
                     (TrackLocator::StartsAfter, Side::Left)
+                } else {
+                    (TrackLocator::EndsBefore, Side::Right)
                 };
                 let track_span = m1_tracks.index(m1_tracks.track_with_loc(loc, rect.side(side)));
                 let m0_rect = rect.with_hspan(track_span);
