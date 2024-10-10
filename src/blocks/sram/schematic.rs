@@ -133,9 +133,9 @@ impl SramInner {
                 row_decoder.connect(
                     format!("predecode_{i}_{j}"),
                     if j == 0 {
-                        addr_gated.index(i)
-                    } else {
                         addr_b_gated.index(i)
+                    } else {
+                        addr_gated.index(i)
                     },
                 );
             }
@@ -156,9 +156,9 @@ impl SramInner {
                 col_decoder.connect(
                     format!("predecode_{i}_{j}"),
                     if j == 0 {
-                        addr_in.index(i)
-                    } else {
                         addr_in_b.index(i)
+                    } else {
+                        addr_in.index(i)
                     },
                 );
             }
