@@ -234,11 +234,7 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
         .rev()
         .map(|v| {
             let v = lp.value(*v);
-            if v < 0.5 {
-                0.5
-            } else {
-                v
-            }
+            f64::max(v, 0.8)
         })
         .collect::<Vec<_>>();
     values.push(1.);
