@@ -165,7 +165,7 @@ impl SramParams {
         let bl_cap = (self.rows() + 4) as f64 * BITLINE_CAP_PER_CELL;
         let pc_scale = f64::max(bl_cap / COL_CAPACITANCES.pc_b / 8.0, 0.4);
         let mux_scale = f64::max(bl_cap / COL_CAPACITANCES.sel / 8.0, 0.5);
-        let wrdrvscale = f64::max(bl_cap / COL_CAPACITANCES.we / 16.0, 0.2);
+        let wrdrvscale = f64::max(bl_cap / COL_CAPACITANCES.we / 8.0, 0.4);
         println!(
             "pc_scale = {pc_scale:.2}, mux_scale = {mux_scale:.2}, wrdrvscale = {wrdrvscale:.2}"
         );
