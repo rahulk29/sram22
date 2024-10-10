@@ -576,11 +576,11 @@ impl Testbench for SramTestbench {
                 .unwrap(),
         );
 
-        // let signals = (0..self.params.sram.data_width)
-        //     .map(|i| format!("dout[{i}]"))
-        //     .collect();
-        // ctx.save(Save::Signals(signals));
-        ctx.save(Save::All);
+        let signals = (0..self.params.sram.data_width)
+            .map(|i| format!("dout[{i}]"))
+            .collect();
+        ctx.save(Save::Signals(signals));
+        // ctx.save(Save::All);
 
         let vdd = SiValue::with_precision(self.params.vdd, SiPrefix::Nano);
 
