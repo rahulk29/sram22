@@ -326,6 +326,13 @@ impl Script for SramPhysicalDesignScript {
             .round() as usize
             * 2
             + 2;
+
+        let wlen_buffer = DecoderStageParams {
+            max_width: Some(addr_gate_inst.brect().height()),
+            ..fanout_buffer_stage(vert_buffer, wlen_cap)
+        };
+        println!("wlen_buffer: {:?}", wlen_buffer);
+
         assert_eq!(decoder_delay_invs % 2, 0);
         Ok(Self::Output {
             bitcells: SpCellArrayParams {
@@ -345,10 +352,7 @@ impl Script for SramPhysicalDesignScript {
             // TODO: change decoder tree to provide correct fanout for inverted output
             col_decoder,
             pc_b_buffer,
-            wlen_buffer: DecoderStageParams {
-                max_width: Some(addr_gate_inst.brect().height()),
-                ..fanout_buffer_stage(vert_buffer, wlen_cap)
-            },
+            wlen_buffer,
             write_driver_en_buffer,
             sense_en_buffer,
             num_dffs,
@@ -590,7 +594,7 @@ pub(crate) mod tests {
 
     use self::testbench::TestSequence;
     use self::verilog::save_1rw_verilog;
-    use crate::paths::{out_spice, out_verilog};
+    use crate::paths::*;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -642,9 +646,9 @@ pub(crate) mod tests {
                 ctx.write_schematic_to_file::<Sram>(&$params, &spice_path)
                     .expect("failed to write schematic");
 
-                // let gds_path = out_gds(&work_dir, "layout");
-                // ctx.write_layout::<Sram>(&$params, &gds_path)
-                //     .expect("failed to write layout");
+                let gds_path = out_gds(&work_dir, "layout");
+                ctx.write_layout::<Sram>(&$params, &gds_path)
+                    .expect("failed to write layout");
 
                 let verilog_path = out_verilog(&work_dir, &*$params.name());
                 save_1rw_verilog(&verilog_path,&*$params.name(), &$params)
@@ -694,7 +698,7 @@ pub(crate) mod tests {
                     //     opts,
                     // }).expect("failed to run pex");
 
-                    let seq = TestSequence::MarchCm;
+                    let seq = TestSequence::Short;
                     let corners = ctx.corner_db();
                     let mut handles = Vec::new();
                     for vdd in [1.8] {
