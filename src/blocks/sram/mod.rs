@@ -326,6 +326,13 @@ impl Script for SramPhysicalDesignScript {
             .round() as usize
             * 2
             + 2;
+
+        let wlen_buffer = DecoderStageParams {
+            max_width: Some(addr_gate_inst.brect().height()),
+            ..fanout_buffer_stage(vert_buffer, wlen_cap)
+        };
+        println!("wlen_buffer: {:?}", wlen_buffer);
+
         assert_eq!(decoder_delay_invs % 2, 0);
         Ok(Self::Output {
             bitcells: SpCellArrayParams {
@@ -345,10 +352,7 @@ impl Script for SramPhysicalDesignScript {
             // TODO: change decoder tree to provide correct fanout for inverted output
             col_decoder,
             pc_b_buffer,
-            wlen_buffer: DecoderStageParams {
-                max_width: Some(addr_gate_inst.brect().height()),
-                ..fanout_buffer_stage(vert_buffer, wlen_cap)
-            },
+            wlen_buffer,
             write_driver_en_buffer,
             sense_en_buffer,
             num_dffs,
