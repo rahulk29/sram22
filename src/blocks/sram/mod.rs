@@ -229,7 +229,6 @@ impl Script for SramPhysicalDesignScript {
             routing_style: RoutingStyle::Driver,
             max_width: None,
             invs: vec![],
-            // TODO fix, should be minimum sized AND2 unless sized elsewhere
             gate: GateParams::And2(AndParams {
                 nand: NAND2_PARAMS,
                 inv: INV_PARAMS.scale(4.),
