@@ -596,6 +596,7 @@ pub(crate) mod tests {
     use crate::paths::*;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
+    use substrate::schematic::netlist::NetlistPurpose;
 
     use super::*;
 
@@ -664,38 +665,38 @@ pub(crate) mod tests {
                     //     substrate::verification::drc::DrcSummary::Pass
                     // ));
 
-                    // let lvs_work_dir = work_dir.join("lvs");
-                    // let output = ctx
-                    //     .write_lvs::<Sram>(&$params, lvs_work_dir)
-                    //     .expect("failed to run LVS");
-                    // assert!(matches!(
-                    //     output.summary,
-                    //     substrate::verification::lvs::LvsSummary::Pass
-                    // ));
+                    let lvs_work_dir = work_dir.join("lvs");
+                    let output = ctx
+                        .write_lvs::<Sram>(&$params, lvs_work_dir)
+                        .expect("failed to run LVS");
+                    assert!(matches!(
+                        output.summary,
+                        substrate::verification::lvs::LvsSummary::Pass
+                    ));
 
-                    // let pex_path = out_spice(&work_dir, "pex_schematic");
-                    // let pex_dir = work_dir.join("pex");
-                    // let pex_level = calibre::pex::PexLevel::Rc;
-                    // let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
-                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
-                    //     &$params,
-                    //     &pex_path,
-                    //     NetlistPurpose::Pex,
-                    // ).expect("failed to write pex source netlist");
-                    // let mut opts = std::collections::HashMap::with_capacity(1);
-                    // opts.insert("level".into(), pex_level.as_str().into());
+                    let pex_path = out_spice(&work_dir, "pex_schematic");
+                    let pex_dir = work_dir.join("pex");
+                    let pex_level = calibre::pex::PexLevel::Rc;
+                    let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+                    ctx.write_schematic_to_file_for_purpose::<Sram>(
+                        &$params,
+                        &pex_path,
+                        NetlistPurpose::Pex,
+                    ).expect("failed to write pex source netlist");
+                    let mut opts = std::collections::HashMap::with_capacity(1);
+                    opts.insert("level".into(), pex_level.as_str().into());
 
-                    // ctx.run_pex(substrate::verification::pex::PexInput {
-                    //     work_dir: pex_dir,
-                    //     layout_path: gds_path.clone(),
-                    //     layout_cell_name: $params.name().clone(),
-                    //     layout_format: substrate::layout::LayoutFormat::Gds,
-                    //     source_paths: vec![pex_path],
-                    //     source_cell_name: $params.name().clone(),
-                    //     pex_netlist_path: pex_netlist_path.clone(),
-                    //     ground_net: "vss".to_string(),
-                    //     opts,
-                    // }).expect("failed to run pex");
+                    ctx.run_pex(substrate::verification::pex::PexInput {
+                        work_dir: pex_dir,
+                        layout_path: gds_path.clone(),
+                        layout_cell_name: $params.name().clone(),
+                        layout_format: substrate::layout::LayoutFormat::Gds,
+                        source_paths: vec![pex_path],
+                        source_cell_name: $params.name().clone(),
+                        pex_netlist_path: pex_netlist_path.clone(),
+                        ground_net: "vss".to_string(),
+                        opts,
+                    }).expect("failed to run pex");
 
                     let seq = TestSequence::Short;
                     let corners = ctx.corner_db();
@@ -704,11 +705,11 @@ pub(crate) mod tests {
                         for corner in corners.corners() {
                             let corner = corner.clone();
                             let params = $params.clone();
-                            // let pex_netlist = Some(pex_netlist_path.clone());
+                            let pex_netlist = Some(pex_netlist_path.clone());
                             let work_dir = work_dir.clone();
                             handles.push(std::thread::spawn(move || {
                                 let ctx = setup_ctx();
-                                let tb = crate::blocks::sram::testbench::tb_params(params, vdd, seq, None);
+                                let tb = crate::blocks::sram::testbench::tb_params(params, vdd, seq, pex_netlist);
                                 let work_dir = work_dir.join(format!(
                                     "{}_{:.2}_{}",
                                     corner.name(),
