@@ -292,10 +292,10 @@ impl SramInner {
 
 pub(crate) fn buffer_chain_num_stages(cl: f64) -> usize {
     let fo = cl / INV_MODEL.cin;
-    if fo < 2.0 {
+    if fo < 4.0 {
         return 2;
     }
-    let stages = 2 * (fo.log(3.0) / 2.0).round() as usize;
+    let stages = 2 * (fo.log(3.0) / 2.0).ceil() as usize;
     let stages = if stages == 0 { 2 } else { stages };
 
     assert_eq!(stages % 2, 0);

@@ -9,7 +9,7 @@ use super::decoder::{DecoderPhysicalDesignParams, DecoderStageParams, DecoderSty
 use super::gate::sizing::InverterGateTreeNode;
 use super::gate::{GateParams, PrimitiveGateParams, PrimitiveGateType};
 use super::precharge::PrechargeParams;
-use super::sram::schematic::inverter_chain_num_stages;
+use super::sram::schematic::{buffer_chain_num_stages, inverter_chain_num_stages};
 use super::tgatemux::TGateMuxParams;
 use super::wrdriver::WriteDriverParams;
 use serde::{Deserialize, Serialize};
@@ -98,7 +98,7 @@ impl Component for WmaskPeripherals {
     }
 
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("wmask_peripherals")
+        arcstr::literal!("peripherals_wmask")
     }
 
     fn layout(
@@ -151,9 +151,15 @@ impl Script for ColumnsPhysicalDesignScript {
         let pc_design = ctx.run_script::<ColumnDesignScript>(&NoParams)?;
         let wmask_unit_width = params.wmask_granularity as i64
             * (pc_design.width * params.mux_ratio() as i64 + pc_design.tap_width);
-        let cl = 1000e-15;
-        let wmask_buffer_stages = inverter_chain_num_stages(cl);
-        let wmask_buffer_gates = InverterGateTreeNode {
+        let we_i_cap = params.wmask_granularity as f64
+            * COL_CAPACITANCES.we_i
+            * (params.wrdriver.pwidth_driver as f64 / COL_PARAMS.wrdriver.pwidth_driver as f64);
+        let we_ib_cap = params.wmask_granularity as f64
+            * COL_CAPACITANCES.we_ib
+            * (params.wrdriver.pwidth_driver as f64 / COL_PARAMS.wrdriver.pwidth_driver as f64);
+        let cl_max = f64::max(we_i_cap, we_ib_cap);
+        let wmask_buffer_stages = buffer_chain_num_stages(we_i_cap + we_ib_cap);
+        let mut wmask_buffer_gates = InverterGateTreeNode {
             gate: PrimitiveGateType::Nand2,
             id: 1,
             n_invs: wmask_buffer_stages,
@@ -161,8 +167,9 @@ impl Script for ColumnsPhysicalDesignScript {
             children: vec![],
         }
         .elaborate()
-        .size(cl)
+        .size(cl_max)
         .as_chain();
+        wmask_buffer_gates.push(wmask_buffer_gates.last().unwrap().clone());
 
         Ok(ColumnsPhysicalDesign {
             wmask_unit_width,
@@ -232,6 +239,8 @@ pub const COL_CAPACITANCES: ColCapacitances = ColCapacitances {
     sel: 216.435e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
     sel_b: 168.781e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
     we: 37.922e-15 / COL_PARAMS.wmask_bits() as f64,
+    we_i: 9.6971e-15,
+    we_ib: 10.2081e-15,
 };
 
 pub struct ColCapacitances {
@@ -240,6 +249,8 @@ pub struct ColCapacitances {
     pub sel: f64,
     pub sel_b: f64,
     pub we: f64,
+    pub we_i: f64,
+    pub we_ib: f64,
 }
 
 pub struct ColumnDesignScript;
@@ -317,7 +328,7 @@ mod tests {
     use substrate::layout::layers::selector::Selector;
     use substrate::schematic::netlist::NetlistPurpose;
 
-    use super::layout::{ColCentParams, ColumnCent};
+    use super::layout::{ColCentParams, ColumnCent, TappedColumn};
     use super::*;
 
     struct ColPeripheralsLvs {
@@ -430,6 +441,36 @@ mod tests {
     }
 
     #[test]
+    fn test_tapped_column_4() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_tapped_column_4");
+        ctx.write_layout::<TappedColumn>(&COL_PARAMS, out_gds(&work_dir, "layout"))
+            .expect("failed to write layout");
+        ctx.write_schematic_to_file::<TappedColumn>(&COL_PARAMS, out_spice(&work_dir, "schematic"))
+            .expect("failed to write layout");
+
+        #[cfg(feature = "commercial")]
+        {
+            // let drc_work_dir = work_dir.join("drc");
+            // let output = ctx
+            //     .write_drc::<TappedColumn>(&COL_PARAMS, drc_work_dir)
+            //     .expect("failed to run DRC");
+            // assert!(matches!(
+            //     output.summary,
+            //     substrate::verification::drc::DrcSummary::Pass
+            // ));
+            let lvs_work_dir = work_dir.join("lvs");
+            let output = ctx
+                .write_lvs::<TappedColumn>(&COL_PARAMS, lvs_work_dir)
+                .expect("failed to run LVS");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::lvs::LvsSummary::Pass
+            ));
+        }
+    }
+
+    #[test]
     fn test_column_cent_4() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_column_cent_4");
@@ -478,6 +519,31 @@ mod tests {
                 "wmask" => AcImpedanceTbNode::Vdd,
                 "din" => AcImpedanceTbNode::Vss,
                 "dout" => AcImpedanceTbNode::Vdd,
+                x => panic!("unexpected signal {x}"),
+            };
+            (k, vec![conn; v])
+        }))
+    }
+
+    fn column_default_conns() -> HashMap<&'static str, Vec<AcImpedanceTbNode>> {
+        let col = Column { params: COL_PARAMS };
+        let io = col.io();
+        HashMap::from_iter(io.iter().map(|(&k, &v)| {
+            let conn = match k {
+                "clk" => AcImpedanceTbNode::Vdd,
+                "reset_b" => AcImpedanceTbNode::Vdd,
+                "vdd" => AcImpedanceTbNode::Vdd,
+                "vss" => AcImpedanceTbNode::Vdd,
+                "bl" => AcImpedanceTbNode::Vdd,
+                "br" => AcImpedanceTbNode::Vdd,
+                "pc_b" => AcImpedanceTbNode::Vdd,
+                "sel" => AcImpedanceTbNode::Vss,
+                "sel_b" => AcImpedanceTbNode::Vdd,
+                "we" => AcImpedanceTbNode::Vss,
+                "we_b" => AcImpedanceTbNode::Vss,
+                "din" => AcImpedanceTbNode::Vss,
+                "dout" => AcImpedanceTbNode::Vdd,
+                "sense_en" => AcImpedanceTbNode::Vss,
                 x => panic!("unexpected signal {x}"),
             };
             (k, vec![conn; v])
@@ -533,6 +599,77 @@ mod tests {
             let sim_dir = work_dir.join(format!("{port}_cap"));
             let cap_ac = ctx
                 .write_simulation::<AcImpedanceTestbench<ColPeripherals>>(
+                    &AcImpedanceTbParams {
+                        vdd: 1.8,
+                        fstart: 100.,
+                        fstop: 10e6,
+                        points: 10,
+                        dut: params.clone(),
+                        pex_netlist: Some(pex_netlist_path.clone()),
+                        vmeas_conn: AcImpedanceTbNode::Vdd,
+                        connections: HashMap::from_iter(
+                            conns.into_iter().map(|(k, v)| (ArcStr::from(k), v)),
+                        ),
+                    },
+                    &sim_dir,
+                )
+                .expect("failed to write simulation");
+
+            println!("C{port} = {}fF", 1e15 * cap_ac.max_freq_cap());
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "commercial")]
+    #[ignore = "slow"]
+    fn test_column_cap() {
+        use crate::measure::impedance::{
+            AcImpedanceTbNode, AcImpedanceTbParams, AcImpedanceTestbench,
+        };
+
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_column_cap");
+        let params = COL_PARAMS;
+
+        let pex_path = out_spice(&work_dir, "pex_schematic");
+        let pex_dir = work_dir.join("pex");
+        let pex_level = calibre::pex::PexLevel::Rc;
+        let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+        ctx.write_schematic_to_file_for_purpose::<TappedColumn>(
+            &params,
+            &pex_path,
+            NetlistPurpose::Pex,
+        )
+        .expect("failed to write pex source netlist");
+        let mut opts = std::collections::HashMap::with_capacity(1);
+        opts.insert("level".into(), pex_level.as_str().into());
+
+        let gds_path = out_gds(&work_dir, "layout");
+        ctx.write_layout::<TappedColumn>(&params, &gds_path)
+            .expect("failed to write layout");
+
+        ctx.run_pex(substrate::verification::pex::PexInput {
+            work_dir: pex_dir,
+            layout_path: gds_path.clone(),
+            layout_cell_name: arcstr::literal!("tapped_column"),
+            layout_format: substrate::layout::LayoutFormat::Gds,
+            source_paths: vec![pex_path],
+            source_cell_name: arcstr::literal!("tapped_column"),
+            pex_netlist_path: pex_netlist_path.clone(),
+            ground_net: "vss".to_string(),
+            opts,
+        })
+        .expect("failed to run pex");
+
+        for port in [
+            "clk", "reset_b", "pc_b", "sel", "sel_b", "we", "we_b", "sense_en",
+        ] {
+            let mut conns = column_default_conns();
+            conns.get_mut(port).unwrap()[0] = AcImpedanceTbNode::Vmeas;
+
+            let sim_dir = work_dir.join(format!("{port}_cap"));
+            let cap_ac = ctx
+                .write_simulation::<AcImpedanceTestbench<TappedColumn>>(
                     &AcImpedanceTbParams {
                         vdd: 1.8,
                         fstart: 100.,

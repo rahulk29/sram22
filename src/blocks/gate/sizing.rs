@@ -158,7 +158,7 @@ fn size_path(path: &[&GateTreeNode], end: &f64) -> SizedGateTreeNode {
 
     lp.size_with_opts(OptimizerOpts {
         lr: 1e11,
-        lr_decay: 0.999995,
+        lr_decay: 0.999999,
         max_iter: 10_000_000,
     });
 
