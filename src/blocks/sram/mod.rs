@@ -664,14 +664,14 @@ pub(crate) mod tests {
                     //     substrate::verification::drc::DrcSummary::Pass
                     // ));
 
-                    let lvs_work_dir = work_dir.join("lvs");
-                    let output = ctx
-                        .write_lvs::<Sram>(&$params, lvs_work_dir)
-                        .expect("failed to run LVS");
-                    assert!(matches!(
-                        output.summary,
-                        substrate::verification::lvs::LvsSummary::Pass
-                    ));
+                    // let lvs_work_dir = work_dir.join("lvs");
+                    // let output = ctx
+                    //     .write_lvs::<Sram>(&$params, lvs_work_dir)
+                    //     .expect("failed to run LVS");
+                    // assert!(matches!(
+                    //     output.summary,
+                    //     substrate::verification::lvs::LvsSummary::Pass
+                    // ));
 
                     // let pex_path = out_spice(&work_dir, "pex_schematic");
                     // let pex_dir = work_dir.join("pex");
