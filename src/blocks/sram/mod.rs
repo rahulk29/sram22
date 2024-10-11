@@ -232,7 +232,7 @@ impl Script for SramPhysicalDesignScript {
             // TODO fix, should be minimum sized AND2 unless sized elsewhere
             gate: GateParams::And2(AndParams {
                 nand: NAND2_PARAMS,
-                inv: INV_PARAMS,
+                inv: INV_PARAMS.scale(4.),
             }),
             num: 2 * params.row_bits(),
             child_sizes: vec![],
