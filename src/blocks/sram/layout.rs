@@ -940,10 +940,10 @@ impl SramInner {
                 let dff_idx = dsn.num_dffs - i - 3 - self.params.col_select_bits();
                 let port_rect = addr_gate.port(PortId::new("in", idx))?.largest_rect(m0)?;
                 let rect = if j == 0 {
-                    dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?
-                } else {
                     dffs.port(PortId::new("q_n", dff_idx))?
                         .first_rect(m0, Side::Left)?
+                } else {
+                    dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?
                 };
                 let (loc, side) = if j == 0 {
                     (TrackLocator::EndsBefore, Side::Right)

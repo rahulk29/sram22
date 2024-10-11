@@ -1,14 +1,318 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::fs::File;
+use std::io::Write;
+use std::path::Path;
 
+use approx::{assert_relative_eq, relative_eq};
+use itertools::izip;
 use substrate::verification::simulation::bits::{to_bit, BitSignal};
+use substrate::verification::simulation::waveform::{
+    EdgeDir, SharedWaveform, TimeWaveform, Waveform,
+};
 use substrate::verification::simulation::TranData;
 
 use super::{Op, TbParams};
 use anyhow::{anyhow, bail, Result};
 
-pub(crate) fn verify_simulation(data: &TranData, tb: &TbParams) -> Result<()> {
+/// Reports relevant behavior of internal signals for diagnostic purposes.
+pub(crate) fn write_internal_rpt(
+    work_dir: impl AsRef<Path>,
+    data: &TranData,
+    tb: &TbParams,
+) -> Result<()> {
+    let rpt_path = work_dir.as_ref().join("internal.rpt");
+    let mut rpt = File::create(rpt_path)?;
+    let sram_inst_path = tb.sram_inst_path();
+    let low_threshold = 0.2 * tb.vdd;
+    let high_threshold = 0.8 * tb.vdd;
+
+    // Assert that only the appropriate wordline goes high during reads and writes
+    // and that no wordline goes high when no operation is occuring.
+    //
+    // Also assert that write driver enable pulse overlaps with wordline pulse for at least 50 ps.
+    writeln!(rpt, "WORDLINES")?;
+    writeln!(rpt, "==========================")?;
+    let wl = (0..tb.sram.rows())
+        .map(|i| {
+            data.waveform(&format!("{sram_inst_path}.wl[{i}]"))
+                .ok_or_else(|| anyhow!("Unable to find signal wl"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let wrdrven = data
+        .waveform(&format!("{sram_inst_path}.write_driver_en"))
+        .ok_or_else(|| anyhow!("Unable to find signal write_driver_en"))?;
+    let mut cycle = 0;
+    let mut wl_trans = wl
+        .iter()
+        .map(|wl| {
+            wl.transitions(low_threshold, high_threshold)
+                .collect::<VecDeque<_>>()
+        })
+        .collect::<Vec<_>>();
+    let mut wrdrven_trans = wrdrven
+        .transitions(low_threshold, high_threshold)
+        .collect::<VecDeque<_>>();
+    for op in tb.ops.iter() {
+        cycle += 1;
+        let t = cycle as f64 * tb.clk_period;
+        let idx = data
+            .time
+            .idx_before_sorted(t)
+            .ok_or_else(|| anyhow!("Time {} was out of simulation range", t))?;
+        let mut active_wls = Vec::new();
+        for i in 0..tb.sram.rows() {
+            if wl[i].get(idx).unwrap().x() > low_threshold {
+                writeln!(
+                    rpt,
+                    "ERROR: wordline {i} is high at beginning of cycle {cycle}"
+                )?;
+            }
+            while let Some(next) = wl_trans[i].front() {
+                if next.center_time() < t {
+                    wl_trans[i].pop_front();
+                } else {
+                    break;
+                }
+            }
+            if let Some(next) = wl_trans[i].front() {
+                if next.center_time() < (cycle + 1) as f64 * tb.clk_period {
+                    active_wls.push(i);
+                }
+            }
+        }
+        while let Some(next) = wrdrven_trans.front() {
+            if next.center_time() < t {
+                wrdrven_trans.pop_front();
+            } else {
+                break;
+            }
+        }
+
+        match op {
+            Op::Read { addr } | Op::Write { addr, .. } | Op::WriteMasked { addr, .. } => {
+                if active_wls.len() > 1 {
+                    writeln!(
+                        rpt,
+                        "ERROR: multiple active wordlines ({active_wls:?}) during operation on cycle {cycle}"
+                    )?;
+                } else if active_wls.is_empty() {
+                    writeln!(rpt, "ERROR: no active wordlines ({active_wls:?}) during operation on cycle {cycle}")?;
+                } else if BitSignal::from_u64(active_wls[0] as u64, tb.sram.row_bits())
+                    != BitSignal::from(addr.inner()[tb.sram.col_select_bits()..].to_bitvec())
+                {
+                    writeln!(rpt, "ERROR: active wordline {} does not correspond to addr {addr} during cycle {cycle}", active_wls[0])?;
+                }
+            }
+            _ => {
+                if !active_wls.is_empty() {
+                    writeln!(
+                        rpt,
+                        "ERROR: active wordlines ({active_wls:?}) during cycle {cycle} while no operation is occuring"
+                    )?;
+                }
+            }
+        }
+        if matches!(op, Op::Write { .. }) {
+            let check_overlap = || -> Option<_> {
+                let active_wl = active_wls.first()?;
+                let wl_start = wl_trans[*active_wl].get(0)?.center_time();
+                let wl_end = wl_trans[*active_wl].get(1)?.center_time();
+                let wrdrven_start = wrdrven_trans.get(0)?.center_time();
+                let wrdrven_end = wrdrven_trans.get(1)?.center_time();
+                let overlap_start = if wl_start > wrdrven_start {
+                    wl_start
+                } else {
+                    wrdrven_start
+                };
+                let overlap_end = if wl_end > wrdrven_end {
+                    wl_end
+                } else {
+                    wrdrven_end
+                };
+                let overlap = (overlap_end - overlap_start) * 1e12;
+                Some((overlap, active_wl, overlap_start))
+            };
+            if let Some((overlap, active_wl, overlap_start)) = check_overlap() {
+                if overlap < 50. {
+                    writeln!(rpt, "WARNING: overlap between write_driver_en and wordline {active_wl} is less than 50 ps at t = {} ps", overlap_start * 1e12)?;
+                }
+                writeln!(rpt, "Overlap of {overlap} ps between write_driver_en and wordline {active_wl} at t = {} ps", overlap_start * 1e12)?;
+            }
+        }
+    }
+    writeln!(rpt)?;
+
+    // Assert that decoder replica matches row decoder delay.
+    let decrepstart = data
+        .waveform(&format!("{sram_inst_path}.Xcontrol_logic.decrepstart"))
+        .ok_or_else(|| anyhow!("Unable to find signal decrepstart"))?;
+    let decrepend = data
+        .waveform(&format!("{sram_inst_path}.Xcontrol_logic.decrepend"))
+        .ok_or_else(|| anyhow!("Unable to find signal decrepend"))?;
+    let wlen = data
+        .waveform(&format!("{sram_inst_path}.wl_en"))
+        .ok_or_else(|| anyhow!("Unable to find signal wlen"))?;
+    let wl_max = wl
+        .iter()
+        .fold(None, |a: Option<Waveform>, b| {
+            let mut wf_new = Waveform::new();
+            if let Some(wf) = a {
+                for (a, b) in b.values().zip(wf.values()) {
+                    wf_new.push(a.t(), if a.x() < b.x() { b.x() } else { a.x() });
+                }
+            } else {
+                for val in b.values() {
+                    wf_new.push(val.t(), val.x());
+                }
+            }
+            Some(wf_new)
+        })
+        .unwrap();
+
+    writeln!(rpt, "DECODER REPLICA")?;
+    writeln!(rpt, "==========================")?;
+    for (i, (decrepstart_trans, decrepend_trans, wlen_trans, wl_trans)) in izip!(
+        decrepstart.transitions(low_threshold, high_threshold),
+        decrepend.transitions(low_threshold, high_threshold),
+        wlen.transitions(low_threshold, high_threshold),
+        wl_max.transitions(low_threshold, high_threshold)
+    )
+    .enumerate()
+    {
+        let decrep_delay = decrepend_trans.center_time() - decrepstart_trans.center_time();
+        let decoder_delay = wl_trans.center_time() - wlen_trans.center_time();
+
+        writeln!(
+            rpt,
+            "Transition @ {} ps: {:?}",
+            decrepstart_trans.center_time() * 1e12,
+            decrepstart_trans.dir()
+        )?;
+        writeln!(rpt, "Replica delay: {} ps", decrep_delay * 1e12)?;
+        writeln!(rpt, "Decoder delay: {} ps", decoder_delay * 1e12)?;
+        writeln!(rpt)?;
+    }
+
+    // Assert that precharge turns off before wordline or write driver is enabled and
+    // turns on only after wordline and write driver are disabled.
+    // Also asserts that precharge turns on after sense amp enable.
+    writeln!(rpt, "PRECHARGE")?;
+    writeln!(rpt, "==========================")?;
+    let pc_b = data
+        .waveform(&format!("{sram_inst_path}.pc_b"))
+        .ok_or_else(|| anyhow!("Unable to find signal pc_b"))?;
+    let saen = data
+        .waveform(&format!("{sram_inst_path}.sense_en"))
+        .ok_or_else(|| anyhow!("Unable to find signal sense_en"))?;
+
+    for trans in pc_b.transitions(low_threshold, high_threshold) {
+        for idx in [trans.start_idx(), trans.end_idx()] {
+            for i in 0..wl.len() {
+                if wl[i].get(idx).unwrap().x() > low_threshold {
+                    writeln!(
+                        rpt,
+                        "WARNING: wordline {i} high during pc_b transition at t={} ps",
+                        trans.center_time() * 1e12
+                    )?;
+                }
+            }
+            if wrdrven.get(idx).unwrap().x() > low_threshold {
+                writeln!(
+                    rpt,
+                    "WARNING: write_driver_en high during pc_b transition at t={} ps",
+                    trans.center_time() * 1e12
+                )?;
+            }
+        }
+    }
+
+    for (i, trans) in wl
+        .iter()
+        .map(|wf| wf.transitions(low_threshold, high_threshold))
+        .enumerate()
+    {
+        for trans in trans {
+            for idx in [trans.start_idx(), trans.end_idx()] {
+                if pc_b.get(idx).unwrap().x() < high_threshold {
+                    writeln!(
+                        rpt,
+                        "WARNING: pc_b low during wl[{i}] transition at t={} ps ",
+                        trans.center_time() * 1e12
+                    )?;
+                }
+            }
+        }
+    }
+    for trans in wrdrven.transitions(low_threshold, high_threshold) {
+        for idx in [trans.start_idx(), trans.end_idx()] {
+            if pc_b.get(idx).unwrap().x() < high_threshold {
+                writeln!(
+                    rpt,
+                    "WARNING: pc_b low during write_driver_en transition at t={} ps ",
+                    trans.center_time() * 1e12
+                )?;
+            }
+        }
+    }
+    for trans in saen.transitions(low_threshold, high_threshold) {
+        for idx in [trans.start_idx(), trans.end_idx()] {
+            if trans.dir().is_rising() && pc_b.get(idx).unwrap().x() < high_threshold {
+                writeln!(
+                    rpt,
+                    "WARNING: pc_b low during rising sense_en transition at t={} ps ",
+                    trans.center_time() * 1e12
+                )?;
+            }
+        }
+    }
+    writeln!(rpt)?;
+
+    // Assert that the sense amp turns on after there is a 150 mV differential in bitlines.
+    writeln!(rpt, "SENSE AMP ENABLE")?;
+    writeln!(rpt, "==========================")?;
+    let bl = (0..tb.sram.cols())
+        .map(|i| {
+            data.waveform(&format!("{sram_inst_path}.bl[{i}]"))
+                .ok_or_else(|| anyhow!("Unable to find signal bl"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let br = (0..tb.sram.cols())
+        .map(|i| {
+            data.waveform(&format!("{sram_inst_path}.br[{i}]"))
+                .ok_or_else(|| anyhow!("Unable to find signal br"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    for trans in saen.transitions(low_threshold, high_threshold) {
+        if trans.dir().is_rising() {
+            let idx = trans.start_idx();
+            let mut min_diff = f64::MAX;
+            for (i, (bl, br)) in bl.iter().zip(br.iter()).enumerate() {
+                let diff = (bl.get(idx).unwrap().x() - br.get(idx).unwrap().x()).abs();
+                if diff < 0.15 {
+                    writeln!(rpt, "WARNING: bitline {i} differential is less than 150 mV during sense amp read at t = {} ps", trans.start_time() * 1e12)?;
+                }
+                if diff < min_diff {
+                    min_diff = diff;
+                }
+            }
+            writeln!(rpt, "Transition @ {} ps", trans.center_time() * 1e-12)?;
+            writeln!(rpt, "Minimum differential: {min_diff} V")?;
+            writeln!(rpt)?;
+        }
+    }
+
+    Ok(())
+}
+
+pub(crate) fn verify_simulation(
+    work_dir: impl AsRef<Path>,
+    data: &TranData,
+    tb: &TbParams,
+) -> Result<()> {
     let mut state = HashMap::new();
     let data_bits_per_wmask = tb.sram.data_width / tb.sram.wmask_width();
+
+    write_internal_rpt(work_dir, data, tb)?;
 
     // Clock cycle counter
     // Initialized to 1 instead of 0,
@@ -67,5 +371,6 @@ pub(crate) fn verify_simulation(data: &TranData, tb: &TbParams) -> Result<()> {
             _ => {}
         }
     }
+
     Ok(())
 }

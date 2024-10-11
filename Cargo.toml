@@ -28,6 +28,7 @@ liberate_mx = { git = "https://github.com/rahulk29/liberate-mx.git", branch = "m
 tera = "1"
 lazy_static = "1"
 colored = "2"
+approx = "0.5"
 
 # Substrate dependencies
 substrate = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
@@ -41,7 +42,6 @@ sub_calibre = { git = "https://github.com/rahulk29/substrate_mentor_plugins", br
 
 [dev-dependencies]
 tempfile = "3"
-approx = "0.5"
 paste = "1"
 
 [features]

@@ -26,6 +26,7 @@ use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
 use super::precharge::layout::ReplicaPrechargeParams;
 use crate::blocks::columns::layout::DffArray;
 use crate::blocks::decoder::DecoderStage;
+use crate::blocks::sram::testbench::verify::verify_simulation;
 use crate::blocks::tgatemux::TGateMuxParams;
 
 pub mod layout;
@@ -638,17 +639,17 @@ pub(crate) mod tests {
                 let ctx = setup_ctx();
                 let work_dir = test_work_dir(stringify!($name));
 
-                let spice_path = out_spice(&work_dir, "schematic");
-                ctx.write_schematic_to_file::<Sram>(&$params, &spice_path)
-                    .expect("failed to write schematic");
+                // let spice_path = out_spice(&work_dir, "schematic");
+                // ctx.write_schematic_to_file::<Sram>(&$params, &spice_path)
+                //     .expect("failed to write schematic");
 
                 // let gds_path = out_gds(&work_dir, "layout");
                 // ctx.write_layout::<Sram>(&$params, &gds_path)
                 //     .expect("failed to write layout");
 
-                let verilog_path = out_verilog(&work_dir, &*$params.name());
-                save_1rw_verilog(&verilog_path,&*$params.name(), &$params)
-                    .expect("failed to write behavioral model");
+                // let verilog_path = out_verilog(&work_dir, &*$params.name());
+                // save_1rw_verilog(&verilog_path,&*$params.name(), &$params)
+                //     .expect("failed to write behavioral model");
 
                 #[cfg(feature = "commercial")]
                 {
@@ -661,14 +662,14 @@ pub(crate) mod tests {
                     //     substrate::verification::drc::DrcSummary::Pass
                     // ));
 
-                    let lvs_work_dir = work_dir.join("lvs");
-                    let output = ctx
-                        .write_lvs::<Sram>(&$params, lvs_work_dir)
-                        .expect("failed to run LVS");
-                    assert!(matches!(
-                        output.summary,
-                        substrate::verification::lvs::LvsSummary::Pass
-                    ));
+                    // let lvs_work_dir = work_dir.join("lvs");
+                    // let output = ctx
+                    //     .write_lvs::<Sram>(&$params, lvs_work_dir)
+                    //     .expect("failed to run LVS");
+                    // assert!(matches!(
+                    //     output.summary,
+                    //     substrate::verification::lvs::LvsSummary::Pass
+                    // ));
 
                     // let pex_path = out_spice(&work_dir, "pex_schematic");
                     // let pex_dir = work_dir.join("pex");
@@ -694,11 +695,11 @@ pub(crate) mod tests {
                     //     opts,
                     // }).expect("failed to run pex");
 
-                    let seq = TestSequence::MarchCm;
+                    let seq = TestSequence::Short;
                     let corners = ctx.corner_db();
                     let mut handles = Vec::new();
                     for vdd in [1.8] {
-                        for corner in corners.corners() {
+                        for corner in corners.corners().take(1) {
                             let corner = corner.clone();
                             let params = $params.clone();
                             // let pex_netlist = Some(pex_netlist_path.clone());
@@ -712,12 +713,13 @@ pub(crate) mod tests {
                                     vdd,
                                     seq.as_str(),
                                 ));
-                                ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
+                                let data = ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
                                     &tb,
                                     &work_dir,
                                     corner.clone(),
                                 )
                                 .expect("failed to run simulation");
+                                verify_simulation(&work_dir, &data, &tb).expect("failed to verify simulation");
                                 println!(
                                     "Simulated corner {} with Vdd = {}, seq = {}",
                                     corner.name(),

@@ -10,7 +10,7 @@ use substrate::schematic::elements::vdc::Vdc;
 use substrate::schematic::elements::vpwl::Vpwl;
 use substrate::units::{SiPrefix, SiValue};
 use substrate::verification::simulation::bits::BitSignal;
-use substrate::verification::simulation::{Save, TranAnalysis};
+use substrate::verification::simulation::{Save, TranAnalysis, TranData};
 
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
@@ -51,6 +51,14 @@ impl TbParams {
     #[inline]
     pub fn builder() -> TbParamsBuilder {
         TbParamsBuilder::default()
+    }
+
+    pub fn sram_inst_path(&self) -> &str {
+        if self.pex_netlist.is_some() {
+            "Xdut.Xdut.X0"
+        } else {
+            "Xdut.X0"
+        }
     }
 }
 
@@ -550,7 +558,7 @@ pub fn tb_params(
 }
 
 impl Testbench for SramTestbench {
-    type Output = ();
+    type Output = TranData;
     fn setup(
         &mut self,
         ctx: &mut substrate::verification::simulation::context::PreSimCtx,
@@ -576,19 +584,34 @@ impl Testbench for SramTestbench {
                 .unwrap(),
         );
 
-        let signals = (0..self.params.sram.data_width)
-            .map(|i| format!("dout[{i}]"))
-            .collect();
-        ctx.save(Save::Signals(signals));
-        // ctx.save(Save::All);
+        let sram_inst_path = self.params.sram_inst_path();
+        // let signals = (0..self.params.sram.data_width)
+        //     .map(|i| format!("dout[{i}]"))
+        //     .chain(
+        //         [
+        //             "wl_en",
+        //             "Xcontrol_logic.decrepstart",
+        //             "Xcontrol_logic.decrepend",
+        //             "pc_b",
+        //             "sense_en",
+        //             "rwl",
+        //             "rbl",
+        //             "write_driver_en",
+        //         ]
+        //         .map(|s| format!("{sram_inst_path}.{s}"))
+        //         .into_iter(),
+        //     )
+        //     .chain((0..self.params.sram.rows()).map(|i| format!("{sram_inst_path}.wl[{i}]")))
+        //     .chain(
+        //         (0..self.params.sram.cols())
+        //             .flat_map(|i| ["bl", "br"].map(|name| format!("{sram_inst_path}.{name}[{i}]"))),
+        //     )
+        //     .collect();
+        // ctx.save(Save::Signals(signals));
+        ctx.save(Save::All);
 
         let vdd = SiValue::with_precision(self.params.vdd, SiPrefix::Nano);
 
-        let sram_inst_path = if self.params.pex_netlist.is_some() {
-            "Xdut.Xdut.X0"
-        } else {
-            "Xdut.X0"
-        };
         for i in 0..self.params.sram.rows() {
             ctx.set_ic(format!("{sram_inst_path}.wl[{i}]"), SiValue::zero());
             for j in 0..self.params.sram.cols() {
@@ -610,7 +633,6 @@ impl Testbench for SramTestbench {
         ctx: &substrate::verification::simulation::context::PostSimCtx,
     ) -> substrate::error::Result<Self::Output> {
         let data = ctx.output().data[0].tran();
-        verify::verify_simulation(data, &self.params)?;
-        Ok(())
+        Ok(data.clone())
     }
 }
