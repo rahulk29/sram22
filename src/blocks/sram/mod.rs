@@ -216,7 +216,7 @@ impl Script for SramPhysicalDesignScript {
         params: &Self::Params,
         ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self::Output> {
-        let wl_cap = (params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL;
+        let wl_cap = (params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL * 2.5; // 2.5 as a factor of safety
         let col_params = params.col_params();
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
         let rbl_rows = ((params.rows() / 12) + 1) * 2;
