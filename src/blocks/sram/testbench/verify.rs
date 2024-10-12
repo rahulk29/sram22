@@ -7,11 +7,11 @@ use approx::{assert_relative_eq, relative_eq};
 use itertools::izip;
 use substrate::verification::simulation::bits::{to_bit, BitSignal};
 use substrate::verification::simulation::waveform::{
-    EdgeDir, SharedWaveform, TimeWaveform, Waveform,
+    EdgeDir, SharedWaveform, TimeWaveform, Transition, Transitions, Waveform,
 };
 use substrate::verification::simulation::TranData;
 
-use super::{Op, TbParams};
+use super::{Op, TbParams, TbSignals};
 use anyhow::{anyhow, bail, Result};
 
 /// Reports relevant behavior of internal signals for diagnostic purposes.
@@ -22,36 +22,43 @@ pub(crate) fn write_internal_rpt(
 ) -> Result<()> {
     let rpt_path = work_dir.as_ref().join("internal.rpt");
     let mut rpt = File::create(rpt_path)?;
-    let sram_inst_path = tb.sram_inst_path();
     let low_threshold = 0.2 * tb.vdd;
     let high_threshold = 0.8 * tb.vdd;
 
     // Assert that only the appropriate wordline goes high during reads and writes
     // and that no wordline goes high when no operation is occuring.
     //
-    // Also assert that write driver enable pulse overlaps with wordline pulse for at least 50 ps.
+    // Also assert that write driver enable pulse (after NAND with write mask)
+    // overlaps with wordline pulse for at least 50 ps.
     writeln!(rpt, "WORDLINES")?;
     writeln!(rpt, "==========================")?;
     let wl = (0..tb.sram.rows())
         .map(|i| {
-            data.waveform(&format!("{sram_inst_path}.wl[{i}]"))
+            data.waveform(&tb.sram_signal_path(TbSignals::Wl(i)))
                 .ok_or_else(|| anyhow!("Unable to find signal wl"))
         })
         .collect::<Result<Vec<_>>>()?;
-    let wrdrven = data
-        .waveform(&format!("{sram_inst_path}.write_driver_en"))
-        .ok_or_else(|| anyhow!("Unable to find signal write_driver_en"))?;
-    let mut cycle = 0;
-    let mut wl_trans = wl
-        .iter()
-        .map(|wl| {
-            wl.transitions(low_threshold, high_threshold)
-                .collect::<VecDeque<_>>()
+    let we_i = (0..tb.sram.wmask_width())
+        .map(|i| {
+            data.waveform(&tb.sram_signal_path(TbSignals::WeI(i)))
+                .ok_or_else(|| anyhow!("Unable to find signal we_i"))
         })
-        .collect::<Vec<_>>();
-    let mut wrdrven_trans = wrdrven
-        .transitions(low_threshold, high_threshold)
-        .collect::<VecDeque<_>>();
+        .collect::<Result<Vec<_>>>()?;
+    let we_ib = (0..tb.sram.wmask_width())
+        .map(|i| {
+            data.waveform(&tb.sram_signal_path(TbSignals::WeIb(i)))
+                .ok_or_else(|| anyhow!("Unable to find signal we_ib"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let mut cycle = 0;
+    let [mut wl_trans, mut we_i_trans, mut we_ib_trans] = [&wl, &we_i, &we_ib].map(|wfs| {
+        wfs.iter()
+            .map(|wf| {
+                wf.transitions(low_threshold, high_threshold)
+                    .collect::<VecDeque<_>>()
+            })
+            .collect::<Vec<_>>()
+    });
     for op in tb.ops.iter() {
         cycle += 1;
         let t = cycle as f64 * tb.clk_period;
@@ -61,7 +68,7 @@ pub(crate) fn write_internal_rpt(
             .ok_or_else(|| anyhow!("Time {} was out of simulation range", t))?;
         let mut active_wls = Vec::new();
         for i in 0..tb.sram.rows() {
-            if wl[i].get(idx).unwrap().x() > low_threshold {
+            if wl[i].get(idx).unwrap().x() > high_threshold {
                 writeln!(
                     rpt,
                     "ERROR: wordline {i} is high at beginning of cycle {cycle}"
@@ -80,11 +87,15 @@ pub(crate) fn write_internal_rpt(
                 }
             }
         }
-        while let Some(next) = wrdrven_trans.front() {
-            if next.center_time() < t {
-                wrdrven_trans.pop_front();
-            } else {
-                break;
+        for i in 0..tb.sram.wmask_width() {
+            for we_trans in [&mut we_i_trans[i], &mut we_ib_trans[i]] {
+                while let Some(next) = we_trans.front() {
+                    if next.center_time() < t {
+                        we_trans.pop_front();
+                    } else {
+                        break;
+                    }
+                }
             }
         }
 
@@ -113,12 +124,12 @@ pub(crate) fn write_internal_rpt(
             }
         }
         if matches!(op, Op::Write { .. }) {
-            let check_overlap = || -> Option<_> {
+            let check_overlap = |we_trans: &VecDeque<Transition>| -> Option<_> {
                 let active_wl = active_wls.first()?;
                 let wl_start = wl_trans[*active_wl].get(0)?.center_time();
                 let wl_end = wl_trans[*active_wl].get(1)?.center_time();
-                let wrdrven_start = wrdrven_trans.get(0)?.center_time();
-                let wrdrven_end = wrdrven_trans.get(1)?.center_time();
+                let wrdrven_start = we_trans.get(0)?.center_time();
+                let wrdrven_end = we_trans.get(1)?.center_time();
                 let overlap_start = if wl_start > wrdrven_start {
                     wl_start
                 } else {
@@ -132,11 +143,15 @@ pub(crate) fn write_internal_rpt(
                 let overlap = (overlap_end - overlap_start) * 1e12;
                 Some((overlap, active_wl, overlap_start))
             };
-            if let Some((overlap, active_wl, overlap_start)) = check_overlap() {
-                if overlap < 50. {
-                    writeln!(rpt, "WARNING: overlap between write_driver_en and wordline {active_wl} is less than 50 ps at t = {} ps", overlap_start * 1e12)?;
+            for i in 0..tb.sram.wmask_width() {
+                for we_trans in [&we_i_trans[i], &we_ib_trans[i]] {
+                    if let Some((overlap, active_wl, overlap_start)) = check_overlap(we_trans) {
+                        if overlap < 50. {
+                            writeln!(rpt, "WARNING: overlap between we_i[{i}] and wordline {active_wl} is less than 50 ps at t = {} ps", overlap_start * 1e12)?;
+                        }
+                        writeln!(rpt, "Overlap of {overlap} ps between we_i[{i}] and wordline {active_wl} at t = {} ps", overlap_start * 1e12)?;
+                    }
                 }
-                writeln!(rpt, "Overlap of {overlap} ps between write_driver_en and wordline {active_wl} at t = {} ps", overlap_start * 1e12)?;
             }
         }
     }
@@ -144,13 +159,13 @@ pub(crate) fn write_internal_rpt(
 
     // Assert that decoder replica matches row decoder delay.
     let decrepstart = data
-        .waveform(&format!("{sram_inst_path}.Xcontrol_logic.decrepstart"))
+        .waveform(&tb.sram_signal_path(TbSignals::Decrepstart))
         .ok_or_else(|| anyhow!("Unable to find signal decrepstart"))?;
     let decrepend = data
-        .waveform(&format!("{sram_inst_path}.Xcontrol_logic.decrepend"))
+        .waveform(&tb.sram_signal_path(TbSignals::Decrepend))
         .ok_or_else(|| anyhow!("Unable to find signal decrepend"))?;
     let wlen = data
-        .waveform(&format!("{sram_inst_path}.wl_en"))
+        .waveform(&tb.sram_signal_path(TbSignals::Wlen))
         .ok_or_else(|| anyhow!("Unable to find signal wlen"))?;
     let wl_max = wl
         .iter()
@@ -171,14 +186,12 @@ pub(crate) fn write_internal_rpt(
 
     writeln!(rpt, "DECODER REPLICA")?;
     writeln!(rpt, "==========================")?;
-    for (i, (decrepstart_trans, decrepend_trans, wlen_trans, wl_trans)) in izip!(
+    for (decrepstart_trans, decrepend_trans, wlen_trans, wl_trans) in izip!(
         decrepstart.transitions(low_threshold, high_threshold),
         decrepend.transitions(low_threshold, high_threshold),
         wlen.transitions(low_threshold, high_threshold),
         wl_max.transitions(low_threshold, high_threshold)
-    )
-    .enumerate()
-    {
+    ) {
         let decrep_delay = decrepend_trans.center_time() - decrepstart_trans.center_time();
         let decoder_delay = wl_trans.center_time() - wlen_trans.center_time();
 
@@ -199,16 +212,16 @@ pub(crate) fn write_internal_rpt(
     writeln!(rpt, "PRECHARGE")?;
     writeln!(rpt, "==========================")?;
     let pc_b = data
-        .waveform(&format!("{sram_inst_path}.pc_b"))
+        .waveform(&tb.sram_signal_path(TbSignals::PcB))
         .ok_or_else(|| anyhow!("Unable to find signal pc_b"))?;
     let saen = data
-        .waveform(&format!("{sram_inst_path}.sense_en"))
+        .waveform(&tb.sram_signal_path(TbSignals::SenseEn))
         .ok_or_else(|| anyhow!("Unable to find signal sense_en"))?;
 
     for trans in pc_b.transitions(low_threshold, high_threshold) {
         for idx in [trans.start_idx(), trans.end_idx()] {
             for i in 0..wl.len() {
-                if wl[i].get(idx).unwrap().x() > low_threshold {
+                if wl[i].get(idx).unwrap().x() > high_threshold {
                     writeln!(
                         rpt,
                         "WARNING: wordline {i} high during pc_b transition at t={} ps",
@@ -216,12 +229,21 @@ pub(crate) fn write_internal_rpt(
                     )?;
                 }
             }
-            if wrdrven.get(idx).unwrap().x() > low_threshold {
-                writeln!(
-                    rpt,
-                    "WARNING: write_driver_en high during pc_b transition at t={} ps",
-                    trans.center_time() * 1e12
-                )?;
+            for i in 0..tb.sram.wmask_width() {
+                if we_i[i].get(idx).unwrap().x() > high_threshold {
+                    writeln!(
+                        rpt,
+                        "WARNING: we_i[{i}] high during pc_b transition at t={} ps",
+                        trans.center_time() * 1e12
+                    )?;
+                }
+                if we_ib[i].get(idx).unwrap().x() < low_threshold {
+                    writeln!(
+                        rpt,
+                        "WARNING: we_ib[{i}] low during pc_b transition at t={} ps",
+                        trans.center_time() * 1e12
+                    )?;
+                }
             }
         }
     }
@@ -233,7 +255,7 @@ pub(crate) fn write_internal_rpt(
     {
         for trans in trans {
             for idx in [trans.start_idx(), trans.end_idx()] {
-                if pc_b.get(idx).unwrap().x() < high_threshold {
+                if pc_b.get(idx).unwrap().x() < low_threshold {
                     writeln!(
                         rpt,
                         "WARNING: pc_b low during wl[{i}] transition at t={} ps ",
@@ -243,20 +265,43 @@ pub(crate) fn write_internal_rpt(
             }
         }
     }
-    for trans in wrdrven.transitions(low_threshold, high_threshold) {
-        for idx in [trans.start_idx(), trans.end_idx()] {
-            if pc_b.get(idx).unwrap().x() < high_threshold {
-                writeln!(
-                    rpt,
-                    "WARNING: pc_b low during write_driver_en transition at t={} ps ",
-                    trans.center_time() * 1e12
-                )?;
+    for (i, trans) in we_i
+        .iter()
+        .map(|wf| wf.transitions(low_threshold, high_threshold))
+        .enumerate()
+    {
+        for trans in trans {
+            for idx in [trans.start_idx(), trans.end_idx()] {
+                if pc_b.get(idx).unwrap().x() < low_threshold {
+                    writeln!(
+                        rpt,
+                        "WARNING: pc_b low during we_i[{i}] transition at t={} ps ",
+                        trans.center_time() * 1e12
+                    )?;
+                }
+            }
+        }
+    }
+    for (i, trans) in we_ib
+        .iter()
+        .map(|wf| wf.transitions(low_threshold, high_threshold))
+        .enumerate()
+    {
+        for trans in trans {
+            for idx in [trans.start_idx(), trans.end_idx()] {
+                if pc_b.get(idx).unwrap().x() < low_threshold {
+                    writeln!(
+                        rpt,
+                        "WARNING: pc_b low during we_ib[{i}] transition at t={} ps ",
+                        trans.center_time() * 1e12
+                    )?;
+                }
             }
         }
     }
     for trans in saen.transitions(low_threshold, high_threshold) {
         for idx in [trans.start_idx(), trans.end_idx()] {
-            if trans.dir().is_rising() && pc_b.get(idx).unwrap().x() < high_threshold {
+            if trans.dir().is_rising() && pc_b.get(idx).unwrap().x() < low_threshold {
                 writeln!(
                     rpt,
                     "WARNING: pc_b low during rising sense_en transition at t={} ps ",
@@ -272,13 +317,13 @@ pub(crate) fn write_internal_rpt(
     writeln!(rpt, "==========================")?;
     let bl = (0..tb.sram.cols())
         .map(|i| {
-            data.waveform(&format!("{sram_inst_path}.bl[{i}]"))
+            data.waveform(&tb.sram_signal_path(TbSignals::Bl(i)))
                 .ok_or_else(|| anyhow!("Unable to find signal bl"))
         })
         .collect::<Result<Vec<_>>>()?;
     let br = (0..tb.sram.cols())
         .map(|i| {
-            data.waveform(&format!("{sram_inst_path}.br[{i}]"))
+            data.waveform(&tb.sram_signal_path(TbSignals::Br(i)))
                 .ok_or_else(|| anyhow!("Unable to find signal br"))
         })
         .collect::<Result<Vec<_>>>()?;

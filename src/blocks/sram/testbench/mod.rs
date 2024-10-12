@@ -47,17 +47,82 @@ pub struct TbParams {
     pub pex_netlist: Option<PathBuf>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum TbSignals {
+    Dout(usize),
+    Wlen,
+    Decrepstart,
+    Decrepend,
+    PcB,
+    SenseEn,
+    Rwl,
+    Rbl,
+    WriteDriverEn,
+    Wl(usize),
+    WeI(usize),
+    WeIb(usize),
+    Bl(usize),
+    Br(usize),
+    Q(usize, usize),
+    QB(usize, usize),
+}
+
 impl TbParams {
     #[inline]
     pub fn builder() -> TbParamsBuilder {
         TbParamsBuilder::default()
     }
 
-    pub fn sram_inst_path(&self) -> &str {
-        if self.pex_netlist.is_some() {
-            "Xdut.Xdut.X0"
-        } else {
-            "Xdut.X0"
+    pub fn sram_signal_path(&self, signal: TbSignals) -> String {
+        match signal {
+            TbSignals::Dout(i) => format!("dout[{i}]"),
+            _ => {
+                if self.pex_netlist.is_some() {
+                    format!(
+                        "Xdut.Xdut.{}",
+                        match signal {
+                            TbSignals::Dout(_) => unreachable!(),
+                            TbSignals::Wlen => "N_X0/wl_en_X0/Xaddr_gate/Xgate_0_0_0/X0/Xn1/M0_g".to_string(),
+                            TbSignals::Decrepstart=> "N_X0/Xcontrol_logic/decrepstart_X0/Xcontrol_logic/Xmux_wlen_rst/X0/X21/M0_d".to_string(),
+                            TbSignals::Decrepend => "N_X0/Xcontrol_logic/decrepend_X0/Xcontrol_logic/Xdecoder_replica/Xinv17/X0/X7/M0_s".to_string(),
+                            TbSignals::PcB => "N_X0/pc_b_X0/Xcol_circuitry/Xcol_group_0/Xprecharge_0/Xbl_pull_up/M0_g".to_string(),
+                            TbSignals::SenseEn => "N_X0/sense_en_X0/Xcol_circuitry/Xcol_group_0/Xsense_amp/X0/MSWOP_g".to_string(),
+                            TbSignals::Rwl => "N_X0/rwl_X0/Xcontrol_logic/Xrwl_buf/X0/X41/M0_s".to_string(),
+                            TbSignals::Rbl => "N_X0/rbl_X0/Xcontrol_logic/Xinv_rbl/X0/X0/M0_g".to_string(),
+                            TbSignals::WriteDriverEn => "N_X0/write_driver_en_X0/Xcol_circuitry/Xwmask_and_0/Xgate_0_0_0/Xn1/M0_g".to_string(),
+                            TbSignals::Wl(i) => format!("N_X0/wl[{i}]_X0/Xbitcell_array/Xcell_{i}_0/X0/X2/M0_g"),
+                            TbSignals::WeI(i) => format!("N_X0/Xcol_circuitry/we_i[{i}]_X0/Xcol_circuitry/Xcol_group_{}/Xwrite_driver/Xbrdriver/Xmn_en/M0_g", i * self.sram.wmask_granularity()),
+                            TbSignals::WeIb(i) => format!("N_X0/Xcol_circuitry/we_ib[{i}]_X0/Xcol_circuitry/Xcol_group_{}/Xwrite_driver/Xbrdriver/Xmp_en/M0_g", i * self.sram.wmask_granularity()),
+                            TbSignals::Bl(i) => format!("N_X0/bl[{i}]_X0/Xbitcell_array/Xcell_2_{i}/X0/X2/M0_d"),
+                            TbSignals::Br(i) => format!("N_X0/br[{i}]_X0/Xbitcell_array/Xcell_1_{i}/X0/X0/M0_s"),
+                            TbSignals::Q(i, j) => format!("N_X0/Xbitcell_array/Xcell_{i}_{j}/X0/Q_X0/Xbitcell_array/Xcell_{i}_{j}/X0/X3/M0_s"),
+                            TbSignals::QB(i, j) => format!("N_X0/Xbitcell_array/Xcell_{i}_{j}/X0/QB_X0/Xbitcell_array/Xcell_{i}_{j}/X0/X4/M0_s")
+                        },
+                    )
+                } else {
+                    format!(
+                        "Xdut.X0.{}",
+                        match signal {
+                            TbSignals::Dout(_) => unreachable!(),
+                            TbSignals::Wlen => "wl_en".to_string(),
+                            TbSignals::Decrepstart => "Xcontrol_logic/decrepstart".to_string(),
+                            TbSignals::Decrepend => "Xcontrol_logic/decrepend".to_string(),
+                            TbSignals::PcB => "pc_b".to_string(),
+                            TbSignals::SenseEn => "sense_en".to_string(),
+                            TbSignals::Rwl => "rwl".to_string(),
+                            TbSignals::Rbl => "rbl".to_string(),
+                            TbSignals::WriteDriverEn => "write_driver_en".to_string(),
+                            TbSignals::Wl(i) => format!("wl[{i}]"),
+                            TbSignals::WeI(i) => format!("Xcol_circuitry.we_i[{i}]"),
+                            TbSignals::WeIb(i) => format!("Xcol_circuitry.we_ib[{i}]"),
+                            TbSignals::Bl(i) => format!("bl[{i}]"),
+                            TbSignals::Br(i) => format!("br[{i}]"),
+                            TbSignals::Q(i, j) => format!("Xbitcell_array.Xcell_{i}_{j}.X0.Q"),
+                            TbSignals::QB(i, j) => format!("Xbitcell_array.Xcell_{i}_{j}.X0.QB"),
+                        }
+                    )
+                }
+            }
         }
     }
 }
@@ -584,45 +649,42 @@ impl Testbench for SramTestbench {
                 .unwrap(),
         );
 
-        let sram_inst_path = self.params.sram_inst_path();
-        // let signals = (0..self.params.sram.data_width)
-        //     .map(|i| format!("dout[{i}]"))
-        //     .chain(
-        //         [
-        //             "wl_en",
-        //             "Xcontrol_logic.decrepstart",
-        //             "Xcontrol_logic.decrepend",
-        //             "pc_b",
-        //             "sense_en",
-        //             "rwl",
-        //             "rbl",
-        //             "write_driver_en",
-        //         ]
-        //         .map(|s| format!("{sram_inst_path}.{s}"))
-        //         .into_iter(),
-        //     )
-        //     .chain((0..self.params.sram.rows()).map(|i| format!("{sram_inst_path}.wl[{i}]")))
-        //     .chain(
-        //         (0..self.params.sram.cols())
-        //             .flat_map(|i| ["bl", "br"].map(|name| format!("{sram_inst_path}.{name}[{i}]"))),
-        //     )
-        //     .collect();
-        // ctx.save(Save::Signals(signals));
-        ctx.save(Save::All);
+        let signals = (0..self.params.sram.data_width)
+            .map(|i| TbSignals::Dout(i))
+            .chain([
+                TbSignals::Wlen,
+                TbSignals::Decrepstart,
+                TbSignals::Decrepend,
+                TbSignals::PcB,
+                TbSignals::SenseEn,
+                TbSignals::Rwl,
+                TbSignals::Rbl,
+                TbSignals::WriteDriverEn,
+            ])
+            .chain((0..self.params.sram.rows()).map(|i| TbSignals::Wl(i)))
+            .chain(
+                (0..self.params.sram.wmask_width())
+                    .flat_map(|i| [TbSignals::WeI(i), TbSignals::WeIb(i)]),
+            )
+            .chain((0..self.params.sram.cols()).flat_map(|i| [TbSignals::Bl(i), TbSignals::Br(i)]))
+            .map(|signal| self.params.sram_signal_path(signal))
+            .collect();
+        ctx.save(Save::Signals(signals));
+        // ctx.save(Save::All);
 
         let vdd = SiValue::with_precision(self.params.vdd, SiPrefix::Nano);
 
         for i in 0..self.params.sram.rows() {
-            ctx.set_ic(format!("{sram_inst_path}.wl[{i}]"), SiValue::zero());
+            ctx.set_ic(
+                self.params.sram_signal_path(TbSignals::Wl(i)),
+                SiValue::zero(),
+            );
             for j in 0..self.params.sram.cols() {
                 ctx.set_ic(
-                    format!("{sram_inst_path}.Xbitcell_array.Xcell_{i}_{j}.X0.Q"),
+                    self.params.sram_signal_path(TbSignals::Q(i, j)),
                     SiValue::zero(),
                 );
-                ctx.set_ic(
-                    format!("{sram_inst_path}.Xbitcell_array.Xcell_{i}_{j}.X0.QB"),
-                    vdd,
-                );
+                ctx.set_ic(self.params.sram_signal_path(TbSignals::QB(i, j)), vdd);
             }
         }
         Ok(())
