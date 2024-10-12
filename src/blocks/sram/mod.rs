@@ -216,7 +216,7 @@ impl Script for SramPhysicalDesignScript {
         params: &Self::Params,
         ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self::Output> {
-        let wl_cap = (params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL * 2.5; // 2.5 as a factor of safety
+        let wl_cap = (params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL * 1.5; // Safety factor.
         let col_params = params.col_params();
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
         let rbl_rows = ((params.rows() / 12) + 1) * 2;
@@ -643,9 +643,9 @@ pub(crate) mod tests {
                 let ctx = setup_ctx();
                 let work_dir = test_work_dir(stringify!($name));
 
-                // let spice_path = out_spice(&work_dir, "schematic");
-                // ctx.write_schematic_to_file::<Sram>(&$params, &spice_path)
-                //     .expect("failed to write schematic");
+                let spice_path = out_spice(&work_dir, "schematic");
+                ctx.write_schematic_to_file::<Sram>(&$params, &spice_path)
+                    .expect("failed to write schematic");
 
                 let gds_path = out_gds(&work_dir, "layout");
                 ctx.write_layout::<Sram>(&$params, &gds_path)
