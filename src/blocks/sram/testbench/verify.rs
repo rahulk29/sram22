@@ -357,7 +357,9 @@ pub(crate) fn verify_simulation(
     let mut state = HashMap::new();
     let data_bits_per_wmask = tb.sram.data_width / tb.sram.wmask_width();
 
-    write_internal_rpt(work_dir, data, tb)?;
+    if let Err(e) = write_internal_rpt(work_dir, data, tb) {
+        println!("ERROR: Failed to write internal report ({:?})", e);
+    }
 
     // Clock cycle counter
     // Initialized to 1 instead of 0,
