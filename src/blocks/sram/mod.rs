@@ -663,9 +663,9 @@ pub(crate) mod tests {
                 ctx.write_layout::<Sram>(&$params, &gds_path)
                     .expect("failed to write layout");
 
-                // let verilog_path = out_verilog(&work_dir, &*$params.name());
-                // save_1rw_verilog(&verilog_path,&*$params.name(), &$params)
-                //     .expect("failed to write behavioral model");
+                let verilog_path = out_verilog(&work_dir, &*$params.name());
+                save_1rw_verilog(&verilog_path,&*$params.name(), &$params)
+                    .expect("failed to write behavioral model");
 
                 #[cfg(feature = "commercial")]
                 {
