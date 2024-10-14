@@ -26,7 +26,6 @@ use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
 use super::precharge::layout::ReplicaPrechargeParams;
 use crate::blocks::columns::layout::DffArray;
 use crate::blocks::decoder::DecoderStage;
-use crate::blocks::sram::testbench::verify::verify_simulation;
 use crate::blocks::tgatemux::TGateMuxParams;
 
 pub mod layout;
@@ -594,6 +593,7 @@ pub(crate) mod tests {
 
     use self::testbench::TestSequence;
     use self::verilog::save_1rw_verilog;
+    use crate::blocks::sram::testbench::verify::verify_simulation;
     use crate::paths::*;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
@@ -706,7 +706,7 @@ pub(crate) mod tests {
                         for corner in corners.corners().take(1) {
                             let corner = corner.clone();
                             let params = $params.clone();
-                            let pex_netlist = Some(pex_netlist_path.clone());
+                            let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
                             let work_dir = work_dir.clone();
                             handles.push(std::thread::spawn(move || {
                                 let ctx = setup_ctx();

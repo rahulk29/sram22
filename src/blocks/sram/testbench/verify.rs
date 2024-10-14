@@ -3,19 +3,16 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-use approx::{assert_relative_eq, relative_eq};
 use itertools::izip;
 use substrate::verification::simulation::bits::{to_bit, BitSignal};
-use substrate::verification::simulation::waveform::{
-    EdgeDir, SharedWaveform, TimeWaveform, Transition, Transitions, Waveform,
-};
+use substrate::verification::simulation::waveform::{TimeWaveform, Transition, Waveform};
 use substrate::verification::simulation::TranData;
 
 use super::{Op, TbParams, TbSignals};
 use anyhow::{anyhow, bail, Result};
 
 /// Reports relevant behavior of internal signals for diagnostic purposes.
-pub(crate) fn write_internal_rpt(
+pub fn write_internal_rpt(
     work_dir: impl AsRef<Path>,
     data: &TranData,
     tb: &TbParams,
@@ -135,7 +132,7 @@ pub(crate) fn write_internal_rpt(
                 } else {
                     wrdrven_start
                 };
-                let overlap_end = if wl_end > wrdrven_end {
+                let overlap_end = if wl_end < wrdrven_end {
                     wl_end
                 } else {
                     wrdrven_end
@@ -349,11 +346,7 @@ pub(crate) fn write_internal_rpt(
     Ok(())
 }
 
-pub(crate) fn verify_simulation(
-    work_dir: impl AsRef<Path>,
-    data: &TranData,
-    tb: &TbParams,
-) -> Result<()> {
+pub fn verify_simulation(work_dir: impl AsRef<Path>, data: &TranData, tb: &TbParams) -> Result<()> {
     let mut state = HashMap::new();
     let data_bits_per_wmask = tb.sram.data_width / tb.sram.wmask_width();
 

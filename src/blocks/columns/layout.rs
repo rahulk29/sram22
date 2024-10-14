@@ -1175,7 +1175,7 @@ pub struct TappedColumn {
 impl Component for TappedColumn {
     type Params = ColParams;
 
-    fn new(params: &Self::Params, ctx: &SubstrateCtx) -> Result<Self>
+    fn new(params: &Self::Params, _ctx: &SubstrateCtx) -> Result<Self>
     where
         Self: Sized,
     {

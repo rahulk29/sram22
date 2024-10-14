@@ -9,7 +9,7 @@ use super::decoder::{DecoderPhysicalDesignParams, DecoderStageParams, DecoderSty
 use super::gate::sizing::InverterGateTreeNode;
 use super::gate::{GateParams, PrimitiveGateParams, PrimitiveGateType};
 use super::precharge::PrechargeParams;
-use super::sram::schematic::{buffer_chain_num_stages, inverter_chain_num_stages};
+use super::sram::schematic::buffer_chain_num_stages;
 use super::tgatemux::TGateMuxParams;
 use super::wrdriver::WriteDriverParams;
 use serde::{Deserialize, Serialize};

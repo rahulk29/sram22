@@ -33,18 +33,8 @@ impl SramInner {
 
         let [addr_in, addr_in_b] = ctx.buses(["addr_in", "addr_in_b"], self.params.addr_width());
 
-        let [addr_gated0, addr_gated, addr_gated_b, addr_b_gated0, addr_b_gated, addr_b_gated_b] =
-            ctx.buses(
-                [
-                    "addr_gated0",
-                    "addr_gated",
-                    "addr_gated_b",
-                    "addr_b_gated0",
-                    "addr_b_gated",
-                    "addr_b_gated_b",
-                ],
-                self.params.row_bits(),
-            );
+        let [addr_gated, addr_b_gated] =
+            ctx.buses(["addr_gated", "addr_b_gated"], self.params.row_bits());
         let addr_gate_y_b_noconn = ctx.bus("addr_gate_y_b_noconn", 2 * self.params.row_bits());
 
         let bl = ctx.bus("bl", self.params.cols());

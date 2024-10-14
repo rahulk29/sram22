@@ -629,7 +629,6 @@ pub struct PhysicalDesign {
     pub(crate) v_line: i64,
     pub(crate) v_space: i64,
     pub(crate) m0: LayerKey,
-    pub(crate) grid: i64,
     pub(crate) tap_width: i64,
 }
 
@@ -683,7 +682,6 @@ impl Script for PhysicalDesignScript {
             v_space: 140,
             in_tracks,
             out_tracks,
-            grid: 5,
             tap_width: 1_300,
             m0,
         })
