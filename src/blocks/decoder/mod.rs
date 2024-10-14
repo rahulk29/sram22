@@ -234,7 +234,12 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
         .rev()
         .map(|v| {
             let v = lp.value(*v);
-            f64::max(v, 0.8)
+            if v < 0.8 {
+                println!("warning: rounding gate to min size");
+                0.8
+            } else {
+                v
+            }
         })
         .collect::<Vec<_>>();
     values.push(1.);
@@ -403,6 +408,16 @@ impl TreeNode {
             .unwrap_or(0.0);
 
         delay
+    }
+
+    pub fn max_depth(&self) -> usize {
+        self.gate.primitive_gates().len()
+            + self
+                .children
+                .iter()
+                .map(|c| c.max_depth())
+                .max()
+                .unwrap_or_default()
     }
 }
 
