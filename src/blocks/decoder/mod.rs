@@ -234,7 +234,12 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
         .rev()
         .map(|v| {
             let v = lp.value(*v);
-            f64::max(v, 0.8)
+            if v < 0.8 {
+                println!("warning: rounding gate to min size");
+                0.8
+            } else {
+                v
+            }
         })
         .collect::<Vec<_>>();
     values.push(1.);
