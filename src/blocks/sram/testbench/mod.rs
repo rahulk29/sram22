@@ -775,7 +775,7 @@ impl Testbench for SramTestbench {
             )
             .chain((0..self.params.sram.cols()).flat_map(|i| [TbSignals::Bl(i), TbSignals::Br(i)]))
             .map(|signal| self.params.sram_signal_path(signal))
-            .collect();
+            .collect::<Vec<_>>();
         // ctx.save(Save::Signals(signals));
         ctx.save(Save::All);
 
