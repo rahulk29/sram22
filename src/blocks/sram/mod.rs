@@ -735,7 +735,7 @@ pub(crate) mod tests {
                                     corner.clone(),
                                 )
                                 .expect("failed to run simulation");
-                                verify_simulation(&work_dir, &data, &tb).expect("failed to verify simulation");
+                                verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
                                 println!(
                                     "Simulated corner {} with Vdd = {}, seq = {}",
                                     corner.name(),
