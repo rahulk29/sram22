@@ -409,6 +409,16 @@ impl TreeNode {
 
         delay
     }
+
+    pub fn max_depth(&self) -> usize {
+        self.gate.primitive_gates().len()
+            + self
+                .children
+                .iter()
+                .map(|c| c.max_depth())
+                .max()
+                .unwrap_or_default()
+    }
 }
 
 impl PlanTreeNode {

@@ -115,7 +115,10 @@ impl ControlLogicReplicaV2 {
             ("inv_rbl", &inv),
             ("clkp_delay", &ctx.instantiate::<InvChain>(&3)?),
             ("clkpd_inv", &inv),
-            ("clkpd_delay", &ctx.instantiate::<InvChain>(&11)?),
+            (
+                "clkpd_delay",
+                &ctx.instantiate::<InvChain>(&self.params.write_driver_delay_invs)?,
+            ),
             ("mux_wlen_rst", &mux2),
             ("decoder_replica_delay", &ctx.instantiate::<InvChain>(&6)?),
             ("wl_ctl", &sr_latch),

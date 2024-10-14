@@ -14,6 +14,7 @@ pub struct ControlLogicReplicaV2 {
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct ControlLogicParams {
     pub decoder_delay_invs: usize,
+    pub write_driver_delay_invs: usize,
 }
 
 impl Component for ControlLogicReplicaV2 {
@@ -22,6 +23,11 @@ impl Component for ControlLogicReplicaV2 {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
+        assert_eq!(
+            params.write_driver_delay_invs % 2,
+            1,
+            "write driver delay chain must have an odd number of inverters"
+        );
         Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
@@ -140,6 +146,7 @@ pub mod test {
 
     const CONTROL_LOGIC_PARAMS: ControlLogicParams = ControlLogicParams {
         decoder_delay_invs: 20,
+        write_driver_delay_invs: 11,
     };
 
     #[test]
