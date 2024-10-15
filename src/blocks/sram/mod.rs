@@ -1,4 +1,5 @@
 use self::schematic::fanout_buffer_stage;
+use crate::blocks::columns::ColumnsPhysicalDesignScript;
 use crate::blocks::control::ControlLogicParams;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -279,6 +280,22 @@ impl Script for SramPhysicalDesignScript {
             max_width: None,
             ..fanout_buffer_stage(horiz_buffer, wrdrven_cap)
         };
+
+        // Add inverters to pc_b buffer to equalize wrdrven and pc_b delay.
+        let col_dsn = ctx.run_script::<ColumnsPhysicalDesignScript>(&col_params)?;
+        let pc_b_delay_invs = ((1.1
+            * (f64::max(
+                col_dsn.nand.time_constant(col_dsn.cl_max)
+                    + write_driver_en_buffer.time_constant(wrdrven_cap),
+                sense_en_buffer.time_constant(saen_cap),
+            ) - pc_b_buffer.time_constant(pc_b_cap))
+            / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)))
+            / 2.0)
+            .round() as usize
+            * 2;
+        let mut new_invs = vec![pc_b_buffer.gate.first_gate_sizing(); pc_b_delay_invs];
+        new_invs.extend(pc_b_buffer.invs.drain(..));
+        pc_b_buffer.invs = new_invs;
 
         let col_dec_inst = ctx.instantiate_layout::<Decoder>(&col_decoder)?;
         let pc_b_buffer_inst = ctx.instantiate_layout::<DecoderStage>(&pc_b_buffer)?;

@@ -458,6 +458,29 @@ impl PlanTreeNode {
     }
 }
 
+impl DecoderStageParams {
+    pub fn time_constant(&self, cl: f64) -> f64 {
+        let mut delay = 0.0;
+        let mut gates = self.gate.primitive_gates();
+        gates.extend(self.invs.iter().map(|inv| (PrimitiveGateType::Inv, *inv)));
+        for (i, (gt, params)) in gates.iter().enumerate() {
+            let model = primitive_gate_model(*gt);
+            let scale = params.nwidth as f64 / (primitive_gate_params(*gt).nwidth as f64);
+            let cin_next = if i == gates.len() - 1 {
+                cl
+            } else {
+                let (ngt, nparams) = gates[i + 1];
+                let model = primitive_gate_model(ngt);
+                let nscale = nparams.nwidth as f64 / (primitive_gate_params(ngt).nwidth as f64);
+                nscale * model.cin
+            };
+            delay += model.res / scale * (model.cout * scale + cin_next);
+        }
+
+        delay
+    }
+}
+
 impl Component for Decoder {
     type Params = DecoderParams;
     fn new(

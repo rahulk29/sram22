@@ -359,6 +359,7 @@ impl WmaskPeripherals {
         let ColumnsPhysicalDesign {
             wmask_unit_width,
             nand,
+            ..
         } = &*ctx
             .inner()
             .run_script::<ColumnsPhysicalDesignScript>(&self.params)?;
