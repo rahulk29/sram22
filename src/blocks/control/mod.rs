@@ -105,6 +105,37 @@ impl Component for InvChain {
     }
 }
 
+pub struct SvtInvChain {
+    n: usize,
+}
+
+impl Component for SvtInvChain {
+    type Params = usize;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        let n = *params;
+        assert!(n >= 1, "inverter chain must have at least one inverter");
+        Ok(Self { n })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        ArcStr::from(format!("svt_inv_chain_{}", self.n))
+    }
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        self.schematic(ctx)
+    }
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        self.layout(ctx)
+    }
+}
+
 pub struct EdgeDetector {
     invs: usize,
 }

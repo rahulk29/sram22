@@ -29,6 +29,24 @@ fn layout_path(_ctx: &SubstrateCtx, name: &str, view: View) -> Option<PathBuf> {
 }
 
 #[hard_macro(
+    name = "sramgen_svt_inv_2",
+    pdk = "sky130-open",
+    path_fn = "path",
+    gds_cell_name = "sramgen_svt_inv_2",
+    spice_subckt_name = "sramgen_svt_inv_2"
+)]
+pub struct SvtInv2;
+
+#[hard_macro(
+    name = "sramgen_svt_inv_4",
+    pdk = "sky130-open",
+    path_fn = "path",
+    gds_cell_name = "sramgen_svt_inv_4",
+    spice_subckt_name = "sramgen_svt_inv_4"
+)]
+pub struct SvtInv4;
+
+#[hard_macro(
     name = "sram_sp_cell",
     pdk = "sky130-open",
     path_fn = "path",

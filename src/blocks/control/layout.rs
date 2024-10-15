@@ -20,7 +20,9 @@ use substrate::layout::routing::tracks::TrackLocator;
 use substrate::layout::Draw;
 use substrate::pdk::stdcell::StdCell;
 
-use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch};
+use crate::blocks::macros::{SvtInv2, SvtInv4};
+
+use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch, SvtInvChain};
 use subgeom::transform::Translate;
 use subgeom::{Corner, Dir, Point, Rect, Side, Span};
 
@@ -154,7 +156,7 @@ impl ControlLogicReplicaV2 {
             create_row(&[
                 (
                     "decoder_replica",
-                    &ctx.instantiate::<InvChain>(&self.params.decoder_delay_invs)?,
+                    &ctx.instantiate::<SvtInvChain>(&self.params.decoder_delay_invs)?,
                 ),
                 ("pc_ctl", &sr_latch),
             ])?,
@@ -1407,6 +1409,96 @@ impl InvChain {
         let inv = ctx.instantiate::<StdCell>(&inv.id())?;
         let inv_end = lib.try_cell_named("sky130_fd_sc_hs__inv_4")?;
         let inv_end = ctx.instantiate::<StdCell>(&inv_end.id())?;
+        let tap = lib.try_cell_named("sky130_fd_sc_hs__tap_2")?;
+        let tap = ctx.instantiate::<StdCell>(&tap.id())?;
+
+        let layers = ctx.layers();
+        let m0 = layers.get(Selector::Metal(0))?;
+        let outline = layers.get(Selector::Name("outline"))?;
+
+        let mut row = new_row();
+        let group_size = 8;
+        let num_groups = self.n.div_ceil(group_size);
+        for i in 0..num_groups {
+            if i == num_groups - 1 {
+                let rem = self.n - (num_groups - 1) * group_size;
+                row.push_num(
+                    LayerBbox::new(inv.clone(), outline),
+                    rem.checked_sub(1).unwrap(),
+                );
+                row.push(LayerBbox::new(inv_end.clone(), outline));
+            } else {
+                row.push_num(LayerBbox::new(inv.clone(), outline), group_size);
+                row.push(LayerBbox::new(tap.clone(), outline));
+            }
+        }
+        let mut row = row.build();
+        row.expose_ports(
+            |port: CellPort, i| {
+                if i % (group_size + 1) < group_size {
+                    Some(port.with_index(i / (group_size + 1) * group_size + i % (group_size + 1)))
+                } else {
+                    None
+                }
+            },
+            PortConflictStrategy::Error,
+        )?;
+
+        for i in 0..self.n - 1 {
+            let y = row.port_map().port(PortId::new("y", i))?.largest_rect(m0)?;
+            let a = row
+                .port_map()
+                .port(PortId::new("a", i + 1))?
+                .largest_rect(m0)?;
+            ctx.draw_rect(
+                m0,
+                Rect::from_spans(
+                    a.hspan().union(y.hspan()),
+                    Span::from_center_span_gridded(a.center().y, 170, 10),
+                ),
+            );
+        }
+        ctx.add_port(
+            row.port_map()
+                .port(PortId::new("a", 0))?
+                .clone()
+                .with_id("din"),
+        )?;
+        ctx.add_port(
+            row.port_map()
+                .port(PortId::new("y", self.n - 1))?
+                .clone()
+                .with_id("dout"),
+        )?;
+        for i in 0..self.n {
+            ctx.merge_port(
+                row.port_map()
+                    .port(PortId::new("vpwr", i))?
+                    .clone()
+                    .with_id("vdd"),
+            );
+            ctx.merge_port(
+                row.port_map()
+                    .port(PortId::new("vgnd", i))?
+                    .clone()
+                    .with_id("vss"),
+            );
+        }
+
+        ctx.draw(row)?;
+        Ok(())
+    }
+}
+
+impl SvtInvChain {
+    pub(crate) fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let stdcells = ctx.inner().std_cell_db();
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+        let inv = ctx.instantiate::<SvtInv2>(&NoParams)?;
+        let inv_end = ctx.instantiate::<SvtInv4>(&NoParams)?;
         let tap = lib.try_cell_named("sky130_fd_sc_hs__tap_2")?;
         let tap = ctx.instantiate::<StdCell>(&tap.id())?;
 

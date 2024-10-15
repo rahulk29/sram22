@@ -4,7 +4,9 @@ use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
-use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch};
+use crate::blocks::macros::{SvtInv2, SvtInv4};
+
+use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch, SvtInvChain};
 
 impl ControlLogicReplicaV2 {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
@@ -153,7 +155,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("mux_wlen_rst")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&self.params.decoder_delay_invs)?
+        ctx.instantiate::<SvtInvChain>(&self.params.decoder_delay_invs)?
             .with_connections([
                 ("din", decrepstart),
                 ("dout", decrepend),
@@ -445,6 +447,34 @@ impl InvChain {
             } else {
                 inv.id()
             })?
+            .with_connections([
+                ("A", if i == 0 { din } else { x.index(i - 1) }),
+                ("Y", if i == self.n - 1 { dout } else { x.index(i) }),
+                ("VPWR", vdd),
+                ("VPB", vdd),
+                ("VGND", vss),
+                ("VNB", vss),
+            ])
+            .named(format!("inv{i}"))
+            .add_to(ctx);
+        }
+        Ok(())
+    }
+}
+
+impl SvtInvChain {
+    pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
+        let din = ctx.port("din", Direction::Input);
+        let dout = ctx.port("dout", Direction::Output);
+        let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
+        let x = ctx.bus("x", self.n - 1);
+
+        for i in 0..self.n {
+            if i == self.n - 1 {
+                ctx.instantiate::<SvtInv4>(&NoParams)?
+            } else {
+                ctx.instantiate::<SvtInv2>(&NoParams)?
+            }
             .with_connections([
                 ("A", if i == 0 { din } else { x.index(i - 1) }),
                 ("Y", if i == self.n - 1 { dout } else { x.index(i) }),
