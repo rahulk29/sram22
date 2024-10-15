@@ -15,7 +15,7 @@
 * SPDX-License-Identifier: Apache-2.0
 
 
-.subckt sky130_fd_sc_hs__inv_4 A VGND VNB VPB VPWR Y
+.subckt sramgen_svt_inv_4 A VGND VNB VPB VPWR Y
 X0 VGND A Y VNB sky130_fd_pr__nfet_01v8 w=740000u l=150000u
 X1 VPWR A Y VPB sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
 X2 VPWR A Y VPB sky130_fd_pr__pfet_01v8 w=1.12 l=150000u
