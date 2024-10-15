@@ -353,7 +353,6 @@ impl Component for TappedGate {
                 li,
                 line: 320,
                 space: 160,
-                rail_width: 320,
                 abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
             },
         };

@@ -9,7 +9,7 @@ use substrate::error::Result;
 use substrate::index::IndexOwned;
 use substrate::layout::cell::{CellPort, Instance, Port, PortConflictStrategy, PortId};
 use substrate::layout::context::LayoutCtx;
-use substrate::layout::elements::via::{Via, ViaParams};
+use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::{LayerBoundBox, LayerKey};
 use substrate::layout::placement::align::{AlignMode, AlignRect};
@@ -119,6 +119,7 @@ pub(crate) fn draw_via(
         &ViaParams::builder()
             .layers(layer1, layer2)
             .geometry(rect1, rect2)
+            .expand(ViaExpansion::LongerDirection)
             .build(),
     )?;
     ctx.draw_ref(&via)?;
@@ -407,13 +408,13 @@ impl SramInner {
                 m1,
                 inst.brect()
                     .expand_dir(Dir::Vert, 6_000)
-                    .expand_dir(Dir::Horiz, 1_000),
+                    .expand_dir(Dir::Horiz, 140),
             );
             router.block(
                 m2,
                 inst.brect()
                     .expand_dir(Dir::Horiz, 6_000)
-                    .expand_dir(Dir::Vert, 1_000),
+                    .expand_dir(Dir::Vert, 140),
             );
         }
 
@@ -543,25 +544,17 @@ impl SramInner {
         // Route wordline driver to bitcell array
         for i in 0..self.params.rows() {
             let src = decoder.port(PortId::new("y", i))?.largest_rect(m0)?;
-            let src = src.with_hspan(Span::with_stop_and_length(src.right(), 170));
+            let src = src.with_hspan(Span::with_stop_and_length(src.right(), 1_200));
             let dst = bitcells.port(PortId::new("wl", i))?.largest_rect(m2)?;
-            let jog = SJog::builder()
-                .src(src)
-                .dst(dst)
-                .dir(Dir::Horiz)
-                .layer(m2)
-                .width(170)
-                .l1(0)
-                .grid(ctx.pdk().layout_grid())
-                .build()
-                .unwrap();
-            let jog_group = jog.draw()?;
-            router.block(m2, jog_group.bbox().into_rect());
-            ctx.draw(jog_group)?;
             let via = draw_via(m0, src, m1, src, ctx)?;
             router.block(m1, via.bbox().into_rect());
             let via = draw_via(m1, src, m2, src, ctx)?;
             router.block(m1, via.bbox().into_rect());
+            let m2_rect_a = via.layer_bbox(m2).into_rect();
+            let m2_rect_a = m2_rect_a.with_vspan(m2_rect_a.vspan().union(dst.vspan()));
+            let m2_rect_b = dst.with_hspan(m2_rect_a.hspan().union(dst.hspan()));
+            draw_rect(m2, m2_rect_a, &mut router, ctx);
+            draw_rect(m2, m2_rect_b, &mut router, ctx);
         }
 
         // Route column decoders to mux.

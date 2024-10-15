@@ -584,8 +584,6 @@ pub struct DecoderPhysicalDesign {
     pub(crate) line: i64,
     /// Spacing between wires in bus.
     pub(crate) space: i64,
-    /// Width of power rail.
-    pub(crate) rail_width: i64,
     /// Layers that should be extended to the edge of decoder gates and tap cells.
     pub(crate) abut_layers: HashSet<LayerKey>,
 }
@@ -626,7 +624,6 @@ impl Script for DecoderPhysicalDesignScript {
             li,
             line: 320,
             space: 160,
-            rail_width: 320,
             abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
         })
     }

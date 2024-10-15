@@ -12,7 +12,7 @@ use subgeom::orientation::Named;
 use subgeom::{Corner, Dir, Point, Rect, Side, Sign, Span};
 use substrate::layout::cell::{CellPort, Element, Flatten, Port, PortConflictStrategy, PortId};
 use substrate::layout::context::LayoutCtx;
-use substrate::layout::elements::via::{Via, ViaParams};
+use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::group::elements::ElementGroup;
 use substrate::layout::DrawRef;
 
@@ -570,6 +570,30 @@ pub struct DecoderGateSpans {
     met_to_diff: HashMap<Span, (String, Span)>,
 }
 
+/// Returns a set of spans to place straps, given a NSDM or PSDM span.
+pub(crate) fn span_to_straps(span: Span, line: i64, space: i64, grid: i64) -> Vec<Span> {
+    let big_power_strap_width = 4 * (line + space);
+    if span.length() > 2 * big_power_strap_width {
+        let num_straps = span.length() / 2 / big_power_strap_width;
+
+        (0..num_straps)
+            .map(|i| {
+                Span::from_center_span_gridded(
+                    span.start() + big_power_strap_width * (2 * i + 1),
+                    big_power_strap_width / grid * grid,
+                    grid,
+                )
+            })
+            .collect()
+    } else {
+        vec![Span::from_center_span_gridded(
+            span.center(),
+            std::cmp::max(span.length() / 4 / grid * 2 * grid, line),
+            grid,
+        )]
+    }
+}
+
 impl Component for DecoderGate {
     type Params = DecoderGateParams;
     fn new(
@@ -635,32 +659,29 @@ impl Component for DecoderGate {
         via_metals.push(dsn.stripe_metal);
 
         for (span, port_name) in spans {
-            let vspan = Span::from_center_span_gridded(
-                span.center(),
-                dsn.rail_width,
-                ctx.pdk().layout_grid(),
-            );
-            met_to_diff.insert(vspan, (port_name.to_string(), span));
-            let rect = Rect::from_spans(hspan, vspan);
-            ctx.draw_rect(dsn.stripe_metal, rect);
-            ctx.merge_port(CellPort::with_shape(port_name, dsn.stripe_metal, rect));
-            abutted_layers
-                .entry(dsn.stripe_metal)
-                .or_insert(Vec::new())
-                .push(rect.vspan());
-            if !self.params.filler {
-                for port_rect in gate
-                    .port(port_name)?
-                    .shapes(dsn.li)
-                    .filter_map(|shape| shape.as_rect())
-                {
-                    let intersection = rect.intersection(port_rect.bbox());
-                    if !intersection.is_empty() {
-                        let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
-                            rect: intersection.into_rect(),
-                            via_metals: via_metals.clone(),
-                        })?;
-                        ctx.draw(via)?;
+            for vspan in span_to_straps(span, dsn.line, dsn.space, ctx.pdk().layout_grid()) {
+                met_to_diff.insert(vspan, (port_name.to_string(), span));
+                let rect = Rect::from_spans(hspan, vspan);
+                ctx.draw_rect(dsn.stripe_metal, rect);
+                ctx.merge_port(CellPort::with_shape(port_name, dsn.stripe_metal, rect));
+                abutted_layers
+                    .entry(dsn.stripe_metal)
+                    .or_insert(Vec::new())
+                    .push(rect.vspan());
+                if !self.params.filler {
+                    for port_rect in gate
+                        .port(port_name)?
+                        .shapes(dsn.li)
+                        .filter_map(|shape| shape.as_rect())
+                    {
+                        let intersection = rect.intersection(port_rect.bbox());
+                        if !intersection.is_empty() {
+                            let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
+                                rect: intersection.into_rect(),
+                                via_metals: via_metals.clone(),
+                            })?;
+                            ctx.draw(via)?;
+                        }
                     }
                 }
             }
@@ -816,6 +837,7 @@ impl Component for DecoderVia {
             let viap = ViaParams::builder()
                 .layers(prev_layer, *metal)
                 .geometry(rect, rect)
+                .expand(ViaExpansion::LongerDirection)
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;
             ctx.draw_ref(&via)?;
