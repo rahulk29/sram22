@@ -136,8 +136,9 @@ impl Component for Column {
 pub struct ColumnsPhysicalDesignScript;
 
 pub struct ColumnsPhysicalDesign {
-    wmask_unit_width: i64,
-    nand: DecoderStageParams,
+    pub cl_max: f64,
+    pub wmask_unit_width: i64,
+    pub nand: DecoderStageParams,
 }
 
 impl Script for ColumnsPhysicalDesignScript {
@@ -172,6 +173,7 @@ impl Script for ColumnsPhysicalDesignScript {
         wmask_buffer_gates.push(wmask_buffer_gates.last().unwrap().clone());
 
         Ok(ColumnsPhysicalDesign {
+            cl_max,
             wmask_unit_width,
             nand: DecoderStageParams {
                 pd: DecoderPhysicalDesignParams {
