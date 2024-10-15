@@ -273,6 +273,7 @@ impl SramInner {
         // Need enough vertical tracks to route outputs to decoder.
         addr_gate.align_to_the_left_of(decoder.bbox(), 700 + 1_400 * self.params.row_bits() as i64);
         wlen_buffer.align_right(addr_gate.bbox());
+        wlen_buffer.translate(Point::new(-2_000, 0));
         wlen_buffer.align_bottom(decoder.bbox());
         addr_gate.align_above(wlen_buffer.bbox(), 2_000);
 
@@ -955,6 +956,7 @@ impl SramInner {
                     addr_gate
                         .bbox()
                         .union(rbl.brect().expand_side(Side::Left, 6_000).bbox())
+                        .union(wlen_buffer.brect().bbox())
                         .into_rect()
                         .left()
                         - 140,
@@ -1114,19 +1116,22 @@ impl SramInner {
             }
         }
 
-        // Connect decoders and DFFs to power straps.
-        for (inst, layer) in [
-            (&decoder, m1),
-            (&addr_gate, m2),
-            (&col_dec, m2),
-            (&dffs, m2),
-            (&control, m1),
+        // Connect m1 power straps to grid.
+        for inst in [
+            &decoder,
+            &addr_gate,
+            &col_dec,
+            &dffs,
+            &control,
+            &pc_b_buffer,
+            &sense_en_buffer,
+            &write_driver_en_buffer,
         ] {
             for port_name in ["vdd", "vss"] {
-                for port in inst.port(port_name)?.shapes(layer) {
+                for port in inst.port(port_name)?.shapes(m1) {
                     if let Shape::Rect(rect) = port {
                         straps.add_target(
-                            layer,
+                            m1,
                             Target::new(
                                 match port_name {
                                     "vdd" => SingleSupplyNet::Vdd,
@@ -1141,10 +1146,29 @@ impl SramInner {
             }
         }
 
-        // Connect replica precharge to power straps.
-        for port in replica_pc.port("vdd")?.shapes(m2) {
-            if let Shape::Rect(rect) = port {
-                straps.add_target(m2, Target::new(SingleSupplyNet::Vdd, rect));
+        // Connect m2 power straps to grid.
+        for (inst, port_names) in [
+            (&wlen_buffer, vec!["vdd", "vss"]),
+            (&replica_pc, vec!["vdd"]),
+        ] {
+            for port_name in port_names {
+                for port in inst.port(port_name)?.shapes(m2) {
+                    if let Shape::Rect(rect) = port {
+                        let rect = rect.expand_dir(Dir::Horiz, 2_000);
+                        draw_rect(m2, rect, &mut router, ctx);
+                        straps.add_target(
+                            m2,
+                            Target::new(
+                                match port_name {
+                                    "vdd" => SingleSupplyNet::Vdd,
+                                    "vss" => SingleSupplyNet::Vss,
+                                    _ => unreachable!(),
+                                },
+                                rect,
+                            ),
+                        );
+                    }
+                }
             }
         }
 

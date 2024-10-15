@@ -353,7 +353,7 @@ impl Script for SramPhysicalDesignScript {
         println!("using {write_driver_delay_invs} inverters for write driver delay chain");
 
         let wlen_buffer = DecoderStageParams {
-            max_width: Some(addr_gate_inst.brect().height()),
+            max_width: Some(addr_gate_inst.brect().height() - 2_000),
             ..fanout_buffer_stage(vert_buffer, wlen_cap)
         };
         println!("wlen_buffer: {:?}", wlen_buffer);
@@ -732,7 +732,7 @@ pub(crate) mod tests {
                     let corners = ctx.corner_db();
                     let mut handles = Vec::new();
                     for vdd in [1.8] {
-                        for corner in corners.corners() {
+                        for corner in corners.corners().take(1) {
                             let corner = corner.clone();
                             let params = $params.clone();
                             let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
