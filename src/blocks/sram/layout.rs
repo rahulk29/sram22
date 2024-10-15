@@ -839,9 +839,9 @@ impl SramInner {
         )?;
 
         // Route sense_en and write_driver_en.
-        let m1_sense_en_track_idx =
+        let m1_write_driver_en_track_idx =
             m1_tracks.track_with_loc(TrackLocator::StartsAfter, control.brect().right() + 140);
-        let m1_write_driver_en_track_idx = m1_sense_en_track_idx + 1;
+        let m1_sense_en_track_idx = m1_write_driver_en_track_idx + 1;
 
         for (port, track, buf) in [
             ("saen", m1_sense_en_track_idx, &sense_en_buffer),
@@ -906,7 +906,7 @@ impl SramInner {
                 let m2_track_a_idx = m2_tracks
                     .track_with_loc(TrackLocator::StartsAfter, port_rect.bottom())
                     + idx as i64;
-                let m1_track_idx = m1_sense_en_track_idx + 2 + idx as i64;
+                let m1_track_idx = m1_write_driver_en_track_idx + 2 + idx as i64;
                 let m1_track = m1_tracks.index(m1_track_idx);
                 let m2_track_b_idx = if m1_track.start() < dff_port.left() {
                     dff_m2_track_idx + 2 * self.params.addr_width() as i64 - 1 - idx as i64
