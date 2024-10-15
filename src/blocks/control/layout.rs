@@ -1261,6 +1261,8 @@ impl SrLatch {
         let nand2_hflip = nand2.with_orientation(Named::ReflectHoriz);
         let inv = lib.try_cell_named("sky130_fd_sc_hs__inv_2")?;
         let inv = ctx.instantiate::<StdCell>(&inv.id())?;
+        let tap = lib.try_cell_named("sky130_fd_sc_hs__tap_2")?;
+        let tap = ctx.instantiate::<StdCell>(&tap.id())?;
 
         let layers = ctx.inner().layers();
         let outline = layers.get(Selector::Name("outline"))?;
@@ -1271,6 +1273,7 @@ impl SrLatch {
         let nand2 = LayerBbox::new(nand2, outline);
         let nand2_hflip = LayerBbox::new(nand2_hflip, outline);
         let inv = LayerBbox::new(inv, outline);
+        let tap = LayerBbox::new(tap, outline);
         let mut via = ctx.instantiate::<Via>(
             &ViaParams::builder()
                 .layers(m0, m1)
@@ -1285,7 +1288,9 @@ impl SrLatch {
         let mut row = new_row();
 
         row.push(nand2);
+        row.push(tap.clone());
         row.push(nand2_hflip);
+        row.push(tap.clone());
         row.push(inv.clone());
         row.push(inv);
 
@@ -1297,13 +1302,13 @@ impl SrLatch {
         let a0 = row.port_map().port(PortId::new("a", 0))?;
         let b0 = row.port_map().port(PortId::new("b", 0))?;
         let y0 = row.port_map().port(PortId::new("y", 0))?;
-        let a1 = row.port_map().port(PortId::new("a", 1))?;
-        let b1 = row.port_map().port(PortId::new("b", 1))?;
-        let y1 = row.port_map().port(PortId::new("y", 1))?;
-        let aq0b = row.port_map().port(PortId::new("a", 2))?;
-        let yq = row.port_map().port(PortId::new("y", 2))?;
-        let aq0 = row.port_map().port(PortId::new("a", 3))?;
-        let yqb = row.port_map().port(PortId::new("y", 3))?;
+        let a1 = row.port_map().port(PortId::new("a", 2))?;
+        let b1 = row.port_map().port(PortId::new("b", 2))?;
+        let y1 = row.port_map().port(PortId::new("y", 2))?;
+        let aq0b = row.port_map().port(PortId::new("a", 4))?;
+        let yq = row.port_map().port(PortId::new("y", 4))?;
+        let aq0 = row.port_map().port(PortId::new("a", 5))?;
+        let yqb = row.port_map().port(PortId::new("y", 5))?;
 
         via.align_left(a0.largest_rect(m0)?);
         via.align_top(a0.largest_rect(m0)?);
