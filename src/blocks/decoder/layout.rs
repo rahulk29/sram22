@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::iter::Extend;
 
+use arcstr::ArcStr;
 use itertools::Itertools;
 use serde::Serialize;
 use substrate::component::Component;
@@ -483,53 +484,67 @@ impl DecoderStage {
                         ctx.draw(jog)?;
                     }
                 }
-                ctx.add_port(
-                    tiler
-                        .port_map()
-                        .port(PortId::new(
-                            "y",
-                            n * folding_factor * num_stages + num_stages - 1,
-                        ))?
-                        .clone()
-                        .with_id(PortId::new(arcstr::format!("y"), n)),
-                )?;
+
+                let y_port_id = PortId::new(arcstr::literal!("y"), n);
+                let y_b_port_id = PortId::new(arcstr::literal!("y_b"), n);
+                for idx in [0, folding_factor - 1] {
+                    ctx.merge_port(
+                        tiler
+                            .port_map()
+                            .port(PortId::new(
+                                "y",
+                                (n * folding_factor + idx) * num_stages + num_stages - 1,
+                            ))?
+                            .clone()
+                            .with_id(y_port_id.clone()),
+                    );
+                }
                 if num_stages > 1 {
                     if gate_params[num_stages - 1]
                         .gate_type()
                         .is_multi_finger_inv()
                     {
-                        ctx.add_port(
-                            tiler
-                                .port_map()
-                                .port(PortId::new(
-                                    "a",
-                                    n * folding_factors[num_stages - 1] * num_stages + num_stages
-                                        - 1,
-                                ))?
-                                .clone()
-                                .with_id(PortId::new(arcstr::format!("y_b"), n)),
-                        )?;
+                        for idx in [0, folding_factors[num_stages - 1] - 1] {
+                            // Add first and last ports.
+                            ctx.merge_port(
+                                tiler
+                                    .port_map()
+                                    .port(PortId::new(
+                                        "a",
+                                        (n * folding_factors[num_stages - 1] + idx) * num_stages
+                                            + num_stages
+                                            - 1,
+                                    ))?
+                                    .clone()
+                                    .with_id(y_b_port_id.clone()),
+                            );
+                        }
                     } else {
-                        ctx.add_port(
-                            tiler
-                                .port_map()
-                                .port(PortId::new(
-                                    "y",
-                                    n * folding_factors[num_stages - 2] * num_stages + num_stages
-                                        - 2,
-                                ))?
-                                .clone()
-                                .with_id(PortId::new(arcstr::format!("y_b"), n)),
-                        )?;
+                        for idx in [0, folding_factors[num_stages - 2] - 1] {
+                            ctx.merge_port(
+                                tiler
+                                    .port_map()
+                                    .port(PortId::new(
+                                        "y",
+                                        (n * folding_factors[num_stages - 2] + idx) * num_stages
+                                            + num_stages
+                                            - 2,
+                                    ))?
+                                    .clone()
+                                    .with_id(y_b_port_id.clone()),
+                            );
+                        }
                     }
                 } else if let GateParams::And2(_) | GateParams::And3(_) = &gate_params[0] {
-                    ctx.add_port(
-                        tiler
-                            .port_map()
-                            .port(PortId::new("y_b", n * folding_factor * num_stages))?
-                            .clone()
-                            .with_id(PortId::new(arcstr::format!("y_b"), n)),
-                    )?;
+                    for idx in [0, folding_factor - 1] {
+                        ctx.merge_port(
+                            tiler
+                                .port_map()
+                                .port(PortId::new("y_b", (n * folding_factor + idx) * num_stages))?
+                                .clone()
+                                .with_id(y_b_port_id.clone()),
+                        );
+                    }
                 }
             }
         }

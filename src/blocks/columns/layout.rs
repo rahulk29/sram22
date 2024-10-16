@@ -176,9 +176,12 @@ impl ColPeripherals {
             ctx.draw(jog)?;
 
             // we_b
-            let wmask_out = wmask_peripherals
+            let wmask_out_left = wmask_peripherals
                 .port(PortId::new("y_b", i / self.params.wmask_granularity))?
-                .largest_rect(m0)?;
+                .first_rect(m0, Side::Left)?;
+            let wmask_out_right = wmask_peripherals
+                .port(PortId::new("y_b", i / self.params.wmask_granularity))?
+                .first_rect(m0, Side::Right)?;
             let we_in = grid_tiler
                 .port_map()
                 .port(PortId::new("we_b", i))?
@@ -186,23 +189,21 @@ impl ColPeripherals {
             let jog = OffsetJog::builder()
                 .dir(subgeom::Dir::Vert)
                 .sign(subgeom::Sign::Pos)
-                .src(wmask_out)
-                .dst(we_in.center().x)
+                .src(wmask_out_left)
+                .dst(wmask_out_right.right())
                 .layer(m0)
                 .space(170)
                 .build()
                 .unwrap();
-            let intersect = Rect::from_spans(we_in.hspan(), jog.r2().vspan());
-            let m2_rect = we_in
-                .with_vspan(Span::with_start_and_length(we_in.bottom(), 300))
-                .bbox()
-                .union(intersect.bbox())
-                .into_rect();
-            let m0_rect = jog.r2().bbox().union(intersect.bbox()).into_rect();
-            let via = draw_via(m0, intersect, m1, intersect, ctx)?;
-            draw_via(m1, via.layer_bbox(m1).into_rect(), m2, m2_rect, ctx)?;
+            let via = draw_via(m0, jog.r2(), m1, jog.r2(), ctx)?;
+            let m1_rect = via.layer_bbox(m1).into_rect();
+            let m1_rect = m1_rect.with_hspan(m1_rect.hspan().union(we_in.hspan()));
+            let m2_rect = we_in.with_vspan(
+                Span::with_start_and_length(we_in.bottom(), 300).union(m1_rect.vspan()),
+            );
+            draw_via(m1, m1_rect, m2, m2_rect, ctx)?;
             draw_via(m1, we_in, m2, m2_rect, ctx)?;
-            ctx.draw_rect(m0, m0_rect);
+            ctx.draw_rect(m1, m1_rect);
             ctx.draw_rect(m2, m2_rect);
 
             ctx.draw(jog)?;

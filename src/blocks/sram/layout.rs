@@ -666,14 +666,21 @@ impl SramInner {
                     let sel = cols.port(PortId::new(sel_name, i))?.largest_rect(m2)?;
                     let track_span = m1_tracks.index(sel_track_idx + idx as i64);
 
-                    let m2_rect = y.with_hspan(
-                        Span::with_stop_and_length(y.hspan().stop(), 320).union(track_span),
-                    );
-                    draw_rect(m2, m2_rect, &mut router, ctx);
+                    let m0_rect = if y_name == "y_b" {
+                        y.with_hspan(y.hspan().union(track_span))
+                    } else {
+                        let y = y.expand_side(Side::Right, 540);
+                        draw_rect(m1, y, &mut router, ctx);
+                        let m0_rect = y.with_hspan(
+                            Span::with_stop_and_length(y.hspan().stop(), 320).union(track_span),
+                        );
+                        draw_via(m0, m0_rect, m1, y, ctx)?;
+                        m0_rect
+                    };
+                    ctx.draw_rect(m0, m0_rect);
                     let track_rect =
-                        Rect::from_spans(track_span, m2_rect.vspan().union(sel.vspan()));
-                    draw_via(m1, y, m2, m2_rect, ctx)?;
-                    draw_via(m1, track_rect, m2, m2_rect, ctx)?;
+                        Rect::from_spans(track_span, m0_rect.vspan().union(sel.vspan()));
+                    draw_via(m0, m0_rect, m1, track_rect, ctx)?;
                     let m2_rect =
                         Rect::from_spans(track_rect.hspan().union(sel.hspan()), sel.vspan());
                     draw_rect(m1, track_rect, &mut router, ctx);

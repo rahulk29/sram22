@@ -144,6 +144,7 @@ impl WriteDriver {
                     .layers(m0, m1)
                     .geometry(pwr, pwr)
                     .expand(ViaExpansion::LongerDirection)
+                    .top_extension(Dir::Vert)
                     .build();
                 let via = ctx.instantiate::<Via>(&viap)?;
                 ctx.draw_ref(&via)?;

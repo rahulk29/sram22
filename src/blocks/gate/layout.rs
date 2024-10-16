@@ -233,9 +233,15 @@ impl FoldedInv {
             .into_rect();
         ctx.draw_rect(m0, short);
 
-        ctx.add_port(mos.port("gate_0")?.into_cell_port().named("a"))
+        let m0_rect = mos
+            .port("gate_0")?
+            .bbox(m0)
+            .union(mos.port("gate_1")?.bbox(m0))
+            .into_rect();
+        ctx.draw_rect(m0, m0_rect);
+        ctx.add_port(CellPort::with_shape("a", m0, m0_rect))
             .unwrap();
-        ctx.merge_port(mos.port("gate_1")?.into_cell_port().named("a"));
+
         ctx.add_port(mos.port("sd_0_0")?.into_cell_port().named("vss"))
             .unwrap();
         ctx.merge_port(mos.port("sd_0_2")?.into_cell_port().named("vss"));
@@ -302,6 +308,7 @@ impl MultiFingerInv {
             .bbox(m0)
             .union(pmos.port("gate")?.bbox(m0))
             .into_rect();
+        ctx.draw_rect(m0, m0_rect);
         ctx.add_port(CellPort::with_shape("a", m0, m0_rect))
             .unwrap();
         for i in 0..=nmos_nf {

@@ -315,7 +315,8 @@ impl Script for SramPhysicalDesignScript {
 
         let mut available_height = cols.brect().height()
             - dffs_inst.brect().height()
-            - 3_500
+            - 3 * 6_000 // Offset between buffers
+            - 3_500 // DFF offset
             - 1_400 * params.addr_width() as i64;
 
         let col_dec_max_width = std::cmp::max(
