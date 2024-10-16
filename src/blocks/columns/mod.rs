@@ -159,7 +159,7 @@ impl Script for ColumnsPhysicalDesignScript {
             * COL_CAPACITANCES.we_ib
             * (params.wrdriver.pwidth_driver as f64 / COL_PARAMS.wrdriver.pwidth_driver as f64);
         let cl_max = f64::max(we_i_cap, we_ib_cap);
-        let wmask_buffer_stages = buffer_chain_num_stages(we_i_cap + we_ib_cap);
+        let wmask_buffer_stages = buffer_chain_num_stages(cl_max);
         let mut wmask_buffer_gates = InverterGateTreeNode {
             gate: PrimitiveGateType::Nand2,
             id: 1,

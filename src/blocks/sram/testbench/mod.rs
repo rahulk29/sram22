@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -101,7 +102,7 @@ impl TbParams {
                                     TbSignals::Decrepstart=> "N_X0/Xcontrol_logic/decrepstart_X0/Xcontrol_logic/Xmux_wlen_rst/X0/X21/M0_d".to_string(),
                                     TbSignals::Decrepend => "N_X0/Xcontrol_logic/decrepend_X0/Xcontrol_logic/Xdecoder_replica/Xinv17/X0/X7/M0_s".to_string(),
                                     TbSignals::PcB => "N_X0/pc_b_X0/Xcol_circuitry/Xcol_group_0/Xprecharge_0/Xbl_pull_up/M0_g".to_string(),
-                                    TbSignals::SenseEn => "N_X0/sense_en_X0/Xcol_circuitry/Xcol_group_0/Xsense_amp/X0/MSWOP_g".to_string(),
+                                    TbSignals::SenseEn => "N_X0/sense_en_X0/Xcol_circuitry/Xcol_group_0/Xsense_amp/X0/XSWOP/M0_g".to_string(),
                                     TbSignals::Rwl => "N_X0/rwl_X0/Xcontrol_logic/Xrwl_buf/X0/X41/M0_s".to_string(),
                                     TbSignals::Rbl => "N_X0/rbl_X0/Xcontrol_logic/Xinv_rbl/X0/X0/M0_g".to_string(),
                                     TbSignals::WriteDriverEn => "N_X0/write_driver_en_X0/Xcol_circuitry/Xwmask_and_0/Xgate_0_0_0/Xn1/M0_g".to_string(),
@@ -775,7 +776,7 @@ impl Testbench for SramTestbench {
             )
             .chain((0..self.params.sram.cols()).flat_map(|i| [TbSignals::Bl(i), TbSignals::Br(i)]))
             .map(|signal| self.params.sram_signal_path(signal))
-            .collect::<Vec<_>>();
+            .collect::<HashSet<_>>();
         // ctx.save(Save::Signals(signals));
         ctx.save(Save::All);
 
