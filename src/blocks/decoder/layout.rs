@@ -937,7 +937,11 @@ impl Component for DecoderGate {
         }
 
         let outline_vspan = gate_group.bbox().union(ctx.bbox()).into_rect().vspan();
-        ctx.draw_rect(outline, Rect::from_spans(hspan, outline_vspan));
+        let mut outline_rect = Rect::from_spans(hspan, outline_vspan);
+        if self.params.gate.gate_type().is_multi_finger_inv() {
+            outline_rect = outline_rect.expand_side(Side::Right, 200);
+        }
+        ctx.draw_rect(outline, outline_rect);
         if !self.params.filler {
             ctx.draw(gate_group)?;
         }

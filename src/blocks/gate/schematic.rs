@@ -193,27 +193,31 @@ impl MultiFingerInv {
             length,
         } = self.mos_params();
 
-        let mut mp = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: unit_width,
-            l: length,
-            m: pmos_nf,
-            nf: 1,
-            id: pmos_id,
-        })?;
-        mp.connect_all([("d", &y), ("g", &a), ("s", &vdd), ("b", &vdd)]);
-        mp.set_name("MP0");
-        ctx.add_instance(mp);
+        for i in 0..pmos_nf {
+            let mut mp = ctx.instantiate::<SchematicMos>(&MosParams {
+                w: unit_width,
+                l: length,
+                m: 1,
+                nf: 1,
+                id: pmos_id,
+            })?;
+            mp.connect_all([("d", &y), ("g", &a), ("s", &vdd), ("b", &vdd)]);
+            mp.set_name(format!("MP{i}"));
+            ctx.add_instance(mp);
+        }
 
-        let mut mn = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: unit_width,
-            l: length,
-            m: nmos_nf,
-            nf: 1,
-            id: nmos_id,
-        })?;
-        mn.connect_all([("d", &y), ("g", &a), ("s", &vss), ("b", &vss)]);
-        mn.set_name("MN0");
-        ctx.add_instance(mn);
+        for i in 0..nmos_nf {
+            let mut mn = ctx.instantiate::<SchematicMos>(&MosParams {
+                w: unit_width,
+                l: length,
+                m: 1,
+                nf: 1,
+                id: nmos_id,
+            })?;
+            mn.connect_all([("d", &y), ("g", &a), ("s", &vss), ("b", &vss)]);
+            mn.set_name(format!("MN{i}"));
+            ctx.add_instance(mn);
+        }
 
         Ok(())
     }
