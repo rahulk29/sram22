@@ -1,6 +1,7 @@
 use self::schematic::fanout_buffer_stage;
+use crate::blocks::bitcell_array::replica::ReplicaCellArray;
 use crate::blocks::columns::ColumnsPhysicalDesignScript;
-use crate::blocks::control::ControlLogicParams;
+use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::path::{Path, PathBuf};
@@ -221,6 +222,11 @@ impl Script for SramPhysicalDesignScript {
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
         let rbl_rows = ((params.rows() / 12) + 1) * 2;
         let rbl_wl_index = rbl_rows / 2;
+        let rbl = ReplicaCellArrayParams {
+            rows: rbl_rows,
+            cols: 2,
+        };
+        let rbl_inst = ctx.instantiate_layout::<ReplicaCellArray>(&rbl)?;
 
         let addr_gate = DecoderStageParams {
             pd: DecoderPhysicalDesignParams {
@@ -297,43 +303,6 @@ impl Script for SramPhysicalDesignScript {
         new_invs.extend(pc_b_buffer.invs.drain(..));
         pc_b_buffer.invs = new_invs;
 
-        let col_dec_inst = ctx.instantiate_layout::<Decoder>(&col_decoder)?;
-        let pc_b_buffer_inst = ctx.instantiate_layout::<DecoderStage>(&pc_b_buffer)?;
-        let sense_en_buffer_inst = ctx.instantiate_layout::<DecoderStage>(&sense_en_buffer)?;
-        let write_driver_en_buffer_inst =
-            ctx.instantiate_layout::<DecoderStage>(&write_driver_en_buffer)?;
-        let col_dec_wh = col_dec_inst.brect().width() * col_dec_inst.brect().height();
-        let pc_b_buffer_wh = pc_b_buffer_inst.brect().width() * pc_b_buffer_inst.brect().height();
-        let sense_en_buffer_wh =
-            sense_en_buffer_inst.brect().width() * sense_en_buffer_inst.brect().height();
-        let write_driver_en_buffer_wh = write_driver_en_buffer_inst.brect().width()
-            * write_driver_en_buffer_inst.brect().height();
-        let mut total_wh =
-            col_dec_wh + pc_b_buffer_wh + sense_en_buffer_wh + write_driver_en_buffer_wh;
-        let num_dffs = params.addr_width() + 2;
-        let dffs_inst = ctx.instantiate_layout::<DffArray>(&num_dffs)?;
-
-        let mut available_height = cols.brect().height()
-            - dffs_inst.brect().height()
-            - 3 * 6_000 // Offset between buffers
-            - 3_500 // DFF offset
-            - 1_400 * params.addr_width() as i64;
-
-        let col_dec_max_width = std::cmp::max(
-            available_height * col_dec_wh / total_wh,
-            col_dec_inst.brect().width(),
-        );
-        available_height -= col_dec_max_width;
-        total_wh -= col_dec_wh;
-        let pc_b_buffer_max_width = available_height * pc_b_buffer_wh / total_wh;
-        let sense_en_buffer_max_width = available_height * sense_en_buffer_wh / total_wh;
-        let write_driver_en_buffer_max_width =
-            available_height * write_driver_en_buffer_wh / total_wh;
-        col_decoder.max_width = Some(col_dec_max_width);
-        pc_b_buffer.max_width = Some(pc_b_buffer_max_width);
-        sense_en_buffer.max_width = Some(sense_en_buffer_max_width);
-        write_driver_en_buffer.max_width = Some(write_driver_en_buffer_max_width);
-
         let row_decoder_tree = DecoderTree::new(params.row_bits(), wl_cap);
         let decoder_delay_invs = (f64::max(
             4.0,
@@ -352,6 +321,56 @@ impl Script for SramPhysicalDesignScript {
             * 2
             + 9;
         println!("using {write_driver_delay_invs} inverters for write driver delay chain");
+        let control = ControlLogicParams {
+            decoder_delay_invs,
+            write_driver_delay_invs,
+        };
+
+        let control_inst = ctx.instantiate_layout::<ControlLogicReplicaV2>(&control)?;
+
+        let col_dec_inst = ctx.instantiate_layout::<Decoder>(&col_decoder)?;
+        let pc_b_buffer_inst = ctx.instantiate_layout::<DecoderStage>(&pc_b_buffer)?;
+        let sense_en_buffer_inst = ctx.instantiate_layout::<DecoderStage>(&sense_en_buffer)?;
+        let write_driver_en_buffer_inst =
+            ctx.instantiate_layout::<DecoderStage>(&write_driver_en_buffer)?;
+        let col_dec_wh = col_dec_inst.brect().width() * col_dec_inst.brect().height();
+        let pc_b_buffer_wh = pc_b_buffer_inst.brect().width() * pc_b_buffer_inst.brect().height();
+        let sense_en_buffer_wh =
+            sense_en_buffer_inst.brect().width() * sense_en_buffer_inst.brect().height();
+        let write_driver_en_buffer_wh = write_driver_en_buffer_inst.brect().width()
+            * write_driver_en_buffer_inst.brect().height();
+        let mut total_wh =
+            col_dec_wh + pc_b_buffer_wh + sense_en_buffer_wh + write_driver_en_buffer_wh;
+        let num_dffs = params.addr_width() + 2;
+        let dffs_inst = ctx.instantiate_layout::<DffArray>(&num_dffs)?;
+
+        let mut available_height = [
+            cols.brect().height()
+            - dffs_inst.brect().height()
+            - 3_500 // DFF offset
+            - 1_400 * params.addr_width() as i64,
+            rbl_inst.brect().height(),
+            control_inst.brect().height(),
+        ]
+        .into_iter()
+        .max()
+        .unwrap()
+            - 3 * 6_000; // Offset between buffers
+
+        let col_dec_max_width = std::cmp::max(
+            available_height * col_dec_wh / total_wh,
+            col_dec_inst.brect().width(),
+        );
+        available_height -= col_dec_max_width;
+        total_wh -= col_dec_wh;
+        let pc_b_buffer_max_width = available_height * pc_b_buffer_wh / total_wh;
+        let sense_en_buffer_max_width = available_height * sense_en_buffer_wh / total_wh;
+        let write_driver_en_buffer_max_width =
+            available_height * write_driver_en_buffer_wh / total_wh;
+        col_decoder.max_width = Some(col_dec_max_width);
+        pc_b_buffer.max_width = Some(pc_b_buffer_max_width);
+        sense_en_buffer.max_width = Some(sense_en_buffer_max_width);
+        write_driver_en_buffer.max_width = Some(write_driver_en_buffer_max_width);
 
         let wlen_buffer = DecoderStageParams {
             max_width: Some(addr_gate_inst.brect().height() - 2_000),

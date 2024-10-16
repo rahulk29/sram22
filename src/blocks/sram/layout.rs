@@ -17,10 +17,9 @@ use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::tile::LayerBbox;
 use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
-use substrate::layout::routing::manual::jog::{OffsetJog, SJog};
+use substrate::layout::routing::manual::jog::OffsetJog;
 use substrate::layout::routing::tracks::TrackLocator;
 use substrate::layout::straps::SingleSupplyNet;
-use substrate::layout::Draw;
 use substrate::pdk::stdcell::StdCell;
 
 use crate::blocks::bitcell_array::replica::ReplicaCellArray;

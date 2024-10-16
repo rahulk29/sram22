@@ -143,49 +143,18 @@ impl ColPeripherals {
         ctx.draw(group)?;
 
         let mut wmask_peripherals = ctx.instantiate::<WmaskPeripherals>(&self.params)?;
-        wmask_peripherals.align_beneath(bbox, 0);
+        wmask_peripherals.align_beneath(bbox, 300);
         wmask_peripherals.align(AlignMode::Left, bbox, pc_design.tap_width / 2);
         ctx.draw_ref(&wmask_peripherals)?;
 
         // Connect we and we_b to AND gate.
-        for i in 0..groups {
-            // we
-            let wmask_out = wmask_peripherals
-                .port(PortId::new("y", i / self.params.wmask_granularity))?
-                .largest_rect(m0)?;
-            let we_in = grid_tiler
-                .port_map()
-                .port(PortId::new("we", i))?
-                .largest_rect(m1)?;
-            let jog = OffsetJog::builder()
-                .dir(subgeom::Dir::Vert)
-                .sign(subgeom::Sign::Pos)
-                .src(wmask_out)
-                .dst(we_in.center().x)
-                .layer(m0)
-                .space(170)
-                .build()
-                .unwrap();
-            let intersect = Rect::from_spans(we_in.hspan(), jog.r2().vspan()).bbox();
-            let m1_rect = we_in.bbox().union(intersect).into_rect();
-            let m0_rect = jog.r2().bbox().union(intersect).into_rect();
-            draw_via(m0, m0_rect, m1, m1_rect, ctx)?;
-            ctx.draw_rect(m0, m0_rect);
-            ctx.draw_rect(m1, m1_rect);
-
-            ctx.draw(jog)?;
-
-            // we_b
+        for i in 0..self.params.wmask_bits() {
             let wmask_out_left = wmask_peripherals
-                .port(PortId::new("y_b", i / self.params.wmask_granularity))?
+                .port(PortId::new("y", i))?
                 .first_rect(m0, Side::Left)?;
             let wmask_out_right = wmask_peripherals
-                .port(PortId::new("y_b", i / self.params.wmask_granularity))?
+                .port(PortId::new("y", i))?
                 .first_rect(m0, Side::Right)?;
-            let we_in = grid_tiler
-                .port_map()
-                .port(PortId::new("we_b", i))?
-                .largest_rect(m1)?;
             let jog = OffsetJog::builder()
                 .dir(subgeom::Dir::Vert)
                 .sign(subgeom::Sign::Pos)
@@ -195,18 +164,53 @@ impl ColPeripherals {
                 .space(170)
                 .build()
                 .unwrap();
-            let via = draw_via(m0, jog.r2(), m1, jog.r2(), ctx)?;
-            let m1_rect = via.layer_bbox(m1).into_rect();
-            let m1_rect = m1_rect.with_hspan(m1_rect.hspan().union(we_in.hspan()));
-            let m2_rect = we_in.with_vspan(
-                Span::with_start_and_length(we_in.bottom(), 300).union(m1_rect.vspan()),
-            );
-            draw_via(m1, m1_rect, m2, m2_rect, ctx)?;
-            draw_via(m1, we_in, m2, m2_rect, ctx)?;
-            ctx.draw_rect(m1, m1_rect);
-            ctx.draw_rect(m2, m2_rect);
+            let we_i_via = draw_via(m0, jog.r2(), m1, jog.r2(), ctx)?;
 
-            ctx.draw(jog)?;
+            let wmask_out_left = wmask_peripherals
+                .port(PortId::new("y_b", i))?
+                .first_rect(m0, Side::Left)?;
+            let wmask_out_right = wmask_peripherals
+                .port(PortId::new("y_b", i))?
+                .first_rect(m0, Side::Right)?;
+            let jog = OffsetJog::builder()
+                .dir(subgeom::Dir::Vert)
+                .sign(subgeom::Sign::Pos)
+                .src(wmask_out_left)
+                .dst(wmask_out_right.right())
+                .layer(m0)
+                .space(170)
+                .build()
+                .unwrap();
+            let we_ib_via = draw_via(m0, jog.r2(), m1, jog.r2(), ctx)?;
+            for j in 0..self.params.wmask_granularity {
+                // we
+                let we_in = grid_tiler
+                    .port_map()
+                    .port(PortId::new("we", self.params.wmask_granularity * i + j))?
+                    .largest_rect(m1)?;
+                let m1_rect = we_i_via.layer_bbox(m1).into_rect();
+                let m1_rect = m1_rect.with_hspan(m1_rect.hspan().union(we_in.hspan()));
+                let m1_track_rect = we_in.with_vspan(
+                    Span::with_start_and_length(we_in.bottom(), 300).union(m1_rect.vspan()),
+                );
+                ctx.draw_rect(m1, m1_rect);
+                ctx.draw_rect(m1, m1_track_rect);
+
+                // we_b
+                let we_in = grid_tiler
+                    .port_map()
+                    .port(PortId::new("we_b", self.params.wmask_granularity * i + j))?
+                    .largest_rect(m1)?;
+                let m1_rect = we_ib_via.layer_bbox(m1).into_rect();
+                let m1_rect = m1_rect.with_hspan(m1_rect.hspan().union(we_in.hspan()));
+                let m2_rect = we_in.with_vspan(
+                    Span::with_start_and_length(we_in.bottom(), 300).union(m1_rect.vspan()),
+                );
+                draw_via(m1, m1_rect, m2, m2_rect, ctx)?;
+                draw_via(m1, we_in, m2, m2_rect, ctx)?;
+                ctx.draw_rect(m1, m1_rect);
+                ctx.draw_rect(m2, m2_rect);
+            }
         }
 
         // Jog dout and din to bottom.

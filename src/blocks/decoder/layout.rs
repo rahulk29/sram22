@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::iter::Extend;
 
-use arcstr::ArcStr;
 use itertools::Itertools;
 use serde::Serialize;
 use substrate::component::Component;
@@ -182,7 +181,6 @@ impl DecoderStage {
 
         let layers = ctx.layers();
         let m1 = layers.get(Selector::Metal(1))?;
-        let m2 = layers.get(Selector::Metal(2))?;
 
         for (gate, &folding_factor) in gate_params.iter().zip(folding_factors.iter()) {
             let decoder_params = DecoderGateParams {
