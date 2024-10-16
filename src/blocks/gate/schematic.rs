@@ -4,7 +4,9 @@ use substrate::pdk::mos::MosParams;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::elements::mos::SchematicMos;
 
-use super::{And2, And3, FoldedInv, Inv, Nand2, Nand3, Nor2};
+use super::{
+    And2, And3, FoldedInv, Inv, MultiFingerInv, MultiFingerInvMosParams, Nand2, Nand3, Nor2,
+};
 
 impl And2 {
     pub(crate) fn schematic(
@@ -153,6 +155,59 @@ impl FoldedInv {
             w: half_params.nwidth,
             l: half_params.length,
             m: 2,
+            nf: 1,
+            id: nmos_id,
+        })?;
+        mn.connect_all([("d", &y), ("g", &a), ("s", &vss), ("b", &vss)]);
+        mn.set_name("MN0");
+        ctx.add_instance(mn);
+
+        Ok(())
+    }
+}
+
+impl MultiFingerInv {
+    pub(crate) fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        let vdd = ctx.port("vdd", Direction::InOut);
+        let vss = ctx.port("vss", Direction::InOut);
+        let a = ctx.port("a", Direction::Input);
+        let y = ctx.port("y", Direction::Output);
+
+        let pmos_id = ctx
+            .mos_db()
+            .query(Query::builder().kind(MosKind::Pmos).build().unwrap())?
+            .id();
+
+        let nmos_id = ctx
+            .mos_db()
+            .query(Query::builder().kind(MosKind::Nmos).build().unwrap())?
+            .id();
+
+        let MultiFingerInvMosParams {
+            nmos_nf,
+            pmos_nf,
+            unit_width,
+            length,
+        } = self.mos_params();
+
+        let mut mp = ctx.instantiate::<SchematicMos>(&MosParams {
+            w: unit_width,
+            l: length,
+            m: pmos_nf,
+            nf: 1,
+            id: pmos_id,
+        })?;
+        mp.connect_all([("d", &y), ("g", &a), ("s", &vdd), ("b", &vdd)]);
+        mp.set_name("MP0");
+        ctx.add_instance(mp);
+
+        let mut mn = ctx.instantiate::<SchematicMos>(&MosParams {
+            w: unit_width,
+            l: length,
+            m: nmos_nf,
             nf: 1,
             id: nmos_id,
         })?;

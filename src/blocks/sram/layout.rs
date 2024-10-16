@@ -263,7 +263,7 @@ impl SramInner {
             .with_orientation(Named::ReflectVert);
 
         // Align row decoders to left of bitcell array.
-        decoder.align_to_the_left_of(bitcells.bbox(), 6_000);
+        decoder.align_to_the_left_of(bitcells.bbox(), 7_000);
         decoder.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
 
         // Align wlen buffer to the left of row decoder.
@@ -271,7 +271,10 @@ impl SramInner {
         // Align wlen buffer and address gate to the left of the row decoder.
         //
         // Need enough vertical tracks to route outputs to decoder.
-        addr_gate.align_to_the_left_of(decoder.bbox(), 700 + 1_400 * self.params.row_bits() as i64);
+        addr_gate.align_to_the_left_of(
+            decoder.bbox(),
+            1_400 + 1_400 * self.params.row_bits() as i64,
+        );
         wlen_buffer.align_right(addr_gate.bbox());
         wlen_buffer.translate(Point::new(-2_000, 0));
         wlen_buffer.align_bottom(decoder.bbox());
@@ -289,22 +292,19 @@ impl SramInner {
         pc_b_buffer.translate(Point::new(0, 1_000));
         pc_b_buffer.align_to_the_left_of(
             cols.bbox(),
-            std::cmp::max(
-                6_000,
-                1_400 + 700 * (2 * self.params.mux_ratio() + 4) as i64,
-            ),
+            6_400 + 700 * (2 * self.params.mux_ratio() + 4) as i64,
         );
 
         // Align column decoder to topmost column mux select port.
-        col_dec.align_beneath(pc_b_buffer.bbox(), 2_000);
+        col_dec.align_beneath(pc_b_buffer.bbox(), 6_000);
         col_dec.align_right(pc_b_buffer.bbox());
 
         // Align sense_en buffer as close to column peripheral sense_en port as possible.
-        sense_en_buffer.align_beneath(col_dec.brect(), 2_000);
+        sense_en_buffer.align_beneath(col_dec.brect(), 6_000);
         sense_en_buffer.align_right(pc_b_buffer.bbox());
 
         // Align write driver underneath sense_en buffer.
-        write_driver_en_buffer.align_beneath(sense_en_buffer.bbox(), 2_000);
+        write_driver_en_buffer.align_beneath(sense_en_buffer.bbox(), 6_000);
         write_driver_en_buffer.align_right(pc_b_buffer.bbox());
 
         // Align control logic to the left of all of the buffers and column decoder that border
@@ -316,7 +316,7 @@ impl SramInner {
             .union(write_driver_en_buffer.bbox())
             .into_rect();
         control.set_orientation(Named::R90);
-        control.align_beneath(decoder.bbox(), 4_000);
+        control.align_beneath(decoder.bbox(), 6_000);
         control.align_to_the_left_of(
             buffer_bbox,
             2_100 + 1_400 * self.params.col_select_bits() as i64,
@@ -325,7 +325,7 @@ impl SramInner {
         // Align replica bitcell array to left of control logic, with replica precharge
         // aligned to top of control logic.
         rbl.align_to_the_left_of(control.bbox(), 7_000);
-        replica_pc.align_beneath(decoder.bbox(), 4_000);
+        replica_pc.align_beneath(decoder.bbox(), 6_000);
         replica_pc.align_centers_horizontally_gridded(rbl.bbox(), ctx.pdk().layout_grid());
         rbl.align_beneath(replica_pc.bbox(), 4_000);
 
@@ -402,6 +402,27 @@ impl SramInner {
                 }
             }
         }
+
+        // Block full m2 layer bbox of decoders due to wrong direction routing.
+        for inst in [
+            &decoder,
+            &col_dec,
+            &pc_b_buffer,
+            &wlen_buffer,
+            &sense_en_buffer,
+            &write_driver_en_buffer,
+        ] {
+            router.block(m2, inst.layer_bbox(m2).into_rect());
+        }
+
+        // Block extra for decoder to prevent extra power straps from being placed.
+        router.block(
+            m2,
+            decoder
+                .layer_bbox(m2)
+                .into_rect()
+                .expand_side(Side::Right, 6_000),
+        );
 
         // Block entirety of bounding box for bitcells, replica bitcells, and column peripherals.
         for inst in [&bitcells, &rbl, &cols] {
@@ -520,47 +541,78 @@ impl SramInner {
         .into_iter()
         .enumerate()
         {
-            let y = buffer.port("y")?.largest_rect(m0)?;
-            let col_port = cols.port(signal)?.largest_rect(layer)?;
             let track_idx =
-                m1_tracks.track_with_loc(TrackLocator::EndsBefore, cols.brect().left() - 300);
+                m1_tracks.track_with_loc(TrackLocator::EndsBefore, cols.brect().left() - 5_300);
             let track = m1_tracks.index(track_idx - 1 - i as i64);
+            let col_port = cols.port(signal)?.largest_rect(layer)?;
+            if let Ok(y) = buffer.port("y")?.largest_rect(m0) {
+                let rect = y.with_hspan(y.hspan().union(track));
+                ctx.draw_rect(m0, rect);
+                let m1_rect = Rect::from_spans(track, y.vspan().union(col_port.vspan()));
+                draw_via(m0, rect, m1, m1_rect, ctx)?;
+                let m2_rect = Rect::from_spans(
+                    m1_rect.hspan().add_point(col_port.left() + 320),
+                    col_port.vspan(),
+                );
+                draw_rect(m1, m1_rect, &mut router, ctx);
+                draw_rect(m2, m2_rect, &mut router, ctx);
+                draw_via(m1, m1_rect, m2, m2_rect, ctx)?;
+                if layer == m1 {
+                    draw_via(m1, col_port, m2, m2_rect, ctx)?;
+                }
+            } else {
+                let y = buffer.port("y")?.largest_rect(m1)?;
 
-            let rect = y.with_hspan(y.hspan().union(track));
-            ctx.draw_rect(m0, rect);
-            let m1_rect = Rect::from_spans(track, y.vspan().union(col_port.vspan()));
-            draw_via(m0, rect, m1, m1_rect, ctx)?;
-            let m2_rect = Rect::from_spans(
-                m1_rect.hspan().add_point(col_port.left() + 320),
-                col_port.vspan(),
-            );
-            draw_rect(m1, m1_rect, &mut router, ctx);
-            draw_rect(m2, m2_rect, &mut router, ctx);
-            draw_via(m1, m1_rect, m2, m2_rect, ctx)?;
-            if layer == m1 {
-                draw_via(m1, col_port, m2, m2_rect, ctx)?;
+                let m2_rect =
+                    y.with_hspan(Span::with_stop_and_length(y.hspan().stop(), 320).union(track));
+                draw_rect(m2, m2_rect, &mut router, ctx);
+                let m1_rect = Rect::from_spans(track, y.vspan().union(col_port.vspan()));
+                draw_via(m1, y, m2, m2_rect, ctx)?;
+                draw_via(m1, m1_rect, m2, m2_rect, ctx)?;
+                let m2_rect = Rect::from_spans(
+                    m1_rect.hspan().add_point(col_port.left() + 320),
+                    col_port.vspan(),
+                );
+                draw_rect(m1, m1_rect, &mut router, ctx);
+                draw_rect(m2, m2_rect, &mut router, ctx);
+                draw_via(m1, m1_rect, m2, m2_rect, ctx)?;
+                if layer == m1 {
+                    draw_via(m1, col_port, m2, m2_rect, ctx)?;
+                }
             }
         }
 
         // Route wordline driver to bitcell array
         for i in 0..self.params.rows() {
-            let src = decoder.port(PortId::new("y", i))?.largest_rect(m0)?;
-            let src = src.with_hspan(Span::with_stop_and_length(src.right(), 1_200));
-            let dst = bitcells.port(PortId::new("wl", i))?.largest_rect(m2)?;
-            let via = draw_via(m0, src, m1, src, ctx)?;
-            router.block(m1, via.bbox().into_rect());
-            let via = draw_via(m1, src, m2, src, ctx)?;
-            router.block(m1, via.bbox().into_rect());
-            let m2_rect_a = via.layer_bbox(m2).into_rect();
-            let m2_rect_a = m2_rect_a.with_vspan(m2_rect_a.vspan().union(dst.vspan()));
-            let m2_rect_b = dst.with_hspan(m2_rect_a.hspan().union(dst.hspan()));
-            draw_rect(m2, m2_rect_a, &mut router, ctx);
-            draw_rect(m2, m2_rect_b, &mut router, ctx);
+            if let Ok(src) = decoder.port(PortId::new("y", i))?.largest_rect(m0) {
+                let src = src.with_hspan(Span::with_stop_and_length(src.right(), 1_200));
+                let dst = bitcells.port(PortId::new("wl", i))?.largest_rect(m2)?;
+                let via = draw_via(m0, src, m1, src, ctx)?;
+                router.block(m1, via.bbox().into_rect());
+                let via = draw_via(m1, src, m2, src, ctx)?;
+                router.block(m1, via.bbox().into_rect());
+                let m2_rect_a = via.layer_bbox(m2).into_rect();
+                let m2_rect_a = m2_rect_a.with_vspan(m2_rect_a.vspan().union(dst.vspan()));
+                let m2_rect_b = dst.with_hspan(m2_rect_a.hspan().union(dst.hspan()));
+                draw_rect(m2, m2_rect_a, &mut router, ctx);
+                draw_rect(m2, m2_rect_b, &mut router, ctx);
+            } else {
+                let src = decoder.port(PortId::new("y", i))?.largest_rect(m1)?;
+                let src = src.with_hspan(Span::with_stop_and_length(src.right() + 600, 1_200));
+                let dst = bitcells.port(PortId::new("wl", i))?.largest_rect(m2)?;
+                let via = draw_via(m1, src, m2, src, ctx)?;
+                router.block(m1, via.bbox().into_rect());
+                let m2_rect_a = via.layer_bbox(m2).into_rect();
+                let m2_rect_a = m2_rect_a.with_vspan(m2_rect_a.vspan().union(dst.vspan()));
+                let m2_rect_b = dst.with_hspan(m2_rect_a.hspan().union(dst.hspan()));
+                draw_rect(m2, m2_rect_a, &mut router, ctx);
+                draw_rect(m2, m2_rect_b, &mut router, ctx);
+            }
         }
 
         // Route column decoders to mux.
         let sel_track_idx =
-            m1_tracks.track_with_loc(TrackLocator::StartsAfter, col_dec.brect().right());
+            m1_tracks.track_with_loc(TrackLocator::StartsAfter, col_dec.brect().right() + 140);
         for i in 0..self.params.mux_ratio() {
             for j in 0..2 {
                 let (y_name, sel_name) = if j == 0 {
@@ -569,45 +621,65 @@ impl SramInner {
                     ("y_b", "sel_b")
                 };
                 let idx = 2 * i + j;
-                let y = col_dec.port(PortId::new(y_name, i))?.largest_rect(m0)?;
-                let sel = cols.port(PortId::new(sel_name, i))?.largest_rect(m2)?;
-                let track_span = m1_tracks.index(sel_track_idx + idx as i64);
+                if let Ok(y) = col_dec.port(PortId::new(y_name, i))?.largest_rect(m0) {
+                    let sel = cols.port(PortId::new(sel_name, i))?.largest_rect(m2)?;
+                    let track_span = m1_tracks.index(sel_track_idx + idx as i64);
 
-                let rect = if j == 0 {
-                    y.with_hspan(y.hspan().union(track_span))
+                    let rect = if j == 0 {
+                        y.with_hspan(y.hspan().union(track_span))
+                    } else {
+                        let jog = OffsetJog::builder()
+                            .dir(subgeom::Dir::Horiz)
+                            .sign(subgeom::Sign::Pos)
+                            .src(y)
+                            .dst(
+                                if matches!(
+                                    dsn.col_decoder.tree.root.children[0].gate,
+                                    GateParams::FoldedInv(_) | GateParams::Inv(_)
+                                ) {
+                                    y.bottom() - 770
+                                } else {
+                                    y.bottom() - 340
+                                },
+                            )
+                            .layer(m0)
+                            .space(170)
+                            .build()
+                            .unwrap();
+                        let rect = Rect::from_spans(
+                            jog.r2().hspan().union(track_span),
+                            Span::with_start_and_length(jog.r2().bottom(), 170),
+                        );
+                        ctx.draw(jog)?;
+                        rect
+                    };
+                    ctx.draw_rect(m0, rect);
+                    let track_rect = Rect::from_spans(track_span, rect.vspan().union(sel.vspan()));
+                    draw_via(m0, rect, m1, track_rect, ctx)?;
+                    let m2_rect =
+                        Rect::from_spans(track_rect.hspan().union(sel.hspan()), sel.vspan());
+                    draw_rect(m1, track_rect, &mut router, ctx);
+                    draw_rect(m2, m2_rect, &mut router, ctx);
+                    draw_via(m1, track_rect, m2, m2_rect, ctx)?;
                 } else {
-                    let jog = OffsetJog::builder()
-                        .dir(subgeom::Dir::Horiz)
-                        .sign(subgeom::Sign::Pos)
-                        .src(y)
-                        .dst(
-                            if matches!(
-                                dsn.col_decoder.tree.root.children[0].gate,
-                                GateParams::FoldedInv(_) | GateParams::Inv(_)
-                            ) {
-                                y.bottom() - 770
-                            } else {
-                                y.bottom() - 340
-                            },
-                        )
-                        .layer(m0)
-                        .space(170)
-                        .build()
-                        .unwrap();
-                    let rect = Rect::from_spans(
-                        jog.r2().hspan().union(track_span),
-                        Span::with_start_and_length(jog.r2().bottom(), 170),
+                    let y = col_dec.port(PortId::new(y_name, i))?.largest_rect(m1)?;
+                    let sel = cols.port(PortId::new(sel_name, i))?.largest_rect(m2)?;
+                    let track_span = m1_tracks.index(sel_track_idx + idx as i64);
+
+                    let m2_rect = y.with_hspan(
+                        Span::with_stop_and_length(y.hspan().stop(), 320).union(track_span),
                     );
-                    ctx.draw(jog)?;
-                    rect
-                };
-                ctx.draw_rect(m0, rect);
-                let track_rect = Rect::from_spans(track_span, rect.vspan().union(sel.vspan()));
-                draw_via(m0, rect, m1, track_rect, ctx)?;
-                let m2_rect = Rect::from_spans(track_rect.hspan().union(sel.hspan()), sel.vspan());
-                draw_rect(m1, track_rect, &mut router, ctx);
-                draw_rect(m2, m2_rect, &mut router, ctx);
-                draw_via(m1, track_rect, m2, m2_rect, ctx)?;
+                    draw_rect(m2, m2_rect, &mut router, ctx);
+                    let track_rect =
+                        Rect::from_spans(track_span, m2_rect.vspan().union(sel.vspan()));
+                    draw_via(m1, y, m2, m2_rect, ctx)?;
+                    draw_via(m1, track_rect, m2, m2_rect, ctx)?;
+                    let m2_rect =
+                        Rect::from_spans(track_rect.hspan().union(sel.hspan()), sel.vspan());
+                    draw_rect(m1, track_rect, &mut router, ctx);
+                    draw_rect(m2, m2_rect, &mut router, ctx);
+                    draw_via(m1, track_rect, m2, m2_rect, ctx)?;
+                }
             }
         }
 
@@ -805,25 +877,45 @@ impl SramInner {
         )?;
 
         let addr_gate_wlen_rect = addr_gate.port("wl_en")?.largest_rect(m1)?;
-        let y = wlen_buffer.port("y")?.largest_rect(m0)?;
-        let jog = OffsetJog::builder()
-            .dir(subgeom::Dir::Vert)
-            .sign(subgeom::Sign::Pos)
-            .src(y)
-            .dst(addr_gate_wlen_rect.left())
-            .layer(m0)
-            .space(170)
-            .build()
-            .unwrap();
-        let m0_rect = jog
-            .r2()
-            .with_hspan(jog.r2().hspan().union(addr_gate_wlen_rect.hspan()));
-        let m1_rect =
-            addr_gate_wlen_rect.with_vspan(jog.r2().vspan().union(addr_gate_wlen_rect.vspan()));
-        draw_via(m0, m0_rect, m1, m1_rect, ctx)?;
-        ctx.draw_rect(m0, m0_rect);
-        draw_rect(m1, m1_rect, &mut router, ctx);
-        ctx.draw(jog)?;
+        if let Ok(y) = wlen_buffer.port("y")?.largest_rect(m0) {
+            let jog = OffsetJog::builder()
+                .dir(subgeom::Dir::Vert)
+                .sign(subgeom::Sign::Pos)
+                .src(y)
+                .dst(addr_gate_wlen_rect.left())
+                .layer(m0)
+                .space(170)
+                .build()
+                .unwrap();
+            let m0_rect = jog
+                .r2()
+                .with_hspan(jog.r2().hspan().union(addr_gate_wlen_rect.hspan()));
+            let m1_rect =
+                addr_gate_wlen_rect.with_vspan(jog.r2().vspan().union(addr_gate_wlen_rect.vspan()));
+            draw_via(m0, m0_rect, m1, m1_rect, ctx)?;
+            ctx.draw_rect(m0, m0_rect);
+            draw_rect(m1, m1_rect, &mut router, ctx);
+            ctx.draw(jog)?;
+        } else {
+            let y = wlen_buffer.port("y")?.largest_rect(m1)?;
+            let jog = OffsetJog::builder()
+                .dir(subgeom::Dir::Vert)
+                .sign(subgeom::Sign::Pos)
+                .src(y)
+                .dst(addr_gate_wlen_rect.left())
+                .layer(m1)
+                .space(200)
+                .build()
+                .unwrap();
+            let m1_rect = jog
+                .r2()
+                .with_hspan(jog.r2().hspan().union(addr_gate_wlen_rect.hspan()));
+            draw_rect(m1, m1_rect, &mut router, ctx);
+            let m1_rect =
+                addr_gate_wlen_rect.with_vspan(jog.r2().vspan().union(addr_gate_wlen_rect.vspan()));
+            draw_rect(m1, m1_rect, &mut router, ctx);
+            ctx.draw(jog)?;
+        }
 
         // Route pc_b to main array.
         let pc_b_rect = pc_b_buffer.port("predecode_0_0")?.largest_rect(m1)?;
@@ -897,7 +989,9 @@ impl SramInner {
                 } else {
                     (TrackLocator::EndsBefore, Side::Right)
                 };
-                let track_span = m1_tracks.index(m1_tracks.track_with_loc(loc, rect.side(side)));
+                let track_span = m1_tracks.index(
+                    m1_tracks.track_with_loc(loc, rect.side(side) - 140 * side.sign().as_int()),
+                );
                 let m0_rect = rect.with_hspan(track_span);
                 let via = draw_via(m0, m0_rect, m1, m0_rect, ctx)?;
                 let dff_port = Rect::from_spans(track_span, via.layer_bbox(m1).into_rect().vspan());
@@ -940,11 +1034,13 @@ impl SramInner {
                     dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?
                 };
                 let (loc, side) = if j == 0 {
-                    (TrackLocator::EndsBefore, Side::Right)
-                } else {
                     (TrackLocator::StartsAfter, Side::Left)
+                } else {
+                    (TrackLocator::EndsBefore, Side::Right)
                 };
-                let track_span = m1_tracks.index(m1_tracks.track_with_loc(loc, rect.side(side)));
+                let track_span = m1_tracks.index(
+                    m1_tracks.track_with_loc(loc, rect.side(side) - 140 * side.sign().as_int()),
+                );
                 let m0_rect = rect.with_hspan(track_span);
                 let via = draw_via(m0, m0_rect, m1, m0_rect, ctx)?;
                 let dff_port = Rect::from_spans(track_span, via.layer_bbox(m1).into_rect().vspan());
@@ -956,7 +1052,7 @@ impl SramInner {
                     addr_gate
                         .bbox()
                         .union(rbl.brect().expand_side(Side::Left, 6_000).bbox())
-                        .union(wlen_buffer.brect().bbox())
+                        .union(wlen_buffer.brect().expand_side(Side::Left, 2_000).bbox())
                         .into_rect()
                         .left()
                         - 140,
@@ -1130,6 +1226,44 @@ impl SramInner {
             for port_name in ["vdd", "vss"] {
                 for port in inst.port(port_name)?.shapes(m1) {
                     if let Shape::Rect(rect) = port {
+                        straps.add_target(
+                            m1,
+                            Target::new(
+                                match port_name {
+                                    "vdd" => SingleSupplyNet::Vdd,
+                                    "vss" => SingleSupplyNet::Vss,
+                                    _ => unreachable!(),
+                                },
+                                rect,
+                            ),
+                        );
+                    }
+                }
+            }
+        }
+
+        // Connect decoder m2 straps to power straps.
+        for inst in [
+            &decoder,
+            &addr_gate,
+            &col_dec,
+            &pc_b_buffer,
+            &sense_en_buffer,
+            &write_driver_en_buffer,
+        ] {
+            for port_name in ["vdd", "vss"] {
+                for port in inst
+                    .port(port_name)?
+                    .shapes(m2)
+                    .filter_map(|shape| shape.as_rect())
+                {
+                    let new_span = inst.brect().vspan().expand_all(2_000);
+                    for sign in [Sign::Neg, Sign::Pos] {
+                        let rect = port.with_vspan(Span::new(
+                            new_span.point(sign),
+                            port.vspan().point(sign) - sign.as_int() * 800,
+                        ));
+                        draw_rect(m1, rect, &mut router, ctx);
                         straps.add_target(
                             m1,
                             Target::new(

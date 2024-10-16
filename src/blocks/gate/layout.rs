@@ -1,4 +1,5 @@
 use subgeom::bbox::BoundBox;
+use subgeom::orientation::Named;
 use subgeom::{Rect, Span};
 use substrate::layout::cell::{CellPort, MustConnect, Port};
 use substrate::layout::elements::mos::LayoutMos;
@@ -6,7 +7,9 @@ use substrate::layout::placement::align::AlignRect;
 use substrate::layout::routing::manual::jog::OffsetJog;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 
-use super::{And2, And3, FoldedInv, Inv, Nand2, Nand3, Nor2};
+use super::{
+    And2, And3, FoldedInv, Inv, MultiFingerInv, MultiFingerInvMosParams, Nand2, Nand3, Nor2,
+};
 
 impl And2 {
     pub(crate) fn layout(
@@ -193,6 +196,7 @@ impl FoldedInv {
         let db = ctx.mos_db();
         let nmos = db.default_nmos().unwrap();
         let pmos = db.default_pmos().unwrap();
+
         let half_params = self.params.scale(0.5);
 
         let params = LayoutMosParams {
@@ -239,7 +243,89 @@ impl FoldedInv {
             .unwrap();
         ctx.merge_port(mos.port("sd_1_2")?.into_cell_port().named("vdd"));
         ctx.add_port(CellPort::with_shape("y", m0, short)).unwrap();
+        ctx.flatten();
+        Ok(())
+    }
+}
 
+impl MultiFingerInv {
+    pub(crate) fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let db = ctx.mos_db();
+        let nmos = db.default_nmos().unwrap();
+        let pmos = db.default_pmos().unwrap();
+        let MultiFingerInvMosParams {
+            nmos_nf,
+            pmos_nf,
+            unit_width,
+            length,
+        } = self.mos_params();
+        let nmos_layout = LayoutMosParams {
+            skip_sd_metal: vec![vec![]; nmos_nf as usize],
+            deep_nwell: true,
+            contact_strategy: GateContactStrategy::Merge,
+            devices: vec![MosParams {
+                w: unit_width,
+                l: length,
+                m: 1,
+                nf: nmos_nf,
+                id: nmos.id(),
+            }],
+        };
+        let pmos_layout = LayoutMosParams {
+            skip_sd_metal: vec![vec![]; pmos_nf as usize],
+            deep_nwell: true,
+            contact_strategy: GateContactStrategy::Merge,
+            devices: vec![MosParams {
+                w: unit_width,
+                l: length,
+                m: 1,
+                nf: pmos_nf,
+                id: pmos.id(),
+            }],
+        };
+        let nmos = ctx
+            .instantiate::<LayoutMos>(&nmos_layout)?
+            .with_orientation(Named::R90);
+        let mut pmos = ctx
+            .instantiate::<LayoutMos>(&pmos_layout)?
+            .with_orientation(Named::R90);
+        pmos.align_to_the_right_of(nmos.bbox(), 220);
+        ctx.draw_ref(&nmos)?;
+        ctx.draw_ref(&pmos)?;
+
+        let m0 = nmos.port("gate")?.any_layer();
+        let m0_rect = nmos
+            .port("gate")?
+            .bbox(m0)
+            .union(pmos.port("gate")?.bbox(m0))
+            .into_rect();
+        ctx.add_port(CellPort::with_shape("a", m0, m0_rect))
+            .unwrap();
+        for i in 0..=nmos_nf {
+            if i % 2 == 0 {
+                ctx.merge_port(
+                    nmos.port(format!("sd_0_{i}"))?
+                        .into_cell_port()
+                        .named("vss"),
+                );
+            } else {
+                ctx.merge_port(nmos.port(format!("sd_0_{i}"))?.into_cell_port().named("y"));
+            }
+        }
+        for i in 0..=pmos_nf {
+            if i % 2 == 0 {
+                ctx.merge_port(
+                    pmos.port(format!("sd_0_{i}"))?
+                        .into_cell_port()
+                        .named("vdd"),
+                );
+            } else {
+                ctx.merge_port(pmos.port(format!("sd_0_{i}"))?.into_cell_port().named("y"));
+            }
+        }
         ctx.flatten();
         Ok(())
     }

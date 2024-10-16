@@ -19,6 +19,7 @@ pub enum Gate {
     And3(And3),
     Inv(Inv),
     FoldedInv(FoldedInv),
+    MultiFingerInv(MultiFingerInv),
     Nand2(Nand2),
     Nand3(Nand3),
     Nor2(Nor2),
@@ -41,6 +42,10 @@ pub struct Inv {
 }
 
 pub struct FoldedInv {
+    params: PrimitiveGateParams,
+}
+
+pub struct MultiFingerInv {
     params: PrimitiveGateParams,
 }
 
@@ -68,6 +73,7 @@ pub enum GateParams {
     And3(AndParams),
     Inv(PrimitiveGateParams),
     FoldedInv(PrimitiveGateParams),
+    MultiFingerInv(PrimitiveGateParams),
     Nand2(PrimitiveGateParams),
     Nand3(PrimitiveGateParams),
     Nor2(PrimitiveGateParams),
@@ -79,6 +85,7 @@ pub enum GateType {
     And3,
     Inv,
     FoldedInv,
+    MultiFingerInv,
     Nand2,
     Nand3,
     Nor2,
@@ -88,6 +95,7 @@ pub enum GateType {
 pub enum PrimitiveGateType {
     Inv,
     FoldedInv,
+    MultiFingerInv,
     Nand2,
     Nand3,
     Nor2,
@@ -107,14 +115,22 @@ impl GateType {
             GateType::And3 => vec![GateType::Nand3, GateType::Inv],
             GateType::Inv => vec![GateType::Inv],
             GateType::FoldedInv => vec![GateType::FoldedInv],
+            GateType::MultiFingerInv => vec![GateType::MultiFingerInv],
             GateType::Nand2 => vec![GateType::Nand2],
             GateType::Nand3 => vec![GateType::Nand3],
             GateType::Nor2 => vec![GateType::Nor2],
         }
     }
 
+    pub fn is_multi_finger_inv(&self) -> bool {
+        matches!(self, GateType::MultiFingerInv)
+    }
+
     pub fn is_inv(&self) -> bool {
-        matches!(self, GateType::Inv | GateType::FoldedInv)
+        matches!(
+            self,
+            GateType::Inv | GateType::FoldedInv | GateType::MultiFingerInv
+        )
     }
 
     pub fn is_and(&self) -> bool {
@@ -131,6 +147,7 @@ impl GateType {
             GateType::And3 => 5. / 3.,
             GateType::Inv => 1.,
             GateType::FoldedInv => 1.,
+            GateType::MultiFingerInv => 1.,
             GateType::Nand2 => 4. / 3.,
             GateType::Nand3 => 5. / 3.,
             GateType::Nor2 => 5. / 3.,
@@ -162,6 +179,7 @@ impl GateParams {
         match gt {
             GateType::Inv => Self::Inv(params),
             GateType::FoldedInv => Self::FoldedInv(params),
+            GateType::MultiFingerInv => Self::MultiFingerInv(params),
             GateType::Nand2 => Self::Nand2(params),
             GateType::Nand3 => Self::Nand3(params),
             GateType::Nor2 => Self::Nor2(params),
@@ -181,8 +199,7 @@ impl GateParams {
         match self {
             GateParams::And2(_) => 2,
             GateParams::And3(_) => 3,
-            GateParams::Inv(_) => 1,
-            GateParams::FoldedInv(_) => 1,
+            GateParams::Inv(_) | GateParams::FoldedInv(_) | GateParams::MultiFingerInv(_) => 1,
             GateParams::Nand2(_) => 2,
             GateParams::Nand3(_) => 3,
             GateParams::Nor2(_) => 2,
@@ -195,6 +212,7 @@ impl GateParams {
             GateParams::And3(x) => Self::And3(x.scale(factor)),
             GateParams::Inv(x) => Self::Inv(x.scale(factor)),
             GateParams::FoldedInv(x) => Self::FoldedInv(x.scale(factor)),
+            GateParams::MultiFingerInv(x) => Self::MultiFingerInv(x.scale(factor)),
             GateParams::Nand2(x) => Self::Nand2(x.scale(factor)),
             GateParams::Nand3(x) => Self::Nand3(x.scale(factor)),
             GateParams::Nor2(x) => Self::Nor2(x.scale(factor)),
@@ -207,6 +225,7 @@ impl GateParams {
             GateParams::And3(_) => GateType::And3,
             GateParams::Inv(_) => GateType::Inv,
             GateParams::FoldedInv(_) => GateType::FoldedInv,
+            GateParams::MultiFingerInv(_) => GateType::MultiFingerInv,
             GateParams::Nand2(_) => GateType::Nand2,
             GateParams::Nand3(_) => GateType::Nand3,
             GateParams::Nor2(_) => GateType::Nor2,
@@ -219,6 +238,7 @@ impl GateParams {
             GateParams::And3(a) => a.nand,
             GateParams::Inv(x) => *x,
             GateParams::FoldedInv(x) => *x,
+            GateParams::MultiFingerInv(x) => *x,
             GateParams::Nand2(x) => *x,
             GateParams::Nand3(x) => *x,
             GateParams::Nor2(x) => *x,
@@ -231,6 +251,7 @@ impl GateParams {
             GateParams::And3(a) => a.inv,
             GateParams::Inv(x) => *x,
             GateParams::FoldedInv(x) => *x,
+            GateParams::MultiFingerInv(x) => *x,
             GateParams::Nand2(x) => *x,
             GateParams::Nand3(x) => *x,
             GateParams::Nor2(x) => *x,
@@ -248,7 +269,8 @@ impl GateParams {
                 (PrimitiveGateType::Inv, x.inv),
             ],
             GateParams::Inv(x) => vec![(PrimitiveGateType::Inv, *x)],
-            GateParams::FoldedInv(x) => vec![(PrimitiveGateType::Inv, *x)],
+            GateParams::FoldedInv(x) => vec![(PrimitiveGateType::FoldedInv, *x)],
+            GateParams::MultiFingerInv(x) => vec![(PrimitiveGateType::MultiFingerInv, *x)],
             GateParams::Nand2(x) => vec![(PrimitiveGateType::Nand2, *x)],
             GateParams::Nand3(x) => vec![(PrimitiveGateType::Nand3, *x)],
             GateParams::Nor2(x) => vec![(PrimitiveGateType::Nor2, *x)],
@@ -263,6 +285,7 @@ macro_rules! call_gate_fn {
             Gate::And3(gate) => gate.$fn_call($($arg),*),
             Gate::Inv(gate) => gate.$fn_call($($arg),*),
             Gate::FoldedInv(gate) => gate.$fn_call($($arg),*),
+            Gate::MultiFingerInv(gate) => gate.$fn_call($($arg),*),
             Gate::Nand2(gate) => gate.$fn_call($($arg),*),
             Gate::Nand3(gate) => gate.$fn_call($($arg),*),
             Gate::Nor2(gate) => gate.$fn_call($($arg),*),
@@ -281,6 +304,7 @@ impl Component for Gate {
             GateParams::And3(params) => Self::And3(And3 { params }),
             GateParams::Inv(params) => Self::Inv(Inv { params }),
             GateParams::FoldedInv(params) => Self::FoldedInv(FoldedInv { params }),
+            GateParams::MultiFingerInv(params) => Self::MultiFingerInv(MultiFingerInv { params }),
             GateParams::Nand2(params) => Self::Nand2(Nand2 { params }),
             GateParams::Nand3(params) => Self::Nand3(Nand3 { params }),
             GateParams::Nor2(params) => Self::Nor2(Nor2 { params }),
@@ -488,6 +512,53 @@ impl Component for FoldedInv {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         self.layout(ctx)
+    }
+}
+
+impl Component for MultiFingerInv {
+    type Params = PrimitiveGateParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self { params: *params })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("multi_finger_inv")
+    }
+
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        self.schematic(ctx)
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        self.layout(ctx)
+    }
+}
+
+pub(crate) struct MultiFingerInvMosParams {
+    nmos_nf: u64,
+    pmos_nf: u64,
+    unit_width: i64,
+    length: i64,
+}
+
+impl MultiFingerInv {
+    pub(crate) fn mos_params(&self) -> MultiFingerInvMosParams {
+        const UNIT_WIDTH: i64 = 700;
+
+        MultiFingerInvMosParams {
+            nmos_nf: (self.params.nwidth as f64 / UNIT_WIDTH as f64).round() as u64,
+            pmos_nf: (self.params.pwidth as f64 / UNIT_WIDTH as f64).round() as u64,
+            unit_width: UNIT_WIDTH,
+            length: self.params.length,
+        }
     }
 }
 
@@ -917,6 +988,22 @@ mod tests {
         ctx.write_layout::<Inv>(&params, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
         ctx.write_schematic_to_file::<Inv>(&params, out_spice(&work_dir, "netlist"))
+            .expect("failed to write schematic");
+    }
+
+    #[test]
+    fn test_multi_finger_inv() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_multi_finger_inv");
+
+        let params = PrimitiveGateParams {
+            nwidth: 10_000,
+            pwidth: 40_000,
+            length: 150,
+        };
+        ctx.write_layout::<MultiFingerInv>(&params, out_gds(&work_dir, "layout"))
+            .expect("failed to write layout");
+        ctx.write_schematic_to_file::<MultiFingerInv>(&params, out_spice(&work_dir, "netlist"))
             .expect("failed to write schematic");
     }
 

@@ -17,7 +17,7 @@ use substrate::layout::group::elements::ElementGroup;
 use substrate::layout::DrawRef;
 
 use substrate::layout::layers::selector::Selector;
-use substrate::layout::layers::LayerKey;
+use substrate::layout::layers::{LayerBoundBox, LayerKey};
 
 use crate::blocks::decoder::{
     base_indices, Decoder, DecoderParams, DecoderPhysicalDesign, DecoderPhysicalDesignScript,
@@ -25,6 +25,7 @@ use crate::blocks::decoder::{
     RoutingStyle,
 };
 use crate::blocks::gate::{Gate, GateParams};
+use crate::blocks::sram::layout::draw_via;
 use substrate::layout::placement::align::AlignMode;
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::place_bbox::PlaceBbox;
@@ -178,6 +179,10 @@ impl DecoderStage {
         let mut tiler = ArrayTiler::builder();
         let num_stages = gate_params.len();
 
+        let layers = ctx.layers();
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+
         for (gate, &folding_factor) in gate_params.iter().zip(folding_factors.iter()) {
             let decoder_params = DecoderGateParams {
                 gate: gate.scale(1. / (folding_factor as f64)),
@@ -258,68 +263,168 @@ impl DecoderStage {
         for stage in 0..num_stages - 1 {
             let folding_factor = folding_factors[stage];
             for i in 0..self.params.num {
-                let inv_in: Vec<_> = tiler
-                    .port_map()
-                    .port(PortId::new(
-                        "a",
-                        i * folding_factors[stage + 1] * num_stages + stage + 1,
-                    ))?
-                    .shapes(dsn.li)
-                    .filter_map(|shape| shape.as_rect())
-                    .collect();
-                let gate_out = tiler
-                    .port_map()
-                    .port(PortId::new("y", i * folding_factor * num_stages + stage))?
-                    .largest_rect(dsn.li)?;
-                for j in 0..folding_factor {
-                    let src = tiler
-                        .port_map()
-                        .port(PortId::new(
-                            "y",
-                            (i * folding_factor + j) * num_stages + stage,
-                        ))?
-                        .largest_rect(dsn.li)?;
-                    for inv_in in &inv_in {
-                        let jog = OffsetJog::builder()
-                            .dir(subgeom::Dir::Vert)
-                            .sign(subgeom::Sign::Pos)
-                            .src(src)
-                            .dst(inv_in.left())
-                            .layer(dsn.li)
-                            .space(170)
-                            .build()
-                            .unwrap();
-                        let rect = Rect::from_spans(
-                            inv_in.hspan(),
-                            Span::new(jog.r2().bottom(), inv_in.top()),
-                        );
-                        ctx.draw(jog)?;
-                        ctx.draw_rect(dsn.li, rect);
+                if gate_params[stage].gate_type().is_multi_finger_inv()
+                    || gate_params[stage + 1].gate_type().is_multi_finger_inv()
+                {
+                    let mut m1_in = Vec::new();
+                    let mut m1_out = Vec::new();
+                    for j in 0..folding_factor {
+                        m1_in.push(if gate_params[stage].gate_type().is_multi_finger_inv() {
+                            tiler
+                                .port_map()
+                                .port(PortId::new(
+                                    "y",
+                                    (i * folding_factor + j) * num_stages + stage,
+                                ))?
+                                .largest_rect(m1)?
+                        } else {
+                            let src = tiler
+                                .port_map()
+                                .port(PortId::new(
+                                    "y",
+                                    (i * folding_factor + j) * num_stages + stage,
+                                ))?
+                                .largest_rect(dsn.li)?;
+                            let src =
+                                src.with_vspan(Span::with_stop_and_length(src.top() + 240, 240));
+                            ctx.draw_rect(dsn.li, src);
+                            let via = ctx.instantiate::<Via>(
+                                &ViaParams::builder()
+                                    .layers(dsn.li, m1)
+                                    .geometry(src, src)
+                                    .expand(ViaExpansion::LongerDirection)
+                                    .top_extension(Dir::Vert)
+                                    .build(),
+                            )?;
+                            ctx.draw_ref(&via)?;
+                            via.layer_bbox(m1).into_rect()
+                        });
                     }
-                }
-                for j in 0..folding_factors[stage + 1] {
-                    for dst in tiler
+                    for j in 0..folding_factors[stage + 1] {
+                        m1_out.push(
+                            if gate_params[stage + 1].gate_type().is_multi_finger_inv() {
+                                tiler
+                                    .port_map()
+                                    .port(PortId::new(
+                                        "a",
+                                        (i * folding_factors[stage + 1] + j) * num_stages
+                                            + stage
+                                            + 1,
+                                    ))?
+                                    .largest_rect(m1)?
+                            } else {
+                                let src = tiler
+                                    .port_map()
+                                    .port(PortId::new(
+                                        "a",
+                                        (i * folding_factors[stage + 1] + j) * num_stages
+                                            + stage
+                                            + 1,
+                                    ))?
+                                    .largest_rect(dsn.li)?;
+                                let src = src.with_vspan(Span::with_start_and_length(
+                                    src.bottom() - 240,
+                                    240,
+                                ));
+                                ctx.draw_rect(dsn.li, src);
+                                let via = ctx.instantiate::<Via>(
+                                    &ViaParams::builder()
+                                        .layers(dsn.li, m1)
+                                        .geometry(src, src)
+                                        .expand(ViaExpansion::LongerDirection)
+                                        .top_extension(Dir::Vert)
+                                        .build(),
+                                )?;
+                                ctx.draw_ref(&via)?;
+                                via.layer_bbox(m1).into_rect()
+                            },
+                        );
+                    }
+
+                    let conn_vspan = Span::from_center_span_gridded(
+                        m1_out[0].bottom() - 400,
+                        240,
+                        ctx.pdk().layout_grid(),
+                    );
+                    let conn_hspan = m1_in
+                        .iter()
+                        .chain(m1_out.iter())
+                        .map(|rect| rect.bbox())
+                        .reduce(|a, b| a.union(b))
+                        .unwrap()
+                        .into_rect()
+                        .hspan();
+                    let conn = Rect::from_spans(conn_hspan, conn_vspan);
+                    ctx.draw_rect(m1, conn);
+                    for rect in m1_in.iter().chain(m1_out.iter()) {
+                        ctx.draw_rect(m1, rect.with_vspan(rect.vspan().union(conn_vspan)));
+                    }
+                } else {
+                    let inv_in: Vec<_> = tiler
                         .port_map()
                         .port(PortId::new(
                             "a",
-                            (i * folding_factors[stage + 1] + j) * num_stages + stage + 1,
+                            i * folding_factors[stage + 1] * num_stages + stage + 1,
                         ))?
                         .shapes(dsn.li)
                         .filter_map(|shape| shape.as_rect())
-                    {
-                        let jog = OffsetJog::builder()
-                            .dir(subgeom::Dir::Vert)
-                            .sign(subgeom::Sign::Pos)
-                            .src(gate_out)
-                            .dst(dst.left())
-                            .layer(dsn.li)
-                            .space(170)
-                            .build()
-                            .unwrap();
-                        let rect =
-                            Rect::from_spans(dst.hspan(), Span::new(jog.r2().bottom(), dst.top()));
-                        ctx.draw(jog)?;
-                        ctx.draw_rect(dsn.li, rect);
+                        .collect();
+                    let gate_out = tiler
+                        .port_map()
+                        .port(PortId::new("y", i * folding_factor * num_stages + stage))?
+                        .largest_rect(dsn.li)?;
+                    for j in 0..folding_factor {
+                        let src = tiler
+                            .port_map()
+                            .port(PortId::new(
+                                "y",
+                                (i * folding_factor + j) * num_stages + stage,
+                            ))?
+                            .largest_rect(dsn.li)?;
+                        for inv_in in &inv_in {
+                            let jog = OffsetJog::builder()
+                                .dir(subgeom::Dir::Vert)
+                                .sign(subgeom::Sign::Pos)
+                                .src(src)
+                                .dst(inv_in.left())
+                                .layer(dsn.li)
+                                .space(170)
+                                .build()
+                                .unwrap();
+                            let rect = Rect::from_spans(
+                                inv_in.hspan(),
+                                Span::new(jog.r2().bottom(), inv_in.top()),
+                            );
+                            ctx.draw(jog)?;
+                            ctx.draw_rect(dsn.li, rect);
+                        }
+                    }
+                    for j in 0..folding_factors[stage + 1] {
+                        for dst in tiler
+                            .port_map()
+                            .port(PortId::new(
+                                "a",
+                                (i * folding_factors[stage + 1] + j) * num_stages + stage + 1,
+                            ))?
+                            .shapes(dsn.li)
+                            .filter_map(|shape| shape.as_rect())
+                        {
+                            let jog = OffsetJog::builder()
+                                .dir(subgeom::Dir::Vert)
+                                .sign(subgeom::Sign::Pos)
+                                .src(gate_out)
+                                .dst(dst.left())
+                                .layer(dsn.li)
+                                .space(170)
+                                .build()
+                                .unwrap();
+                            let rect = Rect::from_spans(
+                                dst.hspan(),
+                                Span::new(jog.r2().bottom(), dst.top()),
+                            );
+                            ctx.draw(jog)?;
+                            ctx.draw_rect(dsn.li, rect);
+                        }
                     }
                 }
             }
@@ -343,13 +448,21 @@ impl DecoderStage {
             for n in 0..self.params.num {
                 // connect folded outputs
                 if folding_factor > 1 {
+                    let (layer, offset) = if gate_params[num_stages - 1]
+                        .gate_type()
+                        .is_multi_finger_inv()
+                    {
+                        (m1, 200)
+                    } else {
+                        (dsn.li, 170)
+                    };
                     let left_port = tiler
                         .port_map()
                         .port(PortId::new(
                             "y",
                             n * folding_factor * num_stages + num_stages - 1,
                         ))?
-                        .largest_rect(dsn.li)?;
+                        .largest_rect(layer)?;
                     for k in 0..folding_factor {
                         let port = tiler
                             .port_map()
@@ -357,14 +470,14 @@ impl DecoderStage {
                                 "y",
                                 (n * folding_factor + k) * num_stages + num_stages - 1,
                             ))?
-                            .largest_rect(dsn.li)?;
+                            .largest_rect(layer)?;
                         let jog = OffsetJog::builder()
                             .dir(subgeom::Dir::Vert)
                             .sign(subgeom::Sign::Pos)
                             .src(port)
                             .dst(left_port.left())
-                            .layer(dsn.li)
-                            .space(170)
+                            .layer(layer)
+                            .space(offset)
                             .build()
                             .unwrap();
                         ctx.draw(jog)?;
@@ -381,16 +494,34 @@ impl DecoderStage {
                         .with_id(PortId::new(arcstr::format!("y"), n)),
                 )?;
                 if num_stages > 1 {
-                    ctx.add_port(
-                        tiler
-                            .port_map()
-                            .port(PortId::new(
-                                "y",
-                                n * folding_factors[num_stages - 2] * num_stages + num_stages - 2,
-                            ))?
-                            .clone()
-                            .with_id(PortId::new(arcstr::format!("y_b"), n)),
-                    )?;
+                    if gate_params[num_stages - 1]
+                        .gate_type()
+                        .is_multi_finger_inv()
+                    {
+                        ctx.add_port(
+                            tiler
+                                .port_map()
+                                .port(PortId::new(
+                                    "a",
+                                    n * folding_factors[num_stages - 1] * num_stages + num_stages
+                                        - 1,
+                                ))?
+                                .clone()
+                                .with_id(PortId::new(arcstr::format!("y_b"), n)),
+                        )?;
+                    } else {
+                        ctx.add_port(
+                            tiler
+                                .port_map()
+                                .port(PortId::new(
+                                    "y",
+                                    n * folding_factors[num_stages - 2] * num_stages + num_stages
+                                        - 2,
+                                ))?
+                                .clone()
+                                .with_id(PortId::new(arcstr::format!("y_b"), n)),
+                        )?;
+                    }
                 } else if let GateParams::And2(_) | GateParams::And3(_) = &gate_params[0] {
                     ctx.add_port(
                         tiler
@@ -575,11 +706,16 @@ pub(crate) fn span_to_straps(span: Span, line: i64, space: i64, grid: i64) -> Ve
     let big_power_strap_width = 4 * (line + space);
     if span.length() > 2 * big_power_strap_width {
         let num_straps = span.length() / 2 / big_power_strap_width;
+        let strap_span = Span::from_center_span_gridded(
+            span.center(),
+            big_power_strap_width * (2 * num_straps - 1) / grid * grid,
+            grid,
+        );
 
         (0..num_straps)
             .map(|i| {
                 Span::from_center_span_gridded(
-                    span.start() + big_power_strap_width * (2 * i + 1),
+                    strap_span.start() + big_power_strap_width / 2 * (4 * i + 1),
                     big_power_strap_width / grid * grid,
                     grid,
                 )
@@ -616,16 +752,19 @@ impl Component for DecoderGate {
         let dsn = &self.params.dsn;
 
         let layers = ctx.layers();
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
         let outline = layers.get(Selector::Name("outline"))?;
         let psdm = layers.get(Selector::Name("psdm"))?;
         let nsdm = layers.get(Selector::Name("nsdm"))?;
 
         let hspan = Span::until(dsn.width);
+        let is_multi_finger_inv = matches!(self.params.gate, GateParams::MultiFingerInv(_));
 
         let mut gate = ctx.instantiate::<Gate>(&self.params.gate)?;
         gate.set_orientation(Named::R90);
         gate.place_center_x(dsn.width / 2);
-        if !self.params.filler {
+        if !self.params.filler && !is_multi_finger_inv {
             ctx.add_ports(gate.ports()).unwrap();
         }
         let mut gate_group = gate.draw_ref()?;
@@ -636,10 +775,19 @@ impl Component for DecoderGate {
         let mut met_to_diff = HashMap::new();
 
         let mut group = ElementGroup::new();
+        let mut spans = Vec::new();
         for elem in gate_group.elements() {
             if dsn.abut_layers.contains(&elem.layer.layer()) {
-                let rect = Rect::from_spans(hspan, elem.brect().vspan());
-                group.add(Element::new(elem.layer.clone(), rect));
+                if elem.layer.layer() == nsdm {
+                    spans.push((elem.brect().vspan(), "vss"));
+                }
+                if elem.layer.layer() == psdm {
+                    spans.push((elem.brect().vspan(), "vdd"));
+                }
+                if !(is_multi_finger_inv && [nsdm, psdm].contains(&elem.layer.layer())) {
+                    let rect = Rect::from_spans(hspan, elem.brect().vspan());
+                    group.add(Element::new(elem.layer.clone(), rect));
+                }
                 abutted_layers
                     .entry(elem.layer.layer())
                     .or_insert(Vec::new())
@@ -647,40 +795,141 @@ impl Component for DecoderGate {
             }
         }
 
-        let spans: Vec<(Span, &str)> = abutted_layers[&nsdm]
-            .iter()
-            .map(|span| (*span, "vss"))
-            .chain(abutted_layers[&psdm].iter().map(|span| (*span, "vdd")))
-            .collect();
+        if is_multi_finger_inv {
+            let a_rect = gate
+                .port("a")?
+                .shapes(dsn.li)
+                .filter_map(|shape| shape.as_rect())
+                .map(|rect| rect.bbox())
+                .reduce(|a, b| a.union(b))
+                .unwrap()
+                .into_rect();
+            let y_rect = gate
+                .port("y")?
+                .shapes(dsn.li)
+                .filter_map(|shape| shape.as_rect())
+                .map(|rect| rect.bbox())
+                .reduce(|a, b| a.union(b))
+                .unwrap()
+                .into_rect();
+            let y_rect = y_rect.with_hspan(Span::with_stop_and_length(y_rect.hspan().stop(), 240));
 
-        let mut via_metals = Vec::new();
-        via_metals.push(dsn.li);
-        via_metals.extend(dsn.via_metals.clone());
-        via_metals.push(dsn.stripe_metal);
+            let vdd_rect = gate
+                .port("vdd")?
+                .shapes(dsn.li)
+                .filter_map(|shape| shape.as_rect())
+                .map(|rect| rect.bbox())
+                .reduce(|a, b| a.union(b))
+                .unwrap()
+                .into_rect();
+            let vdd_rect =
+                vdd_rect.with_hspan(Span::with_start_and_length(vdd_rect.hspan().start(), 240));
+            ctx.draw_rect(m1, vdd_rect);
+            for rect in gate
+                .port("vdd")?
+                .shapes(dsn.li)
+                .filter_map(|shape| shape.as_rect())
+            {
+                draw_via(dsn.li, rect, m1, vdd_rect, ctx)?;
+            }
 
-        for (span, port_name) in spans {
-            for vspan in span_to_straps(span, dsn.line, dsn.space, ctx.pdk().layout_grid()) {
-                met_to_diff.insert(vspan, (port_name.to_string(), span));
-                let rect = Rect::from_spans(hspan, vspan);
-                ctx.draw_rect(dsn.stripe_metal, rect);
-                ctx.merge_port(CellPort::with_shape(port_name, dsn.stripe_metal, rect));
-                abutted_layers
-                    .entry(dsn.stripe_metal)
-                    .or_insert(Vec::new())
-                    .push(rect.vspan());
-                if !self.params.filler {
-                    for port_rect in gate
-                        .port(port_name)?
-                        .shapes(dsn.li)
-                        .filter_map(|shape| shape.as_rect())
-                    {
-                        let intersection = rect.intersection(port_rect.bbox());
-                        if !intersection.is_empty() {
-                            let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
-                                rect: intersection.into_rect(),
-                                via_metals: via_metals.clone(),
-                            })?;
-                            ctx.draw(via)?;
+            let vss_rect = gate
+                .port("vss")?
+                .shapes(dsn.li)
+                .filter_map(|shape| shape.as_rect())
+                .map(|rect| rect.bbox())
+                .reduce(|a, b| a.union(b))
+                .unwrap()
+                .into_rect();
+            let vss_rect =
+                vss_rect.with_hspan(Span::with_start_and_length(vss_rect.hspan().start(), 240));
+            ctx.draw_rect(m1, vss_rect);
+            for rect in gate
+                .port("vss")?
+                .shapes(dsn.li)
+                .filter_map(|shape| shape.as_rect())
+            {
+                draw_via(dsn.li, rect, m1, vss_rect, ctx)?;
+            }
+
+            let a_rect = a_rect.with_vspan(
+                a_rect
+                    .vspan()
+                    .union(y_rect.vspan())
+                    .union(vdd_rect.vspan())
+                    .union(vss_rect.vspan()),
+            );
+            ctx.draw_rect(m1, a_rect);
+            for rect in gate
+                .port("a")?
+                .shapes(dsn.li)
+                .filter_map(|shape| shape.as_rect())
+            {
+                draw_via(dsn.li, rect, m1, a_rect, ctx)?;
+            }
+            ctx.add_port(CellPort::with_shape("a", m1, a_rect)).unwrap();
+
+            let y_rect = y_rect.with_vspan(a_rect.vspan());
+            ctx.draw_rect(m1, y_rect);
+            for rect in gate
+                .port("y")?
+                .shapes(dsn.li)
+                .filter_map(|shape| shape.as_rect())
+            {
+                draw_via(dsn.li, rect, m1, y_rect, ctx)?;
+            }
+            ctx.add_port(CellPort::with_shape("y", m1, y_rect)).unwrap();
+
+            for (span, port_name) in spans {
+                for vspan in span_to_straps(span, dsn.line, dsn.space, ctx.pdk().layout_grid()) {
+                    met_to_diff.insert(vspan, (port_name.to_string(), span));
+                    let rect = Rect::from_spans(hspan, vspan);
+                    ctx.draw_rect(m2, rect);
+                    ctx.merge_port(CellPort::with_shape(port_name, m2, rect));
+                    abutted_layers
+                        .entry(m2)
+                        .or_insert(Vec::new())
+                        .push(rect.vspan());
+                    if !self.params.filler {
+                        let port_rect = if port_name == "vdd" {
+                            vdd_rect
+                        } else {
+                            vss_rect
+                        };
+                        draw_via(m1, port_rect, m2, rect, ctx)?;
+                    }
+                }
+            }
+        } else {
+            let mut via_metals = Vec::new();
+            via_metals.push(dsn.li);
+            via_metals.extend(dsn.via_metals.clone());
+            via_metals.push(dsn.stripe_metal);
+
+            for (span, port_name) in spans {
+                for vspan in span_to_straps(span, dsn.line, dsn.space, ctx.pdk().layout_grid()) {
+                    met_to_diff.insert(vspan, (port_name.to_string(), span));
+                    let rect = Rect::from_spans(hspan, vspan);
+                    ctx.draw_rect(dsn.stripe_metal, rect);
+                    ctx.merge_port(CellPort::with_shape(port_name, dsn.stripe_metal, rect));
+                    abutted_layers
+                        .entry(dsn.stripe_metal)
+                        .or_insert(Vec::new())
+                        .push(rect.vspan());
+                    if !self.params.filler {
+                        for port_rect in gate
+                            .port(port_name)?
+                            .shapes(dsn.li)
+                            .filter_map(|shape| shape.as_rect())
+                        {
+                            let intersection = rect.intersection(port_rect.bbox());
+                            if !intersection.is_empty() {
+                                let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
+                                    rect: intersection.into_rect(),
+                                    via_metals: via_metals.clone(),
+                                })?;
+                                ctx.draw(via)?;
+                            }
                         }
                     }
                 }
@@ -735,6 +984,8 @@ impl Component for DecoderTap {
         let dsn = &self.params.dsn;
 
         let layers = ctx.layers();
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
         let tap = layers.get(Selector::Name("tap"))?;
         let psdm = layers.get(Selector::Name("psdm"))?;
         let nsdm = layers.get(Selector::Name("nsdm"))?;
@@ -744,6 +995,17 @@ impl Component for DecoderTap {
 
         let gate_spans = decoder_gate.cell().get_metadata::<DecoderGateSpans>();
 
+        let (via_metals, stripe_metal) = match self.params.gate {
+            GateParams::MultiFingerInv(_) => (vec![dsn.li, m1, m2], m2),
+            _ => {
+                let mut via_metals = Vec::new();
+                via_metals.push(dsn.li);
+                via_metals.extend(dsn.via_metals.clone());
+                via_metals.push(dsn.stripe_metal);
+                (via_metals, dsn.stripe_metal)
+            }
+        };
+
         for (layer, spans) in gate_spans.abutted_layers.iter() {
             // P+ tap for NMOS, N+ tap for PMOS
             if *layer == nsdm || *layer == psdm {
@@ -752,7 +1014,7 @@ impl Component for DecoderTap {
             for vspan in spans {
                 let rect = Rect::from_spans(hspan, *vspan);
                 ctx.draw_rect(*layer, rect);
-                if *layer == dsn.stripe_metal {
+                if *layer == stripe_metal {
                     let (port_name, _) = &gate_spans.met_to_diff[vspan];
                     ctx.merge_port(CellPort::with_shape(port_name, *layer, rect));
                 }
@@ -764,31 +1026,29 @@ impl Component for DecoderTap {
         if let Some(spans) = gate_spans.abutted_layers.get(&nsdm) {
             for vspan in spans {
                 ctx.draw_rect(psdm, Rect::from_spans(hspan, (*vspan).shrink_all(110)));
+                let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
+                    rect: Rect::from_spans(hspan.shrink_all(125), vspan.shrink_all(290)),
+                    via_metals: vec![tap, dsn.li],
+                })?;
+                ctx.draw(via)?;
             }
         }
 
         if let Some(spans) = gate_spans.abutted_layers.get(&psdm) {
             for vspan in spans {
                 ctx.draw_rect(nsdm, Rect::from_spans(hspan, (*vspan).shrink_all(110)));
-            }
-        }
-
-        let hspan = hspan.shrink_all(125);
-
-        let mut via_metals = Vec::new();
-        via_metals.push(dsn.li);
-        via_metals.extend(dsn.via_metals.clone());
-        via_metals.push(dsn.stripe_metal);
-        if let Some(spans) = gate_spans.abutted_layers.get(&dsn.stripe_metal) {
-            for vspan in spans {
-                let (_, vspan_diff) = gate_spans.met_to_diff[vspan];
                 let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
-                    rect: Rect::from_spans(hspan, vspan_diff.shrink_all(290)),
+                    rect: Rect::from_spans(hspan.shrink_all(125), vspan.shrink_all(290)),
                     via_metals: vec![tap, dsn.li],
                 })?;
                 ctx.draw(via)?;
+            }
+        }
+
+        if let Some(spans) = gate_spans.abutted_layers.get(&stripe_metal) {
+            for vspan in spans {
                 let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
-                    rect: Rect::from_spans(hspan, *vspan),
+                    rect: Rect::from_spans(hspan.shrink_all(125), *vspan),
                     via_metals: via_metals.clone(),
                 })?;
                 ctx.draw(via)?;

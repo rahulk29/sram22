@@ -159,7 +159,9 @@ pub(crate) fn gate_params(gate: GateType) -> PrimitiveGateParams {
 
 pub(crate) fn primitive_gate_params(gate: PrimitiveGateType) -> PrimitiveGateParams {
     match gate {
-        PrimitiveGateType::Inv | PrimitiveGateType::FoldedInv => INV_PARAMS,
+        PrimitiveGateType::Inv
+        | PrimitiveGateType::FoldedInv
+        | PrimitiveGateType::MultiFingerInv => INV_PARAMS,
         PrimitiveGateType::Nand2 => NAND2_PARAMS,
         PrimitiveGateType::Nand3 => NAND3_PARAMS,
         PrimitiveGateType::Nor2 => NOR2_PARAMS,
@@ -168,7 +170,7 @@ pub(crate) fn primitive_gate_params(gate: PrimitiveGateType) -> PrimitiveGatePar
 
 pub(crate) fn gate_model(gate: GateType) -> GateModel {
     match gate {
-        GateType::Inv | GateType::FoldedInv => INV_MODEL,
+        GateType::Inv | GateType::FoldedInv | GateType::MultiFingerInv => INV_MODEL,
         GateType::Nand2 => NAND2_MODEL,
         GateType::Nand3 => NAND3_MODEL,
         GateType::Nor2 => NOR2_MODEL,
@@ -178,7 +180,9 @@ pub(crate) fn gate_model(gate: GateType) -> GateModel {
 
 pub(crate) fn primitive_gate_model(gate: PrimitiveGateType) -> GateModel {
     match gate {
-        PrimitiveGateType::Inv | PrimitiveGateType::FoldedInv => INV_MODEL,
+        PrimitiveGateType::Inv
+        | PrimitiveGateType::FoldedInv
+        | PrimitiveGateType::MultiFingerInv => INV_MODEL,
         PrimitiveGateType::Nand2 => NAND2_MODEL,
         PrimitiveGateType::Nand3 => NAND3_MODEL,
         PrimitiveGateType::Nor2 => NOR2_MODEL,
@@ -257,6 +261,9 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
             }),
             GateType::Inv => GateParams::Inv(scale(INV_PARAMS, values.next().unwrap())),
             GateType::FoldedInv => GateParams::FoldedInv(scale(INV_PARAMS, values.next().unwrap())),
+            GateType::MultiFingerInv => {
+                GateParams::MultiFingerInv(scale(INV_PARAMS, values.next().unwrap()))
+            }
             GateType::Nand2 => GateParams::Nand2(scale(NAND2_PARAMS, values.next().unwrap())),
             GateType::Nand3 => GateParams::Nand3(scale(NAND3_PARAMS, values.next().unwrap())),
             GateType::Nor2 => GateParams::Nor2(scale(NOR2_PARAMS, values.next().unwrap())),
@@ -612,7 +619,7 @@ impl Script for DecoderPhysicalDesignScript {
         let (width, tap_width) = match params.style {
             DecoderStyle::RowMatched => (1_580, 1_580),
             DecoderStyle::Relaxed => (1_900, 1_000),
-            DecoderStyle::Minimum => (1_470, 1_000),
+            DecoderStyle::Minimum => (1_580, 1_000),
         };
         Ok(Self::Output {
             width,
@@ -669,6 +676,9 @@ impl Script for DecoderStagePhysicalDesignScript {
                     ),
                     GateParams::Inv(params) => (GateParams::Inv(params), vec![params]),
                     GateParams::FoldedInv(params) => (GateParams::FoldedInv(params), vec![params]),
+                    GateParams::MultiFingerInv(params) => {
+                        (GateParams::MultiFingerInv(params), vec![params])
+                    }
                     GateParams::Nand2(params) => (GateParams::Nand2(params), vec![params]),
                     GateParams::Nand3(params) => (GateParams::Nand3(params), vec![params]),
                     GateParams::Nor2(params) => (GateParams::Nor2(params), vec![params]),
@@ -702,7 +712,16 @@ impl Script for DecoderStagePhysicalDesignScript {
                             .into_iter()
                             .skip(1)
                             .chain(params.invs.clone())
-                            .map(GateParams::FoldedInv),
+                            .enumerate()
+                            .map(|(i, params)| {
+                                if (params.pwidth + params.nwidth) / (folding_factors[i + 1] as i64)
+                                    < 20_000
+                                {
+                                    GateParams::FoldedInv(params)
+                                } else {
+                                    GateParams::MultiFingerInv(params)
+                                }
+                            }),
                     )
                     .collect();
 
@@ -710,7 +729,13 @@ impl Script for DecoderStagePhysicalDesignScript {
             } else {
                 (
                     std::iter::once(params.gate)
-                        .chain(params.invs.clone().into_iter().map(GateParams::FoldedInv))
+                        .chain(params.invs.clone().into_iter().map(|params| {
+                            if params.pwidth + params.nwidth < 20_000 {
+                                GateParams::FoldedInv(params)
+                            } else {
+                                GateParams::MultiFingerInv(params)
+                            }
+                        }))
                         .collect(),
                     1,
                     vec![1; 1 + params.invs.len()],
