@@ -355,7 +355,7 @@ impl Script for SramPhysicalDesignScript {
         .into_iter()
         .max()
         .unwrap()
-            - 3 * 6_000; // Offset between buffers
+            - 4 * 6_000; // Offset between buffers
 
         let col_dec_max_width = std::cmp::max(
             available_height * col_dec_wh / total_wh,
