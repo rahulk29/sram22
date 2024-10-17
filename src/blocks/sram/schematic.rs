@@ -270,7 +270,7 @@ impl SramInner {
             .add_to(ctx);
 
         for i in 0..dsn.replica_pc.cols {
-            ctx.instantiate::<Precharge>(&dsn.col_params.pc)?
+            ctx.instantiate::<Precharge>(&dsn.replica_pc.inner)?
                 .with_connections([("vdd", vdd), ("bl", rbl), ("br", rbr), ("en_b", pc_b0)])
                 .named(format!("replica_precharge_{i}"))
                 .add_to(ctx);
