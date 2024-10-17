@@ -822,7 +822,7 @@ impl ControlLogicReplicaV2 {
         rbl_b_in_via.align_centers_gridded(rbl_b_in.bbox(), grid);
         let rbl_b_in = router.expand_to_grid(
             rbl_b_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Corner(Corner::UpperRight),
+            ExpandToGridStrategy::Corner(Corner::LowerLeft),
         );
         ctx.draw(rbl_b_in_via)?;
         ctx.draw_rect(m1, rbl_b_in);
