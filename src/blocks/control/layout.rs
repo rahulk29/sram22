@@ -102,6 +102,9 @@ impl ControlLogicReplicaV2 {
             row.generate()
         };
 
+        let mut inv_rbl = inv.clone();
+        inv_rbl.reflect_horiz_anchored();
+
         rows.push(LayerBbox::new(
             create_row(&[
                 ("reset_inv", &biginv),
@@ -109,12 +112,12 @@ impl ControlLogicReplicaV2 {
                 ("clk_pulse", &edge_detector),
                 ("clk_pulse_buf", &buf),
                 ("clk_pulse_inv", &biginv),
+                ("inv_rbl", &inv_rbl),
             ])?,
             outline,
         ));
 
         let mut row = create_row(&[
-            ("inv_rbl", &inv),
             ("clkp_delay", &ctx.instantiate::<InvChain>(&3)?),
             ("clkpd_inv", &inv),
             (
@@ -413,7 +416,7 @@ impl ControlLogicReplicaV2 {
         via.align_centers_gridded(pin.bbox(), grid);
         let rbl_in = router.expand_to_grid(
             via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Corner(Corner::UpperLeft),
+            ExpandToGridStrategy::Corner(Corner::LowerRight),
         );
         ctx.draw(via)?;
         ctx.draw_rect(m1, rbl_in);
@@ -808,7 +811,7 @@ impl ControlLogicReplicaV2 {
         rbl_b_out_via.align_centers_gridded(rbl_b_out.bbox(), grid);
         let rbl_b_out = router.expand_to_grid(
             rbl_b_out_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Corner(Corner::UpperRight),
+            ExpandToGridStrategy::Corner(Corner::LowerLeft),
         );
         ctx.draw(rbl_b_out_via)?;
         ctx.draw_rect(m1, rbl_b_out);
