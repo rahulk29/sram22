@@ -18,9 +18,14 @@ pub struct PrechargeParams {
 
 impl PrechargeParams {
     pub fn scale(&self, scale: f64) -> Self {
-        let pull_up_width = snap_to_grid((self.pull_up_width as f64 * scale).round() as i64, 50);
-        let equalizer_width =
-            snap_to_grid((self.equalizer_width as f64 * scale).round() as i64, 50);
+        let pull_up_width = snap_to_grid(
+            i64::max((self.pull_up_width as f64 * scale).round() as i64, 800),
+            50,
+        );
+        let equalizer_width = snap_to_grid(
+            i64::max((self.equalizer_width as f64 * scale).round() as i64, 500),
+            50,
+        );
         Self {
             length: self.length,
             pull_up_width,

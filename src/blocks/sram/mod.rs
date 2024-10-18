@@ -408,7 +408,7 @@ impl Script for SramPhysicalDesignScript {
             },
             replica_pc: ReplicaPrechargeParams {
                 cols: 2,
-                inner: col_params.pc,
+                inner: col_params.pc.scale(1. / 6.),
             },
             col_params,
             control: ControlLogicParams {
