@@ -4,7 +4,9 @@ use substrate::pdk::mos::MosParams;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::elements::mos::SchematicMos;
 
-use super::{And2, And3, Inv, Nand2, Nand3, Nor2};
+use super::{
+    And2, And3, FoldedInv, Inv, MultiFingerInv, MultiFingerInvMosParams, Nand2, Nand3, Nor2,
+};
 
 impl And2 {
     pub(crate) fn schematic(
@@ -28,8 +30,8 @@ impl And2 {
         ]);
         ctx.add_instance(nand);
 
-        let mut inv = ctx.instantiate::<Inv>(&self.params.inv)?;
-        inv.connect_all([("vdd", &vdd), ("din", &yb), ("din_b", &y), ("vss", &vss)]);
+        let mut inv = ctx.instantiate::<FoldedInv>(&self.params.inv)?;
+        inv.connect_all([("vdd", &vdd), ("a", &yb), ("y", &y), ("vss", &vss)]);
         ctx.add_instance(inv);
 
         Ok(())
@@ -60,8 +62,8 @@ impl And3 {
         ]);
         ctx.add_instance(nand);
 
-        let mut inv = ctx.instantiate::<Inv>(&self.params.inv)?;
-        inv.connect_all([("vdd", &vdd), ("din", &yb), ("din_b", &y), ("vss", &vss)]);
+        let mut inv = ctx.instantiate::<FoldedInv>(&self.params.inv)?;
+        inv.connect_all([("vdd", &vdd), ("a", &yb), ("y", &y), ("vss", &vss)]);
         ctx.add_instance(inv);
 
         Ok(())
@@ -77,8 +79,8 @@ impl Inv {
 
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
-        let din = ctx.port("din", Direction::Input);
-        let din_b = ctx.port("din_b", Direction::Output);
+        let a = ctx.port("a", Direction::Input);
+        let y = ctx.port("y", Direction::Output);
 
         let pmos_id = ctx
             .mos_db()
@@ -97,7 +99,7 @@ impl Inv {
             nf: 1,
             id: pmos_id,
         })?;
-        mp.connect_all([("d", &din_b), ("g", &din), ("s", &vdd), ("b", &vdd)]);
+        mp.connect_all([("d", &y), ("g", &a), ("s", &vdd), ("b", &vdd)]);
         mp.set_name("MP0");
         ctx.add_instance(mp);
 
@@ -108,9 +110,116 @@ impl Inv {
             nf: 1,
             id: nmos_id,
         })?;
-        mn.connect_all([("d", &din_b), ("g", &din), ("s", &vss), ("b", &vss)]);
+        mn.connect_all([("d", &y), ("g", &a), ("s", &vss), ("b", &vss)]);
         mn.set_name("MN0");
         ctx.add_instance(mn);
+
+        Ok(())
+    }
+}
+
+impl FoldedInv {
+    pub(crate) fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        let vdd = ctx.port("vdd", Direction::InOut);
+        let vss = ctx.port("vss", Direction::InOut);
+        let a = ctx.port("a", Direction::Input);
+        let y = ctx.port("y", Direction::Output);
+
+        let pmos_id = ctx
+            .mos_db()
+            .query(Query::builder().kind(MosKind::Pmos).build().unwrap())?
+            .id();
+
+        let nmos_id = ctx
+            .mos_db()
+            .query(Query::builder().kind(MosKind::Nmos).build().unwrap())?
+            .id();
+
+        let half_params = self.params.scale(0.5);
+
+        for i in 0..2 {
+            let mut mp = ctx.instantiate::<SchematicMos>(&MosParams {
+                w: half_params.pwidth,
+                l: half_params.length,
+                m: 1,
+                nf: 1,
+                id: pmos_id,
+            })?;
+            mp.connect_all([("d", &y), ("g", &a), ("s", &vdd), ("b", &vdd)]);
+            mp.set_name(format!("MP{i}"));
+            ctx.add_instance(mp);
+
+            let mut mn = ctx.instantiate::<SchematicMos>(&MosParams {
+                w: half_params.nwidth,
+                l: half_params.length,
+                m: 1,
+                nf: 1,
+                id: nmos_id,
+            })?;
+            mn.connect_all([("d", &y), ("g", &a), ("s", &vss), ("b", &vss)]);
+            mn.set_name(format!("MN{i}"));
+            ctx.add_instance(mn);
+        }
+
+        Ok(())
+    }
+}
+
+impl MultiFingerInv {
+    pub(crate) fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        let vdd = ctx.port("vdd", Direction::InOut);
+        let vss = ctx.port("vss", Direction::InOut);
+        let a = ctx.port("a", Direction::Input);
+        let y = ctx.port("y", Direction::Output);
+
+        let pmos_id = ctx
+            .mos_db()
+            .query(Query::builder().kind(MosKind::Pmos).build().unwrap())?
+            .id();
+
+        let nmos_id = ctx
+            .mos_db()
+            .query(Query::builder().kind(MosKind::Nmos).build().unwrap())?
+            .id();
+
+        let MultiFingerInvMosParams {
+            nmos_nf,
+            pmos_nf,
+            unit_width,
+            length,
+        } = self.mos_params();
+
+        for i in 0..pmos_nf {
+            let mut mp = ctx.instantiate::<SchematicMos>(&MosParams {
+                w: unit_width,
+                l: length,
+                m: 1,
+                nf: 1,
+                id: pmos_id,
+            })?;
+            mp.connect_all([("d", &y), ("g", &a), ("s", &vdd), ("b", &vdd)]);
+            mp.set_name(format!("MP{i}"));
+            ctx.add_instance(mp);
+        }
+
+        for i in 0..nmos_nf {
+            let mut mn = ctx.instantiate::<SchematicMos>(&MosParams {
+                w: unit_width,
+                l: length,
+                m: 1,
+                nf: 1,
+                id: nmos_id,
+            })?;
+            mn.connect_all([("d", &y), ("g", &a), ("s", &vss), ("b", &vss)]);
+            mn.set_name(format!("MN{i}"));
+            ctx.add_instance(mn);
+        }
 
         Ok(())
     }

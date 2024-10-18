@@ -1,158 +1,364 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
-use subgeom::bbox::{Bbox, BoundBox};
+use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
-use subgeom::{Corner, Dir, Point, Rect, Shape, Side, Sign, Span};
+use subgeom::transform::Translate;
+use subgeom::{Dir, Point, Rect, Shape, Side, Sign, Span};
+use substrate::component::{Component, NoParams};
 use substrate::error::Result;
 use substrate::index::IndexOwned;
-use substrate::layout::cell::{CellPort, Instance, Port, PortId};
+use substrate::layout::cell::{CellPort, Instance, Port, PortConflictStrategy, PortId};
 use substrate::layout::context::LayoutCtx;
-use substrate::layout::elements::via::{Via, ViaParams};
+use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
-use substrate::layout::placement::align::AlignRect;
-use substrate::layout::routing::auto::grid::{
-    ExpandToGridStrategy, JogToGrid, OffGridBusTranslation, OffGridBusTranslationStrategy,
-};
+use substrate::layout::layers::{LayerBoundBox, LayerKey};
+use substrate::layout::placement::align::{AlignMode, AlignRect};
+use substrate::layout::placement::array::ArrayTiler;
+use substrate::layout::placement::tile::LayerBbox;
 use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
-use substrate::layout::routing::manual::jog::{ElbowJog, SJog};
-use substrate::layout::routing::tracks::{TrackLocator, UniformTracks};
+use substrate::layout::routing::manual::jog::OffsetJog;
+use substrate::layout::routing::tracks::TrackLocator;
 use substrate::layout::straps::SingleSupplyNet;
-use substrate::layout::Draw;
+use substrate::pdk::stdcell::StdCell;
 
-use crate::blocks::bitcell_array::replica::{ReplicaCellArray, ReplicaCellArrayParams};
-use crate::blocks::bitcell_array::{SpCellArray, SpCellArrayParams};
+use crate::blocks::bitcell_array::replica::ReplicaCellArray;
+use crate::blocks::bitcell_array::SpCellArray;
+use crate::blocks::columns::layout::DffArray;
 use crate::blocks::columns::ColPeripherals;
-use crate::blocks::control::{ControlLogicKind, ControlLogicReplicaV2, DffArray};
-use crate::blocks::decoder::layout::LastBitDecoderStage;
-use crate::blocks::decoder::{
-    AddrGate, AddrGateParams, DecoderParams, DecoderStageParams, DecoderTree, Predecoder,
-    WmuxDriver,
-};
+use crate::blocks::control::ControlLogicReplicaV2;
+use crate::blocks::decoder::{Decoder, DecoderStage};
 use crate::blocks::gate::GateParams;
-use crate::blocks::precharge::layout::{ReplicaPrecharge, ReplicaPrechargeParams};
+use crate::blocks::precharge::layout::ReplicaPrecharge;
 
-use super::{ControlMode, SramInner};
+use super::{SramInner, SramPhysicalDesignScript};
+
+/// Tapped diode, can be added to long m1 pins if needed.
+pub struct TappedDiode;
+
+impl Component for TappedDiode {
+    type Params = NoParams;
+    fn new(
+        _params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self)
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("tapped_diode")
+    }
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+        let outline = layers.get(Selector::Name("outline"))?;
+
+        let stdcells = ctx.inner().std_cell_db();
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
+
+        let tap = lib.try_cell_named("sky130_fd_sc_hd__tap_2")?;
+        let tap = ctx.instantiate::<StdCell>(&tap.id())?;
+        let tap = LayerBbox::new(tap, outline);
+        let diode = lib.try_cell_named("sky130_fd_sc_hd__diode_2")?;
+        let diode = ctx.instantiate::<StdCell>(&diode.id())?;
+        let diode = LayerBbox::new(diode, outline);
+
+        let mut row = ArrayTiler::builder();
+        row.mode(AlignMode::ToTheRight).alt_mode(AlignMode::Top);
+        row.push(tap.clone());
+        row.push(diode);
+        row.push(tap);
+        let mut row = row.build();
+        row.expose_ports(
+            |port: CellPort, i| {
+                if i == 1 || port.name() == "vpwr" || port.name() == "vgnd" {
+                    Some(port)
+                } else {
+                    None
+                }
+            },
+            PortConflictStrategy::Merge,
+        )?;
+        let group = row.generate()?;
+        ctx.add_ports(group.ports())?;
+        ctx.draw(group)?;
+
+        Ok(())
+    }
+}
+
+/// Returns the layer used for routing in the provided direction.
+///
+/// The SRAM top level only uses m1 and m2 for vertical and horizontal routing, respectively.
+fn get_layer(dir: Dir, ctx: &LayoutCtx) -> Result<LayerKey> {
+    ctx.layers().get(Selector::Metal(match dir {
+        Dir::Horiz => 2,
+        Dir::Vert => 1,
+    }))
+}
+
+// Draw rect and block it in router.
+fn draw_rect(layer: LayerKey, rect: Rect, router: &mut GreedyRouter, ctx: &mut LayoutCtx) {
+    ctx.draw_rect(layer, rect);
+    router.block(layer, rect);
+}
+
+// Draw via between two rects.
+//
+// Bottom layer must be provided first.
+pub(crate) fn draw_via(
+    layer1: LayerKey,
+    rect1: Rect,
+    layer2: LayerKey,
+    rect2: Rect,
+    ctx: &mut LayoutCtx,
+) -> Result<Instance> {
+    let via = ctx.instantiate::<Via>(
+        &ViaParams::builder()
+            .layers(layer1, layer2)
+            .geometry(rect1, rect2)
+            .expand(ViaExpansion::LongerDirection)
+            .build(),
+    )?;
+    ctx.draw_ref(&via)?;
+    Ok(via)
+}
+
+// Draw via between two rects on routing layers.
+//
+// Automatically determines top and bottom layers.
+fn draw_routing_via(
+    layer1: LayerKey,
+    rect1: Rect,
+    layer2: LayerKey,
+    rect2: Rect,
+    ctx: &mut LayoutCtx,
+) -> Result<Instance> {
+    let (layer1, rect1, layer2, rect2) = if layer1 == get_layer(Dir::Vert, ctx)? {
+        (layer1, rect1, layer2, rect2)
+    } else {
+        (layer2, rect2, layer1, rect1)
+    };
+    let via = ctx.instantiate::<Via>(
+        &ViaParams::builder()
+            .layers(layer1, layer2)
+            .geometry(rect1, rect2)
+            .build(),
+    )?;
+    ctx.draw_ref(&via)?;
+    Ok(via)
+}
+
+/// Draws a route from `start` to `end` using the provided `tracks`.
+/// `start` is the beginning rect, which may or may not be grid aligned.
+/// `end` is the ending rect, which may or may not be grid aligned.
+/// `dir` is the direction of the first provided track.
+/// `tracks` are the tracks along which the route should be drawn.
+/// Expands `start` and `end` to contain the adjacent track, adding a via if necessary.
+fn draw_route(
+    start_layer: LayerKey,
+    start: Rect,
+    end_layer: LayerKey,
+    end: Rect,
+    dir: Dir,
+    tracks: Vec<i64>,
+    router: &mut GreedyRouter,
+    ctx: &mut LayoutCtx,
+) -> Result<()> {
+    assert!(
+        !tracks.is_empty(),
+        "must provide at least one routing track"
+    );
+
+    let mut spans = vec![start.span(dir)];
+    spans.extend(tracks.iter().enumerate().map(|(i, track)| {
+        router
+            .track_info(get_layer(if i % 2 == 0 { dir } else { !dir }, ctx).unwrap())
+            .tracks()
+            .index(*track)
+    }));
+    let end_dir = if tracks.len() % 2 == 0 { dir } else { !dir };
+    spans.push(end.span(!end_dir));
+    let mut curr_dir = dir;
+    let mut prev_rect = None;
+
+    // Expand `start` rect to connect to tracks.
+    let expanded_start = start.with_span(start.span(!dir).union(spans[1]), !dir);
+    draw_rect(start_layer, expanded_start, router, ctx);
+    let next_layer = get_layer(dir, ctx)?;
+    if start_layer != next_layer {
+        prev_rect = Some(expanded_start);
+    }
+
+    for spans in spans.windows(3) {
+        let (prev_track_span, curr_track_span, next_track_span) = (spans[0], spans[1], spans[2]);
+        if prev_track_span.intersects(&next_track_span) {
+            prev_rect = None;
+        } else {
+            let curr_layer = get_layer(curr_dir, ctx)?;
+            let next_layer = get_layer(!curr_dir, ctx)?;
+            let rect = Rect::span_builder()
+                .with(curr_dir, prev_track_span.union(next_track_span))
+                .with(!curr_dir, curr_track_span)
+                .build();
+            draw_rect(curr_layer, rect, router, ctx);
+            if let Some(prev_rect) = prev_rect {
+                draw_routing_via(next_layer, prev_rect, curr_layer, rect, ctx)?;
+            }
+            prev_rect = Some(rect);
+        }
+        curr_dir = !curr_dir;
+    }
+
+    let expanded_end = end.with_span(end.span(end_dir).union(spans[tracks.len()]), end_dir);
+    draw_rect(end_layer, expanded_end, router, ctx);
+    let prev_layer = get_layer(!curr_dir, ctx)?;
+    if end_layer != prev_layer {
+        if let Some(prev_rect) = prev_rect {
+            draw_routing_via(prev_layer, prev_rect, end_layer, expanded_end, ctx)?;
+        }
+    }
+    Ok(())
+}
 
 impl SramInner {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
-        let col_params = self.col_params();
-        let bitcells = ctx.instantiate::<SpCellArray>(&SpCellArrayParams {
-            rows: self.params.rows,
-            cols: self.params.cols,
-            mux_ratio: self.params.mux_ratio,
-        })?;
-        let mut cols = ctx.instantiate::<ColPeripherals>(&col_params)?;
-        let tree = DecoderTree::with_scale_and_skew(self.params.row_bits, 2, false);
-        let decoder_params = DecoderStageParams {
-            gate: tree.root.gate,
-            num: tree.root.num,
-            child_sizes: tree.root.children.iter().map(|n| n.num).collect(),
-        };
+        let dsn = ctx
+            .inner()
+            .run_script::<SramPhysicalDesignScript>(&self.params)?;
+        let layers = ctx.layers();
+        let m0 = layers.get(Selector::Metal(0))?;
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+
+        let bitcells = ctx.instantiate::<SpCellArray>(&dsn.bitcells)?;
+        let mut cols = ctx.instantiate::<ColPeripherals>(&dsn.col_params)?;
         let mut decoder = ctx
-            .instantiate::<LastBitDecoderStage>(&decoder_params)?
+            .instantiate::<Decoder>(&dsn.row_decoder)?
             .with_orientation(Named::R90Cw);
-        let mut addr_gate = ctx.instantiate::<AddrGate>(&AddrGateParams {
-            gate: tree.root.gate,
-            num: 2 * self.params.row_bits,
-        })?;
+        let mut addr_gate = ctx
+            .instantiate::<DecoderStage>(&dsn.addr_gate)?
+            .with_orientation(Named::FlipYx);
+        let mut col_dec = ctx
+            .instantiate::<Decoder>(&dsn.col_decoder)?
+            .with_orientation(Named::FlipYx);
+        let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&dsn.control)?;
 
-        let mut p1 = ctx.instantiate::<Predecoder>(&DecoderParams {
-            tree: DecoderTree {
-                root: tree.root.children[0].clone(),
-            },
-        })?;
-        let mut p2 = ctx.instantiate::<Predecoder>(&DecoderParams {
-            tree: DecoderTree {
-                root: tree.root.children[1].clone(),
-            },
-        })?;
-        let p1_bits = tree.root.children[0].num.ilog2() as usize;
-        let p2_bits = tree.root.children[1].num.ilog2() as usize;
+        let mut pc_b_buffer = ctx
+            .instantiate::<DecoderStage>(&dsn.pc_b_buffer)?
+            .with_orientation(Named::R90Cw);
+        let mut wlen_buffer = ctx.instantiate::<DecoderStage>(&dsn.wlen_buffer)?;
+        let mut write_driver_en_buffer = ctx
+            .instantiate::<DecoderStage>(&dsn.write_driver_en_buffer)?
+            .with_orientation(Named::R90Cw);
+        let mut sense_en_buffer = ctx
+            .instantiate::<DecoderStage>(&dsn.sense_en_buffer)?
+            .with_orientation(Named::R90Cw);
+        let mut dffs = ctx.instantiate::<DffArray>(&dsn.num_dffs)?;
+        let mut rbl = ctx.instantiate::<ReplicaCellArray>(&dsn.rbl)?;
+        let mut replica_pc = ctx
+            .instantiate::<ReplicaPrecharge>(&dsn.replica_pc)?
+            .with_orientation(Named::ReflectVert);
 
-        let col_tree = DecoderTree::for_columns(self.params.col_select_bits, 1);
-        let col_decoder_params = DecoderParams {
-            tree: col_tree.clone(),
-        };
-
-        let mut col_dec = ctx.instantiate::<Predecoder>(&col_decoder_params)?;
-        let wmux_driver_params = DecoderStageParams {
-            gate: col_tree.root.gate,
-            num: col_tree.root.num,
-            child_sizes: vec![],
-        };
-        let mut wmux_driver = ctx.instantiate::<WmuxDriver>(&wmux_driver_params)?;
-        let mut control = ctx.instantiate::<ControlLogicReplicaV2>(&match self.params.control {
-            ControlMode::ReplicaV2 => ControlLogicKind::Standard,
-            ControlMode::ReplicaV2Test => ControlLogicKind::Test,
-        })?;
-
-        let num_dffs = self.params.addr_width + 1;
-        let mut dffs = ctx.instantiate::<DffArray>(&num_dffs)?;
-
-        let rbl_rows = ((self.params.rows / 12) + 1) * 2;
-        let rbl_wl_index = rbl_rows / 2;
-        let mut rbl = ctx.instantiate::<ReplicaCellArray>(&ReplicaCellArrayParams {
-            rows: rbl_rows,
-            cols: 2,
-        })?;
-        let mut replica_pc = ctx.instantiate::<ReplicaPrecharge>(&ReplicaPrechargeParams {
-            cols: 2,
-            inner: col_params.pc,
-        })?;
-
-        cols.align_beneath(bitcells.bbox(), 4_310);
-        cols.align_centers_horizontally_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
-        decoder.align_to_the_left_of(bitcells.bbox(), 10_000);
+        // Align row decoders to left of bitcell array.
+        decoder.align_to_the_left_of(bitcells.bbox(), 7_000);
         decoder.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
-        decoder.align_side_to_grid(Side::Left, 680);
-        rbl.align_to_the_left_of(decoder.bbox(), 4_310);
-        rbl.align_centers_vertically_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
-        rbl.align_side_to_grid(Side::Left, 680);
-        replica_pc.align_beneath(rbl.bbox(), 5_080);
-        replica_pc.align_centers_horizontally_gridded(rbl.bbox(), ctx.pdk().layout_grid());
-        p1.align_beneath(
-            decoder.bbox(),
-            5_080 * (tree.root.children[0].num + tree.root.children[1].num) as i64 / 16 + 3_000,
-        );
-        p1.align_right(decoder.bbox());
-        p2.align_beneath(p1.bbox(), 5_080);
-        p2.align_right(decoder.bbox());
-        wmux_driver.align_beneath(p2.bbox(), 5_080);
-        wmux_driver.align_right(decoder.bbox());
-        col_dec.align_beneath(wmux_driver.bbox(), 5_080);
-        col_dec.align_right(decoder.bbox());
-        addr_gate.align_bottom(col_dec.bbox());
-        addr_gate.align_to_the_left_of(col_dec.bbox(), 6_350);
-        control.set_orientation(Named::FlipYx);
-        control.align_beneath(col_dec.bbox(), 10_000);
-        control.align_right(decoder.bbox());
-        dffs.align_beneath(control.bbox(), 10_000);
-        dffs.align_right(decoder.bbox());
 
+        // Align wlen buffer to the left of row decoder.
+
+        // Align wlen buffer and address gate to the left of the row decoder.
+        //
+        // Need enough vertical tracks to route outputs to decoder.
+        addr_gate.align_to_the_left_of(
+            decoder.bbox(),
+            1_400 + 1_400 * self.params.row_bits() as i64,
+        );
+        wlen_buffer.align_right(addr_gate.bbox());
+        wlen_buffer.translate(Point::new(-2_000, 0));
+        wlen_buffer.align_bottom(decoder.bbox());
+        addr_gate.align_above(wlen_buffer.bbox(), 2_000);
+
+        // Align column peripherals under bitcell array.
+        cols.align_beneath(bitcells.bbox(), 4_000);
+        cols.align_centers_horizontally_gridded(bitcells.bbox(), ctx.pdk().layout_grid());
+
+        // Align pc_b buffer with pc_b port of column peripherals.
+        //
+        // Need enough vertical tracks to route column decoder outputs to column mux, as well
+        // as buffer outputs to column control signals (sense_en, write_driver_en, clk, reset_b).
+        pc_b_buffer.align_top(cols.bbox());
+        pc_b_buffer.translate(Point::new(0, 1_000));
+        pc_b_buffer.align_to_the_left_of(
+            cols.bbox(),
+            6_400 + 700 * (2 * self.params.mux_ratio() + 4) as i64,
+        );
+
+        // Align column decoder to topmost column mux select port.
+        col_dec.align_beneath(pc_b_buffer.bbox(), 6_000);
+        col_dec.align_right(pc_b_buffer.bbox());
+
+        // Align sense_en buffer as close to column peripheral sense_en port as possible.
+        sense_en_buffer.align_beneath(col_dec.brect(), 6_000);
+        sense_en_buffer.align_right(pc_b_buffer.bbox());
+
+        // Align write driver underneath sense_en buffer.
+        write_driver_en_buffer.align_beneath(sense_en_buffer.bbox(), 6_000);
+        write_driver_en_buffer.align_right(pc_b_buffer.bbox());
+
+        // Align control logic to the left of all of the buffers and column decoder that border
+        // column peripherals.
+        let buffer_bbox = col_dec
+            .bbox()
+            .union(sense_en_buffer.bbox())
+            .union(pc_b_buffer.bbox())
+            .union(write_driver_en_buffer.bbox())
+            .into_rect();
+        control.set_orientation(Named::R90);
+        control.align_beneath(decoder.bbox(), 6_000);
+        control.align_to_the_left_of(
+            buffer_bbox,
+            2_100 + 1_400 * self.params.col_select_bits() as i64,
+        );
+
+        // Align replica bitcell array to left of control logic, with replica precharge
+        // aligned to top of control logic.
+        rbl.align_to_the_left_of(control.bbox(), 7_000);
+        replica_pc.align_beneath(decoder.bbox(), 6_000);
+        replica_pc.align_centers_horizontally_gridded(rbl.bbox(), ctx.pdk().layout_grid());
+        rbl.align_beneath(replica_pc.bbox(), 4_000);
+
+        // Align DFFs to the left of column peripherals and underneath all other objects.
+        dffs.align_right(pc_b_buffer.bbox());
+        dffs.align_beneath(
+            control
+                .bbox()
+                .union(rbl.bbox())
+                .union(write_driver_en_buffer.bbox()),
+            3_500 + 1_400 * self.params.addr_width() as i64,
+        );
+
+        // Draw instances.
         ctx.draw_ref(&bitcells)?;
         ctx.draw_ref(&cols)?;
         ctx.draw_ref(&decoder)?;
         ctx.draw_ref(&addr_gate)?;
-        ctx.draw_ref(&wmux_driver)?;
-        ctx.draw_ref(&p1)?;
-        ctx.draw_ref(&p2)?;
+        ctx.draw_ref(&wlen_buffer)?;
+        ctx.draw_ref(&pc_b_buffer)?;
         ctx.draw_ref(&col_dec)?;
+        ctx.draw_ref(&sense_en_buffer)?;
+        ctx.draw_ref(&write_driver_en_buffer)?;
         ctx.draw_ref(&control)?;
         ctx.draw_ref(&dffs)?;
         ctx.draw_ref(&rbl)?;
         ctx.draw_ref(&replica_pc)?;
 
-        let layers = ctx.layers();
-        let m0 = layers.get(Selector::Metal(0))?;
-        let m1 = layers.get(Selector::Metal(1))?;
-        let m2 = layers.get(Selector::Metal(2))?;
-        let m3 = layers.get(Selector::Metal(3))?;
-
+        // Set up autorouter for automatic strap placement.
         let router_bbox = ctx
             .brect()
             .expand(8 * 680)
             .expand_side(Side::Right, 4 * 680)
+            .expand_side(Side::Left, 1_400 * self.params.row_bits() as i64)
             .snap_to_grid(680);
 
         let mut router = GreedyRouter::with_config(GreedyRouterConfig {
@@ -170,27 +376,25 @@ impl SramInner {
                     dir: Dir::Horiz,
                     layer: m2,
                 },
-                LayerConfig {
-                    line: 320,
-                    space: 360,
-                    dir: Dir::Vert,
-                    layer: m3,
-                },
             ],
         });
+        let m1_tracks = router.track_info(m1).tracks().clone();
+        let m2_tracks = router.track_info(m2).tracks().clone();
 
+        // Block appropriate areas in router for each instance.
         for inst in [
-            &p1,
-            &p2,
             &addr_gate,
+            &decoder,
             &col_dec,
-            &wmux_driver,
+            &pc_b_buffer,
+            &wlen_buffer,
+            &sense_en_buffer,
+            &write_driver_en_buffer,
             &dffs,
             &control,
-            &cols,
             &replica_pc,
         ] {
-            for layer in [m1, m2, m3] {
+            for layer in [m1, m2] {
                 for shape in inst.shapes_on(layer) {
                     let rect = shape.brect();
                     router.block(layer, rect);
@@ -198,391 +402,45 @@ impl SramInner {
             }
         }
 
-        for inst in [&bitcells, &rbl] {
-            router.block(m1, inst.brect());
-            router.block(m2, inst.brect().expand_dir(Dir::Horiz, 6_000));
-            router.block(m3, inst.brect());
-        }
-
-        let mut to_route = Vec::new();
-
-        // Route DFF input signals to pins on bounding box of SRAM
-        for i in 0..num_dffs {
-            let src = dffs.port(PortId::new("d", i))?.largest_rect(m2)?;
-            let src = router.expand_to_layer_grid(src, m2, ExpandToGridStrategy::Minimum);
-            let src = router.expand_to_layer_grid(src, m3, ExpandToGridStrategy::Minimum);
-            ctx.draw_rect(m2, src);
-            let tracks = router.track_info(m3).tracks();
-            let track_span =
-                tracks.index(tracks.track_with_loc(TrackLocator::EndsBefore, src.right()));
-            let rect = src
-                .with_hspan(track_span)
-                .with_vspan(src.vspan().add_point(router_bbox.bottom()));
-            ctx.draw_rect(m3, rect);
-            ctx.add_port(
-                CellPort::builder()
-                    .id(if i == num_dffs - 1 {
-                        "we".into()
-                    } else {
-                        PortId::new("addr", self.params.addr_width - i - 1)
-                    })
-                    .add(m3, rect)
-                    .build(),
-            )?;
-            let via = ctx.instantiate::<Via>(
-                &ViaParams::builder()
-                    .layers(m2, m3)
-                    .geometry(src, rect)
-                    .build(),
-            )?;
-            ctx.draw(via)?;
-            router.block(m3, rect);
-        }
-
-        // Route address bits from DFFs to decoders
-        let mut ctr = 0;
-        for (inst, subtree) in [
-            (&p1, &tree.root.children[0]),
-            (&p2, &tree.root.children[1]),
-            (&col_dec, &col_tree.root),
+        // Block full m2 layer bbox of decoders due to wrong direction routing.
+        for inst in [
+            &decoder,
+            &col_dec,
+            &pc_b_buffer,
+            &wlen_buffer,
+            &sense_en_buffer,
+            &write_driver_en_buffer,
         ] {
-            let bits = subtree.num.ilog2() as usize;
-            let mut all_ports = Vec::new();
-
-            let mut queue = VecDeque::new();
-            queue.push_front(subtree);
-            let mut total = 0;
-            while let Some(node) = queue.pop_front() {
-                if node.children.is_empty() {
-                    println!("total: {total}");
-                    let curr_bits = node.num.ilog2();
-                    total += curr_bits;
-                    println!("total: {total}");
-                    let bottom_port = inst
-                        .port(&format!("predecode_{}_1", total - 1))?
-                        .largest_rect(m2)?;
-                    let on_grid_bus = router.register_off_grid_bus_translation(
-                        ctx,
-                        OffGridBusTranslation::builder()
-                            .strategy(OffGridBusTranslationStrategy::Perpendicular(m3))
-                            .layer(m2)
-                            .line_and_space(320, 160)
-                            .output(bottom_port.edge(Side::Bot))
-                            .start(bottom_port.side(Side::Bot))
-                            .n(2 * curr_bits as i64)
-                            .build(),
-                    )?;
-
-                    let mut ports: Vec<Rect> = on_grid_bus.ports().collect();
-                    ports.reverse();
-                    all_ports.extend(ports);
-                } else {
-                    for child in node.children.iter().rev() {
-                        queue.push_front(child);
-                    }
-                }
-            }
-
-            for i in 0..bits {
-                for j in 0..2 {
-                    let (layer, src) = if ctr < p1_bits + p2_bits {
-                        let src = addr_gate
-                            .port(PortId::new("decode", 2 * ctr + j))?
-                            .largest_rect(m0)?;
-                        let src = router.register_jog_to_grid(
-                            JogToGrid::builder()
-                                .layer(m0)
-                                .rect(src)
-                                .dst_layer(m1)
-                                .width(170)
-                                .first_dir(Side::Top)
-                                .second_dir(if j == 0 { Side::Right } else { Side::Left })
-                                .build(),
-                        );
-                        router.block(m1, src);
-                        let via = ctx.instantiate::<Via>(
-                            &ViaParams::builder()
-                                .layers(m0, m1)
-                                .geometry(src, src)
-                                .build(),
-                        )?;
-                        ctx.draw(via)?;
-                        (m1, src)
-                    } else {
-                        let src = dffs
-                            .port(PortId::new(if j == 0 { "q" } else { "qn" }, ctr))?
-                            .largest_rect(m2)?;
-                        let src = router.expand_to_grid(
-                            src,
-                            ExpandToGridStrategy::Side(if j == 0 { Side::Top } else { Side::Bot }),
-                        );
-                        ctx.draw_rect(m2, src);
-                        router.block(m2, src);
-                        (m2, src)
-                    };
-                    let dst = all_ports[2 * i + j];
-                    to_route.push((m3, dst, layer, src, None));
-                }
-                ctr += 1;
-            }
+            router.block(m2, inst.layer_bbox(m2).into_rect());
         }
 
-        for i in 0..2 * self.params.row_bits {
-            let src = dffs
-                .port(PortId::new(if i % 2 == 0 { "q" } else { "qn" }, i / 2))?
-                .largest_rect(m2)?;
-            let src = router.expand_to_grid(
-                src,
-                ExpandToGridStrategy::Side(if i % 2 == 0 { Side::Top } else { Side::Bot }),
-            );
-            ctx.draw_rect(m2, src);
-            router.block(m2, src);
-            let dst = addr_gate.port(PortId::new("in", i))?.largest_rect(m0)?;
-            let dst = router.register_jog_to_grid(
-                JogToGrid::builder()
-                    .layer(m0)
-                    .rect(dst)
-                    .dst_layer(m1)
-                    .width(170)
-                    .first_dir(Side::Bot)
-                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
-                    .build(),
-            );
-            router.block(m1, dst);
-            let via = ctx.instantiate::<Via>(
-                &ViaParams::builder()
-                    .layers(m0, m1)
-                    .geometry(dst, dst)
-                    .build(),
-            )?;
-            ctx.draw(via)?;
-            to_route.push((m2, src, m1, dst, None));
-        }
+        // Block extra for decoder to prevent extra power straps from being placed.
+        router.block(
+            m2,
+            decoder
+                .layer_bbox(m2)
+                .into_rect()
+                .expand_side(Side::Right, 6_000),
+        );
 
-        let left_port = decoder
-            .port(&format!("predecode_1_{}", tree.root.children[1].num - 1))?
-            .largest_rect(m1)?;
-
-        let decoder_tracks = UniformTracks::builder()
-            .line(320)
-            .space(160)
-            .start(left_port.side(Side::Left))
-            .sign(Sign::Pos)
-            .build()
-            .unwrap();
-        for i in 0..(tree.root.children[0].num + tree.root.children[1].num) {
-            ctx.draw_rect(
+        // Block entirety of bounding box for bitcells, replica bitcells, and column peripherals.
+        for inst in [&bitcells, &rbl, &cols] {
+            router.block(
                 m1,
-                Rect::from_spans(
-                    decoder_tracks.index(i),
-                    Span::with_stop_and_length(left_port.side(Side::Bot), 140),
-                ),
+                inst.brect()
+                    .expand_dir(Dir::Vert, 6_000)
+                    .expand_dir(Dir::Horiz, 140),
+            );
+            router.block(
+                m2,
+                inst.brect()
+                    .expand_dir(Dir::Horiz, 6_000)
+                    .expand_dir(Dir::Vert, 140),
             );
         }
-        let decoder_bus = router.register_off_grid_bus_translation(
-            ctx,
-            OffGridBusTranslation::builder()
-                .strategy(OffGridBusTranslationStrategy::Parallel)
-                .layer(m1)
-                .line_and_space(320, 160)
-                .output(left_port.edge(Side::Bot).offset(140))
-                .start(left_port.side(Side::Left))
-                .n((tree.root.children[0].num + tree.root.children[1].num) as i64)
-                .build(),
-        )?;
 
-        let mut decoder_ports = decoder_bus.ports().collect::<Vec<Rect>>();
-        decoder_ports.reverse();
-
-        let (p0_ports, p1_ports) = decoder_ports.split_at(tree.root.children[0].num);
-
-        // Route predecoders to final decoder stage
-        for (i, &dst) in p1_ports.iter().enumerate().take(tree.root.children[1].num) {
-            let src = p2.port(PortId::new("decode", i))?.largest_rect(m0)?;
-            let src = router.register_jog_to_grid(
-                JogToGrid::builder()
-                    .layer(m0)
-                    .rect(src)
-                    .dst_layer(m1)
-                    .width(170)
-                    .first_dir(Side::Top)
-                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
-                    .build(),
-            );
-            router.block(m1, src);
-            to_route.push((m1, src, m1, dst, None));
-            let via = ctx.instantiate::<Via>(
-                &ViaParams::builder()
-                    .layers(m0, m1)
-                    .geometry(src, src)
-                    .build(),
-            )?;
-            ctx.draw(via)?;
-        }
-        for (i, &dst) in p0_ports.iter().enumerate().take(tree.root.children[0].num) {
-            let src = p1.port(PortId::new("decode", i))?.largest_rect(m0)?;
-            let src = router.register_jog_to_grid(
-                JogToGrid::builder()
-                    .layer(m0)
-                    .rect(src)
-                    .dst_layer(m1)
-                    .width(170)
-                    .first_dir(Side::Top)
-                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
-                    .build(),
-            );
-            router.block(m1, src);
-            to_route.push((m1, src, m1, dst, None));
-            let via = ctx.instantiate::<Via>(
-                &ViaParams::builder()
-                    .layers(m0, m1)
-                    .geometry(src, src)
-                    .build(),
-            )?;
-            ctx.draw(via)?;
-        }
-
-        // Route write mux driver to write muxes.
-        let bottom_port = cols
-            .port(PortId::new("we", self.params.mux_ratio - 1))?
-            .largest_rect(m2)?;
-        let on_grid_bus = router.register_off_grid_bus_translation(
-            ctx,
-            OffGridBusTranslation::builder()
-                .strategy(OffGridBusTranslationStrategy::Parallel)
-                .layer(m2)
-                .line_and_space(340, 160)
-                .output(bottom_port.edge(Side::Left))
-                .start(bottom_port.side(Side::Bot))
-                .n(self.params.mux_ratio as i64)
-                .build(),
-        )?;
-        for (i, dst) in on_grid_bus.ports().enumerate() {
-            let src = wmux_driver
-                .port(PortId::new("decode", i))?
-                .largest_rect(m0)?;
-            let src = router.register_jog_to_grid(
-                JogToGrid::builder()
-                    .layer(m0)
-                    .rect(src)
-                    .dst_layer(m1)
-                    .width(170)
-                    .first_dir(Side::Top)
-                    .second_dir(if i % 2 == 0 { Side::Right } else { Side::Left })
-                    .build(),
-            );
-            to_route.push((m1, src, m2, dst, None));
-            let via = ctx.instantiate::<Via>(
-                &ViaParams::builder()
-                    .layers(m0, m1)
-                    .geometry(src, src)
-                    .build(),
-            )?;
-            ctx.draw(via)?;
-        }
-
-        // Route column decoder to read muxes.
-        let bottom_port = cols
-            .port(PortId::new("sel_b", self.params.mux_ratio - 1))?
-            .largest_rect(m2)?;
-        let on_grid_bus = router.register_off_grid_bus_translation(
-            ctx,
-            OffGridBusTranslation::builder()
-                .strategy(OffGridBusTranslationStrategy::Parallel)
-                .layer(m2)
-                .line_and_space(320, 180)
-                .output(bottom_port.edge(Side::Left))
-                .start(bottom_port.side(Side::Bot))
-                .n(self.params.mux_ratio as i64)
-                .shift(-1)
-                .build(),
-        )?;
-        let and3_dec = matches!(col_tree.root.gate, GateParams::And3(_));
-        for (i, dst) in on_grid_bus.ports().enumerate() {
-            let src = col_dec.port(PortId::new("decode_b", i))?.largest_rect(m0)?;
-            let src = router.register_jog_to_grid(
-                JogToGrid::builder()
-                    .layer(m0)
-                    .rect(src)
-                    .dst_layer(m1)
-                    .width(170)
-                    .first_dir(if !and3_dec && i % 2 == 0 {
-                        Side::Top
-                    } else {
-                        Side::Bot
-                    })
-                    .second_dir({
-                        let side = if i % 2 == 0 { Side::Right } else { Side::Left };
-                        if and3_dec {
-                            !side
-                        } else {
-                            side
-                        }
-                    })
-                    .build(),
-            );
-            to_route.push((m1, src, m2, dst, None));
-            let via = ctx.instantiate::<Via>(
-                &ViaParams::builder()
-                    .layers(m0, m1)
-                    .geometry(src, src)
-                    .build(),
-            )?;
-            ctx.draw(via)?;
-        }
-
-        // Route wordline driver to bitcell array
-        for i in 0..tree.root.num {
-            let src = decoder.port(PortId::new("decode", i))?.largest_rect(m0)?;
-            let src = src.with_hspan(Span::with_stop_and_length(src.right(), 170));
-            let dst = bitcells.port(PortId::new("wl", i))?.largest_rect(m2)?;
-            let jog = SJog::builder()
-                .src(src)
-                .dst(dst)
-                .dir(Dir::Horiz)
-                .layer(m2)
-                .width(170)
-                .l1(0)
-                .grid(ctx.pdk().layout_grid())
-                .build()
-                .unwrap();
-            let jog_group = jog.draw()?;
-            router.block(m2, jog_group.bbox().into_rect());
-            let via = ctx.instantiate::<Via>(
-                &ViaParams::builder()
-                    .layers(m0, m1)
-                    .geometry(src, src)
-                    .build(),
-            )?;
-            ctx.draw(via)?;
-            let via = ctx.instantiate::<Via>(
-                &ViaParams::builder()
-                    .layers(m1, m2)
-                    .geometry(src, src)
-                    .build(),
-            )?;
-            ctx.draw(via)?;
-            ctx.draw(jog_group)?;
-        }
-
-        // Route column decoder to wmux driver
-        for i in 0..col_tree.root.num {
-            let src = col_dec.port(PortId::new("decode", i))?.largest_rect(m0)?;
-            let dst = wmux_driver.port(PortId::new("in", i))?.largest_rect(m0)?;
-            let jog = SJog::builder()
-                .src(src)
-                .dst(dst)
-                .dir(Dir::Vert)
-                .layer(m0)
-                .width(170)
-                .grid(ctx.pdk().layout_grid())
-                .build()
-                .unwrap();
-            ctx.draw(jog)?;
-        }
-
-        // Route precharges to bitcell array
-        for i in 0..self.params.cols {
+        // Route precharges to bitcell array.
+        for i in 0..self.params.cols() {
             for port_name in ["bl", "br"] {
                 let src = cols.port(PortId::new(port_name, i))?.largest_rect(m1)?;
                 let dst = bitcells.port(PortId::new(port_name, i))?.largest_rect(m1)?;
@@ -590,204 +448,642 @@ impl SramInner {
             }
         }
 
-        for (cols_port_name, bitcell_port_name) in
-            [("dummy_bl_in", "bl_dummy"), ("dummy_br_in", "br_dummy")]
-        {
-            let src = cols.port(cols_port_name)?.largest_rect(m1)?;
-            let dst = bitcells.port(bitcell_port_name)?.largest_rect(m1)?;
-            ctx.draw_rect(m1, src.union(dst.bbox()).into_rect());
-        }
-
-        // Route control logic inputs.
-        let src = control.port("we")?.largest_rect(m1)?;
-        let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Bot));
-        ctx.draw_rect(m1, src);
-
-        let dst = dffs
-            .port(PortId::new("q", num_dffs - 1))?
-            .largest_rect(m2)?;
-        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Minimum);
-        ctx.draw_rect(m2, dst);
-
-        to_route.push((m1, src, m2, dst, Some("we")));
-
-        // Route clock signal
-        let tracks = router.track_info(m3).tracks().clone();
-        let start_track = tracks.track_with_loc(TrackLocator::StartsAfter, dffs.brect().right());
-
-        let track_span = tracks.index(start_track);
-        let clk_pin = Rect::from_spans(
-            track_span,
-            Span::with_start_and_length(router_bbox.bottom(), 1000),
-        );
-        ctx.draw_rect(m3, clk_pin);
-        ctx.add_port(CellPort::with_shape("clk", m3, clk_pin))?;
-        router.occupy(m3, clk_pin, "clk")?;
-
-        let src = control.port("clk")?.largest_rect(m1)?;
-        let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Bot));
-        ctx.draw_rect(m1, src);
-        to_route.push((m1, src, m3, clk_pin, Some("clk")));
-
-        if matches!(self.params.control, ControlMode::ReplicaV2Test) {
-            for (i, port_name) in ["sae_int", "sae_muxed"].into_iter().enumerate() {
-                let track_span = tracks.index(start_track + i as i64 + 1);
-                let pin = Rect::from_spans(
-                    track_span,
-                    Span::with_start_and_length(router_bbox.bottom(), 1000),
-                );
-                ctx.draw_rect(m3, pin);
-                ctx.add_port(CellPort::with_shape(port_name, m3, pin))?;
-                router.occupy(m3, pin, port_name)?;
-
-                let src = control.port(port_name)?.largest_rect(m1)?;
-                let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Bot));
-                ctx.draw_rect(m1, src);
-                to_route.push((m1, src, m3, pin, Some(port_name)));
-            }
-        }
-
-        for i in 0..num_dffs {
-            let src = dffs.port(PortId::new("clk", i))?.largest_rect(m2)?;
-            let src = router.expand_to_grid(src, ExpandToGridStrategy::Side(Side::Top));
-            ctx.draw_rect(m2, src);
-            router.occupy(m2, src, "clk")?;
-            to_route.push((m2, src, m3, clk_pin, Some("clk")));
-        }
-
-        for i in (0..2).rev() {
-            let mut clk_bbox = Bbox::empty();
-            for shape in cols.port(PortId::new("clk", i))?.shapes(m2) {
-                clk_bbox = clk_bbox.union(shape.bbox());
-            }
-            let clk_rect = clk_bbox.into_rect();
-            ctx.draw_rect(m2, clk_rect);
-
-            let expanded_all = router.expand_to_grid(clk_rect, ExpandToGridStrategy::All);
-            let src = clk_rect.with_hspan(Span::new(expanded_all.left(), clk_rect.left()));
-            let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::UpperLeft));
-            ctx.draw_rect(m2, src);
-            router.occupy(m2, src, "clk")?;
-            to_route.push((m2, src, m3, clk_pin, Some("clk")));
-        }
-
-        // Route replica precharge to control logic.
-        let bottom_port = replica_pc.port("rbr")?.largest_rect(m2)?;
-        let ports = router
-            .register_off_grid_bus_translation(
-                ctx,
-                OffGridBusTranslation::builder()
-                    .strategy(OffGridBusTranslationStrategy::Parallel)
-                    .layer(m2)
-                    .line_and_space(360, 140)
-                    .output(bottom_port.edge(Side::Left))
-                    .start(bottom_port.side(Side::Bot))
-                    .n(3)
-                    .shift(-1)
+        // Route DFF input signals to pins on bounding box of SRAM on m1.
+        for i in 0..dsn.num_dffs {
+            let src = dffs.port(PortId::new("d", i))?.largest_rect(m0)?;
+            let track_span =
+                m1_tracks.index(m1_tracks.track_with_loc(TrackLocator::Nearest, src.center().x));
+            let m1_rect = src
+                .with_hspan(track_span)
+                .with_vspan(src.vspan().add_point(router_bbox.bottom()));
+            draw_rect(m1, m1_rect, &mut router, ctx);
+            ctx.add_port(
+                CellPort::builder()
+                    .id(if i == dsn.num_dffs - 1 {
+                        "we".into()
+                    } else if i == dsn.num_dffs - 2 {
+                        "ce".into()
+                    } else {
+                        PortId::new("addr", self.params.addr_width() - i - 1)
+                    })
+                    .add(m1, m1_rect)
                     .build(),
-            )?
-            .ports()
-            .collect::<Vec<Rect>>();
+            )?;
+            let via = draw_via(m0, src, m1, src, ctx)?;
+            let expanded_rect = via.layer_bbox(m1).into_rect();
+            let expanded_rect = expanded_rect.with_hspan(expanded_rect.hspan().union(track_span));
+            draw_rect(m1, expanded_rect, &mut router, ctx);
+        }
 
-        let replica_pc_en_b_rect = ports[2];
-        let rbl_rect = ports[1];
+        // Route address gate to predecoders.
+        let addr_gate_m1_track_idx =
+            m1_tracks.track_with_loc(TrackLocator::StartsAfter, addr_gate.brect().right() + 700);
+        // Maps predecoder port spans to the previous m2 track used to connect to the input bus.
+        // Increments each time a track is used.
+        let mut m2_prev_track = HashMap::new();
+        for i in 0..self.params.row_bits() {
+            for j in 0..2 {
+                let idx = 2 * i + j;
+                let y = addr_gate.port(PortId::new("y", idx))?.largest_rect(m0)?;
+                let predecode_port = decoder
+                    .port(format!("predecode_{}_{}", i, j))?
+                    .largest_rect(m1)?;
 
-        // Route control logic outputs
-        let pc_b_rect = cols.port("pc_b")?.largest_rect(m2)?;
-        let expanded_all = router.expand_to_grid(pc_b_rect, ExpandToGridStrategy::All);
-        let src = pc_b_rect.with_hspan(Span::new(expanded_all.left(), pc_b_rect.left()));
-        let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::UpperLeft));
-        ctx.draw_rect(m2, src);
-        router.occupy(m2, src, "pc_b")?;
+                // Choose the track to use to connect to the predecoder input bus.
+                // If bus has already been connected to, use next track.
+                // Otherwise, use bottom most track contained by the bus's vertical span.
+                let m2_track_final_idx = *m2_prev_track
+                    .entry(predecode_port.vspan())
+                    .and_modify(|v| *v += 1)
+                    .or_insert(
+                        m2_tracks
+                            .track_with_loc(TrackLocator::StartsAfter, predecode_port.bottom()),
+                    );
 
-        let dst = control.port("pc_b")?.largest_rect(m1)?;
-        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Corner(Corner::UpperRight));
-        ctx.draw_rect(m1, dst);
+                // Jog the address gate output port to the nearest m2 track.
+                let m2_track_idx = m2_tracks.track_with_loc(TrackLocator::Nearest, y.top());
+                // Expand port to make space for via.
+                let rect = y.expand_side(Side::Right, 340);
+                ctx.draw_rect(m0, rect);
+                let via_rect = rect.with_hspan(Span::with_stop_and_length(rect.right(), 340));
+                let via = draw_via(m0, via_rect, m1, via_rect, ctx)?;
+                // Expand m1 rect of via to overlap with m2 track.
+                let via_m1 = via.layer_bbox(m1).into_rect();
 
-        to_route.push((m2, src, m1, dst, Some("pc_b")));
-        to_route.push((m2, replica_pc_en_b_rect, m1, dst, Some("pc_b")));
+                // Determine m1 track to jog the signal vertically. If the signal needs to jog
+                // downwards, need the m1 track number to increase as we move upward through
+                // the address gate outputs.
+                let m1_track_idx = if m2_track_final_idx < m2_track_idx {
+                    addr_gate_m1_track_idx + idx as i64
+                } else {
+                    addr_gate_m1_track_idx + 2 * self.params.row_bits() as i64 - 1 - idx as i64
+                };
+                draw_route(
+                    m1,
+                    via_m1,
+                    m1,
+                    predecode_port,
+                    Dir::Horiz,
+                    vec![m2_track_idx, m1_track_idx, m2_track_final_idx],
+                    &mut router,
+                    ctx,
+                )?;
+            }
+        }
 
-        let dst = control.port("rbl")?.largest_rect(m1)?;
-        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
-        ctx.draw_rect(m1, dst);
+        // Route buffers to columns.
+        for (i, (buffer, signal, layer)) in [
+            (&pc_b_buffer, "pc_b", m2),
+            (&sense_en_buffer, "sense_en", m2),
+            (&write_driver_en_buffer, "we", m1),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let track_idx =
+                m1_tracks.track_with_loc(TrackLocator::EndsBefore, cols.brect().left() - 5_300);
+            let track = m1_tracks.index(track_idx - 1 - i as i64);
+            let col_port = cols.port(signal)?.largest_rect(layer)?;
+            if let Ok(y) = buffer.port("y")?.largest_rect(m0) {
+                let rect = y.with_hspan(y.hspan().union(track));
+                ctx.draw_rect(m0, rect);
+                let m1_rect = Rect::from_spans(track, y.vspan().union(col_port.vspan()));
+                draw_via(m0, rect, m1, m1_rect, ctx)?;
+                let m2_rect = Rect::from_spans(
+                    m1_rect.hspan().add_point(col_port.left() + 320),
+                    col_port.vspan(),
+                );
+                draw_rect(m1, m1_rect, &mut router, ctx);
+                draw_rect(m2, m2_rect, &mut router, ctx);
+                draw_via(m1, m1_rect, m2, m2_rect, ctx)?;
+                if layer == m1 {
+                    draw_via(m1, col_port, m2, m2_rect, ctx)?;
+                }
+            } else {
+                let y = buffer.port("y")?.largest_rect(m1)?;
 
-        to_route.push((m2, rbl_rect, m1, dst, Some("rbl")));
+                let m2_rect =
+                    y.with_hspan(Span::with_stop_and_length(y.hspan().stop(), 320).union(track));
+                draw_rect(m2, m2_rect, &mut router, ctx);
+                let m1_rect = Rect::from_spans(track, y.vspan().union(col_port.vspan()));
+                draw_via(m1, y, m2, m2_rect, ctx)?;
+                draw_via(m1, m1_rect, m2, m2_rect, ctx)?;
+                let m2_rect = Rect::from_spans(
+                    m1_rect.hspan().add_point(col_port.left() + 320),
+                    col_port.vspan(),
+                );
+                draw_rect(m1, m1_rect, &mut router, ctx);
+                draw_rect(m2, m2_rect, &mut router, ctx);
+                draw_via(m1, m1_rect, m2, m2_rect, ctx)?;
+                if layer == m1 {
+                    draw_via(m1, col_port, m2, m2_rect, ctx)?;
+                }
+            }
+        }
 
-        let sense_en_rect = cols.port("sense_en")?.largest_rect(m2)?;
-        let expanded_all = router.expand_to_grid(sense_en_rect, ExpandToGridStrategy::All);
-        let src = sense_en_rect.with_hspan(Span::new(expanded_all.left(), sense_en_rect.left()));
-        let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::LowerLeft));
-        ctx.draw_rect(m2, src);
-        router.occupy(m2, src, "sense_en")?;
+        // Route wordline driver to bitcell array
+        for i in 0..self.params.rows() {
+            if let Ok(src) = decoder.port(PortId::new("y", i))?.largest_rect(m0) {
+                let src = src.with_hspan(Span::with_stop_and_length(src.right(), 1_200));
+                let dst = bitcells.port(PortId::new("wl", i))?.largest_rect(m2)?;
+                let via = draw_via(m0, src, m1, src, ctx)?;
+                router.block(m1, via.bbox().into_rect());
+                let via = draw_via(m1, src, m2, src, ctx)?;
+                router.block(m1, via.bbox().into_rect());
+                let m2_rect_a = via.layer_bbox(m2).into_rect();
+                let m2_rect_a = m2_rect_a.with_vspan(m2_rect_a.vspan().union(dst.vspan()));
+                let m2_rect_b = dst.with_hspan(m2_rect_a.hspan().union(dst.hspan()));
+                draw_rect(m2, m2_rect_a, &mut router, ctx);
+                draw_rect(m2, m2_rect_b, &mut router, ctx);
+            } else {
+                let src = decoder.port(PortId::new("y", i))?.largest_rect(m1)?;
+                let src = src.with_hspan(Span::with_stop_and_length(src.right() + 600, 1_200));
+                let dst = bitcells.port(PortId::new("wl", i))?.largest_rect(m2)?;
+                let via = draw_via(m1, src, m2, src, ctx)?;
+                router.block(m1, via.bbox().into_rect());
+                let m2_rect_a = via.layer_bbox(m2).into_rect();
+                let m2_rect_a = m2_rect_a.with_vspan(m2_rect_a.vspan().union(dst.vspan()));
+                let m2_rect_b = dst.with_hspan(m2_rect_a.hspan().union(dst.hspan()));
+                draw_rect(m2, m2_rect_a, &mut router, ctx);
+                draw_rect(m2, m2_rect_b, &mut router, ctx);
+            }
+        }
 
-        let dst = control.port("sense_en")?.largest_rect(m1)?;
-        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
-        ctx.draw_rect(m1, dst);
+        // Route column decoders to mux.
+        let sel_track_idx =
+            m1_tracks.track_with_loc(TrackLocator::StartsAfter, col_dec.brect().right() + 140);
+        for i in 0..self.params.mux_ratio() {
+            for j in 0..2 {
+                let (y_name, sel_name) = if j == 0 {
+                    ("y", "sel")
+                } else {
+                    ("y_b", "sel_b")
+                };
+                let idx = 2 * i + j;
+                if let Ok(y) = col_dec.port(PortId::new(y_name, i))?.largest_rect(m0) {
+                    let sel = cols.port(PortId::new(sel_name, i))?.largest_rect(m2)?;
+                    let track_span = m1_tracks.index(sel_track_idx + idx as i64);
 
-        to_route.push((m2, src, m1, dst, Some("sense_en")));
+                    let rect = if j == 0 {
+                        y.with_hspan(y.hspan().union(track_span))
+                    } else {
+                        let jog = OffsetJog::builder()
+                            .dir(subgeom::Dir::Horiz)
+                            .sign(subgeom::Sign::Pos)
+                            .src(y)
+                            .dst(
+                                if matches!(
+                                    dsn.col_decoder.tree.root.children[0].gate,
+                                    GateParams::FoldedInv(_) | GateParams::Inv(_)
+                                ) {
+                                    y.bottom() - 770
+                                } else {
+                                    y.bottom() - 340
+                                },
+                            )
+                            .layer(m0)
+                            .space(170)
+                            .build()
+                            .unwrap();
+                        let rect = Rect::from_spans(
+                            jog.r2().hspan().union(track_span),
+                            Span::with_start_and_length(jog.r2().bottom(), 170),
+                        );
+                        ctx.draw(jog)?;
+                        rect
+                    };
+                    ctx.draw_rect(m0, rect);
+                    let track_rect = Rect::from_spans(track_span, rect.vspan().union(sel.vspan()));
+                    draw_via(m0, rect, m1, track_rect, ctx)?;
+                    let m2_rect =
+                        Rect::from_spans(track_rect.hspan().union(sel.hspan()), sel.vspan());
+                    draw_rect(m1, track_rect, &mut router, ctx);
+                    draw_rect(m2, m2_rect, &mut router, ctx);
+                    draw_via(m1, track_rect, m2, m2_rect, ctx)?;
+                } else {
+                    let y = col_dec.port(PortId::new(y_name, i))?.largest_rect(m1)?;
+                    let sel = cols.port(PortId::new(sel_name, i))?.largest_rect(m2)?;
+                    let track_span = m1_tracks.index(sel_track_idx + idx as i64);
 
-        let wl_en_rect = addr_gate.port("wl_en")?.largest_rect(m2)?;
-        let expanded_all = router.expand_to_grid(wl_en_rect, ExpandToGridStrategy::All);
-        let src = wl_en_rect.with_hspan(Span::new(expanded_all.left(), wl_en_rect.left()));
-        let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::LowerLeft));
-        ctx.draw_rect(m2, src);
-        router.occupy(m2, src, "wl_en")?;
-        router.block(m2, expanded_all);
+                    let m0_rect = if y_name == "y_b" {
+                        y.with_hspan(y.hspan().union(track_span))
+                    } else {
+                        let y = y.expand_side(Side::Right, 540);
+                        draw_rect(m1, y, &mut router, ctx);
+                        let m0_rect = y.with_hspan(
+                            Span::with_stop_and_length(y.hspan().stop(), 320).union(track_span),
+                        );
+                        draw_via(m0, m0_rect, m1, y, ctx)?;
+                        m0_rect
+                    };
+                    ctx.draw_rect(m0, m0_rect);
+                    let track_rect =
+                        Rect::from_spans(track_span, m0_rect.vspan().union(sel.vspan()));
+                    draw_via(m0, m0_rect, m1, track_rect, ctx)?;
+                    let m2_rect =
+                        Rect::from_spans(track_rect.hspan().union(sel.hspan()), sel.vspan());
+                    draw_rect(m1, track_rect, &mut router, ctx);
+                    draw_rect(m2, m2_rect, &mut router, ctx);
+                    draw_via(m1, track_rect, m2, m2_rect, ctx)?;
+                }
+            }
+        }
 
-        let dst = control.port("wl_en")?.largest_rect(m1)?;
-        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
-        ctx.draw_rect(m1, dst);
+        // Route control logic inputs to m2 tracks above DFFs.
+        let dff_m2_track_idx =
+            m2_tracks.track_with_loc(TrackLocator::StartsAfter, dffs.brect().top());
+        let control_m2_track_idx = dff_m2_track_idx + 2 * self.params.addr_width() as i64;
+        let m2_clk_track_idx = control_m2_track_idx;
+        let m2_reset_b_track_idx = control_m2_track_idx + 1;
+        let m2_ce_track_idx = control_m2_track_idx + 2;
+        let m2_we_track_idx = control_m2_track_idx + 3;
 
-        to_route.push((m2, src, m1, dst, Some("wl_en")));
+        let m2_track_conn_idx = m2_tracks.track_with_loc(
+            TrackLocator::EndsBefore,
+            dffs.bbox().union(cols.bbox()).into_rect().bottom(),
+        );
+        let m2_track_clk_conn = m2_track_conn_idx;
+        let m2_track_reset_b_conn = m2_track_conn_idx - 1;
 
-        let write_driver_en_rect = wmux_driver.port("wl_en")?.largest_rect(m2)?;
-        let expanded_all = router.expand_to_grid(write_driver_en_rect, ExpandToGridStrategy::All);
-        let src = write_driver_en_rect
-            .with_hspan(Span::new(expanded_all.left(), write_driver_en_rect.left()));
-        let src = router.expand_to_grid(src, ExpandToGridStrategy::Corner(Corner::LowerLeft));
-        ctx.draw_rect(m2, src);
-        router.occupy(m2, src, "write_driver_en")?;
-        router.block(m2, expanded_all);
+        // Route clk and reset_b.
+        // Connect clock ports from the left and clock ports on the right to separate
+        // m1 tracks to prevent overlapping vias.
+        let m1_clk_track_left_idx =
+            m1_tracks.track_with_loc(TrackLocator::StartsAfter, dffs.brect().right());
+        let m1_clk_track_right_idx =
+            m1_tracks.track_with_loc(TrackLocator::EndsBefore, cols.brect().left() - 300);
+        let m1_reset_b_track_left_idx = m1_clk_track_left_idx + 1;
+        let m1_reset_b_track_right_idx = m1_clk_track_right_idx - 1;
 
-        let dst = control.port("write_driver_en")?.largest_rect(m1)?;
-        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
-        ctx.draw_rect(m1, dst);
+        for (port, m1_track_left, m1_track_right, m2_track, m2_track_conn) in [
+            (
+                "clk",
+                m1_clk_track_left_idx,
+                m1_clk_track_right_idx,
+                m2_clk_track_idx,
+                m2_track_clk_conn,
+            ),
+            (
+                "reset_b",
+                m1_reset_b_track_left_idx,
+                m1_reset_b_track_right_idx,
+                m2_reset_b_track_idx,
+                m2_track_reset_b_conn,
+            ),
+        ] {
+            let control_port = control.port(port)?.largest_rect(m1)?;
 
-        to_route.push((m2, src, m1, dst, Some("write_driver_en")));
+            // Draw pin on the edge of one of the m1 tracks.
+            let m1_pin = Rect::from_spans(
+                m1_tracks.index(m1_track_left),
+                Span::with_start_and_length(router_bbox.bottom(), 320),
+            );
+            draw_rect(m1, m1_pin, &mut router, ctx);
+            ctx.add_port(CellPort::with_shape(port, m1, m1_pin))?;
 
-        let dummy_bl_rect = cols.port("dummy_bl")?.largest_rect(m1)?;
-        let src_point = Point::new(cols.brect().left(), dummy_bl_rect.bottom() - 500);
-        let src = router.expand_to_grid(Rect::from_point(src_point), ExpandToGridStrategy::Minimum);
-        ctx.draw_rect(m1, src);
-        ctx.draw(
-            ElbowJog::builder()
-                .src(dummy_bl_rect.edge(Side::Bot))
-                .width2(320)
-                .dst(src.center())
-                .layer(m1)
-                .build()
-                .unwrap(),
-        )?;
+            // Connect control logic to pin.
+            draw_route(
+                m1,
+                control_port,
+                m1,
+                m1_pin,
+                Dir::Horiz,
+                vec![m2_track],
+                &mut router,
+                ctx,
+            )?;
 
-        let dst = control.port("dummy_bl")?.largest_rect(m1)?;
-        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Corner(Corner::UpperLeft));
-        ctx.draw_rect(m1, dst);
+            // Connect addr dffs and dffs from column peripherals to pin.
+            for (inst, m1_track) in [(&dffs, m1_track_left), (&cols, m1_track_right)] {
+                for port_rect in inst
+                    .port(port)?
+                    .shapes(m2)
+                    .filter_map(|shape| shape.as_rect())
+                {
+                    draw_route(
+                        m2,
+                        port_rect,
+                        m1,
+                        m1_pin,
+                        Dir::Vert,
+                        vec![m1_track, m2_track_conn],
+                        &mut router,
+                        ctx,
+                    )?;
+                }
+            }
+        }
 
-        to_route.push((m1, src, m1, dst, Some("dummy_bl")));
+        // Route ce and we to DFFs.
+        for (port, m2_track_idx, dff_idx) in [
+            ("ce", m2_ce_track_idx, dsn.num_dffs - 2),
+            ("we", m2_we_track_idx, dsn.num_dffs - 1),
+        ] {
+            let control_port = control.port(port)?.largest_rect(m1)?;
+            let dff_port = dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?;
+            let via = draw_via(m0, dff_port, m1, dff_port, ctx)?;
+            let via_m1 = via.layer_bbox(m1).into_rect();
+            let track_idx = m1_tracks.track_with_loc(TrackLocator::Nearest, via_m1.center().x);
+            draw_route(
+                m1,
+                via_m1,
+                m1,
+                control_port,
+                Dir::Vert,
+                vec![track_idx, m2_track_idx],
+                &mut router,
+                ctx,
+            )?;
+        }
 
         // Route replica cell array to replica precharge
         for i in 0..2 {
             for port_name in ["bl", "br"] {
                 let src = rbl.port(PortId::new(port_name, i))?.largest_rect(m1)?;
                 let dst = replica_pc
-                    .port(PortId::new(&format!("{}_in", port_name), i))?
+                    .port(PortId::new(format!("{}_in", port_name), i))?
                     .largest_rect(m1)?;
                 ctx.draw_rect(m1, src.bbox().union(dst.bbox()).into_rect());
             }
         }
 
+        // Route replica wordline.
+        let control_rwl_rect = control.port("rwl")?.largest_rect(m2)?;
+        let array_rwl_rect = rbl
+            .port(PortId::new("wl", dsn.rbl_wl_index))?
+            .largest_rect(m2)?;
+        let m1_rwl_track_idx =
+            m1_tracks.track_with_loc(TrackLocator::EndsBefore, control_rwl_rect.right());
+        draw_route(
+            m2,
+            control_rwl_rect,
+            m2,
+            array_rwl_rect,
+            Dir::Vert,
+            vec![m1_rwl_track_idx],
+            &mut router,
+            ctx,
+        )?;
+
+        // Route replica bitline/precharge.
+        let control_rbl_rect = control.port("rbl")?.largest_rect(m1)?;
+        let control_pc_b_rect = control.port("pc_b")?.largest_rect(m1)?;
+        let array_rbl_rect = replica_pc.port("rbl")?.largest_rect(m2)?;
+        let array_pc_b_rect = replica_pc.port("en_b")?.largest_rect(m2)?;
+
+        let m2_rbl_track_idx =
+            m2_tracks.track_with_loc(TrackLocator::StartsAfter, control_rbl_rect.bottom());
+        let m2_pc_b_track_idx = m2_rbl_track_idx + 1;
+        let m2_wlen_track_idx = m2_rbl_track_idx + 2;
+
+        let m1_rbl_track_idx =
+            m1_tracks.track_with_loc(TrackLocator::StartsAfter, array_rbl_rect.right());
+        let m1_pc_b_track_idx = m1_rbl_track_idx + 1;
+
+        for (control_rect, array_rect, m1_track, m2_track) in [
+            (
+                control_rbl_rect,
+                array_rbl_rect,
+                m1_rbl_track_idx,
+                m2_rbl_track_idx,
+            ),
+            (
+                control_pc_b_rect,
+                array_pc_b_rect,
+                m1_pc_b_track_idx,
+                m2_pc_b_track_idx,
+            ),
+        ] {
+            draw_route(
+                m1,
+                control_rect,
+                m2,
+                array_rect,
+                Dir::Horiz,
+                vec![m2_track, m1_track],
+                &mut router,
+                ctx,
+            )?;
+        }
+
+        // Route wlen
+        let control_wlen_rect = control.port("wlen")?.largest_rect(m1)?;
+        let buffer_wlen_rect = wlen_buffer.port("predecode_0_0")?.largest_rect(m2)?;
+        let m1_wlen_track_idx =
+            m1_tracks.track_with_loc(TrackLocator::EndsBefore, buffer_wlen_rect.right());
+        draw_route(
+            m1,
+            control_wlen_rect,
+            m2,
+            buffer_wlen_rect,
+            Dir::Horiz,
+            vec![m2_wlen_track_idx, m1_wlen_track_idx],
+            &mut router,
+            ctx,
+        )?;
+
+        let addr_gate_wlen_rect = addr_gate.port("wl_en")?.largest_rect(m1)?;
+        if let Ok(y) = wlen_buffer.port("y")?.largest_rect(m0) {
+            let jog = OffsetJog::builder()
+                .dir(subgeom::Dir::Vert)
+                .sign(subgeom::Sign::Pos)
+                .src(y)
+                .dst(addr_gate_wlen_rect.left())
+                .layer(m0)
+                .space(170)
+                .build()
+                .unwrap();
+            let m0_rect = jog
+                .r2()
+                .with_hspan(jog.r2().hspan().union(addr_gate_wlen_rect.hspan()));
+            let m1_rect =
+                addr_gate_wlen_rect.with_vspan(jog.r2().vspan().union(addr_gate_wlen_rect.vspan()));
+            draw_via(m0, m0_rect, m1, m1_rect, ctx)?;
+            ctx.draw_rect(m0, m0_rect);
+            draw_rect(m1, m1_rect, &mut router, ctx);
+            ctx.draw(jog)?;
+        } else {
+            let y = wlen_buffer.port("y")?.largest_rect(m1)?;
+            let jog = OffsetJog::builder()
+                .dir(subgeom::Dir::Vert)
+                .sign(subgeom::Sign::Pos)
+                .src(y)
+                .dst(addr_gate_wlen_rect.left())
+                .layer(m1)
+                .space(200)
+                .build()
+                .unwrap();
+            let m1_rect = jog
+                .r2()
+                .with_hspan(jog.r2().hspan().union(addr_gate_wlen_rect.hspan()));
+            draw_rect(m1, m1_rect, &mut router, ctx);
+            let m1_rect =
+                addr_gate_wlen_rect.with_vspan(jog.r2().vspan().union(addr_gate_wlen_rect.vspan()));
+            draw_rect(m1, m1_rect, &mut router, ctx);
+            ctx.draw(jog)?;
+        }
+
+        // Route pc_b to main array.
+        let pc_b_rect = pc_b_buffer.port("predecode_0_0")?.largest_rect(m1)?;
+        draw_route(
+            m1,
+            control_pc_b_rect,
+            m1,
+            pc_b_rect,
+            Dir::Horiz,
+            vec![m2_pc_b_track_idx],
+            &mut router,
+            ctx,
+        )?;
+
+        // Route sense_en and write_driver_en.
+        let m1_write_driver_en_track_idx =
+            m1_tracks.track_with_loc(TrackLocator::StartsAfter, control.brect().right() + 140);
+        let m1_sense_en_track_idx = m1_write_driver_en_track_idx + 1;
+
+        for (port, track, buf) in [
+            ("saen", m1_sense_en_track_idx, &sense_en_buffer),
+            (
+                "wrdrven",
+                m1_write_driver_en_track_idx,
+                &write_driver_en_buffer,
+            ),
+        ] {
+            let buffer_port = buf.port("predecode_0_0")?.largest_rect(m1)?;
+            let control_port = control.port(port)?.largest_rect(m2)?;
+
+            if buffer_port.vspan().contains(control_port.vspan()) {
+                let m2_rect =
+                    control_port.with_hspan(control_port.hspan().union(buffer_port.hspan()));
+                draw_rect(m2, m2_rect, &mut router, ctx);
+                draw_via(m1, buffer_port, m2, m2_rect, ctx)?;
+            } else {
+                let m2_track_idx = if buffer_port.vspan().start() > control_port.vspan().start() {
+                    m2_tracks.track_with_loc(TrackLocator::StartsAfter, buffer_port.bottom())
+                } else {
+                    m2_tracks.track_with_loc(TrackLocator::EndsBefore, buffer_port.top())
+                };
+                draw_route(
+                    m1,
+                    buffer_port,
+                    m2,
+                    control_port,
+                    Dir::Horiz,
+                    vec![m2_track_idx, track],
+                    &mut router,
+                    ctx,
+                )?;
+            }
+        }
+
+        // Route column select bits.
+        for i in 0..self.params.col_select_bits() {
+            for j in 0..2 {
+                let idx = 2 * i + j;
+                let dff_idx = dsn.num_dffs - i - 3;
+                let port_rect = col_dec
+                    .port(format!("predecode_{i}_{j}"))?
+                    .largest_rect(m1)?;
+                let rect = if j == 0 {
+                    dffs.port(PortId::new("q_n", dff_idx))?
+                        .first_rect(m0, Side::Left)?
+                } else {
+                    dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?
+                };
+                let (loc, side) = if j == 0 {
+                    (TrackLocator::StartsAfter, Side::Left)
+                } else {
+                    (TrackLocator::EndsBefore, Side::Right)
+                };
+                let track_span = m1_tracks.index(
+                    m1_tracks.track_with_loc(loc, rect.side(side) - 140 * side.sign().as_int()),
+                );
+                let m0_rect = rect.with_hspan(track_span);
+                let via = draw_via(m0, m0_rect, m1, m0_rect, ctx)?;
+                let dff_port = Rect::from_spans(track_span, via.layer_bbox(m1).into_rect().vspan());
+                draw_rect(m1, dff_port, &mut router, ctx);
+
+                let m2_track_a_idx = m2_tracks
+                    .track_with_loc(TrackLocator::StartsAfter, port_rect.bottom())
+                    + idx as i64;
+                let m1_track_idx = m1_write_driver_en_track_idx + 2 + idx as i64;
+                let m1_track = m1_tracks.index(m1_track_idx);
+                let m2_track_b_idx = if m1_track.start() < dff_port.left() {
+                    dff_m2_track_idx + 2 * self.params.addr_width() as i64 - 1 - idx as i64
+                } else {
+                    dff_m2_track_idx + 2 * self.params.row_bits() as i64 + idx as i64
+                };
+
+                draw_route(
+                    m1,
+                    port_rect,
+                    m1,
+                    dff_port,
+                    Dir::Horiz,
+                    vec![m2_track_a_idx, m1_track_idx, m2_track_b_idx],
+                    &mut router,
+                    ctx,
+                )?;
+            }
+        }
+
+        // Route row address bits to addr gate.
+        for i in 0..self.params.row_bits() {
+            for j in 0..2 {
+                let idx = 2 * i + j;
+                let dff_idx = dsn.num_dffs - i - 3 - self.params.col_select_bits();
+                let port_rect = addr_gate.port(PortId::new("in", idx))?.largest_rect(m0)?;
+                let rect = if j == 0 {
+                    dffs.port(PortId::new("q_n", dff_idx))?
+                        .first_rect(m0, Side::Left)?
+                } else {
+                    dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?
+                };
+                let (loc, side) = if j == 0 {
+                    (TrackLocator::StartsAfter, Side::Left)
+                } else {
+                    (TrackLocator::EndsBefore, Side::Right)
+                };
+                let track_span = m1_tracks.index(
+                    m1_tracks.track_with_loc(loc, rect.side(side) - 140 * side.sign().as_int()),
+                );
+                let m0_rect = rect.with_hspan(track_span);
+                let via = draw_via(m0, m0_rect, m1, m0_rect, ctx)?;
+                let dff_port = Rect::from_spans(track_span, via.layer_bbox(m1).into_rect().vspan());
+                draw_rect(m1, dff_port, &mut router, ctx);
+
+                let m2_track_idx = dff_m2_track_idx + idx as i64;
+                let m1_track_idx = m1_tracks.track_with_loc(
+                    TrackLocator::EndsBefore,
+                    addr_gate
+                        .bbox()
+                        .union(rbl.brect().expand_side(Side::Left, 6_000).bbox())
+                        .union(wlen_buffer.brect().expand_side(Side::Left, 2_000).bbox())
+                        .into_rect()
+                        .left()
+                        - 140,
+                ) - idx as i64;
+                let m1_track = m1_tracks.index(m1_track_idx);
+
+                let m0_rect = port_rect.with_hspan(port_rect.hspan().union(m1_track));
+                ctx.draw_rect(m0, m0_rect);
+                let via = draw_via(m0, m0_rect, m1, m0_rect.with_hspan(m1_track), ctx)?;
+
+                draw_route(
+                    m1,
+                    via.layer_bbox(m1).into_rect(),
+                    m1,
+                    dff_port,
+                    Dir::Vert,
+                    vec![m1_track_idx, m2_track_idx],
+                    &mut router,
+                    ctx,
+                )?;
+            }
+        }
+
         let mut straps = RoutedStraps::new();
-        straps.set_strap_layers([m2, m3]);
+        straps.set_strap_layers([m1, m2]);
 
         // Helper function for connecting bitcell ports to power straps.
         let mut connect_bitcells_to_straps = |inst: &Instance,
@@ -880,69 +1176,34 @@ impl SramInner {
                 )
             })
             .collect();
-        for i in 0..rbl_rows {
-            if i != rbl_wl_index {
+        for i in 0..dsn.rbl.rows {
+            if i != dsn.rbl_wl_index {
                 port_ids.push((PortId::new("wl", i), SingleSupplyNet::Vss));
             }
         }
         connect_bitcells_to_straps(&rbl, port_ids)?;
 
-        // Connect replica bitcell wordline to control logic.
-        let wl_en0_rect = rbl
-            .port(PortId::new("wl", rbl_wl_index))?
-            .first_rect(m2, Side::Right)?;
-        let initial_right = wl_en0_rect.right();
-
-        let wl_en0_rect = wl_en0_rect.expand_side(Side::Right, 1_000);
-        let expanded_all = router.expand_to_grid(wl_en0_rect, ExpandToGridStrategy::All);
-        let src = wl_en0_rect.with_hspan(Span::new(initial_right, expanded_all.right()));
-        let src = src.expand_side(
-            if rbl_wl_index % 2 == 0 {
-                Side::Top
-            } else {
-                Side::Bot
-            },
-            420,
-        );
-        let via = ctx.instantiate::<Via>(
-            &ViaParams::builder()
-                .layers(m2, m3)
-                .geometry(src, src)
-                .build(),
-        )?;
-        let m3_src = router.expand_to_grid(src, ExpandToGridStrategy::Minimum);
-        ctx.draw(via)?;
-        ctx.draw_rect(m2, src);
-        router.occupy(m2, src, "wl_en0")?;
-        ctx.draw_rect(m3, m3_src);
-        router.occupy(m3, m3_src, "wl_en0")?;
-
-        let dst = control.port("wl_en0")?.largest_rect(m1)?;
-        let dst = router.expand_to_grid(dst, ExpandToGridStrategy::Side(Side::Top));
-        ctx.draw_rect(m1, dst);
-
-        to_route.push((m3, m3_src, m1, dst, Some("wl_en0")));
-
-        for (lsrc, src, ldst, dst, net) in to_route {
-            if let Some(net) = net {
-                router.route_with_net(ctx, lsrc, src, ldst, dst, net)?;
-            } else {
-                router.route(ctx, lsrc, src, ldst, dst)?;
-            }
-        }
-
-        router.block(m2, cols.brect());
-        router.block(m3, cols.brect());
-
         // Connect column circuitry to power straps.
-        for (dir, layer, expand) in [(Dir::Vert, m3, 3_800)] {
+        for layer in [m1, m2] {
             for port_name in ["vdd", "vss"] {
-                for port in cols.port(port_name)?.shapes(layer) {
-                    if let Shape::Rect(rect) = port {
-                        let rect = rect.with_span(rect.span(dir).expand_all(expand), dir);
-                        router.block(layer, rect);
+                for port in cols
+                    .port(port_name)?
+                    .shapes(layer)
+                    .filter_map(|shape| shape.as_rect())
+                    .filter(|rect| rect.height() < 5000)
+                {
+                    let new_span = cols.brect().hspan().expand_all(5_000);
+                    for sign in [Sign::Neg, Sign::Pos] {
+                        let rect = port.with_hspan(Span::new(
+                            new_span.point(sign),
+                            port.hspan().point(sign) - sign.as_int() * 800,
+                        ));
+                        if layer == m1 {
+                            draw_via(m1, port, m2, rect, ctx)?;
+                        }
+                        draw_rect(m2, rect, &mut router, ctx);
                         straps.add_target(
-                            layer,
+                            m2,
                             Target::new(
                                 match port_name {
                                     "vdd" => SingleSupplyNet::Vdd,
@@ -952,28 +1213,91 @@ impl SramInner {
                                 rect,
                             ),
                         );
-                        ctx.draw_rect(layer, rect);
                     }
                 }
             }
         }
 
-        // Connect decoders and DFFs to power straps.
-        for (inst, layer) in [
-            (&decoder, m1),
-            (&addr_gate, m2),
-            (&p1, m2),
-            (&p2, m2),
-            (&col_dec, m2),
-            (&wmux_driver, m2),
-            (&dffs, m2),
-            (&control, m1),
+        // Connect m1 power straps to grid.
+        for inst in [
+            &decoder,
+            &addr_gate,
+            &col_dec,
+            &dffs,
+            &control,
+            &pc_b_buffer,
+            &sense_en_buffer,
+            &write_driver_en_buffer,
         ] {
             for port_name in ["vdd", "vss"] {
-                for port in inst.port(port_name)?.shapes(layer) {
+                for port in inst.port(port_name)?.shapes(m1) {
                     if let Shape::Rect(rect) = port {
                         straps.add_target(
-                            layer,
+                            m1,
+                            Target::new(
+                                match port_name {
+                                    "vdd" => SingleSupplyNet::Vdd,
+                                    "vss" => SingleSupplyNet::Vss,
+                                    _ => unreachable!(),
+                                },
+                                rect,
+                            ),
+                        );
+                    }
+                }
+            }
+        }
+
+        // Connect decoder m2 straps to power straps.
+        for inst in [
+            &decoder,
+            &addr_gate,
+            &col_dec,
+            &pc_b_buffer,
+            &sense_en_buffer,
+            &write_driver_en_buffer,
+        ] {
+            for port_name in ["vdd", "vss"] {
+                for port in inst
+                    .port(port_name)?
+                    .shapes(m2)
+                    .filter_map(|shape| shape.as_rect())
+                {
+                    let new_span = inst.brect().vspan().expand_all(2_000);
+                    for sign in [Sign::Neg, Sign::Pos] {
+                        let rect = port.with_vspan(Span::new(
+                            new_span.point(sign),
+                            port.vspan().point(sign) - sign.as_int() * 800,
+                        ));
+                        draw_rect(m1, rect, &mut router, ctx);
+                        straps.add_target(
+                            m1,
+                            Target::new(
+                                match port_name {
+                                    "vdd" => SingleSupplyNet::Vdd,
+                                    "vss" => SingleSupplyNet::Vss,
+                                    _ => unreachable!(),
+                                },
+                                rect,
+                            ),
+                        );
+                    }
+                }
+            }
+        }
+
+        // Connect m2 power straps to grid.
+        for (inst, port_names) in [
+            (&wlen_buffer, vec!["vdd", "vss"]),
+            (&replica_pc, vec!["vdd"]),
+        ] {
+            for port_name in port_names {
+                for port in inst.port(port_name)?.shapes(m2) {
+                    if let Shape::Rect(rect) = port {
+                        let rect = rect.expand_dir(Dir::Horiz, 2_000);
+                        draw_rect(m2, rect, &mut router, ctx);
+                        straps.add_target(
+                            m2,
                             Target::new(
                                 match port_name {
                                     "vdd" => SingleSupplyNet::Vdd,
@@ -989,19 +1313,18 @@ impl SramInner {
         }
 
         // Route column peripheral outputs to pins on bounding box of SRAM
-        let groups = self.params.cols / self.params.mux_ratio;
+        let groups = self.params.data_width();
         for (port, width) in [
             ("dout", groups),
             ("din", groups),
-            ("wmask", self.params.wmask_width),
+            ("wmask", self.params.wmask_width()),
         ] {
             for i in 0..width {
                 let port_id = PortId::new(port, i);
-                let rect = cols.port(port_id.clone())?.largest_rect(m3)?;
+                let rect = cols.port(port_id.clone())?.largest_rect(m1)?;
                 let rect = rect.with_vspan(rect.vspan().add_point(router_bbox.bottom()));
-                ctx.draw_rect(m3, rect);
-                ctx.add_port(CellPort::builder().id(port_id).add(m3, rect).build())?;
-                router.block(m3, rect);
+                draw_rect(m1, rect, &mut router, ctx);
+                ctx.add_port(CellPort::builder().id(port_id).add(m1, rect).build())?;
             }
         }
 

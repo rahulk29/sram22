@@ -102,7 +102,7 @@ impl Component for TdcTb {
         };
 
         ctx.instantiate::<Inv>(&inv_params)?
-            .with_connections([("vdd", vdd), ("vss", vss), ("din", b0), ("din_b", b)])
+            .with_connections([("vdd", vdd), ("vss", vss), ("a", b0), ("y", b)])
             .named("Xbbuf")
             .add_to(ctx);
 

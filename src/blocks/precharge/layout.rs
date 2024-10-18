@@ -2,7 +2,7 @@ use serde::Serialize;
 use subgeom::bbox::{Bbox, BoundBox};
 use subgeom::orientation::Named;
 use subgeom::{Dir, Point, Rect, Side, Sign, Span};
-use substrate::component::{Component, NoParams};
+use substrate::component::Component;
 use substrate::index::IndexOwned;
 use substrate::layout::cell::{CellPort, Port, PortConflictStrategy, PortId};
 use substrate::layout::elements::mos::LayoutMos;
@@ -55,7 +55,9 @@ impl Precharge {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&NoParams)?;
+        let dsn = ctx
+            .inner()
+            .run_script::<PhysicalDesignScript>(&self.params)?;
         let db = ctx.mos_db();
         let mos = db
             .query(Query::builder().kind(MosKind::Pmos).build().unwrap())
@@ -138,19 +140,20 @@ impl Precharge {
 
         let mut rects = vec![];
         for i in 0..dsn.in_tracks.len() {
-            let rect = Rect::from_spans(
+            let mut rect = Rect::from_spans(
                 dsn.in_tracks.index(i),
                 Span::new(jog.dst_pos(), bbox.height()),
             );
             rects.push(rect);
+            if i == 0 || i == 3 {
+                rect = rect.expand_dir(Dir::Horiz, 60);
+            }
             ctx.draw_rect(dsn.v_metal, rect);
             if i == 1 {
-                ctx.add_port(CellPort::with_shape("br_in", dsn.v_metal, rect))
-                    .unwrap();
+                ctx.add_port(CellPort::with_shape("br_in", dsn.v_metal, rect))?;
             }
             if i == 2 {
-                ctx.add_port(CellPort::with_shape("bl_in", dsn.v_metal, rect))
-                    .unwrap();
+                ctx.add_port(CellPort::with_shape("bl_in", dsn.v_metal, rect))?;
             }
         }
 
@@ -260,9 +263,7 @@ impl Component for PrechargeCent {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("precharge_cent")
@@ -280,7 +281,9 @@ impl Component for PrechargeCent {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let pc = ctx.instantiate::<Precharge>(&self.params)?;
-        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&NoParams)?;
+        let dsn = ctx
+            .inner()
+            .run_script::<PhysicalDesignScript>(&self.params)?;
         let meta = pc.cell().get_metadata::<Metadata>();
         let layers = ctx.layers();
 
@@ -307,7 +310,8 @@ impl Component for PrechargeCent {
         ctx.draw_ref(&tap)?;
 
         let y = dsn.cut + 2 * dsn.v_line + dsn.v_space;
-        let half_tr = Rect::from_spans(Span::new(0, dsn.v_line / 2), Span::new(y, brect.top()));
+        let half_tr =
+            Rect::from_spans(Span::new(0, dsn.v_line / 2 + 60), Span::new(y, brect.top()));
         ctx.draw_rect(dsn.v_metal, half_tr);
 
         let mut via = ctx.instantiate::<Via>(&meta.m1_via_top)?;
@@ -316,7 +320,7 @@ impl Component for PrechargeCent {
         ctx.draw_rect(
             dsn.m0,
             Rect::from_spans(
-                Span::new(0, tap.layer_bbox(dsn.m0).p0.x),
+                Span::new(0, tap.layer_bbox(dsn.m0).p1.x),
                 via.brect().vspan(),
             ),
         );
@@ -327,13 +331,13 @@ impl Component for PrechargeCent {
         ctx.draw_rect(
             dsn.m0,
             Rect::from_spans(
-                Span::new(tap.layer_bbox(dsn.m0).p1.x, dsn.tap_width),
+                Span::new(tap.layer_bbox(dsn.m0).p0.x, dsn.tap_width),
                 via.brect().vspan(),
             ),
         );
 
         let half_tr = Rect::from_spans(
-            Span::with_stop_and_length(dsn.tap_width, dsn.v_line / 2),
+            Span::with_stop_and_length(dsn.tap_width, dsn.v_line / 2 + 60),
             Span::new(y, brect.top()),
         );
         ctx.draw_rect(dsn.v_metal, half_tr);
@@ -402,7 +406,9 @@ impl Component for PrechargeEnd {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let pc = ctx.instantiate::<Precharge>(&self.params.inner)?;
-        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&NoParams)?;
+        let dsn = ctx
+            .inner()
+            .run_script::<PhysicalDesignScript>(&self.params.inner)?;
         let meta = pc.cell().get_metadata::<Metadata>();
         let layers = ctx.layers();
 
@@ -440,13 +446,13 @@ impl Component for PrechargeEnd {
         ctx.draw_rect(
             dsn.m0,
             Rect::from_spans(
-                Span::new(tap.layer_bbox(dsn.m0).p1.x, dsn.tap_width),
+                Span::new(tap.layer_bbox(dsn.m0).p0.x, dsn.tap_width),
                 via.brect().vspan(),
             ),
         );
 
         let half_tr = Rect::from_spans(
-            Span::with_stop_and_length(dsn.tap_width, dsn.v_line / 2),
+            Span::with_stop_and_length(dsn.tap_width, dsn.v_line / 2 + 60),
             Span::new(y, brect.top()),
         );
         ctx.draw_rect(dsn.v_metal, half_tr);
@@ -532,12 +538,12 @@ impl Component for ReplicaPrecharge {
         let pc = ctx.instantiate::<Precharge>(&self.params.inner)?;
         let mut pc_end_top = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
             via_top: true,
-            inner: self.params.inner.clone(),
+            inner: self.params.inner,
         })?;
         pc_end_top.set_orientation(Named::ReflectHoriz);
         let pc_end_bot = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
             via_top: false,
-            inner: self.params.inner.clone(),
+            inner: self.params.inner,
         })?;
 
         let mut tiler = ArrayTiler::builder();
@@ -625,16 +631,15 @@ pub struct PhysicalDesign {
     pub(crate) v_line: i64,
     pub(crate) v_space: i64,
     pub(crate) m0: LayerKey,
-    pub(crate) grid: i64,
     pub(crate) tap_width: i64,
 }
 
 impl Script for PhysicalDesignScript {
-    type Params = NoParams;
+    type Params = PrechargeParams;
     type Output = PhysicalDesign;
 
     fn run(
-        _params: &Self::Params,
+        params: &Self::Params,
         ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self::Output> {
         let layers = ctx.layers();
@@ -661,21 +666,24 @@ impl Script for PhysicalDesignScript {
             grid: 5,
         });
 
-        let power_stripe = Span::new(4_000, 4_800);
+        let power_stripe = Span::with_start_and_length(
+            params.equalizer_width + params.pull_up_width + 900 + 270 + 270 / 2 - 400,
+            800,
+        );
         let gate_stripe = Span::new(0, 360);
+        let cut = 900 + params.equalizer_width;
 
         Ok(PhysicalDesign {
             power_stripe,
             gate_stripe,
             h_metal: m2,
-            cut: 1_920,
+            cut,
             width: 1_200,
             v_metal: m1,
             v_line: 140,
             v_space: 140,
             in_tracks,
             out_tracks,
-            grid: 5,
             tap_width: 1_300,
             m0,
         })
