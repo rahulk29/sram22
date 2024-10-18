@@ -8,7 +8,7 @@ use crate::{Result, TEMPLATES};
 use serde::{Deserialize, Serialize};
 use tera::Context;
 
-use super::{ControlMode, SramParams};
+use super::SramParams;
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Sram1RwParams {
@@ -17,19 +17,17 @@ pub struct Sram1RwParams {
     pub data_width: usize,
     pub addr_width: usize,
     pub wmask_width: usize,
-    pub test: bool,
 }
 
 pub fn generate_1rw_verilog(name: impl Into<String>, params: &SramParams) -> Result<String> {
-    assert_eq!(params.num_words, 1 << params.addr_width);
+    assert_eq!(params.num_words, 1 << params.addr_width());
 
     let template_params = Sram1RwParams {
         module_name: name.into(),
-        num_words: params.num_words,
-        data_width: params.data_width,
-        addr_width: params.addr_width,
-        wmask_width: params.wmask_width,
-        test: matches!(params.control, ControlMode::ReplicaV2Test),
+        num_words: params.num_words(),
+        data_width: params.data_width(),
+        addr_width: params.addr_width(),
+        wmask_width: params.wmask_width(),
     };
 
     Ok(TEMPLATES.render(
