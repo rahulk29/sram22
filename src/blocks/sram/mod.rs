@@ -251,10 +251,14 @@ impl Script for SramPhysicalDesignScript {
         let wlen_cap = NAND2_MODEL.cin * (params.addr_width() * 2) as f64;
         let wrdrven_cap = COL_CAPACITANCES.we * col_params.wmask_bits() as f64;
         let saen_cap = COL_CAPACITANCES.saen * (col_params.cols / col_params.mux.mux_ratio) as f64;
-        let col_sel_cap =
-            COL_CAPACITANCES.sel * (col_params.cols / col_params.mux.mux_ratio) as f64;
-        let col_sel_b_cap =
-            COL_CAPACITANCES.sel_b * (col_params.cols / col_params.mux.mux_ratio) as f64;
+        let col_sel_cap = COL_CAPACITANCES.sel
+            * (col_params.cols / col_params.mux.mux_ratio) as f64
+            * col_params.mux.pwidth as f64
+            / COL_PARAMS.mux.pwidth as f64;
+        let col_sel_b_cap = COL_CAPACITANCES.sel_b
+            * (col_params.cols / col_params.mux.mux_ratio) as f64
+            * col_params.mux.pwidth as f64
+            / COL_PARAMS.mux.pwidth as f64;
 
         let horiz_buffer = DecoderPhysicalDesignParams {
             style: DecoderStyle::Minimum,
