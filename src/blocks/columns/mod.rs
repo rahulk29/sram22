@@ -237,7 +237,7 @@ pub const COL_PARAMS: ColParams = ColParams {
 };
 
 pub const COL_CAPACITANCES: ColCapacitances = ColCapacitances {
-    pc_b: 550.284e-15 / COL_PARAMS.cols as f64,
+    pc_b: 550.284e-15 / (COL_PARAMS.cols + 2) as f64,
     saen: 393.714e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
     sel: 216.435e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
     sel_b: 168.781e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
