@@ -485,7 +485,7 @@ impl DecoderStage {
 
                 let y_port_id = PortId::new(arcstr::literal!("y"), n);
                 let y_b_port_id = PortId::new(arcstr::literal!("y_b"), n);
-                for idx in [0, folding_factor - 1] {
+                for idx in 0..folding_factor {
                     ctx.merge_port(
                         tiler
                             .port_map()
@@ -502,7 +502,7 @@ impl DecoderStage {
                         .gate_type()
                         .is_multi_finger_inv()
                     {
-                        for idx in [0, folding_factors[num_stages - 1] - 1] {
+                        for idx in 0..folding_factors[num_stages - 1] {
                             // Add first and last ports.
                             ctx.merge_port(
                                 tiler
@@ -518,7 +518,7 @@ impl DecoderStage {
                             );
                         }
                     } else {
-                        for idx in [0, folding_factors[num_stages - 2] - 1] {
+                        for idx in 0..folding_factors[num_stages - 2] {
                             ctx.merge_port(
                                 tiler
                                     .port_map()
@@ -534,7 +534,7 @@ impl DecoderStage {
                         }
                     }
                 } else if let GateParams::And2(_) | GateParams::And3(_) = &gate_params[0] {
-                    for idx in [0, folding_factor - 1] {
+                    for idx in 0..folding_factor {
                         ctx.merge_port(
                             tiler
                                 .port_map()

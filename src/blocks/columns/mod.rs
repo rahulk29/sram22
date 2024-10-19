@@ -202,6 +202,7 @@ pub const MUX_PARAMS: TGateMuxParams = TGateMuxParams {
     nwidth: 3_000,
     mux_ratio: 4,
     idx: 2,
+    routing_tracks: 1,
 };
 pub const PRECHARGE_PARAMS: PrechargeParams = PrechargeParams {
     length: 150,

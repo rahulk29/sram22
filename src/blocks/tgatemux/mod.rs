@@ -29,6 +29,7 @@ pub struct TGateMuxParams {
     pub nwidth: i64,
     pub mux_ratio: usize,
     pub idx: usize,
+    pub routing_tracks: i64,
 }
 
 impl TGateMuxParams {
@@ -41,6 +42,7 @@ impl TGateMuxParams {
             nwidth,
             mux_ratio: self.mux_ratio,
             idx: self.idx,
+            routing_tracks: self.routing_tracks,
         }
     }
 }
@@ -264,6 +266,7 @@ mod tests {
         nwidth: 1_600,
         mux_ratio: 4,
         idx: 2,
+        routing_tracks: 1,
     };
 
     #[test]

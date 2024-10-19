@@ -20,6 +20,7 @@ use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 use super::{TGateMux, TGateMuxCent, TGateMuxEnd, TGateMuxGroup, TGateMuxParams};
 
 use crate::blocks::columns::ColumnDesignScript;
+use crate::blocks::sram::SramPhysicalDesignScript;
 use derive_builder::Builder;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::placement::array::ArrayTiler;
@@ -246,15 +247,17 @@ impl TGateMux {
 
         assert!(self.params.idx < self.params.mux_ratio);
 
+        let line = GATE_LINE + (GATE_LINE + GATE_SPACE) * (self.params.routing_tracks - 1);
+
         for (inst, port) in [(&pmos, "sel_b"), (&nmos, "sel")] {
             for i in 0..self.params.mux_ratio {
                 let vspan = if port == "sel" {
                     Span::with_start_and_length(
-                        nmos.brect().top() + (GATE_LINE + GATE_SPACE) * i as i64,
-                        GATE_LINE,
+                        nmos.brect().top() + (line + GATE_SPACE) * i as i64,
+                        line,
                     )
                 } else {
-                    Span::with_stop_and_length(-(GATE_LINE + GATE_SPACE) * i as i64, GATE_LINE)
+                    Span::with_stop_and_length(-(line + GATE_SPACE) * i as i64, line)
                 };
                 let rect = Rect::from_spans(stripe_hspan, vspan);
                 ctx.draw_rect(pc.h_metal, rect);
