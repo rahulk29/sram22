@@ -224,9 +224,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.1.30"
+version = "1.1.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b16803a61b81d9eabb7eae2588776c4c1e584b738ede45fdbb4c972cec1e9945"
+checksum = "c2e7962b54006dcfcc61cb72735f4d89bb97061dd6a7ed882ec6b8ee53714c6f"
 dependencies = [
  "shlex",
 ]
@@ -305,7 +305,7 @@ dependencies = [
  "heck",
  "proc-macro2",
  "quote",
- "syn 2.0.79",
+ "syn 2.0.80",
 ]
 
 [[package]]
@@ -317,7 +317,7 @@ checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
 [[package]]
 name = "codegen"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#83de94ca242da78813d029ba4adddf7acbc54030"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#1b5af4eaf4fa52db175f0f7746da9ba13b86aa58"
 dependencies = [
  "darling 0.14.4",
  "itertools",
@@ -513,7 +513,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "semver",
- "syn 2.0.79",
+ "syn 2.0.80",
 ]
 
 [[package]]
@@ -624,7 +624,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustc_version",
- "syn 2.0.79",
+ "syn 2.0.80",
 ]
 
 [[package]]
@@ -664,7 +664,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.79",
+ "syn 2.0.80",
 ]
 
 [[package]]
@@ -729,7 +729,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gds21"
 version = "0.2.1"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#83de94ca242da78813d029ba4adddf7acbc54030"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#1b5af4eaf4fa52db175f0f7746da9ba13b86aa58"
 dependencies = [
  "arcstr",
  "byteorder",
@@ -1053,7 +1053,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 [[package]]
 name = "ngspice"
 version = "0.0.1"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#83de94ca242da78813d029ba4adddf7acbc54030"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#1b5af4eaf4fa52db175f0f7746da9ba13b86aa58"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -1281,7 +1281,7 @@ dependencies = [
  "pest_meta",
  "proc-macro2",
  "quote",
- "syn 2.0.79",
+ "syn 2.0.80",
 ]
 
 [[package]]
@@ -1598,14 +1598,14 @@ checksum = "243902eda00fad750862fc144cea25caca5e20d615af0a81bee94ca738f1df1f"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.79",
+ "syn 2.0.80",
 ]
 
 [[package]]
 name = "serde_json"
-version = "1.0.130"
+version = "1.0.132"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "610f75ff4a8e3cb29b85da56eabdd1bff5b06739059a4b8e2967fef32e5d9944"
+checksum = "d726bfaff4b320266d395898905d0eba0345aae23b54aee3a737e260fd46db03"
 dependencies = [
  "itoa",
  "memchr",
@@ -1621,7 +1621,7 @@ checksum = "6c64451ba24fc7a6a2d60fc75dd9c83c90903b19028d4eff35e88fc1e86564e9"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.79",
+ "syn 2.0.80",
 ]
 
 [[package]]
@@ -1680,7 +1680,7 @@ checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 [[package]]
 name = "sky130_commercial_pdk"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#83de94ca242da78813d029ba4adddf7acbc54030"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#1b5af4eaf4fa52db175f0f7746da9ba13b86aa58"
 dependencies = [
  "arcstr",
  "sky130_common_pdk",
@@ -1690,7 +1690,7 @@ dependencies = [
 [[package]]
 name = "sky130_common_pdk"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#83de94ca242da78813d029ba4adddf7acbc54030"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#1b5af4eaf4fa52db175f0f7746da9ba13b86aa58"
 dependencies = [
  "arcstr",
  "subgeom",
@@ -1700,7 +1700,7 @@ dependencies = [
 [[package]]
 name = "sky130_open_pdk"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#83de94ca242da78813d029ba4adddf7acbc54030"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#1b5af4eaf4fa52db175f0f7746da9ba13b86aa58"
 dependencies = [
  "arcstr",
  "sky130_common_pdk",
@@ -1742,7 +1742,7 @@ checksum = "b7c388c1b5e93756d0c740965c41e8822f866621d41acbdf6336a6a168f8840c"
 [[package]]
 name = "spectre"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#83de94ca242da78813d029ba4adddf7acbc54030"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#1b5af4eaf4fa52db175f0f7746da9ba13b86aa58"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -1757,7 +1757,7 @@ dependencies = [
 [[package]]
 name = "spice_rawfile"
 version = "0.0.1"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#83de94ca242da78813d029ba4adddf7acbc54030"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#1b5af4eaf4fa52db175f0f7746da9ba13b86aa58"
 dependencies = [
  "nom",
  "serde",
@@ -1856,7 +1856,7 @@ dependencies = [
 [[package]]
 name = "subgeom"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#83de94ca242da78813d029ba4adddf7acbc54030"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#1b5af4eaf4fa52db175f0f7746da9ba13b86aa58"
 dependencies = [
  "array_map",
  "enum_dispatch",
@@ -1868,7 +1868,7 @@ dependencies = [
 [[package]]
 name = "sublut"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#83de94ca242da78813d029ba4adddf7acbc54030"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#1b5af4eaf4fa52db175f0f7746da9ba13b86aa58"
 dependencies = [
  "derive_builder 0.12.0",
  "serde",
@@ -1878,7 +1878,7 @@ dependencies = [
 [[package]]
 name = "subspice"
 version = "0.0.2"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#83de94ca242da78813d029ba4adddf7acbc54030"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#1b5af4eaf4fa52db175f0f7746da9ba13b86aa58"
 dependencies = [
  "anyhow",
  "nom",
@@ -1889,7 +1889,7 @@ dependencies = [
 [[package]]
 name = "substrate"
 version = "0.1.0"
-source = "git+https://github.com/substrate-labs/substrate?branch=main#83de94ca242da78813d029ba4adddf7acbc54030"
+source = "git+https://github.com/substrate-labs/substrate?branch=main#1b5af4eaf4fa52db175f0f7746da9ba13b86aa58"
 dependencies = [
  "anyhow",
  "arcstr",
@@ -1933,9 +1933,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.79"
+version = "2.0.80"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89132cd0bf050864e1d38dc3bbc07a0eb8e7530af26344d3d2bbbef83499f590"
+checksum = "e6e185e337f816bc8da115b8afcb3324006ccc82eeaddf35113888d3bd8e44ac"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2021,7 +2021,7 @@ checksum = "08904e7672f5eb876eaaf87e0ce17857500934f4981c4a0ab2b4aa98baac7fc3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.79",
+ "syn 2.0.80",
 ]
 
 [[package]]
@@ -2096,7 +2096,7 @@ checksum = "34704c8d6ebcbc939824180af020566b01a7c01f80641264eba0999f6c2b6be7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.79",
+ "syn 2.0.80",
 ]
 
 [[package]]
@@ -2274,7 +2274,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.79",
+ "syn 2.0.80",
  "wasm-bindgen-shared",
 ]
 
@@ -2296,7 +2296,7 @@ checksum = "26c6ab57572f7a24a4985830b120de1594465e5d500f24afe89e16b4e833ef68"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.79",
+ "syn 2.0.80",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
@@ -2549,5 +2549,5 @@ checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.79",
+ "syn 2.0.80",
 ]
