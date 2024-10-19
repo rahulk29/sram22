@@ -1,5 +1,5 @@
 use serde::Serialize;
-use subgeom::bbox::{Bbox, BoundBox};
+use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
 use subgeom::{Dir, Point, Rect, Shape, Side, Sign, Span};
 use substrate::component::Component;
@@ -109,8 +109,6 @@ impl Precharge {
         mos.align_above(gate_shapes[0], 0);
         ctx.draw_ref(&mos)?;
 
-        let bbox = ctx.bbox().into_rect();
-
         let cut = dsn.cut_bot;
         let gate = mos.port("gate_0")?.largest_rect(dsn.m0)?;
 
@@ -142,8 +140,8 @@ impl Precharge {
             .src_pos(cut)
             .src([dsn.out_tracks.index(0), dsn.out_tracks.index(2)])
             .dst([dsn.in_tracks.index(1), dsn.in_tracks.index(2)])
-            .line(dsn.v_line)
-            .space(dsn.v_space)
+            .line(dsn.v_line + 40)
+            .space(dsn.v_space + 40)
             .layer(dsn.v_metal)
             .build()
             .unwrap();
@@ -166,6 +164,7 @@ impl Precharge {
         let mut via0 = ViaParams::builder()
             .layers(dsn.m0, dsn.v_metal)
             .geometry(mos.port("sd_1_0")?.largest_rect(dsn.m0)?, rects[2])
+            .expand(ViaExpansion::LongerDirection)
             .build();
 
         let via = ctx.instantiate::<Via>(&via0)?;
@@ -179,7 +178,7 @@ impl Precharge {
         let mut m1_vias = Vec::with_capacity(2);
         for (port, rect, x) in [("sd_2_0", rects[3], dsn.width), ("sd_1_1", rects[0], 0)] {
             let port = mos.port(port)?.largest_rect(dsn.m0)?;
-            via0.set_geometry(Bbox::from_point(Point::new(x, port.center().y)), rect);
+            via0.set_geometry(Rect::from_spans(Span::new(x, x), port.vspan()), rect);
             let via = ctx.instantiate::<Via>(&via0)?;
             ctx.draw_rect(
                 dsn.m0,
@@ -193,7 +192,7 @@ impl Precharge {
         for (port, rect) in [("sd_0_0", orects[0]), ("sd_0_1", orects[2])] {
             let port = mos.port(port)?.largest_rect(dsn.m0)?;
             via0.set_geometry(
-                Bbox::from_point(Point::new(rect.center().x, port.center().y)),
+                Rect::from_spans(Span::new(rect.center().x, rect.center().x), port.vspan()),
                 rect,
             );
             let via = ctx.instantiate::<Via>(&via0)?;
@@ -366,7 +365,7 @@ impl Component for PrechargeCent {
         let tap = ctx.instantiate::<Via>(&viap)?;
         ctx.draw_ref(&tap)?;
 
-        let y = dsn.cut_bot + 2 * dsn.v_line + dsn.v_space;
+        let y = dsn.cut_bot + 2 * dsn.v_line + dsn.v_space + 120;
         let half_tr =
             Rect::from_spans(Span::new(0, dsn.v_line / 2 + 60), Span::new(y, dsn.cut_top));
         ctx.draw_rect(dsn.v_metal, half_tr);
@@ -495,7 +494,7 @@ impl Component for PrechargeEnd {
         let tap = ctx.instantiate::<Via>(&viap)?;
         ctx.draw_ref(&tap)?;
 
-        let y = dsn.cut_bot + 2 * dsn.v_line + dsn.v_space;
+        let y = dsn.cut_bot + 2 * dsn.v_line + dsn.v_space + 120;
 
         let mut via = ctx.instantiate::<Via>(if self.params.via_top {
             &meta.m1_via_top
