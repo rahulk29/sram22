@@ -221,7 +221,10 @@ impl Precharge {
             ctx.draw(via)?;
         }
 
-        via0.set_geometry(gate_shapes[0], orects[1]);
+        via0.set_geometry(
+            gate_shapes[0],
+            orects[1].expand_dir(Dir::Vert, -LI_VIA_SHRINK),
+        );
         let via = ctx.instantiate::<Via>(&via0)?;
         ctx.draw(via)?;
 
