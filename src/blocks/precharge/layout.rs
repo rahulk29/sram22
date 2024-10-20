@@ -51,6 +51,8 @@ pub struct ReplicaPrechargeParams {
     pub inner: PrechargeParams,
 }
 
+const LI_VIA_SHRINK: i64 = 20;
+
 impl Precharge {
     pub(crate) fn layout(
         &self,
@@ -141,7 +143,7 @@ impl Precharge {
 
         let jog = SimpleJog::builder()
             .dir(Dir::Vert)
-            .src_pos(cut)
+            .src_pos(dsn.cut_bot)
             .src([dsn.out_tracks.index(0), dsn.out_tracks.index(2)])
             .dst([dsn.in_tracks.index(1), dsn.in_tracks.index(2)])
             .line(dsn.v_line)
@@ -167,7 +169,12 @@ impl Precharge {
 
         let mut via0 = ViaParams::builder()
             .layers(dsn.m0, dsn.v_metal)
-            .geometry(mos.port("sd_1_0")?.largest_rect(dsn.m0)?, rects[2])
+            .geometry(
+                mos.port("sd_1_0")?
+                    .largest_rect(dsn.m0)?
+                    .expand_dir(Dir::Vert, -LI_VIA_SHRINK),
+                rects[2],
+            )
             .expand(ViaExpansion::LongerDirection)
             .build();
 
@@ -176,7 +183,10 @@ impl Precharge {
         via.translate(Point::new(5, 0));
         ctx.draw(via)?;
 
-        let target = mos.port("sd_2_1")?.largest_rect(dsn.m0)?;
+        let target = mos
+            .port("sd_2_1")?
+            .largest_rect(dsn.m0)?
+            .expand_dir(Dir::Vert, -LI_VIA_SHRINK);
         via0.set_geometry(target, rects[1]);
         let via = ctx.instantiate::<Via>(&via0)?;
         ctx.draw(via)?;
@@ -184,7 +194,10 @@ impl Precharge {
         let mut m1_vias = Vec::with_capacity(2);
         for (port, rect, x) in [("sd_2_0", rects[3], dsn.width), ("sd_1_1", rects[0], 0)] {
             let port = mos.port(port)?.largest_rect(dsn.m0)?;
-            via0.set_geometry(Rect::from_spans(Span::new(x, x), port.vspan()), rect);
+            via0.set_geometry(
+                Rect::from_spans(Span::from_point(x), port.vspan().shrink_all(LI_VIA_SHRINK)),
+                rect,
+            );
             let via = ctx.instantiate::<Via>(&via0)?;
             ctx.draw_rect(
                 dsn.m0,
@@ -198,8 +211,11 @@ impl Precharge {
         for (port, rect) in [("sd_0_0", orects[0]), ("sd_0_1", orects[2])] {
             let port = mos.port(port)?.largest_rect(dsn.m0)?;
             via0.set_geometry(
-                Rect::from_spans(Span::new(rect.center().x, rect.center().x), port.vspan()),
-                rect,
+                Rect::from_spans(
+                    Span::from_point(rect.center().x),
+                    port.vspan().shrink_all(LI_VIA_SHRINK),
+                ),
+                rect.expand_dir(Dir::Vert, -4 * LI_VIA_SHRINK),
             );
             let via = ctx.instantiate::<Via>(&via0)?;
             ctx.draw(via)?;
@@ -502,7 +518,7 @@ impl Component for PrechargeEnd {
         let tap = ctx.instantiate::<Via>(&viap)?;
         ctx.draw_ref(&tap)?;
 
-        let y = dsn.cut_bot + 2 * dsn.v_line + dsn.v_space + 120;
+        let y = dsn.cut_bot + 2 * dsn.v_line + dsn.v_space;
 
         let mut via = ctx.instantiate::<Via>(if self.params.via_top {
             &meta.m1_via_top
@@ -576,7 +592,7 @@ impl Component for ReplicaPrecharge {
         })
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("precharge_end")
+        arcstr::literal!("replica_precharge")
     }
 
     fn schematic(
@@ -751,7 +767,7 @@ impl Script for PhysicalDesignScript {
             params.equalizer_width + 2 * params.pull_up_width + 2_340 - 360,
             params.en_b_width,
         );
-        let cut_bot = 815 + params.equalizer_width;
+        let cut_bot = 815 - 60 + params.equalizer_width;
         let cut_top = params.equalizer_width + 2 * params.pull_up_width + 1_380;
 
         Ok(PhysicalDesign {
