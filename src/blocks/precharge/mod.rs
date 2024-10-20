@@ -14,6 +14,7 @@ pub struct PrechargeParams {
     pub length: i64,
     pub pull_up_width: i64,
     pub equalizer_width: i64,
+    pub en_b_width: i64,
 }
 
 impl PrechargeParams {
@@ -30,6 +31,7 @@ impl PrechargeParams {
             length: self.length,
             pull_up_width,
             equalizer_width,
+            en_b_width: self.en_b_width,
         }
     }
 }

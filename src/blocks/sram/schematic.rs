@@ -318,6 +318,7 @@ pub fn fanout_buffer_stage(pd: DecoderPhysicalDesignParams, cl: f64) -> DecoderS
         gate: GateParams::FoldedInv(invs[0]),
         invs: invs.into_iter().skip(1).collect(),
         num: 1,
+        use_multi_finger_invs: true,
         child_sizes: vec![1],
     }
 }
@@ -339,6 +340,7 @@ pub fn fanout_buffer_stage_with_inverted_output(
         gate: GateParams::FoldedInv(invs[0]),
         invs: invs.into_iter().skip(1).collect(),
         num: 1,
+        use_multi_finger_invs: true,
         child_sizes: vec![1],
     }
 }

@@ -66,6 +66,7 @@ impl Decoder {
             gate: node.gate,
             invs,
             num: node.num,
+            use_multi_finger_invs: true,
             child_sizes,
         };
         let stage_dsn = ctx
@@ -284,9 +285,9 @@ impl DecoderStage {
                                     (i * folding_factor + j) * num_stages + stage,
                                 ))?
                                 .largest_rect(dsn.li)?;
-                            let src =
-                                src.with_vspan(Span::with_stop_and_length(src.top() + 240, 240));
+                            let src = src.expand_side(Side::Top, 340);
                             ctx.draw_rect(dsn.li, src);
+                            let src = src.with_vspan(Span::with_stop_and_length(src.top(), 240));
                             let via = ctx.instantiate::<Via>(
                                 &ViaParams::builder()
                                     .layers(dsn.li, m1)
@@ -321,11 +322,10 @@ impl DecoderStage {
                                             + 1,
                                     ))?
                                     .largest_rect(dsn.li)?;
-                                let src = src.with_vspan(Span::with_start_and_length(
-                                    src.bottom() - 240,
-                                    240,
-                                ));
+                                let src = src.expand_side(Side::Bot, 340);
                                 ctx.draw_rect(dsn.li, src);
+                                let src =
+                                    src.with_vspan(Span::with_start_and_length(src.bottom(), 240));
                                 let via = ctx.instantiate::<Via>(
                                     &ViaParams::builder()
                                         .layers(dsn.li, m1)
@@ -809,89 +809,95 @@ impl Component for DecoderGate {
         }
 
         if is_multi_finger_inv {
-            let a_rect = gate
-                .port("a")?
-                .shapes(dsn.li)
-                .filter_map(|shape| shape.as_rect())
-                .map(|rect| rect.bbox())
-                .reduce(|a, b| a.union(b))
-                .unwrap()
-                .into_rect();
-            let y_rect = gate
-                .port("y")?
-                .shapes(dsn.li)
-                .filter_map(|shape| shape.as_rect())
-                .map(|rect| rect.bbox())
-                .reduce(|a, b| a.union(b))
-                .unwrap()
-                .into_rect();
-            let y_rect = y_rect.with_hspan(Span::with_stop_and_length(y_rect.hspan().stop(), 240));
+            let rail_rects = if !self.params.filler {
+                let a_rect = gate
+                    .port("a")?
+                    .shapes(dsn.li)
+                    .filter_map(|shape| shape.as_rect())
+                    .map(|rect| rect.bbox())
+                    .reduce(|a, b| a.union(b))
+                    .unwrap()
+                    .into_rect();
+                let y_rect = gate
+                    .port("y")?
+                    .shapes(dsn.li)
+                    .filter_map(|shape| shape.as_rect())
+                    .map(|rect| rect.bbox())
+                    .reduce(|a, b| a.union(b))
+                    .unwrap()
+                    .into_rect();
+                let y_rect =
+                    y_rect.with_hspan(Span::with_stop_and_length(y_rect.hspan().stop(), 240));
 
-            let vdd_rect = gate
-                .port("vdd")?
-                .shapes(dsn.li)
-                .filter_map(|shape| shape.as_rect())
-                .map(|rect| rect.bbox())
-                .reduce(|a, b| a.union(b))
-                .unwrap()
-                .into_rect();
-            let vdd_rect =
-                vdd_rect.with_hspan(Span::with_start_and_length(vdd_rect.hspan().start(), 240));
-            ctx.draw_rect(m1, vdd_rect);
-            for rect in gate
-                .port("vdd")?
-                .shapes(dsn.li)
-                .filter_map(|shape| shape.as_rect())
-            {
-                draw_via(dsn.li, rect, m1, vdd_rect, ctx)?;
-            }
+                let vdd_rect = gate
+                    .port("vdd")?
+                    .shapes(dsn.li)
+                    .filter_map(|shape| shape.as_rect())
+                    .map(|rect| rect.bbox())
+                    .reduce(|a, b| a.union(b))
+                    .unwrap()
+                    .into_rect();
+                let vdd_rect =
+                    vdd_rect.with_hspan(Span::with_start_and_length(vdd_rect.hspan().start(), 240));
+                ctx.draw_rect(m1, vdd_rect);
+                for rect in gate
+                    .port("vdd")?
+                    .shapes(dsn.li)
+                    .filter_map(|shape| shape.as_rect())
+                {
+                    draw_via(dsn.li, rect, m1, vdd_rect, ctx)?;
+                }
 
-            let vss_rect = gate
-                .port("vss")?
-                .shapes(dsn.li)
-                .filter_map(|shape| shape.as_rect())
-                .map(|rect| rect.bbox())
-                .reduce(|a, b| a.union(b))
-                .unwrap()
-                .into_rect();
-            let vss_rect =
-                vss_rect.with_hspan(Span::with_start_and_length(vss_rect.hspan().start(), 240));
-            ctx.draw_rect(m1, vss_rect);
-            for rect in gate
-                .port("vss")?
-                .shapes(dsn.li)
-                .filter_map(|shape| shape.as_rect())
-            {
-                draw_via(dsn.li, rect, m1, vss_rect, ctx)?;
-            }
+                let vss_rect = gate
+                    .port("vss")?
+                    .shapes(dsn.li)
+                    .filter_map(|shape| shape.as_rect())
+                    .map(|rect| rect.bbox())
+                    .reduce(|a, b| a.union(b))
+                    .unwrap()
+                    .into_rect();
+                let vss_rect =
+                    vss_rect.with_hspan(Span::with_start_and_length(vss_rect.hspan().start(), 240));
+                ctx.draw_rect(m1, vss_rect);
+                for rect in gate
+                    .port("vss")?
+                    .shapes(dsn.li)
+                    .filter_map(|shape| shape.as_rect())
+                {
+                    draw_via(dsn.li, rect, m1, vss_rect, ctx)?;
+                }
 
-            let a_rect = a_rect.with_vspan(
-                a_rect
-                    .vspan()
-                    .union(y_rect.vspan())
-                    .union(vdd_rect.vspan())
-                    .union(vss_rect.vspan()),
-            );
-            ctx.draw_rect(m1, a_rect);
-            for rect in gate
-                .port("a")?
-                .shapes(dsn.li)
-                .filter_map(|shape| shape.as_rect())
-            {
-                draw_via(dsn.li, rect, m1, a_rect, ctx)?;
-            }
-            ctx.add_port(CellPort::with_shape("a", m1, a_rect)).unwrap();
+                let a_rect = a_rect.with_vspan(
+                    a_rect
+                        .vspan()
+                        .union(y_rect.vspan())
+                        .union(vdd_rect.vspan())
+                        .union(vss_rect.vspan()),
+                );
+                ctx.draw_rect(m1, a_rect);
+                for rect in gate
+                    .port("a")?
+                    .shapes(dsn.li)
+                    .filter_map(|shape| shape.as_rect())
+                {
+                    draw_via(dsn.li, rect, m1, a_rect, ctx)?;
+                }
+                ctx.add_port(CellPort::with_shape("a", m1, a_rect)).unwrap();
 
-            let y_rect = y_rect.with_vspan(a_rect.vspan());
-            ctx.draw_rect(m1, y_rect);
-            for rect in gate
-                .port("y")?
-                .shapes(dsn.li)
-                .filter_map(|shape| shape.as_rect())
-            {
-                draw_via(dsn.li, rect, m1, y_rect, ctx)?;
-            }
-            ctx.add_port(CellPort::with_shape("y", m1, y_rect)).unwrap();
+                let y_rect = y_rect.with_vspan(a_rect.vspan());
+                ctx.draw_rect(m1, y_rect);
+                for rect in gate
+                    .port("y")?
+                    .shapes(dsn.li)
+                    .filter_map(|shape| shape.as_rect())
+                {
+                    draw_via(dsn.li, rect, m1, y_rect, ctx)?;
+                }
+                ctx.add_port(CellPort::with_shape("y", m1, y_rect)).unwrap();
+                Some((vdd_rect, vss_rect))
+            } else {
+                None
+            };
 
             for (span, port_name) in spans {
                 for vspan in span_to_straps(span, dsn.line, dsn.space, ctx.pdk().layout_grid()) {
@@ -903,7 +909,7 @@ impl Component for DecoderGate {
                         .entry(m2)
                         .or_insert(Vec::new())
                         .push(rect.vspan());
-                    if !self.params.filler {
+                    if let Some((vdd_rect, vss_rect)) = rail_rects {
                         let port_rect = if port_name == "vdd" {
                             vdd_rect
                         } else {

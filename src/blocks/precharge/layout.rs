@@ -737,10 +737,10 @@ impl Script for PhysicalDesignScript {
             params.equalizer_width + params.pull_up_width + 900 + 270 + 270 / 2 - 400,
             800,
         );
-        let gate_stripe_bot = Span::new(0, 360);
-        let gate_stripe_top = Span::with_stop_and_length(
-            params.equalizer_width + 2 * params.pull_up_width + 2_340,
-            360,
+        let gate_stripe_bot = Span::with_stop_and_length(360, params.en_b_width);
+        let gate_stripe_top = Span::with_start_and_length(
+            params.equalizer_width + 2 * params.pull_up_width + 2_340 - 360,
+            params.en_b_width,
         );
         let cut_bot = 900 + params.equalizer_width;
         let cut_top = params.equalizer_width + 2 * params.pull_up_width + 1_380;

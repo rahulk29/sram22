@@ -40,6 +40,7 @@ pub struct DecoderStageParams {
     pub gate: GateParams,
     pub invs: Vec<PrimitiveGateParams>,
     pub num: usize,
+    pub use_multi_finger_invs: bool,
     pub child_sizes: Vec<usize>,
 }
 
@@ -712,14 +713,11 @@ impl Script for DecoderStagePhysicalDesignScript {
                             .into_iter()
                             .skip(1)
                             .chain(params.invs.clone())
-                            .enumerate()
-                            .map(|(i, params)| {
-                                if (params.pwidth + params.nwidth) / (folding_factors[i + 1] as i64)
-                                    < 20_000
-                                {
-                                    GateParams::FoldedInv(params)
+                            .map(|gate| {
+                                if params.use_multi_finger_invs {
+                                    GateParams::MultiFingerInv(gate)
                                 } else {
-                                    GateParams::MultiFingerInv(params)
+                                    GateParams::FoldedInv(gate)
                                 }
                             }),
                     )
@@ -729,11 +727,11 @@ impl Script for DecoderStagePhysicalDesignScript {
             } else {
                 (
                     std::iter::once(params.gate)
-                        .chain(params.invs.clone().into_iter().map(|params| {
-                            if params.pwidth + params.nwidth < 20_000 {
-                                GateParams::FoldedInv(params)
+                        .chain(params.invs.clone().into_iter().map(|gate| {
+                            if params.use_multi_finger_invs {
+                                GateParams::MultiFingerInv(gate)
                             } else {
-                                GateParams::MultiFingerInv(params)
+                                GateParams::FoldedInv(gate)
                             }
                         }))
                         .collect(),
@@ -821,6 +819,7 @@ mod tests {
                 length: 150,
             }],
             num: 4,
+            use_multi_finger_invs: true,
             child_sizes: vec![2, 2],
         };
 

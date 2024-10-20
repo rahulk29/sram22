@@ -247,7 +247,7 @@ impl TGateMux {
 
         assert!(self.params.idx < self.params.mux_ratio);
 
-        let line = GATE_LINE + (GATE_LINE + GATE_SPACE) * (self.params.routing_tracks - 1);
+        let line = self.params.sel_width;
 
         for (inst, port) in [(&pmos, "sel_b"), (&nmos, "sel")] {
             for i in 0..self.params.mux_ratio {
