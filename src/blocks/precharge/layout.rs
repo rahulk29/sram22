@@ -478,7 +478,7 @@ impl Component for PrechargeEnd {
         let m0 = layers.get(Selector::Metal(0))?;
 
         let brect = Rect::new(
-            Point::new(0, 0),
+            Point::new(0, pc.brect().bottom()),
             Point::new(dsn.tap_width, pc.brect().top()),
         );
 

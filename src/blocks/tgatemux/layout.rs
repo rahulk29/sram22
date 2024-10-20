@@ -153,6 +153,7 @@ impl TGateMux {
                 .layers(pc.m0, pc.v_metal)
                 .geometry(tracks[idx], target)
                 .expand(ViaExpansion::LongerDirection)
+                .top_extension(Dir::Vert)
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;
             ctx.draw(via)?;
@@ -163,6 +164,7 @@ impl TGateMux {
                 .layers(pc.m0, pc.v_metal)
                 .geometry(tracks[idx], target)
                 .expand(ViaExpansion::LongerDirection)
+                .top_extension(Dir::Vert)
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;
             ctx.draw(via)?;
@@ -186,6 +188,7 @@ impl TGateMux {
                     tracks[idx].double(side),
                 )
                 .expand(ViaExpansion::LongerDirection)
+                .top_extension(Dir::Vert)
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;
             if side == Side::Left {
@@ -404,7 +407,10 @@ fn tgate_mux_tap_layout(
     // ctx.draw_rect(pc.v_metal, vtrack);
 
     for i in 0..params.mux_ratio {
-        let vspan = Span::with_stop_and_length(-(GATE_LINE + GATE_SPACE) * i as i64, GATE_LINE);
+        let vspan = Span::with_stop_and_length(
+            -(params.sel_width + GATE_SPACE) * i as i64,
+            params.sel_width,
+        );
         let rect = Rect::from_spans(stripe_hspan, vspan);
         ctx.draw_rect(pc.h_metal, rect);
         ctx.add_port(CellPort::with_shape(
@@ -415,8 +421,8 @@ fn tgate_mux_tap_layout(
     }
     for i in 0..params.mux_ratio {
         let vspan = Span::with_start_and_length(
-            meta.sel_tracks_ystart + (GATE_LINE + GATE_SPACE) * i as i64,
-            GATE_LINE,
+            meta.sel_tracks_ystart + (params.sel_width + GATE_SPACE) * i as i64,
+            params.sel_width,
         );
         let rect = Rect::from_spans(stripe_hspan, vspan);
         ctx.draw_rect(pc.h_metal, rect);
