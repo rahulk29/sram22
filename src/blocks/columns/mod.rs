@@ -203,13 +203,13 @@ pub const MUX_PARAMS: TGateMuxParams = TGateMuxParams {
     nwidth: 3_000,
     mux_ratio: 4,
     idx: 2,
-    sel_width: 1_000,
+    sel_width: 360,
 };
 pub const PRECHARGE_PARAMS: PrechargeParams = PrechargeParams {
     length: 150,
     pull_up_width: 2_000,
     equalizer_width: 1_200,
-    en_b_width: 1_000,
+    en_b_width: 360,
 };
 
 pub const DIFF_BUF_PARAMS: PrimitiveGateParams = PrimitiveGateParams {

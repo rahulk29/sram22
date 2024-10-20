@@ -266,7 +266,7 @@ mod tests {
         nwidth: 1_600,
         mux_ratio: 4,
         idx: 2,
-        sel_width: 1_000,
+        sel_width: 320,
     };
 
     #[test]

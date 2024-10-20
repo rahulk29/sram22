@@ -115,7 +115,10 @@ impl Precharge {
         let mut orects = Vec::with_capacity(dsn.out_tracks.len());
         for i in 0..dsn.out_tracks.len() {
             let top = if i == 1 { gate.top() } else { cut };
-            let rect = Rect::from_spans(dsn.out_tracks.index(i), Span::new(0, top));
+            let rect = Rect::from_spans(
+                dsn.out_tracks.index(i),
+                Span::new(std::cmp::min(0, dsn.gate_stripe_bot.start()), top),
+            );
             if i != 1 {
                 ctx.draw_rect(dsn.v_metal, rect);
             }
@@ -349,7 +352,7 @@ impl Component for PrechargeCent {
         let m0 = layers.get(Selector::Metal(0))?;
 
         let brect = Rect::new(
-            Point::new(0, 0),
+            Point::new(0, pc.brect().bottom()),
             Point::new(dsn.tap_width, pc.brect().top()),
         );
 

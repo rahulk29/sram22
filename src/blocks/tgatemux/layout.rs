@@ -119,8 +119,12 @@ impl TGateMux {
         let out_bot = 600;
 
         let stripe_hspan = Span::new(-pc.width, 2 * pc.width);
-        let abs_bot = -(GATE_LINE + GATE_SPACE) * self.params.mux_ratio as i64;
-        let abs_top = nmos.brect().top() + (GATE_LINE + GATE_SPACE) * self.params.mux_ratio as i64;
+        let line = self.params.sel_width;
+        let space = std::cmp::max(line / 4, 140);
+        let abs_bot = -(line + space) * self.params.mux_ratio as i64;
+        let abs_top = nmos.brect().top()
+            + (line + space) * self.params.mux_ratio as i64
+            + std::cmp::max(170 - space, 0);
 
         for i in [0, 2] {
             let rect = Rect::from_spans(pc.out_tracks.index(i), Span::new(out_top, abs_top));
@@ -253,17 +257,15 @@ impl TGateMux {
 
         assert!(self.params.idx < self.params.mux_ratio);
 
-        let line = self.params.sel_width;
-
         for (inst, port) in [(&pmos, "sel_b"), (&nmos, "sel")] {
             for i in 0..self.params.mux_ratio {
                 let vspan = if port == "sel" {
                     Span::with_start_and_length(
-                        nmos.brect().top() + (line + GATE_SPACE) * i as i64,
+                        nmos.brect().top() + (line + space) * i as i64,
                         line,
                     )
                 } else {
-                    Span::with_stop_and_length(-(line + GATE_SPACE) * i as i64, line)
+                    Span::with_stop_and_length(-(line + space) * i as i64, line)
                 };
                 let rect = Rect::from_spans(stripe_hspan, vspan);
                 ctx.draw_rect(pc.h_metal, rect);
@@ -406,11 +408,10 @@ fn tgate_mux_tap_layout(
     vtrack.place_center(Point::new(width, vtrack.center().y));
     // ctx.draw_rect(pc.v_metal, vtrack);
 
+    let line = params.sel_width;
+    let space = std::cmp::max(line / 4, 140);
     for i in 0..params.mux_ratio {
-        let vspan = Span::with_stop_and_length(
-            -(params.sel_width + GATE_SPACE) * i as i64,
-            params.sel_width,
-        );
+        let vspan = Span::with_stop_and_length(-(line + space) * i as i64, line);
         let rect = Rect::from_spans(stripe_hspan, vspan);
         ctx.draw_rect(pc.h_metal, rect);
         ctx.add_port(CellPort::with_shape(
@@ -420,10 +421,8 @@ fn tgate_mux_tap_layout(
         ))?;
     }
     for i in 0..params.mux_ratio {
-        let vspan = Span::with_start_and_length(
-            meta.sel_tracks_ystart + (params.sel_width + GATE_SPACE) * i as i64,
-            params.sel_width,
-        );
+        let vspan =
+            Span::with_start_and_length(meta.sel_tracks_ystart + (line + space) * i as i64, line);
         let rect = Rect::from_spans(stripe_hspan, vspan);
         ctx.draw_rect(pc.h_metal, rect);
         ctx.add_port(CellPort::with_shape(

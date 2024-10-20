@@ -410,6 +410,8 @@ impl SramInner {
         }
 
         // Block full m2 layer bbox of decoders due to wrong direction routing.
+        // Also block m1 to the right of buffers and column decoder to prevent power strap placement in
+        // between vias.
         for inst in [
             &decoder,
             &col_dec,
@@ -419,6 +421,7 @@ impl SramInner {
             &write_driver_en_buffer,
         ] {
             router.block(m2, inst.layer_bbox(m2).into_rect());
+            router.block(m1, inst.brect().expand_side(Side::Right, 1_400));
         }
 
         // Block extra for decoder to prevent extra power straps from being placed.
