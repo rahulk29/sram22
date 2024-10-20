@@ -189,7 +189,7 @@ impl TGateMux {
                 .layers(pc.m0, pc.v_metal)
                 .geometry(
                     Rect::from_spans(Span::from_point(x), target.vspan()),
-                    tracks[idx].double(side),
+                    tracks[idx].double(side).expand_dir(Dir::Vert, -80),
                 )
                 .expand(ViaExpansion::LongerDirection)
                 .top_extension(Dir::Vert)
