@@ -732,9 +732,11 @@ impl Script for PhysicalDesignScript {
             grid: 5,
         });
 
+        let power_stripe_height = params.pull_up_width.clamp(800, 3_600);
         let power_stripe = Span::with_start_and_length(
-            params.equalizer_width + params.pull_up_width + 900 + 270 + 270 / 2 - 400,
-            800,
+            params.equalizer_width + params.pull_up_width + 900 + 270 - 60 + 270 / 2
+                - power_stripe_height / 2,
+            power_stripe_height,
         );
         let gate_stripe_bot = Span::new(0, 360);
         let gate_stripe_top = Span::with_stop_and_length(
