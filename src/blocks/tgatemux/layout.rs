@@ -152,6 +152,7 @@ impl TGateMux {
             let viap = ViaParams::builder()
                 .layers(pc.m0, pc.v_metal)
                 .geometry(tracks[idx], target)
+                .expand(ViaExpansion::LongerDirection)
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;
             ctx.draw(via)?;
@@ -161,6 +162,7 @@ impl TGateMux {
             let viap = ViaParams::builder()
                 .layers(pc.m0, pc.v_metal)
                 .geometry(tracks[idx], target)
+                .expand(ViaExpansion::LongerDirection)
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;
             ctx.draw(via)?;
@@ -180,9 +182,10 @@ impl TGateMux {
             let viap = ViaParams::builder()
                 .layers(pc.m0, pc.v_metal)
                 .geometry(
-                    Rect::from_xy(x, target.center().y),
+                    Rect::from_spans(Span::from_point(x), target.vspan()),
                     tracks[idx].double(side),
                 )
+                .expand(ViaExpansion::LongerDirection)
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;
             if side == Side::Left {
