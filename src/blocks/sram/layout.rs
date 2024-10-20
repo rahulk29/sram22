@@ -342,7 +342,7 @@ impl SramInner {
                 .bbox()
                 .union(rbl.bbox())
                 .union(write_driver_en_buffer.bbox()),
-            3_500 + 1_400 * self.params.addr_width() as i64,
+            5_500 + 1_400 * self.params.addr_width() as i64,
         );
 
         // Draw instances.

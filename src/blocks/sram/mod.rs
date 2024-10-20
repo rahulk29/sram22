@@ -357,7 +357,7 @@ impl Script for SramPhysicalDesignScript {
         let mut available_height = [
             cols.brect().height()
             - dffs_inst.brect().height()
-            - 3_500 // DFF offset
+            - 5_500 // DFF offset
             - 1_400 * params.addr_width() as i64,
             rbl_inst.brect().height(),
             control_inst.brect().width(),
