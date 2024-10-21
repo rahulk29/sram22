@@ -2,6 +2,7 @@ use self::schematic::fanout_buffer_stage;
 use crate::blocks::bitcell_array::replica::ReplicaCellArray;
 use crate::blocks::columns::ColumnsPhysicalDesignScript;
 use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2};
+use crate::blocks::precharge::PrechargeParams;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::path::{Path, PathBuf};
@@ -449,7 +450,10 @@ impl Script for SramPhysicalDesignScript {
             },
             replica_pc: ReplicaPrechargeParams {
                 cols: 2,
-                inner: col_params.pc.scale(1. / 6.),
+                inner: PrechargeParams {
+                    en_b_width: 360,
+                    ..col_params.pc.scale(1. / 6.)
+                },
             },
             col_params,
             control: ControlLogicParams {

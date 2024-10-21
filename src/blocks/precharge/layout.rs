@@ -120,7 +120,13 @@ impl Precharge {
             let top = if i == 1 { gate.top() } else { cut };
             let rect = Rect::from_spans(
                 dsn.out_tracks.index(i),
-                Span::new(std::cmp::min(0, dsn.gate_stripe_bot.start()), top),
+                Span::new(
+                    std::cmp::min(
+                        0,
+                        dsn.gate_stripe_bot.start() - dsn.gate_stripe_bot.length() / 4,
+                    ),
+                    top,
+                ),
             );
             if i != 1 {
                 ctx.draw_rect(dsn.v_metal, rect);
