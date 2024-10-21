@@ -13,9 +13,9 @@ In order to use SRAM22, your system will need to have the following components:
 - Make
 - A local clone of our [slightly modified version of the SKY 130 PDK](https://github.com/ucb-substrate/skywater-pdk). 
 You will also need to set the environment variable `SKY130_OPEN_PDK_ROOT` to the absolute path of the local PDK's root directory.
-Substrate uses standard cells from the `sky130_fd_sc_hd` library, so you will also need to run the following from the PDK root directory:
+Substrate uses standard cells from the `sky130_fd_sc_hs` library, so you will also need to run the following from the PDK root directory:
     ```
-    git submodule update --init libraries/sky130_fd_sc_hd/latest
+    git submodule update --init libraries/sky130_fd_sc_hs/latest
     ```
 
 ### Installation
@@ -80,7 +80,6 @@ num_words = 64
 data_width = 32
 mux_ratio = 4
 write_size = 8
-control = "ReplicaV2"
 # The `pex_level` flag is only available with a full installation.
 pex_level = "rcc"
 ```
@@ -108,7 +107,6 @@ A valid configuration must have:
 * A power-of-two number of rows
 * At least 16 rows
 * At least 16 columns
-* `control`: Must be `"ReplicaV2"`.
 * `pex_level`: Must be `"r"`, `"c"`, `"rc"`, or `"rcc"`. If you do not have commercial plugins enabled, this option will be ignored.
 
 ### Contribution

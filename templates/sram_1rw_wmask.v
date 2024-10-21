@@ -9,7 +9,7 @@ module {{module_name}}(
     vdd,
     vss,
 `endif
-  clk,we,wmask,addr,din,dout{% if test %},sae_int,sae_muxed{% endif %}
+  clk,we,wmask,addr,din,dout
   );
 
   // These parameters should NOT be set to
@@ -29,10 +29,6 @@ module {{module_name}}(
   input [ADDR_WIDTH-1:0]  addr; // address
   input [DATA_WIDTH-1:0]  din; // data in
   output reg [DATA_WIDTH-1:0] dout; // data out
-  {% if test %}
-  input sae_muxed; // muxed sense amp enable
-  output sae_int; // internal sense amp enable
-  {% endif %}
 
   reg [DATA_WIDTH-1:0] mem [0:RAM_DEPTH-1];
 

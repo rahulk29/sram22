@@ -65,7 +65,7 @@ impl Component for CoarseTdcCell {
             (b_0, b_out),
         ] {
             inv.clone()
-                .with_connections([("vdd", vdd), ("vss", vss), ("din", din), ("din_b", dout)])
+                .with_connections([("vdd", vdd), ("vss", vss), ("a", din), ("y", dout)])
                 .named("inv")
                 .add_to(ctx);
         }

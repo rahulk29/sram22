@@ -243,7 +243,7 @@ impl Component for ReplicaCellArray {
     ) -> substrate::error::Result<()> {
         let tap_ratio = TapRatio {
             mux_ratio: 2,
-            hstrap_ratio: 8,
+            hstrap_ratio: 4,
         };
 
         let layers = ctx.layers();
