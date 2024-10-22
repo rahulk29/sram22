@@ -67,6 +67,7 @@ impl Decoder {
             invs,
             num: node.num,
             use_multi_finger_invs: true,
+            dont_connect_outputs: true,
             child_sizes,
         };
         let stage_dsn = ctx
@@ -446,7 +447,7 @@ impl DecoderStage {
             let folding_factor = folding_factors[num_stages - 1];
             for n in 0..self.params.num {
                 // connect folded outputs
-                if folding_factor > 1 {
+                if folding_factor > 1 && !self.params.dont_connect_outputs {
                     let (layer, offset) = if gate_params[num_stages - 1]
                         .gate_type()
                         .is_multi_finger_inv()

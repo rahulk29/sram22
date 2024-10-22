@@ -11,7 +11,7 @@ pub struct ControlLogicReplicaV2 {
     params: ControlLogicParams,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct ControlLogicParams {
     pub decoder_delay_invs: usize,
     pub write_driver_delay_invs: usize,

@@ -186,6 +186,7 @@ impl Script for ColumnsPhysicalDesignScript {
                 invs: wmask_buffer_gates.iter().copied().skip(1).collect(),
                 num: 1,
                 use_multi_finger_invs: false,
+                dont_connect_outputs: false,
                 child_sizes: vec![1, 1],
             },
         })

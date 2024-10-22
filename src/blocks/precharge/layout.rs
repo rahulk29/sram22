@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
 use subgeom::transform::Translate;
@@ -45,7 +45,7 @@ pub struct ReplicaPrecharge {
     params: ReplicaPrechargeParams,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReplicaPrechargeParams {
     pub cols: usize,
     pub inner: PrechargeParams,

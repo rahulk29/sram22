@@ -42,6 +42,7 @@ impl Decoder {
             invs,
             num: node.num,
             use_multi_finger_invs: true,
+            dont_connect_outputs: true,
             child_sizes,
         };
         let mut inst = ctx

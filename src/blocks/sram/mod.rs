@@ -193,6 +193,7 @@ impl SramParams {
 
 pub struct SramPhysicalDesignScript;
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SramPhysicalDesign {
     pub(crate) bitcells: SpCellArrayParams,
     pub(crate) row_decoder: DecoderParams,
@@ -222,6 +223,8 @@ impl Script for SramPhysicalDesignScript {
         params: &Self::Params,
         ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self::Output> {
+        let layers = ctx.layers();
+        let m2 = layers.get(Selector::Metal(2))?;
         let wl_cap = (params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL * 1.5; // safety factor.
         let mut col_params = params.col_params();
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
@@ -232,7 +235,6 @@ impl Script for SramPhysicalDesignScript {
             cols: 2,
         };
         let rbl_inst = ctx.instantiate_layout::<ReplicaCellArray>(&rbl)?;
-
         let addr_gate = DecoderStageParams {
             pd: DecoderPhysicalDesignParams {
                 style: DecoderStyle::Minimum,
@@ -247,6 +249,7 @@ impl Script for SramPhysicalDesignScript {
             }),
             num: 2 * params.row_bits(),
             use_multi_finger_invs: true,
+            dont_connect_outputs: false,
             child_sizes: vec![],
         };
         let addr_gate_inst = ctx.instantiate_layout::<DecoderStage>(&addr_gate)?;
@@ -336,26 +339,48 @@ impl Script for SramPhysicalDesignScript {
             decoder_delay_invs,
             write_driver_delay_invs,
         };
+        let row_decoder = DecoderParams {
+            pd: DecoderPhysicalDesignParams {
+                style: DecoderStyle::RowMatched,
+                dir: Dir::Horiz,
+            },
+            max_width: None,
+            tree: row_decoder_tree,
+        };
 
         let control_inst = ctx.instantiate_layout::<ControlLogicReplicaV2>(&control)?;
 
-        let col_dec_inst = ctx.instantiate_layout::<Decoder>(&col_decoder)?;
         let pc_b_buffer_inst = ctx.instantiate_layout::<DecoderStage>(&pc_b_buffer)?;
         let sense_en_buffer_inst = ctx.instantiate_layout::<DecoderStage>(&sense_en_buffer)?;
         let write_driver_en_buffer_inst =
             ctx.instantiate_layout::<DecoderStage>(&write_driver_en_buffer)?;
-        let col_dec_wh = col_dec_inst.brect().width() * col_dec_inst.brect().height();
         let pc_b_buffer_wh = pc_b_buffer_inst.brect().width() * pc_b_buffer_inst.brect().height();
         let sense_en_buffer_wh =
             sense_en_buffer_inst.brect().width() * sense_en_buffer_inst.brect().height();
         let write_driver_en_buffer_wh = write_driver_en_buffer_inst.brect().width()
             * write_driver_en_buffer_inst.brect().height();
-        let mut total_wh =
-            col_dec_wh + pc_b_buffer_wh + sense_en_buffer_wh + write_driver_en_buffer_wh;
+        let mut total_wh = pc_b_buffer_wh + sense_en_buffer_wh + write_driver_en_buffer_wh;
         let num_dffs = params.addr_width() + 2;
         let dffs_inst = ctx.instantiate_layout::<DffArray>(&num_dffs)?;
 
-        let mut available_height = [
+        let available_height = cols.brect().top()
+            - cols
+                .port(PortId::new("sel_b", params.mux_ratio() - 1))?
+                .largest_rect(m2)?
+                .bottom()
+            - 3 * 6_000; // Offset between buffers
+
+        let pc_b_buffer_max_width = available_height * pc_b_buffer_wh / total_wh + 2_000;
+        let sense_en_buffer_max_width = available_height * sense_en_buffer_wh / total_wh + 2_000;
+        let write_driver_en_buffer_max_width =
+            available_height * write_driver_en_buffer_wh / total_wh + 2_000;
+        pc_b_buffer.max_width = Some(pc_b_buffer_max_width);
+        sense_en_buffer.max_width = Some(sense_en_buffer_max_width);
+        write_driver_en_buffer.max_width = Some(write_driver_en_buffer_max_width);
+
+        let col_dec_inst = ctx.instantiate_layout::<Decoder>(&col_decoder)?;
+        let row_dec_inst = ctx.instantiate_layout::<Decoder>(&row_decoder)?;
+        let available_height = [
             cols.brect().height()
             - dffs_inst.brect().height()
             - 5_500 // DFF offset
@@ -366,22 +391,16 @@ impl Script for SramPhysicalDesignScript {
         .into_iter()
         .max()
         .unwrap()
-            - 4 * 6_000; // Offset between buffers
-
-        let col_dec_max_width = std::cmp::max(
-            available_height * col_dec_wh / total_wh,
-            col_dec_inst.brect().width(),
-        );
-        available_height -= col_dec_max_width;
-        total_wh -= col_dec_wh;
-        let pc_b_buffer_max_width = available_height * pc_b_buffer_wh / total_wh;
-        let sense_en_buffer_max_width = available_height * sense_en_buffer_wh / total_wh;
-        let write_driver_en_buffer_max_width =
-            available_height * write_driver_en_buffer_wh / total_wh;
+            - available_height
+            - 6_000; // Offset between buffers
+        let col_dec_wh = col_dec_inst.brect().width() * col_dec_inst.brect().height();
+        let col_dec_width_to_match_row_dec = col_dec_wh / row_dec_inst.brect().height();
+        let col_dec_max_width = if col_dec_width_to_match_row_dec < 2 * available_height {
+            std::cmp::max(col_dec_width_to_match_row_dec, available_height)
+        } else {
+            available_height
+        } + 2_000;
         col_decoder.max_width = Some(col_dec_max_width);
-        pc_b_buffer.max_width = Some(pc_b_buffer_max_width);
-        sense_en_buffer.max_width = Some(sense_en_buffer_max_width);
-        write_driver_en_buffer.max_width = Some(write_driver_en_buffer_max_width);
 
         let wlen_buffer = DecoderStageParams {
             max_width: Some(addr_gate_inst.brect().height() - 2_000),
@@ -390,23 +409,6 @@ impl Script for SramPhysicalDesignScript {
         println!("wlen_buffer: {:?}", wlen_buffer);
 
         assert_eq!(decoder_delay_invs % 2, 0);
-
-        println!(
-            "pc_b num tracks: {}",
-            (pc_b_cap / (COL_CAPACITANCES.pc_b * 512.))
-        );
-        println!(
-            "wrdrven num tracks: {}",
-            wrdrven_cap / (COL_CAPACITANCES.we * 8.)
-        );
-        println!(
-            "saen num tracks: {}",
-            saen_cap / (COL_CAPACITANCES.saen * 32.)
-        );
-        println!(
-            "col_dec num tracks: {}",
-            col_sel_cap / (COL_CAPACITANCES.sel * 16.)
-        );
         let pc_b_routing_tracks =
             std::cmp::min(8, (pc_b_cap / (COL_CAPACITANCES.pc_b * 512.)).ceil() as i64);
         let write_driver_en_routing_tracks =
@@ -415,8 +417,13 @@ impl Script for SramPhysicalDesignScript {
             std::cmp::min(8, (saen_cap / (COL_CAPACITANCES.saen * 32.)).ceil() as i64);
         let col_dec_routing_tracks = std::cmp::min(
             4,
-            (col_sel_cap / (COL_CAPACITANCES.sel * 128.)).ceil() as i64,
+            (col_sel_cap / (COL_CAPACITANCES.sel * 64.)).ceil() as i64,
         );
+
+        println!("pc_b num tracks: {}", pc_b_routing_tracks);
+        println!("wrdrven num tracks: {}", write_driver_en_routing_tracks);
+        println!("saen num tracks: {}", sense_en_routing_tracks);
+        println!("col_dec num tracks: {}", col_dec_routing_tracks);
 
         col_params.mux.sel_width = 320 + (320 + 360) * (col_dec_routing_tracks - 1);
         col_params.pc.en_b_width = 320 + (320 + 360) * (pc_b_routing_tracks - 1);
@@ -427,14 +434,7 @@ impl Script for SramPhysicalDesignScript {
                 cols: params.cols(),
                 mux_ratio: params.mux_ratio(),
             },
-            row_decoder: DecoderParams {
-                pd: DecoderPhysicalDesignParams {
-                    style: DecoderStyle::RowMatched,
-                    dir: Dir::Horiz,
-                },
-                max_width: None,
-                tree: row_decoder_tree,
-            },
+            row_decoder,
             addr_gate,
             // TODO: change decoder tree to provide correct fanout for inverted output
             col_decoder,
@@ -808,7 +808,8 @@ pub(crate) mod tests {
                             let work_dir = work_dir.clone();
                             handles.push(std::thread::spawn(move || {
                                 let ctx = setup_ctx();
-                                let tb = crate::blocks::sram::testbench::tb_params(params, vdd, seq, pex_netlist);
+                                let dsn = ctx.run_script::<SramPhysicalDesignScript>(&params).expect("failed to run sram design script");
+                                let tb = crate::blocks::sram::testbench::tb_params(params, dsn, vdd, seq, pex_netlist);
                                 let work_dir = work_dir.join(format!(
                                     "{}_{:.2}_{}",
                                     corner.name(),
@@ -831,9 +832,8 @@ pub(crate) mod tests {
                             }));
                         }
                     }
-                    for handle in handles {
-                        handle.join().expect("failed to join thread");
-                    }
+                    let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
+                    handles.into_iter().collect::<Result<Vec<_>>>()?.expect("failed to join threads");
 
                     // crate::abs::run_abstract(
                     //     &work_dir,

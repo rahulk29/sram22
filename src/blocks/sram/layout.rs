@@ -301,17 +301,24 @@ impl SramInner {
                         + dsn.write_driver_en_routing_tracks),
         );
 
-        // Align column decoder to topmost column mux select port.
-        col_dec.align_beneath(pc_b_buffer.bbox(), 6_000);
-        col_dec.align_right(pc_b_buffer.bbox());
-
-        // Align sense_en buffer as close to column peripheral sense_en port as possible.
-        sense_en_buffer.align_beneath(col_dec.brect(), 6_000);
+        // Align sense_en buffer beneath pc_b buffer.
+        sense_en_buffer.align_beneath(pc_b_buffer.brect(), 6_000);
         sense_en_buffer.align_right(pc_b_buffer.bbox());
 
         // Align write driver underneath sense_en buffer.
         write_driver_en_buffer.align_beneath(sense_en_buffer.bbox(), 6_000);
         write_driver_en_buffer.align_right(pc_b_buffer.bbox());
+
+        // Align column decoder beneath bottommost column mux select port.
+        // This prevents overlapping of m2 routes.
+        col_dec.align_beneath(
+            cols.port(PortId::new("sel_b", self.params.mux_ratio() - 1))?
+                .largest_rect(m2)?
+                .bbox()
+                .union(write_driver_en_buffer.bbox()),
+            3_000,
+        );
+        col_dec.align_right(pc_b_buffer.bbox());
 
         // Align control logic to the left of all of the buffers and column decoder that border
         // column peripherals.
@@ -338,10 +345,7 @@ impl SramInner {
         // Align DFFs to the left of column peripherals and underneath all other objects.
         dffs.align_right(pc_b_buffer.bbox());
         dffs.align_beneath(
-            control
-                .bbox()
-                .union(rbl.bbox())
-                .union(write_driver_en_buffer.bbox()),
+            control.bbox().union(rbl.bbox()).union(col_dec.bbox()),
             5_500 + 1_400 * self.params.addr_width() as i64,
         );
 
@@ -542,43 +546,36 @@ impl SramInner {
         }
 
         let mut track_idx =
-            m1_tracks.track_with_loc(TrackLocator::EndsBefore, cols.brect().left() - 5_300);
+            m1_tracks.track_with_loc(TrackLocator::StartsAfter, pc_b_buffer.brect().right()) + 2;
         // Route buffers to columns.
         for (buffer, signal, layer, num_tracks) in [
-            (&pc_b_buffer, "pc_b", m2, dsn.pc_b_routing_tracks),
-            (
-                &sense_en_buffer,
-                "sense_en",
-                m2,
-                dsn.sense_en_routing_tracks,
-            ),
             (
                 &write_driver_en_buffer,
                 "we",
                 m1,
                 dsn.write_driver_en_routing_tracks,
             ),
+            (
+                &sense_en_buffer,
+                "sense_en",
+                m2,
+                dsn.sense_en_routing_tracks,
+            ),
+            (&pc_b_buffer, "pc_b", m2, dsn.pc_b_routing_tracks),
         ] {
             let track = (0..num_tracks)
-                .map(|i| m1_tracks.index(track_idx - i))
+                .map(|i| m1_tracks.index(track_idx + i))
                 .reduce(|a, b| a.union(b))
                 .unwrap();
-            let mut vspans = Vec::new();
-            for y in buffer
+
+            for buf_port in buffer
                 .port("y")?
                 .shapes(m1)
                 .filter_map(|shape| shape.as_rect())
-                .map(|y| y.expand_side(Side::Right, 1_620))
             {
-                draw_rect(m1, y, &mut router, ctx);
-                vspans.push(y.vspan());
-
-                let m0_rect =
-                    y.with_hspan(Span::with_stop_and_length(y.hspan().stop(), 1_400).union(track));
-                ctx.draw_rect(m0, m0_rect);
-                draw_via(m0, m0_rect, m1, y, ctx)?;
-                draw_via(m0, m0_rect, m1, m0_rect.with_hspan(track), ctx)?;
+                draw_rect(m1, buf_port.expand_side(Side::Right, 200), &mut router, ctx);
             }
+
             for col_port in cols
                 .port(signal)?
                 .shapes(layer)
@@ -586,18 +583,58 @@ impl SramInner {
             {
                 let m2_rect =
                     Rect::from_spans(track.add_point(col_port.left() + 1_400), col_port.vspan());
-                vspans.push(m2_rect.vspan());
                 draw_via(m1, m2_rect.with_hspan(track), m2, m2_rect, ctx)?;
                 draw_rect(m2, m2_rect, &mut router, ctx);
                 if layer == m1 {
                     draw_via(m1, col_port, m2, m2_rect, ctx)?;
                 }
             }
-            let m1_rect =
-                Rect::from_spans(track, vspans.into_iter().reduce(|a, b| a.union(b)).unwrap());
+
+            let buffer_port_vspan = buffer
+                .port("y")?
+                .first_rect(m1, Side::Top)?
+                .vspan()
+                .union(buffer.port("y")?.first_rect(m1, Side::Bot)?.vspan());
+
+            for i in 0..std::cmp::max((buffer_port_vspan.length() - 2_000) / 4_000 + 1, 1) {
+                let span =
+                    Span::with_start_and_length(buffer_port_vspan.start() + 4_000 * i, 2_000);
+                let span = Span::new(
+                    span.start(),
+                    if span.stop() > buffer_port_vspan.stop() {
+                        buffer_port_vspan.stop()
+                    } else {
+                        span.stop()
+                    },
+                );
+                if span.length() > 140 {
+                    draw_rect(
+                        m1,
+                        Rect::from_spans(
+                            track.add_point(buffer.port("y")?.largest_rect(m1)?.right() + 200),
+                            span,
+                        ),
+                        &mut router,
+                        ctx,
+                    );
+                }
+            }
+            router.block(
+                m1,
+                Rect::from_spans(
+                    track.add_point(buffer.port("y")?.largest_rect(m1)?.right() + 200),
+                    buffer_port_vspan,
+                ),
+            );
+            let col_port_vspan = cols
+                .port(signal)?
+                .first_rect(layer, Side::Top)?
+                .vspan()
+                .union(cols.port(signal)?.first_rect(layer, Side::Bot)?.vspan());
+            let m1_rect = Rect::from_spans(track, buffer_port_vspan.union(col_port_vspan));
             draw_rect(m1, m1_rect, &mut router, ctx);
 
-            track_idx -= num_tracks;
+            track_idx += num_tracks;
         }
 
         // Route wordline driver to bitcell array
@@ -615,8 +652,6 @@ impl SramInner {
         }
 
         // Route column decoders to mux.
-        let sel_track_idx =
-            m1_tracks.track_with_loc(TrackLocator::StartsAfter, col_dec.brect().right() + 140) + 2;
         for i in 0..self.params.mux_ratio() {
             for j in 0..2 {
                 let (y_name, sel_name) = if j == 0 {
@@ -626,7 +661,7 @@ impl SramInner {
                 };
                 let idx = (2 * i + j) as i64 * dsn.col_dec_routing_tracks;
                 let track_span = (0..dsn.col_dec_routing_tracks)
-                    .map(|i| m1_tracks.index(sel_track_idx + i + idx))
+                    .map(|i| m1_tracks.index(track_idx + i + idx))
                     .reduce(|a, b| a.union(b))
                     .unwrap();
                 let mut vspans = Vec::new();
@@ -635,22 +670,16 @@ impl SramInner {
                     .shapes(m1)
                     .filter_map(|shape| shape.as_rect())
                 {
-                    let m0_rect = if y_name == "y_b" {
-                        y.with_hspan(y.hspan().union(track_span))
-                    } else {
-                        let via_width = 1_400;
-                        let y = y.expand_side(Side::Right, 220 + via_width);
-                        draw_rect(m1, y, &mut router, ctx);
-                        let m0_rect = y.with_hspan(
-                            Span::with_stop_and_length(y.hspan().stop(), via_width)
-                                .union(track_span),
-                        );
-                        draw_via(m0, m0_rect, m1, y, ctx)?;
-                        m0_rect
-                    };
-                    vspans.push(m0_rect.vspan());
-                    ctx.draw_rect(m0, m0_rect);
-                    draw_via(m0, m0_rect, m1, m0_rect.with_hspan(track_span), ctx)?;
+                    let via_width = 1_400;
+                    let y = y.expand_side(Side::Right, 220 + via_width);
+                    draw_rect(m1, y, &mut router, ctx);
+                    let m2_rect = y.with_hspan(
+                        Span::with_stop_and_length(y.hspan().stop(), via_width).union(track_span),
+                    );
+                    draw_via(m1, y, m2, m2_rect, ctx)?;
+                    vspans.push(m2_rect.vspan());
+                    draw_rect(m2, m2_rect, &mut router, ctx);
+                    draw_via(m1, m2_rect.with_hspan(track_span), m2, m2_rect, ctx)?;
                 }
 
                 for sel in cols

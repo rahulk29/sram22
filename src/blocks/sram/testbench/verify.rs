@@ -8,6 +8,8 @@ use substrate::verification::simulation::bits::{to_bit, BitSignal};
 use substrate::verification::simulation::waveform::{TimeWaveform, Transition, Waveform};
 use substrate::verification::simulation::TranData;
 
+use crate::blocks::sram::SramPhysicalDesign;
+
 use super::{Op, TbParams, TbSignals};
 use anyhow::{anyhow, bail, Result};
 
@@ -31,7 +33,7 @@ pub fn write_internal_rpt(
     writeln!(rpt, "==========================")?;
     let wl = (0..tb.sram.rows())
         .map(|i| {
-            data.waveform(&tb.sram_signal_path(TbSignals::Wl(i)))
+            data.waveform(&tb.sram_signal_path(TbSignals::WlEnd(i)))
                 .ok_or_else(|| anyhow!("Unable to find signal wl"))
         })
         .collect::<Result<Vec<_>>>()?;
@@ -209,10 +211,10 @@ pub fn write_internal_rpt(
     writeln!(rpt, "PRECHARGE")?;
     writeln!(rpt, "==========================")?;
     let pc_b = data
-        .waveform(&tb.sram_signal_path(TbSignals::PcB))
+        .waveform(&tb.sram_signal_path(TbSignals::PcBEnd))
         .ok_or_else(|| anyhow!("Unable to find signal pc_b"))?;
     let saen = data
-        .waveform(&tb.sram_signal_path(TbSignals::SenseEn))
+        .waveform(&tb.sram_signal_path(TbSignals::SenseEnEnd))
         .ok_or_else(|| anyhow!("Unable to find signal sense_en"))?;
 
     for trans in pc_b.transitions(low_threshold, high_threshold) {

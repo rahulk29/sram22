@@ -25,7 +25,7 @@ pub struct DecoderStage {
     params: DecoderStageParams,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecoderParams {
     pub pd: DecoderPhysicalDesignParams,
     pub max_width: Option<i64>,
@@ -41,6 +41,7 @@ pub struct DecoderStageParams {
     pub invs: Vec<PrimitiveGateParams>,
     pub num: usize,
     pub use_multi_finger_invs: bool,
+    pub dont_connect_outputs: bool,
     pub child_sizes: Vec<usize>,
 }
 
@@ -820,6 +821,7 @@ mod tests {
             }],
             num: 4,
             use_multi_finger_invs: true,
+            dont_connect_outputs: false,
             child_sizes: vec![2, 2],
         };
 
