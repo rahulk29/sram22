@@ -843,7 +843,7 @@ pub(crate) mod tests {
                         }
                     }
                     let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
-                    handles.into_iter().collect::<Result<Vec<_>>>()?.expect("failed to join threads");
+                    handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
 
                     // crate::abs::run_abstract(
                     //     &work_dir,
