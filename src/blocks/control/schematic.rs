@@ -128,7 +128,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("clkpd_inv")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&self.params.write_driver_delay_invs)?
+        ctx.instantiate::<InvChain>(&self.params.wlen_pulse_invs)?
             .with_connections([
                 ("din", clkpd_b),
                 ("dout", clkpdd),

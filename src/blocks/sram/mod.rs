@@ -39,6 +39,10 @@ pub mod verilog;
 pub const WORDLINE_CAP_PER_CELL: f64 = 0.00000000000001472468276676486 / 12.;
 pub const BITLINE_CAP_PER_CELL: f64 = 0.00000000000008859364177937068 / 128.;
 
+/// The threshold at which further decoder scaling does not help,
+/// since delay is dominated by routing resistance/capacitance.
+pub const WORDLINE_CAP_MAX: f64 = 500e-15;
+
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct SramConfig {
     pub num_words: usize,
@@ -226,6 +230,9 @@ impl Script for SramPhysicalDesignScript {
         let layers = ctx.layers();
         let m2 = layers.get(Selector::Metal(2))?;
         let wl_cap = (params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL * 1.5; // safety factor.
+        println!("wl_cap = {:.2}fF", wl_cap * 1e15);
+        let clamped_wl_cap = f64::min(wl_cap, WORDLINE_CAP_MAX);
+        println!("clamped wl_cap = {:.2}fF", clamped_wl_cap * 1e15);
         let mut col_params = params.col_params();
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
         let rbl_rows = ((params.rows() / 12) + 1) * 2;
@@ -317,7 +324,7 @@ impl Script for SramPhysicalDesignScript {
         new_invs.extend(pc_b_buffer.invs.drain(..));
         pc_b_buffer.invs = new_invs;
 
-        let row_decoder_tree = DecoderTree::new(params.row_bits(), wl_cap);
+        let row_decoder_tree = DecoderTree::new(params.row_bits(), clamped_wl_cap);
         let decoder_delay_invs = (f64::max(
             4.0,
             1.1 * row_decoder_tree.root.time_constant(wl_cap)
@@ -326,18 +333,21 @@ impl Script for SramPhysicalDesignScript {
             .round() as usize
             * 2
             + 2;
-        let write_driver_delay_invs = (f64::max(
+        let wlen_pulse_invs = (f64::max(
             2.0,
-            0.25 * row_decoder_tree.root.time_constant(wl_cap)
+            (0.25 * row_decoder_tree.root.time_constant(wl_cap)
+                + 1.5
+                    * (row_decoder_tree.root.time_constant(wl_cap)
+                        - row_decoder_tree.root.time_constant(clamped_wl_cap)))
                 / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)),
         ) / 2.0)
             .round() as usize
             * 2
             + 9;
-        println!("using {write_driver_delay_invs} inverters for write driver delay chain");
+        println!("using {wlen_pulse_invs} inverters for wlen pulse delay chain");
         let control = ControlLogicParams {
             decoder_delay_invs,
-            write_driver_delay_invs,
+            wlen_pulse_invs,
         };
         let row_decoder = DecoderParams {
             pd: DecoderPhysicalDesignParams {
@@ -458,7 +468,7 @@ impl Script for SramPhysicalDesignScript {
             col_params,
             control: ControlLogicParams {
                 decoder_delay_invs,
-                write_driver_delay_invs,
+                wlen_pulse_invs,
             },
             pc_b_routing_tracks,
             write_driver_en_routing_tracks,
