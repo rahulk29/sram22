@@ -378,10 +378,13 @@ impl WmaskPeripherals {
             row.push(
                 RectBbox::new(
                     nand_stage.clone(),
-                    nand_stage.brect().with_hspan(Span::with_start_and_length(
-                        nand_stage.brect().left(),
-                        *wmask_unit_width,
-                    )),
+                    nand_stage
+                        .brect()
+                        .with_hspan(Span::from_center_span_gridded(
+                            nand_stage.brect().center().x,
+                            *wmask_unit_width,
+                            ctx.pdk().layout_grid(),
+                        )),
                 )
                 .into(),
             );
@@ -466,6 +469,8 @@ impl WmaskPeripherals {
             let m1_track =
                 Span::from_center_span_gridded(dff_out.center().x, 280, ctx.pdk().layout_grid());
             let m1_rect = Rect::from_spans(m1_track, dff_out.vspan().union(wmask_in.vspan()));
+            ctx.draw_rect(m1, m1_rect);
+            let m1_rect = wmask_in.with_hspan(wmask_in.hspan().union(m1_track));
             ctx.draw_rect(m1, m1_rect);
 
             let viap = ViaParams::builder()
