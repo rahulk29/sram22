@@ -310,19 +310,29 @@ impl Script for SramPhysicalDesignScript {
 
         // Add inverters to pc_b buffer to equalize wrdrven and pc_b delay.
         let col_dsn = ctx.run_script::<ColumnsPhysicalDesignScript>(&col_params)?;
-        let pc_b_delay_invs = ((1.1
-            * (f64::max(
-                col_dsn.nand.time_constant(col_dsn.cl_max)
-                    + write_driver_en_buffer.time_constant(wrdrven_cap),
-                sense_en_buffer.time_constant(saen_cap),
-            ) - pc_b_buffer.time_constant(pc_b_cap))
+        let pc_b_delay_invs = ((1.2
+            * (1.2
+                * f64::max(
+                    col_dsn.nand.time_constant(col_dsn.cl_max)
+                        + write_driver_en_buffer.time_constant(wrdrven_cap),
+                    sense_en_buffer.time_constant(saen_cap),
+                )
+                - pc_b_buffer.time_constant(pc_b_cap))
             / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)))
             / 2.0)
-            .round() as usize
-            * 2;
-        let mut new_invs = vec![pc_b_buffer.gate.first_gate_sizing(); pc_b_delay_invs];
-        new_invs.extend(pc_b_buffer.invs.drain(..));
-        pc_b_buffer.invs = new_invs;
+            .max(0.)
+            .ceil() as usize
+            * 2
+            + 6;
+        println!(
+            "pc tau: {:.2}ps, wrdrven tau: {:.2}ps, sae tau: {:.2}ps",
+            pc_b_buffer.time_constant(pc_b_cap) * 1e12,
+            (col_dsn.nand.time_constant(col_dsn.cl_max)
+                + write_driver_en_buffer.time_constant(wrdrven_cap))
+                * 1e12,
+            sense_en_buffer.time_constant(saen_cap) * 1e12
+        );
+        println!("pc_b_delay_invs: {}", pc_b_delay_invs);
 
         let row_decoder_tree = DecoderTree::new(params.row_bits(), clamped_wl_cap);
         let decoder_delay_invs = (f64::max(
@@ -336,7 +346,7 @@ impl Script for SramPhysicalDesignScript {
         let wlen_pulse_invs = (f64::max(
             2.0,
             (0.25 * row_decoder_tree.root.time_constant(wl_cap)
-                + 1.5
+                + 2.0
                     * (row_decoder_tree.root.time_constant(wl_cap)
                         - row_decoder_tree.root.time_constant(clamped_wl_cap)))
                 / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)),
@@ -348,6 +358,7 @@ impl Script for SramPhysicalDesignScript {
         let control = ControlLogicParams {
             decoder_delay_invs,
             wlen_pulse_invs,
+            pc_set_delay_invs: pc_b_delay_invs,
         };
         let row_decoder = DecoderParams {
             pd: DecoderPhysicalDesignParams {
@@ -373,24 +384,23 @@ impl Script for SramPhysicalDesignScript {
         let num_dffs = params.addr_width() + 2;
         let dffs_inst = ctx.instantiate_layout::<DffArray>(&num_dffs)?;
 
-        let available_height = cols.brect().top()
-            - cols
-                .port(PortId::new("sel_b", params.mux_ratio() - 1))?
-                .largest_rect(m2)?
-                .bottom()
-            - 3 * 6_000; // Offset between buffers
-
-        let pc_b_buffer_max_width = available_height * pc_b_buffer_wh / total_wh + 2_000;
-        let sense_en_buffer_max_width = available_height * sense_en_buffer_wh / total_wh + 2_000;
-        let write_driver_en_buffer_max_width =
-            available_height * write_driver_en_buffer_wh / total_wh + 2_000;
-        pc_b_buffer.max_width = Some(pc_b_buffer_max_width);
-        sense_en_buffer.max_width = Some(sense_en_buffer_max_width);
-        write_driver_en_buffer.max_width = Some(write_driver_en_buffer_max_width);
-
         let col_dec_inst = ctx.instantiate_layout::<Decoder>(&col_decoder)?;
-        let row_dec_inst = ctx.instantiate_layout::<Decoder>(&row_decoder)?;
-        let available_height = [
+        let pc_b_buffer_inst = ctx.instantiate_layout::<DecoderStage>(&pc_b_buffer)?;
+        let sense_en_buffer_inst = ctx.instantiate_layout::<DecoderStage>(&sense_en_buffer)?;
+        let write_driver_en_buffer_inst =
+            ctx.instantiate_layout::<DecoderStage>(&write_driver_en_buffer)?;
+        let col_dec_wh = col_dec_inst.brect().width() * col_dec_inst.brect().height();
+        let pc_b_buffer_wh = pc_b_buffer_inst.brect().width() * pc_b_buffer_inst.brect().height();
+        let sense_en_buffer_wh =
+            sense_en_buffer_inst.brect().width() * sense_en_buffer_inst.brect().height();
+        let write_driver_en_buffer_wh = write_driver_en_buffer_inst.brect().width()
+            * write_driver_en_buffer_inst.brect().height();
+        let mut total_wh =
+            col_dec_wh + pc_b_buffer_wh + sense_en_buffer_wh + write_driver_en_buffer_wh;
+        let num_dffs = params.addr_width() + 2;
+        let dffs_inst = ctx.instantiate_layout::<DffArray>(&num_dffs)?;
+
+        let mut available_height = [
             cols.brect().height()
             - dffs_inst.brect().height()
             - 5_500 // DFF offset
@@ -401,16 +411,32 @@ impl Script for SramPhysicalDesignScript {
         .into_iter()
         .max()
         .unwrap()
-            - available_height
-            - 6_000; // Offset between buffers
+            - 4 * 6_000; // Offset between buffers
+        let col_dec_max_width = std::cmp::max(
+            available_height * col_dec_wh / total_wh,
+            col_dec_inst.brect().width(),
+        );
+        available_height -= col_dec_max_width;
+        total_wh -= col_dec_wh;
+        let pc_b_buffer_max_width = available_height * pc_b_buffer_wh / total_wh;
+        let sense_en_buffer_max_width = available_height * sense_en_buffer_wh / total_wh;
+        let write_driver_en_buffer_max_width =
+            available_height * write_driver_en_buffer_wh / total_wh;
+
+        let col_dec_inst = ctx.instantiate_layout::<Decoder>(&col_decoder)?;
+        let row_dec_inst = ctx.instantiate_layout::<Decoder>(&row_decoder)?;
         let col_dec_wh = col_dec_inst.brect().width() * col_dec_inst.brect().height();
         let col_dec_width_to_match_row_dec = col_dec_wh / row_dec_inst.brect().height();
-        let col_dec_max_width = if col_dec_width_to_match_row_dec < 2 * available_height {
-            std::cmp::max(col_dec_width_to_match_row_dec, available_height)
+        let col_dec_max_width = if col_dec_width_to_match_row_dec < 2 * col_dec_max_width {
+            std::cmp::max(col_dec_width_to_match_row_dec, col_dec_max_width)
         } else {
-            available_height
-        } + 2_000;
+            col_dec_max_width
+        };
         col_decoder.max_width = Some(col_dec_max_width);
+        pc_b_buffer.max_width = Some(std::cmp::max(pc_b_buffer_max_width, 5_000));
+        sense_en_buffer.max_width = Some(std::cmp::max(sense_en_buffer_max_width, 5_000));
+        write_driver_en_buffer.max_width =
+            Some(std::cmp::max(write_driver_en_buffer_max_width, 5_000));
 
         let wlen_buffer = DecoderStageParams {
             max_width: Some(addr_gate_inst.brect().height() - 2_000),
@@ -466,10 +492,7 @@ impl Script for SramPhysicalDesignScript {
                 },
             },
             col_params,
-            control: ControlLogicParams {
-                decoder_delay_invs,
-                wlen_pulse_invs,
-            },
+            control,
             pc_b_routing_tracks,
             write_driver_en_routing_tracks,
             sense_en_routing_tracks,

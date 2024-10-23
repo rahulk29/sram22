@@ -305,20 +305,20 @@ impl SramInner {
         sense_en_buffer.align_beneath(pc_b_buffer.brect(), 6_000);
         sense_en_buffer.align_right(pc_b_buffer.bbox());
 
-        // Align write driver underneath sense_en buffer.
-        write_driver_en_buffer.align_beneath(sense_en_buffer.bbox(), 6_000);
-        write_driver_en_buffer.align_right(pc_b_buffer.bbox());
-
         // Align column decoder beneath bottommost column mux select port.
         // This prevents overlapping of m2 routes.
         col_dec.align_beneath(
-            cols.port(PortId::new("sel_b", self.params.mux_ratio() - 1))?
+            cols.port("sense_en")?
                 .largest_rect(m2)?
                 .bbox()
-                .union(write_driver_en_buffer.bbox()),
+                .union(sense_en_buffer.brect().expand_dir(Dir::Vert, 3_000).bbox()),
             3_000,
         );
         col_dec.align_right(pc_b_buffer.bbox());
+
+        // Align write driver underneath column decoder.
+        write_driver_en_buffer.align_beneath(col_dec.bbox(), 6_000);
+        write_driver_en_buffer.align_right(pc_b_buffer.bbox());
 
         // Align control logic to the left of all of the buffers and column decoder that border
         // column peripherals.
@@ -345,7 +345,10 @@ impl SramInner {
         // Align DFFs to the left of column peripherals and underneath all other objects.
         dffs.align_right(pc_b_buffer.bbox());
         dffs.align_beneath(
-            control.bbox().union(rbl.bbox()).union(col_dec.bbox()),
+            control
+                .bbox()
+                .union(rbl.bbox())
+                .union(write_driver_en_buffer.bbox()),
             5_500 + 1_400 * self.params.addr_width() as i64,
         );
 
@@ -547,24 +550,44 @@ impl SramInner {
 
         let mut track_idx =
             m1_tracks.track_with_loc(TrackLocator::StartsAfter, pc_b_buffer.brect().right()) + 2;
-        // Route buffers to columns.
-        for (buffer, signal, layer, num_tracks) in [
-            (
-                &write_driver_en_buffer,
-                "we",
-                m1,
-                dsn.write_driver_en_routing_tracks,
-            ),
+        let mut buffers = vec![
+            (&pc_b_buffer, "pc_b", m2, dsn.pc_b_routing_tracks),
             (
                 &sense_en_buffer,
                 "sense_en",
                 m2,
                 dsn.sense_en_routing_tracks,
             ),
-            (&pc_b_buffer, "pc_b", m2, dsn.pc_b_routing_tracks),
-        ] {
+        ];
+        if sense_en_buffer
+            .brect()
+            .vspan()
+            .intersects(&cols.port("sense_en")?.largest_rect(m2)?.vspan())
+        {
+            buffers.reverse();
+        }
+
+        buffers.push((
+            &write_driver_en_buffer,
+            "we",
+            m1,
+            dsn.write_driver_en_routing_tracks,
+        ));
+        // Route buffers to columns.
+        for (buffer, signal, layer, num_tracks) in buffers {
             let track = (0..num_tracks)
-                .map(|i| m1_tracks.index(track_idx + i))
+                .map(|i| {
+                    m1_tracks.index(
+                        if signal == "we" {
+                            m1_tracks.track_with_loc(
+                                TrackLocator::EndsBefore,
+                                cols.brect().left() - 5_400,
+                            )
+                        } else {
+                            track_idx
+                        } - i,
+                    )
+                })
                 .reduce(|a, b| a.union(b))
                 .unwrap();
 

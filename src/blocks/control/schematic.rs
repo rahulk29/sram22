@@ -164,7 +164,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("decoder_replica")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&6)?
+        ctx.instantiate::<InvChain>(&self.params.pc_set_delay_invs)?
             .with_connections([
                 ("din", decrepend),
                 ("dout", wlen_rst_decoderd),
