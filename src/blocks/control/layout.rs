@@ -153,6 +153,10 @@ impl ControlLogicReplicaV2 {
         let mut row = create_row(&[
             ("saen_ctl", &sr_latch),
             ("wrdrven_set", &nand2),
+            (
+                "wrdrven_set_delay",
+                &ctx.instantiate::<InvChain>(&self.params.wrdrven_delay_invs)?,
+            ),
             ("wrdrven_ctl", &sr_latch),
         ])?;
         row.set_orientation(Named::ReflectVert);
@@ -443,6 +447,20 @@ impl ControlLogicReplicaV2 {
             ),
         );
 
+        // wrdrven_set.y -> wrdrven_set_delay.din
+        let src = group.port_map().port("wrdrven_set_y")?.largest_rect(m0)?;
+        let dst = group
+            .port_map()
+            .port("wrdrven_set_delay_din")?
+            .largest_rect(m0)?;
+        ctx.draw_rect(
+            m0,
+            Rect::from_spans(
+                Span::new(src.right(), dst.left()),
+                Span::from_center_span_gridded(dst.vspan().center(), 180, 10),
+            ),
+        );
+
         // wlen_q_delay.dout -> nand_wlendb_web.a
         let wlendb_out = group
             .port_map()
@@ -637,8 +655,11 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, we_in_1);
         router.occupy(m1, we_in_1, "we")?;
 
-        // wrdrven_set.y -> wrdrven_ctl.sb
-        let wrdrven_set_out = group.port_map().port("wrdrven_set_y")?.largest_rect(m0)?;
+        // wrdrven_set_delay.dout -> wrdrven_ctl.sb
+        let wrdrven_set_out = group
+            .port_map()
+            .port("wrdrven_set_delay_dout")?
+            .largest_rect(m0)?;
         let mut via = via01.clone();
         via.align_centers_gridded(wrdrven_set_out.bbox(), grid);
         let wrdrven_set_out = router.expand_to_grid(
@@ -654,7 +675,7 @@ impl ControlLogicReplicaV2 {
         via.align_centers_gridded(wrdrven_set_in.bbox(), grid);
         let wrdrven_set_in = router.expand_to_grid(
             via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Corner(Corner::UpperRight),
+            ExpandToGridStrategy::Corner(Corner::UpperLeft),
         );
         ctx.draw(via)?;
         ctx.draw_rect(m1, wrdrven_set_in);

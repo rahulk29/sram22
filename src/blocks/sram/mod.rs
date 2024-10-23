@@ -359,6 +359,7 @@ impl Script for SramPhysicalDesignScript {
             decoder_delay_invs,
             wlen_pulse_invs,
             pc_set_delay_invs: pc_b_delay_invs,
+            wrdrven_delay_invs: 2,
         };
         let row_decoder = DecoderParams {
             pd: DecoderPhysicalDesignParams {
