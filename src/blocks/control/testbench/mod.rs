@@ -198,6 +198,7 @@ impl Component for ControlLogicTestbench {
         ctx.instantiate::<ControlLogicReplicaV2>(&ControlLogicParams {
             decoder_delay_invs: 20,
             wlen_pulse_invs: 11,
+            pc_set_delay_invs: 8,
         })?
         .with_connections([
             ("vdd", vdd),

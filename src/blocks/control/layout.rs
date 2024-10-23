@@ -125,7 +125,10 @@ impl ControlLogicReplicaV2 {
                 &ctx.instantiate::<InvChain>(&self.params.wlen_pulse_invs)?,
             ),
             ("mux_wlen_rst", &mux2),
-            ("decoder_replica_delay", &ctx.instantiate::<InvChain>(&6)?),
+            (
+                "decoder_replica_delay",
+                &ctx.instantiate::<InvChain>(&self.params.pc_set_delay_invs)?,
+            ),
             ("wl_ctl", &sr_latch),
         ])?;
         row.set_orientation(Named::ReflectVert);

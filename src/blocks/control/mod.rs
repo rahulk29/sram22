@@ -15,6 +15,7 @@ pub struct ControlLogicReplicaV2 {
 pub struct ControlLogicParams {
     pub decoder_delay_invs: usize,
     pub wlen_pulse_invs: usize,
+    pub pc_set_delay_invs: usize,
 }
 
 impl Component for ControlLogicReplicaV2 {
@@ -24,9 +25,19 @@ impl Component for ControlLogicReplicaV2 {
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
         assert_eq!(
+            params.decoder_delay_invs % 2,
+            0,
+            "decoder replica delay chain must have an even number of inverters"
+        );
+        assert_eq!(
             params.wlen_pulse_invs % 2,
             1,
             "wordline pulse delay chain must have an odd number of inverters"
+        );
+        assert_eq!(
+            params.pc_set_delay_invs % 2,
+            0,
+            "pc set delay chain must have an even number of inverters"
         );
         Ok(Self { params: *params })
     }
@@ -178,6 +189,7 @@ pub mod test {
     const CONTROL_LOGIC_PARAMS: ControlLogicParams = ControlLogicParams {
         decoder_delay_invs: 20,
         wlen_pulse_invs: 11,
+        pc_set_delay_invs: 8,
     };
 
     #[test]
