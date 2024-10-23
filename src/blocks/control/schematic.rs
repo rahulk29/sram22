@@ -40,8 +40,12 @@ impl ControlLogicReplicaV2 {
             "wlend",
         ]);
         let [saen_set_b, saen_b] = ctx.signals(["saen_set_b", "saen_b"]);
-        let [wrdrven_set_b, wrdrven_grst_b, wrdrven_b] =
-            ctx.signals(["wrdrven_set_b", "wrdrven_grst_b", "wrdrven_b"]);
+        let [wrdrven_set_b0, wrdrven_set_b, wrdrven_grst_b, wrdrven_b] = ctx.signals([
+            "wrdrven_set_b0",
+            "wrdrven_set_b",
+            "wrdrven_grst_b",
+            "wrdrven_b",
+        ]);
         let [reset, we_b, pc, pc_set_b, rbl_b] =
             ctx.signals(["reset", "we_b", "pc", "pc_set_b", "rbl_b"]);
 
@@ -338,13 +342,22 @@ impl ControlLogicReplicaV2 {
             .with_connections([
                 ("A", clkpd),
                 ("B", we),
-                ("Y", wrdrven_set_b),
+                ("Y", wrdrven_set_b0),
                 ("VPWR", vdd),
                 ("VPB", vdd),
                 ("VGND", vss),
                 ("VNB", vss),
             ])
             .named("wrdrven_set")
+            .add_to(ctx);
+        ctx.instantiate::<InvChain>(&self.params.wrdrven_delay_invs)?
+            .with_connections([
+                ("din", wrdrven_set_b0),
+                ("dout", wrdrven_set_b),
+                ("vdd", vdd),
+                ("vss", vss),
+            ])
+            .named("wrdrven_set_delay")
             .add_to(ctx);
         ctx.instantiate::<SrLatch>(&NoParams)?
             .with_connections([
