@@ -577,16 +577,13 @@ impl SramInner {
         for (buffer, signal, layer, num_tracks) in buffers {
             let track = (0..num_tracks)
                 .map(|i| {
-                    m1_tracks.index(
-                        if signal == "we" {
-                            m1_tracks.track_with_loc(
-                                TrackLocator::EndsBefore,
-                                cols.brect().left() - 5_400,
-                            )
-                        } else {
-                            track_idx
-                        } - i,
-                    )
+                    m1_tracks.index(if signal == "we" {
+                        m1_tracks
+                            .track_with_loc(TrackLocator::EndsBefore, cols.brect().left() - 5_400)
+                            - i
+                    } else {
+                        track_idx + i
+                    })
                 })
                 .reduce(|a, b| a.union(b))
                 .unwrap();
