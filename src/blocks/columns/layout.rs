@@ -155,6 +155,13 @@ impl ColPeripherals {
             let wmask_out_right = wmask_peripherals
                 .port(PortId::new("y", i))?
                 .first_rect(m0, Side::Right)?;
+            for port in wmask_peripherals
+                .port(PortId::new("y", i))?
+                .shapes(m0)
+                .filter_map(|shape| shape.as_rect())
+            {
+                ctx.draw_rect(m0, port.expand_side(Side::Top, 170));
+            }
             let jog = OffsetJog::builder()
                 .dir(subgeom::Dir::Vert)
                 .sign(subgeom::Sign::Pos)
@@ -378,13 +385,10 @@ impl WmaskPeripherals {
             row.push(
                 RectBbox::new(
                     nand_stage.clone(),
-                    nand_stage
-                        .brect()
-                        .with_hspan(Span::from_center_span_gridded(
-                            nand_stage.brect().center().x,
-                            *wmask_unit_width,
-                            ctx.pdk().layout_grid(),
-                        )),
+                    nand_stage.brect().with_hspan(Span::with_start_and_length(
+                        nand_stage.brect().left(),
+                        *wmask_unit_width,
+                    )),
                 )
                 .into(),
             );

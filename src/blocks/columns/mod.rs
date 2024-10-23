@@ -181,7 +181,8 @@ impl Script for ColumnsPhysicalDesignScript {
                     dir: Dir::Horiz,
                 },
                 routing_style: RoutingStyle::Decoder,
-                max_width: Some(wmask_unit_width),
+                // 0.38 min spacing between nsdm/psdm, alternatively can merge nsdm/psdm.
+                max_width: Some(wmask_unit_width - 380),
                 gate: GateParams::Nand2(wmask_buffer_gates[0]),
                 invs: wmask_buffer_gates.iter().copied().skip(1).collect(),
                 num: 1,

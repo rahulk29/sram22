@@ -20,7 +20,6 @@ use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 use super::{TGateMux, TGateMuxCent, TGateMuxEnd, TGateMuxGroup, TGateMuxParams};
 
 use crate::blocks::columns::ColumnDesignScript;
-use crate::blocks::sram::SramPhysicalDesignScript;
 use derive_builder::Builder;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::placement::array::ArrayTiler;
@@ -200,10 +199,7 @@ impl TGateMux {
             }
             ctx.draw_rect(
                 pc.m0,
-                Rect::from_spans(
-                    target.hspan().union(via.brect().hspan()),
-                    via.brect().vspan(),
-                ),
+                Rect::from_spans(target.hspan().union(via.brect().hspan()), target.vspan()),
             );
             ctx.draw_ref(&via)?;
 
