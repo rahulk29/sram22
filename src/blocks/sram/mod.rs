@@ -310,29 +310,31 @@ impl Script for SramPhysicalDesignScript {
 
         // Add inverters to pc_b buffer to equalize wrdrven and pc_b delay.
         let col_dsn = ctx.run_script::<ColumnsPhysicalDesignScript>(&col_params)?;
-        let pc_b_delay_invs = ((1.2
-            * (1.2
-                * f64::max(
-                    col_dsn.nand.time_constant(col_dsn.cl_max)
-                        + write_driver_en_buffer.time_constant(wrdrven_cap),
-                    sense_en_buffer.time_constant(saen_cap),
-                )
-                - pc_b_buffer.time_constant(pc_b_cap))
+        let pcb_tau = pc_b_buffer.time_constant(pc_b_cap);
+        let wrdrven_tau = col_dsn.nand.time_constant(col_dsn.cl_max);
+        let sae_tau = sense_en_buffer.time_constant(saen_cap);
+        let pc_b_delay_invs = ((1.2 * (1.2 * f64::max(wrdrven_tau, sae_tau) - pcb_tau)
             / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)))
             / 2.0)
             .max(0.)
             .ceil() as usize
             * 2
             + 6;
+        let wrdrven_delay_invs = (((1.1 * pcb_tau - wrdrven_tau)
+            / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)))
+            / 2.0)
+            .max(0.)
+            .round() as usize
+            * 2;
+        let wrdrven_delay_invs = wrdrven_delay_invs.max(2);
         println!(
-            "pc tau: {:.2}ps, wrdrven tau: {:.2}ps, sae tau: {:.2}ps",
-            pc_b_buffer.time_constant(pc_b_cap) * 1e12,
-            (col_dsn.nand.time_constant(col_dsn.cl_max)
-                + write_driver_en_buffer.time_constant(wrdrven_cap))
-                * 1e12,
-            sense_en_buffer.time_constant(saen_cap) * 1e12
+            "pcb tau: {:.2}ps, wrdrven tau: {:.2}ps, sae tau: {:.2}ps",
+            pcb_tau * 1e12,
+            wrdrven_tau * 1e12,
+            sae_tau * 1e12
         );
         println!("pc_b_delay_invs: {}", pc_b_delay_invs);
+        println!("wrdrven_delay_invs: {}", wrdrven_delay_invs);
 
         let row_decoder_tree = DecoderTree::new(params.row_bits(), clamped_wl_cap);
         let decoder_delay_invs = (f64::max(
@@ -359,7 +361,7 @@ impl Script for SramPhysicalDesignScript {
             decoder_delay_invs,
             wlen_pulse_invs,
             pc_set_delay_invs: pc_b_delay_invs,
-            wrdrven_delay_invs: 2,
+            wrdrven_delay_invs,
         };
         let row_decoder = DecoderParams {
             pd: DecoderPhysicalDesignParams {
