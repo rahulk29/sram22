@@ -24,7 +24,7 @@ impl SramInner {
             .inner()
             .run_script::<SramPhysicalDesignScript>(&self.params)?;
         let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
-        let [clk, we, ce, reset_b] = ctx.ports(["clk", "we", "ce", "reset_b"], Direction::Input);
+        let [clk, we, ce, rstb] = ctx.ports(["clk", "we", "ce", "rstb"], Direction::Input);
 
         let addr = ctx.bus_port("addr", self.params.addr_width(), Direction::Input);
         let wmask = ctx.bus_port("wmask", self.params.wmask_width(), Direction::Input);
@@ -161,7 +161,7 @@ impl SramInner {
                 ("clk", clk),
                 ("we", we_in),
                 ("ce", ce_in),
-                ("reset_b", reset_b),
+                ("rstb", rstb),
                 ("rbl", rbl),
                 ("rwl", rwl),
                 ("pc_b", pc_b0),
@@ -218,7 +218,7 @@ impl SramInner {
             .add_to(ctx);
 
         ctx.instantiate::<DffArray>(&dsn.num_dffs)?
-            .with_connections([("vdd", vdd), ("vss", vss), ("clk", clk), ("rb", reset_b)])
+            .with_connections([("vdd", vdd), ("vss", vss), ("clk", clk), ("rb", rstb)])
             .with_connection("d", Signal::new(vec![addr, we, ce]))
             .with_connection("q", Signal::new(vec![addr_in, we_in, ce_in]))
             .with_connection("qn", Signal::new(vec![addr_in_b, we_in_b, ce_in_b]))
@@ -252,7 +252,7 @@ impl SramInner {
         ctx.instantiate::<ColPeripherals>(&dsn.col_params)?
             .with_connections([
                 ("clk", clk),
-                ("reset_b", reset_b),
+                ("rstb", rstb),
                 ("vdd", vdd),
                 ("vss", vss),
                 ("bl", bl),

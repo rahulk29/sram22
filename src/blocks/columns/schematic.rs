@@ -20,7 +20,7 @@ impl ColPeripherals {
     pub fn io(&self) -> HashMap<&'static str, usize> {
         HashMap::from([
             ("clk", 1),
-            ("reset_b", 1),
+            ("rstb", 1),
             ("vdd", 1),
             ("vss", 1),
             ("sense_en", 1),
@@ -43,7 +43,7 @@ impl ColPeripherals {
         let wmask_bits = self.params.wmask_bits();
 
         let clk = ctx.port("clk", Direction::Input);
-        let reset_b = ctx.port("reset_b", Direction::Input);
+        let rstb = ctx.port("rstb", Direction::Input);
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
         let sense_en = ctx.port("sense_en", Direction::Input);
@@ -69,7 +69,7 @@ impl ColPeripherals {
                 ("vdd", vdd),
                 ("vss", vss),
                 ("clk", clk),
-                ("rb", reset_b),
+                ("rb", rstb),
                 ("d", wmask),
                 ("q", wmask_in),
                 ("qn", wmask_in_b),
@@ -100,7 +100,7 @@ impl ColPeripherals {
             ctx.instantiate::<Column>(&self.params)?
                 .with_connections([
                     ("clk", &clk),
-                    ("reset_b", &reset_b),
+                    ("rstb", &rstb),
                     ("vdd", &vdd),
                     ("vss", &vss),
                     ("pc_b", &pc_b),
@@ -146,7 +146,7 @@ impl Column {
     pub fn io(&self) -> HashMap<&'static str, usize> {
         HashMap::from([
             ("clk", 1),
-            ("reset_b", 1),
+            ("rstb", 1),
             ("vdd", 1),
             ("vss", 1),
             ("bl", self.params.mux_ratio()),
@@ -164,7 +164,7 @@ impl Column {
 
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
         let clk = ctx.port("clk", Direction::Input);
-        let reset_b = ctx.port("reset_b", Direction::Input);
+        let rstb = ctx.port("rstb", Direction::Input);
         let vdd = ctx.port("vdd", Direction::InOut);
         let vss = ctx.port("vss", Direction::InOut);
         let bl = ctx.bus_port("bl", self.params.mux_ratio(), Direction::InOut);
@@ -263,7 +263,7 @@ impl Column {
             ("VNB", vss),
             ("VPB", vdd),
             ("CLK", clk),
-            ("RESET_B", reset_b),
+            ("RESET_B", rstb),
             ("D", din),
             ("Q", q),
             ("Q_N", q_b),

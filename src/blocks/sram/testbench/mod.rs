@@ -129,7 +129,7 @@ impl TbParams {
         let mut node = &self.dsn.row_decoder.tree.root;
         let num_children = node.children.len();
         while num_children == 1 {
-            if let GateParams::Inv(params) | GateParams::FoldedInv(params) = node.gate {
+            if node.gate.gate_type().is_inv() {
                 last_stage_decoder_depth += 1;
                 node = &node.children[0];
             } else {
@@ -141,7 +141,7 @@ impl TbParams {
             TbSignals::Clk => "clk".to_string(),
             TbSignals::We => "we".to_string(),
             TbSignals::Ce => "ce".to_string(),
-            TbSignals::RstB => "reset_b".to_string(),
+            TbSignals::RstB => "rstb".to_string(),
             TbSignals::Addr(i) => format!("addr[{i}]"),
             TbSignals::Wmask(i) => format!("wmask[{i}]"),
             TbSignals::Din(i) => format!("din[{i}]"),
@@ -461,7 +461,7 @@ pub struct TbWaveforms {
     we: Waveform,
 
     /// Reset.
-    reset_b: Waveform,
+    rstb: Waveform,
 
     /// One [`Waveform`] per write mask bit.
     ///
@@ -495,7 +495,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
     let mut clk = Waveform::with_initial_value(0f64);
     let mut ce = Waveform::with_initial_value(0f64);
     let mut we = Waveform::with_initial_value(0f64);
-    let mut reset_b = Waveform::with_initial_value(0f64);
+    let mut rstb = Waveform::with_initial_value(0f64);
 
     let period = params.clk_period;
     let vdd = params.vdd;
@@ -521,7 +521,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 // Set chip enable low
                 ce.push_low(t_data, vdd, tf);
                 // Set reset high
-                reset_b.push_low(t_data + period / 2., vdd, tf);
+                rstb.push_low(t_data + period / 2., vdd, tf);
             }
             Op::None => {
                 // Set write enable low
@@ -529,7 +529,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 // Set chip enable low
                 ce.push_low(t_data, vdd, tf);
                 // Set reset low
-                reset_b.push_high(t_data, vdd, tr);
+                rstb.push_high(t_data, vdd, tr);
             }
             Op::Read { addr: addrv } => {
                 // Set write enable low
@@ -537,7 +537,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 // Set chip enable high
                 ce.push_high(t_data, vdd, tr);
                 // Set reset low
-                reset_b.push_high(t_data, vdd, tr);
+                rstb.push_high(t_data, vdd, tr);
 
                 assert_eq!(addrv.width(), params.sram.addr_width());
                 push_bus(&mut addr, addrv, t_data, vdd, tr, tf);
@@ -548,7 +548,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 // Set chip enable high
                 ce.push_high(t_data, vdd, tr);
                 // Set reset low
-                reset_b.push_high(t_data, vdd, tr);
+                rstb.push_high(t_data, vdd, tr);
 
                 assert_eq!(addrv.width(), params.sram.addr_width());
                 push_bus(&mut addr, addrv, t_data, vdd, tr, tf);
@@ -569,7 +569,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 // Set chip enable high
                 ce.push_high(t_data, vdd, tr);
                 // Set reset low
-                reset_b.push_high(t_data, vdd, tr);
+                rstb.push_high(t_data, vdd, tr);
 
                 assert_eq!(addrv.width(), params.sram.addr_width());
                 push_bus(&mut addr, addrv, t_data, vdd, tr, tf);
@@ -603,7 +603,7 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
         clk,
         ce,
         we,
-        reset_b,
+        rstb,
         wmask,
     }
 }
@@ -628,7 +628,7 @@ impl Component for SramTestbench {
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
         let vss = ctx.port("vss", Direction::InOut);
-        let [vdd, clk, ce, we, reset_b] = ctx.signals(["vdd", "clk", "ce", "we", "reset_b"]);
+        let [vdd, clk, ce, we, rstb] = ctx.signals(["vdd", "clk", "ce", "we", "rstb"]);
 
         let addr = ctx.bus("addr", self.params.sram.addr_width());
         let din = ctx.bus("din", self.params.sram.data_width());
@@ -649,7 +649,7 @@ impl Component for SramTestbench {
                 ("clk", clk),
                 ("ce", ce),
                 ("we", we),
-                ("reset_b", reset_b),
+                ("rstb", rstb),
                 ("addr", addr),
                 ("wmask", wmask),
                 ("din", din),
@@ -665,7 +665,7 @@ impl Component for SramTestbench {
                     ("clk", clk),
                     ("ce", ce),
                     ("we", we),
-                    ("reset_b", reset_b),
+                    ("rstb", rstb),
                     ("addr", addr),
                     ("wmask", wmask),
                     ("din", din),
@@ -692,9 +692,9 @@ impl Component for SramTestbench {
             .with_connections([("p", we), ("n", vss)])
             .named("Vwe")
             .add_to(ctx);
-        ctx.instantiate::<Vpwl>(&Arc::new(waveforms.reset_b))?
-            .with_connections([("p", reset_b), ("n", vss)])
-            .named("Vreset_b")
+        ctx.instantiate::<Vpwl>(&Arc::new(waveforms.rstb))?
+            .with_connections([("p", rstb), ("n", vss)])
+            .named("Vrstb")
             .add_to(ctx);
         for i in 0..self.params.sram.addr_width() {
             ctx.instantiate::<Vpwl>(&Arc::new(waveforms.addr[i].clone()))?
