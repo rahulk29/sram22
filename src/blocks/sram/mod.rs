@@ -868,39 +868,39 @@ pub(crate) mod tests {
                     // let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
                     // handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
 
-                    crate::abs::run_abstract(
-                        &work_dir,
-                        &$params.name(),
-                        crate::paths::out_lef(&work_dir, "abstract"),
-                        &gds_path,
-                        &verilog_path,
-                    )
-                    .expect("failed to write abstract");
-                    println!("{}: done writing abstract", stringify!($name));
-
-                    // let timing_spice_path = out_spice(&work_dir, "timing_schematic");
-                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
-                    //     &$params,
-                    //     &timing_spice_path,
-                    //     NetlistPurpose::Timing,
+                    // crate::abs::run_abstract(
+                    //     &work_dir,
+                    //     &$params.name(),
+                    //     crate::paths::out_lef(&work_dir, "abstract"),
+                    //     &gds_path,
+                    //     &verilog_path,
                     // )
-                    // .expect("failed to write timing schematic");
+                    // .expect("failed to write abstract");
+                    // println!("{}: done writing abstract", stringify!($name));
 
-                    // let params = liberate_mx::LibParams::builder()
-                    //     .work_dir(work_dir.join("lib"))
-                    //     .output_file(crate::paths::out_lib(&work_dir, "timing_tt_025C_1v80.schematic"))
-                    //     .corner("tt")
-                    //     .cell_name(&*$params.name())
-                    //     .num_words($params.num_words())
-                    //     .data_width($params.data_width())
-                    //     .addr_width($params.addr_width())
-                    //     .wmask_width($params.wmask_width())
-                    //     .mux_ratio($params.mux_ratio())
-                    //     .has_wmask(true)
-                    //     .source_paths(vec![timing_spice_path])
-                    //     .build()
-                    //     .unwrap();
-                    // crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+                    let timing_spice_path = out_spice(&work_dir, "timing_schematic");
+                    ctx.write_schematic_to_file_for_purpose::<Sram>(
+                        &$params,
+                        &timing_spice_path,
+                        NetlistPurpose::Timing,
+                    )
+                    .expect("failed to write timing schematic");
+
+                    let params = liberate_mx::LibParams::builder()
+                        .work_dir(work_dir.join("lib"))
+                        .output_file(crate::paths::out_lib(&work_dir, "timing_tt_025C_1v80.schematic"))
+                        .corner("tt")
+                        .cell_name(&*$params.name())
+                        .num_words($params.num_words())
+                        .data_width($params.data_width())
+                        .addr_width($params.addr_width())
+                        .wmask_width($params.wmask_width())
+                        .mux_ratio($params.mux_ratio())
+                        .has_wmask(true)
+                        .source_paths(vec![timing_spice_path])
+                        .build()
+                        .unwrap();
+                    crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
                 }
             }
         };
