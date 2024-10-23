@@ -724,7 +724,7 @@ impl SramInner {
             m2_tracks.track_with_loc(TrackLocator::StartsAfter, dffs.brect().top());
         let control_m2_track_idx = dff_m2_track_idx + 2 * self.params.addr_width() as i64;
         let m2_clk_track_idx = control_m2_track_idx;
-        let m2_reset_b_track_idx = control_m2_track_idx + 1;
+        let m2_rstb_track_idx = control_m2_track_idx + 1;
         let m2_ce_track_idx = control_m2_track_idx + 2;
         let m2_we_track_idx = control_m2_track_idx + 3;
 
@@ -733,17 +733,17 @@ impl SramInner {
             dffs.bbox().union(cols.bbox()).into_rect().bottom(),
         );
         let m2_track_clk_conn = m2_track_conn_idx;
-        let m2_track_reset_b_conn = m2_track_conn_idx - 1;
+        let m2_track_rstb_conn = m2_track_conn_idx - 1;
 
-        // Route clk and reset_b.
+        // Route clk and rstb.
         // Connect clock ports from the left and clock ports on the right to separate
         // m1 tracks to prevent overlapping vias.
         let m1_clk_track_left_idx =
             m1_tracks.track_with_loc(TrackLocator::StartsAfter, dffs.brect().right());
         let m1_clk_track_right_idx =
             m1_tracks.track_with_loc(TrackLocator::EndsBefore, cols.brect().left() - 300);
-        let m1_reset_b_track_left_idx = m1_clk_track_left_idx + 1;
-        let m1_reset_b_track_right_idx = m1_clk_track_right_idx - 1;
+        let m1_rstb_track_left_idx = m1_clk_track_left_idx + 1;
+        let m1_rstb_track_right_idx = m1_clk_track_right_idx - 1;
 
         for (port, m1_track_left, m1_track_right, m2_track, m2_track_conn) in [
             (
@@ -754,11 +754,11 @@ impl SramInner {
                 m2_track_clk_conn,
             ),
             (
-                "reset_b",
-                m1_reset_b_track_left_idx,
-                m1_reset_b_track_right_idx,
-                m2_reset_b_track_idx,
-                m2_track_reset_b_conn,
+                "rstb",
+                m1_rstb_track_left_idx,
+                m1_rstb_track_right_idx,
+                m2_rstb_track_idx,
+                m2_track_rstb_conn,
             ),
         ] {
             let control_port = control.port(port)?.largest_rect(m1)?;

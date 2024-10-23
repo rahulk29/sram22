@@ -227,7 +227,6 @@ impl Script for SramPhysicalDesignScript {
         ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self::Output> {
         let layers = ctx.layers();
-        let m2 = layers.get(Selector::Metal(2))?;
         let wl_cap = (params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL * 1.5; // safety factor.
         println!("wl_cap = {:.2}fF", wl_cap * 1e15);
         let clamped_wl_cap = f64::min(wl_cap, WORDLINE_CAP_MAX);
@@ -643,7 +642,7 @@ impl Component for Sram {
             ("we", 1),
             ("ce", 1),
             ("clk", 1),
-            ("reset_b", 1),
+            ("rstb", 1),
         ] {
             for i in 0..width {
                 let port_id = PortId::new(pin, i);
@@ -787,22 +786,46 @@ pub(crate) mod tests {
 
                 #[cfg(feature = "commercial")]
                 {
-                    let drc_work_dir = work_dir.join("drc");
-                    let output = ctx
-                        .write_drc::<Sram>(&$params, drc_work_dir)
-                        .expect("failed to run DRC");
-                    assert!(matches!(
-                        output.summary,
-                        substrate::verification::drc::DrcSummary::Pass
-                    ));
+                    use calibre::drc::{run_drc, DrcParams};
+                    use calibre::lvs::{run_lvs, LvsParams};
+                    use crate::verification::calibre::{SKY130_DRC_RUNSET_PATH, SKY130_LAYERPROPS_PATH, SKY130_LVS_RULES_PATH};
 
+                    // let drc_work_dir = work_dir.join("drc");
+                    // for deck in ["drc", "latchup", "soft", "luRes", "stress", "fill"] {
+                    //     let deck_work_dir = drc_work_dir.join(deck);
+                    //     let output = run_drc(&DrcParams {
+                    //         cell_name: &$params.name(),
+                    //         work_dir: &deck_work_dir,
+                    //         layout_path: &gds_path,
+                    //         rules_path: Path::new(&format!("/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/DRC/Calibre/s8_{deck}Rules")),
+                    //         runset_path: (deck == "drc").then(|| Path::new(SKY130_DRC_RUNSET_PATH)),
+                    //         layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
+                    //     }).expect("failed to run DRC");
+                    //     assert!(
+                    //         output.rule_checks.is_empty(),
+                    //         "DRC must have no rule violations"
+                    //     );
+                    // }
+
+                    let lvs_path = out_spice(&work_dir, "lvs_schematic");
+                    ctx.write_schematic_to_file_for_purpose::<Sram>(
+                        &$params,
+                        &lvs_path,
+                        NetlistPurpose::Lvs,
+                    ).expect("failed to write lvs source netlist");
                     let lvs_work_dir = work_dir.join("lvs");
-                    let output = ctx
-                        .write_lvs::<Sram>(&$params, lvs_work_dir)
-                        .expect("failed to run LVS");
+                    let output = run_lvs(&LvsParams{
+                        work_dir: &lvs_work_dir,
+                        layout_path: &gds_path,
+                        layout_cell_name: &$params.name(),
+                        source_paths: &[lvs_path],
+                        source_cell_name: &$params.name(),
+                        rules_path: Path::new(SKY130_LVS_RULES_PATH),
+                        layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
+                    }).expect("failed to run LVS");
                     assert!(matches!(
-                        output.summary,
-                        substrate::verification::lvs::LvsSummary::Pass
+                        output.status,
+                        calibre::lvs::LvsStatus::Correct
                     ));
 
                     // let pex_path = out_spice(&work_dir, "pex_schematic");
