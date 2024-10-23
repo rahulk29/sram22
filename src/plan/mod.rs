@@ -1,8 +1,8 @@
-use crate::blocks::sram::verilog::save_1rw_verilog;
 use crate::blocks::sram::{Sram, SramConfig, SramParams};
 use crate::cli::progress::StepContext;
 use crate::paths::{out_gds, out_spice, out_verilog};
 use crate::plan::extract::ExtractionResult;
+use crate::verilog::save_1rw_verilog;
 use crate::{setup_ctx, Result};
 use anyhow::bail;
 use std::collections::{HashMap, HashSet};
@@ -123,8 +123,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
     try_finish_task!(ctx, TaskKey::GenerateLayout);
 
     let verilog_path = out_verilog(work_dir, name);
-    save_1rw_verilog(&verilog_path, name.as_str(), &plan.sram_params)
-        .expect("failed to write behavioral model");
+    save_1rw_verilog(&verilog_path, &plan.sram_params).expect("failed to write behavioral model");
     try_finish_task!(ctx, TaskKey::GenerateVerilog);
 
     #[cfg(feature = "commercial")]

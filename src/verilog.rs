@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::blocks::sram::SramParams;
 use crate::{Result, TEMPLATES};
 
@@ -44,6 +46,18 @@ pub fn generate_1rw_verilog(params: &SramParams) -> Result<String> {
     Ok(TEMPLATES.render(template, &Context::from_serialize(template_params)?)?)
 }
 
+pub fn save_1rw_verilog(path: impl AsRef<Path>, params: &SramParams) -> Result<()> {
+    let verilog = generate_1rw_verilog(params)?;
+
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, verilog)?;
+
+    Ok(())
+}
+
 pub fn generate_tdc_verilog(params: &TdcParams) -> Result<String> {
     assert!(
         params.data_width > 1,
@@ -64,4 +78,28 @@ pub fn generate_delay_line_verilog(params: &DelayLineParams) -> Result<String> {
     let template = "delay_line.v";
 
     Ok(TEMPLATES.render(template, &Context::from_serialize(params)?)?)
+}
+
+pub fn save_tdc_verilog(path: impl AsRef<Path>, params: &TdcParams) -> Result<()> {
+    let verilog = generate_tdc_verilog(params)?;
+
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, verilog)?;
+
+    Ok(())
+}
+
+pub fn save_delay_line_verilog(path: impl AsRef<Path>, params: &DelayLineParams) -> Result<()> {
+    let verilog = generate_delay_line_verilog(params)?;
+
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, verilog)?;
+
+    Ok(())
 }

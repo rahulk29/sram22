@@ -9,7 +9,7 @@ module {{module_name}}(
     vdd,
     vss,
 `endif
-  clk,we,wmask,addr,din,dout
+  clk,resetb,ce,we,wmask,addr,din,dout
   );
 
   // These parameters should NOT be set to
@@ -24,6 +24,8 @@ module {{module_name}}(
     inout vss; // ground
 `endif
   input  clk; // clock
+  input  resetb; // reset bar
+  input  ce; // chip enable
   input  we; // write enable
   input [WMASK_WIDTH-1:0] wmask; // write mask
   input [ADDR_WIDTH-1:0]  addr; // address
@@ -45,23 +47,29 @@ module {{module_name}}(
 
   always @(posedge clk)
   begin
-    // Write
-    if (we) begin
-      {%- for i in range(end=wmask_width) -%}
-        {% set lower = i * bits_per_mask %}
-        {% set upper = (i + 1) * bits_per_mask - 1 -%}
-        if (wmask[{{i}}]) begin
-          mem[addr][{{upper}}:{{lower}}] <= din[{{upper}}:{{lower}}];
+    if (!resetb) begin
+        dout <= {DATAWIDTH{1'b1}};
+    end else begin
+      if (ce) begin 
+        // Write
+        if (we) begin
+          {%- for i in range(end=wmask_width) -%}
+            {% set lower = i * bits_per_mask %}
+            {% set upper = (i + 1) * bits_per_mask - 1 -%}
+            if (wmask[{{i}}]) begin
+              mem[addr][{{upper}}:{{lower}}] <= din[{{upper}}:{{lower}}];
+            end
+          {%- endfor %}
+
+          // Output is all 1s when writing to SRAM due to precharge.
+          dout <= {DATA_WIDTH{1'b1}};
         end
-      {%- endfor %}
 
-      // Output is arbitrary when writing to SRAM
-      dout <= {DATA_WIDTH{1'bx}};
-    end
-
-    // Read
-    if (!we) begin
-      dout <= mem[addr];
+        // Read
+        if (!we) begin
+          dout <= mem[addr];
+        end
+      end
     end
   end
 

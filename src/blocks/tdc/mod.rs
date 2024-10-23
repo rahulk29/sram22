@@ -1055,12 +1055,12 @@ mod tests {
     use substrate::schematic::netlist::NetlistPurpose;
     use substrate::verification::pex::PexInput;
 
-    use crate::blocks::sram::verilog::save_tdc_verilog;
     #[cfg(feature = "commercial")]
     use crate::liberate::save_tdc_lib;
     use crate::paths::{out_gds, out_spice, out_verilog};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
+    use crate::verilog::save_tdc_verilog;
 
     use super::*;
 

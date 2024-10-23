@@ -4,16 +4,8 @@ version = 3
 
 [[package]]
 name = "abstract_lef"
-version = "0.0.2"
-source = "git+https://github.com/rahulk29/abstract-lef.git?branch=main#df25290c51ddd069e06729a4c0740aa5d5029c19"
-dependencies = [
- "abstract_lef 0.1.0",
-]
-
-[[package]]
-name = "abstract_lef"
 version = "0.1.0"
-source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/abstract_lef.git?branch=master#a8a2b44e2bc00420fd0af5f4803fbf7437f19f58"
+source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/abstract_lef.git?branch=master#0150ddc4cdd2b0ee60141e40a339a3e044aeab13"
 dependencies = [
  "derive_builder 0.11.2",
  "lazy_static",
@@ -204,14 +196,6 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "calibre"
-version = "0.0.2"
-source = "git+https://github.com/rahulk29/calibre?branch=main#171e7a9f5586d3932c9204cfc7c1b7abc213eb9d"
-dependencies = [
- "calibre 0.1.0",
-]
-
-[[package]]
-name = "calibre"
 version = "0.1.0"
 source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git?branch=master#35cf326f364dd445764dce8534ff33cab8ac291e"
 dependencies = [
@@ -305,7 +289,7 @@ dependencies = [
  "heck",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.83",
 ]
 
 [[package]]
@@ -513,7 +497,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "semver",
- "syn 2.0.82",
+ "syn 2.0.83",
 ]
 
 [[package]]
@@ -624,7 +608,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustc_version",
- "syn 2.0.82",
+ "syn 2.0.83",
 ]
 
 [[package]]
@@ -664,7 +648,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.83",
 ]
 
 [[package]]
@@ -981,7 +965,7 @@ checksum = "8e9489c2807c139ffd9c1794f4af0ebe86a828db53ecdc7fea2111d0fed085d1"
 [[package]]
 name = "liberate_mx"
 version = "0.1.0"
-source = "git+https://github.com/rahulk29/liberate-mx.git?branch=master#3437f35cd94ab235ff8d3a4dabf4693adda7cc67"
+source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/liberate-mx.git?branch=master#16ea6c9dbb31002569b6c2ae7ba798fdb6867fcd"
 dependencies = [
  "derive_builder 0.12.0",
  "lazy_static",
@@ -1281,7 +1265,7 @@ dependencies = [
  "pest_meta",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.83",
 ]
 
 [[package]]
@@ -1598,7 +1582,7 @@ checksum = "7e85ad2009c50b58e87caa8cd6dac16bdf511bbfb7af6c33df902396aa480fa5"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.83",
 ]
 
 [[package]]
@@ -1621,7 +1605,7 @@ checksum = "6c64451ba24fc7a6a2d60fc75dd9c83c90903b19028d4eff35e88fc1e86564e9"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.83",
 ]
 
 [[package]]
@@ -1774,11 +1758,11 @@ checksum = "228c4551e53c672e86439509545dd7ffcb966b6876c58b108e433a30e6117101"
 name = "sram22"
 version = "0.2.0"
 dependencies = [
- "abstract_lef 0.0.2",
+ "abstract_lef",
  "anyhow",
  "approx",
  "arcstr",
- "calibre 0.0.2",
+ "calibre",
  "clap",
  "codegen",
  "colored",
@@ -1798,7 +1782,7 @@ dependencies = [
  "sky130_commercial_pdk",
  "sky130_open_pdk",
  "spectre",
- "sub_calibre 0.0.2",
+ "sub_calibre",
  "subgeom",
  "substrate",
  "tempfile",
@@ -1840,17 +1824,9 @@ version = "0.0.1"
 source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rohankumar/substrate_mentor_plugins.git?branch=main#45e342efc0ca3737367709a51ca3af09938987c0"
 dependencies = [
  "arcstr",
- "calibre 0.1.0",
+ "calibre",
  "derive_builder 0.12.0",
  "substrate",
-]
-
-[[package]]
-name = "sub_calibre"
-version = "0.0.2"
-source = "git+https://github.com/rahulk29/substrate_mentor_plugins?branch=main#2e00094b06e3f79e654a6ddc1403d81b6d709ef6"
-dependencies = [
- "sub_calibre 0.0.1",
 ]
 
 [[package]]
@@ -1933,9 +1909,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.82"
+version = "2.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83540f837a8afc019423a8edb95b52a8effe46957ee402287f4292fae35be021"
+checksum = "01680f5d178a369f817f43f3d399650272873a8e7588a7872f7e90edc71d60a3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2021,7 +1997,7 @@ checksum = "ae71770322cbd277e69d762a16c444af02aa0575ac0d174f0b9562d3b37f8602"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.83",
 ]
 
 [[package]]
@@ -2096,7 +2072,7 @@ checksum = "34704c8d6ebcbc939824180af020566b01a7c01f80641264eba0999f6c2b6be7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.83",
 ]
 
 [[package]]
@@ -2274,7 +2250,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.83",
  "wasm-bindgen-shared",
 ]
 
@@ -2296,7 +2272,7 @@ checksum = "26c6ab57572f7a24a4985830b120de1594465e5d500f24afe89e16b4e833ef68"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.83",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
@@ -2549,5 +2525,5 @@ checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.83",
 ]

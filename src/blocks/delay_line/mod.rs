@@ -723,12 +723,12 @@ mod tests {
     use substrate::verification::pex::PexInput;
 
     use crate::blocks::gate::PrimitiveGateParams;
-    use crate::blocks::sram::verilog::save_delay_line_verilog;
     #[cfg(feature = "commercial")]
     use crate::liberate::save_delay_line_lib;
     use crate::paths::{out_gds, out_spice, out_verilog};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
+    use crate::verilog::save_delay_line_verilog;
 
     use super::tb::{DelayLineTb, DelayLineTbParams};
     use super::tristate::TristateBufParams;

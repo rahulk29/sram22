@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use calibre::pex::PexLevel;
 use substrate::component::Component;
-use substrate::data::SubstrateCtx;
 use substrate::index::IndexOwned;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::elements::capacitor::Capacitor;
@@ -22,9 +21,7 @@ use substrate::verification::simulation::waveform::{TimeWaveform, Waveform};
 
 use crate::blocks::gate::GateParams;
 
-use super::{
-    Sram, SramParams, SramPex, SramPexParams, SramPhysicalDesign, SramPhysicalDesignScript,
-};
+use super::{Sram, SramParams, SramPex, SramPexParams, SramPhysicalDesign};
 
 pub mod verify;
 

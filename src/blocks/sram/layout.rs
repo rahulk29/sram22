@@ -28,7 +28,6 @@ use crate::blocks::columns::layout::DffArray;
 use crate::blocks::columns::ColPeripherals;
 use crate::blocks::control::ControlLogicReplicaV2;
 use crate::blocks::decoder::{Decoder, DecoderStage};
-use crate::blocks::gate::GateParams;
 use crate::blocks::precharge::layout::ReplicaPrecharge;
 
 use super::{SramInner, SramPhysicalDesignScript};
