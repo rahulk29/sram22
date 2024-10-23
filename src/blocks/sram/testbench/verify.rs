@@ -29,7 +29,9 @@ pub fn write_internal_rpt(
     //
     // Also assert that write driver enable pulse (after NAND with write mask)
     // overlaps with wordline pulse for at least 50 ps.
-    writeln!(rpt, "WORDLINES")?;
+    //
+    // Assert that PC_B, SENSE_EN, and WRITE_DRIVER_EN remain low during a no-op.
+    writeln!(rpt, "OPS")?;
     writeln!(rpt, "==========================")?;
     let wl = (0..tb.sram.rows())
         .map(|i| {
@@ -49,6 +51,15 @@ pub fn write_internal_rpt(
                 .ok_or_else(|| anyhow!("Unable to find signal we_ib"))
         })
         .collect::<Result<Vec<_>>>()?;
+    let pc_b = data
+        .waveform(&tb.sram_signal_path(TbSignals::PcBEnd))
+        .ok_or_else(|| anyhow!("Unable to find signal pc_b"))?;
+    let saen = data
+        .waveform(&tb.sram_signal_path(TbSignals::SenseEnEnd))
+        .ok_or_else(|| anyhow!("Unable to find signal sense_en"))?;
+    let wrdrven = data
+        .waveform(&tb.sram_signal_path(TbSignals::WriteDriverEnEnd))
+        .ok_or_else(|| anyhow!("Unable to find signal write_driver_en"))?;
     let mut cycle = 0;
     let [mut wl_trans, mut we_i_trans, mut we_ib_trans] = [&wl, &we_i, &we_ib].map(|wfs| {
         wfs.iter()
@@ -57,6 +68,10 @@ pub fn write_internal_rpt(
                     .collect::<VecDeque<_>>()
             })
             .collect::<Vec<_>>()
+    });
+    let [mut pc_b_trans, mut saen_trans, mut wrdrven_trans] = [&pc_b, &saen, &wrdrven].map(|wf| {
+        wf.transitions(low_threshold, high_threshold)
+            .collect::<VecDeque<_>>()
     });
     for op in tb.ops.iter() {
         cycle += 1;
@@ -94,6 +109,24 @@ pub fn write_internal_rpt(
                     } else {
                         break;
                     }
+                }
+            }
+        }
+        for (signal, trans) in [
+            ("pc_b", &mut pc_b_trans),
+            ("saen", &mut saen_trans),
+            ("wrdrven", &mut wrdrven_trans),
+        ] {
+            while let Some(next) = trans.front() {
+                if next.center_time() < t {
+                    trans.pop_front();
+                } else {
+                    break;
+                }
+            }
+            if let (Some(next), Op::None) = (trans.front(), op) {
+                if next.center_time() < (cycle + 1) as f64 * tb.clk_period {
+                    writeln!(rpt, "ERROR: transition in {signal} occurs during no-op")?;
                 }
             }
         }
@@ -210,12 +243,6 @@ pub fn write_internal_rpt(
     // Also asserts that precharge turns on after sense amp enable.
     writeln!(rpt, "PRECHARGE")?;
     writeln!(rpt, "==========================")?;
-    let pc_b = data
-        .waveform(&tb.sram_signal_path(TbSignals::PcBEnd))
-        .ok_or_else(|| anyhow!("Unable to find signal pc_b"))?;
-    let saen = data
-        .waveform(&tb.sram_signal_path(TbSignals::SenseEnEnd))
-        .ok_or_else(|| anyhow!("Unable to find signal sense_en"))?;
 
     for trans in pc_b.transitions(low_threshold, high_threshold) {
         for idx in [trans.start_idx(), trans.end_idx()] {

@@ -852,10 +852,13 @@ pub fn tb_params(
             addr: addr1.clone(),
             data: BitSignal::from_vec(bits0101(data_width)),
         },
+        Op::None,
         Op::Write {
             addr: addr2.clone(),
             data: BitSignal::from_vec(bits1010(data_width)),
         },
+        Op::None,
+        Op::None,
         Op::Read {
             addr: addr1.clone(),
         },
