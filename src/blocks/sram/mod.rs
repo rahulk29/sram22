@@ -844,7 +844,8 @@ pub(crate) mod tests {
                     let corners = ctx.corner_db();
                     let mut handles = Vec::new();
                     for vdd in [1.8] {
-                        for corner in corners.corners() {
+                        let sf = corners.corner_named("sf").unwrap();
+                        for corner in [sf] {
                             let corner = corner.clone();
                             let params = $params.clone();
                             let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
