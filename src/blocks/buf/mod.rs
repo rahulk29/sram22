@@ -1,16 +1,32 @@
-use substrate::component::Component;
-
 use super::gate::PrimitiveGateParams;
+use serde::{Deserialize, Serialize};
+use substrate::component::Component;
+use substrate::pdk::mos::MosParams;
 
 pub mod layout;
 pub mod schematic;
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
+pub struct DiffBufParams {
+    pub inv: PrimitiveGateParams,
+    // An optional RS latch.
+    pub latch: Option<DiffLatchParams>,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
+pub struct DiffLatchParams {
+    pub invq: PrimitiveGateParams,
+    pub inv_out: PrimitiveGateParams,
+    pub nwidth: i64,
+    pub lch: i64,
+}
+
 pub struct DiffBuf {
-    params: PrimitiveGateParams,
+    params: DiffBufParams,
 }
 
 impl Component for DiffBuf {
-    type Params = PrimitiveGateParams;
+    type Params = DiffBufParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
@@ -44,10 +60,13 @@ mod tests {
     use super::layout::DiffBufCent;
     use super::*;
 
-    const PARAMS: PrimitiveGateParams = PrimitiveGateParams {
-        length: 150,
-        nwidth: 1_000,
-        pwidth: 2_000,
+    const PARAMS: DiffBufParams = DiffBufParams {
+        inv: PrimitiveGateParams {
+            length: 150,
+            nwidth: 1_000,
+            pwidth: 2_000,
+        },
+        latch: None,
     };
 
     #[test]

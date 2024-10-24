@@ -182,11 +182,7 @@ impl SramParams {
                 mux_ratio: self.mux_ratio(),
                 ..COL_PARAMS.mux.scale(mux_scale)
             },
-            buf: PrimitiveGateParams {
-                nwidth: 1_200,
-                pwidth: 2_000,
-                length: 150,
-            },
+            buf: COL_PARAMS.buf,
             cols: self.cols(),
             wmask_granularity: self.wmask_granularity(),
             include_wmask: true,

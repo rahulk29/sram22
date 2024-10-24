@@ -12,7 +12,7 @@ use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerBoundBox;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
 
-use super::DiffBuf;
+use super::{DiffBuf, DiffBufParams};
 
 pub const POWER_HEIGHT: i64 = 800;
 pub const GRID: i64 = 5;
@@ -29,10 +29,10 @@ impl DiffBuf {
         let psdm = layers.get(Selector::Name("psdm"))?;
 
         let blinv = ctx
-            .instantiate::<FoldedInv>(&self.params)?
+            .instantiate::<FoldedInv>(&self.params.inv)?
             .with_orientation(Named::R90Cw);
         let mut brinv = ctx
-            .instantiate::<FoldedInv>(&self.params)?
+            .instantiate::<FoldedInv>(&self.params.inv)?
             .with_orientation(Named::R90Cw);
         brinv.align(AlignMode::ToTheRight, &blinv, 170);
         brinv.align(AlignMode::CenterVertical, &blinv, 0);
@@ -132,11 +132,11 @@ impl DiffBuf {
 }
 
 pub struct DiffBufCent {
-    params: PrimitiveGateParams,
+    params: DiffBufParams,
 }
 
 impl Component for DiffBufCent {
-    type Params = PrimitiveGateParams;
+    type Params = DiffBufParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
