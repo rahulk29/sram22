@@ -8,8 +8,6 @@ use substrate::verification::simulation::bits::{to_bit, BitSignal};
 use substrate::verification::simulation::waveform::{TimeWaveform, Transition, Waveform};
 use substrate::verification::simulation::TranData;
 
-use crate::blocks::sram::SramPhysicalDesign;
-
 use super::{Op, TbParams, TbSignals};
 use anyhow::{anyhow, bail, Result};
 

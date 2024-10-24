@@ -7,12 +7,15 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::path::{Path, PathBuf};
 use subgeom::bbox::BoundBox;
-use subgeom::{Dir, Rect, Span};
+use subgeom::{Corner, Dir, Point, Rect, Span};
 use substrate::component::{error, Component};
 use substrate::error::ErrorSource;
-use substrate::layout::cell::{CellPort, Port, PortId};
+use substrate::layout::cell::{CellPort, Element, Port, PortConflictStrategy, PortId};
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
+use substrate::layout::group::Group;
 use substrate::layout::layers::selector::Selector;
+use substrate::layout::layers::LayerSpec;
+use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::routing::auto::straps::PlacedStraps;
 use substrate::layout::straps::SingleSupplyNet;
 use substrate::script::Script;
@@ -226,7 +229,6 @@ impl Script for SramPhysicalDesignScript {
         params: &Self::Params,
         ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self::Output> {
-        let layers = ctx.layers();
         let wl_cap = (params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL * 1.5; // safety factor.
         println!("wl_cap = {:.2}fF", wl_cap * 1e15);
         let clamped_wl_cap = f64::min(wl_cap, WORDLINE_CAP_MAX);
@@ -538,13 +540,15 @@ impl Component for Sram {
         ctx.add_instance(inner);
         Ok(())
     }
+
+    // Draws guard ring and shifts coordinates such that origin is at lower left corner.
     fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
+        let mut group = Group::new();
         let sram = ctx.instantiate::<SramInner>(&self.params)?;
         let brect = sram.brect();
-        ctx.draw_ref(&sram)?;
 
         let m0 = ctx.layers().get(Selector::Metal(0))?;
         let m1 = ctx.layers().get(Selector::Metal(1))?;
@@ -562,26 +566,40 @@ impl Component for Sram {
 
         for (layer, dir) in [(m1, Dir::Vert), (m2, Dir::Horiz)] {
             for strap in straps.on_layer(layer) {
+                let strap_rect = strap.rect;
                 let ring = match strap.net {
                     SingleSupplyNet::Vss => rings.vss,
                     SingleSupplyNet::Vdd => rings.vdd,
                 };
-                assert_ne!(strap.rect.area(), 0);
+                assert_ne!(strap_rect.area(), 0);
                 let lower = if strap.lower_boundary {
                     ring.outer().span(dir).start()
                 } else {
-                    strap.rect.span(dir).stop()
+                    strap_rect.span(dir).start()
                 };
                 let upper = if strap.upper_boundary {
                     ring.outer().span(dir).stop()
                 } else {
-                    strap.rect.span(dir).start()
+                    strap_rect.span(dir).stop()
                 };
 
                 let r = Rect::span_builder()
                     .with(dir, Span::new(lower, upper))
-                    .with(!dir, strap.rect.span(!dir))
+                    .with(!dir, strap_rect.span(!dir))
                     .build();
+                if layer == m2 {
+                    group.add_port_with_strategy(
+                        CellPort::with_shape(
+                            match strap.net {
+                                SingleSupplyNet::Vdd => "vdd",
+                                SingleSupplyNet::Vss => "vss",
+                            },
+                            m2,
+                            r,
+                        ),
+                        PortConflictStrategy::Merge,
+                    )?;
+                }
 
                 let mut targets = Vec::new();
                 if strap.upper_boundary {
@@ -601,7 +619,7 @@ impl Component for Sram {
                         .geometry(below_rect, above_rect)
                         .expand(ViaExpansion::LongerDirection)
                         .build();
-                    ctx.instantiate::<Via>(&viap)?.add_to(ctx)?;
+                    group.add_instance(ctx.instantiate::<Via>(&viap)?);
                 }
                 if layer == m1 {
                     let mut targets = Vec::new();
@@ -617,22 +635,24 @@ impl Component for Sram {
                             .geometry(target, r)
                             .expand(ViaExpansion::LongerDirection)
                             .build();
-                        ctx.instantiate::<Via>(&viap)?.add_to(ctx)?;
+                        group.add_instance(ctx.instantiate::<Via>(&viap)?);
                     }
                 }
-                ctx.draw_rect(layer, r);
+                group.add(Element::new(LayerSpec::drawing(layer), r));
             }
         }
+
         for port in ["vdd", "vss"] {
-            ctx.add_port(
+            group.add_port_with_strategy(
                 ring.port(format!("ring_{port}"))?
                     .into_cell_port()
                     .named(port),
+                PortConflictStrategy::Merge,
             )?;
         }
 
-        ctx.draw(ring)?;
-
+        group.add_port_with_strategy(sram.port("vdd")?, PortConflictStrategy::Merge)?;
+        group.add_port_with_strategy(sram.port("vss")?, PortConflictStrategy::Merge)?;
         // Route pins to edge of guard ring
         for (pin, width) in [
             ("dout", self.params.data_width()),
@@ -649,12 +669,19 @@ impl Component for Sram {
                 let rect = sram.port(port_id.clone())?.largest_rect(m1)?;
                 let rect = rect.with_vspan(
                     rect.vspan()
-                        .add_point(ctx.bbox().into_rect().side(subgeom::Side::Bot)),
+                        .add_point(ring.bbox().into_rect().side(subgeom::Side::Bot)),
                 );
-                ctx.draw_rect(m1, rect);
-                ctx.add_port(CellPort::builder().id(port_id).add(m1, rect).build())?;
+                group.add(Element::new(LayerSpec::drawing(m1), rect));
+                group.add_port(CellPort::builder().id(port_id).add(m1, rect).build())?;
             }
         }
+
+        group.add_instance(sram);
+        group.add_instance(ring);
+
+        group.place(Corner::LowerLeft, Point::zero());
+        ctx.add_ports(group.ports())?;
+        ctx.draw(group)?;
 
         Ok(())
     }
@@ -790,22 +817,26 @@ pub(crate) mod tests {
                     use calibre::lvs::{run_lvs, LvsParams};
                     use crate::verification::calibre::{SKY130_DRC_RUNSET_PATH, SKY130_LAYERPROPS_PATH, SKY130_LVS_RULES_PATH};
 
-                    // let drc_work_dir = work_dir.join("drc");
-                    // for deck in ["drc", "latchup", "soft", "luRes", "stress", "fill"] {
-                    //     let deck_work_dir = drc_work_dir.join(deck);
-                    //     let output = run_drc(&DrcParams {
-                    //         cell_name: &$params.name(),
-                    //         work_dir: &deck_work_dir,
-                    //         layout_path: &gds_path,
-                    //         rules_path: Path::new(&format!("/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/DRC/Calibre/s8_{deck}Rules")),
-                    //         runset_path: (deck == "drc").then(|| Path::new(SKY130_DRC_RUNSET_PATH)),
-                    //         layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
-                    //     }).expect("failed to run DRC");
-                    //     assert!(
-                    //         output.rule_checks.is_empty(),
-                    //         "DRC must have no rule violations"
-                    //     );
-                    // }
+                    let drc_work_dir = work_dir.join("drc");
+                    for deck in [
+                        "drc", "latchup", "soft", "luRes",
+                        // "stress", "fill"
+                    ] {
+                        let deck_work_dir = drc_work_dir.join(deck);
+                        let output = run_drc(&DrcParams {
+                            cell_name: &$params.name(),
+                            work_dir: &deck_work_dir,
+                            layout_path: &gds_path,
+                            rules_path: Path::new(&format!("/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/DRC/Calibre/s8_{deck}Rules")),
+                            runset_path: (deck == "drc").then(|| Path::new(SKY130_DRC_RUNSET_PATH)),
+                            layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
+                        }).expect("failed to run DRC");
+                        println!("{:?}", output.rule_checks);
+                        assert!(
+                            output.rule_checks.is_empty(),
+                            "DRC must have no rule violations"
+                        );
+                    }
 
                     let lvs_path = out_spice(&work_dir, "lvs_schematic");
                     ctx.write_schematic_to_file_for_purpose::<Sram>(
@@ -891,12 +922,10 @@ pub(crate) mod tests {
                     // let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
                     // handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
 
-                    crate::abs::run_abstract(
-                        &work_dir,
-                        &$params.name(),
+                    crate::abs::write_abstract(
+                        &ctx,
+                        &$params,
                         crate::paths::out_lef(&work_dir, "abstract"),
-                        &gds_path,
-                        &verilog_path,
                     )
                     .expect("failed to write abstract");
                     println!("{}: done writing abstract", stringify!($name));
