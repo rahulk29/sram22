@@ -530,7 +530,7 @@ mod tests {
         HashMap::from_iter(io.iter().map(|(&k, &v)| {
             let conn = match k {
                 "clk" => AcImpedanceTbNode::Vdd,
-                "reset_b" => AcImpedanceTbNode::Vdd,
+                "rstb" => AcImpedanceTbNode::Vdd,
                 "vdd" => AcImpedanceTbNode::Vdd,
                 "vss" => AcImpedanceTbNode::Vdd,
                 "sense_en" => AcImpedanceTbNode::Vss,
@@ -555,7 +555,7 @@ mod tests {
         HashMap::from_iter(io.iter().map(|(&k, &v)| {
             let conn = match k {
                 "clk" => AcImpedanceTbNode::Vdd,
-                "reset_b" => AcImpedanceTbNode::Vdd,
+                "rstb" => AcImpedanceTbNode::Vdd,
                 "vdd" => AcImpedanceTbNode::Vdd,
                 "vss" => AcImpedanceTbNode::Vdd,
                 "bl" => AcImpedanceTbNode::Vdd,
@@ -616,7 +616,7 @@ mod tests {
         })
         .expect("failed to run pex");
 
-        for port in ["clk", "reset_b", "sense_en", "pc_b", "sel", "sel_b", "we"] {
+        for port in ["clk", "rstb", "sense_en", "pc_b", "sel", "sel_b", "we"] {
             let mut conns = col_peripherals_default_conns();
             conns.get_mut(port).unwrap()[0] = AcImpedanceTbNode::Vmeas;
 
@@ -686,7 +686,7 @@ mod tests {
         .expect("failed to run pex");
 
         for port in [
-            "clk", "reset_b", "pc_b", "sel", "sel_b", "we", "we_b", "sense_en",
+            "clk", "rstb", "pc_b", "sel", "sel_b", "we", "we_b", "sense_en",
         ] {
             let mut conns = column_default_conns();
             conns.get_mut(port).unwrap()[0] = AcImpedanceTbNode::Vmeas;

@@ -128,7 +128,7 @@ impl ColPeripherals {
                     })),
                     "dout" | "din" => Some(port.with_index(*col_indices.get(&j).unwrap())),
                     "we" | "we_b" => Some(port.with_index(*col_indices.get(&j).unwrap())),
-                    "pc_b" | "vdd" | "vss" | "sel" | "sel_b" | "sense_en" | "clk" | "reset_b" => {
+                    "pc_b" | "vdd" | "vss" | "sel" | "sel_b" | "sense_en" | "clk" | "rstb" => {
                         Some(port)
                     }
                     _ => None,
@@ -310,7 +310,7 @@ impl ColPeripherals {
         ctx.draw_ref(&pc)?;
         ctx.draw_ref(&pc_end)?;
 
-        for port in ["vdd", "vss", "pc_b", "sense_en", "clk", "reset_b"] {
+        for port in ["vdd", "vss", "pc_b", "sense_en", "clk", "rstb"] {
             let spans = grid_tiler
                 .port_map()
                 .port(port)
@@ -325,7 +325,7 @@ impl ColPeripherals {
                 ctx.merge_port(CellPort::with_shape(port, m2, rect));
             }
         }
-        for port in ["clk", "reset_b", "we"] {
+        for port in ["clk", "rstb", "we"] {
             ctx.merge_port(wmask_peripherals.port(port)?.into_cell_port());
         }
         for port in ["vdd", "vss"] {
@@ -427,7 +427,7 @@ impl WmaskPeripherals {
             ("vss", "vss", m1),
             ("vss", "vss", m2),
             ("clk", "clk", m2),
-            ("reset_b", "reset_b", m2),
+            ("rstb", "rstb", m2),
         ] {
             let spans = wmask_grid_tiler
                 .port_map()
@@ -631,7 +631,7 @@ impl Column {
             |port: CellPort, (i, j)| match port.name().as_str() {
                 "br_in" => Some(port.named("br").with_index(j)),
                 "bl_in" => Some(port.named("bl").with_index(j)),
-                "reset_b" | "sel" | "sel_b" | "vdd" | "vss" => Some(port),
+                "rstb" | "sel" | "sel_b" | "vdd" | "vss" => Some(port),
                 "en_b" => {
                     if i == 0 {
                         Some(port.named("pc_b"))
@@ -975,7 +975,7 @@ impl Component for TappedDff {
         ctx.draw_ref(&via)?;
         for (port, geometry) in [
             ("clk", via.layer_bbox(m1).into_rect()),
-            ("reset_b", dff.port("reset_b")?.largest_rect(m1)?),
+            ("rstb", dff.port("reset_b")?.largest_rect(m1)?),
         ] {
             let viap = ViaParams::builder()
                 .layers(m1, m2)
@@ -989,7 +989,7 @@ impl Component for TappedDff {
             ctx.add_port(CellPort::with_shape(port, m2, stripe))?;
         }
 
-        for port in ["q", "q_n", "clk", "reset_b", "d"] {
+        for port in ["q", "q_n", "d"] {
             ctx.merge_port(dff.port(port)?.into_cell_port());
         }
         ctx.draw(dff)?;
@@ -1060,7 +1060,7 @@ impl Component for DffCol {
             dff.brect().with_hspan(hspan).expand_dir(Dir::Vert, 1270),
         );
 
-        for port in ["q", "q_n", "clk", "reset_b", "d"] {
+        for port in ["q", "q_n", "clk", "rstb", "d"] {
             ctx.merge_port(dff.port(port)?.into_cell_port());
         }
         ctx.draw(dff)?;
@@ -1127,7 +1127,7 @@ impl Component for DffArray {
 
         tiler.expose_ports(
             |port: CellPort, i| {
-                if ["vdd", "vss", "clk", "reset_b"].contains(&port.name().as_ref()) {
+                if ["vdd", "vss", "clk", "rstb"].contains(&port.name().as_ref()) {
                     Some(port)
                 } else {
                     let port = port.with_index(i);
@@ -1173,7 +1173,7 @@ impl Component for DffColCent {
 
         let hspan = Span::new(0, pc.tap_width);
 
-        for port in ["vdd", "vss", "clk", "reset_b"] {
+        for port in ["vdd", "vss", "clk", "rstb"] {
             let r = Rect::from_spans(hspan, dff.port(port)?.largest_rect(m2)?.vspan());
             ctx.draw_rect(m2, r);
             ctx.merge_port(CellPort::with_shape(port, m2, r));

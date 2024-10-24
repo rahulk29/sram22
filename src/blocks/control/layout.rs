@@ -356,7 +356,7 @@ impl ControlLogicReplicaV2 {
         let we_pin = left_pins[2];
         router.occupy(m1, we_pin, "we")?;
         let resetb_pin = left_pins[3];
-        router.occupy(m1, resetb_pin, "reset_b")?;
+        router.occupy(m1, resetb_pin, "rstb")?;
 
         // Move RWL to be inline with buffer output.
         let vtrack = vtracks.index(
@@ -386,12 +386,12 @@ impl ControlLogicReplicaV2 {
         let pc_b_pin = right_pins[2];
         router.occupy(m1, pc_b_pin, "pc_b")?;
 
-        // reset_b -> reset_inv.y
+        // rstb -> reset_inv.y
         let resetb_in = group.port_map().port("reset_inv_a")?.largest_rect(m1)?;
         let resetb_in =
             router.expand_to_grid(resetb_in, ExpandToGridStrategy::Corner(Corner::LowerLeft));
         ctx.draw_rect(m1, resetb_in);
-        router.occupy(m1, resetb_in, "reset_b")?;
+        router.occupy(m1, resetb_in, "rstb")?;
 
         // clk -> clk_gate.a
         let clk_in = group.port_map().port("clk_gate_a")?.largest_rect(m0)?;
@@ -986,7 +986,7 @@ impl ControlLogicReplicaV2 {
         router.route_with_net(ctx, m1, clk_pin, m1, clk_in, "clk")?;
         router.route_with_net(ctx, m1, ce_pin, m1, ce_in, "ce")?;
         router.route_with_net(ctx, m1, pc_b_out, m1, pc_b_pin, "pc_b")?;
-        router.route_with_net(ctx, m1, resetb_pin, m1, resetb_in, "reset_b")?;
+        router.route_with_net(ctx, m1, resetb_pin, m1, resetb_in, "rstb")?;
         router.route_with_net(ctx, m1, clkp_b_out, m1, clkp_b_in, "clkp_b")?;
         router.route_with_net(ctx, m1, clkp_b_out, m1, clkp_b_in_1, "clkp_b")?;
         router.route_with_net(ctx, m1, clkpd_out, m1, clkpd_in, "clkpd")?;
@@ -1049,7 +1049,7 @@ impl ControlLogicReplicaV2 {
         ctx.add_port(CellPort::with_shape("clk", m1, clk_pin))?;
         ctx.add_port(CellPort::with_shape("ce", m1, ce_pin))?;
         ctx.add_port(CellPort::with_shape("we", m1, we_pin))?;
-        ctx.add_port(CellPort::with_shape("reset_b", m1, resetb_pin))?;
+        ctx.add_port(CellPort::with_shape("rstb", m1, resetb_pin))?;
 
         ctx.add_port(CellPort::with_shape("pc_b", m1, pc_b_pin))?;
         ctx.add_port(CellPort::with_shape("rbl", m1, rbl_pin))?;
