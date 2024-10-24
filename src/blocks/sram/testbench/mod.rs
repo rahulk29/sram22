@@ -19,8 +19,6 @@ use serde::{Deserialize, Serialize};
 use substrate::verification::simulation::testbench::Testbench;
 use substrate::verification::simulation::waveform::{TimeWaveform, Waveform};
 
-use crate::blocks::gate::GateParams;
-
 use super::{Sram, SramParams, SramPex, SramPexParams, SramPhysicalDesign};
 
 pub mod verify;
@@ -349,8 +347,8 @@ impl TbParams {
                             | TbSignals::Din(_)
                             | TbSignals::Dout(_) => unreachable!(),
                             TbSignals::Wlen => "wl_en".to_string(),
-                            TbSignals::Decrepstart => "Xcontrol_logic/decrepstart".to_string(),
-                            TbSignals::Decrepend => "Xcontrol_logic/decrepend".to_string(),
+                            TbSignals::Decrepstart => "Xcontrol_logic.decrepstart".to_string(),
+                            TbSignals::Decrepend => "Xcontrol_logic.decrepend".to_string(),
                             TbSignals::PcBStart | TbSignals::PcBEnd => "pc_b".to_string(),
                             TbSignals::SenseEnStart | TbSignals::SenseEnEnd =>
                                 "sense_en".to_string(),

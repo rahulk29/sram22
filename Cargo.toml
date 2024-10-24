@@ -29,6 +29,7 @@ tera = "1"
 lazy_static = "1"
 colored = "2"
 approx = "0.5"
+lef21 = { git = "https://github.com/dan-fritchman/Layout21.git", branch = "main" }
 
 # Substrate dependencies
 substrate = { git = "https://github.com/substrate-labs/substrate", branch = "main" }

@@ -1202,6 +1202,13 @@ impl SramInner {
                     .filter(|rect| rect.height() < 5000)
                 {
                     let new_span = cols.brect().hspan().expand_all(5_000);
+                    if layer == m2 {
+                        ctx.merge_port(CellPort::with_shape(
+                            port_name,
+                            m2,
+                            Rect::from_spans(new_span, port.vspan()),
+                        ));
+                    }
                     for sign in [Sign::Neg, Sign::Pos] {
                         let rect = port.with_hspan(Span::new(
                             new_span.point(sign),
@@ -1209,6 +1216,7 @@ impl SramInner {
                         ));
                         if layer == m1 {
                             draw_via(m1, port, m2, rect, ctx)?;
+                            ctx.merge_port(CellPort::with_shape(port_name, m2, rect));
                         }
                         draw_rect(m2, rect, &mut router, ctx);
                         straps.add_target(
@@ -1272,6 +1280,7 @@ impl SramInner {
                     .shapes(m2)
                     .filter_map(|shape| shape.as_rect())
                 {
+                    ctx.merge_port(CellPort::with_shape(port_name, m2, port));
                     let new_span = inst.brect().vspan().expand_all(2_000);
                     for sign in [Sign::Neg, Sign::Pos] {
                         let rect = port.with_vspan(Span::new(
@@ -1304,6 +1313,7 @@ impl SramInner {
                 for port in inst.port(port_name)?.shapes(m2) {
                     if let Shape::Rect(rect) = port {
                         let rect = rect.expand_dir(Dir::Horiz, 2_000);
+                        ctx.merge_port(CellPort::with_shape(port_name, m2, rect));
                         draw_rect(m2, rect, &mut router, ctx);
                         straps.add_target(
                             m2,
