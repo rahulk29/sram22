@@ -8,20 +8,20 @@ module {{module_name}}(
     vdd,
     vss,
 `endif
-    clk,we,addr,din,dout
+    clk,resetb,ce,we,addr,din,dout
   );
 
-  // These parameters should NOT be set to
-  // anything other than their defaults.
-  parameter DATA_WIDTH = {{data_width}} ;
-  parameter ADDR_WIDTH = {{addr_width}} ;
-  parameter RAM_DEPTH = 1 << ADDR_WIDTH;
+  localparam DATA_WIDTH = {{data_width}} ;
+  localparam ADDR_WIDTH = {{addr_width}} ;
+  localparam RAM_DEPTH = 1 << ADDR_WIDTH;
 
 `ifdef USE_POWER_PINS
     inout vdd; // power
     inout vss; // ground
 `endif
   input  clk; // clock
+  input  resetb; // reset bar
+  input  ce; // chip enable
   input  we; // write enable
   input [ADDR_WIDTH-1:0]  addr; // address
   input [DATA_WIDTH-1:0]  din; // data in
@@ -42,17 +42,23 @@ module {{module_name}}(
 
   always @(posedge clk)
   begin
-    // Write
-    if (we) begin
-        mem[addr] <= din;
-        // Output is arbitrary when writing to SRAM
-        dout <= {DATA_WIDTH{1'bx}};
-    end
+    if (!resetb) begin
+        dout <= {DATAWIDTH{1'b1}};
+    end else begin
+      if (ce) begin 
+        // Write
+        if (we) begin
+            mem[addr] <= din;
+            // Output is all 1s when writing to SRAM due to precharge.
+            dout <= {DATA_WIDTH{1'b1}};
+        end
 
-    // Read
-    if (!we) begin
-       dout <= mem[addr];
-     end
+        // Read
+        if (!we) begin
+          dout <= mem[addr];
+        end
+      end
+    end
   end
 
 endmodule

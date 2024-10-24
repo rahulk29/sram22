@@ -1,10 +1,9 @@
-use crate::blocks::sram::verilog::save_1rw_verilog;
-use crate::blocks::sram::{Sram, SramParams};
+use crate::blocks::sram::{Sram, SramConfig, SramParams};
 use crate::cli::progress::StepContext;
-use crate::config::sram::SramConfig;
 use crate::paths::{out_gds, out_spice, out_verilog};
 use crate::plan::extract::ExtractionResult;
-use crate::{clog2, setup_ctx, Result};
+use crate::verilog::save_1rw_verilog;
+use crate::{setup_ctx, Result};
 use anyhow::bail;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -60,50 +59,25 @@ pub fn generate_plan(
         data_width,
         mux_ratio,
         write_size,
-        control,
         ..
     } = config;
 
-    if mux_ratio != 4 && mux_ratio != 8 {
-        bail!("Mux ratio must be 4 or 8");
-    }
     if data_width % write_size != 0 {
         bail!("Data width must be a multiple of write size");
     }
 
-    let rows = (num_words / mux_ratio) as usize;
-    let cols = (data_width * mux_ratio) as usize;
-    let row_bits = clog2(rows);
-    let col_bits = clog2(cols);
-    let col_select_bits = clog2(mux_ratio as usize);
-    let wmask_width = (data_width / write_size) as usize;
-    let mux_ratio = mux_ratio as usize;
-    let num_words = num_words as usize;
-    let data_width = data_width as usize;
-    let addr_width = clog2(num_words);
+    let params = SramParams::new(write_size, mux_ratio, num_words, data_width);
 
-    if 2usize.pow(row_bits.try_into().unwrap()) != rows || rows < 16 {
+    if 2usize.pow(params.row_bits().try_into().unwrap()) != params.rows() || params.rows() < 16 {
         bail!("The number of rows (num words / mux ratio) must be a power of 2 greater than or equal to 16");
     }
 
-    if cols < 16 {
+    if params.cols() < 16 {
         bail!("The number of columns (data width * mux ratio) must be at least 16");
     }
 
     Ok(SramPlan {
-        sram_params: SramParams {
-            wmask_width,
-            row_bits,
-            col_bits,
-            col_select_bits,
-            rows,
-            cols,
-            mux_ratio,
-            num_words,
-            data_width,
-            addr_width,
-            control,
-        },
+        sram_params: params,
     })
 }
 
@@ -149,8 +123,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
     try_finish_task!(ctx, TaskKey::GenerateLayout);
 
     let verilog_path = out_verilog(work_dir, name);
-    save_1rw_verilog(&verilog_path, name.as_str(), &plan.sram_params)
-        .expect("failed to write behavioral model");
+    save_1rw_verilog(&verilog_path, &plan.sram_params).expect("failed to write behavioral model");
     try_finish_task!(ctx, TaskKey::GenerateVerilog);
 
     #[cfg(feature = "commercial")]
@@ -233,6 +206,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                     source_cell_name: name.clone(),
                     pex_netlist_path: pex_out_path.clone(),
                     opts,
+                    ground_net: "vss".to_string(),
                 })?;
             },
             ctx
@@ -287,11 +261,11 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                     .output_file(lib_file)
                     .corner("tt")
                     .cell_name(name.as_str())
-                    .num_words(plan.sram_params.num_words)
-                    .data_width(plan.sram_params.data_width)
-                    .addr_width(plan.sram_params.addr_width)
-                    .wmask_width(plan.sram_params.wmask_width)
-                    .mux_ratio(plan.sram_params.mux_ratio)
+                    .num_words(plan.sram_params.num_words())
+                    .data_width(plan.sram_params.data_width())
+                    .addr_width(plan.sram_params.addr_width())
+                    .wmask_width(plan.sram_params.wmask_width())
+                    .mux_ratio(plan.sram_params.mux_ratio())
                     .has_wmask(true)
                     .source_paths(vec![source_path])
                     .build()

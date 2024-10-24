@@ -4,9 +4,9 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
+use crate::blocks::sram::parse_sram_config;
 use crate::cli::args::Args;
 use crate::cli::progress::StepContext;
-use crate::config::sram::parse_sram_config;
 use crate::plan::extract::ExtractionResult;
 use crate::plan::{execute_plan, generate_plan, ExecutePlanParams, TaskKey};
 use crate::Result;
@@ -41,9 +41,8 @@ pub fn run() -> Result<()> {
     println!("SRAM parameters:");
     println!("\tNumber of words: {}", config.num_words);
     println!("\tData width: {}", config.data_width);
-    println!("\tMux ratio: {}", config.mux_ratio);
+    println!("\tMux ratio: {}", config.mux_ratio as usize);
     println!("\tWrite size: {}", config.write_size);
-    println!("\tControl mode: {:?}\n", config.control);
 
     let enabled_tasks = vec![
         #[cfg(feature = "commercial")]
