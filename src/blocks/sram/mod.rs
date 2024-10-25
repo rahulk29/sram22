@@ -943,7 +943,7 @@ pub(crate) mod tests {
                             "ff" => "ff_n40C_1v95",
                             _ => unreachable!(),
                         };
-                        let name = format!("{}_{}.lib", $params.name(), suffix);
+                        let name = format!("{}_{}", $params.name(), suffix);
                         let params = liberate_mx::LibParams::builder()
                             .work_dir(work_dir.join(format!("lib/{suffix}")))
                             .output_file(crate::paths::out_lib(&work_dir, &name))
