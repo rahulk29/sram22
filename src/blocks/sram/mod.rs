@@ -880,45 +880,45 @@ pub(crate) mod tests {
                     //     opts,
                     // }).expect("failed to run pex");
 
-                    // let seq = TestSequence::Short;
-                    // let corners = ctx.corner_db();
-                    // let mut handles = Vec::new();
-                    // for vdd in [1.8] {
-                    //     let sf = corners.corner_named("sf").unwrap();
-                    //     for corner in [sf] {
-                    //         let corner = corner.clone();
-                    //         let params = $params.clone();
-                    //         // let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
-                    //         let pex_netlist = None;
-                    //         let work_dir = work_dir.clone();
-                    //         handles.push(std::thread::spawn(move || {
-                    //             let ctx = setup_ctx();
-                    //             let dsn = ctx.run_script::<SramPhysicalDesignScript>(&params).expect("failed to run sram design script");
-                    //             let tb = crate::blocks::sram::testbench::tb_params(params, dsn, vdd, seq, pex_netlist);
-                    //             let work_dir = work_dir.join(format!(
-                    //                 "{}_{:.2}_{}",
-                    //                 corner.name(),
-                    //                 vdd,
-                    //                 seq.as_str(),
-                    //             ));
-                    //             let data = ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
-                    //                 &tb,
-                    //                 &work_dir,
-                    //                 corner.clone(),
-                    //             )
-                    //             .expect("failed to run simulation");
-                    //             verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
-                    //             println!(
-                    //                 "Simulated corner {} with Vdd = {}, seq = {}",
-                    //                 corner.name(),
-                    //                 vdd,
-                    //                 seq,
-                    //             );
-                    //         }));
-                    //     }
-                    // }
-                    // let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
-                    // handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
+                    let seq = TestSequence::Short;
+                    let corners = ctx.corner_db();
+                    let mut handles = Vec::new();
+                    for vdd in [1.8] {
+                        let sf = corners.corner_named("sf").unwrap();
+                        for corner in [sf] {
+                            let corner = corner.clone();
+                            let params = $params.clone();
+                            // let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
+                            let pex_netlist = None;
+                            let work_dir = work_dir.clone();
+                            handles.push(std::thread::spawn(move || {
+                                let ctx = setup_ctx();
+                                let dsn = ctx.run_script::<SramPhysicalDesignScript>(&params).expect("failed to run sram design script");
+                                let tb = crate::blocks::sram::testbench::tb_params(params, dsn, vdd, seq, pex_netlist);
+                                let work_dir = work_dir.join(format!(
+                                    "{}_{:.2}_{}",
+                                    corner.name(),
+                                    vdd,
+                                    seq.as_str(),
+                                ));
+                                let data = ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
+                                    &tb,
+                                    &work_dir,
+                                    corner.clone(),
+                                )
+                                .expect("failed to run simulation");
+                                verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
+                                println!(
+                                    "Simulated corner {} with Vdd = {}, seq = {}",
+                                    corner.name(),
+                                    vdd,
+                                    seq,
+                                );
+                            }));
+                        }
+                    }
+                    let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
+                    handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
 
                     crate::abs::write_abstract(
                         &ctx,
