@@ -12,7 +12,7 @@ use super::precharge::PrechargeParams;
 use super::sram::schematic::buffer_chain_num_stages;
 use super::tgatemux::TGateMuxParams;
 use super::wrdriver::WriteDriverParams;
-use crate::blocks::buf::{DiffBufParams, DiffLatchParams};
+use crate::blocks::latch::DiffLatchParams;
 use serde::{Deserialize, Serialize};
 use subgeom::Span;
 use substrate::layout::layers::selector::Selector;
@@ -28,7 +28,7 @@ pub struct ColParams {
     pub pc: PrechargeParams,
     pub mux: TGateMuxParams,
     pub wrdriver: WriteDriverParams,
-    pub buf: DiffBufParams,
+    pub latch: DiffLatchParams,
     pub cols: usize,
     pub include_wmask: bool,
     pub wmask_granularity: usize,
@@ -215,33 +215,31 @@ pub const PRECHARGE_PARAMS: PrechargeParams = PrechargeParams {
     en_b_width: 360,
 };
 
-pub const DIFF_BUF_PARAMS: DiffBufParams = DiffBufParams {
-    inv: PrimitiveGateParams {
+pub const DIFF_LATCH_PARAMS: DiffLatchParams = DiffLatchParams {
+    inv_in: PrimitiveGateParams {
         nwidth: 1_200,
         pwidth: 2_000,
         length: 150,
     },
-    latch: Some(DiffLatchParams {
-        lch: 150,
-        inv_out: PrimitiveGateParams {
-            nwidth: 1_200,
-            pwidth: 2_000,
-            length: 150,
-        },
-        invq: PrimitiveGateParams {
-            nwidth: 1_200,
-            pwidth: 2_000,
-            length: 150,
-        },
-        nwidth: 2_000,
-    }),
+    lch: 150,
+    inv_out: PrimitiveGateParams {
+        nwidth: 1_200,
+        pwidth: 2_000,
+        length: 150,
+    },
+    invq: PrimitiveGateParams {
+        nwidth: 1_200,
+        pwidth: 2_000,
+        length: 150,
+    },
+    nwidth: 2_000,
 };
 
 pub const COL_WMASK_PARAMS: ColParams = ColParams {
     pc: PRECHARGE_PARAMS,
     wrdriver: WRITE_DRIVER_PARAMS,
     mux: MUX_PARAMS,
-    buf: DIFF_BUF_PARAMS,
+    latch: DIFF_LATCH_PARAMS,
     cols: 16,
     include_wmask: true,
     wmask_granularity: 2,
@@ -251,7 +249,7 @@ pub const COL_PARAMS: ColParams = ColParams {
     pc: PRECHARGE_PARAMS,
     wrdriver: WRITE_DRIVER_PARAMS,
     mux: MUX_PARAMS,
-    buf: DIFF_BUF_PARAMS,
+    latch: DIFF_LATCH_PARAMS,
     cols: 128,
     include_wmask: false,
     wmask_granularity: 8,

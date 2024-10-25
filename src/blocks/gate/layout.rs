@@ -202,7 +202,7 @@ impl FoldedInv {
         let params = LayoutMosParams {
             skip_sd_metal: vec![vec![]; 3],
             deep_nwell: true,
-            contact_strategy: GateContactStrategy::SingleSide,
+            contact_strategy: GateContactStrategy::Merge,
             devices: vec![
                 MosParams {
                     w: half_params.nwidth,
@@ -223,7 +223,7 @@ impl FoldedInv {
         let mos = ctx.instantiate::<LayoutMos>(&params)?;
         ctx.draw_ref(&mos)?;
 
-        let m0 = mos.port("gate_0")?.any_layer();
+        let m0 = mos.port("gate")?.any_layer();
 
         let short = mos
             .port("sd_0_1")?
@@ -233,13 +233,7 @@ impl FoldedInv {
             .into_rect();
         ctx.draw_rect(m0, short);
 
-        let m0_rect = mos
-            .port("gate_0")?
-            .bbox(m0)
-            .union(mos.port("gate_1")?.bbox(m0))
-            .into_rect();
-        ctx.draw_rect(m0, m0_rect);
-        ctx.add_port(CellPort::with_shape("a", m0, m0_rect))
+        ctx.add_port(mos.port("gate")?.into_cell_port().named("a"))
             .unwrap();
 
         ctx.add_port(mos.port("sd_0_0")?.into_cell_port().named("vss"))

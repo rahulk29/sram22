@@ -1085,8 +1085,8 @@ impl Component for DecoderTap {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DecoderViaParams {
-    rect: Rect,
-    via_metals: Vec<LayerKey>,
+    pub rect: Rect,
+    pub via_metals: Vec<LayerKey>,
 }
 
 #[derive(Debug, Clone, Serialize)]
