@@ -3,10 +3,10 @@ use crate::blocks::bitcell_array::replica::ReplicaCellArray;
 use crate::blocks::columns::ColumnsPhysicalDesignScript;
 use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2};
 use crate::blocks::precharge::PrechargeParams;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::path::{Path, PathBuf};
-use rust_decimal_macros::dec;
 use subgeom::bbox::BoundBox;
 use subgeom::{Corner, Dir, Point, Rect, Span};
 use substrate::component::{error, Component};
@@ -936,7 +936,7 @@ pub(crate) mod tests {
                     )
                     .expect("failed to write timing schematic");
 
-                    for (corner, temp, vdd) in [("tt", dec!(25.0), dec!(1.8)), ("ss", dec!(100.0), dec!(1.6)), ("ff", dec!(1.95), dec!(-40.0))] {
+                    for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", 40, dec!(1.95))] {
                         let suffix = match corner {
                             "tt" => "tt_025C_1v80",
                             "ss" => "ss_100C_1v60",
