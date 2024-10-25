@@ -310,13 +310,13 @@ impl Script for SramPhysicalDesignScript {
         let pcb_tau = pc_b_buffer.time_constant(pc_b_cap);
         let wrdrven_tau = col_dsn.nand.time_constant(col_dsn.cl_max);
         let sae_tau = sense_en_buffer.time_constant(saen_cap);
-        let pc_b_delay_invs = ((1.2 * (1.2 * f64::max(wrdrven_tau, sae_tau) - pcb_tau)
+        let pc_b_delay_invs = ((1.2 * (1.35 * f64::max(wrdrven_tau, sae_tau) - pcb_tau)
             / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)))
             / 2.0)
             .max(0.)
             .ceil() as usize
             * 2
-            + 6;
+            + 8;
         let wrdrven_delay_invs = (((1.1 * pcb_tau - wrdrven_tau)
             / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)))
             / 2.0)
