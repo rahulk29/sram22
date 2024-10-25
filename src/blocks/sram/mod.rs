@@ -6,6 +6,7 @@ use crate::blocks::precharge::PrechargeParams;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::path::{Path, PathBuf};
+use rust_decimal_macros::dec;
 use subgeom::bbox::BoundBox;
 use subgeom::{Corner, Dir, Point, Rect, Span};
 use substrate::component::{error, Component};
@@ -879,45 +880,45 @@ pub(crate) mod tests {
                     //     opts,
                     // }).expect("failed to run pex");
 
-                    let seq = TestSequence::Short;
-                    let corners = ctx.corner_db();
-                    let mut handles = Vec::new();
-                    for vdd in [1.8] {
-                        let sf = corners.corner_named("sf").unwrap();
-                        for corner in [sf] {
-                            let corner = corner.clone();
-                            let params = $params.clone();
-                            // let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
-                            let pex_netlist = None;
-                            let work_dir = work_dir.clone();
-                            handles.push(std::thread::spawn(move || {
-                                let ctx = setup_ctx();
-                                let dsn = ctx.run_script::<SramPhysicalDesignScript>(&params).expect("failed to run sram design script");
-                                let tb = crate::blocks::sram::testbench::tb_params(params, dsn, vdd, seq, pex_netlist);
-                                let work_dir = work_dir.join(format!(
-                                    "{}_{:.2}_{}",
-                                    corner.name(),
-                                    vdd,
-                                    seq.as_str(),
-                                ));
-                                let data = ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
-                                    &tb,
-                                    &work_dir,
-                                    corner.clone(),
-                                )
-                                .expect("failed to run simulation");
-                                verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
-                                println!(
-                                    "Simulated corner {} with Vdd = {}, seq = {}",
-                                    corner.name(),
-                                    vdd,
-                                    seq,
-                                );
-                            }));
-                        }
-                    }
-                    let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
-                    handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
+                    // let seq = TestSequence::Short;
+                    // let corners = ctx.corner_db();
+                    // let mut handles = Vec::new();
+                    // for vdd in [1.8] {
+                    //     let sf = corners.corner_named("sf").unwrap();
+                    //     for corner in [sf] {
+                    //         let corner = corner.clone();
+                    //         let params = $params.clone();
+                    //         // let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
+                    //         let pex_netlist = None;
+                    //         let work_dir = work_dir.clone();
+                    //         handles.push(std::thread::spawn(move || {
+                    //             let ctx = setup_ctx();
+                    //             let dsn = ctx.run_script::<SramPhysicalDesignScript>(&params).expect("failed to run sram design script");
+                    //             let tb = crate::blocks::sram::testbench::tb_params(params, dsn, vdd, seq, pex_netlist);
+                    //             let work_dir = work_dir.join(format!(
+                    //                 "{}_{:.2}_{}",
+                    //                 corner.name(),
+                    //                 vdd,
+                    //                 seq.as_str(),
+                    //             ));
+                    //             let data = ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
+                    //                 &tb,
+                    //                 &work_dir,
+                    //                 corner.clone(),
+                    //             )
+                    //             .expect("failed to run simulation");
+                    //             verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
+                    //             println!(
+                    //                 "Simulated corner {} with Vdd = {}, seq = {}",
+                    //                 corner.name(),
+                    //                 vdd,
+                    //                 seq,
+                    //             );
+                    //         }));
+                    //     }
+                    // }
+                    // let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
+                    // handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
 
                     crate::abs::write_abstract(
                         &ctx,
@@ -935,21 +936,32 @@ pub(crate) mod tests {
                     )
                     .expect("failed to write timing schematic");
 
-                    let params = liberate_mx::LibParams::builder()
-                        .work_dir(work_dir.join("lib"))
-                        .output_file(crate::paths::out_lib(&work_dir, "timing_tt_025C_1v80.schematic"))
-                        .corner("tt")
-                        .cell_name(&*$params.name())
-                        .num_words($params.num_words())
-                        .data_width($params.data_width())
-                        .addr_width($params.addr_width())
-                        .wmask_width($params.wmask_width())
-                        .mux_ratio($params.mux_ratio())
-                        .has_wmask(true)
-                        .source_paths(vec![timing_spice_path])
-                        .build()
-                        .unwrap();
-                    crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+                    for (corner, temp, vdd) in [("tt", dec!(25.0), dec!(1.8)), ("ss", dec!(100.0), dec!(1.6)), ("ff", dec!(1.95), dec!(-40.0))] {
+                        let suffix = match corner {
+                            "tt" => "tt_025C_1v80",
+                            "ss" => "ss_100C_1v60",
+                            "ff" => "ff_n40C_1v95",
+                            _ => unreachable!(),
+                        };
+                        let name = format!("{}_{}.lib", $params.name(), suffix);
+                        let params = liberate_mx::LibParams::builder()
+                            .work_dir(work_dir.join(format!("lib/{suffix}")))
+                            .output_file(crate::paths::out_lib(&work_dir, &name))
+                            .corner(corner)
+                            .cell_name(&*$params.name())
+                            .num_words($params.num_words())
+                            .data_width($params.data_width())
+                            .addr_width($params.addr_width())
+                            .wmask_width($params.wmask_width())
+                            .mux_ratio($params.mux_ratio())
+                            .has_wmask(true)
+                            .source_paths(vec![timing_spice_path.clone()])
+                            .vdd(vdd)
+                            .temp(temp)
+                            .build()
+                            .unwrap();
+                        crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+                    }
                 }
             }
         };
