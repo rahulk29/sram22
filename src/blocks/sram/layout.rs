@@ -221,6 +221,11 @@ fn draw_route(
     Ok(())
 }
 
+pub enum NeedsDiodes {
+    Yes,
+    No,
+}
+
 impl SramInner {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
         let dsn = ctx
@@ -1331,21 +1336,56 @@ impl SramInner {
             }
         }
 
+        let needs_diodes = cols.brect().bottom() - router_bbox.bottom() > 50_000;
         // Route column peripheral outputs to pins on bounding box of SRAM
         let groups = self.params.data_width();
-        for (port, width) in [
+        for (j, (port, width)) in [
             ("dout", groups),
             ("din", groups),
             ("wmask", self.params.wmask_width()),
-        ] {
+        ]
+        .into_iter()
+        .enumerate()
+        {
             for i in 0..width {
                 let port_id = PortId::new(port, i);
                 let rect = cols.port(port_id.clone())?.largest_rect(m1)?;
                 let rect = rect.with_vspan(rect.vspan().add_point(router_bbox.bottom()));
                 draw_rect(m1, rect, &mut router, ctx);
                 ctx.add_port(CellPort::builder().id(port_id).add(m1, rect).build())?;
+
+                if needs_diodes {
+                    let mut diode = ctx
+                        .instantiate::<TappedDiode>(&NoParams)?
+                        .with_orientation(Named::R90);
+                    diode.align(
+                        AlignMode::Left,
+                        rect,
+                        match j {
+                            0 => -2_000,
+                            1 => -1_000,
+                            2 => -1_800,
+                            _ => unreachable!(),
+                        },
+                    );
+                    diode.align(AlignMode::Beneath, &cols, -6_000 * (j + 1) as i64);
+                    let diode_port = diode.port("diode")?.largest_rect(m0)?;
+                    let diode_via = ctx.instantiate::<Via>(
+                        &ViaParams::builder()
+                            .layers(m0, m1)
+                            .geometry(diode_port, rect)
+                            .build(),
+                    )?;
+                    ctx.draw(diode)?;
+                    ctx.draw(diode_via)?;
+                }
             }
         }
+        ctx.set_metadata(if needs_diodes {
+            NeedsDiodes::Yes
+        } else {
+            NeedsDiodes::No
+        });
 
         let straps = straps.fill(&router, ctx)?;
         ctx.set_metadata(straps);

@@ -1,32 +1,25 @@
 use super::gate::PrimitiveGateParams;
 use serde::{Deserialize, Serialize};
 use substrate::component::Component;
-use substrate::pdk::mos::MosParams;
 
 pub mod layout;
 pub mod schematic;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
-pub struct DiffBufParams {
-    pub inv: PrimitiveGateParams,
-    // An optional RS latch.
-    pub latch: Option<DiffLatchParams>,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
 pub struct DiffLatchParams {
+    pub inv_in: PrimitiveGateParams,
     pub invq: PrimitiveGateParams,
     pub inv_out: PrimitiveGateParams,
     pub nwidth: i64,
     pub lch: i64,
 }
 
-pub struct DiffBuf {
-    params: DiffBufParams,
+pub struct DiffLatch {
+    params: DiffLatchParams,
 }
 
-impl Component for DiffBuf {
-    type Params = DiffBufParams;
+impl Component for DiffLatch {
+    type Params = DiffLatchParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
@@ -34,7 +27,7 @@ impl Component for DiffBuf {
         Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("diff_buf")
+        arcstr::literal!("diff_latch")
     }
     fn schematic(
         &self,
@@ -53,37 +46,32 @@ impl Component for DiffBuf {
 #[cfg(test)]
 mod tests {
 
+    use crate::blocks::columns::DIFF_LATCH_PARAMS;
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
-    use super::layout::DiffBufCent;
+    use super::layout::DiffLatchCent;
     use super::*;
 
-    const PARAMS: DiffBufParams = DiffBufParams {
-        inv: PrimitiveGateParams {
-            length: 150,
-            nwidth: 1_000,
-            pwidth: 2_000,
-        },
-        latch: None,
-    };
-
     #[test]
-    fn test_diff_buf() {
+    fn test_diff_latch() {
         let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_diff_buf");
-        ctx.write_layout::<DiffBuf>(&PARAMS, out_gds(&work_dir, "layout"))
+        let work_dir = test_work_dir("test_diff_latch");
+        ctx.write_layout::<DiffLatch>(&DIFF_LATCH_PARAMS, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
-        ctx.write_schematic_to_file::<DiffBuf>(&PARAMS, out_spice(work_dir, "schematic"))
-            .expect("failed to write schematic");
+        ctx.write_schematic_to_file::<DiffLatch>(
+            &DIFF_LATCH_PARAMS,
+            out_spice(work_dir, "schematic"),
+        )
+        .expect("failed to write schematic");
     }
 
     #[test]
-    fn test_diff_buf_cent() {
+    fn test_diff_latch_cent() {
         let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_diff_buf_cent");
-        ctx.write_layout::<DiffBufCent>(&PARAMS, out_gds(work_dir, "layout"))
+        let work_dir = test_work_dir("test_diff_latch_cent");
+        ctx.write_layout::<DiffLatchCent>(&DIFF_LATCH_PARAMS, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
     }
 }

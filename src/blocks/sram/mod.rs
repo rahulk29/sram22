@@ -186,7 +186,7 @@ impl SramParams {
                 mux_ratio: self.mux_ratio(),
                 ..COL_PARAMS.mux.scale(mux_scale)
             },
-            buf: COL_PARAMS.buf,
+            latch: COL_PARAMS.latch,
             cols: self.cols(),
             wmask_granularity: self.wmask_granularity(),
             include_wmask: true,
@@ -835,26 +835,26 @@ pub(crate) mod tests {
                         );
                     }
 
-                    // let lvs_path = out_spice(&work_dir, "lvs_schematic");
-                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
-                    //     &$params,
-                    //     &lvs_path,
-                    //     NetlistPurpose::Lvs,
-                    // ).expect("failed to write lvs source netlist");
-                    // let lvs_work_dir = work_dir.join("lvs");
-                    // let output = run_lvs(&LvsParams{
-                    //     work_dir: &lvs_work_dir,
-                    //     layout_path: &gds_path,
-                    //     layout_cell_name: &$params.name(),
-                    //     source_paths: &[lvs_path],
-                    //     source_cell_name: &$params.name(),
-                    //     rules_path: Path::new(SKY130_LVS_RULES_PATH),
-                    //     layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
-                    // }).expect("failed to run LVS");
-                    // assert!(matches!(
-                    //     output.status,
-                    //     calibre::lvs::LvsStatus::Correct
-                    // ));
+                    let lvs_path = out_spice(&work_dir, "lvs_schematic");
+                    ctx.write_schematic_to_file_for_purpose::<Sram>(
+                        &$params,
+                        &lvs_path,
+                        NetlistPurpose::Lvs,
+                    ).expect("failed to write lvs source netlist");
+                    let lvs_work_dir = work_dir.join("lvs");
+                    let output = run_lvs(&LvsParams{
+                        work_dir: &lvs_work_dir,
+                        layout_path: &gds_path,
+                        layout_cell_name: &$params.name(),
+                        source_paths: &[lvs_path],
+                        source_cell_name: &$params.name(),
+                        rules_path: Path::new(SKY130_LVS_RULES_PATH),
+                        layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
+                    }).expect("failed to run LVS");
+                    assert!(matches!(
+                        output.status,
+                        calibre::lvs::LvsStatus::Correct
+                    ));
 
                     // let pex_path = out_spice(&work_dir, "pex_schematic");
                     // let pex_dir = work_dir.join("pex");
