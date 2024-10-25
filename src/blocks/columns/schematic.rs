@@ -6,8 +6,8 @@ use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
-use crate::blocks::buf::DiffBuf;
 use crate::blocks::decoder::DecoderStage;
+use crate::blocks::latch::DiffLatch;
 use crate::blocks::macros::SenseAmp;
 use crate::blocks::precharge::Precharge;
 use crate::blocks::tgatemux::TGateMux;
@@ -182,7 +182,7 @@ impl Column {
         let br_out = ctx.signal("br_out");
         let sa_outp = ctx.signal("sa_outp");
         let sa_outn = ctx.signal("sa_outn");
-        let diff_buf_outn = ctx.signal("diff_buf_outn");
+        let diff_latch_outn = ctx.signal("diff_latch_outn");
         let q = ctx.signal("q");
         let q_b = ctx.signal("q_b");
 
@@ -244,17 +244,17 @@ impl Column {
         sa.set_name("sense_amp");
         ctx.add_instance(sa);
 
-        let mut buf = ctx.instantiate::<DiffBuf>(&self.params.buf)?;
-        buf.connect_all([
+        let mut latch = ctx.instantiate::<DiffLatch>(&self.params.latch)?;
+        latch.connect_all([
             ("vdd", &vdd),
             ("vss", &vss),
             ("din1", &sa_outp),
             ("din2", &sa_outn),
             ("dout1", &dout),
-            ("dout2", &diff_buf_outn),
+            ("dout2", &diff_latch_outn),
         ]);
-        buf.set_name("buf");
-        ctx.add_instance(buf);
+        latch.set_name("latch");
+        ctx.add_instance(latch);
 
         let mut dff = ctx.instantiate::<StdCell>(&dfrtp.id())?;
         dff.connect_all([

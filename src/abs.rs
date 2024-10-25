@@ -1,21 +1,16 @@
-use crate::{
-    blocks::sram::{Sram, SramParams},
-    Result,
-};
+use crate::blocks::sram::{Sram, SramParams};
+use crate::Result;
 use abstract_lef::AbstractParams;
 use lef21::{
     LefDecimal, LefForeign, LefGeometry, LefLayerGeometries, LefLibrary, LefMacro, LefMacroClass,
     LefPin, LefPinDirection, LefPinUse, LefPoint, LefPort, LefShape, LefSymmetry,
 };
 use std::path::{Path, PathBuf};
-use subgeom::{bbox::BoundBox, Corner, Point};
-use substrate::{
-    data::SubstrateCtx,
-    layout::{
-        cell::{Port, PortId},
-        layers::selector::Selector,
-    },
-};
+use subgeom::bbox::BoundBox;
+use subgeom::{Corner, Point};
+use substrate::data::SubstrateCtx;
+use substrate::layout::cell::{Port, PortId};
+use substrate::layout::layers::selector::Selector;
 
 pub fn run_abstract(
     work_dir: impl AsRef<Path>,

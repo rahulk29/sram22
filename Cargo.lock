@@ -1112,10 +1112,12 @@ checksum = "8e9489c2807c139ffd9c1794f4af0ebe86a828db53ecdc7fea2111d0fed085d1"
 [[package]]
 name = "liberate_mx"
 version = "0.1.0"
-source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/liberate-mx.git?branch=master#16ea6c9dbb31002569b6c2ae7ba798fdb6867fcd"
+source = "git+ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/liberate-mx.git?branch=master#aa678e077641c7d2ca6e31a58940382186fe7ff8"
 dependencies = [
  "derive_builder 0.12.0",
  "lazy_static",
+ "rust_decimal",
+ "rust_decimal_macros",
  "serde",
  "tera",
  "thiserror",
@@ -1764,6 +1766,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust_decimal_macros"
+version = "1.36.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da991f231869f34268415a49724c6578e740ad697ba0999199d6f22b3949332c"
+dependencies = [
+ "quote",
+ "rust_decimal",
+]
+
+[[package]]
 name = "rustc-hash"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2084,6 +2096,8 @@ dependencies = [
  "ngspice",
  "paste",
  "psfparser",
+ "rust_decimal",
+ "rust_decimal_macros",
  "serde",
  "serde_json",
  "serde_repr",

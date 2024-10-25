@@ -3,6 +3,7 @@ use crate::blocks::bitcell_array::replica::ReplicaCellArray;
 use crate::blocks::columns::ColumnsPhysicalDesignScript;
 use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2};
 use crate::blocks::precharge::PrechargeParams;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::path::{Path, PathBuf};
@@ -185,11 +186,7 @@ impl SramParams {
                 mux_ratio: self.mux_ratio(),
                 ..COL_PARAMS.mux.scale(mux_scale)
             },
-            buf: PrimitiveGateParams {
-                nwidth: 1_200,
-                pwidth: 2_000,
-                length: 150,
-            },
+            latch: COL_PARAMS.latch,
             cols: self.cols(),
             wmask_granularity: self.wmask_granularity(),
             include_wmask: true,
@@ -313,13 +310,13 @@ impl Script for SramPhysicalDesignScript {
         let pcb_tau = pc_b_buffer.time_constant(pc_b_cap);
         let wrdrven_tau = col_dsn.nand.time_constant(col_dsn.cl_max);
         let sae_tau = sense_en_buffer.time_constant(saen_cap);
-        let pc_b_delay_invs = ((1.2 * (1.2 * f64::max(wrdrven_tau, sae_tau) - pcb_tau)
+        let pc_b_delay_invs = ((1.2 * (1.35 * f64::max(wrdrven_tau, sae_tau) - pcb_tau)
             / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)))
             / 2.0)
             .max(0.)
             .ceil() as usize
             * 2
-            + 6;
+            + 8;
         let wrdrven_delay_invs = (((1.1 * pcb_tau - wrdrven_tau)
             / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)))
             / 2.0)
@@ -891,7 +888,8 @@ pub(crate) mod tests {
                     //     for corner in [sf] {
                     //         let corner = corner.clone();
                     //         let params = $params.clone();
-                    //         let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
+                    //         // let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
+                    //         let pex_netlist = None;
                     //         let work_dir = work_dir.clone();
                     //         handles.push(std::thread::spawn(move || {
                     //             let ctx = setup_ctx();
@@ -930,29 +928,40 @@ pub(crate) mod tests {
                     .expect("failed to write abstract");
                     println!("{}: done writing abstract", stringify!($name));
 
-                    // let timing_spice_path = out_spice(&work_dir, "timing_schematic");
-                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
-                    //     &$params,
-                    //     &timing_spice_path,
-                    //     NetlistPurpose::Timing,
-                    // )
-                    // .expect("failed to write timing schematic");
+                    let timing_spice_path = out_spice(&work_dir, "timing_schematic");
+                    ctx.write_schematic_to_file_for_purpose::<Sram>(
+                        &$params,
+                        &timing_spice_path,
+                        NetlistPurpose::Timing,
+                    )
+                    .expect("failed to write timing schematic");
 
-                    // let params = liberate_mx::LibParams::builder()
-                    //     .work_dir(work_dir.join("lib"))
-                    //     .output_file(crate::paths::out_lib(&work_dir, "timing_tt_025C_1v80.schematic"))
-                    //     .corner("tt")
-                    //     .cell_name(&*$params.name())
-                    //     .num_words($params.num_words())
-                    //     .data_width($params.data_width())
-                    //     .addr_width($params.addr_width())
-                    //     .wmask_width($params.wmask_width())
-                    //     .mux_ratio($params.mux_ratio())
-                    //     .has_wmask(true)
-                    //     .source_paths(vec![timing_spice_path])
-                    //     .build()
-                    //     .unwrap();
-                    // crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+                    for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", 40, dec!(1.95))] {
+                        let suffix = match corner {
+                            "tt" => "tt_025C_1v80",
+                            "ss" => "ss_100C_1v60",
+                            "ff" => "ff_n40C_1v95",
+                            _ => unreachable!(),
+                        };
+                        let name = format!("{}_{}", $params.name(), suffix);
+                        let params = liberate_mx::LibParams::builder()
+                            .work_dir(work_dir.join(format!("lib/{suffix}")))
+                            .output_file(crate::paths::out_lib(&work_dir, &name))
+                            .corner(corner)
+                            .cell_name(&*$params.name())
+                            .num_words($params.num_words())
+                            .data_width($params.data_width())
+                            .addr_width($params.addr_width())
+                            .wmask_width($params.wmask_width())
+                            .mux_ratio($params.mux_ratio())
+                            .has_wmask(true)
+                            .source_paths(vec![timing_spice_path.clone()])
+                            .vdd(vdd)
+                            .temp(temp)
+                            .build()
+                            .unwrap();
+                        crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+                    }
                 }
             }
         };
