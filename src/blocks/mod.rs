@@ -1,5 +1,4 @@
 pub mod bitcell_array;
-pub mod buf;
 pub mod coarse_tdc;
 pub mod columns;
 pub mod control;
@@ -7,6 +6,7 @@ pub mod decoder;
 pub mod delay_line;
 pub mod gate;
 pub mod guard_ring;
+pub mod latch;
 pub mod macros;
 pub mod precharge;
 pub mod senseamp;

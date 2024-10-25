@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::blocks::buf::layout::DiffBufCent;
-use crate::blocks::buf::DiffBuf;
 use crate::blocks::columns::{Column, ColumnDesignScript};
 use crate::blocks::decoder::DecoderStage;
+use crate::blocks::latch::layout::DiffLatchCent;
+use crate::blocks::latch::DiffLatch;
 use crate::blocks::macros::{SenseAmp, SenseAmpCent};
 use crate::blocks::precharge::layout::{PrechargeCent, PrechargeEnd, PrechargeEndParams};
 use crate::blocks::precharge::Precharge;
@@ -579,10 +579,10 @@ impl Column {
         }
         grid.push_row(row);
 
-        let mut buf = ctx.instantiate::<DiffBuf>(&self.params.buf)?;
+        let mut latch = ctx.instantiate::<DiffLatch>(&self.params.latch)?;
         let bbox = Rect::from_spans(
-            Span::with_start_and_length(buf.brect().left(), pc.brect().width()),
-            buf.brect().vspan(),
+            Span::with_start_and_length(latch.brect().left(), pc.brect().width()),
+            latch.brect().vspan(),
         );
 
         let mut row = Vec::new();
@@ -590,7 +590,7 @@ impl Column {
             row.push(None.into());
         }
         row.push(OptionTile::new(Tile::from(RectBbox::new(
-            buf.clone(),
+            latch.clone(),
             bbox,
         ))));
         for _ in offset + 1..mux_ratio {
@@ -625,7 +625,7 @@ impl Column {
         mux.translate(tiler.translation(1, 0));
         sa.translate(tiler.translation(2, offset));
         wrdrv.translate(tiler.translation(3, offset));
-        buf.translate(tiler.translation(4, offset));
+        latch.translate(tiler.translation(4, offset));
         dff.translate(tiler.translation(5, offset));
         tiler.expose_ports(
             |port: CellPort, (i, j)| match port.name().as_str() {
@@ -674,19 +674,19 @@ impl Column {
             ctx.draw_rect(m1, m1_rect);
         }
 
-        // Route positive diffbuf output to bottom.
-        let buf_out = buf.port("dout1")?.largest_rect(m0)?;
+        // Route positive difflatch output to bottom.
+        let latch_out = latch.port("dout1")?.largest_rect(m0)?;
         let dff_vss = dff.port("vss")?.largest_rect(m1)?;
         let dout_track = Span::with_stop_and_length(dff_vss.left() - 140, 280);
         let center_track =
-            Span::from_center_span_gridded(buf.brect().center().x, 280, ctx.pdk().layout_grid());
+            Span::from_center_span_gridded(latch.brect().center().x, 280, ctx.pdk().layout_grid());
 
         let jog_y = dff.port("q")?.largest_rect(m0)?.bottom() - 600;
         let jog = OffsetJog::builder()
             .dir(subgeom::Dir::Vert)
             .sign(subgeom::Sign::Neg)
-            .src(buf_out)
-            .dst(center_track.start())
+            .src(latch_out)
+            .dst(center_track.stop())
             .layer(m0)
             .space(300)
             .build()
@@ -724,10 +724,14 @@ impl Column {
         ctx.add_port(CellPort::with_shape("din", m1, rect1))?;
 
         // Route din and din_b to dff.
-        let dout2 = buf.port("dout2")?.largest_rect(m0)?;
+        let dout1 = latch.port("dout1")?.largest_rect(m0)?;
         for (in_port, out_port, center) in [
-            ("data", "q", buf.port("dout1")?.largest_rect(m0)?.center().x),
-            ("data_b", "q_n", dout2.center().x),
+            (
+                "data",
+                "q",
+                latch.port("dout2")?.largest_rect(m0)?.center().x,
+            ),
+            ("data_b", "q_n", dout1.center().x),
         ] {
             let port_rect = wrdrv.port(in_port)?.largest_rect(m0)?;
             let out_port_rect = if out_port == "q" {
@@ -743,11 +747,12 @@ impl Column {
             ctx.draw_ref(&via)?;
 
             let m1_track = Span::from_center_span_gridded(center, 280, ctx.pdk().layout_grid());
-            let m1_rect = Rect::from_spans(m1_track, dout2.vspan().union(out_port_rect.vspan()));
+            let m1_rect = Rect::from_spans(m1_track, dout1.vspan().union(out_port_rect.vspan()));
             let jog = SJog::builder()
-                .src(m1_rect)
-                .dst(via.layer_bbox(m1).into_rect())
+                .src(via.layer_bbox(m1).into_rect())
+                .dst(m1_rect)
                 .dir(Dir::Vert)
+                .l1(340)
                 .layer(m1)
                 .grid(ctx.pdk().layout_grid())
                 .build()
@@ -788,7 +793,7 @@ impl Column {
         }
 
         // Expand nwells
-        for inst in [&sa, &wrdrv, &buf] {
+        for inst in [&sa, &wrdrv, &latch] {
             for shape in inst.shapes_on(nwell) {
                 ctx.draw_rect(nwell, shape.brect().with_hspan(ctx.brect().hspan()));
             }
@@ -837,7 +842,7 @@ impl Component for ColumnCent {
         let mut sa = ctx.instantiate::<SenseAmpCent>(&NoParams)?;
         sa.set_orientation(Named::ReflectVert);
         let mut wrdrv = ctx.instantiate::<WriteDriverCent>(&self.params.col.wrdriver)?;
-        let mut buf = ctx.instantiate::<DiffBufCent>(&self.params.col.buf)?;
+        let mut latch = ctx.instantiate::<DiffLatchCent>(&self.params.col.latch)?;
         let mut dff = ctx.instantiate::<DffColCent>(&NoParams)?;
         let mut grid = Grid::new(0, 0);
         grid.push_row(into_vec![pc.clone()]);
@@ -847,7 +852,7 @@ impl Component for ColumnCent {
         )]);
         grid.push_row(into_vec![sa.clone()]);
         grid.push_row(into_vec![wrdrv.clone()]);
-        grid.push_row(into_vec![buf.clone()]);
+        grid.push_row(into_vec![latch.clone()]);
         grid.push_row(into_vec![dff.clone()]);
 
         let mut tiler = GridTiler::new(grid);
@@ -855,7 +860,7 @@ impl Component for ColumnCent {
         mux.translate(tiler.translation(1, 0));
         sa.translate(tiler.translation(2, 0));
         wrdrv.translate(tiler.translation(3, 0));
-        buf.translate(tiler.translation(4, 0));
+        latch.translate(tiler.translation(4, 0));
         dff.translate(tiler.translation(5, 0));
         tiler.expose_ports(
             |port: CellPort, (i, _)| match port.name().as_str() {

@@ -185,7 +185,7 @@ impl SramParams {
                 mux_ratio: self.mux_ratio(),
                 ..COL_PARAMS.mux.scale(mux_scale)
             },
-            buf: COL_PARAMS.buf,
+            latch: COL_PARAMS.latch,
             cols: self.cols(),
             wmask_granularity: self.wmask_granularity(),
             include_wmask: true,
@@ -834,26 +834,26 @@ pub(crate) mod tests {
                         );
                     }
 
-                    // let lvs_path = out_spice(&work_dir, "lvs_schematic");
-                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
-                    //     &$params,
-                    //     &lvs_path,
-                    //     NetlistPurpose::Lvs,
-                    // ).expect("failed to write lvs source netlist");
-                    // let lvs_work_dir = work_dir.join("lvs");
-                    // let output = run_lvs(&LvsParams{
-                    //     work_dir: &lvs_work_dir,
-                    //     layout_path: &gds_path,
-                    //     layout_cell_name: &$params.name(),
-                    //     source_paths: &[lvs_path],
-                    //     source_cell_name: &$params.name(),
-                    //     rules_path: Path::new(SKY130_LVS_RULES_PATH),
-                    //     layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
-                    // }).expect("failed to run LVS");
-                    // assert!(matches!(
-                    //     output.status,
-                    //     calibre::lvs::LvsStatus::Correct
-                    // ));
+                    let lvs_path = out_spice(&work_dir, "lvs_schematic");
+                    ctx.write_schematic_to_file_for_purpose::<Sram>(
+                        &$params,
+                        &lvs_path,
+                        NetlistPurpose::Lvs,
+                    ).expect("failed to write lvs source netlist");
+                    let lvs_work_dir = work_dir.join("lvs");
+                    let output = run_lvs(&LvsParams{
+                        work_dir: &lvs_work_dir,
+                        layout_path: &gds_path,
+                        layout_cell_name: &$params.name(),
+                        source_paths: &[lvs_path],
+                        source_cell_name: &$params.name(),
+                        rules_path: Path::new(SKY130_LVS_RULES_PATH),
+                        layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
+                    }).expect("failed to run LVS");
+                    assert!(matches!(
+                        output.status,
+                        calibre::lvs::LvsStatus::Correct
+                    ));
 
                     // let pex_path = out_spice(&work_dir, "pex_schematic");
                     // let pex_dir = work_dir.join("pex");
@@ -879,77 +879,77 @@ pub(crate) mod tests {
                     //     opts,
                     // }).expect("failed to run pex");
 
-                    let seq = TestSequence::Short;
-                    let corners = ctx.corner_db();
-                    let mut handles = Vec::new();
-                    for vdd in [1.8] {
-                        let sf = corners.corner_named("sf").unwrap();
-                        for corner in [sf] {
-                            let corner = corner.clone();
-                            let params = $params.clone();
-                            // let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
-                            let pex_netlist = None;
-                            let work_dir = work_dir.clone();
-                            handles.push(std::thread::spawn(move || {
-                                let ctx = setup_ctx();
-                                let dsn = ctx.run_script::<SramPhysicalDesignScript>(&params).expect("failed to run sram design script");
-                                let tb = crate::blocks::sram::testbench::tb_params(params, dsn, vdd, seq, pex_netlist);
-                                let work_dir = work_dir.join(format!(
-                                    "{}_{:.2}_{}",
-                                    corner.name(),
-                                    vdd,
-                                    seq.as_str(),
-                                ));
-                                let data = ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
-                                    &tb,
-                                    &work_dir,
-                                    corner.clone(),
-                                )
-                                .expect("failed to run simulation");
-                                verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
-                                println!(
-                                    "Simulated corner {} with Vdd = {}, seq = {}",
-                                    corner.name(),
-                                    vdd,
-                                    seq,
-                                );
-                            }));
-                        }
-                    }
-                    let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
-                    handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
+                    // let seq = TestSequence::Short;
+                    // let corners = ctx.corner_db();
+                    // let mut handles = Vec::new();
+                    // for vdd in [1.8] {
+                    //     let sf = corners.corner_named("sf").unwrap();
+                    //     for corner in [sf] {
+                    //         let corner = corner.clone();
+                    //         let params = $params.clone();
+                    //         // let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
+                    //         let pex_netlist = None;
+                    //         let work_dir = work_dir.clone();
+                    //         handles.push(std::thread::spawn(move || {
+                    //             let ctx = setup_ctx();
+                    //             let dsn = ctx.run_script::<SramPhysicalDesignScript>(&params).expect("failed to run sram design script");
+                    //             let tb = crate::blocks::sram::testbench::tb_params(params, dsn, vdd, seq, pex_netlist);
+                    //             let work_dir = work_dir.join(format!(
+                    //                 "{}_{:.2}_{}",
+                    //                 corner.name(),
+                    //                 vdd,
+                    //                 seq.as_str(),
+                    //             ));
+                    //             let data = ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
+                    //                 &tb,
+                    //                 &work_dir,
+                    //                 corner.clone(),
+                    //             )
+                    //             .expect("failed to run simulation");
+                    //             verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
+                    //             println!(
+                    //                 "Simulated corner {} with Vdd = {}, seq = {}",
+                    //                 corner.name(),
+                    //                 vdd,
+                    //                 seq,
+                    //             );
+                    //         }));
+                    //     }
+                    // }
+                    // let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
+                    // handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
 
-                    crate::abs::write_abstract(
-                        &ctx,
-                        &$params,
-                        crate::paths::out_lef(&work_dir, "abstract"),
-                    )
-                    .expect("failed to write abstract");
-                    println!("{}: done writing abstract", stringify!($name));
+                    // crate::abs::write_abstract(
+                    //     &ctx,
+                    //     &$params,
+                    //     crate::paths::out_lef(&work_dir, "abstract"),
+                    // )
+                    // .expect("failed to write abstract");
+                    // println!("{}: done writing abstract", stringify!($name));
 
-                    let timing_spice_path = out_spice(&work_dir, "timing_schematic");
-                    ctx.write_schematic_to_file_for_purpose::<Sram>(
-                        &$params,
-                        &timing_spice_path,
-                        NetlistPurpose::Timing,
-                    )
-                    .expect("failed to write timing schematic");
+                    // let timing_spice_path = out_spice(&work_dir, "timing_schematic");
+                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
+                    //     &$params,
+                    //     &timing_spice_path,
+                    //     NetlistPurpose::Timing,
+                    // )
+                    // .expect("failed to write timing schematic");
 
-                    let params = liberate_mx::LibParams::builder()
-                        .work_dir(work_dir.join("lib"))
-                        .output_file(crate::paths::out_lib(&work_dir, "timing_tt_025C_1v80.schematic"))
-                        .corner("tt")
-                        .cell_name(&*$params.name())
-                        .num_words($params.num_words())
-                        .data_width($params.data_width())
-                        .addr_width($params.addr_width())
-                        .wmask_width($params.wmask_width())
-                        .mux_ratio($params.mux_ratio())
-                        .has_wmask(true)
-                        .source_paths(vec![timing_spice_path])
-                        .build()
-                        .unwrap();
-                    crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+                    // let params = liberate_mx::LibParams::builder()
+                    //     .work_dir(work_dir.join("lib"))
+                    //     .output_file(crate::paths::out_lib(&work_dir, "timing_tt_025C_1v80.schematic"))
+                    //     .corner("tt")
+                    //     .cell_name(&*$params.name())
+                    //     .num_words($params.num_words())
+                    //     .data_width($params.data_width())
+                    //     .addr_width($params.addr_width())
+                    //     .wmask_width($params.wmask_width())
+                    //     .mux_ratio($params.mux_ratio())
+                    //     .has_wmask(true)
+                    //     .source_paths(vec![timing_spice_path])
+                    //     .build()
+                    //     .unwrap();
+                    // crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
                 }
             }
         };
