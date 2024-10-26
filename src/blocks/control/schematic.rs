@@ -20,16 +20,18 @@ impl ControlLogicReplicaV2 {
         let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
 
         // SIGNALS
-        let [clk_buf, clkp0, clkp, clkp_b, clkpd, clkpd_b, clkpdd, clkp_grst_b] = ctx.signals([
-            "clk_buf",
-            "clkp0",
-            "clkp",
-            "clkp_b",
-            "clkpd",
-            "clkpd_b",
-            "clkpdd",
-            "clkp_grst_b",
-        ]);
+        let [clkd, clk_buf, clkp0, clkp, clkp_b, clkpd, clkpd_b, clkpdd, clkp_grst_b] = ctx
+            .signals([
+                "clkd",
+                "clk_buf",
+                "clkp0",
+                "clkp",
+                "clkp_b",
+                "clkpd",
+                "clkpd_b",
+                "clkpdd",
+                "clkp_grst_b",
+            ]);
         let [decrepstart, decrepend] = ctx.signals(["decrepstart", "decrepend"]);
         let [wlen_grst_b, wlen_rst_decoderd, wlen_b, wlen_q, wlend_b, wlend] = ctx.signals([
             "wlen_grst_b",
@@ -74,9 +76,13 @@ impl ControlLogicReplicaV2 {
             .add_to(ctx);
 
         // CLK LOGIC
+        ctx.instantiate::<InvChain>(&4)?
+            .with_connections([("din", clk), ("dout", clkd), ("vdd", vdd), ("vss", vss)])
+            .named("clk_delay")
+            .add_to(ctx);
         ctx.instantiate::<StdCell>(&and2.id())?
             .with_connections([
-                ("A", clk),
+                ("A", clkd),
                 ("B", ce),
                 ("X", clk_buf),
                 ("VPWR", vdd),

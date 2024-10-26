@@ -108,6 +108,7 @@ impl ControlLogicReplicaV2 {
         rows.push(LayerBbox::new(
             create_row(&[
                 ("reset_inv", &biginv),
+                ("clk_delay", &ctx.instantiate::<InvChain>(&4)?),
                 ("clk_gate", &and2),
                 ("clk_pulse", &edge_detector),
                 ("clk_pulse_buf", &buf),
@@ -393,13 +394,13 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, resetb_in);
         router.occupy(m1, resetb_in, "rstb")?;
 
-        // clk -> clk_gate.a
-        let clk_in = group.port_map().port("clk_gate_a")?.largest_rect(m0)?;
+        // clk -> clk_delay.din
+        let clk_in = group.port_map().port("clk_delay_din")?.largest_rect(m0)?;
         let mut via = via01.clone();
         via.align_centers_gridded(clk_in.bbox(), grid);
         let clk_in = router.expand_to_grid(
             via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Corner(Corner::LowerLeft),
+            ExpandToGridStrategy::Corner(Corner::UpperLeft),
         );
         ctx.draw(via)?;
         ctx.draw_rect(m1, clk_in);
@@ -435,6 +436,16 @@ impl ControlLogicReplicaV2 {
             router.expand_to_grid(reset_out, ExpandToGridStrategy::Corner(Corner::UpperRight));
         ctx.draw_rect(m1, reset_out);
         router.occupy(m1, reset_out, "reset")?;
+
+        let clk_gate_out = group.port_map().port("clk_delay_dout")?.largest_rect(m0)?;
+        let clk_pulse_in = group.port_map().port("clk_gate_a")?.largest_rect(m0)?;
+        ctx.draw_rect(
+            m0,
+            Rect::from_spans(
+                Span::new(clk_gate_out.right(), clk_pulse_in.left()),
+                Span::from_center_span_gridded(clk_pulse_in.vspan().center(), 180, 10),
+            ),
+        );
 
         // clk_gate.x -> clk_pulse.din
         let clk_gate_out = group.port_map().port("clk_gate_x")?.largest_rect(m0)?;

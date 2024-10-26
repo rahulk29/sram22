@@ -40,8 +40,8 @@ ngspice = { git = "https://github.com/substrate-labs/substrate", branch = "main"
 sky130_commercial_pdk = { git = "https://github.com/substrate-labs/substrate", branch = "main", optional = true }
 spectre = { git = "https://github.com/substrate-labs/substrate", branch = "main", optional = true }
 sub_calibre = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rohankumar/substrate_mentor_plugins.git", branch = "main", optional = true }
-rust_decimal = "1.36.0"
-rust_decimal_macros = "1.36.0"
+rust_decimal = "1"
+rust_decimal_macros = "1"
 
 [dev-dependencies]
 tempfile = "3"
