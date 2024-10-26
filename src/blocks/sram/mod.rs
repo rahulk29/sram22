@@ -1044,6 +1044,8 @@ pub(crate) mod tests {
                     //     println!("{}: done generating LIB for corner `{}`", stringify!($name), corner);
                     // }
                 }
+
+                println!("{}: all tasks complete", stringify!($name));
             }
         };
     }
