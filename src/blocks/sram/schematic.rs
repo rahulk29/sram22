@@ -1,3 +1,4 @@
+use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
 use substrate::pdk::stdcell::StdCell;
@@ -18,7 +19,7 @@ use crate::blocks::gate::GateParams;
 use crate::blocks::precharge::Precharge;
 
 use super::layout::NeedsDiodes;
-use super::{SramInner, SramPhysicalDesignScript};
+use super::{SramInner, SramPhysicalDesignScript, TappedDiode};
 
 impl SramInner {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
@@ -51,17 +52,13 @@ impl SramInner {
         // If needed, added antenna diodes to m1 pins.
 
         if let NeedsDiodes::Yes = layout.cell().get_metadata::<NeedsDiodes>() {
-            let stdcells = ctx.inner().std_cell_db();
-            let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
-            let diode = lib.try_cell_named("sky130_fd_sc_hs__diode_2")?;
-
             for (port, width) in [
-                (dout, self.params.data_width()),
+                // (dout, self.params.data_width()),
                 (din, self.params.data_width()),
                 (wmask, self.params.wmask_width()),
             ] {
                 for i in 0..width {
-                    ctx.instantiate::<StdCell>(&diode.id())?
+                    ctx.instantiate::<TappedDiode>(&NoParams)?
                         .with_connections([
                             ("DIODE", port.index(i)),
                             ("VPWR", vdd),

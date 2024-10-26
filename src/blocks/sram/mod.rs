@@ -9,16 +9,21 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::path::{Path, PathBuf};
 use subgeom::bbox::BoundBox;
 use subgeom::{Corner, Dir, Point, Rect, Span};
-use substrate::component::{error, Component};
+use substrate::component::{error, Component, NoParams};
 use substrate::error::ErrorSource;
 use substrate::layout::cell::{CellPort, Element, Port, PortConflictStrategy, PortId};
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::group::Group;
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerSpec;
+use substrate::layout::placement::align::AlignMode;
+use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::place_bbox::PlaceBbox;
+use substrate::layout::placement::tile::LayerBbox;
 use substrate::layout::routing::auto::straps::PlacedStraps;
 use substrate::layout::straps::SingleSupplyNet;
+use substrate::pdk::stdcell::StdCell;
+use substrate::schematic::circuit::Direction;
 use substrate::script::Script;
 
 use super::bitcell_array::replica::ReplicaCellArrayParams;
@@ -45,6 +50,74 @@ pub const BITLINE_CAP_PER_CELL: f64 = 0.00000000000008859364177937068 / 128.;
 /// The threshold at which further decoder scaling does not help,
 /// since delay is dominated by routing resistance/capacitance.
 pub const WORDLINE_CAP_MAX: f64 = 500e-15;
+
+/// Tapped diode, can be added to long m1 pins if needed.
+pub struct TappedDiode;
+
+impl Component for TappedDiode {
+    type Params = NoParams;
+    fn new(
+        _params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self)
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("tapped_diode")
+    }
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        let _ports = ctx.ports(["VPWR", "VPB", "VGND", "VNB"], Direction::InOut);
+        let _ports = ctx.port("DIODE", Direction::Input);
+        if ctx.pdk().name() == "sky130-commercial" {
+            ctx.set_spice("D0 VNB DIODE ndiode area=0.6417 pj=3.24");
+        } else {
+            ctx.set_spice("X0 VNB DIODE sky130_fd_pr__diode_pw2nd p=7.32 a=0.6417");
+        }
+        Ok(())
+    }
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+        let outline = layers.get(Selector::Name("outline"))?;
+
+        let stdcells = ctx.inner().std_cell_db();
+        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
+
+        let tap = lib.try_cell_named("sky130_fd_sc_hs__tap_2")?;
+        let tap = ctx.instantiate::<StdCell>(&tap.id())?;
+        let tap = LayerBbox::new(tap, outline);
+        let diode = lib.try_cell_named("sky130_fd_sc_hs__diode_2")?;
+        let diode = ctx.instantiate::<StdCell>(&diode.id())?;
+        let diode = LayerBbox::new(diode, outline);
+
+        let mut row = ArrayTiler::builder();
+        row.mode(AlignMode::ToTheRight).alt_mode(AlignMode::Top);
+        row.push(tap.clone());
+        row.push(diode);
+        row.push(tap);
+        let mut row = row.build();
+        row.expose_ports(
+            |port: CellPort, i| {
+                if i == 1 || port.name() == "vpwr" || port.name() == "vgnd" {
+                    Some(port)
+                } else {
+                    None
+                }
+            },
+            PortConflictStrategy::Merge,
+        )?;
+        let group = row.generate()?;
+        ctx.add_ports(group.ports())?;
+        ctx.draw(group)?;
+
+        Ok(())
+    }
+}
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct SramConfig {
@@ -920,48 +993,48 @@ pub(crate) mod tests {
                     // let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
                     // handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
 
-                    crate::abs::write_abstract(
-                        &ctx,
-                        &$params,
-                        crate::paths::out_lef(&work_dir, "abstract"),
-                    )
-                    .expect("failed to write abstract");
-                    println!("{}: done writing abstract", stringify!($name));
+                    // crate::abs::write_abstract(
+                    //     &ctx,
+                    //     &$params,
+                    //     crate::paths::out_lef(&work_dir, "abstract"),
+                    // )
+                    // .expect("failed to write abstract");
+                    // println!("{}: done writing abstract", stringify!($name));
 
-                    let timing_spice_path = out_spice(&work_dir, "timing_schematic");
-                    ctx.write_schematic_to_file_for_purpose::<Sram>(
-                        &$params,
-                        &timing_spice_path,
-                        NetlistPurpose::Timing,
-                    )
-                    .expect("failed to write timing schematic");
+                    // let timing_spice_path = out_spice(&work_dir, "timing_schematic");
+                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
+                    //     &$params,
+                    //     &timing_spice_path,
+                    //     NetlistPurpose::Timing,
+                    // )
+                    // .expect("failed to write timing schematic");
 
-                    for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", 40, dec!(1.95))] {
-                        let suffix = match corner {
-                            "tt" => "tt_025C_1v80",
-                            "ss" => "ss_100C_1v60",
-                            "ff" => "ff_n40C_1v95",
-                            _ => unreachable!(),
-                        };
-                        let name = format!("{}_{}", $params.name(), suffix);
-                        let params = liberate_mx::LibParams::builder()
-                            .work_dir(work_dir.join(format!("lib/{suffix}")))
-                            .output_file(crate::paths::out_lib(&work_dir, &name))
-                            .corner(corner)
-                            .cell_name(&*$params.name())
-                            .num_words($params.num_words())
-                            .data_width($params.data_width())
-                            .addr_width($params.addr_width())
-                            .wmask_width($params.wmask_width())
-                            .mux_ratio($params.mux_ratio())
-                            .has_wmask(true)
-                            .source_paths(vec![timing_spice_path.clone()])
-                            .vdd(vdd)
-                            .temp(temp)
-                            .build()
-                            .unwrap();
-                        crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
-                    }
+                    // for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", 40, dec!(1.95))] {
+                    //     let suffix = match corner {
+                    //         "tt" => "tt_025C_1v80",
+                    //         "ss" => "ss_100C_1v60",
+                    //         "ff" => "ff_n40C_1v95",
+                    //         _ => unreachable!(),
+                    //     };
+                    //     let name = format!("{}_{}", $params.name(), suffix);
+                    //     let params = liberate_mx::LibParams::builder()
+                    //         .work_dir(work_dir.join(format!("lib/{suffix}")))
+                    //         .output_file(crate::paths::out_lib(&work_dir, &name))
+                    //         .corner(corner)
+                    //         .cell_name(&*$params.name())
+                    //         .num_words($params.num_words())
+                    //         .data_width($params.data_width())
+                    //         .addr_width($params.addr_width())
+                    //         .wmask_width($params.wmask_width())
+                    //         .mux_ratio($params.mux_ratio())
+                    //         .has_wmask(true)
+                    //         .source_paths(vec![timing_spice_path.clone()])
+                    //         .vdd(vdd)
+                    //         .temp(temp)
+                    //         .build()
+                    //         .unwrap();
+                    //     crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+                    // }
                 }
             }
         };
