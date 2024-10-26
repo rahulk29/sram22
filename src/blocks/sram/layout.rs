@@ -30,62 +30,7 @@ use crate::blocks::control::ControlLogicReplicaV2;
 use crate::blocks::decoder::{Decoder, DecoderStage};
 use crate::blocks::precharge::layout::ReplicaPrecharge;
 
-use super::{SramInner, SramPhysicalDesignScript};
-
-/// Tapped diode, can be added to long m1 pins if needed.
-pub struct TappedDiode;
-
-impl Component for TappedDiode {
-    type Params = NoParams;
-    fn new(
-        _params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        Ok(Self)
-    }
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("tapped_diode")
-    }
-    fn layout(
-        &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
-    ) -> substrate::error::Result<()> {
-        let layers = ctx.layers();
-        let outline = layers.get(Selector::Name("outline"))?;
-
-        let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hd")?;
-
-        let tap = lib.try_cell_named("sky130_fd_sc_hd__tap_2")?;
-        let tap = ctx.instantiate::<StdCell>(&tap.id())?;
-        let tap = LayerBbox::new(tap, outline);
-        let diode = lib.try_cell_named("sky130_fd_sc_hd__diode_2")?;
-        let diode = ctx.instantiate::<StdCell>(&diode.id())?;
-        let diode = LayerBbox::new(diode, outline);
-
-        let mut row = ArrayTiler::builder();
-        row.mode(AlignMode::ToTheRight).alt_mode(AlignMode::Top);
-        row.push(tap.clone());
-        row.push(diode);
-        row.push(tap);
-        let mut row = row.build();
-        row.expose_ports(
-            |port: CellPort, i| {
-                if i == 1 || port.name() == "vpwr" || port.name() == "vgnd" {
-                    Some(port)
-                } else {
-                    None
-                }
-            },
-            PortConflictStrategy::Merge,
-        )?;
-        let group = row.generate()?;
-        ctx.add_ports(group.ports())?;
-        ctx.draw(group)?;
-
-        Ok(())
-    }
-}
+use super::{SramInner, SramPhysicalDesignScript, TappedDiode};
 
 /// Returns the layer used for routing in the provided direction.
 ///
@@ -1048,15 +993,15 @@ impl SramInner {
                 let dff_idx = dsn.num_dffs - i - 3 - self.params.col_select_bits();
                 let port_rect = addr_gate.port(PortId::new("in", idx))?.largest_rect(m0)?;
                 let rect = if j == 0 {
+                    dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?
+                } else {
                     dffs.port(PortId::new("q_n", dff_idx))?
                         .first_rect(m0, Side::Left)?
-                } else {
-                    dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?
                 };
                 let (loc, side) = if j == 0 {
-                    (TrackLocator::StartsAfter, Side::Left)
-                } else {
                     (TrackLocator::EndsBefore, Side::Right)
+                } else {
+                    (TrackLocator::StartsAfter, Side::Left)
                 };
                 let track_span = m1_tracks.index(
                     m1_tracks.track_with_loc(loc, rect.side(side) - 140 * side.sign().as_int()),
@@ -1066,10 +1011,13 @@ impl SramInner {
                 let dff_port = Rect::from_spans(track_span, via.layer_bbox(m1).into_rect().vspan());
                 draw_rect(m1, dff_port, &mut router, ctx);
 
-                let m2_track_idx = dff_m2_track_idx + idx as i64;
+                let m2_track_idx =
+                    dff_m2_track_idx + 2 * self.params.row_bits() as i64 - 1 - idx as i64;
                 let m1_track_idx = m1_tracks.track_with_loc(
                     TrackLocator::EndsBefore,
                     addr_gate
+                        .brect()
+                        .expand_side(Side::Left, 680)
                         .bbox()
                         .union(rbl.brect().expand_side(Side::Left, 6_000).bbox())
                         .union(wlen_buffer.brect().expand_side(Side::Left, 2_000).bbox())
@@ -1078,21 +1026,47 @@ impl SramInner {
                         - 140,
                 ) - idx as i64;
                 let m1_track = m1_tracks.index(m1_track_idx);
+                let m2_track = m2_tracks.index(m2_track_idx);
 
-                let m0_rect = port_rect.with_hspan(port_rect.hspan().union(m1_track));
+                let m2_rect = Rect::from_spans(
+                    m1_track.add_point(port_rect.left() - 600),
+                    Span::from_center_span_gridded(
+                        port_rect.center().y,
+                        320,
+                        ctx.pdk().layout_grid(),
+                    ),
+                );
+                let m0_rect = port_rect.with_hspan(
+                    port_rect
+                        .hspan()
+                        .union(Span::with_stop_and_length(m2_rect.right(), 320)),
+                );
                 ctx.draw_rect(m0, m0_rect);
-                let via = draw_via(m0, m0_rect, m1, m0_rect.with_hspan(m1_track), ctx)?;
+                draw_rect(m2, m2_rect, &mut router, ctx);
+                let via = draw_via(m0, m0_rect, m1, m2_rect, ctx)?;
+                router.block(m1, via.layer_bbox(m1).brect());
+                let via = draw_via(m1, m0_rect, m2, m2_rect, ctx)?;
+                router.block(m1, via.layer_bbox(m1).brect());
+                draw_via(m1, m2_rect.with_hspan(m1_track), m2, m2_rect, ctx)?;
 
-                draw_route(
+                draw_rect(
                     m1,
-                    via.layer_bbox(m1).into_rect(),
-                    m1,
-                    dff_port,
-                    Dir::Vert,
-                    vec![m1_track_idx, m2_track_idx],
+                    Rect::from_spans(m1_track, m2_rect.vspan().union(m2_track)),
                     &mut router,
                     ctx,
-                )?;
+                );
+                draw_rect(
+                    m1,
+                    Rect::from_spans(m1_track.union(track_span), m2_track),
+                    &mut router,
+                    ctx,
+                );
+                draw_rect(
+                    m1,
+                    Rect::from_spans(track_span, m2_track.union(dff_port.vspan())),
+                    &mut router,
+                    ctx,
+                );
             }
         }
 
@@ -1354,21 +1328,20 @@ impl SramInner {
                 draw_rect(m1, rect, &mut router, ctx);
                 ctx.add_port(CellPort::builder().id(port_id).add(m1, rect).build())?;
 
-                if needs_diodes {
+                if port != "dout" && needs_diodes {
                     let mut diode = ctx
                         .instantiate::<TappedDiode>(&NoParams)?
                         .with_orientation(Named::R90);
                     diode.align(
                         AlignMode::Left,
                         rect,
-                        match j {
-                            0 => -2_000,
-                            1 => -1_000,
-                            2 => -1_800,
+                        match port {
+                            "din" => -1_200,
+                            "wmask" => -1_400,
                             _ => unreachable!(),
                         },
                     );
-                    diode.align(AlignMode::Beneath, &cols, -6_000 * (j + 1) as i64);
+                    diode.align(AlignMode::Beneath, &cols, 6_000 * (j + 1) as i64);
                     let diode_port = diode.port("diode")?.largest_rect(m0)?;
                     let diode_via = ctx.instantiate::<Via>(
                         &ViaParams::builder()
@@ -1376,8 +1349,18 @@ impl SramInner {
                             .geometry(diode_port, rect)
                             .build(),
                     )?;
-                    ctx.draw(diode)?;
                     ctx.draw(diode_via)?;
+                    for shape in diode.shapes_on(m1) {
+                        let rect = shape.brect();
+                        router.block(m1, rect);
+                    }
+                    for (port, net) in [
+                        ("vpwr", SingleSupplyNet::Vdd),
+                        ("vgnd", SingleSupplyNet::Vss),
+                    ] {
+                        straps.add_target(m1, Target::new(net, diode.port(port)?.bbox(m1)));
+                    }
+                    ctx.draw(diode)?;
                 }
             }
         }
