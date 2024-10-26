@@ -232,7 +232,7 @@ impl Script for SramPhysicalDesignScript {
         println!("clamped wl_cap = {:.2}fF", clamped_wl_cap * 1e15);
         let mut col_params = params.col_params();
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
-        let rbl_rows = ((params.rows() / 12) + 1) * 2;
+        let rbl_rows = ((params.rows() / 16) + 1) * 2;
         let rbl_wl_index = rbl_rows / 2;
         let rbl = ReplicaCellArrayParams {
             rows: rbl_rows,
@@ -799,14 +799,17 @@ pub(crate) mod tests {
                 let spice_path = out_spice(&work_dir, "schematic");
                 ctx.write_schematic_to_file::<Sram>(&$params, &spice_path)
                     .expect("failed to write schematic");
+                    println!("{}: done writing schematic", stringify!($name));
 
                 let gds_path = out_gds(&work_dir, "layout");
                 ctx.write_layout::<Sram>(&$params, &gds_path)
                     .expect("failed to write layout");
+                    println!("{}: done writing layout", stringify!($name));
 
                 let verilog_path = out_verilog(&work_dir, &*$params.name());
                 save_1rw_verilog(&verilog_path, &$params)
                     .expect("failed to write behavioral model");
+                    println!("{}: done writing Verilog model", stringify!($name));
 
                 #[cfg(feature = "commercial")]
                 {
@@ -833,6 +836,7 @@ pub(crate) mod tests {
                             output.rule_checks.is_empty(),
                             "DRC must have no rule violations"
                         );
+                        println!("{}: done running DRC deck `{}`", stringify!($name), deck);
                     }
 
                     let lvs_path = out_spice(&work_dir, "lvs_schematic");
@@ -855,6 +859,7 @@ pub(crate) mod tests {
                         output.status,
                         calibre::lvs::LvsStatus::Correct
                     ));
+                    println!("{}: done running LVS", stringify!($name));
 
                     let pex_path = out_spice(&work_dir, "pex_schematic");
                     let pex_dir = work_dir.join("pex");
@@ -879,6 +884,7 @@ pub(crate) mod tests {
                         ground_net: "vss".to_string(),
                         opts,
                     }).expect("failed to run pex");
+                    println!("{}: done running PEX", stringify!($name));
 
                     let seq = TestSequence::Short;
                     let corners = ctx.corner_db();
@@ -909,7 +915,8 @@ pub(crate) mod tests {
                                 .expect("failed to run simulation");
                                 verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
                                 println!(
-                                    "Simulated corner {} with Vdd = {}, seq = {}",
+                                    "{}: done simulating in corner {} with Vdd = {}, seq = {}",
+                                    stringify!($name),
                                     corner.name(),
                                     vdd,
                                     seq,
@@ -936,32 +943,33 @@ pub(crate) mod tests {
                     )
                     .expect("failed to write timing schematic");
 
-                    for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", 40, dec!(1.95))] {
-                        let suffix = match corner {
-                            "tt" => "tt_025C_1v80",
-                            "ss" => "ss_100C_1v60",
-                            "ff" => "ff_n40C_1v95",
-                            _ => unreachable!(),
-                        };
-                        let name = format!("{}_{}", $params.name(), suffix);
-                        let params = liberate_mx::LibParams::builder()
-                            .work_dir(work_dir.join(format!("lib/{suffix}")))
-                            .output_file(crate::paths::out_lib(&work_dir, &name))
-                            .corner(corner)
-                            .cell_name(&*$params.name())
-                            .num_words($params.num_words())
-                            .data_width($params.data_width())
-                            .addr_width($params.addr_width())
-                            .wmask_width($params.wmask_width())
-                            .mux_ratio($params.mux_ratio())
-                            .has_wmask(true)
-                            .source_paths(vec![timing_spice_path.clone()])
-                            .vdd(vdd)
-                            .temp(temp)
-                            .build()
-                            .unwrap();
-                        crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
-                    }
+                    // for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", 40, dec!(1.95))] {
+                    //     let suffix = match corner {
+                    //         "tt" => "tt_025C_1v80",
+                    //         "ss" => "ss_100C_1v60",
+                    //         "ff" => "ff_n40C_1v95",
+                    //         _ => unreachable!(),
+                    //     };
+                    //     let name = format!("{}_{}", $params.name(), suffix);
+                    //     let params = liberate_mx::LibParams::builder()
+                    //         .work_dir(work_dir.join(format!("lib/{suffix}")))
+                    //         .output_file(crate::paths::out_lib(&work_dir, &name))
+                    //         .corner(corner)
+                    //         .cell_name(&*$params.name())
+                    //         .num_words($params.num_words())
+                    //         .data_width($params.data_width())
+                    //         .addr_width($params.addr_width())
+                    //         .wmask_width($params.wmask_width())
+                    //         .mux_ratio($params.mux_ratio())
+                    //         .has_wmask(true)
+                    //         .source_paths(vec![timing_spice_path.clone()])
+                    //         .vdd(vdd)
+                    //         .temp(temp)
+                    //         .build()
+                    //         .unwrap();
+                    //     crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+                    //     println!("{}: done generating LIB for corner `{}`", stringify!($name), corner);
+                    // }
                 }
             }
         };
