@@ -76,14 +76,14 @@ pub struct TbWaveforms {
     we: Waveform,
 
     /// Reset.
-    reset: Waveform,
+    rstb: Waveform,
 }
 
 fn generate_waveforms(params: &TbParams) -> TbWaveforms {
     let mut clk = Waveform::with_initial_value(0f64);
     let mut we = Waveform::with_initial_value(0f64);
     let mut ce = Waveform::with_initial_value(0f64);
-    let mut reset = Waveform::with_initial_value(0f64);
+    let mut rstb = Waveform::with_initial_value(0f64);
 
     let period = params.clk_period;
     let vdd = params.vdd;
@@ -106,16 +106,16 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 we.push_low(t_data, vdd, tf);
                 // Set chip enable high
                 ce.push_high(t_data, vdd, tr);
-                // Set reset low
-                reset.push_low(t_data, vdd, tf);
+                // Set rstb high
+                rstb.push_high(t_data, vdd, tf);
             }
             Op::Write => {
                 // Set write enable high
                 we.push_high(t_data, vdd, tr);
                 // Set chip enable high
                 ce.push_high(t_data, vdd, tr);
-                // Set reset low
-                reset.push_low(t_data, vdd, tf);
+                // Set rstb high
+                rstb.push_high(t_data, vdd, tf);
             }
 
             Op::None => {
@@ -123,8 +123,8 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 we.push_low(t_data, vdd, tf);
                 // Set chip enable low
                 ce.push_low(t_data, vdd, tf);
-                // Set reset low
-                reset.push_low(t_data, vdd, tf);
+                // Set rstb high
+                rstb.push_high(t_data, vdd, tf);
             }
 
             Op::Reset => {
@@ -132,8 +132,8 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
                 we.push_low(t_data, vdd, tf);
                 // Set chip enable low
                 ce.push_low(t_data, vdd, tf);
-                // Set reset low
-                reset.push_high(t_data, vdd, tr);
+                // Set rstb low
+                rstb.push_low(t_data, vdd, tf);
             }
         }
 
@@ -150,10 +150,10 @@ fn generate_waveforms(params: &TbParams) -> TbWaveforms {
     // Turn off control signals
     we.push_low(t_final, vdd, tf);
     ce.push_low(t_final, vdd, tf);
-    reset.push_low(t_final, vdd, tf);
+    rstb.push_high(t_final, vdd, tf);
     clk.push_high(t_final, vdd, tr);
 
-    TbWaveforms { clk, we, ce, reset }
+    TbWaveforms { clk, we, ce, rstb }
 }
 
 impl Component for ControlLogicTestbench {
@@ -176,13 +176,13 @@ impl Component for ControlLogicTestbench {
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
         let vss = ctx.port("vss", Direction::InOut);
-        let [vdd, clk, we, ce, reset, saen, pc_b, wlen, wrdrven, rbl, decrepstart, decrepend] = ctx
+        let [vdd, clk, we, ce, rstb, saen, pc_b, wlen, wrdrven, rbl, decrepstart, decrepend] = ctx
             .signals([
                 "vdd",
                 "clk",
                 "we",
                 "ce",
-                "reset",
+                "rstb",
                 "saen",
                 "pc_b",
                 "wlen",
@@ -207,7 +207,7 @@ impl Component for ControlLogicTestbench {
             ("clk", clk),
             ("we", we),
             ("ce", ce),
-            ("reset", reset),
+            ("rstb", rstb),
             ("saen", saen),
             ("pc_b", pc_b),
             ("wlen", wlen),
@@ -246,9 +246,9 @@ impl Component for ControlLogicTestbench {
             .with_connections([("p", ce), ("n", vss)])
             .named("Vce")
             .add_to(ctx);
-        ctx.instantiate::<Vpwl>(&Arc::new(waveforms.reset))?
-            .with_connections([("p", reset), ("n", vss)])
-            .named("Vreset")
+        ctx.instantiate::<Vpwl>(&Arc::new(waveforms.rstb))?
+            .with_connections([("p", rstb), ("n", vss)])
+            .named("Vrstb")
             .add_to(ctx);
         ctx.instantiate::<Capacitor>(&output_cap)?
             .with_connections([("p", rbl), ("n", vss)])
