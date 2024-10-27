@@ -33,7 +33,7 @@ pub fn write_internal_rpt(
     writeln!(rpt, "==========================")?;
     let wl = (0..tb.sram.rows())
         .map(|i| {
-            data.waveform(&tb.sram_signal_path(TbSignals::WlEnd(i)))
+            data.waveform(&tb.sram_signal_path(TbSignals::WlStart(i)))
                 .ok_or_else(|| anyhow!("Unable to find signal wl"))
         })
         .collect::<Result<Vec<_>>>()?;
