@@ -76,7 +76,7 @@ impl ControlLogicReplicaV2 {
             .add_to(ctx);
 
         // CLK LOGIC
-        ctx.instantiate::<InvChain>(&4)?
+        ctx.instantiate::<InvChain>(&12)?
             .with_connections([("din", clk), ("dout", clkd), ("vdd", vdd), ("vss", vss)])
             .named("clk_delay")
             .add_to(ctx);

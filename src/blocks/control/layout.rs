@@ -108,7 +108,7 @@ impl ControlLogicReplicaV2 {
         rows.push(LayerBbox::new(
             create_row(&[
                 ("reset_inv", &biginv),
-                ("clk_delay", &ctx.instantiate::<InvChain>(&4)?),
+                ("clk_delay", &ctx.instantiate::<InvChain>(&12)?),
                 ("clk_gate", &and2),
                 ("clk_pulse", &edge_detector),
                 ("clk_pulse_buf", &buf),

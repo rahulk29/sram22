@@ -1020,8 +1020,8 @@ impl Testbench for SramTestbench {
             .map(|signal| self.params.sram_signal_path(signal))
             .collect::<HashSet<_>>();
 
-        ctx.save(Save::Signals(signals));
-        // ctx.save(Save::All);
+        // ctx.save(Save::Signals(signals));
+        ctx.save(Save::All);
 
         let vdd = SiValue::with_precision(self.params.vdd, SiPrefix::Nano);
 
