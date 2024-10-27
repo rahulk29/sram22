@@ -33,12 +33,11 @@ impl ControlLogicReplicaV2 {
                 "clkp_grst_b",
             ]);
         let [decrepstart, decrepend] = ctx.signals(["decrepstart", "decrepend"]);
-        let [wlen_grst_b, wlen_rst_decoderd, wlen_b, wlen_q, wlend_b, wlend] = ctx.signals([
+        let [wlen_grst_b, wlen_rst_decoderd, wlen_b, wlen_q, wlend] = ctx.signals([
             "wlen_grst_b",
             "wlen_rst_decoderd",
             "wlen_b",
             "wlen_q",
-            "wlend_b",
             "wlend",
         ]);
         let [saen_set_b, saen_b] = ctx.signals(["saen_set_b", "saen_b"]);
@@ -48,13 +47,14 @@ impl ControlLogicReplicaV2 {
             "wrdrven_grst_b",
             "wrdrven_b",
         ]);
-        let [reset, we_b, pc, pc_set_b, rbl_b] =
-            ctx.signals(["reset", "we_b", "pc", "pc_set_b", "rbl_b"]);
+        let [reset, we_b, pc, pc_set_b, rbl_b, rbld] =
+            ctx.signals(["reset", "we_b", "pc", "pc_set_b", "rbl_b", "rbld"]);
 
         // STANDARD CELLS
         let stdcells = ctx.inner().std_cell_db();
         let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
         let inv = lib.try_cell_named("sky130_fd_sc_hs__inv_2")?;
+        let inv4 = lib.try_cell_named("sky130_fd_sc_hs__inv_4")?;
         let and2 = lib.try_cell_named("sky130_fd_sc_hs__and2_2")?;
         let and2_med = lib.try_cell_named("sky130_fd_sc_hs__and2_4")?;
         let nand2 = lib.try_cell_named("sky130_fd_sc_hs__nand2_4")?;
@@ -205,6 +205,17 @@ impl ControlLogicReplicaV2 {
             ])
             .named("inv_rbl")
             .add_to(ctx);
+        ctx.instantiate::<StdCell>(&inv4.id())?
+            .with_connections([
+                ("A", rbl_b),
+                ("Y", rbld),
+                ("VPWR", vdd),
+                ("VPB", vdd),
+                ("VGND", vss),
+                ("VNB", vss),
+            ])
+            .named("inv_rbl")
+            .add_to(ctx);
         ctx.instantiate::<StdCell>(&nor2.id())?
             .with_connections([
                 ("A", decrepstart),
@@ -267,7 +278,7 @@ impl ControlLogicReplicaV2 {
             .add_to(ctx);
         ctx.instantiate::<StdCell>(&nand2.id())?
             .with_connections([
-                ("A", wlend_b),
+                ("A", rbld),
                 ("B", we_b),
                 ("Y", wlend),
                 ("VPWR", vdd),
@@ -288,15 +299,6 @@ impl ControlLogicReplicaV2 {
                 ("VNB", vss),
             ])
             .named("and_wlen")
-            .add_to(ctx);
-        ctx.instantiate::<InvChain>(&3)?
-            .with_connections([
-                ("din", wlen_q),
-                ("dout", wlend_b),
-                ("vdd", vdd),
-                ("vss", vss),
-            ])
-            .named("wlen_q_delay")
             .add_to(ctx);
         ctx.instantiate::<StdCell>(&buf.id())?
             .with_connections([
