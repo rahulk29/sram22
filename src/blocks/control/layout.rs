@@ -554,6 +554,21 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, clkp_b_in);
         router.occupy(m1, clkp_b_in, "clkp_b")?;
 
+        // decoder_replica.dout
+        let decrepend_out = group
+            .port_map()
+            .port("decoder_replica_dout")?
+            .largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(decrepend_out.bbox(), grid);
+        let decrepend_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, decrepend_out);
+        router.occupy(m1, decrepend_out, "decrepend")?;
+
         // clkp_b -> pc_ctl.rb
         let pin = group.port_map().port("pc_ctl_rb")?.largest_rect(m0)?;
         let mut via = via01.clone();
@@ -642,15 +657,15 @@ impl ControlLogicReplicaV2 {
         )?;
 
         // decrepend
-        let decrepends = snap_pins(
+        let mut decrepends = snap_pins(
             "decrepend",
             &[
-                "decoder_replica_dout",
                 "decoder_replica_delay_din",
                 "wrdrven_grst_a",
                 "nand_sense_en_b",
             ],
         )?;
+        decrepends.push(decrepend_out);
 
         // we -> wrdrven_set.b
         let we_in_1 = group.port_map().port("wrdrven_set_b")?.largest_rect(m0)?;
@@ -1017,10 +1032,10 @@ impl ControlLogicReplicaV2 {
         route_pins(&[
             ("wlen_q", &wlen_qs),
             ("decrepstart", &decrepstarts),
-            ("decrepend", &decrepends),
             ("wrdrven_grst_b", &wrdrven_grst_bs),
             ("clkpd_b", &clkpd_bs),
             ("saen_set_b", &saen_set_bs),
+            ("decrepend", &decrepends),
         ])?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in, "we")?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in_1, "we")?;
