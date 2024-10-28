@@ -409,7 +409,7 @@ impl Script for SramPhysicalDesignScript {
         let row_decoder_tree = DecoderTree::new(params.row_bits(), clamped_wl_cap);
         let decoder_delay_invs = (f64::max(
             4.0,
-            1.1 * row_decoder_tree.root.time_constant(wl_cap)
+            1.1 * (row_decoder_tree.root.time_constant(wl_cap) - f64::min(sae_tau, wrdrven_tau))
                 / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)),
         ) / 2.0)
             .round() as usize
