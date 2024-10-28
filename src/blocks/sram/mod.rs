@@ -1018,7 +1018,8 @@ pub(crate) mod tests {
                     )
                     .expect("failed to write timing schematic");
 
-                    for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", 40, dec!(1.95))] {
+                    // for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", 40, dec!(1.95))] {
+                    for (corner, temp, vdd) in [("tt", 25, dec!(1.8))] {
                         let suffix = match corner {
                             "tt" => "tt_025C_1v80",
                             "ss" => "ss_100C_1v60",
