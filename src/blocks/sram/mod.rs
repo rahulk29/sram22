@@ -409,7 +409,7 @@ impl Script for SramPhysicalDesignScript {
         let row_decoder_tree = DecoderTree::new(params.row_bits(), clamped_wl_cap);
         let decoder_delay_invs = (f64::max(
             4.0,
-            1.1 * row_decoder_tree.root.time_constant(wl_cap)
+            1.1 * (row_decoder_tree.root.time_constant(wl_cap) - f64::min(sae_tau, wrdrven_tau))
                 / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)),
         ) / 2.0)
             .round() as usize
@@ -417,11 +417,11 @@ impl Script for SramPhysicalDesignScript {
             + 2;
         let wlen_pulse_invs = (f64::max(
             2.0,
-            (0.25 * row_decoder_tree.root.time_constant(wl_cap)
-                + 2.0
-                    * (row_decoder_tree.root.time_constant(wl_cap)
-                        - row_decoder_tree.root.time_constant(clamped_wl_cap)))
-                / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)),
+            (
+                // 0.25 * row_decoder_tree.root.time_constant(wl_cap) +
+                2.0 * (row_decoder_tree.root.time_constant(wl_cap)
+                    - row_decoder_tree.root.time_constant(clamped_wl_cap))
+            ) / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)),
         ) / 2.0)
             .round() as usize
             * 2
@@ -964,9 +964,9 @@ pub(crate) mod tests {
                     let mut handles = Vec::new();
                     for vdd in [1.8] {
                         let sf = corners.corner_named("sf").unwrap();
-                        // let tt = corners.corner_named("tt").unwrap();
+                        let tt = corners.corner_named("tt").unwrap();
                         // for corner in corners.corners() {
-                        for corner in [sf] {
+                        for corner in [sf, tt] {
                             let corner = corner.clone();
                             let params = $params.clone();
                             let pex_netlist = Some((pex_netlist_path.clone(), pex_level));

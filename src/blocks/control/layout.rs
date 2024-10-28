@@ -143,7 +143,6 @@ impl ControlLogicReplicaV2 {
                 ("wrdrven_grst", &nor2),
                 ("clkp_grst", &nor2),
                 ("nand_sense_en", &nand2),
-                ("wlen_q_delay", &ctx.instantiate::<InvChain>(&3)?),
                 ("nand_wlendb_web", &nand2),
                 ("and_wlen", &and2_med),
                 ("rwl_buf", &buf),
@@ -472,34 +471,20 @@ impl ControlLogicReplicaV2 {
             ),
         );
 
-        // wlen_q_delay.dout -> nand_wlendb_web.a
-        let wlendb_out = group
-            .port_map()
-            .port("wlen_q_delay_dout")?
-            .largest_rect(m0)?;
-        let mut via = via01.clone();
-        via.align_centers_gridded(wlendb_out.bbox(), grid);
-        let wlendb_out = router.expand_to_grid(
-            via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Corner(Corner::LowerLeft),
-        );
-        ctx.draw(via)?;
-        ctx.draw_rect(m1, wlendb_out);
-        router.occupy(m1, wlendb_out, "wlend_b")?;
-
-        let wlendb_in = group
+        // rbl_inv.y -> nand_wlendb_web.a
+        let rbl_b_in2 = group
             .port_map()
             .port("nand_wlendb_web_a")?
             .largest_rect(m0)?;
         let mut via = via01.clone();
-        via.align_centers_gridded(wlendb_in.bbox(), grid);
-        let wlendb_in = router.expand_to_grid(
+        via.align_centers_gridded(rbl_b_in2.bbox(), grid);
+        let rbl_b_in2 = router.expand_to_grid(
             via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Corner(Corner::LowerLeft),
         );
         ctx.draw(via)?;
-        ctx.draw_rect(m1, wlendb_in);
-        router.occupy(m1, wlendb_in, "wlend_b")?;
+        ctx.draw_rect(m1, rbl_b_in2);
+        router.occupy(m1, rbl_b_in2, "rbl_b")?;
 
         // nand_wlendb_web.y -> and_wlen.b
         let wlend_out = group
@@ -522,11 +507,23 @@ impl ControlLogicReplicaV2 {
         via.align_right(wlend_in.bbox());
         let wlend_in = router.expand_to_grid(
             via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Corner(Corner::UpperRight),
+            ExpandToGridStrategy::Corner(Corner::LowerRight),
         );
         ctx.draw(via)?;
         ctx.draw_rect(m1, wlend_in);
         router.occupy(m1, wlend_in, "wlend")?;
+
+        // and_wlen.a
+        let pin = group.port_map().port("and_wlen_a")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(pin.bbox(), grid);
+        let wlen_q_in = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperLeft),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, wlen_q_in);
+        router.occupy(m1, wlen_q_in, "wlen_q")?;
 
         // clk_pulse.dout -> clk_pulse_buf.a
         let src = group.port_map().port("clk_pulse_dout")?.largest_rect(m0)?;
@@ -556,6 +553,21 @@ impl ControlLogicReplicaV2 {
         ctx.draw(via)?;
         ctx.draw_rect(m1, clkp_b_in);
         router.occupy(m1, clkp_b_in, "clkp_b")?;
+
+        // decoder_replica.dout
+        let decrepend_out = group
+            .port_map()
+            .port("decoder_replica_dout")?
+            .largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(decrepend_out.bbox(), grid);
+        let decrepend_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, decrepend_out);
+        router.occupy(m1, decrepend_out, "decrepend")?;
 
         // clkp_b -> pc_ctl.rb
         let pin = group.port_map().port("pc_ctl_rb")?.largest_rect(m0)?;
@@ -625,8 +637,9 @@ impl ControlLogicReplicaV2 {
         let we_b_ins = snap_pins("we_b", &["nand_sense_en_a", "nand_wlendb_web_b"])?;
 
         // wlen_q
-        let mut wlen_qs = snap_pins("wlen_q", &["and_wlen_a", "wlen_q_delay_din", "rwl_buf_a"])?;
+        let mut wlen_qs = snap_pins("wlen_q", &["rwl_buf_a"])?;
         wlen_qs.push(wl_ctl_q_out);
+        wlen_qs.push(wlen_q_in);
 
         // saen_set_bs
         let saen_set_bs = snap_pins("saen_set_b", &["nand_sense_en_y", "saen_ctl_sb"])?;
@@ -644,15 +657,15 @@ impl ControlLogicReplicaV2 {
         )?;
 
         // decrepend
-        let decrepends = snap_pins(
+        let mut decrepends = snap_pins(
             "decrepend",
             &[
-                "decoder_replica_dout",
                 "decoder_replica_delay_din",
                 "wrdrven_grst_a",
                 "nand_sense_en_b",
             ],
         )?;
+        decrepends.push(decrepend_out);
 
         // we -> wrdrven_set.b
         let we_in_1 = group.port_map().port("wrdrven_set_b")?.largest_rect(m0)?;
@@ -1019,20 +1032,20 @@ impl ControlLogicReplicaV2 {
         route_pins(&[
             ("wlen_q", &wlen_qs),
             ("decrepstart", &decrepstarts),
-            ("decrepend", &decrepends),
             ("wrdrven_grst_b", &wrdrven_grst_bs),
             ("clkpd_b", &clkpd_bs),
             ("saen_set_b", &saen_set_bs),
+            ("decrepend", &decrepends),
         ])?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in, "we")?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in_1, "we")?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in_inv, "we")?;
         router.route_with_net(ctx, m1, rbl_b_out, m1, rbl_b_in, "rbl_b")?;
+        router.route_with_net(ctx, m1, rbl_b_out, m1, rbl_b_in2, "rbl_b")?;
         router.route_with_net(ctx, m1, rwl_out, m2, rwl_pin, "rwl")?;
         router.route_with_net(ctx, m1, wlen_grstb_out, m1, wlen_grstb_in, "wlen_grst_b")?;
         router.route_with_net(ctx, m1, clkp_out, m1, clkp_in, "clkp")?;
         router.route_with_net(ctx, m1, clkp_grstb_out, m1, clkp_grstb_in, "clkp_grst_b")?;
-        router.route_with_net(ctx, m1, wlendb_out, m1, wlendb_in, "wlend_b")?;
         router.route_with_net(ctx, m1, wlend_out, m1, wlend_in, "wlend")?;
         router.route_with_net(ctx, m1, wlen_out, m1, wlen_pin, "wlen")?;
         router.route_with_net(ctx, m1, saen_out, m2, saen_pin, "saen")?;
