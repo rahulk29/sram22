@@ -54,7 +54,6 @@ impl ControlLogicReplicaV2 {
         let stdcells = ctx.inner().std_cell_db();
         let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
         let inv = lib.try_cell_named("sky130_fd_sc_hs__inv_2")?;
-        let inv4 = lib.try_cell_named("sky130_fd_sc_hs__inv_4")?;
         let and2 = lib.try_cell_named("sky130_fd_sc_hs__and2_2")?;
         let and2_med = lib.try_cell_named("sky130_fd_sc_hs__and2_4")?;
         let nand2 = lib.try_cell_named("sky130_fd_sc_hs__nand2_4")?;
