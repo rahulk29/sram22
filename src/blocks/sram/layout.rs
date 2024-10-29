@@ -277,7 +277,7 @@ impl Component for ColumnNmos {
         };
         let mut gate_mos = ctx.instantiate::<LayoutMos>(&params)?;
         gate_mos.set_orientation(Named::R90);
-        gate_mos.place_center(Point::new(dsn.width / 2, 0));
+        gate_mos.place_center_x(dsn.width / 2);
         ctx.draw_rect(
             dsn.m0,
             gate_mos
@@ -329,7 +329,11 @@ impl Component for ColumnNmos {
                 .layer_bbox(nsdm)
                 .union(drain_mos.layer_bbox(nsdm))
                 .into_rect()
-                .with_hspan(Span::new(0, dsn.width)),
+                .with_hspan(Span::from_center_span_gridded(
+                    gate_mos.brect().center().x,
+                    dsn.width,
+                    ctx.pdk().layout_grid(),
+                )),
         );
 
         let bl = Rect::from_spans(dsn.out_tracks.index(2), ctx.brect().vspan());
@@ -575,7 +579,7 @@ impl SramInner {
         pc_b_buffer.translate(Point::new(0, 1_000));
         pc_b_buffer.align_to_the_left_of(
             cols.bbox(),
-            6_400
+            7_100
                 + 700
                     * (2 * self.params.mux_ratio() as i64 * dsn.col_dec_routing_tracks
                         + dsn.sense_en_routing_tracks
@@ -1150,7 +1154,6 @@ impl SramInner {
         let control_rbl_rect = control.port("rbl")?.largest_rect(m1)?;
         let control_pc_b_rect = control.port("pc_b")?.largest_rect(m1)?;
         let array_rbl_rect = replica_pc.port("rbl")?.largest_rect(m2)?;
-        let array_pc_b_rect = replica_pc.port("en_b")?.largest_rect(m2)?;
 
         let m2_rbl_track_idx =
             m2_tracks.track_with_loc(TrackLocator::StartsAfter, control_rbl_rect.bottom());
@@ -1490,9 +1493,9 @@ impl SramInner {
             .collect();
         for i in 0..2 {
             port_ids.push((PortId::new("wl_dummy", i), SingleSupplyNet::Vss));
-        }
-        for port_name in ["bl_dummy", "br_dummy"] {
-            port_ids.push((PortId::new(port_name, 1), SingleSupplyNet::Vdd));
+            for port_name in ["bl_dummy", "br_dummy"] {
+                port_ids.push((PortId::new(port_name, i), SingleSupplyNet::Vdd));
+            }
         }
 
         connect_bitcells_to_straps(&bitcells, port_ids)?;

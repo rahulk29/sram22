@@ -1030,12 +1030,12 @@ impl ControlLogicReplicaV2 {
             Ok(())
         };
         route_pins(&[
+            ("decrepend", &decrepends),
             ("wlen_q", &wlen_qs),
             ("decrepstart", &decrepstarts),
             ("wrdrven_grst_b", &wrdrven_grst_bs),
             ("clkpd_b", &clkpd_bs),
             ("saen_set_b", &saen_set_bs),
-            ("decrepend", &decrepends),
         ])?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in, "we")?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in_1, "we")?;

@@ -53,12 +53,6 @@ impl ColPeripherals {
 
         let pc_design = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
 
-        let mut pc = ctx.instantiate::<Precharge>(&self.params.pc)?;
-        let mut pc_end = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
-            via_top: false,
-            inner: self.params.pc,
-        })?;
-
         let col = ctx.instantiate::<Column>(&ColParams {
             include_wmask: false,
             ..self.params.clone()
@@ -289,26 +283,6 @@ impl ColPeripherals {
             ctx.draw(via)?;
             ctx.add_port(CellPort::with_shape(PortId::new("wmask", i), m1, rect1))?;
         }
-
-        assert!(!bbox.is_empty());
-        pc.align_to_the_left_of(bbox, 0);
-        pc.align_top(bbox);
-        pc_end.align_to_the_left_of(&pc, 0);
-        pc_end.align_top(bbox);
-
-        ctx.draw_ref(&pc)?;
-        ctx.draw_ref(&pc_end)?;
-
-        pc.orientation_mut().reflect_horiz();
-        pc_end.orientation_mut().reflect_horiz();
-
-        pc.align_to_the_right_of(bbox, 0);
-        pc.align_top(bbox);
-        pc_end.align_to_the_right_of(&pc, 0);
-        pc_end.align_top(bbox);
-
-        ctx.draw_ref(&pc)?;
-        ctx.draw_ref(&pc_end)?;
 
         for port in ["vdd", "vss", "pc_b", "sense_en", "clk", "rstb"] {
             let spans = grid_tiler
@@ -833,7 +807,14 @@ impl Component for ColumnCent {
         let outline = layers.get(Selector::Name("outline"))?;
         // Always use a precharge center tile; the real precharge end
         // is used for the replica and dummy column.
-        let mut pc = ctx.instantiate::<PrechargeCent>(&self.params.col.pc)?;
+        let mut pc = if self.params.end {
+            ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
+                via_top: true,
+                inner: self.params.col.pc,
+            })?
+        } else {
+            ctx.instantiate::<PrechargeCent>(&self.params.col.pc)?
+        };
         let mut mux = if self.params.end {
             ctx.instantiate::<TGateMuxEnd>(&self.params.col.mux)?
         } else {

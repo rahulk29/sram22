@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::path::{Path, PathBuf};
 use subgeom::bbox::BoundBox;
-use subgeom::{Corner, Dir, Point, Rect, Span};
+use subgeom::{snap_to_grid, Corner, Dir, Point, Rect, Span};
 use substrate::component::{error, Component, NoParams};
 use substrate::error::ErrorSource;
 use substrate::layout::cell::{CellPort, Element, Port, PortConflictStrategy, PortId};
@@ -408,9 +408,6 @@ impl Script for SramPhysicalDesignScript {
             wrdrven_tau * 1e12,
             sae_tau * 1e12
         );
-        println!("pc_b_delay_invs: {}", pc_b_delay_invs);
-        println!("wrdrven_delay_invs: {}", wrdrven_delay_invs);
-
         let row_decoder_tree = DecoderTree::new(params.row_bits(), clamped_wl_cap);
         let decoder_delay_invs = (f64::max(
             4.0,
@@ -431,13 +428,13 @@ impl Script for SramPhysicalDesignScript {
             .round() as usize
             * 2
             + 9;
-        println!("using {wlen_pulse_invs} inverters for wlen pulse delay chain");
         let control = ControlLogicParams {
             decoder_delay_invs,
             wlen_pulse_invs,
             pc_set_delay_invs: pc_b_delay_invs,
             wrdrven_delay_invs,
         };
+        println!("{:?}", control);
         let row_decoder = DecoderParams {
             pd: DecoderPhysicalDesignParams {
                 style: DecoderStyle::RowMatched,
@@ -545,27 +542,32 @@ impl Script for SramPhysicalDesignScript {
             sense_en_buffer,
             num_dffs,
             rbl_wl_index,
-            rbl: ReplicaCellArrayParams {
-                rows: rbl_rows,
-                cols: 2,
-            },
+            rbl,
             replica_pc: ReplicaPrechargeParams {
                 cols: 2,
                 inner: PrechargeParams {
                     en_b_width: 360,
                     // Add additional drain capacitance to replica bitline
-                    equalizer_width: col_params.pc.equalizer_width
-                        + (col_params.mux.pwidth as usize).div_ceil(rbl_ratio) as i64
-                        + (col_params.wrdriver.pwidth_driver as usize).div_ceil(rbl_ratio) as i64,
+                    equalizer_width: snap_to_grid(
+                        ((col_params.pc.equalizer_width
+                            + col_params.mux.pwidth * params.mux_ratio() as i64
+                            + col_params.wrdriver.pwidth_driver) as usize)
+                            .div_ceil(rbl_ratio) as i64,
+                        50,
+                    ),
                     ..col_params.pc.scale(1. / rbl_ratio as f64)
                 },
             },
             replica_nmos: ReplicaColumnNmosParams {
                 cols: 2,
                 inner: ColumnNmosParams {
-                    gate_width: 3_360usize.div_ceil(rbl_ratio) as i64,
-                    drain_width: (col_params.mux.nwidth as usize).div_ceil(rbl_ratio) as i64
-                        + (col_params.wrdriver.nwidth_driver as usize).div_ceil(rbl_ratio) as i64,
+                    gate_width: snap_to_grid(3_360usize.div_ceil(rbl_ratio) as i64, 50),
+                    drain_width: snap_to_grid(
+                        ((col_params.mux.nwidth * params.mux_ratio() as i64
+                            + col_params.wrdriver.nwidth_driver) as usize)
+                            .div_ceil(rbl_ratio) as i64,
+                        50,
+                    ),
                     length: 150,
                 },
             },
@@ -870,7 +872,7 @@ pub(crate) mod tests {
 
     pub(crate) const SRAM22_1024X32M8W8: SramParams = SramParams::new(8, MuxRatio::M8, 1024, 32);
 
-    pub(crate) const SRAM22_1024X64M8W8: SramParams = SramParams::new(8, MuxRatio::M4, 1024, 64);
+    pub(crate) const SRAM22_1024X64M4W8: SramParams = SramParams::new(8, MuxRatio::M4, 1024, 64);
 
     pub(crate) const SRAM22_2048X8M8W1: SramParams = SramParams::new(1, MuxRatio::M8, 2048, 8);
 
@@ -998,48 +1000,48 @@ pub(crate) mod tests {
                     // }).expect("failed to run pex");
                     // println!("{}: done running PEX", stringify!($name));
 
-                    // let seq = TestSequence::Short;
-                    // let corners = ctx.corner_db();
-                    // let mut handles = Vec::new();
-                    // for vdd in [1.8] {
-                    //     let sf = corners.corner_named("sf").unwrap();
-                    //     let tt = corners.corner_named("tt").unwrap();
-                    //     // for corner in corners.corners() {
-                    //     for corner in [sf, tt] {
-                    //         let corner = corner.clone();
-                    //         let params = $params.clone();
-                    //         let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
-                    //         // let pex_netlist = None;
-                    //         let work_dir = work_dir.clone();
-                    //         handles.push(std::thread::spawn(move || {
-                    //             let ctx = setup_ctx();
-                    //             let dsn = ctx.run_script::<SramPhysicalDesignScript>(&params).expect("failed to run sram design script");
-                    //             let tb = crate::blocks::sram::testbench::tb_params(params, dsn, vdd, seq, pex_netlist);
-                    //             let work_dir = work_dir.join(format!(
-                    //                 "{}_{:.2}_{}",
-                    //                 corner.name(),
-                    //                 vdd,
-                    //                 seq.as_str(),
-                    //             ));
-                    //             let data = ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
-                    //                 &tb,
-                    //                 &work_dir,
-                    //                 corner.clone(),
-                    //             )
-                    //             .expect("failed to run simulation");
-                    //             verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
-                    //             println!(
-                    //                 "{}: done simulating in corner {} with Vdd = {}, seq = {}",
-                    //                 stringify!($name),
-                    //                 corner.name(),
-                    //                 vdd,
-                    //                 seq,
-                    //             );
-                    //         }));
-                    //     }
-                    // }
-                    // let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
-                    // handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
+                    let seq = TestSequence::Short;
+                    let corners = ctx.corner_db();
+                    let mut handles = Vec::new();
+                    for vdd in [1.8] {
+                        let sf = corners.corner_named("sf").unwrap();
+                        let fs = corners.corner_named("fs").unwrap();
+                        // for corner in corners.corners() {
+                        for corner in [sf, fs] {
+                            let corner = corner.clone();
+                            let params = $params.clone();
+                            // let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
+                             let pex_netlist = None;
+                            let work_dir = work_dir.clone();
+                            handles.push(std::thread::spawn(move || {
+                                let ctx = setup_ctx();
+                                let dsn = ctx.run_script::<SramPhysicalDesignScript>(&params).expect("failed to run sram design script");
+                                let tb = crate::blocks::sram::testbench::tb_params(params, dsn, vdd, seq, pex_netlist);
+                                let work_dir = work_dir.join(format!(
+                                    "{}_{:.2}_{}",
+                                    corner.name(),
+                                    vdd,
+                                    seq.as_str(),
+                                ));
+                                let data = ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
+                                    &tb,
+                                    &work_dir,
+                                    corner.clone(),
+                                )
+                                .expect("failed to run simulation");
+                                verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
+                                println!(
+                                    "{}: done simulating in corner {} with Vdd = {}, seq = {}",
+                                    stringify!($name),
+                                    corner.name(),
+                                    vdd,
+                                    seq,
+                                );
+                            }));
+                        }
+                    }
+                    let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
+                    handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
 
                     // crate::abs::write_abstract(
                     //     &ctx,
@@ -1107,7 +1109,7 @@ pub(crate) mod tests {
     test_sram!(test_sram22_512x128m4w8, SRAM22_512X128M4W8, ignore = "slow");
     test_sram!(test_sram22_1024x8m8w1, SRAM22_1024X8M8W1, ignore = "slow");
     test_sram!(test_sram22_1024x32m8w8, SRAM22_1024X32M8W8, ignore = "slow");
-    test_sram!(test_sram22_1024x64m8w8, SRAM22_1024X64M8W8, ignore = "slow");
+    test_sram!(test_sram22_1024x64m4w8, SRAM22_1024X64M4W8, ignore = "slow");
     test_sram!(test_sram22_2048x8m8w1, SRAM22_2048X8M8W1, ignore = "slow");
     test_sram!(test_sram22_2048x32m8w8, SRAM22_2048X32M8W8, ignore = "slow");
     test_sram!(test_sram22_4096x8m8w1, SRAM22_4096X8M8W1, ignore = "slow");

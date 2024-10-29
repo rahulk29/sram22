@@ -193,10 +193,10 @@ pub mod test {
     use super::{ControlLogicParams, ControlLogicReplicaV2, EdgeDetector, SrLatch};
 
     const CONTROL_LOGIC_PARAMS: ControlLogicParams = ControlLogicParams {
-        decoder_delay_invs: 20,
+        decoder_delay_invs: 14,
         wlen_pulse_invs: 11,
-        pc_set_delay_invs: 8,
-        wrdrven_delay_invs: 2,
+        pc_set_delay_invs: 14,
+        wrdrven_delay_invs: 6,
     };
 
     #[test]

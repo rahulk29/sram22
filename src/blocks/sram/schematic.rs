@@ -71,14 +71,12 @@ impl SramInner {
             }
         }
 
-        let [we_in, we_in_b, ce_in, ce_in_b, dummy_bl, dummy_br, rwl, rbl, rbr, pc_b0, pc, pc_b, wl_en0, wl_en_b, wl_en, write_driver_en0, write_driver_en_b, write_driver_en, sense_en0, sense_en_b, sense_en] =
+        let [we_in, we_in_b, ce_in, ce_in_b, rwl, rbl, rbr, pc_b0, pc, pc_b, wl_en0, wl_en_b, wl_en, write_driver_en0, write_driver_en_b, write_driver_en, sense_en0, sense_en_b, sense_en] =
             ctx.signals([
                 "we_in",
                 "we_in_b",
                 "ce_in",
                 "ce_in_b",
-                "dummy_bl",
-                "dummy_br",
                 "rwl",
                 "rbl",
                 "rbr",
@@ -231,8 +229,8 @@ impl SramInner {
             .with_connections([
                 ("vdd", vdd),
                 ("vss", vss),
-                ("dummy_bl", dummy_bl),
-                ("dummy_br", dummy_br),
+                ("dummy_bl", vdd),
+                ("dummy_br", vdd),
                 ("bl", bl),
                 ("br", br),
                 ("wl", wl),

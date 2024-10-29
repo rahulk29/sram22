@@ -118,26 +118,6 @@ impl ColPeripherals {
                 .add_to(ctx);
         }
 
-        ctx.instantiate::<Precharge>(&self.params.pc)?
-            .with_connections([
-                ("vdd", vdd),
-                ("bl", dummy_bl),
-                ("br", dummy_br),
-                ("en_b", pc_b),
-            ])
-            .named("dummy_precharge")
-            .add_to(ctx);
-
-        ctx.instantiate::<Precharge>(&self.params.pc)?
-            .with_connections([
-                ("vdd", vdd),
-                ("bl", dummy_bl_noconn),
-                ("br", dummy_br_noconn),
-                ("en_b", pc_b),
-            ])
-            .named("dummy_precharge_noconn")
-            .add_to(ctx);
-
         Ok(())
     }
 }
