@@ -1,10 +1,13 @@
+use crate::blocks::macros::{SvtInv2, SvtInv4};
 use substrate::component::NoParams;
 use substrate::index::IndexOwned;
+use substrate::pdk::mos::query::Query;
+use substrate::pdk::mos::spec::MosKind;
+use substrate::pdk::mos::MosParams;
 use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
-
-use crate::blocks::macros::{SvtInv2, SvtInv4};
+use substrate::schematic::elements::mos::SchematicMos;
 
 use super::{ControlLogicReplicaV2, EdgeDetector, InvChain, SrLatch, SvtInvChain};
 
@@ -61,6 +64,48 @@ impl ControlLogicReplicaV2 {
         let mux2 = lib.try_cell_named("sky130_fd_sc_hs__mux2_4")?;
         let buf = lib.try_cell_named("sky130_fd_sc_hs__buf_16")?;
         let biginv = lib.try_cell_named("sky130_fd_sc_hs__inv_16")?;
+
+        let vdd_rblinv = ctx.signal("vdd_rblinv");
+
+        let pmos_id = ctx
+            .mos_db()
+            .query(Query::builder().kind(MosKind::Pmos).build().unwrap())?
+            .id();
+        let nmos_id = ctx
+            .mos_db()
+            .query(Query::builder().kind(MosKind::Nmos).build().unwrap())?
+            .id();
+
+        let mut mninvrbl = ctx.instantiate::<SchematicMos>(&MosParams {
+            w: 740,
+            l: 150,
+            m: 1,
+            nf: 1,
+            id: nmos_id,
+        })?;
+        mninvrbl.connect_all([("d", &rbl_b), ("g", &rbl), ("s", &vss), ("b", &vss)]);
+        mninvrbl.set_name("mninvrbl");
+        ctx.add_instance(mninvrbl);
+        let mut mpinvrbl = ctx.instantiate::<SchematicMos>(&MosParams {
+            w: 1120,
+            l: 150,
+            m: 1,
+            nf: 1,
+            id: pmos_id,
+        })?;
+        mpinvrbl.connect_all([("d", &rbl_b), ("g", &rbl), ("s", &vdd_rblinv), ("b", &vdd)]);
+        mpinvrbl.set_name("mpinvrbl");
+        ctx.add_instance(mpinvrbl);
+        let mut msupinvrbl = ctx.instantiate::<SchematicMos>(&MosParams {
+            w: 740,
+            l: 150,
+            m: 1,
+            nf: 1,
+            id: nmos_id,
+        })?;
+        msupinvrbl.connect_all([("d", &vdd), ("g", &vdd), ("s", &vdd_rblinv), ("b", &vss)]);
+        msupinvrbl.set_name("msupinvrbl");
+        ctx.add_instance(msupinvrbl);
 
         ctx.instantiate::<StdCell>(&biginv.id())?
             .with_connections([
