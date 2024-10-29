@@ -51,7 +51,7 @@ pub struct ReplicaPrechargeParams {
     pub inner: PrechargeParams,
 }
 
-const LI_VIA_SHRINK: i64 = 20;
+pub const LI_VIA_SHRINK: i64 = 20;
 
 impl Precharge {
     pub(crate) fn layout(

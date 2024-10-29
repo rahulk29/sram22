@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
 use subgeom::transform::Translate;
@@ -9,26 +10,34 @@ use substrate::error::Result;
 use substrate::index::IndexOwned;
 use substrate::layout::cell::{CellPort, Instance, Port, PortConflictStrategy, PortId};
 use substrate::layout::context::LayoutCtx;
+use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::{LayerBoundBox, LayerKey};
 use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::placement::array::ArrayTiler;
+use substrate::layout::placement::place_bbox::PlaceBbox;
 use substrate::layout::placement::tile::LayerBbox;
 use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
-use substrate::layout::routing::manual::jog::OffsetJog;
-use substrate::layout::routing::tracks::TrackLocator;
+use substrate::layout::routing::manual::jog::{OffsetJog, SimpleJog};
+use substrate::layout::routing::tracks::{TrackLocator, UniformTracks};
 use substrate::layout::straps::SingleSupplyNet;
+use substrate::pdk::mos::query::Query;
+use substrate::pdk::mos::spec::MosKind;
+use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 use substrate::pdk::stdcell::StdCell;
+use substrate::schematic::circuit::Direction;
+use substrate::schematic::elements::mos::SchematicMos;
 
 use crate::blocks::bitcell_array::replica::ReplicaCellArray;
 use crate::blocks::bitcell_array::SpCellArray;
 use crate::blocks::columns::layout::DffArray;
-use crate::blocks::columns::ColPeripherals;
+use crate::blocks::columns::{ColPeripherals, ColumnDesignScript};
 use crate::blocks::control::ControlLogicReplicaV2;
 use crate::blocks::decoder::{Decoder, DecoderStage};
-use crate::blocks::precharge::layout::ReplicaPrecharge;
+use crate::blocks::precharge;
+use crate::blocks::precharge::layout::{ReplicaPrecharge, LI_VIA_SHRINK};
 
 use super::{SramInner, SramPhysicalDesignScript, TappedDiode};
 
@@ -166,6 +175,327 @@ fn draw_route(
     Ok(())
 }
 
+pub struct ColumnNmos {
+    params: ColumnNmosParams,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct ColumnNmosParams {
+    pub gate_width: i64,
+    pub drain_width: i64,
+    pub length: i64,
+}
+
+pub struct ColumnNmosCent {
+    params: ColumnNmosParams,
+}
+
+/// Column NMOS replica to match replica bitline capacitance to fraction
+/// of capacitance on main bitline.
+pub struct ReplicaColumnNmos {
+    params: ReplicaColumnNmosParams,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct ReplicaColumnNmosParams {
+    pub cols: usize,
+    pub inner: ColumnNmosParams,
+}
+
+impl Component for ColumnNmos {
+    type Params = ColumnNmosParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("column_nmos")
+    }
+
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        let length = self.params.length;
+
+        let vss = ctx.port("vss", Direction::InOut);
+        let bl = ctx.port("bl", Direction::InOut);
+
+        let nmos_id = ctx
+            .mos_db()
+            .query(Query::builder().kind(MosKind::Nmos).build().unwrap())?
+            .id();
+
+        let mut gate_mos = ctx.instantiate::<SchematicMos>(&MosParams {
+            w: self.params.gate_width,
+            l: length,
+            m: 1,
+            nf: 1,
+            id: nmos_id,
+        })?;
+        gate_mos.connect_all([("d", &vss), ("g", &bl), ("s", &vss), ("b", &vss)]);
+        gate_mos.set_name("gate_mos");
+        ctx.add_instance(gate_mos);
+
+        let mut drain_mos = ctx.instantiate::<SchematicMos>(&MosParams {
+            w: self.params.drain_width,
+            l: length,
+            m: 1,
+            nf: 1,
+            id: nmos_id,
+        })?;
+        drain_mos.connect_all([("d", &bl), ("g", &vss), ("s", &vss), ("b", &vss)]);
+        drain_mos.set_name("drain_mos");
+        ctx.add_instance(drain_mos);
+        Ok(())
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let dsn = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
+        let db = ctx.mos_db();
+        let mos = db
+            .query(Query::builder().kind(MosKind::Nmos).build().unwrap())
+            .unwrap();
+        let params = LayoutMosParams {
+            skip_sd_metal: vec![vec![]],
+            deep_nwell: true,
+            contact_strategy: GateContactStrategy::Merge,
+            devices: vec![MosParams {
+                w: self.params.gate_width,
+                l: self.params.length,
+                m: 1,
+                nf: 1,
+                id: mos.id(),
+            }],
+        };
+        let mut gate_mos = ctx.instantiate::<LayoutMos>(&params)?;
+        gate_mos.set_orientation(Named::R90);
+        gate_mos.place_center(Point::new(dsn.width / 2, 0));
+        ctx.draw_rect(
+            dsn.m0,
+            gate_mos
+                .port("sd_0_0")?
+                .bbox(dsn.m0)
+                .union(gate_mos.port("sd_0_1")?.bbox(dsn.m0))
+                .into_rect(),
+        );
+        let params = LayoutMosParams {
+            skip_sd_metal: vec![vec![]],
+            deep_nwell: true,
+            contact_strategy: GateContactStrategy::Merge,
+            devices: vec![MosParams {
+                w: self.params.drain_width,
+                l: self.params.length,
+                m: 1,
+                nf: 1,
+                id: mos.id(),
+            }],
+        };
+        let mut drain_mos = ctx.instantiate::<LayoutMos>(&params)?;
+        drain_mos.set_orientation(Named::R270);
+        drain_mos.align_above(&gate_mos, 210);
+        drain_mos.align_centers_horizontally_gridded(&gate_mos, ctx.pdk().layout_grid());
+        let gate_rect = drain_mos.port("gate")?.largest_rect(dsn.m0)?;
+        let jog = OffsetJog::builder()
+            .src(drain_mos.port("sd_0_0")?.largest_rect(dsn.m0)?)
+            .dst(gate_rect.right())
+            .dir(Dir::Vert)
+            .sign(Sign::Pos)
+            .space(170)
+            .layer(dsn.m0)
+            .build()
+            .unwrap();
+        ctx.draw_rect(
+            dsn.m0,
+            gate_rect.with_vspan(gate_rect.vspan().union(jog.r2().vspan())),
+        );
+        ctx.draw(jog)?;
+
+        let layers = ctx.layers();
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+        for inst in [&gate_mos, &drain_mos] {
+            ctx.draw_ref(inst)?;
+        }
+        ctx.draw_rect(
+            nsdm,
+            gate_mos
+                .layer_bbox(nsdm)
+                .union(drain_mos.layer_bbox(nsdm))
+                .into_rect()
+                .with_hspan(Span::new(0, dsn.width)),
+        );
+
+        let bl = Rect::from_spans(dsn.out_tracks.index(2), ctx.brect().vspan());
+        ctx.add_port(CellPort::with_shape("bl", dsn.v_metal, bl))?;
+        ctx.draw_rect(dsn.v_metal, bl);
+
+        // Connect gate of gate NMOS and drain of drain NMOS to bitline.
+        for (port, inst) in [("gate", &gate_mos), ("sd_0_1", &drain_mos)] {
+            let m0_rect = inst.port(port)?.largest_rect(dsn.m0)?;
+            let m0_rect = m0_rect.with_hspan(m0_rect.hspan().union(bl.hspan()));
+            ctx.draw_rect(dsn.m0, m0_rect);
+            draw_via(dsn.m0, m0_rect, dsn.v_metal, bl, ctx)?;
+        }
+
+        // Connect remaining sources to VSS.
+        for (port, inst) in [("sd_0_1", &gate_mos), ("sd_0_0", &drain_mos)] {
+            let m0_rect = inst.port(port)?.largest_rect(dsn.m0)?;
+            let power_stripe_height = m0_rect.height().clamp(320, 3_600);
+            let power_stripe = Rect::from_spans(
+                ctx.brect().hspan(),
+                Span::from_center_span_gridded(
+                    m0_rect.center().y,
+                    power_stripe_height,
+                    ctx.pdk().layout_grid(),
+                ),
+            );
+            ctx.merge_port(CellPort::with_shape("vss", dsn.h_metal, power_stripe));
+            ctx.draw_rect(dsn.h_metal, power_stripe);
+            draw_via(dsn.m0, m0_rect, dsn.v_metal, power_stripe, ctx)?;
+            draw_via(dsn.v_metal, m0_rect, dsn.h_metal, power_stripe, ctx)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Component for ColumnNmosCent {
+    type Params = ColumnNmosParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("column_nmos_end")
+    }
+
+    fn schematic(
+        &self,
+        _ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        Ok(())
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let nmos = ctx.instantiate::<ColumnNmos>(&self.params)?;
+        let dsn = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
+        let layers = ctx.layers();
+
+        let tap = layers.get(Selector::Name("tap"))?;
+        let psdm = layers.get(Selector::Name("psdm"))?;
+        let m0 = layers.get(Selector::Metal(0))?;
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+
+        let brect = Rect::new(
+            Point::new(0, nmos.brect().bottom()),
+            Point::new(dsn.tap_width, nmos.brect().top()),
+        );
+
+        ctx.draw_rect(psdm, brect);
+
+        let tap_rect = brect.shrink(300);
+
+        let viap = ViaParams::builder()
+            .layers(tap, m0)
+            .geometry(tap_rect, tap_rect)
+            .build();
+        let tap = ctx.instantiate::<Via>(&viap)?;
+        ctx.draw_ref(&tap)?;
+
+        for rect in nmos
+            .port("vss")?
+            .shapes(m2)
+            .filter_map(|shape| shape.as_rect())
+        {
+            let rect = rect.with_hspan(brect.hspan());
+            ctx.merge_port(CellPort::with_shape("vss", m2, rect));
+            ctx.draw_rect(m2, rect);
+            draw_via(m0, tap.layer_bbox(m0).brect(), m1, rect, ctx)?;
+            draw_via(m1, tap.layer_bbox(m0).brect(), m2, rect, ctx)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Component for ReplicaColumnNmos {
+    type Params = ReplicaColumnNmosParams;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        arcstr::literal!("replica_column_nmos")
+    }
+
+    fn schematic(
+        &self,
+        _ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        Ok(())
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let layers = ctx.layers();
+
+        let pc = ctx.instantiate::<ColumnNmos>(&self.params.inner)?;
+        let pc_cent = ctx.instantiate::<ColumnNmosCent>(&self.params.inner)?;
+
+        let mut tiler = ArrayTiler::builder();
+
+        tiler.push(pc_cent.clone());
+
+        for i in 0..self.params.cols {
+            if i % 2 == 0 {
+                tiler.push(pc.clone());
+            } else {
+                tiler.push(pc.with_orientation(Named::ReflectHoriz));
+            }
+        }
+
+        let mut tiler = tiler
+            .push(pc_cent)
+            .mode(AlignMode::ToTheRight)
+            .alt_mode(AlignMode::CenterVertical)
+            .build();
+
+        tiler.expose_ports(
+            |port: CellPort, i| match port.name().as_str() {
+                "bl" => Some(port.with_index(i - 1)),
+                _ => Some(port),
+            },
+            PortConflictStrategy::Merge,
+        )?;
+
+        ctx.add_ports(tiler.ports().cloned())?;
+        ctx.draw(tiler)?;
+
+        Ok(())
+    }
+}
+
 pub enum NeedsDiodes {
     Yes,
     No,
@@ -208,6 +538,9 @@ impl SramInner {
         let mut rbl = ctx.instantiate::<ReplicaCellArray>(&dsn.rbl)?;
         let mut replica_pc = ctx
             .instantiate::<ReplicaPrecharge>(&dsn.replica_pc)?
+            .with_orientation(Named::ReflectVert);
+        let mut replica_nmos = ctx
+            .instantiate::<ReplicaColumnNmos>(&dsn.replica_nmos)?
             .with_orientation(Named::ReflectVert);
 
         // Align row decoders to left of bitcell array.
@@ -287,7 +620,9 @@ impl SramInner {
         // Align replica bitcell array to left of control logic, with replica precharge
         // aligned to top of control logic.
         rbl.align_to_the_left_of(control.bbox(), 7_000);
-        replica_pc.align_beneath(decoder.bbox(), 6_000);
+        replica_nmos.align_beneath(decoder.bbox(), 6_000);
+        replica_nmos.align_centers_horizontally_gridded(rbl.bbox(), ctx.pdk().layout_grid());
+        replica_pc.align_beneath(replica_nmos.bbox(), 0);
         replica_pc.align_centers_horizontally_gridded(rbl.bbox(), ctx.pdk().layout_grid());
         rbl.align_beneath(replica_pc.bbox(), 4_000);
 
@@ -315,6 +650,7 @@ impl SramInner {
         ctx.draw_ref(&dffs)?;
         ctx.draw_ref(&rbl)?;
         ctx.draw_ref(&replica_pc)?;
+        ctx.draw_ref(&replica_nmos)?;
 
         // Set up autorouter for automatic strap placement.
         let router_bbox = ctx
@@ -356,6 +692,7 @@ impl SramInner {
             &dffs,
             &control,
             &replica_pc,
+            &replica_nmos,
         ] {
             for layer in [m1, m2] {
                 for shape in inst.shapes_on(layer) {
@@ -372,7 +709,6 @@ impl SramInner {
             &decoder,
             &col_dec,
             &pc_b_buffer,
-            &wlen_buffer,
             &sense_en_buffer,
             &write_driver_en_buffer,
         ] {
@@ -776,7 +1112,7 @@ impl SramInner {
             )?;
         }
 
-        // Route replica cell array to replica precharge
+        // Route replica cell array to replica precharge and replica_nmos
         for i in 0..2 {
             for port_name in ["bl", "br"] {
                 let src = rbl.port(PortId::new(port_name, i))?.largest_rect(m1)?;
@@ -785,6 +1121,11 @@ impl SramInner {
                     .largest_rect(m1)?;
                 ctx.draw_rect(m1, src.bbox().union(dst.bbox()).into_rect());
             }
+            let src = replica_pc
+                .port(PortId::new("bl_out", i))?
+                .largest_rect(m1)?;
+            let dst = replica_nmos.port(PortId::new("bl", i))?.largest_rect(m1)?;
+            ctx.draw_rect(m1, src.bbox().union(dst.bbox()).into_rect());
         }
 
         // Route replica wordline.
@@ -820,20 +1161,26 @@ impl SramInner {
             m1_tracks.track_with_loc(TrackLocator::StartsAfter, array_rbl_rect.right());
         let m1_pc_b_track_idx = m1_rbl_track_idx + 1;
 
-        for (control_rect, array_rect, m1_track, m2_track) in [
-            (
-                control_rbl_rect,
-                array_rbl_rect,
-                m1_rbl_track_idx,
-                m2_rbl_track_idx,
-            ),
-            (
-                control_pc_b_rect,
-                array_pc_b_rect,
-                m1_pc_b_track_idx,
-                m2_pc_b_track_idx,
-            ),
-        ] {
+        for (control_rect, array_rect, m1_track, m2_track) in std::iter::once((
+            control_rbl_rect,
+            array_rbl_rect,
+            m1_rbl_track_idx,
+            m2_rbl_track_idx,
+        ))
+        .chain(
+            replica_pc
+                .port("en_b")?
+                .shapes(m2)
+                .filter_map(|shape| shape.as_rect())
+                .map(|rect| {
+                    (
+                        control_pc_b_rect,
+                        rect,
+                        m1_pc_b_track_idx,
+                        m2_pc_b_track_idx,
+                    )
+                }),
+        ) {
             draw_route(
                 m1,
                 control_rect,
@@ -1284,14 +1631,15 @@ impl SramInner {
         }
 
         // Connect m2 power straps to grid.
-        for (inst, port_names) in [
-            (&wlen_buffer, vec!["vdd", "vss"]),
-            (&replica_pc, vec!["vdd"]),
+        for (inst, port_names, expand) in [
+            (&wlen_buffer, vec!["vdd", "vss"], 2_000),
+            (&replica_pc, vec!["vdd"], 5_520),
+            (&replica_nmos, vec!["vss"], 5_520),
         ] {
             for port_name in port_names {
                 for port in inst.port(port_name)?.shapes(m2) {
                     if let Shape::Rect(rect) = port {
-                        let rect = rect.expand_dir(Dir::Horiz, 2_000);
+                        let rect = rect.expand_dir(Dir::Horiz, expand);
                         ctx.merge_port(CellPort::with_shape(port_name, m2, rect));
                         draw_rect(m2, rect, &mut router, ctx);
                         straps.add_target(

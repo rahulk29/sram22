@@ -18,7 +18,7 @@ use crate::blocks::gate::sizing::InverterGateTreeNode;
 use crate::blocks::gate::GateParams;
 use crate::blocks::precharge::Precharge;
 
-use super::layout::NeedsDiodes;
+use super::layout::{ColumnNmos, NeedsDiodes};
 use super::{SramInner, SramPhysicalDesignScript, TappedDiode};
 
 impl SramInner {
@@ -275,6 +275,10 @@ impl SramInner {
             ctx.instantiate::<Precharge>(&dsn.replica_pc.inner)?
                 .with_connections([("vdd", vdd), ("bl", rbl), ("br", rbr), ("en_b", pc_b0)])
                 .named(format!("replica_precharge_{i}"))
+                .add_to(ctx);
+            ctx.instantiate::<ColumnNmos>(&dsn.replica_nmos.inner)?
+                .with_connections([("vss", vss), ("bl", rbl)])
+                .named(format!("replica_nmos_{i}"))
                 .add_to(ctx);
         }
 

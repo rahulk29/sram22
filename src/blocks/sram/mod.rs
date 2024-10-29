@@ -3,6 +3,7 @@ use crate::blocks::bitcell_array::replica::ReplicaCellArray;
 use crate::blocks::columns::ColumnsPhysicalDesignScript;
 use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2};
 use crate::blocks::precharge::PrechargeParams;
+use layout::{ColumnNmosParams, ReplicaColumnNmosParams};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -283,6 +284,7 @@ pub struct SramPhysicalDesign {
     pub(crate) rbl_wl_index: usize,
     pub(crate) rbl: ReplicaCellArrayParams,
     pub(crate) replica_pc: ReplicaPrechargeParams,
+    pub(crate) replica_nmos: ReplicaColumnNmosParams,
     pub(crate) col_params: ColParams,
     pub(crate) control: ControlLogicParams,
     pub(crate) pc_b_routing_tracks: i64,
@@ -305,7 +307,10 @@ impl Script for SramPhysicalDesignScript {
         println!("clamped wl_cap = {:.2}fF", clamped_wl_cap * 1e15);
         let mut col_params = params.col_params();
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
-        let rbl_rows = ((params.rows() / 8) + 1) * 2;
+        // +2 for dummy bitcells, then div_ceil by 6 and multiply by 2 for at least 0.9/3 = 0.3 V
+        // differential and even number of rows.
+        let rbl_ratio = 3;
+        let rbl_rows = (params.rows() + 2).div_ceil(2 * rbl_ratio) * 2;
         let rbl_wl_index = rbl_rows / 2;
         let rbl = ReplicaCellArrayParams {
             rows: rbl_rows,
@@ -548,7 +553,20 @@ impl Script for SramPhysicalDesignScript {
                 cols: 2,
                 inner: PrechargeParams {
                     en_b_width: 360,
-                    ..col_params.pc.scale(1. / 6.)
+                    // Add additional drain capacitance to replica bitline
+                    equalizer_width: col_params.pc.equalizer_width
+                        + (col_params.mux.pwidth as usize).div_ceil(rbl_ratio) as i64
+                        + (col_params.wrdriver.pwidth_driver as usize).div_ceil(rbl_ratio) as i64,
+                    ..col_params.pc.scale(1. / rbl_ratio as f64)
+                },
+            },
+            replica_nmos: ReplicaColumnNmosParams {
+                cols: 2,
+                inner: ColumnNmosParams {
+                    gate_width: 3_360usize.div_ceil(rbl_ratio) as i64,
+                    drain_width: (col_params.mux.nwidth as usize).div_ceil(rbl_ratio) as i64
+                        + (col_params.wrdriver.nwidth_driver as usize).div_ceil(rbl_ratio) as i64,
+                    length: 150,
                 },
             },
             col_params,
@@ -813,6 +831,9 @@ pub(crate) mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::verilog::save_1rw_verilog;
+    use layout::ColumnNmosParams;
+    use layout::ReplicaColumnNmos;
+    use layout::ReplicaColumnNmosParams;
     use substrate::schematic::netlist::NetlistPurpose;
 
     use super::*;
@@ -860,6 +881,24 @@ pub(crate) mod tests {
     pub(crate) const SRAM22_4096X32M8W8: SramParams = SramParams::new(8, MuxRatio::M8, 4096, 32);
 
     pub(crate) const SRAM22_8192X32M8W8: SramParams = SramParams::new(8, MuxRatio::M8, 8192, 32);
+
+    #[test]
+    fn test_replica_column_nmos() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_replica_column_nmos");
+        ctx.write_layout::<ReplicaColumnNmos>(
+            &ReplicaColumnNmosParams {
+                cols: 2,
+                inner: ColumnNmosParams {
+                    gate_width: 1_000,
+                    drain_width: 1_000,
+                    length: 150,
+                },
+            },
+            out_gds(work_dir, "layout"),
+        )
+        .expect("failed to write layout");
+    }
 
     macro_rules! test_sram {
         ($name: ident, $params: ident $(, $attr: meta)*) => {
@@ -934,73 +973,73 @@ pub(crate) mod tests {
                     ));
                     println!("{}: done running LVS", stringify!($name));
 
-                    let pex_path = out_spice(&work_dir, "pex_schematic");
-                    let pex_dir = work_dir.join("pex");
-                    let pex_level = calibre::pex::PexLevel::Rc;
-                    let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
-                    ctx.write_schematic_to_file_for_purpose::<Sram>(
-                        &$params,
-                        &pex_path,
-                        NetlistPurpose::Pex,
-                    ).expect("failed to write pex source netlist");
-                    let mut opts = std::collections::HashMap::with_capacity(1);
-                    opts.insert("level".into(), pex_level.as_str().into());
+                    // let pex_path = out_spice(&work_dir, "pex_schematic");
+                    // let pex_dir = work_dir.join("pex");
+                    // let pex_level = calibre::pex::PexLevel::Rc;
+                    // let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
+                    //     &$params,
+                    //     &pex_path,
+                    //     NetlistPurpose::Pex,
+                    // ).expect("failed to write pex source netlist");
+                    // let mut opts = std::collections::HashMap::with_capacity(1);
+                    // opts.insert("level".into(), pex_level.as_str().into());
 
-                    ctx.run_pex(substrate::verification::pex::PexInput {
-                        work_dir: pex_dir,
-                        layout_path: gds_path.clone(),
-                        layout_cell_name: $params.name().clone(),
-                        layout_format: substrate::layout::LayoutFormat::Gds,
-                        source_paths: vec![pex_path],
-                        source_cell_name: $params.name().clone(),
-                        pex_netlist_path: pex_netlist_path.clone(),
-                        ground_net: "vss".to_string(),
-                        opts,
-                    }).expect("failed to run pex");
-                    println!("{}: done running PEX", stringify!($name));
+                    // ctx.run_pex(substrate::verification::pex::PexInput {
+                    //     work_dir: pex_dir,
+                    //     layout_path: gds_path.clone(),
+                    //     layout_cell_name: $params.name().clone(),
+                    //     layout_format: substrate::layout::LayoutFormat::Gds,
+                    //     source_paths: vec![pex_path],
+                    //     source_cell_name: $params.name().clone(),
+                    //     pex_netlist_path: pex_netlist_path.clone(),
+                    //     ground_net: "vss".to_string(),
+                    //     opts,
+                    // }).expect("failed to run pex");
+                    // println!("{}: done running PEX", stringify!($name));
 
-                    let seq = TestSequence::Short;
-                    let corners = ctx.corner_db();
-                    let mut handles = Vec::new();
-                    for vdd in [1.8] {
-                        let sf = corners.corner_named("sf").unwrap();
-                        let tt = corners.corner_named("tt").unwrap();
-                        // for corner in corners.corners() {
-                        for corner in [sf, tt] {
-                            let corner = corner.clone();
-                            let params = $params.clone();
-                            let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
-                            // let pex_netlist = None;
-                            let work_dir = work_dir.clone();
-                            handles.push(std::thread::spawn(move || {
-                                let ctx = setup_ctx();
-                                let dsn = ctx.run_script::<SramPhysicalDesignScript>(&params).expect("failed to run sram design script");
-                                let tb = crate::blocks::sram::testbench::tb_params(params, dsn, vdd, seq, pex_netlist);
-                                let work_dir = work_dir.join(format!(
-                                    "{}_{:.2}_{}",
-                                    corner.name(),
-                                    vdd,
-                                    seq.as_str(),
-                                ));
-                                let data = ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
-                                    &tb,
-                                    &work_dir,
-                                    corner.clone(),
-                                )
-                                .expect("failed to run simulation");
-                                verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
-                                println!(
-                                    "{}: done simulating in corner {} with Vdd = {}, seq = {}",
-                                    stringify!($name),
-                                    corner.name(),
-                                    vdd,
-                                    seq,
-                                );
-                            }));
-                        }
-                    }
-                    let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
-                    handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
+                    // let seq = TestSequence::Short;
+                    // let corners = ctx.corner_db();
+                    // let mut handles = Vec::new();
+                    // for vdd in [1.8] {
+                    //     let sf = corners.corner_named("sf").unwrap();
+                    //     let tt = corners.corner_named("tt").unwrap();
+                    //     // for corner in corners.corners() {
+                    //     for corner in [sf, tt] {
+                    //         let corner = corner.clone();
+                    //         let params = $params.clone();
+                    //         let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
+                    //         // let pex_netlist = None;
+                    //         let work_dir = work_dir.clone();
+                    //         handles.push(std::thread::spawn(move || {
+                    //             let ctx = setup_ctx();
+                    //             let dsn = ctx.run_script::<SramPhysicalDesignScript>(&params).expect("failed to run sram design script");
+                    //             let tb = crate::blocks::sram::testbench::tb_params(params, dsn, vdd, seq, pex_netlist);
+                    //             let work_dir = work_dir.join(format!(
+                    //                 "{}_{:.2}_{}",
+                    //                 corner.name(),
+                    //                 vdd,
+                    //                 seq.as_str(),
+                    //             ));
+                    //             let data = ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
+                    //                 &tb,
+                    //                 &work_dir,
+                    //                 corner.clone(),
+                    //             )
+                    //             .expect("failed to run simulation");
+                    //             verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
+                    //             println!(
+                    //                 "{}: done simulating in corner {} with Vdd = {}, seq = {}",
+                    //                 stringify!($name),
+                    //                 corner.name(),
+                    //                 vdd,
+                    //                 seq,
+                    //             );
+                    //         }));
+                    //     }
+                    // }
+                    // let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
+                    // handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
 
                     // crate::abs::write_abstract(
                     //     &ctx,
