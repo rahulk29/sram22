@@ -852,13 +852,10 @@ pub(crate) mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::verilog::save_1rw_verilog;
-<<<<<<< HEAD
     use layout::ColumnMosParams;
     use layout::ReplicaColumnMos;
     use layout::ReplicaColumnMosParams;
-=======
     use rust_decimal::Decimal;
->>>>>>> origin/sram-fixes
     use substrate::schematic::netlist::NetlistPurpose;
 
     use super::*;
