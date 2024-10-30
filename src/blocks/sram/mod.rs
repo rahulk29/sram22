@@ -935,17 +935,17 @@ pub(crate) mod tests {
                     ));
                     println!("{}: done running LVS", stringify!($name));
 
-                    let pex_path = out_spice(&work_dir, "pex_schematic");
-                    let pex_dir = work_dir.join("pex");
-                    let pex_level = calibre::pex::PexLevel::Rc;
-                    let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
-                    ctx.write_schematic_to_file_for_purpose::<Sram>(
-                        &$params,
-                        &pex_path,
-                        NetlistPurpose::Pex,
-                    ).expect("failed to write pex source netlist");
-                    let mut opts = std::collections::HashMap::with_capacity(1);
-                    opts.insert("level".into(), pex_level.as_str().into());
+                    // let pex_path = out_spice(&work_dir, "pex_schematic");
+                    // let pex_dir = work_dir.join("pex");
+                    // let pex_level = calibre::pex::PexLevel::Rc;
+                    // let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
+                    //     &$params,
+                    //     &pex_path,
+                    //     NetlistPurpose::Pex,
+                    // ).expect("failed to write pex source netlist");
+                    // let mut opts = std::collections::HashMap::with_capacity(1);
+                    // opts.insert("level".into(), pex_level.as_str().into());
 
                     // ctx.run_pex(substrate::verification::pex::PexInput {
                     //     work_dir: pex_dir,
