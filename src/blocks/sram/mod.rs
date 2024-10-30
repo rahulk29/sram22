@@ -813,6 +813,7 @@ pub(crate) mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::verilog::save_1rw_verilog;
+    use rust_decimal::Decimal;
     use substrate::schematic::netlist::NetlistPurpose;
 
     use super::*;
@@ -1018,6 +1019,10 @@ pub(crate) mod tests {
                     )
                     .expect("failed to write timing schematic");
 
+                    let sram = ctx.instantiate_layout::<Sram>(&$params).expect("failed to generate layout");
+                    let brect = sram.brect();
+                    let width = Decimal::new(brect.width(), 3);
+                    let height = Decimal::new(brect.height(), 3);
                     for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", 40, dec!(1.95))] {
                         let suffix = match corner {
                             "tt" => "tt_025C_1v80",
@@ -1030,6 +1035,8 @@ pub(crate) mod tests {
                             .work_dir(work_dir.join(format!("lib/{suffix}")))
                             .output_file(crate::paths::out_lib(&work_dir, &name))
                             .corner(corner)
+                            .width(width)
+                            .height(height)
                             .cell_name(&*$params.name())
                             .num_words($params.num_words())
                             .data_width($params.data_width())
@@ -1037,7 +1044,8 @@ pub(crate) mod tests {
                             .wmask_width($params.wmask_width())
                             .mux_ratio($params.mux_ratio())
                             .has_wmask(true)
-                            .source_paths(vec![pex_netlist_path.clone()])
+                            // .source_paths(vec![pex_netlist_path.clone()])
+                            .source_paths(vec![timing_spice_path.clone()])
                             .vdd(vdd)
                             .temp(temp)
                             .build()
