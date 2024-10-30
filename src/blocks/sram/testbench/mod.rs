@@ -249,8 +249,22 @@ impl TbParams {
                                     TbSignals::WlStart(i) | TbSignals::WlEnd(i) => {
                                         format!("X0/wl[{i}]")
                                     }
-                                    TbSignals::WeI(i) => format!("X0/Xcol_circuitry/we_i[{i}]"),
-                                    TbSignals::WeIb(i) => format!("X0/Xcol_circuitry/we_ib[{i}]"),
+                                    TbSignals::WeI(i) => format!(
+                                        "X0/Xcol_circuitry/we_i{}",
+                                        if self.sram.wmask_width() > 1 {
+                                            format!("[{i}]")
+                                        } else {
+                                            "".to_string()
+                                        }
+                                    ),
+                                    TbSignals::WeIb(i) => format!(
+                                        "X0/Xcol_circuitry/we_ib{}",
+                                        if self.sram.wmask_width() > 1 {
+                                            format!("[{i}]")
+                                        } else {
+                                            "".to_string()
+                                        }
+                                    ),
                                     TbSignals::Bl(i) => format!("X0/bl[{i}]"),
                                     TbSignals::Br(i) => format!("X0/br[{i}]"),
                                     TbSignals::BitcellQ(i, j) => {
@@ -357,8 +371,22 @@ impl TbParams {
                             TbSignals::WriteDriverEnStart | TbSignals::WriteDriverEnEnd =>
                                 "write_driver_en".to_string(),
                             TbSignals::WlStart(i) | TbSignals::WlEnd(i) => format!("wl[{i}]"),
-                            TbSignals::WeI(i) => format!("Xcol_circuitry.we_i[{i}]"),
-                            TbSignals::WeIb(i) => format!("Xcol_circuitry.we_ib[{i}]"),
+                            TbSignals::WeI(i) => format!(
+                                "Xcol_circuitry.we_i{}",
+                                if self.sram.wmask_width() > 1 {
+                                    format!("[{i}]")
+                                } else {
+                                    "".to_string()
+                                }
+                            ),
+                            TbSignals::WeIb(i) => format!(
+                                "Xcol_circuitry.we_ib{}",
+                                if self.sram.wmask_width() > 1 {
+                                    format!("[{i}]")
+                                } else {
+                                    "".to_string()
+                                }
+                            ),
                             TbSignals::Bl(i) => format!("bl[{i}]"),
                             TbSignals::Br(i) => format!("br[{i}]"),
                             TbSignals::BitcellQ(i, j) =>

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 use itertools::izip;
@@ -367,6 +367,18 @@ pub fn write_internal_rpt(
             writeln!(rpt, "Transition @ {} ps", trans.center_time() * 1e-12)?;
             writeln!(rpt, "Minimum differential: {min_diff} V")?;
             writeln!(rpt)?;
+        }
+    }
+
+    rpt.seek(SeekFrom::Start(0))?;
+    let mut contents = String::new();
+    rpt.read_to_string(&mut contents)?;
+    for level in ["ERROR", "WARNING"] {
+        if contents.contains(level) {
+            println!(
+                "{level}: Report detected potential issues with SRAM {}",
+                tb.sram.name()
+            );
         }
     }
 

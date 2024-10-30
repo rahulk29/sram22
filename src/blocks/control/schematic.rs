@@ -47,8 +47,8 @@ impl ControlLogicReplicaV2 {
             "wrdrven_grst_b",
             "wrdrven_b",
         ]);
-        let [reset, we_b, pc, pc_set_b, rbl_b] =
-            ctx.signals(["reset", "we_b", "pc", "pc_set_b", "rbl_b"]);
+        let [reset, we_b, pc, pc_set_b, pc_b0, rbl_b] =
+            ctx.signals(["reset", "we_b", "pc", "pc_set_b", "pc_b0", "rbl_b"]);
 
         // STANDARD CELLS
         let stdcells = ctx.inner().std_cell_db();
@@ -328,11 +328,22 @@ impl ControlLogicReplicaV2 {
                 ("sb", pc_set_b),
                 ("rb", clkp_b),
                 ("q", pc),
-                ("qb", pc_b),
+                ("qb", pc_b0),
                 ("vdd", vdd),
                 ("vss", vss),
             ])
             .named("pc_ctl")
+            .add_to(ctx);
+        ctx.instantiate::<StdCell>(&buf.id())?
+            .with_connections([
+                ("A", pc_b0),
+                ("X", pc_b),
+                ("VPWR", vdd),
+                ("VPB", vdd),
+                ("VGND", vss),
+                ("VNB", vss),
+            ])
+            .named("pc_b_buf")
             .add_to(ctx);
         ctx.instantiate::<StdCell>(&nand2.id())?
             .with_connections([

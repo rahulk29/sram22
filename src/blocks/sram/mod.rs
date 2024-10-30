@@ -2,8 +2,11 @@ use self::schematic::fanout_buffer_stage;
 use crate::blocks::bitcell_array::replica::ReplicaCellArray;
 use crate::blocks::columns::ColumnsPhysicalDesignScript;
 use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2};
+use crate::blocks::precharge::layout::ReplicaPrecharge;
 use crate::blocks::precharge::PrechargeParams;
-use layout::{ColumnNmosParams, ReplicaColumnNmosParams};
+use layout::{
+    ColumnMosParams, ReplicaColumnMos, ReplicaColumnMosParams, ReplicaMetalRoutingParams,
+};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -39,7 +42,7 @@ use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
 use super::precharge::layout::ReplicaPrechargeParams;
 use crate::blocks::columns::layout::DffArray;
 use crate::blocks::decoder::DecoderStage;
-use crate::blocks::tgatemux::TGateMuxParams;
+use crate::blocks::tgatemux::{TGateMux, TGateMuxParams};
 
 pub mod layout;
 pub mod schematic;
@@ -284,7 +287,8 @@ pub struct SramPhysicalDesign {
     pub(crate) rbl_wl_index: usize,
     pub(crate) rbl: ReplicaCellArrayParams,
     pub(crate) replica_pc: ReplicaPrechargeParams,
-    pub(crate) replica_nmos: ReplicaColumnNmosParams,
+    pub(crate) replica_nmos: ReplicaColumnMosParams,
+    pub(crate) replica_routing: ReplicaMetalRoutingParams,
     pub(crate) col_params: ColParams,
     pub(crate) control: ControlLogicParams,
     pub(crate) pc_b_routing_tracks: i64,
@@ -508,15 +512,13 @@ impl Script for SramPhysicalDesignScript {
 
         assert_eq!(decoder_delay_invs % 2, 0);
         let pc_b_routing_tracks =
-            std::cmp::min(8, (pc_b_cap / (COL_CAPACITANCES.pc_b * 512.)).ceil() as i64);
+            ((pc_b_cap / (COL_CAPACITANCES.pc_b * 512.)).ceil() as i64).clamp(2, 8);
         let write_driver_en_routing_tracks =
-            std::cmp::min(8, (wrdrven_cap / (COL_CAPACITANCES.we * 8.)).ceil() as i64);
+            ((wrdrven_cap / (COL_CAPACITANCES.we * 8.)).ceil() as i64).clamp(2, 8);
         let sense_en_routing_tracks =
-            std::cmp::min(8, (saen_cap / (COL_CAPACITANCES.saen * 32.)).ceil() as i64);
-        let col_dec_routing_tracks = std::cmp::min(
-            4,
-            (col_sel_cap / (COL_CAPACITANCES.sel * 64.)).ceil() as i64,
-        );
+            ((saen_cap / (COL_CAPACITANCES.saen * 32.)).ceil() as i64).clamp(2, 8);
+        let col_dec_routing_tracks =
+            ((col_sel_cap / (COL_CAPACITANCES.sel * 64.)).ceil() as i64).clamp(2, 4);
 
         println!("pc_b num tracks: {}", pc_b_routing_tracks);
         println!("wrdrven num tracks: {}", write_driver_en_routing_tracks);
@@ -525,6 +527,36 @@ impl Script for SramPhysicalDesignScript {
 
         col_params.mux.sel_width = 320 + (320 + 360) * (col_dec_routing_tracks - 1);
         col_params.pc.en_b_width = 320 + (320 + 360) * (pc_b_routing_tracks - 1);
+
+        let mux_inst = ctx.instantiate_layout::<TGateMux>(&col_params.mux)?;
+        let replica_pc = ReplicaPrechargeParams {
+            cols: 2,
+            inner: PrechargeParams {
+                en_b_width: 360,
+                ..col_params.pc.scale(1. / rbl_ratio as f64)
+            },
+        };
+        let replica_nmos = ReplicaColumnMosParams {
+            cols: 2,
+            inner: ColumnMosParams {
+                gate_width_n: snap_to_grid(3_360usize.div_ceil(rbl_ratio) as i64, 50),
+                drain_width_n: snap_to_grid(
+                    ((col_params.mux.nwidth * (params.mux_ratio() as i64 + 1)
+                        + col_params.wrdriver.nwidth_driver) as usize)
+                        .div_ceil(rbl_ratio) as i64,
+                    50,
+                ),
+                drain_width_p: snap_to_grid(
+                    ((col_params.mux.pwidth * (params.mux_ratio() as i64 + 1)
+                        + col_params.wrdriver.pwidth_driver) as usize)
+                        .div_ceil(rbl_ratio) as i64,
+                    50,
+                ),
+                length: 150,
+            },
+        };
+        let replica_pc_inst = ctx.instantiate_layout::<ReplicaPrecharge>(&replica_pc)?;
+        let replica_nmos_inst = ctx.instantiate_layout::<ReplicaColumnMos>(&replica_nmos)?;
 
         Ok(Self::Output {
             bitcells: SpCellArrayParams {
@@ -543,33 +575,20 @@ impl Script for SramPhysicalDesignScript {
             num_dffs,
             rbl_wl_index,
             rbl,
-            replica_pc: ReplicaPrechargeParams {
-                cols: 2,
-                inner: PrechargeParams {
-                    en_b_width: 360,
-                    // Add additional drain capacitance to replica bitline
-                    equalizer_width: snap_to_grid(
-                        ((col_params.pc.equalizer_width
-                            + col_params.mux.pwidth * params.mux_ratio() as i64
-                            + col_params.wrdriver.pwidth_driver) as usize)
-                            .div_ceil(rbl_ratio) as i64,
-                        50,
-                    ),
-                    ..col_params.pc.scale(1. / rbl_ratio as f64)
-                },
-            },
-            replica_nmos: ReplicaColumnNmosParams {
-                cols: 2,
-                inner: ColumnNmosParams {
-                    gate_width: snap_to_grid(3_360usize.div_ceil(rbl_ratio) as i64, 50),
-                    drain_width: snap_to_grid(
-                        ((col_params.mux.nwidth * params.mux_ratio() as i64
-                            + col_params.wrdriver.nwidth_driver) as usize)
-                            .div_ceil(rbl_ratio) as i64,
-                        50,
-                    ),
-                    length: 150,
-                },
+            replica_pc,
+            replica_nmos,
+            replica_routing: ReplicaMetalRoutingParams {
+                m0_area: ((col_params.wrdriver.pwidth_driver + col_params.wrdriver.nwidth_driver)
+                    as usize)
+                    .div_ceil(rbl_ratio) as i64
+                    * 1_080,
+                m1_area: (mux_inst.brect().height() as usize * params.mux_ratio())
+                    .div_ceil(rbl_ratio) as i64
+                    * 1_080,
+                max_height: std::cmp::max(
+                    replica_pc_inst.brect().height(),
+                    replica_nmos_inst.brect().height(),
+                ),
             },
             col_params,
             control,
@@ -833,14 +852,14 @@ pub(crate) mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::verilog::save_1rw_verilog;
-    use layout::ColumnNmosParams;
-    use layout::ReplicaColumnNmos;
-    use layout::ReplicaColumnNmosParams;
+    use layout::ColumnMosParams;
+    use layout::ReplicaColumnMos;
+    use layout::ReplicaColumnMosParams;
     use substrate::schematic::netlist::NetlistPurpose;
 
     use super::*;
 
-    pub(crate) const SRAM22_64X24M4W24: SramParams = SramParams::new(24, MuxRatio::M4, 64, 24);
+    pub(crate) const SRAM22_64X24M4W8: SramParams = SramParams::new(8, MuxRatio::M4, 64, 24);
 
     pub(crate) const SRAM22_64X32M4W8: SramParams = SramParams::new(8, MuxRatio::M4, 64, 32);
 
@@ -888,12 +907,13 @@ pub(crate) mod tests {
     fn test_replica_column_nmos() {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_replica_column_nmos");
-        ctx.write_layout::<ReplicaColumnNmos>(
-            &ReplicaColumnNmosParams {
+        ctx.write_layout::<ReplicaColumnMos>(
+            &ReplicaColumnMosParams {
                 cols: 2,
-                inner: ColumnNmosParams {
-                    gate_width: 1_000,
-                    drain_width: 1_000,
+                inner: ColumnMosParams {
+                    gate_width_n: 1_000,
+                    drain_width_n: 1_000,
+                    drain_width_p: 1_000,
                     length: 150,
                 },
             },
@@ -975,30 +995,30 @@ pub(crate) mod tests {
                     ));
                     println!("{}: done running LVS", stringify!($name));
 
-                    // let pex_path = out_spice(&work_dir, "pex_schematic");
-                    // let pex_dir = work_dir.join("pex");
-                    // let pex_level = calibre::pex::PexLevel::Rc;
-                    // let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
-                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
-                    //     &$params,
-                    //     &pex_path,
-                    //     NetlistPurpose::Pex,
-                    // ).expect("failed to write pex source netlist");
-                    // let mut opts = std::collections::HashMap::with_capacity(1);
-                    // opts.insert("level".into(), pex_level.as_str().into());
+                    let pex_path = out_spice(&work_dir, "pex_schematic");
+                    let pex_dir = work_dir.join("pex");
+                    let pex_level = calibre::pex::PexLevel::Rc;
+                    let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+                    ctx.write_schematic_to_file_for_purpose::<Sram>(
+                        &$params,
+                        &pex_path,
+                        NetlistPurpose::Pex,
+                    ).expect("failed to write pex source netlist");
+                    let mut opts = std::collections::HashMap::with_capacity(1);
+                    opts.insert("level".into(), pex_level.as_str().into());
 
-                    // ctx.run_pex(substrate::verification::pex::PexInput {
-                    //     work_dir: pex_dir,
-                    //     layout_path: gds_path.clone(),
-                    //     layout_cell_name: $params.name().clone(),
-                    //     layout_format: substrate::layout::LayoutFormat::Gds,
-                    //     source_paths: vec![pex_path],
-                    //     source_cell_name: $params.name().clone(),
-                    //     pex_netlist_path: pex_netlist_path.clone(),
-                    //     ground_net: "vss".to_string(),
-                    //     opts,
-                    // }).expect("failed to run pex");
-                    // println!("{}: done running PEX", stringify!($name));
+                    ctx.run_pex(substrate::verification::pex::PexInput {
+                        work_dir: pex_dir,
+                        layout_path: gds_path.clone(),
+                        layout_cell_name: $params.name().clone(),
+                        layout_format: substrate::layout::LayoutFormat::Gds,
+                        source_paths: vec![pex_path],
+                        source_cell_name: $params.name().clone(),
+                        pex_netlist_path: pex_netlist_path.clone(),
+                        ground_net: "vss".to_string(),
+                        opts,
+                    }).expect("failed to run pex");
+                    println!("{}: done running PEX", stringify!($name));
 
                     let seq = TestSequence::Short;
                     let corners = ctx.corner_db();
@@ -1006,12 +1026,14 @@ pub(crate) mod tests {
                     for vdd in [1.8] {
                         let sf = corners.corner_named("sf").unwrap();
                         let fs = corners.corner_named("fs").unwrap();
+                        let ss = corners.corner_named("ss").unwrap();
+                        let ff = corners.corner_named("ff").unwrap();
                         // for corner in corners.corners() {
-                        for corner in [sf, fs] {
+                        for corner in [sf, fs, ss, ff] {
                             let corner = corner.clone();
                             let params = $params.clone();
-                            // let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
-                             let pex_netlist = None;
+                            let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
+                            // let pex_netlist = None;
                             let work_dir = work_dir.clone();
                             handles.push(std::thread::spawn(move || {
                                 let ctx = setup_ctx();
@@ -1093,7 +1115,7 @@ pub(crate) mod tests {
         };
     }
 
-    test_sram!(test_sram22_64x24m4w24, SRAM22_64X24M4W24, ignore = "slow");
+    test_sram!(test_sram22_64x24m4w8, SRAM22_64X24M4W8, ignore = "slow");
     test_sram!(test_sram22_64x32m4w8, SRAM22_64X32M4W8, ignore = "slow");
     test_sram!(test_sram22_128x16m4w8, SRAM22_128X16M4W8, ignore = "slow");
     test_sram!(test_sram22_128x24m4w8, SRAM22_128X24M4W8, ignore = "slow");
