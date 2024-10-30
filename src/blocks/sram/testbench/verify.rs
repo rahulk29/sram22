@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 use itertools::izip;
@@ -18,7 +18,11 @@ pub fn write_internal_rpt(
     tb: &TbParams,
 ) -> Result<()> {
     let rpt_path = work_dir.as_ref().join("internal.rpt");
-    let mut rpt = File::create(rpt_path)?;
+    let mut rpt = File::options()
+        .create(true)
+        .write(true)
+        .read(true)
+        .open(rpt_path)?;
     let low_threshold = 0.2 * tb.vdd;
     let high_threshold = 0.8 * tb.vdd;
 
@@ -174,12 +178,12 @@ pub fn write_internal_rpt(
                 Some((overlap, active_wl, overlap_start))
             };
             for i in 0..tb.sram.wmask_width() {
-                for we_trans in [&we_i_trans[i], &we_ib_trans[i]] {
+                for (name, we_trans) in [("we_i", &we_i_trans[i]), ("we_ib", &we_ib_trans[i])] {
                     if let Some((overlap, active_wl, overlap_start)) = check_overlap(we_trans) {
-                        if overlap < 50. {
-                            writeln!(rpt, "WARNING: overlap between we_i[{i}] and wordline {active_wl} is less than 50 ps at t = {} ps", overlap_start * 1e12)?;
+                        if overlap < 300. {
+                            writeln!(rpt, "WARNING: overlap between {name}[{i}] and wordline {active_wl} is less than 50 ps at t = {} ps", overlap_start * 1e12)?;
                         }
-                        writeln!(rpt, "Overlap of {overlap} ps between we_i[{i}] and wordline {active_wl} at t = {} ps", overlap_start * 1e12)?;
+                        writeln!(rpt, "Overlap of {overlap} ps between {name}[{i}] and wordline {active_wl} at t = {} ps", overlap_start * 1e12)?;
                     }
                 }
             }
@@ -364,9 +368,21 @@ pub fn write_internal_rpt(
                     min_diff = diff;
                 }
             }
-            writeln!(rpt, "Transition @ {} ps", trans.center_time() * 1e-12)?;
+            writeln!(rpt, "Transition @ {} ps", trans.center_time() * 1e12)?;
             writeln!(rpt, "Minimum differential: {min_diff} V")?;
             writeln!(rpt)?;
+        }
+    }
+
+    rpt.rewind()?;
+    let mut contents = String::new();
+    rpt.read_to_string(&mut contents)?;
+    for level in ["ERROR", "WARNING"] {
+        if contents.contains(level) {
+            println!(
+                "{level}: Report detected potential issues with SRAM {}",
+                tb.sram.name()
+            );
         }
     }
 

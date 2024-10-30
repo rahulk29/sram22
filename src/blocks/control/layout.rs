@@ -6,6 +6,7 @@ use substrate::component::{Component, NoParams};
 use substrate::data::SubstrateCtx;
 use substrate::index::IndexOwned;
 use substrate::layout::cell::{CellPort, Instance, Port, PortConflictStrategy, PortId};
+use substrate::layout::context::LayoutCtx;
 use substrate::layout::elements::via::{Via, ViaParams};
 use substrate::layout::group::Group;
 use substrate::layout::layers::selector::Selector;
@@ -169,6 +170,7 @@ impl ControlLogicReplicaV2 {
                     &ctx.instantiate::<SvtInvChain>(&self.params.decoder_delay_invs)?,
                 ),
                 ("pc_ctl", &sr_latch),
+                ("pc_b_buf", &buf),
             ])?,
             outline,
         ));
@@ -666,6 +668,7 @@ impl ControlLogicReplicaV2 {
             ],
         )?;
         decrepends.push(decrepend_out);
+        decrepends.reverse();
 
         // we -> wrdrven_set.b
         let we_in_1 = group.port_map().port("wrdrven_set_b")?.largest_rect(m0)?;
@@ -809,11 +812,26 @@ impl ControlLogicReplicaV2 {
         let pin = group.port_map().port("pc_ctl_qb")?.largest_rect(m0)?;
         let mut via = via01.clone();
         via.align_centers_gridded(pin.bbox(), grid);
-        let pc_b_out = router.expand_to_grid(
+        let pc_b0_out = router.expand_to_grid(
             via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
         ctx.draw(via)?;
+        ctx.draw_rect(m1, pc_b0_out);
+        router.occupy(m1, pc_b0_out, "pc_b0")?;
+        let pc_b_in_buf = group.port_map().port("pc_b_buf_a")?.largest_rect(m0)?;
+        let mut via = via01.clone();
+        via.align_centers_gridded(pc_b_in_buf.bbox(), grid);
+        let pc_b_in_buf = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::LowerLeft),
+        );
+        ctx.draw(via)?;
+        ctx.draw_rect(m1, pc_b_in_buf);
+        router.occupy(m1, pc_b_in_buf, "pc_b0")?;
+        let pc_b_out = group.port_map().port("pc_b_buf_x")?.largest_rect(m1)?;
+        let pc_b_out =
+            router.expand_to_grid(pc_b_out, ExpandToGridStrategy::Corner(Corner::UpperRight));
         ctx.draw_rect(m1, pc_b_out);
         router.occupy(m1, pc_b_out, "pc_b")?;
 
@@ -1007,8 +1025,20 @@ impl ControlLogicReplicaV2 {
         ctx.draw_rect(m1, pc_setb_in);
         router.occupy(m1, pc_setb_in, "pc_set_b")?;
 
+        let route_pins = |ctx: &mut LayoutCtx,
+                          router: &mut GreedyRouter,
+                          pins: &[(&str, &[Rect])]|
+         -> substrate::error::Result<()> {
+            for (net, rects) in pins {
+                for dst in &rects[1..] {
+                    router.route_with_net(ctx, m1, rects[0], m1, *dst, net)?;
+                }
+            }
+            Ok(())
+        };
         router.route_with_net(ctx, m1, clk_pin, m1, clk_in, "clk")?;
         router.route_with_net(ctx, m1, ce_pin, m1, ce_in, "ce")?;
+        router.route_with_net(ctx, m1, pc_b0_out, m1, pc_b_in_buf, "pc_b0")?;
         router.route_with_net(ctx, m1, pc_b_out, m1, pc_b_pin, "pc_b")?;
         router.route_with_net(ctx, m1, resetb_pin, m1, resetb_in, "rstb")?;
         router.route_with_net(ctx, m1, clkp_b_out, m1, clkp_b_in, "clkp_b")?;
@@ -1021,22 +1051,18 @@ impl ControlLogicReplicaV2 {
         for we_b_in in we_b_ins {
             router.route_with_net(ctx, m1, we_b_out, m1, we_b_in, "we_b")?;
         }
-        let mut route_pins = |pins: &[(&str, &[Rect])]| -> substrate::error::Result<()> {
-            for (net, rects) in pins {
-                for dst in &rects[1..] {
-                    router.route_with_net(ctx, m1, rects[0], m1, *dst, net)?;
-                }
-            }
-            Ok(())
-        };
-        route_pins(&[
-            ("wlen_q", &wlen_qs),
-            ("decrepstart", &decrepstarts),
-            ("wrdrven_grst_b", &wrdrven_grst_bs),
-            ("clkpd_b", &clkpd_bs),
-            ("saen_set_b", &saen_set_bs),
-            ("decrepend", &decrepends),
-        ])?;
+        route_pins(
+            ctx,
+            &mut router,
+            &[
+                ("decrepend", &decrepends),
+                ("wlen_q", &wlen_qs),
+                ("decrepstart", &decrepstarts),
+                ("wrdrven_grst_b", &wrdrven_grst_bs),
+                ("clkpd_b", &clkpd_bs),
+                ("saen_set_b", &saen_set_bs),
+            ],
+        )?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in, "we")?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in_1, "we")?;
         router.route_with_net(ctx, m1, we_pin, m1, we_in_inv, "we")?;

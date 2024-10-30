@@ -1,6 +1,6 @@
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
-use subgeom::{Dir, Rect, Span};
+use subgeom::{Dir, Rect, Sign, Span};
 use substrate::component::{Component, NoParams};
 use substrate::layout::cell::{CellPort, Port};
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
@@ -55,22 +55,30 @@ impl WriteDriver {
         for (port, out_port, inst) in [("inp", "bl", &blinv), ("inn", "br", &brinv)] {
             let sa_in = sa.port(port)?.largest_rect(m1)?;
             let inv_out = inst.port("dout")?.largest_rect(m0)?;
-            let inv_out_vspan = Span::with_stop_and_length(inv_out.top(), 170);
 
-            let m0_rect = Rect::from_spans(inv_out.hspan().union(sa_in.hspan()), inv_out_vspan);
             let m1_rect =
-                Rect::from_spans(sa_in.hspan(), inv_out_vspan.add_point(inst.brect().top()));
-            ctx.draw_rect(m0, m0_rect);
+                Rect::from_spans(sa_in.hspan(), inst.brect().vspan().shrink(Sign::Neg, 600));
             ctx.draw_rect(m1, m1_rect);
             ctx.add_port(CellPort::builder().id(out_port).add(m1, m1_rect).build())?;
+
             let viap = ViaParams::builder()
                 .layers(m0, m1)
-                .geometry(m0_rect, m1_rect)
+                .geometry(m1_rect, m1_rect)
                 .top_extension(Dir::Vert)
-                .bot_extension(Dir::Horiz)
+                .bot_extension(Dir::Vert)
+                .expand(ViaExpansion::LongerDirection)
                 .build();
             let via = ctx.instantiate::<Via>(&viap)?;
             ctx.draw_ref(&via)?;
+
+            ctx.draw_rect(
+                m0,
+                inv_out.with_hspan(
+                    inv_out
+                        .hspan()
+                        .union(via.layer_bbox(m0).into_rect().hspan()),
+                ),
+            );
         }
 
         for port in ["en", "en_b"] {
@@ -132,9 +140,11 @@ impl WriteDriver {
         }
 
         for port in ["vdd", "vss"] {
+            let port_rect = blinv.port(port)?.largest_rect(m0)?;
+            let power_stripe_height = (port_rect.height() - 280).clamp(800, 3_600);
             let power_span = Span::from_center_span_gridded(
-                blinv.port(port)?.largest_rect(m0)?.center().y,
-                POWER_HEIGHT,
+                port_rect.center().y,
+                power_stripe_height,
                 ctx.pdk().layout_grid(),
             );
             let power_stripe = Rect::from_spans(hspan, power_span);
@@ -152,6 +162,7 @@ impl WriteDriver {
                     .layers(m1, m2)
                     .geometry(via.layer_bbox(m1), power_stripe)
                     .expand(ViaExpansion::LongerDirection)
+                    .bot_extension(Dir::Vert)
                     .build();
                 let via = ctx.instantiate::<Via>(&viap)?;
                 ctx.draw(via)?;
