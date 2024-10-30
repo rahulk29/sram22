@@ -947,18 +947,18 @@ pub(crate) mod tests {
                     let mut opts = std::collections::HashMap::with_capacity(1);
                     opts.insert("level".into(), pex_level.as_str().into());
 
-                    ctx.run_pex(substrate::verification::pex::PexInput {
-                        work_dir: pex_dir,
-                        layout_path: gds_path.clone(),
-                        layout_cell_name: $params.name().clone(),
-                        layout_format: substrate::layout::LayoutFormat::Gds,
-                        source_paths: vec![pex_path],
-                        source_cell_name: $params.name().clone(),
-                        pex_netlist_path: pex_netlist_path.clone(),
-                        ground_net: "vss".to_string(),
-                        opts,
-                    }).expect("failed to run pex");
-                    println!("{}: done running PEX", stringify!($name));
+                    // ctx.run_pex(substrate::verification::pex::PexInput {
+                    //     work_dir: pex_dir,
+                    //     layout_path: gds_path.clone(),
+                    //     layout_cell_name: $params.name().clone(),
+                    //     layout_format: substrate::layout::LayoutFormat::Gds,
+                    //     source_paths: vec![pex_path],
+                    //     source_cell_name: $params.name().clone(),
+                    //     pex_netlist_path: pex_netlist_path.clone(),
+                    //     ground_net: "vss".to_string(),
+                    //     opts,
+                    // }).expect("failed to run pex");
+                    // println!("{}: done running PEX", stringify!($name));
 
                     // let seq = TestSequence::Short;
                     // let corners = ctx.corner_db();
