@@ -870,12 +870,12 @@ pub(crate) mod tests {
                 let ctx = setup_ctx();
                 let work_dir = test_work_dir(stringify!($name));
 
-                let spice_path = out_spice(&work_dir, "schematic");
+                let spice_path = out_spice(&work_dir, stringify!($name));
                 ctx.write_schematic_to_file::<Sram>(&$params, &spice_path)
                     .expect("failed to write schematic");
                     println!("{}: done writing schematic", stringify!($name));
 
-                let gds_path = out_gds(&work_dir, "layout");
+                let gds_path = out_gds(&work_dir, stringify!($name));
                 ctx.write_layout::<Sram>(&$params, &gds_path)
                     .expect("failed to write layout");
                     println!("{}: done writing layout", stringify!($name));
@@ -1006,7 +1006,7 @@ pub(crate) mod tests {
                     crate::abs::write_abstract(
                         &ctx,
                         &$params,
-                        crate::paths::out_lef(&work_dir, "abstract"),
+                        crate::paths::out_lef(&work_dir, stringify!($name)),
                     )
                     .expect("failed to write abstract");
                     println!("{}: done writing abstract", stringify!($name));
