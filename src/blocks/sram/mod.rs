@@ -1037,6 +1037,7 @@ pub(crate) mod tests {
                             .corner(corner)
                             .width(width)
                             .height(height)
+                            .user_verilog(verilog_path.clone())
                             .cell_name(&*$params.name())
                             .num_words($params.num_words())
                             .data_width($params.data_width())
