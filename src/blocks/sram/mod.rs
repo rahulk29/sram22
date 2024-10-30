@@ -852,9 +852,13 @@ pub(crate) mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::verilog::save_1rw_verilog;
+<<<<<<< HEAD
     use layout::ColumnMosParams;
     use layout::ReplicaColumnMos;
     use layout::ReplicaColumnMosParams;
+=======
+    use rust_decimal::Decimal;
+>>>>>>> origin/sram-fixes
     use substrate::schematic::netlist::NetlistPurpose;
 
     use super::*;
@@ -930,12 +934,12 @@ pub(crate) mod tests {
                 let ctx = setup_ctx();
                 let work_dir = test_work_dir(stringify!($name));
 
-                let spice_path = out_spice(&work_dir, "schematic");
+                let spice_path = out_spice(&work_dir, &*$params.name());
                 ctx.write_schematic_to_file::<Sram>(&$params, &spice_path)
                     .expect("failed to write schematic");
                     println!("{}: done writing schematic", stringify!($name));
 
-                let gds_path = out_gds(&work_dir, "layout");
+                let gds_path = out_gds(&work_dir, &*$params.name());
                 ctx.write_layout::<Sram>(&$params, &gds_path)
                     .expect("failed to write layout");
                     println!("{}: done writing layout", stringify!($name));
@@ -1068,7 +1072,7 @@ pub(crate) mod tests {
                     // crate::abs::write_abstract(
                     //     &ctx,
                     //     &$params,
-                    //     crate::paths::out_lef(&work_dir, "abstract"),
+                    //     crate::paths::out_lef(&work_dir, &*$params.name()),
                     // )
                     // .expect("failed to write abstract");
                     // println!("{}: done writing abstract", stringify!($name));
@@ -1081,6 +1085,10 @@ pub(crate) mod tests {
                     // )
                     // .expect("failed to write timing schematic");
 
+                    // let sram = ctx.instantiate_layout::<Sram>(&$params).expect("failed to generate layout");
+                    // let brect = sram.brect();
+                    // let width = Decimal::new(brect.width(), 3);
+                    // let height = Decimal::new(brect.height(), 3);
                     // for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", 40, dec!(1.95))] {
                     //     let suffix = match corner {
                     //         "tt" => "tt_025C_1v80",
@@ -1093,6 +1101,9 @@ pub(crate) mod tests {
                     //         .work_dir(work_dir.join(format!("lib/{suffix}")))
                     //         .output_file(crate::paths::out_lib(&work_dir, &name))
                     //         .corner(corner)
+                    //         .width(width)
+                    //         .height(height)
+                    //         .user_verilog(verilog_path.clone())
                     //         .cell_name(&*$params.name())
                     //         .num_words($params.num_words())
                     //         .data_width($params.data_width())
@@ -1100,6 +1111,7 @@ pub(crate) mod tests {
                     //         .wmask_width($params.wmask_width())
                     //         .mux_ratio($params.mux_ratio())
                     //         .has_wmask(true)
+                    //         // .source_paths(vec![pex_netlist_path.clone()])
                     //         .source_paths(vec![timing_spice_path.clone()])
                     //         .vdd(vdd)
                     //         .temp(temp)
