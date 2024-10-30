@@ -818,7 +818,7 @@ pub(crate) mod tests {
 
     use super::*;
 
-    pub(crate) const SRAM22_64X24M4W24: SramParams = SramParams::new(24, MuxRatio::M4, 64, 24);
+    pub(crate) const SRAM22_64X24M4W8: SramParams = SramParams::new(8, MuxRatio::M4, 64, 24);
 
     pub(crate) const SRAM22_64X32M4W8: SramParams = SramParams::new(8, MuxRatio::M4, 64, 32);
 
@@ -1061,7 +1061,7 @@ pub(crate) mod tests {
         };
     }
 
-    test_sram!(test_sram22_64x24m4w24, SRAM22_64X24M4W24, ignore = "slow");
+    test_sram!(test_sram22_64x24m4w8, SRAM22_64X24M4W8, ignore = "slow");
     test_sram!(test_sram22_64x32m4w8, SRAM22_64X32M4W8, ignore = "slow");
     test_sram!(test_sram22_128x16m4w8, SRAM22_128X16M4W8, ignore = "slow");
     test_sram!(test_sram22_128x24m4w8, SRAM22_128X24M4W8, ignore = "slow");
