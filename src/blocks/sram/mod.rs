@@ -7,7 +7,6 @@ use crate::blocks::precharge::PrechargeParams;
 use layout::{
     ColumnMosParams, ReplicaColumnMos, ReplicaColumnMosParams, ReplicaMetalRoutingParams,
 };
-use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::path::{Path, PathBuf};
@@ -37,7 +36,7 @@ use super::decoder::{
     Decoder, DecoderParams, DecoderPhysicalDesignParams, DecoderStageParams, DecoderStyle,
     DecoderTree, RoutingStyle, INV_MODEL, INV_PARAMS, NAND2_MODEL, NAND2_PARAMS,
 };
-use super::gate::{AndParams, GateParams, PrimitiveGateParams};
+use super::gate::{AndParams, GateParams};
 use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
 use super::precharge::layout::ReplicaPrechargeParams;
 use crate::blocks::columns::layout::DffArray;
@@ -852,10 +851,9 @@ pub(crate) mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::verilog::save_1rw_verilog;
-    use layout::ColumnMosParams;
-    use layout::ReplicaColumnMos;
-    use layout::ReplicaColumnMosParams;
+    use layout::{ColumnMosParams, ReplicaColumnMos, ReplicaColumnMosParams};
     use rust_decimal::Decimal;
+    use rust_decimal_macros::dec;
     use substrate::schematic::netlist::NetlistPurpose;
 
     use super::*;

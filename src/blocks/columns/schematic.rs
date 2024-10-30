@@ -61,8 +61,6 @@ impl ColPeripherals {
         let wmask_in_b = ctx.bus("wmask_in_b", wmask_bits);
         let we_i = ctx.bus("we_i", wmask_bits);
         let we_ib = ctx.bus("we_ib", wmask_bits);
-        let [dummy_bl, dummy_br, dummy_bl_noconn, dummy_br_noconn] =
-            ctx.signals(["dummy_bl", "dummy_br", "dummy_bl_noconn", "dummy_br_noconn"]);
 
         ctx.instantiate::<DffArray>(&wmask_bits)?
             .with_connections([

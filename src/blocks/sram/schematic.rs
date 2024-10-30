@@ -1,7 +1,6 @@
 use substrate::component::NoParams;
 use substrate::error::Result;
 use substrate::index::IndexOwned;
-use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 use substrate::schematic::signal::Signal;

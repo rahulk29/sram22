@@ -17,16 +17,14 @@ use substrate::layout::layers::{LayerBoundBox, LayerKey};
 use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::place_bbox::PlaceBbox;
-use substrate::layout::placement::tile::LayerBbox;
 use substrate::layout::routing::auto::straps::{RoutedStraps, Target};
 use substrate::layout::routing::auto::{GreedyRouter, GreedyRouterConfig, LayerConfig};
-use substrate::layout::routing::manual::jog::{OffsetJog, SimpleJog};
-use substrate::layout::routing::tracks::{TrackLocator, UniformTracks};
+use substrate::layout::routing::manual::jog::OffsetJog;
+use substrate::layout::routing::tracks::TrackLocator;
 use substrate::layout::straps::SingleSupplyNet;
 use substrate::pdk::mos::query::Query;
 use substrate::pdk::mos::spec::MosKind;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
-use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::elements::mos::SchematicMos;
 
@@ -36,8 +34,7 @@ use crate::blocks::columns::layout::DffArray;
 use crate::blocks::columns::{ColPeripherals, ColumnDesignScript};
 use crate::blocks::control::ControlLogicReplicaV2;
 use crate::blocks::decoder::{Decoder, DecoderStage};
-use crate::blocks::precharge;
-use crate::blocks::precharge::layout::{ReplicaPrecharge, LI_VIA_SHRINK};
+use crate::blocks::precharge::layout::ReplicaPrecharge;
 
 use super::{SramInner, SramPhysicalDesignScript, TappedDiode};
 
