@@ -8,7 +8,7 @@ module {{module_name}}(
     vdd,
     vss,
 `endif
-    clk,resetb,ce,we,addr,din,dout
+    clk,rstb,ce,we,addr,din,dout
   );
 
   localparam DATA_WIDTH = {{data_width}} ;
@@ -20,7 +20,7 @@ module {{module_name}}(
     inout vss; // ground
 `endif
   input  clk; // clock
-  input  resetb; // reset bar
+  input  rstb; // reset bar
   input  ce; // chip enable
   input  we; // write enable
   input [ADDR_WIDTH-1:0]  addr; // address
@@ -42,7 +42,7 @@ module {{module_name}}(
 
   always @(posedge clk)
   begin
-    if (!resetb) begin
+    if (!rstb) begin
         dout <= {DATAWIDTH{1'b1}};
     end else begin
       if (ce) begin 
