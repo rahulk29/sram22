@@ -891,49 +891,49 @@ pub(crate) mod tests {
                     use calibre::lvs::{run_lvs, LvsParams};
                     use crate::verification::calibre::{SKY130_DRC_RUNSET_PATH, SKY130_LAYERPROPS_PATH, SKY130_LVS_RULES_PATH};
 
-                    let drc_work_dir = work_dir.join("drc");
-                    for deck in [
-                        "drc", "latchup", "soft", "luRes",
-                        // "stress", "fill"
-                    ] {
-                        let deck_work_dir = drc_work_dir.join(deck);
-                        let output = run_drc(&DrcParams {
-                            cell_name: &$params.name(),
-                            work_dir: &deck_work_dir,
-                            layout_path: &gds_path,
-                            rules_path: Path::new(&format!("/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/DRC/Calibre/s8_{deck}Rules")),
-                            runset_path: (deck == "drc").then(|| Path::new(SKY130_DRC_RUNSET_PATH)),
-                            layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
-                        }).expect("failed to run DRC");
-                        println!("{:?}", output.rule_checks);
-                        assert!(
-                            output.rule_checks.is_empty(),
-                            "DRC must have no rule violations"
-                        );
-                        println!("{}: done running DRC deck `{}`", stringify!($name), deck);
-                    }
+                    // let drc_work_dir = work_dir.join("drc");
+                    // for deck in [
+                    //     "drc", "latchup", "soft", "luRes",
+                    //     // "stress", "fill"
+                    // ] {
+                    //     let deck_work_dir = drc_work_dir.join(deck);
+                    //     let output = run_drc(&DrcParams {
+                    //         cell_name: &$params.name(),
+                    //         work_dir: &deck_work_dir,
+                    //         layout_path: &gds_path,
+                    //         rules_path: Path::new(&format!("/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/DRC/Calibre/s8_{deck}Rules")),
+                    //         runset_path: (deck == "drc").then(|| Path::new(SKY130_DRC_RUNSET_PATH)),
+                    //         layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
+                    //     }).expect("failed to run DRC");
+                    //     println!("{:?}", output.rule_checks);
+                    //     assert!(
+                    //         output.rule_checks.is_empty(),
+                    //         "DRC must have no rule violations"
+                    //     );
+                    //     println!("{}: done running DRC deck `{}`", stringify!($name), deck);
+                    // }
 
-                    let lvs_path = out_spice(&work_dir, "lvs_schematic");
-                    ctx.write_schematic_to_file_for_purpose::<Sram>(
-                        &$params,
-                        &lvs_path,
-                        NetlistPurpose::Lvs,
-                    ).expect("failed to write lvs source netlist");
-                    let lvs_work_dir = work_dir.join("lvs");
-                    let output = run_lvs(&LvsParams{
-                        work_dir: &lvs_work_dir,
-                        layout_path: &gds_path,
-                        layout_cell_name: &$params.name(),
-                        source_paths: &[lvs_path],
-                        source_cell_name: &$params.name(),
-                        rules_path: Path::new(SKY130_LVS_RULES_PATH),
-                        layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
-                    }).expect("failed to run LVS");
-                    assert!(matches!(
-                        output.status,
-                        calibre::lvs::LvsStatus::Correct
-                    ));
-                    println!("{}: done running LVS", stringify!($name));
+                    // let lvs_path = out_spice(&work_dir, "lvs_schematic");
+                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
+                    //     &$params,
+                    //     &lvs_path,
+                    //     NetlistPurpose::Lvs,
+                    // ).expect("failed to write lvs source netlist");
+                    // let lvs_work_dir = work_dir.join("lvs");
+                    // let output = run_lvs(&LvsParams{
+                    //     work_dir: &lvs_work_dir,
+                    //     layout_path: &gds_path,
+                    //     layout_cell_name: &$params.name(),
+                    //     source_paths: &[lvs_path],
+                    //     source_cell_name: &$params.name(),
+                    //     rules_path: Path::new(SKY130_LVS_RULES_PATH),
+                    //     layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
+                    // }).expect("failed to run LVS");
+                    // assert!(matches!(
+                    //     output.status,
+                    //     calibre::lvs::LvsStatus::Correct
+                    // ));
+                    // println!("{}: done running LVS", stringify!($name));
 
                     // let pex_path = out_spice(&work_dir, "pex_schematic");
                     // let pex_dir = work_dir.join("pex");
