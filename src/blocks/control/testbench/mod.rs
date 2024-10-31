@@ -199,7 +199,8 @@ impl Component for ControlLogicTestbench {
             decoder_delay_invs: 20,
             wlen_pulse_invs: 11,
             pc_set_delay_invs: 8,
-            wrdrven_delay_invs: 2,
+            wrdrven_set_delay_invs: 2,
+            wrdrven_rst_delay_invs: 0,
         })?
         .with_connections([
             ("vdd", vdd),

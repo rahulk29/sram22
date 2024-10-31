@@ -16,7 +16,8 @@ pub struct ControlLogicParams {
     pub decoder_delay_invs: usize,
     pub wlen_pulse_invs: usize,
     pub pc_set_delay_invs: usize,
-    pub wrdrven_delay_invs: usize,
+    pub wrdrven_set_delay_invs: usize,
+    pub wrdrven_rst_delay_invs: usize,
 }
 
 impl Component for ControlLogicReplicaV2 {
@@ -41,9 +42,14 @@ impl Component for ControlLogicReplicaV2 {
             "pc set delay chain must have an even number of inverters"
         );
         assert_eq!(
-            params.wrdrven_delay_invs % 2,
+            params.wrdrven_set_delay_invs % 2,
             0,
-            "write drive enable delay chain must have an even number of inverters"
+            "write drive enable set delay chain must have an even number of inverters"
+        );
+        assert_eq!(
+            params.wrdrven_rst_delay_invs % 2,
+            0,
+            "write drive enable rst delay chain must have an even number of inverters"
         );
         Ok(Self { params: *params })
     }
@@ -196,7 +202,8 @@ pub mod test {
         decoder_delay_invs: 12,
         wlen_pulse_invs: 11,
         pc_set_delay_invs: 14,
-        wrdrven_delay_invs: 4,
+        wrdrven_set_delay_invs: 4,
+        wrdrven_rst_delay_invs: 0,
     };
 
     #[test]

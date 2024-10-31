@@ -27,6 +27,7 @@ use substrate::pdk::mos::spec::MosKind;
 use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::elements::mos::SchematicMos;
+use substrate::script::Script;
 
 use crate::blocks::bitcell_array::replica::ReplicaCellArray;
 use crate::blocks::bitcell_array::SpCellArray;
@@ -182,6 +183,9 @@ pub struct ColumnMosParams {
     pub drain_width_n: i64,
     pub drain_width_p: i64,
     pub length: i64,
+    pub include_gate_n: bool,
+    pub include_drain_n: bool,
+    pub include_drain_p: bool,
 }
 
 pub struct ColumnMosCent {
@@ -196,8 +200,11 @@ pub struct ReplicaColumnMos {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ReplicaColumnMosParams {
-    pub cols: usize,
-    pub inner: ColumnMosParams,
+    pub max_height: i64,
+    pub gate_width_n: i64,
+    pub drain_width_n: i64,
+    pub drain_width_p: i64,
+    pub length: i64,
 }
 
 pub struct ReplicaMetalRouting {
@@ -245,38 +252,44 @@ impl Component for ColumnMos {
             .query(Query::builder().kind(MosKind::Pmos).build().unwrap())?
             .id();
 
-        let mut gate_nmos = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: self.params.gate_width_n,
-            l: length,
-            m: 1,
-            nf: 1,
-            id: nmos_id,
-        })?;
-        gate_nmos.connect_all([("d", &vss), ("g", &bl), ("s", &vss), ("b", &vss)]);
-        gate_nmos.set_name("gate_nmos");
-        ctx.add_instance(gate_nmos);
+        if self.params.include_gate_n {
+            let mut gate_nmos = ctx.instantiate::<SchematicMos>(&MosParams {
+                w: self.params.gate_width_n,
+                l: length,
+                m: 1,
+                nf: 1,
+                id: nmos_id,
+            })?;
+            gate_nmos.connect_all([("d", &vss), ("g", &bl), ("s", &vss), ("b", &vss)]);
+            gate_nmos.set_name("gate_nmos");
+            ctx.add_instance(gate_nmos);
+        }
 
-        let mut drain_nmos = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: self.params.drain_width_n,
-            l: length,
-            m: 1,
-            nf: 1,
-            id: nmos_id,
-        })?;
-        drain_nmos.connect_all([("d", &bl), ("g", &vss), ("s", &vss), ("b", &vss)]);
-        drain_nmos.set_name("drain_nmos");
-        ctx.add_instance(drain_nmos);
+        if self.params.include_drain_n {
+            let mut drain_nmos = ctx.instantiate::<SchematicMos>(&MosParams {
+                w: self.params.drain_width_n,
+                l: length,
+                m: 1,
+                nf: 1,
+                id: nmos_id,
+            })?;
+            drain_nmos.connect_all([("d", &bl), ("g", &vss), ("s", &vss), ("b", &vss)]);
+            drain_nmos.set_name("drain_nmos");
+            ctx.add_instance(drain_nmos);
+        }
 
-        let mut drain_pmos = ctx.instantiate::<SchematicMos>(&MosParams {
-            w: self.params.drain_width_n,
-            l: length,
-            m: 1,
-            nf: 1,
-            id: pmos_id,
-        })?;
-        drain_pmos.connect_all([("d", &bl), ("g", &vdd), ("s", &vdd), ("b", &vdd)]);
-        drain_pmos.set_name("drain_pmos");
-        ctx.add_instance(drain_pmos);
+        if self.params.include_drain_p {
+            let mut drain_pmos = ctx.instantiate::<SchematicMos>(&MosParams {
+                w: self.params.drain_width_n,
+                l: length,
+                m: 1,
+                nf: 1,
+                id: pmos_id,
+            })?;
+            drain_pmos.connect_all([("d", &bl), ("g", &vdd), ("s", &vdd), ("b", &vdd)]);
+            drain_pmos.set_name("drain_pmos");
+            ctx.add_instance(drain_pmos);
+        }
         Ok(())
     }
 
@@ -307,14 +320,17 @@ impl Component for ColumnMos {
         let mut gate_nmos = ctx.instantiate::<LayoutMos>(&params)?;
         gate_nmos.set_orientation(Named::R90);
         gate_nmos.place_center_x(dsn.width / 2);
-        ctx.draw_rect(
-            dsn.m0,
-            gate_nmos
-                .port("sd_0_0")?
-                .bbox(dsn.m0)
-                .union(gate_nmos.port("sd_0_1")?.bbox(dsn.m0))
-                .into_rect(),
-        );
+        if self.params.include_gate_n {
+            ctx.draw_rect(
+                dsn.m0,
+                gate_nmos
+                    .port("sd_0_0")?
+                    .bbox(dsn.m0)
+                    .union(gate_nmos.port("sd_0_1")?.bbox(dsn.m0))
+                    .into_rect(),
+            );
+            ctx.draw_ref(&gate_nmos)?;
+        }
         let params = LayoutMosParams {
             skip_sd_metal: vec![vec![]],
             deep_nwell: true,
@@ -331,21 +347,24 @@ impl Component for ColumnMos {
         drain_nmos.set_orientation(Named::R270);
         drain_nmos.align_above(&gate_nmos, 210);
         drain_nmos.align_centers_horizontally_gridded(&gate_nmos, ctx.pdk().layout_grid());
-        let gate_rect = drain_nmos.port("gate")?.largest_rect(dsn.m0)?;
-        let jog = OffsetJog::builder()
-            .src(drain_nmos.port("sd_0_0")?.largest_rect(dsn.m0)?)
-            .dst(gate_rect.right())
-            .dir(Dir::Vert)
-            .sign(Sign::Pos)
-            .space(170)
-            .layer(dsn.m0)
-            .build()
-            .unwrap();
-        ctx.draw_rect(
-            dsn.m0,
-            gate_rect.with_vspan(gate_rect.vspan().union(jog.r2().vspan())),
-        );
-        ctx.draw(jog)?;
+        if self.params.include_drain_n {
+            let gate_rect = drain_nmos.port("gate")?.largest_rect(dsn.m0)?;
+            let jog = OffsetJog::builder()
+                .src(drain_nmos.port("sd_0_0")?.largest_rect(dsn.m0)?)
+                .dst(gate_rect.right())
+                .dir(Dir::Vert)
+                .sign(Sign::Pos)
+                .space(170)
+                .layer(dsn.m0)
+                .build()
+                .unwrap();
+            ctx.draw_rect(
+                dsn.m0,
+                gate_rect.with_vspan(gate_rect.vspan().union(jog.r2().vspan())),
+            );
+            ctx.draw(jog)?;
+            ctx.draw_ref(&drain_nmos)?;
+        }
         let params = LayoutMosParams {
             skip_sd_metal: vec![vec![]],
             deep_nwell: true,
@@ -362,78 +381,89 @@ impl Component for ColumnMos {
         drain_pmos.set_orientation(Named::R270);
         drain_pmos.align_above(&drain_nmos, 210);
         drain_pmos.align_centers_horizontally_gridded(&gate_nmos, ctx.pdk().layout_grid());
-        let gate_rect = drain_pmos.port("gate")?.largest_rect(dsn.m0)?;
-        let jog = OffsetJog::builder()
-            .src(drain_pmos.port("sd_0_0")?.largest_rect(dsn.m0)?)
-            .dst(gate_rect.right())
-            .dir(Dir::Vert)
-            .sign(Sign::Pos)
-            .space(170)
-            .layer(dsn.m0)
-            .build()
-            .unwrap();
-        ctx.draw_rect(
-            dsn.m0,
-            gate_rect.with_vspan(gate_rect.vspan().union(jog.r2().vspan())),
-        );
-        ctx.draw(jog)?;
+        if self.params.include_drain_p {
+            let gate_rect = drain_pmos.port("gate")?.largest_rect(dsn.m0)?;
+            let jog = OffsetJog::builder()
+                .src(drain_pmos.port("sd_0_0")?.largest_rect(dsn.m0)?)
+                .dst(gate_rect.right())
+                .dir(Dir::Vert)
+                .sign(Sign::Pos)
+                .space(170)
+                .layer(dsn.m0)
+                .build()
+                .unwrap();
+            ctx.draw_rect(
+                dsn.m0,
+                gate_rect.with_vspan(gate_rect.vspan().union(jog.r2().vspan())),
+            );
+            ctx.draw(jog)?;
+            ctx.draw_ref(&drain_pmos)?;
+        }
 
         let layers = ctx.layers();
         let nsdm = layers.get(Selector::Name("nsdm"))?;
         let psdm = layers.get(Selector::Name("psdm"))?;
         let nwell = layers.get(Selector::Name("nwell"))?;
-        for inst in [&gate_nmos, &drain_nmos, &drain_pmos] {
-            ctx.draw_ref(inst)?;
+        let hspan = Span::from_center_span_gridded(
+            gate_nmos.brect().center().x,
+            dsn.width,
+            ctx.pdk().layout_grid(),
+        );
+        if self.params.include_gate_n || self.params.include_drain_n {
+            ctx.draw_rect(
+                nsdm,
+                gate_nmos
+                    .layer_bbox(nsdm)
+                    .union(drain_nmos.layer_bbox(nsdm))
+                    .into_rect()
+                    .with_hspan(hspan),
+            );
+        }
+        if self.params.include_drain_p {
+            ctx.draw_rect(
+                psdm,
+                drain_pmos.layer_bbox(psdm).into_rect().with_hspan(hspan),
+            );
         }
         ctx.draw_rect(
-            nsdm,
-            gate_nmos
-                .layer_bbox(nsdm)
-                .union(drain_nmos.layer_bbox(nsdm))
-                .into_rect()
-                .with_hspan(Span::from_center_span_gridded(
-                    gate_nmos.brect().center().x,
-                    dsn.width,
-                    ctx.pdk().layout_grid(),
-                )),
-        );
-        ctx.draw_rect(
-            psdm,
-            drain_pmos
-                .layer_bbox(psdm)
-                .into_rect()
-                .with_hspan(ctx.brect().hspan()),
-        );
-        ctx.draw_rect(
             nwell,
-            drain_pmos
-                .layer_bbox(nwell)
-                .into_rect()
-                .with_hspan(ctx.brect().hspan()),
+            drain_pmos.layer_bbox(nwell).into_rect().with_hspan(hspan),
         );
 
-        let bl = Rect::from_spans(dsn.out_tracks.index(2), ctx.brect().vspan());
+        let bl = Rect::from_spans(
+            dsn.out_tracks.index(2),
+            gate_nmos
+                .bbox()
+                .union(drain_pmos.bbox())
+                .into_rect()
+                .vspan(),
+        );
         ctx.add_port(CellPort::with_shape("bl", dsn.v_metal, bl))?;
         ctx.draw_rect(dsn.v_metal, bl);
 
         // Connect gate of gate NMOS and drain of drain NMOS/PMOS to bitline.
-        for (port, inst) in [
-            ("gate", &gate_nmos),
-            ("sd_0_1", &drain_nmos),
-            ("sd_0_1", &drain_pmos),
+        for (port, inst, should_draw) in [
+            ("gate", &gate_nmos, self.params.include_gate_n),
+            ("sd_0_1", &drain_nmos, self.params.include_drain_n),
+            ("sd_0_1", &drain_pmos, self.params.include_drain_p),
         ] {
-            let m0_rect = inst.port(port)?.largest_rect(dsn.m0)?;
-            let m0_rect = m0_rect.with_hspan(m0_rect.hspan().union(bl.hspan()));
-            ctx.draw_rect(dsn.m0, m0_rect);
-            draw_via(dsn.m0, m0_rect, dsn.v_metal, bl, ctx)?;
+            if should_draw {
+                let m0_rect = inst.port(port)?.largest_rect(dsn.m0)?;
+                let m0_rect = m0_rect.with_hspan(m0_rect.hspan().union(bl.hspan()));
+                ctx.draw_rect(dsn.m0, m0_rect);
+                draw_via(dsn.m0, m0_rect, dsn.v_metal, bl, ctx)?;
+            }
         }
 
         // Connect remaining sources to VSS.
-        for (port, inst) in [("sd_0_1", &gate_nmos), ("sd_0_0", &drain_nmos)] {
+        for (port, inst, should_draw) in [
+            ("sd_0_1", &gate_nmos, self.params.include_gate_n),
+            ("sd_0_0", &drain_nmos, self.params.include_drain_n),
+        ] {
             let m0_rect = inst.port(port)?.largest_rect(dsn.m0)?;
             let power_stripe_height = m0_rect.height().clamp(320, 3_600);
             let power_stripe = Rect::from_spans(
-                ctx.brect().hspan(),
+                hspan,
                 Span::from_center_span_gridded(
                     m0_rect.center().y,
                     power_stripe_height,
@@ -442,14 +472,16 @@ impl Component for ColumnMos {
             );
             ctx.merge_port(CellPort::with_shape("vss", dsn.h_metal, power_stripe));
             ctx.draw_rect(dsn.h_metal, power_stripe);
-            draw_via(dsn.m0, m0_rect, dsn.v_metal, power_stripe, ctx)?;
-            draw_via(dsn.v_metal, m0_rect, dsn.h_metal, power_stripe, ctx)?;
+            if should_draw {
+                draw_via(dsn.m0, m0_rect, dsn.v_metal, power_stripe, ctx)?;
+                draw_via(dsn.v_metal, m0_rect, dsn.h_metal, power_stripe, ctx)?;
+            }
         }
 
         let m0_rect = drain_pmos.port("sd_0_0")?.largest_rect(dsn.m0)?;
         let power_stripe_height = m0_rect.height().clamp(320, 3_600);
         let power_stripe = Rect::from_spans(
-            ctx.brect().hspan(),
+            hspan,
             Span::from_center_span_gridded(
                 m0_rect.center().y,
                 power_stripe_height,
@@ -458,8 +490,10 @@ impl Component for ColumnMos {
         );
         ctx.merge_port(CellPort::with_shape("vdd", dsn.h_metal, power_stripe));
         ctx.draw_rect(dsn.h_metal, power_stripe);
-        draw_via(dsn.m0, m0_rect, dsn.v_metal, power_stripe, ctx)?;
-        draw_via(dsn.v_metal, m0_rect, dsn.h_metal, power_stripe, ctx)?;
+        if self.params.include_drain_p {
+            draw_via(dsn.m0, m0_rect, dsn.v_metal, power_stripe, ctx)?;
+            draw_via(dsn.v_metal, m0_rect, dsn.h_metal, power_stripe, ctx)?;
+        }
 
         Ok(())
     }
@@ -490,7 +524,12 @@ impl Component for ColumnMosCent {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let nmos = ctx.instantiate::<ColumnMos>(&self.params)?;
+        let nmos = ctx.instantiate::<ColumnMos>(&ColumnMosParams {
+            include_gate_n: true,
+            include_drain_n: true,
+            include_drain_p: true,
+            ..self.params
+        })?;
         let dsn = ctx.inner().run_script::<ColumnDesignScript>(&NoParams)?;
         let layers = ctx.layers();
 
@@ -542,6 +581,55 @@ impl Component for ColumnMosCent {
     }
 }
 
+pub struct ReplicaColumnMosPhysicalDesignScript;
+
+pub struct ReplicaColumnMosDesign {
+    pub tap_frequency: usize,
+    pub units: Vec<ColumnMosParams>,
+}
+
+impl Script for ReplicaColumnMosPhysicalDesignScript {
+    type Params = ReplicaColumnMosParams;
+    type Output = ReplicaColumnMosDesign;
+
+    fn run(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self::Output> {
+        let total_height = params.gate_width_n + params.drain_width_n + params.drain_width_p;
+        let num_cols = (total_height as usize).div_ceil(params.max_height as usize);
+        let gate_width_n = std::cmp::max(800, params.gate_width_n / num_cols as i64);
+        let drain_width_n = std::cmp::max(800, params.drain_width_n / num_cols as i64);
+        let drain_width_p = std::cmp::max(800, params.drain_width_p / num_cols as i64);
+
+        let mut units = Vec::new();
+        let mut running_gate_width_n = 0;
+        let mut running_drain_width_n = 0;
+        let mut running_drain_width_p = 0;
+        while running_gate_width_n < params.gate_width_n
+            || running_drain_width_n < params.drain_width_n
+            || running_drain_width_p < params.drain_width_p
+        {
+            units.push(ColumnMosParams {
+                gate_width_n,
+                drain_width_p,
+                drain_width_n,
+                length: params.length,
+                include_gate_n: running_gate_width_n < params.gate_width_n,
+                include_drain_n: running_drain_width_n < params.drain_width_n,
+                include_drain_p: running_drain_width_p < params.drain_width_p,
+            });
+            running_gate_width_n += gate_width_n;
+            running_drain_width_n += drain_width_n;
+            running_drain_width_p += drain_width_p;
+        }
+        Ok(ReplicaColumnMosDesign {
+            tap_frequency: 8,
+            units,
+        })
+    }
+}
+
 impl Component for ReplicaColumnMos {
     type Params = ReplicaColumnMosParams;
     fn new(
@@ -558,8 +646,21 @@ impl Component for ReplicaColumnMos {
 
     fn schematic(
         &self,
-        _ctx: &mut substrate::schematic::context::SchematicCtx,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
+        let vdd = ctx.port("vdd", Direction::InOut);
+        let vss = ctx.port("vss", Direction::InOut);
+        let bl = ctx.port("bl", Direction::InOut);
+        let dsn = ctx
+            .inner()
+            .run_script::<ReplicaColumnMosPhysicalDesignScript>(&self.params)?;
+
+        for (i, unit) in dsn.units.iter().enumerate() {
+            let mut unit = ctx.instantiate::<ColumnMos>(&unit)?;
+            unit.connect_all([("vdd", &vdd), ("vss", &vss), ("bl", &bl)]);
+            unit.set_name(format!("unit{i}"));
+            ctx.add_instance(unit);
+        }
         Ok(())
     }
 
@@ -567,34 +668,31 @@ impl Component for ReplicaColumnMos {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let pc = ctx.instantiate::<ColumnMos>(&self.params.inner)?;
-        let pc_cent = ctx.instantiate::<ColumnMosCent>(&self.params.inner)?;
+        let dsn = ctx
+            .inner()
+            .run_script::<ReplicaColumnMosPhysicalDesignScript>(&self.params)?;
+        let column_mos_cent = ctx.instantiate::<ColumnMosCent>(&dsn.units[0])?;
 
         let mut tiler = ArrayTiler::builder();
 
-        tiler.push(pc_cent.clone());
+        tiler.push(column_mos_cent.clone());
 
-        for i in 0..self.params.cols {
-            if i % 2 == 0 {
-                tiler.push(pc.clone());
-            } else {
-                tiler.push(pc.with_orientation(Named::ReflectHoriz));
+        for (i, unit) in dsn.units.iter().enumerate() {
+            tiler.push(ctx.instantiate::<ColumnMos>(unit)?);
+            if i % dsn.tap_frequency == dsn.tap_frequency - 1 {
+                tiler.push(column_mos_cent.clone());
             }
+        }
+        if dsn.units.len() % dsn.tap_frequency != dsn.tap_frequency - 1 {
+            tiler.push(column_mos_cent);
         }
 
         let mut tiler = tiler
-            .push(pc_cent)
             .mode(AlignMode::ToTheRight)
             .alt_mode(AlignMode::CenterVertical)
             .build();
 
-        tiler.expose_ports(
-            |port: CellPort, i| match port.name().as_str() {
-                "bl" => Some(port.with_index(i - 1)),
-                _ => Some(port),
-            },
-            PortConflictStrategy::Merge,
-        )?;
+        tiler.expose_ports(|port: CellPort, _| Some(port), PortConflictStrategy::Merge)?;
 
         ctx.add_ports(tiler.ports().cloned())?;
         ctx.draw(tiler)?;
@@ -897,18 +995,23 @@ impl SramInner {
             &sense_en_buffer,
             &write_driver_en_buffer,
         ] {
-            router.block(m2, inst.layer_bbox(m2).into_rect());
+            for port in ["vdd", "vss"] {
+                router.block(m2, inst.port(port)?.bbox(m2).into_rect());
+            }
             router.block(m1, inst.brect().expand_side(Side::Right, 1_400));
         }
 
         // Block extra for decoder to prevent extra power straps from being placed.
-        router.block(
-            m2,
-            decoder
-                .layer_bbox(m2)
-                .into_rect()
-                .expand_side(Side::Right, 6_000),
-        );
+        for port in ["vdd", "vss"] {
+            router.block(
+                m2,
+                decoder
+                    .port(port)?
+                    .bbox(m2)
+                    .into_rect()
+                    .expand_side(Side::Right, 6_000),
+            );
+        }
 
         // Block entirety of bounding box for bitcells, replica bitcells, and column peripherals.
         for inst in [&bitcells, &rbl, &cols] {
@@ -1325,8 +1428,11 @@ impl SramInner {
         {
             draw_via(m1, m1_rect, m2, m2_rect, ctx)?;
         }
-        for i in 0..2 {
-            let dst = replica_nmos.port(PortId::new("bl", i))?.largest_rect(m1)?;
+        for dst in replica_nmos
+            .port("bl")?
+            .shapes(m1)
+            .filter_map(|shape| shape.as_rect())
+        {
             let dst = dst.with_vspan(dst.vspan().union(m2_rect.vspan()));
             draw_rect(m1, dst, &mut router, ctx);
             draw_via(m1, dst, m2, m2_rect, ctx)?;
@@ -1580,7 +1686,7 @@ impl SramInner {
                 let m2_track = m2_tracks.index(m2_track_idx);
 
                 let m2_rect = Rect::from_spans(
-                    m1_track.add_point(port_rect.left() - 600),
+                    m1_track.add_point(port_rect.left() - 620),
                     Span::from_center_span_gridded(
                         port_rect.center().y,
                         320,

@@ -932,7 +932,7 @@ pub fn tb_params(
     let mut tb = TbParams::builder();
     let tb = tb
         .ops(ops)
-        .clk_period(10.0e-9)
+        .clk_period(20.0e-9)
         .tr(40e-12)
         .tf(40e-12)
         .vdd(vdd)

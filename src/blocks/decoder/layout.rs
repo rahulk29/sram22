@@ -41,6 +41,9 @@ impl Decoder {
         let dsn = ctx
             .inner()
             .run_script::<DecoderPhysicalDesignScript>(&self.params.pd)?;
+        let layers = ctx.layers();
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
         let mut node = &self.params.tree.root;
         let mut invs = vec![];
 
@@ -132,28 +135,34 @@ impl Decoder {
                 ctx.draw_rect(dsn.li, src);
                 let rect =
                     Rect::from_spans(src.hspan(), Span::with_stop_and_length(src.top(), 170));
-                let jog = OffsetJog::builder()
-                    .dir(Dir::Horiz)
-                    .sign(Sign::Neg)
-                    .src(rect)
-                    .space(final_stage_width / 2 - 170)
-                    .dst(dst.top())
-                    .layer(dsn.li)
-                    .build()
-                    .unwrap();
-
-                let mut via_metals = Vec::new();
-                via_metals.push(dsn.li);
-                via_metals.extend(dsn.via_metals.clone());
-                via_metals.push(dsn.stripe_metal);
-
-                let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
-                    rect: jog.r2().bbox().intersection(dst.bbox()).into_rect(),
-                    via_metals,
-                })?;
-
-                ctx.draw(jog)?;
-                ctx.draw(via)?;
+                let via = draw_via(dsn.li, rect, m1, rect, ctx)?;
+                if dsn.stripe_metal == m1 {
+                    let via = draw_via(m1, rect, m2, rect, ctx)?;
+                    let src = via.layer_bbox(m2).into_rect();
+                    let jog = OffsetJog::builder()
+                        .dir(Dir::Horiz)
+                        .sign(Sign::Neg)
+                        .src(src)
+                        .space((final_stage_width - src.height()) / 2)
+                        .dst(dst.top())
+                        .layer(m2)
+                        .build()
+                        .unwrap();
+                    draw_via(m1, dst, m2, jog.r2(), ctx)?;
+                    ctx.draw(jog)?;
+                } else {
+                    let src = via.layer_bbox(m1).into_rect();
+                    let jog = OffsetJog::builder()
+                        .dir(Dir::Horiz)
+                        .sign(Sign::Neg)
+                        .src(src)
+                        .space((final_stage_width - src.height()) / 2)
+                        .dst(dst.top())
+                        .layer(m1)
+                        .build()
+                        .unwrap();
+                    ctx.draw(jog)?;
+                }
             }
             ctx.draw(child)?;
         }
@@ -183,6 +192,7 @@ impl DecoderStage {
 
         let layers = ctx.layers();
         let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
 
         for (gate, &folding_factor) in gate_params.iter().zip(folding_factors.iter()) {
             let decoder_params = DecoderGateParams {
@@ -552,7 +562,7 @@ impl DecoderStage {
         let tracks = UniformTracks::builder()
             .line(dsn.line)
             .space(dsn.space)
-            .start(ctx.brect().bottom())
+            .start(ctx.brect().bottom() - 140)
             .sign(Sign::Neg)
             .build()
             .unwrap();
@@ -616,20 +626,60 @@ impl DecoderStage {
 
                             let bot = Rect::from_spans(port.hspan(), track.vspan());
 
-                            let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
-                                rect: bot,
-                                via_metals: via_metals.clone(),
-                            })?;
+                            if child_tracks[i].len() > 6 {
+                                if dsn.stripe_metal == m1 {
+                                    let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
+                                        rect: port,
+                                        via_metals: vec![dsn.li, m1, m2],
+                                    })?;
+                                    ctx.draw_ref(&via)?;
+                                    let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
+                                        rect: bot,
+                                        via_metals: vec![m1, m2],
+                                    })?;
+                                    ctx.draw_ref(&via)?;
 
-                            ctx.draw_ref(&via)?;
+                                    ctx.draw_rect(
+                                        m2,
+                                        Rect::from_spans(
+                                            via.layer_bbox(m2).into_rect().hspan(),
+                                            port.vspan().union(via.brect().vspan()),
+                                        ),
+                                    );
+                                } else {
+                                    let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
+                                        rect: port,
+                                        via_metals: vec![dsn.li, m1],
+                                    })?;
+                                    ctx.draw_ref(&via)?;
+                                    let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
+                                        rect: bot,
+                                        via_metals: vec![m1, m2],
+                                    })?;
+                                    ctx.draw_ref(&via)?;
 
-                            ctx.draw_rect(
-                                dsn.li,
-                                Rect::from_spans(
-                                    port.hspan(),
-                                    port.vspan().union(via.brect().vspan()),
-                                ),
-                            );
+                                    ctx.draw_rect(
+                                        m1,
+                                        Rect::from_spans(
+                                            via.layer_bbox(m1).into_rect().hspan(),
+                                            port.vspan().union(via.brect().vspan()),
+                                        ),
+                                    );
+                                }
+                            } else {
+                                let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
+                                    rect: bot,
+                                    via_metals: via_metals.clone(),
+                                })?;
+                                ctx.draw_ref(&via)?;
+                                ctx.draw_rect(
+                                    dsn.li,
+                                    Rect::from_spans(
+                                        port.hspan(),
+                                        port.vspan().union(via.brect().vspan()),
+                                    ),
+                                );
+                            }
                         }
                     }
                 }

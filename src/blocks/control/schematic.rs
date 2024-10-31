@@ -357,7 +357,7 @@ impl ControlLogicReplicaV2 {
             ])
             .named("wrdrven_set")
             .add_to(ctx);
-        ctx.instantiate::<InvChain>(&self.params.wrdrven_delay_invs)?
+        ctx.instantiate::<InvChain>(&self.params.wrdrven_set_delay_invs)?
             .with_connections([
                 ("din", wrdrven_set_b0),
                 ("dout", wrdrven_set_b),

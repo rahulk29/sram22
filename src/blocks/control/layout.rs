@@ -156,7 +156,7 @@ impl ControlLogicReplicaV2 {
             ("wrdrven_set", &nand2),
             (
                 "wrdrven_set_delay",
-                &ctx.instantiate::<InvChain>(&self.params.wrdrven_delay_invs)?,
+                &ctx.instantiate::<InvChain>(&self.params.wrdrven_set_delay_invs)?,
             ),
             ("wrdrven_ctl", &sr_latch),
         ])?;
@@ -888,7 +888,7 @@ impl ControlLogicReplicaV2 {
         rbl_b_in_via.align_centers_gridded(rbl_b_in.bbox(), grid);
         let rbl_b_in = router.expand_to_grid(
             rbl_b_in_via.layer_bbox(m1).into_rect(),
-            ExpandToGridStrategy::Corner(Corner::LowerLeft),
+            ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
         ctx.draw(rbl_b_in_via)?;
         ctx.draw_rect(m1, rbl_b_in);

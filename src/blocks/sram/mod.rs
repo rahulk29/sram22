@@ -395,7 +395,8 @@ impl Script for SramPhysicalDesignScript {
         // Add inverters to pc_b buffer to equalize wrdrven and pc_b delay.
         let col_dsn = ctx.run_script::<ColumnsPhysicalDesignScript>(&col_params)?;
         let pcb_tau = pc_b_buffer.time_constant(pc_b_cap);
-        let wrdrven_tau = col_dsn.nand.time_constant(col_dsn.cl_max);
+        let wrdrven_tau = write_driver_en_buffer.time_constant(wrdrven_cap)
+            + col_dsn.nand.time_constant(col_dsn.cl_max);
         let sae_tau = sense_en_buffer.time_constant(saen_cap);
         let pc_b_delay_invs = ((1.2 * (1.35 * f64::max(wrdrven_tau, sae_tau) - pcb_tau)
             / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)))
@@ -404,13 +405,12 @@ impl Script for SramPhysicalDesignScript {
             .ceil() as usize
             * 2
             + 8;
-        let wrdrven_delay_invs = (((1.1 * pcb_tau - wrdrven_tau)
+        let wrdrven_set_delay_invs = (((1.1 * pcb_tau - wrdrven_tau)
             / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)))
             / 2.0)
-            .max(0.)
+            .max(1.)
             .round() as usize
             * 2;
-        let wrdrven_delay_invs = wrdrven_delay_invs.max(2);
         println!(
             "pcb tau: {:.2}ps, wrdrven tau: {:.2}ps, sae tau: {:.2}ps",
             pcb_tau * 1e12,
@@ -431,11 +431,11 @@ impl Script for SramPhysicalDesignScript {
             + 2;
         let wlen_pulse_invs = (f64::max(
             2.0,
-            (
-                // 0.25 * row_decoder_tree.root.time_constant(wl_cap) +
-                4.0 * (row_decoder_tree.root.time_constant(wl_cap)
-                    - row_decoder_tree.root.time_constant(clamped_wl_cap))
-            ) / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)),
+            (0.1 * row_decoder_tree.root.time_constant(wl_cap)
+                + 6.0
+                    * (row_decoder_tree.root.time_constant(wl_cap)
+                        - row_decoder_tree.root.time_constant(clamped_wl_cap)))
+                / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)),
         ) / 2.0)
             .round() as usize
             * 2
@@ -444,7 +444,9 @@ impl Script for SramPhysicalDesignScript {
             decoder_delay_invs,
             wlen_pulse_invs,
             pc_set_delay_invs: pc_b_delay_invs,
-            wrdrven_delay_invs,
+            wrdrven_set_delay_invs,
+            wrdrven_rst_delay_invs: 0, // TODO: Implement delay to equalize sense amp and
+                                       // write driver rest delay
         };
         println!("{:?}", control);
         let row_decoder = DecoderParams {
@@ -538,26 +540,24 @@ impl Script for SramPhysicalDesignScript {
                 ..col_params.pc.scale(1. / rbl_ratio as f64)
             },
         };
-        let replica_nmos = ReplicaColumnMosParams {
-            cols: 2,
-            inner: ColumnMosParams {
-                gate_width_n: snap_to_grid(3_360usize.div_ceil(rbl_ratio) as i64, 50),
-                drain_width_n: snap_to_grid(
-                    ((col_params.mux.nwidth * (params.mux_ratio() as i64 + 1)
-                        + col_params.wrdriver.nwidth_driver) as usize)
-                        .div_ceil(rbl_ratio) as i64,
-                    50,
-                ),
-                drain_width_p: snap_to_grid(
-                    ((col_params.mux.pwidth * (params.mux_ratio() as i64 + 1)
-                        + col_params.wrdriver.pwidth_driver) as usize)
-                        .div_ceil(rbl_ratio) as i64,
-                    50,
-                ),
-                length: 150,
-            },
-        };
         let replica_pc_inst = ctx.instantiate_layout::<ReplicaPrecharge>(&replica_pc)?;
+        let replica_nmos = ReplicaColumnMosParams {
+            max_height: replica_pc_inst.brect().height(),
+            gate_width_n: snap_to_grid(3_360usize.div_ceil(rbl_ratio) as i64, 50),
+            drain_width_n: snap_to_grid(
+                ((col_params.mux.nwidth * (params.mux_ratio() as i64 + 1)
+                    + col_params.wrdriver.nwidth_driver) as usize)
+                    .div_ceil(rbl_ratio) as i64,
+                50,
+            ),
+            drain_width_p: snap_to_grid(
+                ((col_params.mux.pwidth * (params.mux_ratio() as i64 + 1)
+                    + col_params.wrdriver.pwidth_driver) as usize)
+                    .div_ceil(rbl_ratio) as i64,
+                50,
+            ),
+            length: 150,
+        };
         let replica_nmos_inst = ctx.instantiate_layout::<ReplicaColumnMos>(&replica_nmos)?;
 
         Ok(Self::Output {
@@ -911,13 +911,11 @@ pub(crate) mod tests {
         let work_dir = test_work_dir("test_replica_column_nmos");
         ctx.write_layout::<ReplicaColumnMos>(
             &ReplicaColumnMosParams {
-                cols: 2,
-                inner: ColumnMosParams {
-                    gate_width_n: 1_000,
-                    drain_width_n: 1_000,
-                    drain_width_p: 1_000,
-                    length: 150,
-                },
+                max_height: 2_400,
+                gate_width_n: 2_000,
+                drain_width_n: 2_000,
+                drain_width_p: 2_000,
+                length: 150,
             },
             out_gds(work_dir, "layout"),
         )
@@ -1137,7 +1135,7 @@ pub(crate) mod tests {
     test_sram!(test_sram22_256x64m4w8, SRAM22_256X64M4W8, ignore = "slow");
     test_sram!(test_sram22_256x128m4w8, SRAM22_256X128M4W8, ignore = "slow");
     test_sram!(test_sram22_512x8m8w1, SRAM22_512X8M8W1, ignore = "slow");
-    test_sram!(test_sram22_512x32m4w32, SRAM22_512X32M4W8, ignore = "slow");
+    test_sram!(test_sram22_512x32m4w8, SRAM22_512X32M4W8, ignore = "slow");
     test_sram!(test_sram22_512x64m4w8, SRAM22_512X64M4W8, ignore = "slow");
     test_sram!(test_sram22_512x128m4w8, SRAM22_512X128M4W8, ignore = "slow");
     test_sram!(test_sram22_1024x8m8w1, SRAM22_1024X8M8W1, ignore = "slow");
