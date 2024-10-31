@@ -1072,7 +1072,7 @@ pub(crate) mod tests {
     test_sram!(test_sram22_256x64m4w8, SRAM22_256X64M4W8, ignore = "slow");
     test_sram!(test_sram22_256x128m4w8, SRAM22_256X128M4W8, ignore = "slow");
     test_sram!(test_sram22_512x8m8w1, SRAM22_512X8M8W1, ignore = "slow");
-    test_sram!(test_sram22_512x32m4w32, SRAM22_512X32M4W8, ignore = "slow");
+    test_sram!(test_sram22_512x32m4w8, SRAM22_512X32M4W8, ignore = "slow");
     test_sram!(test_sram22_512x64m4w8, SRAM22_512X64M4W8, ignore = "slow");
     test_sram!(test_sram22_512x128m4w8, SRAM22_512X128M4W8, ignore = "slow");
     test_sram!(test_sram22_1024x8m8w1, SRAM22_1024X8M8W1, ignore = "slow");
