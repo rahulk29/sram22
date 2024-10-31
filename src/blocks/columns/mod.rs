@@ -202,8 +202,8 @@ pub const WRITE_DRIVER_PARAMS: WriteDriverParams = WriteDriverParams {
 };
 pub const MUX_PARAMS: TGateMuxParams = TGateMuxParams {
     length: 150,
-    pwidth: 3_000,
-    nwidth: 3_000,
+    pwidth: 3_800,
+    nwidth: 2_200,
     mux_ratio: 4,
     idx: 2,
     sel_width: 360,
