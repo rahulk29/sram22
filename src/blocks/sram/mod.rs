@@ -40,7 +40,7 @@ use super::gate::{AndParams, GateParams};
 use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
 use super::precharge::layout::ReplicaPrechargeParams;
 use crate::blocks::columns::layout::DffArray;
-use crate::blocks::decoder::DecoderStage;
+use crate::blocks::decoder::{DecoderStage, NAND3_MODEL};
 use crate::blocks::tgatemux::{TGateMux, TGateMuxParams};
 
 pub mod layout;
@@ -251,7 +251,7 @@ impl SramParams {
         let bl_cap = (self.rows() + 4) as f64 * BITLINE_CAP_PER_CELL;
         let pc_scale = f64::max(bl_cap / COL_CAPACITANCES.pc_b / 8.0, 0.4);
         let mux_scale = f64::max(bl_cap / COL_CAPACITANCES.sel / 8.0, 0.5);
-        let wrdrvscale = f64::max(bl_cap / COL_CAPACITANCES.we / 8.0, 0.4);
+        let wrdrvscale = f64::max(bl_cap / COL_CAPACITANCES.we / 6.0, 0.4);
         println!(
             "pc_scale = {pc_scale:.2}, mux_scale = {mux_scale:.2}, wrdrvscale = {wrdrvscale:.2}"
         );
@@ -363,6 +363,12 @@ impl Script for SramPhysicalDesignScript {
             dir: Dir::Vert,
         };
 
+        let wlen_buffer = DecoderStageParams {
+            max_width: Some(addr_gate_inst.brect().height() - 2_000),
+            ..fanout_buffer_stage(vert_buffer, wlen_cap)
+        };
+        println!("wlen_buffer: {:?}", wlen_buffer);
+
         // Figure out the best width allocation to equalize lengths of the various buffers.
         let mut pc_b_buffer = DecoderStageParams {
             max_width: None,
@@ -414,7 +420,10 @@ impl Script for SramPhysicalDesignScript {
         let row_decoder_tree = DecoderTree::new(params.row_bits(), clamped_wl_cap);
         let decoder_delay_invs = (f64::max(
             4.0,
-            1.1 * (row_decoder_tree.root.time_constant(wl_cap) - f64::min(sae_tau, wrdrven_tau))
+            (row_decoder_tree.root.time_constant(wl_cap)
+                + addr_gate.time_constant(NAND3_MODEL.cin * 4.)
+                + wlen_buffer.time_constant(wlen_cap)
+                - f64::min(sae_tau, wrdrven_tau))
                 / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)),
         ) / 2.0)
             .round() as usize
@@ -424,7 +433,7 @@ impl Script for SramPhysicalDesignScript {
             2.0,
             (
                 // 0.25 * row_decoder_tree.root.time_constant(wl_cap) +
-                2.0 * (row_decoder_tree.root.time_constant(wl_cap)
+                4.0 * (row_decoder_tree.root.time_constant(wl_cap)
                     - row_decoder_tree.root.time_constant(clamped_wl_cap))
             ) / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)),
         ) / 2.0)
@@ -502,12 +511,6 @@ impl Script for SramPhysicalDesignScript {
         sense_en_buffer.max_width = Some(std::cmp::max(sense_en_buffer_max_width, 6_000));
         write_driver_en_buffer.max_width =
             Some(std::cmp::max(write_driver_en_buffer_max_width, 6_000));
-
-        let wlen_buffer = DecoderStageParams {
-            max_width: Some(addr_gate_inst.brect().height() - 2_000),
-            ..fanout_buffer_stage(vert_buffer, wlen_cap)
-        };
-        println!("wlen_buffer: {:?}", wlen_buffer);
 
         assert_eq!(decoder_delay_invs % 2, 0);
         let pc_b_routing_tracks =
@@ -996,6 +999,7 @@ pub(crate) mod tests {
 
                     let pex_path = out_spice(&work_dir, "pex_schematic");
                     let pex_dir = work_dir.join("pex");
+                    let _ = std::fs::remove_dir_all(&pex_dir);
                     let pex_level = calibre::pex::PexLevel::Rc;
                     let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
                     ctx.write_schematic_to_file_for_purpose::<Sram>(

@@ -164,7 +164,7 @@ impl TbParams {
                                     TbSignals::WriteDriverEnStart => "N_X0/write_driver_en_X0/Xcol_circuitry/Xwmask_and_0/Xgate_0_0_0/Xn1/M0_g".to_string(),
                                     TbSignals::WriteDriverEnEnd => format!("N_X0/write_driver_en_X0/Xcol_circuitry/Xwmask_and_{}/Xgate_0_0_0/Xn1/M0_g", self.sram.wmask_width() - 1),
                                     TbSignals::WlStart(i) => format!("N_X0/wl[{i}]_X0/Xdecoder/X0_2/Xgate_{last_stage_decoder_depth}_{i}_0/XMN1/M0_d"),
-                                    TbSignals::WlEnd(i) => format!("N_X0/wl[{i}]_X0/Xbitcell_array/Xcell_{i}_{}/X0/X2/M0_g", self.sram.rows() - 1),
+                                    TbSignals::WlEnd(i) => format!("N_X0/wl[{i}]_X0/Xbitcell_array/Xcell_{i}_{}/X0/X2/M0_g", self.sram.cols() - 1),
                                     TbSignals::WeI(i) => format!("N_X0/Xcol_circuitry/we_i{}_X0/Xcol_circuitry/Xcol_group_{}/Xwrite_driver/Xbrdriver/Xmn_en/M0_g",if self.sram.wmask_width() > 1 { format!("[{i}]") } else { "".to_string() }, (i + 1) * self.sram.wmask_granularity() - 1),
                                     TbSignals::WeIb(i) => format!("N_X0/Xcol_circuitry/we_ib{}_X0/Xcol_circuitry/Xcol_group_{}/Xwrite_driver/Xbrdriver/Xmp_en/M0_g",if self.sram.wmask_width() > 1 { format!("[{i}]") } else { "".to_string() }, (i + 1) * self.sram.wmask_granularity() - 1),
                                     TbSignals::Bl(i) => format!("N_X0/bl[{i}]_X0/Xcol_circuitry/Xcol_group_{}/Xprecharge_{}/Xbl_pull_up/M0_d", i / self.sram.mux_ratio(), i % self.sram.mux_ratio()),
