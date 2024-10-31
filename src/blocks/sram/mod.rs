@@ -2,13 +2,16 @@ use self::schematic::fanout_buffer_stage;
 use crate::blocks::bitcell_array::replica::ReplicaCellArray;
 use crate::blocks::columns::ColumnsPhysicalDesignScript;
 use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2};
+use crate::blocks::precharge::layout::ReplicaPrecharge;
 use crate::blocks::precharge::PrechargeParams;
-use rust_decimal_macros::dec;
+use layout::{
+    ColumnMosParams, ReplicaColumnMos, ReplicaColumnMosParams, ReplicaMetalRoutingParams,
+};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::path::{Path, PathBuf};
 use subgeom::bbox::BoundBox;
-use subgeom::{Corner, Dir, Point, Rect, Span};
+use subgeom::{snap_to_grid, Corner, Dir, Point, Rect, Span};
 use substrate::component::{error, Component, NoParams};
 use substrate::error::ErrorSource;
 use substrate::layout::cell::{CellPort, Element, Port, PortConflictStrategy, PortId};
@@ -33,12 +36,12 @@ use super::decoder::{
     Decoder, DecoderParams, DecoderPhysicalDesignParams, DecoderStageParams, DecoderStyle,
     DecoderTree, RoutingStyle, INV_MODEL, INV_PARAMS, NAND2_MODEL, NAND2_PARAMS,
 };
-use super::gate::{AndParams, GateParams, PrimitiveGateParams};
+use super::gate::{AndParams, GateParams};
 use super::guard_ring::{GuardRing, GuardRingParams, SupplyRings};
 use super::precharge::layout::ReplicaPrechargeParams;
 use crate::blocks::columns::layout::DffArray;
-use crate::blocks::decoder::DecoderStage;
-use crate::blocks::tgatemux::TGateMuxParams;
+use crate::blocks::decoder::{DecoderStage, NAND3_MODEL};
+use crate::blocks::tgatemux::{TGateMux, TGateMuxParams};
 
 pub mod layout;
 pub mod schematic;
@@ -248,7 +251,7 @@ impl SramParams {
         let bl_cap = (self.rows() + 4) as f64 * BITLINE_CAP_PER_CELL;
         let pc_scale = f64::max(bl_cap / COL_CAPACITANCES.pc_b / 8.0, 0.4);
         let mux_scale = f64::max(bl_cap / COL_CAPACITANCES.sel / 8.0, 0.5);
-        let wrdrvscale = f64::max(bl_cap / COL_CAPACITANCES.we / 8.0, 0.4);
+        let wrdrvscale = f64::max(bl_cap / COL_CAPACITANCES.we / 6.0, 0.4);
         println!(
             "pc_scale = {pc_scale:.2}, mux_scale = {mux_scale:.2}, wrdrvscale = {wrdrvscale:.2}"
         );
@@ -283,6 +286,8 @@ pub struct SramPhysicalDesign {
     pub(crate) rbl_wl_index: usize,
     pub(crate) rbl: ReplicaCellArrayParams,
     pub(crate) replica_pc: ReplicaPrechargeParams,
+    pub(crate) replica_nmos: ReplicaColumnMosParams,
+    pub(crate) replica_routing: ReplicaMetalRoutingParams,
     pub(crate) col_params: ColParams,
     pub(crate) control: ControlLogicParams,
     pub(crate) pc_b_routing_tracks: i64,
@@ -305,7 +310,10 @@ impl Script for SramPhysicalDesignScript {
         println!("clamped wl_cap = {:.2}fF", clamped_wl_cap * 1e15);
         let mut col_params = params.col_params();
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
-        let rbl_rows = ((params.rows() / 8) + 1) * 2;
+        // +2 for dummy bitcells, then div_ceil by 6 and multiply by 2 for at least 0.9/3 = 0.3 V
+        // differential and even number of rows.
+        let rbl_ratio = 3;
+        let rbl_rows = (params.rows() + 2).div_ceil(2 * rbl_ratio) * 2;
         let rbl_wl_index = rbl_rows / 2;
         let rbl = ReplicaCellArrayParams {
             rows: rbl_rows,
@@ -355,6 +363,12 @@ impl Script for SramPhysicalDesignScript {
             dir: Dir::Vert,
         };
 
+        let wlen_buffer = DecoderStageParams {
+            max_width: Some(addr_gate_inst.brect().height() - 2_000),
+            ..fanout_buffer_stage(vert_buffer, wlen_cap)
+        };
+        println!("wlen_buffer: {:?}", wlen_buffer);
+
         // Figure out the best width allocation to equalize lengths of the various buffers.
         let mut pc_b_buffer = DecoderStageParams {
             max_width: None,
@@ -403,13 +417,13 @@ impl Script for SramPhysicalDesignScript {
             wrdrven_tau * 1e12,
             sae_tau * 1e12
         );
-        println!("pc_b_delay_invs: {}", pc_b_delay_invs);
-        println!("wrdrven_delay_invs: {}", wrdrven_delay_invs);
-
         let row_decoder_tree = DecoderTree::new(params.row_bits(), clamped_wl_cap);
         let decoder_delay_invs = (f64::max(
             4.0,
-            1.1 * (row_decoder_tree.root.time_constant(wl_cap) - f64::min(sae_tau, wrdrven_tau))
+            (row_decoder_tree.root.time_constant(wl_cap)
+                + addr_gate.time_constant(NAND3_MODEL.cin * 4.)
+                + wlen_buffer.time_constant(wlen_cap)
+                - f64::min(sae_tau, wrdrven_tau))
                 / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)),
         ) / 2.0)
             .round() as usize
@@ -419,20 +433,20 @@ impl Script for SramPhysicalDesignScript {
             2.0,
             (
                 // 0.25 * row_decoder_tree.root.time_constant(wl_cap) +
-                2.0 * (row_decoder_tree.root.time_constant(wl_cap)
+                4.0 * (row_decoder_tree.root.time_constant(wl_cap)
                     - row_decoder_tree.root.time_constant(clamped_wl_cap))
             ) / (INV_MODEL.res * (INV_MODEL.cin + INV_MODEL.cout)),
         ) / 2.0)
             .round() as usize
             * 2
             + 9;
-        println!("using {wlen_pulse_invs} inverters for wlen pulse delay chain");
         let control = ControlLogicParams {
             decoder_delay_invs,
             wlen_pulse_invs,
             pc_set_delay_invs: pc_b_delay_invs,
             wrdrven_delay_invs,
         };
+        println!("{:?}", control);
         let row_decoder = DecoderParams {
             pd: DecoderPhysicalDesignParams {
                 style: DecoderStyle::RowMatched,
@@ -498,23 +512,15 @@ impl Script for SramPhysicalDesignScript {
         write_driver_en_buffer.max_width =
             Some(std::cmp::max(write_driver_en_buffer_max_width, 6_000));
 
-        let wlen_buffer = DecoderStageParams {
-            max_width: Some(addr_gate_inst.brect().height() - 2_000),
-            ..fanout_buffer_stage(vert_buffer, wlen_cap)
-        };
-        println!("wlen_buffer: {:?}", wlen_buffer);
-
         assert_eq!(decoder_delay_invs % 2, 0);
         let pc_b_routing_tracks =
-            std::cmp::min(8, (pc_b_cap / (COL_CAPACITANCES.pc_b * 512.)).ceil() as i64);
+            ((pc_b_cap / (COL_CAPACITANCES.pc_b * 512.)).ceil() as i64).clamp(2, 8);
         let write_driver_en_routing_tracks =
-            std::cmp::min(8, (wrdrven_cap / (COL_CAPACITANCES.we * 8.)).ceil() as i64);
+            ((wrdrven_cap / (COL_CAPACITANCES.we * 8.)).ceil() as i64).clamp(2, 8);
         let sense_en_routing_tracks =
-            std::cmp::min(8, (saen_cap / (COL_CAPACITANCES.saen * 32.)).ceil() as i64);
-        let col_dec_routing_tracks = std::cmp::min(
-            4,
-            (col_sel_cap / (COL_CAPACITANCES.sel * 64.)).ceil() as i64,
-        );
+            ((saen_cap / (COL_CAPACITANCES.saen * 32.)).ceil() as i64).clamp(2, 8);
+        let col_dec_routing_tracks =
+            ((col_sel_cap / (COL_CAPACITANCES.sel * 64.)).ceil() as i64).clamp(2, 4);
 
         println!("pc_b num tracks: {}", pc_b_routing_tracks);
         println!("wrdrven num tracks: {}", write_driver_en_routing_tracks);
@@ -523,6 +529,36 @@ impl Script for SramPhysicalDesignScript {
 
         col_params.mux.sel_width = 320 + (320 + 360) * (col_dec_routing_tracks - 1);
         col_params.pc.en_b_width = 320 + (320 + 360) * (pc_b_routing_tracks - 1);
+
+        let mux_inst = ctx.instantiate_layout::<TGateMux>(&col_params.mux)?;
+        let replica_pc = ReplicaPrechargeParams {
+            cols: 2,
+            inner: PrechargeParams {
+                en_b_width: 360,
+                ..col_params.pc.scale(1. / rbl_ratio as f64)
+            },
+        };
+        let replica_nmos = ReplicaColumnMosParams {
+            cols: 2,
+            inner: ColumnMosParams {
+                gate_width_n: snap_to_grid(3_360usize.div_ceil(rbl_ratio) as i64, 50),
+                drain_width_n: snap_to_grid(
+                    ((col_params.mux.nwidth * (params.mux_ratio() as i64 + 1)
+                        + col_params.wrdriver.nwidth_driver) as usize)
+                        .div_ceil(rbl_ratio) as i64,
+                    50,
+                ),
+                drain_width_p: snap_to_grid(
+                    ((col_params.mux.pwidth * (params.mux_ratio() as i64 + 1)
+                        + col_params.wrdriver.pwidth_driver) as usize)
+                        .div_ceil(rbl_ratio) as i64,
+                    50,
+                ),
+                length: 150,
+            },
+        };
+        let replica_pc_inst = ctx.instantiate_layout::<ReplicaPrecharge>(&replica_pc)?;
+        let replica_nmos_inst = ctx.instantiate_layout::<ReplicaColumnMos>(&replica_nmos)?;
 
         Ok(Self::Output {
             bitcells: SpCellArrayParams {
@@ -540,16 +576,21 @@ impl Script for SramPhysicalDesignScript {
             sense_en_buffer,
             num_dffs,
             rbl_wl_index,
-            rbl: ReplicaCellArrayParams {
-                rows: rbl_rows,
-                cols: 2,
-            },
-            replica_pc: ReplicaPrechargeParams {
-                cols: 2,
-                inner: PrechargeParams {
-                    en_b_width: 360,
-                    ..col_params.pc.scale(1. / 6.)
-                },
+            rbl,
+            replica_pc,
+            replica_nmos,
+            replica_routing: ReplicaMetalRoutingParams {
+                m0_area: ((col_params.wrdriver.pwidth_driver + col_params.wrdriver.nwidth_driver)
+                    as usize)
+                    .div_ceil(rbl_ratio) as i64
+                    * 1_080,
+                m1_area: (mux_inst.brect().height() as usize * params.mux_ratio())
+                    .div_ceil(rbl_ratio) as i64
+                    * 1_080,
+                max_height: std::cmp::max(
+                    replica_pc_inst.brect().height(),
+                    replica_nmos_inst.brect().height(),
+                ),
             },
             col_params,
             control,
@@ -813,7 +854,9 @@ pub(crate) mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::verilog::save_1rw_verilog;
+    use layout::{ColumnMosParams, ReplicaColumnMos, ReplicaColumnMosParams};
     use rust_decimal::Decimal;
+    use rust_decimal_macros::dec;
     use substrate::schematic::netlist::NetlistPurpose;
 
     use super::*;
@@ -850,7 +893,7 @@ pub(crate) mod tests {
 
     pub(crate) const SRAM22_1024X32M8W8: SramParams = SramParams::new(8, MuxRatio::M8, 1024, 32);
 
-    pub(crate) const SRAM22_1024X64M8W8: SramParams = SramParams::new(8, MuxRatio::M4, 1024, 64);
+    pub(crate) const SRAM22_1024X64M4W8: SramParams = SramParams::new(8, MuxRatio::M4, 1024, 64);
 
     pub(crate) const SRAM22_2048X8M8W1: SramParams = SramParams::new(1, MuxRatio::M8, 2048, 8);
 
@@ -861,6 +904,25 @@ pub(crate) mod tests {
     pub(crate) const SRAM22_4096X32M8W8: SramParams = SramParams::new(8, MuxRatio::M8, 4096, 32);
 
     pub(crate) const SRAM22_8192X32M8W8: SramParams = SramParams::new(8, MuxRatio::M8, 8192, 32);
+
+    #[test]
+    fn test_replica_column_nmos() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_replica_column_nmos");
+        ctx.write_layout::<ReplicaColumnMos>(
+            &ReplicaColumnMosParams {
+                cols: 2,
+                inner: ColumnMosParams {
+                    gate_width_n: 1_000,
+                    drain_width_n: 1_000,
+                    drain_width_p: 1_000,
+                    length: 150,
+                },
+            },
+            out_gds(work_dir, "layout"),
+        )
+        .expect("failed to write layout");
+    }
 
     macro_rules! test_sram {
         ($name: ident, $params: ident $(, $attr: meta)*) => {
@@ -891,169 +953,172 @@ pub(crate) mod tests {
                     use calibre::lvs::{run_lvs, LvsParams};
                     use crate::verification::calibre::{SKY130_DRC_RUNSET_PATH, SKY130_LAYERPROPS_PATH, SKY130_LVS_RULES_PATH};
 
-                    // let drc_work_dir = work_dir.join("drc");
-                    // for deck in [
-                    //     "drc", "latchup", "soft", "luRes",
-                    //     // "stress", "fill"
-                    // ] {
-                    //     let deck_work_dir = drc_work_dir.join(deck);
-                    //     let output = run_drc(&DrcParams {
-                    //         cell_name: &$params.name(),
-                    //         work_dir: &deck_work_dir,
-                    //         layout_path: &gds_path,
-                    //         rules_path: Path::new(&format!("/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/DRC/Calibre/s8_{deck}Rules")),
-                    //         runset_path: (deck == "drc").then(|| Path::new(SKY130_DRC_RUNSET_PATH)),
-                    //         layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
-                    //     }).expect("failed to run DRC");
-                    //     println!("{:?}", output.rule_checks);
-                    //     assert!(
-                    //         output.rule_checks.is_empty(),
-                    //         "DRC must have no rule violations"
-                    //     );
-                    //     println!("{}: done running DRC deck `{}`", stringify!($name), deck);
-                    // }
+                    let drc_work_dir = work_dir.join("drc");
+                    for deck in [
+                        "drc", "latchup", "soft", "luRes",
+                        // "stress", "fill"
+                    ] {
+                        let deck_work_dir = drc_work_dir.join(deck);
+                        let output = run_drc(&DrcParams {
+                            cell_name: &$params.name(),
+                            work_dir: &deck_work_dir,
+                            layout_path: &gds_path,
+                            rules_path: Path::new(&format!("/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/DRC/Calibre/s8_{deck}Rules")),
+                            runset_path: (deck == "drc").then(|| Path::new(SKY130_DRC_RUNSET_PATH)),
+                            layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
+                        }).expect("failed to run DRC");
+                        println!("{:?}", output.rule_checks);
+                        assert!(
+                            output.rule_checks.is_empty(),
+                            "DRC must have no rule violations"
+                        );
+                        println!("{}: done running DRC deck `{}`", stringify!($name), deck);
+                    }
 
-                    // let lvs_path = out_spice(&work_dir, "lvs_schematic");
-                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
-                    //     &$params,
-                    //     &lvs_path,
-                    //     NetlistPurpose::Lvs,
-                    // ).expect("failed to write lvs source netlist");
-                    // let lvs_work_dir = work_dir.join("lvs");
-                    // let output = run_lvs(&LvsParams{
-                    //     work_dir: &lvs_work_dir,
-                    //     layout_path: &gds_path,
-                    //     layout_cell_name: &$params.name(),
-                    //     source_paths: &[lvs_path],
-                    //     source_cell_name: &$params.name(),
-                    //     rules_path: Path::new(SKY130_LVS_RULES_PATH),
-                    //     layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
-                    // }).expect("failed to run LVS");
-                    // assert!(matches!(
-                    //     output.status,
-                    //     calibre::lvs::LvsStatus::Correct
-                    // ));
-                    // println!("{}: done running LVS", stringify!($name));
-
-                    // let pex_path = out_spice(&work_dir, "pex_schematic");
-                    // let pex_dir = work_dir.join("pex");
-                    // let pex_level = calibre::pex::PexLevel::Rc;
-                    // let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
-                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
-                    //     &$params,
-                    //     &pex_path,
-                    //     NetlistPurpose::Pex,
-                    // ).expect("failed to write pex source netlist");
-                    // let mut opts = std::collections::HashMap::with_capacity(1);
-                    // opts.insert("level".into(), pex_level.as_str().into());
-
-                    // ctx.run_pex(substrate::verification::pex::PexInput {
-                    //     work_dir: pex_dir,
-                    //     layout_path: gds_path.clone(),
-                    //     layout_cell_name: $params.name().clone(),
-                    //     layout_format: substrate::layout::LayoutFormat::Gds,
-                    //     source_paths: vec![pex_path],
-                    //     source_cell_name: $params.name().clone(),
-                    //     pex_netlist_path: pex_netlist_path.clone(),
-                    //     ground_net: "vss".to_string(),
-                    //     opts,
-                    // }).expect("failed to run pex");
-                    // println!("{}: done running PEX", stringify!($name));
-
-                    // let seq = TestSequence::Short;
-                    // let corners = ctx.corner_db();
-                    // let mut handles = Vec::new();
-                    // for vdd in [1.8] {
-                    //     let sf = corners.corner_named("sf").unwrap();
-                    //     let tt = corners.corner_named("tt").unwrap();
-                    //     // for corner in corners.corners() {
-                    //     for corner in [sf, tt] {
-                    //         let corner = corner.clone();
-                    //         let params = $params.clone();
-                    //         let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
-                    //         // let pex_netlist = None;
-                    //         let work_dir = work_dir.clone();
-                    //         handles.push(std::thread::spawn(move || {
-                    //             let ctx = setup_ctx();
-                    //             let dsn = ctx.run_script::<SramPhysicalDesignScript>(&params).expect("failed to run sram design script");
-                    //             let tb = crate::blocks::sram::testbench::tb_params(params, dsn, vdd, seq, pex_netlist);
-                    //             let work_dir = work_dir.join(format!(
-                    //                 "{}_{:.2}_{}",
-                    //                 corner.name(),
-                    //                 vdd,
-                    //                 seq.as_str(),
-                    //             ));
-                    //             let data = ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
-                    //                 &tb,
-                    //                 &work_dir,
-                    //                 corner.clone(),
-                    //             )
-                    //             .expect("failed to run simulation");
-                    //             verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
-                    //             println!(
-                    //                 "{}: done simulating in corner {} with Vdd = {}, seq = {}",
-                    //                 stringify!($name),
-                    //                 corner.name(),
-                    //                 vdd,
-                    //                 seq,
-                    //             );
-                    //         }));
-                    //     }
-                    // }
-                    // let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
-                    // handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
-
-                    crate::abs::write_abstract(
-                        &ctx,
-                        &$params,
-                        crate::paths::out_lef(&work_dir, &*$params.name()),
-                    )
-                    .expect("failed to write abstract");
-                    println!("{}: done writing abstract", stringify!($name));
-
-                    let timing_spice_path = out_spice(&work_dir, "timing_schematic");
+                    let lvs_path = out_spice(&work_dir, "lvs_schematic");
                     ctx.write_schematic_to_file_for_purpose::<Sram>(
                         &$params,
-                        &timing_spice_path,
-                        NetlistPurpose::Timing,
-                    )
-                    .expect("failed to write timing schematic");
+                        &lvs_path,
+                        NetlistPurpose::Lvs,
+                    ).expect("failed to write lvs source netlist");
+                    let lvs_work_dir = work_dir.join("lvs");
+                    let output = run_lvs(&LvsParams{
+                        work_dir: &lvs_work_dir,
+                        layout_path: &gds_path,
+                        layout_cell_name: &$params.name(),
+                        source_paths: &[lvs_path],
+                        source_cell_name: &$params.name(),
+                        rules_path: Path::new(SKY130_LVS_RULES_PATH),
+                        layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
+                    }).expect("failed to run LVS");
+                    assert!(matches!(
+                        output.status,
+                        calibre::lvs::LvsStatus::Correct
+                    ));
+                    println!("{}: done running LVS", stringify!($name));
 
-                    let sram = ctx.instantiate_layout::<Sram>(&$params).expect("failed to generate layout");
-                    let brect = sram.brect();
-                    let width = Decimal::new(brect.width(), 3);
-                    let height = Decimal::new(brect.height(), 3);
-                    for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", 40, dec!(1.95))] {
-                        let suffix = match corner {
-                            "tt" => "tt_025C_1v80",
-                            "ss" => "ss_100C_1v60",
-                            "ff" => "ff_n40C_1v95",
-                            _ => unreachable!(),
-                        };
-                        let name = format!("{}_{}", $params.name(), suffix);
-                        let params = liberate_mx::LibParams::builder()
-                            .work_dir(work_dir.join(format!("lib/{suffix}")))
-                            .output_file(crate::paths::out_lib(&work_dir, &name))
-                            .corner(corner)
-                            .width(width)
-                            .height(height)
-                            .user_verilog(verilog_path.clone())
-                            .cell_name(&*$params.name())
-                            .num_words($params.num_words())
-                            .data_width($params.data_width())
-                            .addr_width($params.addr_width())
-                            .wmask_width($params.wmask_width())
-                            .mux_ratio($params.mux_ratio())
-                            .has_wmask(true)
-                            // .source_paths(vec![pex_netlist_path.clone()])
-                            .source_paths(vec![timing_spice_path.clone()])
-                            .vdd(vdd)
-                            .temp(temp)
-                            .build()
-                            .unwrap();
-                        crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
-                        println!("{}: done generating LIB for corner `{}`", stringify!($name), corner);
+                    let pex_path = out_spice(&work_dir, "pex_schematic");
+                    let pex_dir = work_dir.join("pex");
+                    let _ = std::fs::remove_dir_all(&pex_dir);
+                    let pex_level = calibre::pex::PexLevel::Rc;
+                    let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+                    ctx.write_schematic_to_file_for_purpose::<Sram>(
+                        &$params,
+                        &pex_path,
+                        NetlistPurpose::Pex,
+                    ).expect("failed to write pex source netlist");
+                    let mut opts = std::collections::HashMap::with_capacity(1);
+                    opts.insert("level".into(), pex_level.as_str().into());
+
+                    ctx.run_pex(substrate::verification::pex::PexInput {
+                        work_dir: pex_dir,
+                        layout_path: gds_path.clone(),
+                        layout_cell_name: $params.name().clone(),
+                        layout_format: substrate::layout::LayoutFormat::Gds,
+                        source_paths: vec![pex_path],
+                        source_cell_name: $params.name().clone(),
+                        pex_netlist_path: pex_netlist_path.clone(),
+                        ground_net: "vss".to_string(),
+                        opts,
+                    }).expect("failed to run pex");
+                    println!("{}: done running PEX", stringify!($name));
+
+                    let seq = TestSequence::Short;
+                    let corners = ctx.corner_db();
+                    let mut handles = Vec::new();
+                    for vdd in [1.8] {
+                        let sf = corners.corner_named("sf").unwrap();
+                        let fs = corners.corner_named("fs").unwrap();
+                        let ss = corners.corner_named("ss").unwrap();
+                        let ff = corners.corner_named("ff").unwrap();
+                        // for corner in corners.corners() {
+                        for corner in [sf, fs, ss, ff] {
+                            let corner = corner.clone();
+                            let params = $params.clone();
+                            let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
+                            // let pex_netlist = None;
+                            let work_dir = work_dir.clone();
+                            handles.push(std::thread::spawn(move || {
+                                let ctx = setup_ctx();
+                                let dsn = ctx.run_script::<SramPhysicalDesignScript>(&params).expect("failed to run sram design script");
+                                let tb = crate::blocks::sram::testbench::tb_params(params, dsn, vdd, seq, pex_netlist);
+                                let work_dir = work_dir.join(format!(
+                                    "{}_{:.2}_{}",
+                                    corner.name(),
+                                    vdd,
+                                    seq.as_str(),
+                                ));
+                                let data = ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
+                                    &tb,
+                                    &work_dir,
+                                    corner.clone(),
+                                )
+                                .expect("failed to run simulation");
+                                verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
+                                println!(
+                                    "{}: done simulating in corner {} with Vdd = {}, seq = {}",
+                                    stringify!($name),
+                                    corner.name(),
+                                    vdd,
+                                    seq,
+                                );
+                            }));
+                        }
                     }
+                    let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
+                    handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
+
+                    // crate::abs::write_abstract(
+                    //     &ctx,
+                    //     &$params,
+                    //     crate::paths::out_lef(&work_dir, &*$params.name()),
+                    // )
+                    // .expect("failed to write abstract");
+                    // println!("{}: done writing abstract", stringify!($name));
+
+                    // let timing_spice_path = out_spice(&work_dir, "timing_schematic");
+                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
+                    //     &$params,
+                    //     &timing_spice_path,
+                    //     NetlistPurpose::Timing,
+                    // )
+                    // .expect("failed to write timing schematic");
+
+                    // let sram = ctx.instantiate_layout::<Sram>(&$params).expect("failed to generate layout");
+                    // let brect = sram.brect();
+                    // let width = Decimal::new(brect.width(), 3);
+                    // let height = Decimal::new(brect.height(), 3);
+                    // for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", 40, dec!(1.95))] {
+                    //     let suffix = match corner {
+                    //         "tt" => "tt_025C_1v80",
+                    //         "ss" => "ss_100C_1v60",
+                    //         "ff" => "ff_n40C_1v95",
+                    //         _ => unreachable!(),
+                    //     };
+                    //     let name = format!("{}_{}", $params.name(), suffix);
+                    //     let params = liberate_mx::LibParams::builder()
+                    //         .work_dir(work_dir.join(format!("lib/{suffix}")))
+                    //         .output_file(crate::paths::out_lib(&work_dir, &name))
+                    //         .corner(corner)
+                    //         .width(width)
+                    //         .height(height)
+                    //         .user_verilog(verilog_path.clone())
+                    //         .cell_name(&*$params.name())
+                    //         .num_words($params.num_words())
+                    //         .data_width($params.data_width())
+                    //         .addr_width($params.addr_width())
+                    //         .wmask_width($params.wmask_width())
+                    //         .mux_ratio($params.mux_ratio())
+                    //         .has_wmask(true)
+                    //         // .source_paths(vec![pex_netlist_path.clone()])
+                    //         .source_paths(vec![timing_spice_path.clone()])
+                    //         .vdd(vdd)
+                    //         .temp(temp)
+                    //         .build()
+                    //         .unwrap();
+                    //     crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+                    //     println!("{}: done generating LIB for corner `{}`", stringify!($name), corner);
+                    // }
                 }
 
                 println!("{}: all tasks complete", stringify!($name));
@@ -1077,7 +1142,7 @@ pub(crate) mod tests {
     test_sram!(test_sram22_512x128m4w8, SRAM22_512X128M4W8, ignore = "slow");
     test_sram!(test_sram22_1024x8m8w1, SRAM22_1024X8M8W1, ignore = "slow");
     test_sram!(test_sram22_1024x32m8w8, SRAM22_1024X32M8W8, ignore = "slow");
-    test_sram!(test_sram22_1024x64m8w8, SRAM22_1024X64M8W8, ignore = "slow");
+    test_sram!(test_sram22_1024x64m4w8, SRAM22_1024X64M4W8, ignore = "slow");
     test_sram!(test_sram22_2048x8m8w1, SRAM22_2048X8M8W1, ignore = "slow");
     test_sram!(test_sram22_2048x32m8w8, SRAM22_2048X32M8W8, ignore = "slow");
     test_sram!(test_sram22_4096x8m8w1, SRAM22_4096X8M8W1, ignore = "slow");
