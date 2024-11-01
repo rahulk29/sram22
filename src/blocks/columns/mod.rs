@@ -256,13 +256,13 @@ pub const COL_PARAMS: ColParams = ColParams {
 };
 
 pub const COL_CAPACITANCES: ColCapacitances = ColCapacitances {
-    pc_b: 550.284e-15 / (COL_PARAMS.cols + 2) as f64,
-    saen: 393.714e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
-    sel: 216.435e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
-    sel_b: 168.781e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
-    we: 37.922e-15 / COL_PARAMS.wmask_bits() as f64,
-    we_i: 9.6971e-15,
-    we_ib: 10.2081e-15,
+    pc_b: 591.432e-15 / (COL_PARAMS.cols + 2) as f64,
+    saen: 393.347e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
+    sel: 186.452e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
+    sel_b: 198.962e-15 / (COL_PARAMS.cols / COL_PARAMS.mux.mux_ratio) as f64,
+    we: 36.461e-15 / COL_PARAMS.wmask_bits() as f64,
+    we_i: 11.3990e-15,
+    we_ib: 12.0547e-15,
 };
 
 pub struct ColCapacitances {
