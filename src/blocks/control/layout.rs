@@ -1494,7 +1494,7 @@ impl InvChain {
         let outline = layers.get(Selector::Name("outline"))?;
 
         let mut row = new_row();
-        let group_size = 8;
+        let group_size = 7;
         let num_groups = self.n.div_ceil(group_size);
         for i in 0..num_groups {
             if i == num_groups - 1 {
@@ -1584,7 +1584,7 @@ impl SvtInvChain {
         let outline = layers.get(Selector::Name("outline"))?;
 
         let mut row = new_row();
-        let group_size = 8;
+        let group_size = 7;
         let num_groups = self.n.div_ceil(group_size);
         for i in 0..num_groups {
             if i == num_groups - 1 {
