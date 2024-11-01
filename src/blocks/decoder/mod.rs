@@ -30,6 +30,7 @@ pub struct DecoderParams {
     pub pd: DecoderPhysicalDesignParams,
     pub max_width: Option<i64>,
     pub tree: DecoderTree,
+    pub use_multi_finger_invs: bool,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -700,7 +701,7 @@ impl Script for DecoderStagePhysicalDesignScript {
                 for params in primitive_gate_params.iter().chain(params.invs.iter()) {
                     let ff = std::cmp::min(
                         std::cmp::max(
-                            std::cmp::min(params.pwidth, params.nwidth) as usize / 960,
+                            std::cmp::min(params.pwidth, params.nwidth) as usize / 1_800,
                             1,
                         ),
                         folding_factor_limit,
@@ -784,6 +785,7 @@ mod tests {
             },
             max_width: None,
             tree,
+            use_multi_finger_invs: true,
         };
 
         ctx.write_schematic_to_file::<Decoder>(&params, out_spice(work_dir, "netlist"))

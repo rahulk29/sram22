@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use subgeom::bbox::BoundBox;
 use substrate::index::IndexOwned;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
@@ -41,13 +42,14 @@ impl Decoder {
             gate: node.gate,
             invs,
             num: node.num,
-            use_multi_finger_invs: true,
+            use_multi_finger_invs: self.params.use_multi_finger_invs,
             dont_connect_outputs: true,
             child_sizes,
         };
         let mut inst = ctx
             .instantiate::<DecoderStage>(&params)?
             .with_connections([("vdd", vdd), ("vss", vss)]);
+        let layout_inst = ctx.inner().instantiate_layout::<DecoderStage>(&params)?;
         ctx.bubble_filter_map(&mut inst, |port| {
             port.name().starts_with("y").then_some(port.name().into())
         });
@@ -64,11 +66,14 @@ impl Decoder {
             let mut child = ctx
                 .instantiate::<Decoder>(&DecoderParams {
                     pd: self.params.pd,
-                    max_width: self
-                        .params
-                        .max_width
-                        .map(|width| width / num_children as i64),
+                    max_width: Some(
+                        self.params
+                            .max_width
+                            .map(|width| width / num_children as i64)
+                            .unwrap_or_else(|| layout_inst.brect().width() / num_children as i64),
+                    ),
                     tree: super::DecoderTree { root: node.clone() },
+                    use_multi_finger_invs: false,
                 })?
                 .with_connections([("vdd", vdd), ("vss", vss)]);
 

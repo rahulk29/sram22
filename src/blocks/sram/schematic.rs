@@ -17,7 +17,7 @@ use crate::blocks::gate::sizing::InverterGateTreeNode;
 use crate::blocks::gate::GateParams;
 use crate::blocks::precharge::Precharge;
 
-use super::layout::{ColumnMos, NeedsDiodes, ReplicaColumnMos};
+use super::layout::{NeedsDiodes, ReplicaColumnMos};
 use super::{SramInner, SramPhysicalDesignScript, TappedDiode};
 
 impl SramInner {

@@ -598,9 +598,18 @@ impl Script for ReplicaColumnMosPhysicalDesignScript {
     ) -> substrate::error::Result<Self::Output> {
         let total_height = params.gate_width_n + params.drain_width_n + params.drain_width_p;
         let num_cols = (total_height as usize).div_ceil(params.max_height as usize);
-        let gate_width_n = std::cmp::max(800, params.gate_width_n / num_cols as i64);
-        let drain_width_n = std::cmp::max(800, params.drain_width_n / num_cols as i64);
-        let drain_width_p = std::cmp::max(800, params.drain_width_p / num_cols as i64);
+        let gate_width_n = snap_to_grid(
+            std::cmp::max(800, params.gate_width_n / num_cols as i64),
+            50,
+        );
+        let drain_width_n = snap_to_grid(
+            std::cmp::max(800, params.drain_width_n / num_cols as i64),
+            50,
+        );
+        let drain_width_p = snap_to_grid(
+            std::cmp::max(800, (params.drain_width_p / num_cols as i64)),
+            50,
+        );
 
         let mut units = Vec::new();
         let mut running_gate_width_n = 0;
@@ -683,7 +692,7 @@ impl Component for ReplicaColumnMos {
                 tiler.push(column_mos_cent.clone());
             }
         }
-        if dsn.units.len() % dsn.tap_frequency != dsn.tap_frequency - 1 {
+        if dsn.units.len() % dsn.tap_frequency != 0 {
             tiler.push(column_mos_cent);
         }
 
@@ -864,7 +873,8 @@ impl SramInner {
         // This prevents overlapping of m2 routes.
         col_dec.align_beneath(
             cols.port("sense_en")?
-                .largest_rect(m2)?
+                .largest_rect(m2)
+                .unwrap()
                 .bbox()
                 .union(sense_en_buffer.brect().expand_dir(Dir::Vert, 3_000).bbox()),
             3_000,
@@ -895,7 +905,10 @@ impl SramInner {
         rbl.align_to_the_left_of(control.bbox(), 7_000);
         replica_pc.align_beneath(decoder.bbox(), 6_000);
         replica_pc.align_centers_horizontally_gridded(rbl.bbox(), ctx.pdk().layout_grid());
-        replica_nmos.align_beneath(replica_pc.port("rbl")?.largest_rect(m2)?.bbox(), 140);
+        replica_nmos.align_beneath(
+            replica_pc.port("rbl")?.largest_rect(m2).unwrap().bbox(),
+            140,
+        );
         replica_nmos.align_to_the_left_of(replica_pc.bbox(), 13_000);
         replica_routing.align_top(replica_pc.bbox());
         replica_routing.align_to_the_left_of(replica_nmos.bbox(), 1_000);
@@ -1032,15 +1045,21 @@ impl SramInner {
         // Route precharges to bitcell array.
         for i in 0..self.params.cols() {
             for port_name in ["bl", "br"] {
-                let src = cols.port(PortId::new(port_name, i))?.largest_rect(m1)?;
-                let dst = bitcells.port(PortId::new(port_name, i))?.largest_rect(m1)?;
+                let src = cols
+                    .port(PortId::new(port_name, i))?
+                    .largest_rect(m1)
+                    .unwrap();
+                let dst = bitcells
+                    .port(PortId::new(port_name, i))?
+                    .largest_rect(m1)
+                    .unwrap();
                 draw_rect(m1, src.union(dst.bbox()).into_rect(), &mut router, ctx);
             }
         }
 
         // Route DFF input signals to pins on bounding box of SRAM on m1.
         for i in 0..dsn.num_dffs {
-            let src = dffs.port(PortId::new("d", i))?.largest_rect(m0)?;
+            let src = dffs.port(PortId::new("d", i))?.largest_rect(m0).unwrap();
             let track_span =
                 m1_tracks.index(m1_tracks.track_with_loc(TrackLocator::Nearest, src.center().x));
             let m1_rect = src
@@ -1074,10 +1093,14 @@ impl SramInner {
         for i in 0..self.params.row_bits() {
             for j in 0..2 {
                 let idx = 2 * i + j;
-                let y = addr_gate.port(PortId::new("y", idx))?.largest_rect(m0)?;
+                let y = addr_gate
+                    .port(PortId::new("y", idx))?
+                    .largest_rect(m0)
+                    .unwrap();
                 let predecode_port = decoder
                     .port(format!("predecode_{}_{}", i, j))?
-                    .largest_rect(m1)?;
+                    .largest_rect(m1)
+                    .unwrap();
 
                 // Choose the track to use to connect to the predecoder input bus.
                 // If bus has already been connected to, use next track.
@@ -1135,7 +1158,7 @@ impl SramInner {
         if sense_en_buffer
             .brect()
             .vspan()
-            .intersects(&cols.port("sense_en")?.largest_rect(m2)?.vspan())
+            .intersects(&cols.port("sense_en")?.largest_rect(m2).unwrap().vspan())
         {
             buffers.reverse();
         }
@@ -1204,7 +1227,9 @@ impl SramInner {
                     draw_rect(
                         m1,
                         Rect::from_spans(
-                            track.add_point(buffer.port("y")?.largest_rect(m1)?.right() + 200),
+                            track.add_point(
+                                buffer.port("y")?.largest_rect(m1).unwrap().right() + 200,
+                            ),
                             span,
                         ),
                         &mut router,
@@ -1215,7 +1240,7 @@ impl SramInner {
             router.block(
                 m1,
                 Rect::from_spans(
-                    track.add_point(buffer.port("y")?.largest_rect(m1)?.right() + 200),
+                    track.add_point(buffer.port("y")?.largest_rect(m1).unwrap().right() + 200),
                     buffer_port_vspan,
                 ),
             );
@@ -1232,9 +1257,12 @@ impl SramInner {
 
         // Route wordline driver to bitcell array
         for i in 0..self.params.rows() {
-            let src = decoder.port(PortId::new("y", i))?.largest_rect(m1)?;
+            let src = decoder.port(PortId::new("y", i))?.largest_rect(m1).unwrap();
             let src = src.with_hspan(Span::with_stop_and_length(src.right() + 600, 1_200));
-            let dst = bitcells.port(PortId::new("wl", i))?.largest_rect(m2)?;
+            let dst = bitcells
+                .port(PortId::new("wl", i))?
+                .largest_rect(m2)
+                .unwrap();
             let via = draw_via(m1, src, m2, src, ctx)?;
             router.block(m1, via.bbox().into_rect());
             let m2_rect_a = via.layer_bbox(m2).into_rect();
@@ -1335,7 +1363,7 @@ impl SramInner {
                 m2_track_rstb_conn,
             ),
         ] {
-            let control_port = control.port(port)?.largest_rect(m1)?;
+            let control_port = control.port(port)?.largest_rect(m1).unwrap();
 
             // Draw pin on the edge of one of the m1 tracks.
             let m1_pin = Rect::from_spans(
@@ -1383,8 +1411,11 @@ impl SramInner {
             ("ce", m2_ce_track_idx, dsn.num_dffs - 2),
             ("we", m2_we_track_idx, dsn.num_dffs - 1),
         ] {
-            let control_port = control.port(port)?.largest_rect(m1)?;
-            let dff_port = dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?;
+            let control_port = control.port(port)?.largest_rect(m1).unwrap();
+            let dff_port = dffs
+                .port(PortId::new("q", dff_idx))?
+                .largest_rect(m0)
+                .unwrap();
             let via = draw_via(m0, dff_port, m1, dff_port, ctx)?;
             let via_m1 = via.layer_bbox(m1).into_rect();
             let track_idx = m1_tracks.track_with_loc(TrackLocator::Nearest, via_m1.center().x);
@@ -1403,10 +1434,14 @@ impl SramInner {
         // Route replica cell array to replica precharge
         for i in 0..2 {
             for port_name in ["bl", "br"] {
-                let src = rbl.port(PortId::new(port_name, i))?.largest_rect(m1)?;
+                let src = rbl
+                    .port(PortId::new(port_name, i))?
+                    .largest_rect(m1)
+                    .unwrap();
                 let dst = replica_pc
                     .port(PortId::new(format!("{}_in", port_name), i))?
-                    .largest_rect(m1)?;
+                    .largest_rect(m1)
+                    .unwrap();
                 draw_rect(
                     m1,
                     src.bbox().union(dst.bbox()).into_rect(),
@@ -1417,7 +1452,7 @@ impl SramInner {
         }
 
         // Route rbl to replica MOS and replica routing
-        let m2_rect = replica_pc.port("rbl")?.largest_rect(m2)?;
+        let m2_rect = replica_pc.port("rbl")?.largest_rect(m2).unwrap();
         let replica_routing_port = replica_routing.port("bl")?.first_rect(m1, Side::Left)?;
         let m2_rect = m2_rect.with_hspan(replica_routing_port.hspan().union(m2_rect.hspan()));
         draw_rect(m2, m2_rect, &mut router, ctx);
@@ -1439,10 +1474,11 @@ impl SramInner {
         }
 
         // Route replica wordline.
-        let control_rwl_rect = control.port("rwl")?.largest_rect(m2)?;
+        let control_rwl_rect = control.port("rwl")?.largest_rect(m2).unwrap();
         let array_rwl_rect = rbl
             .port(PortId::new("wl", dsn.rbl_wl_index))?
-            .largest_rect(m2)?;
+            .largest_rect(m2)
+            .unwrap();
         let m1_rwl_track_idx =
             m1_tracks.track_with_loc(TrackLocator::EndsBefore, control_rwl_rect.right());
         draw_route(
@@ -1457,9 +1493,9 @@ impl SramInner {
         )?;
 
         // Route replica bitline/precharge.
-        let control_rbl_rect = control.port("rbl")?.largest_rect(m1)?;
-        let control_pc_b_rect = control.port("pc_b")?.largest_rect(m1)?;
-        let array_rbl_rect = replica_pc.port("rbl")?.largest_rect(m2)?;
+        let control_rbl_rect = control.port("rbl")?.largest_rect(m1).unwrap();
+        let control_pc_b_rect = control.port("pc_b")?.largest_rect(m1).unwrap();
+        let array_rbl_rect = replica_pc.port("rbl")?.largest_rect(m2).unwrap();
 
         let m2_rbl_track_idx =
             m2_tracks.track_with_loc(TrackLocator::StartsAfter, control_rbl_rect.bottom());
@@ -1503,8 +1539,8 @@ impl SramInner {
         }
 
         // Route wlen
-        let control_wlen_rect = control.port("wlen")?.largest_rect(m1)?;
-        let buffer_wlen_rect = wlen_buffer.port("predecode_0_0")?.largest_rect(m2)?;
+        let control_wlen_rect = control.port("wlen")?.largest_rect(m1).unwrap();
+        let buffer_wlen_rect = wlen_buffer.port("predecode_0_0")?.largest_rect(m2).unwrap();
         let m1_wlen_track_idx =
             m1_tracks.track_with_loc(TrackLocator::EndsBefore, buffer_wlen_rect.right());
         draw_route(
@@ -1518,8 +1554,8 @@ impl SramInner {
             ctx,
         )?;
 
-        let addr_gate_wlen_rect = addr_gate.port("wl_en")?.largest_rect(m1)?;
-        let y = wlen_buffer.port("y")?.largest_rect(m1)?;
+        let addr_gate_wlen_rect = addr_gate.port("wl_en")?.largest_rect(m1).unwrap();
+        let y = wlen_buffer.port("y")?.largest_rect(m1).unwrap();
         let jog = OffsetJog::builder()
             .dir(subgeom::Dir::Vert)
             .sign(subgeom::Sign::Pos)
@@ -1539,7 +1575,7 @@ impl SramInner {
         ctx.draw(jog)?;
 
         // Route pc_b to main array.
-        let pc_b_rect = pc_b_buffer.port("predecode_0_0")?.largest_rect(m1)?;
+        let pc_b_rect = pc_b_buffer.port("predecode_0_0")?.largest_rect(m1).unwrap();
         draw_route(
             m1,
             control_pc_b_rect,
@@ -1564,8 +1600,8 @@ impl SramInner {
                 &write_driver_en_buffer,
             ),
         ] {
-            let buffer_port = buf.port("predecode_0_0")?.largest_rect(m1)?;
-            let control_port = control.port(port)?.largest_rect(m2)?;
+            let buffer_port = buf.port("predecode_0_0")?.largest_rect(m1).unwrap();
+            let control_port = control.port(port)?.largest_rect(m2).unwrap();
 
             if buffer_port.vspan().contains(control_port.vspan()) {
                 let m2_rect =
@@ -1598,12 +1634,15 @@ impl SramInner {
                 let dff_idx = dsn.num_dffs - i - 3;
                 let port_rect = col_dec
                     .port(format!("predecode_{i}_{j}"))?
-                    .largest_rect(m1)?;
+                    .largest_rect(m1)
+                    .unwrap();
                 let rect = if j == 0 {
                     dffs.port(PortId::new("q_n", dff_idx))?
                         .first_rect(m0, Side::Left)?
                 } else {
-                    dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?
+                    dffs.port(PortId::new("q", dff_idx))?
+                        .largest_rect(m0)
+                        .unwrap()
                 };
                 let (loc, side) = if j == 0 {
                     (TrackLocator::StartsAfter, Side::Left)
@@ -1647,9 +1686,14 @@ impl SramInner {
             for j in 0..2 {
                 let idx = 2 * i + j;
                 let dff_idx = dsn.num_dffs - i - 3 - self.params.col_select_bits();
-                let port_rect = addr_gate.port(PortId::new("in", idx))?.largest_rect(m0)?;
+                let port_rect = addr_gate
+                    .port(PortId::new("in", idx))?
+                    .largest_rect(m0)
+                    .unwrap();
                 let rect = if j == 0 {
-                    dffs.port(PortId::new("q", dff_idx))?.largest_rect(m0)?
+                    dffs.port(PortId::new("q", dff_idx))?
+                        .largest_rect(m0)
+                        .unwrap()
                 } else {
                     dffs.port(PortId::new("q_n", dff_idx))?
                         .first_rect(m0, Side::Left)?
@@ -1981,7 +2025,7 @@ impl SramInner {
         {
             for i in 0..width {
                 let port_id = PortId::new(port, i);
-                let rect = cols.port(port_id.clone())?.largest_rect(m1)?;
+                let rect = cols.port(port_id.clone())?.largest_rect(m1).unwrap();
                 let rect = rect.with_vspan(rect.vspan().add_point(router_bbox.bottom()));
                 draw_rect(m1, rect, &mut router, ctx);
                 ctx.add_port(CellPort::builder().id(port_id).add(m1, rect).build())?;
@@ -2000,7 +2044,7 @@ impl SramInner {
                         },
                     );
                     diode.align(AlignMode::Beneath, &cols, 6_000 * (j + 1) as i64);
-                    let diode_port = diode.port("diode")?.largest_rect(m0)?;
+                    let diode_port = diode.port("diode")?.largest_rect(m0).unwrap();
                     let diode_via = ctx.instantiate::<Via>(
                         &ViaParams::builder()
                             .layers(m0, m1)

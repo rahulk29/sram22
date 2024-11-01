@@ -69,7 +69,7 @@ impl Decoder {
             gate: node.gate,
             invs,
             num: node.num,
-            use_multi_finger_invs: true,
+            use_multi_finger_invs: self.params.use_multi_finger_invs,
             dont_connect_outputs: true,
             child_sizes,
         };
@@ -94,11 +94,14 @@ impl Decoder {
         for (i, node) in node.children.iter().enumerate() {
             let mut child = ctx.instantiate::<Decoder>(&DecoderParams {
                 pd: self.params.pd,
-                max_width: self
-                    .params
-                    .max_width
-                    .map(|width| width / num_children as i64),
+                max_width: Some(
+                    self.params
+                        .max_width
+                        .map(|width| width / (num_children as i64 + 1))
+                        .unwrap_or_else(|| inst.brect().width() / (num_children as i64 + 1)),
+                ),
                 tree: super::DecoderTree { root: node.clone() },
+                use_multi_finger_invs: false,
             })?;
             child.place(Corner::UpperRight, Point::new(x, -340));
             x -= (child.brect().width() as usize)
@@ -123,45 +126,47 @@ impl Decoder {
 
             let final_stage_width = child.cell().get_metadata::<Metadata>().final_stage_width;
             for j in 0..node.num {
-                let src = child
+                for src in child
                     .port(PortId::new("y", j))?
-                    .largest_rect(dsn.li)
-                    .unwrap();
-                let src = src.expand_side(Side::Top, 340);
-                let dst = inst
-                    .port(format!("predecode_{i}_{j}"))?
-                    .largest_rect(dsn.stripe_metal)
-                    .unwrap();
-                ctx.draw_rect(dsn.li, src);
-                let rect =
-                    Rect::from_spans(src.hspan(), Span::with_stop_and_length(src.top(), 170));
-                let via = draw_via(dsn.li, rect, m1, rect, ctx)?;
-                if dsn.stripe_metal == m1 {
-                    let via = draw_via(m1, rect, m2, rect, ctx)?;
-                    let src = via.layer_bbox(m2).into_rect();
-                    let jog = OffsetJog::builder()
-                        .dir(Dir::Horiz)
-                        .sign(Sign::Neg)
-                        .src(src)
-                        .space((final_stage_width - src.height()) / 2)
-                        .dst(dst.top())
-                        .layer(m2)
-                        .build()
+                    .shapes(dsn.li)
+                    .filter_map(|shape| shape.as_rect())
+                {
+                    let src = src.expand_side(Side::Top, 340);
+                    let dst = inst
+                        .port(format!("predecode_{i}_{j}"))?
+                        .largest_rect(dsn.stripe_metal)
                         .unwrap();
-                    draw_via(m1, dst, m2, jog.r2(), ctx)?;
-                    ctx.draw(jog)?;
-                } else {
-                    let src = via.layer_bbox(m1).into_rect();
-                    let jog = OffsetJog::builder()
-                        .dir(Dir::Horiz)
-                        .sign(Sign::Neg)
-                        .src(src)
-                        .space((final_stage_width - src.height()) / 2)
-                        .dst(dst.top())
-                        .layer(m1)
-                        .build()
-                        .unwrap();
-                    ctx.draw(jog)?;
+                    ctx.draw_rect(dsn.li, src);
+                    let rect =
+                        Rect::from_spans(src.hspan(), Span::with_stop_and_length(src.top(), 170));
+                    let via = draw_via(dsn.li, rect, m1, rect, ctx)?;
+                    if dsn.stripe_metal == m1 {
+                        let via = draw_via(m1, rect, m2, rect, ctx)?;
+                        let src = via.layer_bbox(m2).into_rect();
+                        let jog = OffsetJog::builder()
+                            .dir(Dir::Horiz)
+                            .sign(Sign::Neg)
+                            .src(src)
+                            .space(final_stage_width / 2 - src.height())
+                            .dst(dst.top())
+                            .layer(m2)
+                            .build()
+                            .unwrap();
+                        draw_via(m1, dst, m2, jog.r2(), ctx)?;
+                        ctx.draw(jog)?;
+                    } else {
+                        let src = via.layer_bbox(m1).into_rect();
+                        let jog = OffsetJog::builder()
+                            .dir(Dir::Horiz)
+                            .sign(Sign::Neg)
+                            .src(src)
+                            .space(final_stage_width / 2 - src.height())
+                            .dst(dst.top())
+                            .layer(m1)
+                            .build()
+                            .unwrap();
+                        ctx.draw(jog)?;
+                    }
                 }
             }
             ctx.draw(child)?;
@@ -1099,7 +1104,7 @@ impl Component for DecoderTap {
 
         if let Some(spans) = gate_spans.abutted_layers.get(&nsdm) {
             for vspan in spans {
-                ctx.draw_rect(psdm, Rect::from_spans(hspan, (*vspan).shrink_all(110)));
+                ctx.draw_rect(psdm, Rect::from_spans(hspan, vspan.shrink_all(110)));
                 let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
                     rect: Rect::from_spans(hspan.shrink_all(125), vspan.shrink_all(290)),
                     via_metals: vec![tap, dsn.li],
@@ -1110,7 +1115,7 @@ impl Component for DecoderTap {
 
         if let Some(spans) = gate_spans.abutted_layers.get(&psdm) {
             for vspan in spans {
-                ctx.draw_rect(nsdm, Rect::from_spans(hspan, (*vspan).shrink_all(110)));
+                ctx.draw_rect(nsdm, Rect::from_spans(hspan, vspan.shrink_all(110)));
                 let via = ctx.instantiate::<DecoderVia>(&DecoderViaParams {
                     rect: Rect::from_spans(hspan.shrink_all(125), vspan.shrink_all(290)),
                     via_metals: vec![tap, dsn.li],
