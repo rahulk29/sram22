@@ -280,7 +280,7 @@ impl Component for ColumnMos {
 
         if self.params.include_drain_p {
             let mut drain_pmos = ctx.instantiate::<SchematicMos>(&MosParams {
-                w: self.params.drain_width_n,
+                w: self.params.drain_width_p,
                 l: length,
                 m: 1,
                 nf: 1,
