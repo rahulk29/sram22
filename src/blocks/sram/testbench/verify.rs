@@ -18,11 +18,7 @@ pub fn write_internal_rpt(
     tb: &TbParams,
 ) -> Result<()> {
     let rpt_path = work_dir.as_ref().join("internal.rpt");
-    let mut rpt = File::options()
-        .create(true)
-        .write(true)
-        .read(true)
-        .open(rpt_path)?;
+    let mut rpt = File::create(&rpt_path)?;
     let low_threshold = 0.2 * tb.vdd;
     let high_threshold = 0.8 * tb.vdd;
 
@@ -375,8 +371,7 @@ pub fn write_internal_rpt(
         }
     }
 
-    rpt.flush()?;
-    rpt.rewind()?;
+    let mut rpt = File::open(rpt_path)?;
     let mut contents = String::new();
     rpt.read_to_string(&mut contents)?;
     for level in ["ERROR", "WARNING"] {

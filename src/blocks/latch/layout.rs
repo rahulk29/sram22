@@ -1,6 +1,6 @@
 use crate::blocks::columns::ColumnDesignScript;
 use crate::blocks::decoder::layout::{DecoderVia, DecoderViaParams};
-use crate::blocks::gate::{FoldedInv, PrimitiveGateParams};
+use crate::blocks::gate::FoldedInv;
 use crate::blocks::macros::SenseAmp;
 use crate::blocks::sram::layout::draw_via;
 use itertools::Itertools;
