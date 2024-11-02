@@ -777,7 +777,7 @@ impl Script for PhysicalDesignScript {
             params.equalizer_width + 2 * params.pull_up_width + 2_340 - 360,
             params.en_b_width,
         );
-        let cut_bot = 735 + params.equalizer_width;
+        let cut_bot = 715 + params.equalizer_width;
         let cut_top = params.equalizer_width + 2 * params.pull_up_width + 1_380;
 
         Ok(PhysicalDesign {
