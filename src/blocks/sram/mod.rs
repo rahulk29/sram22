@@ -4,6 +4,7 @@ use crate::blocks::columns::ColumnsPhysicalDesignScript;
 use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2};
 use crate::blocks::precharge::layout::ReplicaPrecharge;
 use crate::blocks::precharge::PrechargeParams;
+use arcstr::ArcStr;
 use layout::{
     ColumnMosParams, ReplicaColumnMos, ReplicaColumnMosParams, ReplicaMetalRoutingParams,
 };
@@ -13,6 +14,7 @@ use std::path::{Path, PathBuf};
 use subgeom::bbox::BoundBox;
 use subgeom::{snap_to_grid, Corner, Dir, Point, Rect, Span};
 use substrate::component::{error, Component, NoParams};
+use substrate::data::SubstrateCtx;
 use substrate::error::ErrorSource;
 use substrate::layout::cell::{CellPort, Element, Port, PortConflictStrategy, PortId};
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
@@ -27,6 +29,7 @@ use substrate::layout::routing::auto::straps::PlacedStraps;
 use substrate::layout::straps::SingleSupplyNet;
 use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
+use substrate::schematic::context::SchematicCtx;
 use substrate::script::Script;
 
 use super::bitcell_array::replica::ReplicaCellArrayParams;
@@ -148,6 +151,10 @@ pub struct Sram {
 
 pub struct SramPex {
     params: SramPexParams,
+}
+
+pub struct SramAggregator {
+    params: Vec<SramParams>,
 }
 
 #[derive(Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Clone, Copy, Hash)]
@@ -847,6 +854,51 @@ impl Component for SramPex {
     }
 }
 
+impl Component for SramAggregator {
+    type Params = Vec<SramParams>;
+
+    fn new(params: &Self::Params, ctx: &SubstrateCtx) -> substrate::error::Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Self {
+            params: params.clone(),
+        })
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::literal!("sram22_sram_aggregator")
+    }
+
+    fn schematic(&self, ctx: &mut SchematicCtx) -> substrate::error::Result<()> {
+        let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
+        let [clk, rstb] = ctx.ports(["clk", "rstb"], Direction::Input);
+        for (i, sram) in self.params.iter().enumerate() {
+            let we = ctx.port(format!("we_{i}"), Direction::Input);
+            let ce = ctx.port(format!("ce_{i}"), Direction::Input);
+            let addr = ctx.bus_port(format!("addr_{i}"), sram.addr_width(), Direction::Input);
+            let wmask = ctx.bus_port(format!("wmask_{i}"), sram.wmask_width(), Direction::Input);
+            let din = ctx.bus_port(format!("din_{i}"), sram.data_width(), Direction::Input);
+            let dout = ctx.bus_port(format!("dout_{i}"), sram.data_width(), Direction::Output);
+            ctx.instantiate::<Sram>(sram)?
+                .with_connections([
+                    ("vdd", vdd),
+                    ("vss", vss),
+                    ("clk", clk),
+                    ("we", we),
+                    ("ce", ce),
+                    ("rstb", rstb),
+                    ("addr", addr),
+                    ("wmask", wmask),
+                    ("din", din),
+                    ("dout", dout),
+                ])
+                .add_to(ctx);
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
 
@@ -922,6 +974,40 @@ pub(crate) mod tests {
             out_gds(work_dir, "layout"),
         )
         .expect("failed to write layout");
+    }
+
+    #[test]
+    #[ignore = "slow"]
+    fn test_sram22_sram_aggregator() {
+        let ctx = setup_ctx();
+        let work_dir = test_work_dir("test_sram22_sram_aggregator");
+        let params = vec![
+            SRAM22_64X24M4W8,
+            SRAM22_64X32M4W8,
+            SRAM22_128X16M4W8,
+            SRAM22_128X24M4W8,
+            SRAM22_128X32M4W8,
+            SRAM22_256X8M8W1,
+            SRAM22_256X16M8W8,
+            SRAM22_256X32M4W8,
+            SRAM22_256X64M4W8,
+            SRAM22_256X128M4W8,
+            SRAM22_512X8M8W1,
+            SRAM22_512X32M4W8,
+            SRAM22_512X64M4W8,
+            SRAM22_512X128M4W8,
+            SRAM22_1024X8M8W1,
+            SRAM22_1024X32M8W8,
+            SRAM22_1024X64M4W8,
+            SRAM22_2048X8M8W1,
+            SRAM22_2048X32M8W8,
+            SRAM22_4096X8M8W1,
+            SRAM22_4096X32M8W8,
+            SRAM22_8192X32M8W8,
+        ];
+        let spice_path = out_spice(&work_dir, "sram22_sram_aggregator");
+        ctx.write_schematic_to_file::<SramAggregator>(&params, &spice_path)
+            .expect("failed to write schematic");
     }
 
     macro_rules! test_sram {
