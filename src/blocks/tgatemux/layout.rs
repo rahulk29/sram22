@@ -20,6 +20,7 @@ use substrate::pdk::mos::{GateContactStrategy, LayoutMosParams, MosParams};
 use super::{TGateMux, TGateMuxCent, TGateMuxEnd, TGateMuxGroup, TGateMuxParams};
 
 use crate::blocks::columns::ColumnDesignScript;
+use crate::blocks::sram::layout::draw_via;
 use derive_builder::Builder;
 use substrate::layout::placement::align::{AlignMode, AlignRect};
 use substrate::layout::placement::array::ArrayTiler;
@@ -272,24 +273,11 @@ impl TGateMux {
                     let gate_conn =
                         Rect::from_spans(target.hspan(), target.vspan().union(rect.vspan()));
 
-                    let viap = ViaParams::builder()
-                        .layers(pc.v_metal, pc.h_metal)
-                        .geometry(Rect::from_spans(pc.out_tracks.index(1), rect.vspan()), rect)
-                        .build();
-                    let mut via = ctx.instantiate::<Via>(&viap)?;
-                    via.place_center(rect.center());
-                    ctx.draw_ref(&via)?;
+                    let via_rect = Rect::from_spans(pc.out_tracks.index(1), rect.vspan());
 
-                    let viap = ViaParams::builder()
-                        .layers(pc.m0, pc.v_metal)
-                        .geometry(
-                            gate_conn,
-                            Rect::from_spans(pc.out_tracks.index(1), rect.vspan()),
-                        )
-                        .build();
-                    let mut via = ctx.instantiate::<Via>(&viap)?;
-                    via.place_center(rect.center());
-                    ctx.draw_ref(&via)?;
+                    draw_via(pc.v_metal, via_rect, pc.h_metal, rect, ctx)?;
+
+                    draw_via(pc.m0, gate_conn, pc.v_metal, via_rect, ctx)?;
 
                     ctx.draw_rect(pc.m0, gate_conn);
                 }
