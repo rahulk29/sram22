@@ -780,9 +780,15 @@ impl ControlLogicReplicaV2 {
             via.layer_bbox(m1).into_rect(),
             ExpandToGridStrategy::Corner(Corner::UpperRight),
         );
-        ctx.draw(via)?;
         ctx.draw_rect(m1, wlen_out);
         router.occupy(m1, wlen_out, "wlen")?;
+        let wlen_out = router.expand_to_grid(
+            via.layer_bbox(m1).into_rect(),
+            ExpandToGridStrategy::Corner(Corner::LowerRight),
+        );
+        ctx.draw_rect(m1, wlen_out);
+        router.occupy(m1, wlen_out, "wlen")?;
+        ctx.draw(via)?;
 
         // saen_ctl.q
         let pin = group.port_map().port("saen_ctl_q")?.largest_rect(m0)?;
