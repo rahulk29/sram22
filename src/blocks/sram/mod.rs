@@ -978,9 +978,9 @@ pub(crate) mod tests {
 
     #[test]
     #[ignore = "slow"]
-    fn test_sram22_sram_aggregator() {
+    fn test_sram_aggregator() {
         let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_sram22_sram_aggregator");
+        let work_dir = test_work_dir("test_sram_aggregator");
         let params = vec![
             SRAM22_64X24M4W8,
             SRAM22_64X32M4W8,
