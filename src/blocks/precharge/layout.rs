@@ -162,7 +162,7 @@ impl Precharge {
         for i in 0..dsn.in_tracks.len() {
             let mut rect = Rect::from_spans(
                 dsn.in_tracks.index(i),
-                Span::new(jog.dst_pos(), dsn.cut_top + 40),
+                Span::new(jog.dst_pos(), dsn.cut_top),
             );
             rects.push(rect);
             if i == 0 || i == 3 {
@@ -279,11 +279,11 @@ impl Precharge {
 
         let jog = SimpleJog::builder()
             .dir(Dir::Vert)
-            .src_pos(dsn.cut_top + 40)
+            .src_pos(dsn.cut_top)
             .src([dsn.in_tracks.index(1), dsn.in_tracks.index(2)])
             .dst([dsn.out_tracks.index(0), dsn.out_tracks.index(2)])
-            .line(dsn.v_line + 40)
-            .space(dsn.v_space + 40)
+            .line(dsn.v_line)
+            .space(dsn.v_space)
             .layer(dsn.v_metal)
             .build()
             .unwrap();
@@ -303,8 +303,8 @@ impl Precharge {
             .src_pos(gate_ct_top)
             .src([dsn.out_tracks.index(0), dsn.out_tracks.index(2)])
             .dst([dsn.in_tracks.index(1), dsn.in_tracks.index(2)])
-            .line(dsn.v_line + 40)
-            .space(dsn.v_space + 40)
+            .line(dsn.v_line)
+            .space(dsn.v_space)
             .layer(dsn.v_metal)
             .build()
             .unwrap();
@@ -400,10 +400,8 @@ impl Component for PrechargeCent {
         ctx.draw_ref(&tap)?;
 
         let y = dsn.cut_bot + 2 * dsn.v_line + dsn.v_space;
-        let half_tr = Rect::from_spans(
-            Span::new(0, dsn.v_line / 2 + 60),
-            Span::new(y, dsn.cut_top + 40),
-        );
+        let half_tr =
+            Rect::from_spans(Span::new(0, dsn.v_line / 2 + 60), Span::new(y, dsn.cut_top));
         ctx.draw_rect(dsn.v_metal, half_tr);
 
         let mut via = ctx.instantiate::<Via>(&meta.m1_via_top)?;
@@ -430,7 +428,7 @@ impl Component for PrechargeCent {
 
         let half_tr = Rect::from_spans(
             Span::with_stop_and_length(dsn.tap_width, dsn.v_line / 2 + 60),
-            Span::new(y, dsn.cut_top + 40),
+            Span::new(y, dsn.cut_top),
         );
         ctx.draw_rect(dsn.v_metal, half_tr);
 
@@ -549,7 +547,7 @@ impl Component for PrechargeEnd {
 
         let half_tr = Rect::from_spans(
             Span::with_stop_and_length(dsn.tap_width, dsn.v_line / 2 + 60),
-            Span::new(y, dsn.cut_top + 40),
+            Span::new(y, dsn.cut_top),
         );
         ctx.draw_rect(dsn.v_metal, half_tr);
 
