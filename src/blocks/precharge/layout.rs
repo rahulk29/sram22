@@ -778,7 +778,7 @@ impl Script for PhysicalDesignScript {
             params.en_b_width,
         );
         let cut_bot = 715 + params.equalizer_width;
-        let cut_top = params.equalizer_width + 2 * params.pull_up_width + 1_380;
+        let cut_top = params.equalizer_width + 2 * params.pull_up_width + 1_480;
 
         Ok(PhysicalDesign {
             power_stripe,
