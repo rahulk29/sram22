@@ -32,7 +32,7 @@ use substrate::script::Script;
 use crate::blocks::bitcell_array::replica::ReplicaCellArray;
 use crate::blocks::bitcell_array::SpCellArray;
 use crate::blocks::columns::layout::DffArray;
-use crate::blocks::columns::{ColPeripherals, ColumnDesignScript};
+use crate::blocks::columns::{self, ColPeripherals, ColumnDesignScript};
 use crate::blocks::control::ControlLogicReplicaV2;
 use crate::blocks::decoder::{Decoder, DecoderStage};
 use crate::blocks::precharge::layout::ReplicaPrecharge;
@@ -796,6 +796,11 @@ impl SramInner {
 
         let bitcells = ctx.instantiate::<SpCellArray>(&dsn.bitcells)?;
         let mut cols = ctx.instantiate::<ColPeripherals>(&dsn.col_params)?;
+        ctx.set_metadata(
+            cols.cell()
+                .get_metadata::<columns::layout::Metadata>()
+                .clone(),
+        );
         let mut decoder = ctx
             .instantiate::<Decoder>(&dsn.row_decoder)?
             .with_orientation(Named::R90Cw);

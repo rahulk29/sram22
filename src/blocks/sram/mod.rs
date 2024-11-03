@@ -34,7 +34,7 @@ use substrate::script::Script;
 
 use super::bitcell_array::replica::ReplicaCellArrayParams;
 use super::bitcell_array::SpCellArrayParams;
-use super::columns::{ColParams, ColPeripherals, COL_CAPACITANCES, COL_PARAMS};
+use super::columns::{self, ColParams, ColPeripherals, COL_CAPACITANCES, COL_PARAMS};
 use super::decoder::{
     Decoder, DecoderParams, DecoderPhysicalDesignParams, DecoderStageParams, DecoderStyle,
     DecoderTree, RoutingStyle, INV_MODEL, INV_PARAMS, NAND2_MODEL, NAND2_PARAMS,
@@ -668,6 +668,11 @@ impl Component for Sram {
     ) -> substrate::error::Result<()> {
         let mut group = Group::new();
         let sram = ctx.instantiate::<SramInner>(&self.params)?;
+        ctx.set_metadata(
+            sram.cell()
+                .get_metadata::<columns::layout::Metadata>()
+                .clone(),
+        );
         let brect = sram.brect();
 
         let m0 = ctx.layers().get(Selector::Metal(0))?;
@@ -1154,13 +1159,13 @@ pub(crate) mod tests {
                     // let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
                     // handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
 
-                    // crate::abs::write_abstract(
-                    //     &ctx,
-                    //     &$params,
-                    //     crate::paths::out_lef(&work_dir, &*$params.name()),
-                    // )
-                    // .expect("failed to write abstract");
-                    // println!("{}: done writing abstract", stringify!($name));
+                    crate::abs::write_abstract(
+                        &ctx,
+                        &$params,
+                        crate::paths::out_lef(&work_dir, &*$params.name()),
+                    )
+                    .expect("failed to write abstract");
+                    println!("{}: done writing abstract", stringify!($name));
 
                     // let timing_spice_path = out_spice(&work_dir, "timing_schematic");
                     // ctx.write_schematic_to_file_for_purpose::<Sram>(

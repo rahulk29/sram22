@@ -44,6 +44,12 @@ use super::{
 
 static BOTTOM_PADDING: Padding = Padding::new(0, 0, 160, 0);
 
+#[derive(Clone, Copy, Debug)]
+pub struct Metadata {
+    pub dout_din_m2_area: i64,
+    pub dout_diff_area: i64,
+}
+
 impl ColPeripherals {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> substrate::error::Result<()> {
         let layers = ctx.layers();
@@ -215,6 +221,7 @@ impl ColPeripherals {
         }
 
         // Jog dout and din to bottom.
+        let mut m2_area = 0;
         for i in 0..groups {
             for port in ["dout", "din"] {
                 let port_id = PortId::new(port, i);
@@ -235,6 +242,7 @@ impl ColPeripherals {
                 );
                 let m2_rect =
                     port_rect.with_vspan(Span::new(port_rect.bottom() + 300, out_rect.top() - 300));
+                m2_area = m2_rect.area() + 20 * 260; // Add extra for vias on either end.
 
                 let viap = ViaParams::builder()
                     .layers(m1, m2)
@@ -256,6 +264,11 @@ impl ColPeripherals {
                 ctx.add_port(CellPort::with_shape(port_id, m1, out_rect))?;
             }
         }
+        ctx.set_metadata(Metadata {
+            dout_din_m2_area: m2_area,
+            dout_diff_area: (self.params.latch.inv_out.nwidth + self.params.latch.inv_out.pwidth)
+                * 250,
+        });
 
         // Route wmask to bottom on m1.
         for i in 0..mask_groups {
