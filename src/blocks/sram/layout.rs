@@ -37,7 +37,7 @@ use crate::blocks::control::ControlLogicReplicaV2;
 use crate::blocks::decoder::{Decoder, DecoderStage};
 use crate::blocks::precharge::layout::ReplicaPrecharge;
 
-use super::{SramInner, SramPhysicalDesignScript, TappedDiode};
+use super::{SramInner, SramPhysicalDesignScript};
 
 /// Returns the layer used for routing in the provided direction.
 ///
@@ -779,9 +779,9 @@ impl Component for ReplicaMetalRouting {
     }
 }
 
-pub enum NeedsDiodes {
-    Yes,
-    No,
+#[derive(Clone, Copy, Debug)]
+pub struct Metadata {
+    pub has_wmask_antenna_jog: bool,
 }
 
 impl SramInner {
@@ -2017,65 +2017,37 @@ impl SramInner {
             }
         }
 
-        let needs_diodes = cols.brect().bottom() - router_bbox.bottom() > 50_000;
+        let needs_jog = cols.brect().bottom() - router_bbox.bottom() > 50_000;
+        ctx.set_metadata(Metadata {
+            has_wmask_antenna_jog: needs_jog,
+        });
         // Route column peripheral outputs to pins on bounding box of SRAM
         let groups = self.params.data_width();
-        for (j, (port, width)) in [
+        for (port, width) in [
             ("dout", groups),
             ("din", groups),
             ("wmask", self.params.wmask_width()),
-        ]
-        .into_iter()
-        .enumerate()
-        {
+        ] {
             for i in 0..width {
                 let port_id = PortId::new(port, i);
                 let rect = cols.port(port_id.clone())?.largest_rect(m1).unwrap();
-                let rect = rect.with_vspan(rect.vspan().add_point(router_bbox.bottom()));
-                draw_rect(m1, rect, &mut router, ctx);
-                ctx.add_port(CellPort::builder().id(port_id).add(m1, rect).build())?;
-
-                if port != "dout" && needs_diodes {
-                    let mut diode = ctx
-                        .instantiate::<TappedDiode>(&NoParams)?
-                        .with_orientation(Named::R90);
-                    diode.align(
-                        AlignMode::Left,
-                        rect,
-                        match port {
-                            "din" => -1_200,
-                            "wmask" => -1_400,
-                            _ => unreachable!(),
-                        },
-                    );
-                    diode.align(AlignMode::Beneath, &cols, 6_000 * (j + 1) as i64);
-                    let diode_port = diode.port("diode")?.largest_rect(m0).unwrap();
-                    let diode_via = ctx.instantiate::<Via>(
-                        &ViaParams::builder()
-                            .layers(m0, m1)
-                            .geometry(diode_port, rect)
-                            .build(),
-                    )?;
-                    ctx.draw(diode_via)?;
-                    for shape in diode.shapes_on(m1) {
-                        let rect = shape.brect();
-                        router.block(m1, rect);
-                    }
-                    for (port, net) in [
-                        ("vpwr", SingleSupplyNet::Vdd),
-                        ("vgnd", SingleSupplyNet::Vss),
-                    ] {
-                        straps.add_target(m1, Target::new(net, diode.port(port)?.bbox(m1)));
-                    }
-                    ctx.draw(diode)?;
+                if port == "wmask" && needs_jog {
+                    let m2_rect =
+                        rect.with_vspan(Span::with_stop_and_length(rect.bottom() + 320, 2_000));
+                    let pin_rect =
+                        m2_rect.with_vspan(Span::new(router_bbox.bottom(), m2_rect.bottom() + 320));
+                    draw_rect(m2, m2_rect, &mut router, ctx);
+                    draw_rect(m1, pin_rect, &mut router, ctx);
+                    draw_via(m1, rect, m2, m2_rect, ctx)?;
+                    draw_via(m1, pin_rect, m2, m2_rect, ctx)?;
+                    ctx.add_port(CellPort::builder().id(port_id).add(m1, pin_rect).build())?;
+                } else {
+                    let rect = rect.with_vspan(rect.vspan().add_point(router_bbox.bottom()));
+                    draw_rect(m1, rect, &mut router, ctx);
+                    ctx.add_port(CellPort::builder().id(port_id).add(m1, rect).build())?;
                 }
             }
         }
-        ctx.set_metadata(if needs_diodes {
-            NeedsDiodes::Yes
-        } else {
-            NeedsDiodes::No
-        });
 
         let straps = straps.fill(&router, ctx)?;
         ctx.set_metadata(straps);

@@ -17,15 +17,14 @@ use crate::blocks::gate::sizing::InverterGateTreeNode;
 use crate::blocks::gate::GateParams;
 use crate::blocks::precharge::Precharge;
 
-use super::layout::{NeedsDiodes, ReplicaColumnMos};
-use super::{SramInner, SramPhysicalDesignScript, TappedDiode};
+use super::layout::ReplicaColumnMos;
+use super::{SramInner, SramPhysicalDesignScript};
 
 impl SramInner {
     pub(crate) fn schematic(&self, ctx: &mut SchematicCtx) -> Result<()> {
         let dsn = ctx
             .inner()
             .run_script::<SramPhysicalDesignScript>(&self.params)?;
-        let layout = ctx.inner().instantiate_layout::<SramInner>(&self.params)?;
         let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
         let [clk, we, ce, rstb] = ctx.ports(["clk", "we", "ce", "rstb"], Direction::Input);
 
@@ -47,28 +46,6 @@ impl SramInner {
 
         let col_sel = ctx.bus("col_sel", self.params.mux_ratio());
         let col_sel_b = ctx.bus("col_sel_b", self.params.mux_ratio());
-
-        // If needed, added antenna diodes to m1 pins.
-
-        if let NeedsDiodes::Yes = layout.cell().get_metadata::<NeedsDiodes>() {
-            for (port, width) in [
-                // (dout, self.params.data_width()),
-                (din, self.params.data_width()),
-                (wmask, self.params.wmask_width()),
-            ] {
-                for i in 0..width {
-                    ctx.instantiate::<TappedDiode>(&NoParams)?
-                        .with_connections([
-                            ("DIODE", port.index(i)),
-                            ("VPWR", vdd),
-                            ("VPB", vdd),
-                            ("VGND", vss),
-                            ("VNB", vss),
-                        ])
-                        .add_to(ctx);
-                }
-            }
-        }
 
         let [we_in, we_in_b, ce_in, ce_in_b, rwl, rbl, rbr, pc_b0, pc, pc_b, wl_en0, wl_en_b, wl_en, write_driver_en0, write_driver_en_b, write_driver_en, sense_en0, sense_en_b, sense_en] =
             ctx.signals([

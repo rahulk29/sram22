@@ -5,15 +5,13 @@ use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2};
 use crate::blocks::precharge::layout::ReplicaPrecharge;
 use crate::blocks::precharge::PrechargeParams;
 use arcstr::ArcStr;
-use layout::{
-    ColumnMosParams, ReplicaColumnMos, ReplicaColumnMosParams, ReplicaMetalRoutingParams,
-};
+use layout::{ReplicaColumnMos, ReplicaColumnMosParams, ReplicaMetalRoutingParams};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::path::{Path, PathBuf};
 use subgeom::bbox::BoundBox;
 use subgeom::{snap_to_grid, Corner, Dir, Point, Rect, Span};
-use substrate::component::{error, Component, NoParams};
+use substrate::component::{error, Component};
 use substrate::data::SubstrateCtx;
 use substrate::error::ErrorSource;
 use substrate::layout::cell::{CellPort, Element, Port, PortConflictStrategy, PortId};
@@ -21,13 +19,9 @@ use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::group::Group;
 use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerSpec;
-use substrate::layout::placement::align::AlignMode;
-use substrate::layout::placement::array::ArrayTiler;
 use substrate::layout::placement::place_bbox::PlaceBbox;
-use substrate::layout::placement::tile::LayerBbox;
 use substrate::layout::routing::auto::straps::PlacedStraps;
 use substrate::layout::straps::SingleSupplyNet;
-use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 use substrate::script::Script;
@@ -56,74 +50,6 @@ pub const BITLINE_CAP_PER_CELL: f64 = 0.00000000000008859364177937068 / 128.;
 /// The threshold at which further decoder scaling does not help,
 /// since delay is dominated by routing resistance/capacitance.
 pub const WORDLINE_CAP_MAX: f64 = 500e-15;
-
-/// Tapped diode, can be added to long m1 pins if needed.
-pub struct TappedDiode;
-
-impl Component for TappedDiode {
-    type Params = NoParams;
-    fn new(
-        _params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        Ok(Self)
-    }
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("tapped_diode")
-    }
-    fn schematic(
-        &self,
-        ctx: &mut substrate::schematic::context::SchematicCtx,
-    ) -> substrate::error::Result<()> {
-        let _ports = ctx.ports(["VPWR", "VPB", "VGND", "VNB"], Direction::InOut);
-        let _ports = ctx.port("DIODE", Direction::Input);
-        if ctx.pdk().name() == "sky130-commercial" {
-            ctx.set_spice("D0 VNB DIODE ndiode area=0.6417 pj=3.24");
-        } else {
-            ctx.set_spice("X0 VNB DIODE sky130_fd_pr__diode_pw2nd p=7.32 a=0.6417");
-        }
-        Ok(())
-    }
-    fn layout(
-        &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
-    ) -> substrate::error::Result<()> {
-        let layers = ctx.layers();
-        let outline = layers.get(Selector::Name("outline"))?;
-
-        let stdcells = ctx.inner().std_cell_db();
-        let lib = stdcells.try_lib_named("sky130_fd_sc_hs")?;
-
-        let tap = lib.try_cell_named("sky130_fd_sc_hs__tap_2")?;
-        let tap = ctx.instantiate::<StdCell>(&tap.id())?;
-        let tap = LayerBbox::new(tap, outline);
-        let diode = lib.try_cell_named("sky130_fd_sc_hs__diode_2")?;
-        let diode = ctx.instantiate::<StdCell>(&diode.id())?;
-        let diode = LayerBbox::new(diode, outline);
-
-        let mut row = ArrayTiler::builder();
-        row.mode(AlignMode::ToTheRight).alt_mode(AlignMode::Top);
-        row.push(tap.clone());
-        row.push(diode);
-        row.push(tap);
-        let mut row = row.build();
-        row.expose_ports(
-            |port: CellPort, i| {
-                if i == 1 || port.name() == "vpwr" || port.name() == "vgnd" {
-                    Some(port)
-                } else {
-                    None
-                }
-            },
-            PortConflictStrategy::Merge,
-        )?;
-        let group = row.generate()?;
-        ctx.add_ports(group.ports())?;
-        ctx.draw(group)?;
-
-        Ok(())
-    }
-}
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct SramConfig {
@@ -673,6 +599,7 @@ impl Component for Sram {
                 .get_metadata::<columns::layout::Metadata>()
                 .clone(),
         );
+        ctx.set_metadata(sram.cell().get_metadata::<self::layout::Metadata>().clone());
         let brect = sram.brect();
 
         let m0 = ctx.layers().get(Selector::Metal(0))?;

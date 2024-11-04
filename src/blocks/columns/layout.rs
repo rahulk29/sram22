@@ -267,7 +267,7 @@ impl ColPeripherals {
         ctx.set_metadata(Metadata {
             dout_din_m2_area: m2_area,
             dout_diff_area: (self.params.latch.inv_out.nwidth + self.params.latch.inv_out.pwidth)
-                * 250,
+                * 280,
         });
 
         // Route wmask to bottom on m1.
