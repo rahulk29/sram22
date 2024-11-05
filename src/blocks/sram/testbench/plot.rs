@@ -17,9 +17,6 @@ pub fn plot_sim(params: PlotParams) -> substrate::error::Result<()> {
     let ast = psfparser::binary::parse(&data)?;
     let data = TransientData::from_binary(ast);
     let t = data.signal("time").unwrap();
-    let y = data
-        .signal(&params.tb.sram_signal_path(TbSignals::Bl(0)))
-        .unwrap();
 
     let root = BitMapBackend::new(&params.output_path, (1920, 1080)).into_drawing_area();
     root.fill(&WHITE).unwrap();
@@ -29,25 +26,41 @@ pub fn plot_sim(params: PlotParams) -> substrate::error::Result<()> {
         .y_label_area_size(40)
         .margin(5)
         .caption("Dual Y-Axis Example", ("sans-serif", 50.0).into_font())
-        .build_cartesian_2d(0f32..20e-9f32, -0.2f32..2.2f32)
+        .build_cartesian_2d(138e-9f32..158e-9f32, -0.2f32..2.2f32)
         .unwrap();
 
     chart
         .configure_mesh()
         .disable_x_mesh()
         .disable_y_mesh()
-        .y_desc("Voltage")
+        .x_desc("Time (ns)")
+        .x_label_formatter(&|x| format!("{:.1}", x * 1e9f32))
+        .y_desc("Voltage (V)")
         .draw()
         .unwrap();
 
-    chart
-        .draw_series(LineSeries::new(
-            t.iter().zip(y).map(|(x, y)| (*x as f32, *y as f32)),
-            &BLUE,
-        ))
-        .unwrap()
-        .label("bl[0]")
-        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], BLUE));
+    let mut plot = |name: &str, sig: TbSignals| {
+        let y = data.signal(&params.tb.sram_signal_path(sig)).unwrap();
+        chart
+            .draw_series(LineSeries::new(
+                t.iter().zip(y).map(|(x, y)| (*x as f32, *y as f32)),
+                &BLUE,
+            ))
+            .unwrap()
+            .label(name)
+            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], BLUE));
+    };
+
+    plot("bl[4]", TbSignals::Bl(4));
+    plot("br[4]", TbSignals::Br(4));
+    plot("sae", TbSignals::SenseEnEnd);
+    plot("pcb", TbSignals::PcBEnd);
+    plot("wlen", TbSignals::Wlen);
+    plot("wl[0]", TbSignals::WlEnd(0));
+    plot("rbl", TbSignals::Rbl);
+    plot("rwl", TbSignals::Rwl);
+    plot("clk", TbSignals::Clk);
+    plot("dout[1]", TbSignals::Dout(1));
 
     chart
         .configure_series_labels()
