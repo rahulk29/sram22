@@ -86,7 +86,7 @@ mod tests {
         let pex_netlist_path = crate::paths::out_pex(&sram_work_dir, "pex_netlist", pex_level);
         let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
         let tb = crate::blocks::sram::testbench::tb_params(params, dsn, 1.8f64, seq, pex_netlist);
-        let psf = sram_work_dir.join("tt_1.80_short/psf");
+        let psf = sram_work_dir.join("tt_1.80_short/psf/analysis_0.tran.tran");
 
         let work_dir = test_work_dir("plot_sram");
         std::fs::create_dir_all(&work_dir).unwrap();
