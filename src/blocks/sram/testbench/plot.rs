@@ -64,7 +64,7 @@ pub fn plot_sim(params: PlotParams) -> substrate::error::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::blocks::sram::testbench::plot::PlotParams;
+    use crate::blocks::sram::testbench::plot::{plot_sim, PlotParams};
     use crate::blocks::sram::testbench::TestSequence;
     use crate::blocks::sram::tests::SRAM22_512X64M4W8;
     use crate::blocks::sram::SramPhysicalDesignScript;
@@ -94,5 +94,6 @@ mod tests {
             psf,
             output_path: work_dir.join("waveforms.png"),
         };
+        plot_sim(plot).unwrap();
     }
 }
