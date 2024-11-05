@@ -81,7 +81,7 @@ pub fn plot_sim(params: PlotParams) -> substrate::error::Result<()> {
 
     chart
         .configure_series_labels()
-        .background_style(RGBColor(64, 64, 64))
+        .background_style(RGBColor(192, 192, 192))
         .draw()
         .unwrap();
 
