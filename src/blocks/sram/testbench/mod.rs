@@ -21,6 +21,7 @@ use substrate::verification::simulation::waveform::{TimeWaveform, Waveform};
 
 use super::{Sram, SramParams, SramPex, SramPexParams, SramPhysicalDesign};
 
+pub mod plot;
 pub mod verify;
 
 #[derive(Debug, Clone, Builder, Serialize, Deserialize)]
