@@ -1,4 +1,11 @@
 use crate::blocks::sram::testbench::{TbParams, TbSignals};
+use plotters::backend::BitMapBackend;
+use plotters::chart::ChartBuilder;
+use plotters::drawing::IntoDrawingArea;
+use plotters::element::PathElement;
+use plotters::prelude::IntoFont;
+use plotters::series::LineSeries;
+use plotters::style::RGBColor;
 use psfparser::analysis::transient::TransientData;
 use psfparser::binary::ast::PsfAst;
 use std::path::PathBuf;
@@ -11,8 +18,6 @@ pub struct PlotParams {
 }
 
 pub fn plot_sim(params: PlotParams) -> substrate::error::Result<()> {
-    use plotters::prelude::*;
-
     let data = std::fs::read(params.psf)?;
     let ast = psfparser::binary::parse(&data)?;
     let data = TransientData::from_binary(ast);
@@ -25,7 +30,7 @@ pub fn plot_sim(params: PlotParams) -> substrate::error::Result<()> {
         .x_label_area_size(35)
         .y_label_area_size(40)
         .margin(5)
-        .caption("Dual Y-Axis Example", ("sans-serif", 50.0).into_font())
+        .caption("SRAM Read", ("sans-serif", 32.0).into_font())
         .build_cartesian_2d(138e-9f32..158e-9f32, -0.2f32..2.2f32)
         .unwrap();
 
@@ -39,16 +44,23 @@ pub fn plot_sim(params: PlotParams) -> substrate::error::Result<()> {
         .draw()
         .unwrap();
 
+    use plotters::style::colors::full_palette::*;
+    let styles = [
+        RED, PURPLE, INDIGO, BLUE, CYAN, TEAL, LIGHTGREEN, YELLOW, ORANGE, DEEPORANGE, BROWN, GREY,
+        BLUEGREY,
+    ];
+    let mut styles = styles.into_iter().cycle();
     let mut plot = |name: &str, sig: TbSignals| {
+        let style = styles.next().unwrap();
         let y = data.signal(&params.tb.sram_signal_path(sig)).unwrap();
         chart
             .draw_series(LineSeries::new(
                 t.iter().zip(y).map(|(x, y)| (*x as f32, *y as f32)),
-                &BLUE,
+                &style,
             ))
             .unwrap()
             .label(name)
-            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], BLUE));
+            .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], style.clone()));
     };
 
     plot("bl[4]", TbSignals::Bl(4));
