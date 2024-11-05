@@ -70,6 +70,7 @@ mod tests {
     use crate::blocks::sram::SramPhysicalDesignScript;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
+    use std::path::PathBuf;
 
     #[test]
     fn plot_sram() {
@@ -80,7 +81,8 @@ mod tests {
             .run_script::<SramPhysicalDesignScript>(&params)
             .expect("failed to run sram design script");
         let pex_level = calibre::pex::PexLevel::Rc;
-        let sram_work_dir = test_work_dir("test_sram22_512x64m4w8");
+        let sram_work_dir =
+            PathBuf::from("/tools/C/rohankumar/sram22/build/test_sram22_512x64m4w8");
         let pex_netlist_path = crate::paths::out_pex(&sram_work_dir, "pex_netlist", pex_level);
         let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
         let tb = crate::blocks::sram::testbench::tb_params(params, dsn, 1.8f64, seq, pex_netlist);
