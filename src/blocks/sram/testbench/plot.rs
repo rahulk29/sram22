@@ -89,6 +89,7 @@ mod tests {
         let psf = sram_work_dir.join("tt_1.80_short/psf");
 
         let work_dir = test_work_dir("plot_sram");
+        std::fs::create_dir_all(&work_dir).unwrap();
         let plot = PlotParams {
             tb,
             psf,
