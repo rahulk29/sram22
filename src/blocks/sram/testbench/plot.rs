@@ -5,7 +5,7 @@ use plotters::drawing::IntoDrawingArea;
 use plotters::element::PathElement;
 use plotters::prelude::IntoFont;
 use plotters::series::LineSeries;
-use plotters::style::RGBColor;
+use plotters::style::{Color, RGBColor, ShapeStyle};
 use psfparser::analysis::transient::TransientData;
 use psfparser::binary::ast::PsfAst;
 use std::path::PathBuf;
@@ -46,12 +46,17 @@ pub fn plot_sim(params: PlotParams) -> substrate::error::Result<()> {
 
     use plotters::style::colors::full_palette::*;
     let styles = [
-        RED, PURPLE, INDIGO, BLUE, CYAN, TEAL, LIGHTGREEN, YELLOW, ORANGE, DEEPORANGE, BROWN, GREY,
+        RED, PURPLE, INDIGO, BLUE, CYAN, TEAL, LIGHTGREEN, ORANGE, DEEPORANGE, BROWN, GREY,
         BLUEGREY,
     ];
     let mut styles = styles.into_iter().cycle();
     let mut plot = |name: &str, sig: TbSignals| {
         let style = styles.next().unwrap();
+        let style = ShapeStyle {
+            color: style.mix(1.0f32),
+            filled: true,
+            stroke_width: 3,
+        };
         let y = data.signal(&params.tb.sram_signal_path(sig)).unwrap();
         chart
             .draw_series(LineSeries::new(
@@ -67,16 +72,16 @@ pub fn plot_sim(params: PlotParams) -> substrate::error::Result<()> {
     plot("br[4]", TbSignals::Br(4));
     plot("sae", TbSignals::SenseEnEnd);
     plot("pcb", TbSignals::PcBEnd);
-    plot("wlen", TbSignals::Wlen);
-    plot("wl[0]", TbSignals::WlEnd(0));
+    // plot("wlen", TbSignals::Wlen);
+    // plot("wl[0]", TbSignals::WlEnd(0));
     plot("rbl", TbSignals::Rbl);
     plot("rwl", TbSignals::Rwl);
-    plot("clk", TbSignals::Clk);
+    // plot("clk", TbSignals::Clk);
     plot("dout[1]", TbSignals::Dout(1));
 
     chart
         .configure_series_labels()
-        .background_style(RGBColor(128, 128, 128))
+        .background_style(RGBColor(64, 64, 64))
         .draw()
         .unwrap();
 
