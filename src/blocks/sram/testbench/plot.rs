@@ -53,7 +53,7 @@ pub fn plot_sim(params: PlotParams) -> substrate::error::Result<()> {
     let mut plot = |name: &str, sig: TbSignals| {
         let style = styles.next().unwrap();
         let style = ShapeStyle {
-            color: style.mix(1.0f32),
+            color: style.mix(1.0),
             filled: true,
             stroke_width: 3,
         };
@@ -61,7 +61,7 @@ pub fn plot_sim(params: PlotParams) -> substrate::error::Result<()> {
         chart
             .draw_series(LineSeries::new(
                 t.iter().zip(y).map(|(x, y)| (*x as f32, *y as f32)),
-                &style,
+                style.clone(),
             ))
             .unwrap()
             .label(name)
