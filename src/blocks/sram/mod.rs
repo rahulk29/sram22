@@ -599,7 +599,6 @@ impl Component for Sram {
                 .get_metadata::<columns::layout::Metadata>()
                 .clone(),
         );
-        ctx.set_metadata(sram.cell().get_metadata::<self::layout::Metadata>().clone());
         let brect = sram.brect();
 
         let m0 = ctx.layers().get(Selector::Metal(0))?;

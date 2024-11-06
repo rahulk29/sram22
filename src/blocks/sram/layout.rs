@@ -779,11 +779,6 @@ impl Component for ReplicaMetalRouting {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct Metadata {
-    pub has_wmask_antenna_jog: bool,
-}
-
 impl SramInner {
     pub(crate) fn layout(&self, ctx: &mut LayoutCtx) -> Result<()> {
         let dsn = ctx
@@ -2017,10 +2012,6 @@ impl SramInner {
             }
         }
 
-        let needs_jog = cols.brect().bottom() - router_bbox.bottom() > 50_000;
-        ctx.set_metadata(Metadata {
-            has_wmask_antenna_jog: needs_jog,
-        });
         // Route column peripheral outputs to pins on bounding box of SRAM
         let groups = self.params.data_width();
         for (port, width) in [
@@ -2031,20 +2022,37 @@ impl SramInner {
             for i in 0..width {
                 let port_id = PortId::new(port, i);
                 let rect = cols.port(port_id.clone())?.largest_rect(m1).unwrap();
-                if port == "wmask" && needs_jog {
-                    let m2_rect =
-                        rect.with_vspan(Span::with_stop_and_length(rect.bottom() + 320, 2_000));
-                    let pin_rect =
-                        m2_rect.with_vspan(Span::new(router_bbox.bottom(), m2_rect.bottom() + 320));
-                    draw_rect(m2, m2_rect, &mut router, ctx);
-                    draw_rect(m1, pin_rect, &mut router, ctx);
-                    draw_via(m1, rect, m2, m2_rect, ctx)?;
-                    draw_via(m1, pin_rect, m2, m2_rect, ctx)?;
-                    ctx.add_port(CellPort::builder().id(port_id).add(m1, pin_rect).build())?;
-                } else {
-                    let rect = rect.with_vspan(rect.vspan().add_point(router_bbox.bottom()));
-                    draw_rect(m1, rect, &mut router, ctx);
-                    ctx.add_port(CellPort::builder().id(port_id).add(m1, rect).build())?;
+                match port {
+                    "wmask" => {
+                        let m2_rect =
+                            rect.with_vspan(Span::with_stop_and_length(rect.bottom() + 320, 800));
+                        let pin_rect = m2_rect
+                            .with_vspan(Span::new(router_bbox.bottom(), m2_rect.bottom() + 320));
+                        draw_rect(m2, m2_rect, &mut router, ctx);
+                        draw_rect(m1, pin_rect, &mut router, ctx);
+                        draw_via(m1, rect, m2, m2_rect, ctx)?;
+                        draw_via(m1, pin_rect, m2, m2_rect, ctx)?;
+                        ctx.add_port(CellPort::builder().id(port_id).add(m1, pin_rect).build())?;
+                    }
+                    "dout" => {
+                        let pin_rect =
+                            rect.with_vspan(Span::with_start_and_length(router_bbox.bottom(), 320));
+                        let m2_rect =
+                            rect.with_vspan(Span::with_start_and_length(pin_rect.top() - 320, 800));
+                        let m1_rect =
+                            rect.with_vspan(Span::new(m2_rect.top() - 320, rect.bottom()));
+                        draw_rect(m1, m1_rect, &mut router, ctx);
+                        draw_rect(m2, m2_rect, &mut router, ctx);
+                        draw_rect(m1, pin_rect, &mut router, ctx);
+                        draw_via(m1, m1_rect, m2, m2_rect, ctx)?;
+                        draw_via(m1, pin_rect, m2, m2_rect, ctx)?;
+                        ctx.add_port(CellPort::builder().id(port_id).add(m1, pin_rect).build())?;
+                    }
+                    _ => {
+                        let rect = rect.with_vspan(rect.vspan().add_point(router_bbox.bottom()));
+                        draw_rect(m1, rect, &mut router, ctx);
+                        ctx.add_port(CellPort::builder().id(port_id).add(m1, rect).build())?;
+                    }
                 }
             }
         }
