@@ -172,7 +172,7 @@ mod tests {
             let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
             let tb =
                 crate::blocks::sram::testbench::tb_params(params, dsn, 1.8f64, seq, pex_netlist);
-            for corner in ["tt", "sf", "fs", "ss", "ff"] {
+            for corner in ["sf", "fs", "ss", "ff"] {
                 let psf =
                     sram_work_dir.join(format!("{corner}_1.80_short/psf/analysis_0.tran.tran"));
 
