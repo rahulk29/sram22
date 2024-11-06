@@ -159,7 +159,7 @@ mod tests {
         let plot = PlotParams {
             tb: tb.clone(),
             psf: psf.clone(),
-            output_path: work_dir.join(format!("{}_read.png", params.name())),
+            output_path: work_dir.join(format!("{}_{}_read.png", params.name(), corner)),
             plot_name: format!(
                 "{} read (RC extracted, {}/25C/1.8V)",
                 params.name(),
@@ -170,7 +170,7 @@ mod tests {
         let plot = PlotParams {
             tb,
             psf,
-            output_path: work_dir.join(format!("{}_write.png", params.name())),
+            output_path: work_dir.join(format!("{}_{}_write.png", params.name(), corner)),
             plot_name: format!(
                 "{} write (RC extracted, {}/25C/1.8V)",
                 params.name(),
