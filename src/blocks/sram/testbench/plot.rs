@@ -129,7 +129,7 @@ pub fn plot_write(params: PlotParams) -> substrate::error::Result<()> {
 mod tests {
     use crate::blocks::sram::testbench::plot::*;
     use crate::blocks::sram::testbench::TestSequence;
-    use crate::blocks::sram::tests::SRAM22_512X64M4W8;
+    use crate::blocks::sram::tests::*;
     use crate::blocks::sram::SramPhysicalDesignScript;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
@@ -138,45 +138,69 @@ mod tests {
     #[test]
     fn plot_sram() {
         let ctx = setup_ctx();
-        let params = SRAM22_512X64M4W8;
         let seq = TestSequence::Short;
-        let dsn = ctx
-            .run_script::<SramPhysicalDesignScript>(&params)
-            .expect("failed to run sram design script");
-        let pex_level = calibre::pex::PexLevel::Rc;
-        let sram_work_dir = PathBuf::from(format!(
-            "/tools/C/rohankumar/sram22/build/test_{}",
-            params.name()
-        ));
-        let corner = "tt";
-        let pex_netlist_path = crate::paths::out_pex(&sram_work_dir, "pex_netlist", pex_level);
-        let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
-        let tb = crate::blocks::sram::testbench::tb_params(params, dsn, 1.8f64, seq, pex_netlist);
-        let psf = sram_work_dir.join(format!("{corner}_1.80_short/psf/analysis_0.tran.tran"));
+        for params in [
+            SRAM22_64X24M4W8,
+            SRAM22_64X32M4W8,
+            SRAM22_128X16M4W8,
+            SRAM22_128X24M4W8,
+            SRAM22_128X32M4W8,
+            SRAM22_256X8M8W1,
+            SRAM22_256X16M8W8,
+            SRAM22_256X32M4W8,
+            SRAM22_256X64M4W8,
+            SRAM22_256X128M4W8,
+            SRAM22_512X8M8W1,
+            SRAM22_512X32M4W8,
+            SRAM22_512X64M4W8,
+            SRAM22_512X128M4W8,
+            SRAM22_1024X8M8W1,
+            SRAM22_1024X32M8W8,
+            SRAM22_1024X64M4W8,
+            SRAM22_2048X8M8W1,
+            SRAM22_2048X32M8W8,
+        ] {
+            let dsn = ctx
+                .run_script::<SramPhysicalDesignScript>(&params)
+                .expect("failed to run sram design script");
+            let pex_level = calibre::pex::PexLevel::Rc;
+            let sram_work_dir = PathBuf::from(format!(
+                "/tools/C/rohankumar/sram22/build/test_{}",
+                params.name()
+            ));
+            let pex_netlist_path = crate::paths::out_pex(&sram_work_dir, "pex_netlist", pex_level);
+            let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
+            let tb =
+                crate::blocks::sram::testbench::tb_params(params, dsn, 1.8f64, seq, pex_netlist);
+            for corner in ["tt", "sf", "fs", "ss", "ff"] {
+                let psf =
+                    sram_work_dir.join(format!("{corner}_1.80_short/psf/analysis_0.tran.tran"));
 
-        let work_dir = test_work_dir("plot_sram");
-        std::fs::create_dir_all(&work_dir).unwrap();
-        let plot = PlotParams {
-            tb: tb.clone(),
-            psf: psf.clone(),
-            output_path: work_dir.join(format!("{}_{}_read.png", params.name(), corner)),
-            plot_name: format!(
-                "{} read (RC extracted, {}/25C/1.8V)",
-                params.name(),
-                corner.to_uppercase()
-            ),
-        };
-        plot_read(plot).unwrap();
-        let plot = PlotParams {
-            tb,
-            psf,
-            output_path: work_dir.join(format!("{}_{}_write.png", params.name(), corner)),
-            plot_name: format!(
-                "{} write (RC extracted, {}/25C/1.8V)",
-                params.name(),
-                corner.to_uppercase()
-            ),
-        };
-        plot_write(plot.clone()).unwrap();
+                let work_dir = test_work_dir("plot_sram");
+                std::fs::create_dir_all(&work_dir).unwrap();
+                let plot = PlotParams {
+                    tb: tb.clone(),
+                    psf: psf.clone(),
+                    output_path: work_dir.join(format!("{}_{}_read.png", params.name(), corner)),
+                    plot_name: format!(
+                        "{} read (RC extracted, {}/25C/1.8V)",
+                        params.name(),
+                        corner.to_uppercase()
+                    ),
+                };
+                plot_read(plot).unwrap();
+                let plot = PlotParams {
+                    tb: tb.clone(),
+                    psf: psf.clone(),
+                    output_path: work_dir.join(format!("{}_{}_write.png", params.name(), corner)),
+                    plot_name: format!(
+                        "{} write (RC extracted, {}/25C/1.8V)",
+                        params.name(),
+                        corner.to_uppercase()
+                    ),
+                };
+                plot_write(plot.clone()).unwrap();
+            }
+        }
     }
 }
