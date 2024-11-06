@@ -1,6 +1,7 @@
 use crate::blocks::sram::testbench::{TbParams, TbSignals};
 use plotters::backend::BitMapBackend;
 use plotters::chart::ChartBuilder;
+use plotters::coord::types::RangedCoordf32;
 use plotters::drawing::IntoDrawingArea;
 use plotters::element::PathElement;
 use plotters::prelude::IntoFont;
@@ -8,16 +9,23 @@ use plotters::series::LineSeries;
 use plotters::style::{Color, RGBColor, ShapeStyle};
 use psfparser::analysis::transient::TransientData;
 use psfparser::binary::ast::PsfAst;
+use std::ops::Range;
 use std::path::PathBuf;
 use substrate::verification::simulation::waveform::SharedWaveform;
 
+#[derive(Debug, Clone)]
 pub struct PlotParams {
     tb: TbParams,
     psf: PathBuf,
     output_path: PathBuf,
+    plot_name: String,
 }
 
-pub fn plot_sim(params: PlotParams) -> substrate::error::Result<()> {
+fn plot_inner(
+    params: PlotParams,
+    time_span: Range<f32>,
+    signals: &[(&str, TbSignals)],
+) -> substrate::error::Result<()> {
     let data = std::fs::read(params.psf)?;
     let ast = psfparser::binary::parse(&data)?;
     let data = TransientData::from_binary(ast);
@@ -30,8 +38,8 @@ pub fn plot_sim(params: PlotParams) -> substrate::error::Result<()> {
         .x_label_area_size(35)
         .y_label_area_size(40)
         .margin(5)
-        .caption("SRAM Read", ("sans-serif", 32.0).into_font())
-        .build_cartesian_2d(138e-9f32..158e-9f32, -0.2f32..2.2f32)
+        .caption(params.plot_name, ("sans-serif", 32.0).into_font())
+        .build_cartesian_2d(time_span, -0.2f32..2.2f32)
         .unwrap();
 
     chart
@@ -68,17 +76,9 @@ pub fn plot_sim(params: PlotParams) -> substrate::error::Result<()> {
             .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], style.clone()));
     };
 
-    plot("bl[4]", TbSignals::Bl(4));
-    plot("br[4]", TbSignals::Br(4));
-    plot("sae", TbSignals::SenseEnEnd);
-    plot("pcb", TbSignals::PcBEnd);
-    // plot("wlen", TbSignals::Wlen);
-    // plot("wl[0]", TbSignals::WlEnd(0));
-    plot("rbl", TbSignals::Rbl);
-    plot("rwl", TbSignals::Rwl);
-    // plot("clk", TbSignals::Clk);
-    plot("dout[1]", TbSignals::Dout(1));
-
+    for (name, sig) in signals {
+        plot(name, sig.clone());
+    }
     chart
         .configure_series_labels()
         .background_style(RGBColor(192, 192, 192))
@@ -92,9 +92,42 @@ pub fn plot_sim(params: PlotParams) -> substrate::error::Result<()> {
     Ok(())
 }
 
+pub fn plot_read(params: PlotParams) -> substrate::error::Result<()> {
+    plot_inner(
+        params,
+        138e-9f32..158e-9f32,
+        &vec![
+            ("clk", TbSignals::Clk),
+            ("rwl", TbSignals::Rwl),
+            ("rbl", TbSignals::Rbl),
+            ("bl[4]", TbSignals::Bl(4)),
+            ("br[4]", TbSignals::Br(4)),
+            ("sae", TbSignals::SenseEnEnd),
+            ("dout[1]", TbSignals::Dout(1)),
+            ("pcb", TbSignals::PcBEnd),
+        ],
+    )
+}
+
+pub fn plot_write(params: PlotParams) -> substrate::error::Result<()> {
+    plot_inner(
+        params,
+        38e-9f32..58e-9f32,
+        &vec![
+            ("clk", TbSignals::Clk),
+            ("write_driver_en[0]", TbSignals::WeI(0)),
+            ("write_driver_enb[0]", TbSignals::WeIb(0)),
+            ("wl[0]", TbSignals::WlEnd(0)),
+            ("bl[4]", TbSignals::Bl(4)),
+            ("br[4]", TbSignals::Br(4)),
+            ("pcb", TbSignals::PcBEnd),
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::blocks::sram::testbench::plot::{plot_sim, PlotParams};
+    use crate::blocks::sram::testbench::plot::*;
     use crate::blocks::sram::testbench::TestSequence;
     use crate::blocks::sram::tests::SRAM22_512X64M4W8;
     use crate::blocks::sram::SramPhysicalDesignScript;
@@ -111,20 +144,39 @@ mod tests {
             .run_script::<SramPhysicalDesignScript>(&params)
             .expect("failed to run sram design script");
         let pex_level = calibre::pex::PexLevel::Rc;
-        let sram_work_dir =
-            PathBuf::from("/tools/C/rohankumar/sram22/build/test_sram22_512x64m4w8");
+        let sram_work_dir = PathBuf::from(format!(
+            "/tools/C/rohankumar/sram22/build/test_{}",
+            params.name()
+        ));
+        let corner = "tt";
         let pex_netlist_path = crate::paths::out_pex(&sram_work_dir, "pex_netlist", pex_level);
         let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
         let tb = crate::blocks::sram::testbench::tb_params(params, dsn, 1.8f64, seq, pex_netlist);
-        let psf = sram_work_dir.join("tt_1.80_short/psf/analysis_0.tran.tran");
+        let psf = sram_work_dir.join(format!("{corner}_1.80_short/psf/analysis_0.tran.tran"));
 
         let work_dir = test_work_dir("plot_sram");
         std::fs::create_dir_all(&work_dir).unwrap();
         let plot = PlotParams {
+            tb: tb.clone(),
+            psf: psf.clone(),
+            output_path: work_dir.join(format!("{}_read.png", params.name())),
+            plot_name: format!(
+                "{} read (RC extracted, {}/25C/1.8V)",
+                params.name(),
+                corner.to_uppercase()
+            ),
+        };
+        plot_read(plot).unwrap();
+        let plot = PlotParams {
             tb,
             psf,
-            output_path: work_dir.join("waveforms.png"),
+            output_path: work_dir.join(format!("{}_write.png", params.name())),
+            plot_name: format!(
+                "{} write (RC extracted, {}/25C/1.8V)",
+                params.name(),
+                corner.to_uppercase()
+            ),
         };
-        plot_sim(plot).unwrap();
+        plot_write(plot.clone()).unwrap();
     }
 }
