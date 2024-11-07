@@ -1106,7 +1106,7 @@ pub(crate) mod tests {
                     let brect = sram.brect();
                     let width = Decimal::new(brect.width(), 3);
                     let height = Decimal::new(brect.height(), 3);
-                    for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", 40, dec!(1.95))] {
+                    for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", -40, dec!(1.95))] {
                         let timing_spice_path = timing_spice_path.clone();
                         let verilog_path = verilog_path.clone();
                         let work_dir = work_dir.clone();
