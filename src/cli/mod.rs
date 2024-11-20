@@ -52,11 +52,12 @@ pub fn run() -> Result<()> {
         #[cfg(feature = "commercial")]
         (args.lvs, TaskKey::RunLvs),
         #[cfg(feature = "commercial")]
-        (args.pex, TaskKey::RunPex),
+        (
+            args.pex || (args.lib && config.pex_level.is_some()),
+            TaskKey::RunPex,
+        ),
         #[cfg(feature = "commercial")]
         (args.lib, TaskKey::GenerateLib),
-        #[cfg(feature = "commercial")]
-        (args.sim, TaskKey::RunSpectre),
         #[cfg(feature = "commercial")]
         (args.all, TaskKey::All),
     ]

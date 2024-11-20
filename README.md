@@ -65,7 +65,6 @@ Options:
       --drc                      Run DRC using Calibre
       --lvs                      Run LVS using Calibre
       --pex                      Run PEX using Calibre
-      --sim                      Run Spectre to verify SRAM functionality
   -a, --all                      Run all available steps
   -h, --help                     Print help information
   -V, --version                  Print version information

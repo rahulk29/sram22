@@ -1,5 +1,5 @@
+use crate::blocks::columns;
 use crate::blocks::sram::{Sram, SramParams};
-use crate::blocks::{columns, sram};
 use crate::Result;
 use abstract_lef::AbstractParams;
 use lef21::{

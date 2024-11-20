@@ -1,6 +1,7 @@
 use clap::Parser;
 use std::path::PathBuf;
 
+// TODO: Add option to run Spectre simulations.
 #[derive(Parser, Debug)]
 #[command(
     author,
@@ -44,11 +45,6 @@ pub struct Args {
     #[cfg(feature = "commercial")]
     #[arg(long)]
     pub pex: bool,
-
-    /// Run Spectre to verify SRAM functionality.
-    #[cfg(feature = "commercial")]
-    #[arg(long)]
-    pub sim: bool,
 
     /// Run all available steps.
     #[cfg(feature = "commercial")]

@@ -96,13 +96,6 @@ impl StepContext {
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::GenerateLib) && !tasks.contains(&TaskKey::All),
             },
-            #[cfg(feature = "commercial")]
-            Step {
-                desc: "Run Spectre".to_string(),
-                key: TaskKey::RunSpectre,
-                progress_bar: ProgressBar::new_spinner(),
-                disabled: !tasks.contains(&TaskKey::RunSpectre) && !tasks.contains(&TaskKey::All),
-            },
         ];
         let mp = MultiProgress::new();
         let num_steps = steps.iter().filter(|step| !step.disabled).count();
