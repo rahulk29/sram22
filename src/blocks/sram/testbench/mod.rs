@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-use std::path::PathBuf;
 use std::sync::Arc;
 
-use calibre::pex::PexLevel;
+use derive_builder::Builder;
+use serde::{Deserialize, Serialize};
 use substrate::component::Component;
 use substrate::index::IndexOwned;
 use substrate::schematic::circuit::Direction;
@@ -12,14 +12,18 @@ use substrate::schematic::elements::vdc::Vdc;
 use substrate::schematic::elements::vpwl::Vpwl;
 use substrate::units::{SiPrefix, SiValue};
 use substrate::verification::simulation::bits::BitSignal;
-use substrate::verification::simulation::{Save, TranAnalysis, TranData};
-
-use derive_builder::Builder;
-use serde::{Deserialize, Serialize};
 use substrate::verification::simulation::testbench::Testbench;
 use substrate::verification::simulation::waveform::{TimeWaveform, Waveform};
+use substrate::verification::simulation::{Save, TranAnalysis, TranData};
 
-use super::{Sram, SramParams, SramPex, SramPexParams, SramPhysicalDesign};
+use super::{Sram, SramParams, SramPhysicalDesign};
+
+#[cfg(feature = "commercial")]
+use super::{SramPex, SramPexParams};
+#[cfg(feature = "commercial")]
+use calibre::pex::PexLevel;
+#[cfg(feature = "commercial")]
+use std::path::PathBuf;
 
 pub mod verify;
 
@@ -47,6 +51,7 @@ pub struct TbParams {
     /// SRAM configuration to test.
     pub sram: SramParams,
     pub dsn: Arc<SramPhysicalDesign>,
+    #[cfg(feature = "commercial")]
     pub pex_netlist: Option<(PathBuf, PexLevel)>,
 }
 
@@ -123,6 +128,7 @@ impl TbParams {
     }
 
     pub fn sram_signal_path(&self, signal: TbSignals) -> String {
+        #[allow(unused_variables)]
         let mut last_stage_decoder_depth = 0;
         let mut node = &self.dsn.row_decoder.tree.root;
         let num_children = node.children.len();
@@ -145,6 +151,7 @@ impl TbParams {
             TbSignals::Din(i) => format!("din[{i}]"),
             TbSignals::Dout(i) => format!("dout[{i}]"),
             _ => {
+                #[cfg(feature = "commercial")]
                 if let Some((_, ref level)) = self.pex_netlist {
                     format!(
                         "Xdut.Xdut.{}",
@@ -442,6 +449,8 @@ impl TbParams {
                         }
                     )
                 }
+                #[cfg(not(feature = "commercial"))]
+                unimplemented!()
             }
         }
     }
@@ -664,6 +673,7 @@ impl Component for SramTestbench {
         let waveforms = generate_waveforms(&self.params);
         let output_cap = SiValue::with_precision(self.params.c_load, SiPrefix::Femto);
 
+        #[cfg(feature = "commercial")]
         if let Some((ref pex_netlist, _)) = self.params.pex_netlist {
             ctx.instantiate::<SramPex>(&SramPexParams {
                 params: self.params.sram.clone(),
@@ -700,6 +710,22 @@ impl Component for SramTestbench {
                 .named("dut")
                 .add_to(ctx);
         }
+        #[cfg(not(feature = "commercial"))]
+        ctx.instantiate::<Sram>(&self.params.sram)?
+            .with_connections([
+                ("vdd", vdd),
+                ("vss", vss),
+                ("clk", clk),
+                ("ce", ce),
+                ("we", we),
+                ("rstb", rstb),
+                ("addr", addr),
+                ("wmask", wmask),
+                ("din", din),
+                ("dout", dout),
+            ])
+            .named("dut")
+            .add_to(ctx);
 
         ctx.instantiate::<Vdc>(&SiValue::with_precision(self.params.vdd, SiPrefix::Milli))?
             .with_connections([("p", vdd), ("n", vss)])
@@ -854,7 +880,7 @@ pub fn tb_params(
     dsn: Arc<SramPhysicalDesign>,
     vdd: f64,
     sequence: TestSequence,
-    pex_netlist: Option<(PathBuf, PexLevel)>,
+    #[cfg(feature = "commercial")] pex_netlist: Option<(PathBuf, PexLevel)>,
 ) -> TbParams {
     let wmask_width = params.wmask_width();
     let data_width = params.data_width();
@@ -939,12 +965,12 @@ pub fn tb_params(
         .c_load(5e-15)
         .t_hold(300e-12)
         .sram(params)
-        .dsn(dsn)
-        .pex_netlist(pex_netlist)
-        .build()
-        .unwrap();
+        .dsn(dsn);
 
-    tb
+    #[cfg(feature = "commercial")]
+    let tb = tb.pex_netlist(pex_netlist);
+
+    tb.build().unwrap()
 }
 
 impl Testbench for SramTestbench {
@@ -960,6 +986,7 @@ impl Testbench for SramTestbench {
             ("write".to_string(), "initial.ic".to_string()),
             ("readns".to_string(), "initial.ic".to_string()),
         ]);
+        #[cfg(feature = "commercial")]
         if let Some((ref netlist, _)) = self.params.pex_netlist {
             ctx.include(netlist);
         }

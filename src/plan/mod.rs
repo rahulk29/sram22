@@ -1,16 +1,18 @@
 use crate::blocks::sram::{Sram, SramConfig, SramParams};
 use crate::cli::progress::StepContext;
 use crate::paths::{out_gds, out_spice, out_verilog};
-use crate::plan::extract::ExtractionResult;
 use crate::verilog::save_1rw_verilog;
 use crate::{setup_ctx, Result};
 use anyhow::bail;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::Path;
-use substrate::schematic::netlist::NetlistPurpose;
-use substrate::verification::pex::PexInput;
 
-pub mod extract;
+#[cfg(feature = "commercial")]
+use std::collections::HashMap;
+#[cfg(feature = "commercial")]
+use substrate::schematic::netlist::NetlistPurpose;
+#[cfg(feature = "commercial")]
+use substrate::verification::pex::PexInput;
 
 /// A concrete plan for an SRAM.
 ///
@@ -50,10 +52,7 @@ pub struct ExecutePlanParams<'a> {
     pub pex_level: Option<calibre::pex::PexLevel>,
 }
 
-pub fn generate_plan(
-    _extraction_result: ExtractionResult,
-    config: &SramConfig,
-) -> Result<SramPlan> {
+pub fn generate_plan(config: &SramConfig) -> Result<SramPlan> {
     let &SramConfig {
         num_words,
         data_width,

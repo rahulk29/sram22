@@ -185,9 +185,6 @@ impl SramParams {
         let pc_scale = f64::max(bl_cap / COL_CAPACITANCES.pc_b / 8.0, 0.4);
         let mux_scale = f64::max(bl_cap / COL_CAPACITANCES.sel / 8.0, 0.5);
         let wrdrvscale = f64::max(bl_cap / COL_CAPACITANCES.we / 6.0, 0.4);
-        println!(
-            "pc_scale = {pc_scale:.2}, mux_scale = {mux_scale:.2}, wrdrvscale = {wrdrvscale:.2}"
-        );
         ColParams {
             pc: COL_PARAMS.pc.scale(pc_scale),
             wrdriver: COL_PARAMS.wrdriver.scale(wrdrvscale),
@@ -238,9 +235,7 @@ impl Script for SramPhysicalDesignScript {
         ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self::Output> {
         let wl_cap = (params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL * 1.5; // safety factor.
-        println!("wl_cap = {:.2}fF", wl_cap * 1e15);
         let clamped_wl_cap = f64::min(wl_cap, WORDLINE_CAP_MAX);
-        println!("clamped wl_cap = {:.2}fF", clamped_wl_cap * 1e15);
         let mut col_params = params.col_params();
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
         // +2 for dummy bitcells, then div_ceil by 6 and multiply by 2 for at least 0.9/3 = 0.3 V
@@ -300,7 +295,6 @@ impl Script for SramPhysicalDesignScript {
             max_width: Some(addr_gate_inst.brect().height() - 2_000),
             ..fanout_buffer_stage(vert_buffer, wlen_cap)
         };
-        println!("wlen_buffer: {:?}", wlen_buffer);
 
         // Figure out the best width allocation to equalize lengths of the various buffers.
         let mut pc_b_buffer = DecoderStageParams {
@@ -345,12 +339,6 @@ impl Script for SramPhysicalDesignScript {
             .max(1.)
             .round() as usize
             * 2;
-        println!(
-            "pcb tau: {:.2}ps, wrdrven tau: {:.2}ps, sae tau: {:.2}ps",
-            pcb_tau * 1e12,
-            wrdrven_tau * 1e12,
-            sae_tau * 1e12
-        );
         let row_decoder_tree = DecoderTree::new(params.row_bits(), clamped_wl_cap);
         let decoder_delay_invs = (f64::max(
             4.0,
@@ -382,7 +370,6 @@ impl Script for SramPhysicalDesignScript {
             wrdrven_rst_delay_invs: 0, // TODO: Implement delay to equalize sense amp and
                                        // write driver rest delay
         };
-        println!("{:?}", control);
         let row_decoder = DecoderParams {
             pd: DecoderPhysicalDesignParams {
                 style: DecoderStyle::RowMatched,
@@ -459,11 +446,6 @@ impl Script for SramPhysicalDesignScript {
         let col_dec_routing_tracks =
             ((col_sel_cap / (COL_CAPACITANCES.sel * 64.)).ceil() as i64).clamp(2, 4);
 
-        println!("pc_b num tracks: {}", pc_b_routing_tracks);
-        println!("wrdrven num tracks: {}", write_driver_en_routing_tracks);
-        println!("saen num tracks: {}", sense_en_routing_tracks);
-        println!("col_dec num tracks: {}", col_dec_routing_tracks);
-
         col_params.mux.sel_width = 320 + (320 + 360) * (col_dec_routing_tracks - 1);
         col_params.pc.en_b_width = 320 + (320 + 360) * (pc_b_routing_tracks - 1);
 
@@ -514,6 +496,7 @@ impl Script for SramPhysicalDesignScript {
             rbl,
             replica_pc,
             replica_nmos,
+            // TODO: Fix m1_area replica calculation (currently conservative).
             replica_routing: ReplicaMetalRoutingParams {
                 m0_area: ((col_params.wrdriver.pwidth_driver + col_params.wrdriver.nwidth_driver)
                     as usize)
@@ -788,7 +771,7 @@ impl Component for SramPex {
 impl Component for SramAggregator {
     type Params = Vec<SramParams>;
 
-    fn new(params: &Self::Params, ctx: &SubstrateCtx) -> substrate::error::Result<Self>
+    fn new(params: &Self::Params, _ctx: &SubstrateCtx) -> substrate::error::Result<Self>
     where
         Self: Sized,
     {

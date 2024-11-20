@@ -607,7 +607,7 @@ impl Script for ReplicaColumnMosPhysicalDesignScript {
             50,
         );
         let drain_width_p = snap_to_grid(
-            std::cmp::max(800, (params.drain_width_p / num_cols as i64)),
+            std::cmp::max(800, params.drain_width_p / num_cols as i64),
             50,
         );
 

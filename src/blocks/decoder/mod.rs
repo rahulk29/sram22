@@ -73,11 +73,9 @@ impl DecoderTree {
         let plan = plan_decoder(bits, true, false);
         let stages = (cload / INV_MODEL.cin * plan.le_b()).log(3.).ceil() as usize;
         let depth = plan.min_depth();
-        println!("target num stages = {stages}, current min num stages = {depth}");
         let plan = if stages > depth {
             let invs = max(1, (stages + 1 - depth) / 2) * 2;
             assert_eq!(invs % 2, 0);
-            println!("adding {invs} inverters to decoder tree");
             plan.with_invs(invs)
         } else {
             plan
@@ -242,7 +240,6 @@ fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
         .map(|v| {
             let v = lp.value(*v);
             if v < 0.8 {
-                println!("warning: rounding gate to min size");
                 0.8
             } else {
                 v
