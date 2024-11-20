@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+#[cfg(feature = "commercial")]
 use crate::verification::calibre::SKY130_LAYERPROPS_PATH;
 pub use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;

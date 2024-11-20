@@ -185,9 +185,6 @@ impl SramParams {
         let pc_scale = f64::max(bl_cap / COL_CAPACITANCES.pc_b / 8.0, 0.4);
         let mux_scale = f64::max(bl_cap / COL_CAPACITANCES.sel / 8.0, 0.5);
         let wrdrvscale = f64::max(bl_cap / COL_CAPACITANCES.we / 6.0, 0.4);
-        println!(
-            "pc_scale = {pc_scale:.2}, mux_scale = {mux_scale:.2}, wrdrvscale = {wrdrvscale:.2}"
-        );
         ColParams {
             pc: COL_PARAMS.pc.scale(pc_scale),
             wrdriver: COL_PARAMS.wrdriver.scale(wrdrvscale),
@@ -238,9 +235,7 @@ impl Script for SramPhysicalDesignScript {
         ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self::Output> {
         let wl_cap = (params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL * 1.5; // safety factor.
-        println!("wl_cap = {:.2}fF", wl_cap * 1e15);
         let clamped_wl_cap = f64::min(wl_cap, WORDLINE_CAP_MAX);
-        println!("clamped wl_cap = {:.2}fF", clamped_wl_cap * 1e15);
         let mut col_params = params.col_params();
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
         // +2 for dummy bitcells, then div_ceil by 6 and multiply by 2 for at least 0.9/3 = 0.3 V
@@ -300,7 +295,6 @@ impl Script for SramPhysicalDesignScript {
             max_width: Some(addr_gate_inst.brect().height() - 2_000),
             ..fanout_buffer_stage(vert_buffer, wlen_cap)
         };
-        println!("wlen_buffer: {:?}", wlen_buffer);
 
         // Figure out the best width allocation to equalize lengths of the various buffers.
         let mut pc_b_buffer = DecoderStageParams {
@@ -345,12 +339,6 @@ impl Script for SramPhysicalDesignScript {
             .max(1.)
             .round() as usize
             * 2;
-        println!(
-            "pcb tau: {:.2}ps, wrdrven tau: {:.2}ps, sae tau: {:.2}ps",
-            pcb_tau * 1e12,
-            wrdrven_tau * 1e12,
-            sae_tau * 1e12
-        );
         let row_decoder_tree = DecoderTree::new(params.row_bits(), clamped_wl_cap);
         let decoder_delay_invs = (f64::max(
             4.0,
@@ -382,7 +370,6 @@ impl Script for SramPhysicalDesignScript {
             wrdrven_rst_delay_invs: 0, // TODO: Implement delay to equalize sense amp and
                                        // write driver rest delay
         };
-        println!("{:?}", control);
         let row_decoder = DecoderParams {
             pd: DecoderPhysicalDesignParams {
                 style: DecoderStyle::RowMatched,
@@ -459,11 +446,6 @@ impl Script for SramPhysicalDesignScript {
         let col_dec_routing_tracks =
             ((col_sel_cap / (COL_CAPACITANCES.sel * 64.)).ceil() as i64).clamp(2, 4);
 
-        println!("pc_b num tracks: {}", pc_b_routing_tracks);
-        println!("wrdrven num tracks: {}", write_driver_en_routing_tracks);
-        println!("saen num tracks: {}", sense_en_routing_tracks);
-        println!("col_dec num tracks: {}", col_dec_routing_tracks);
-
         col_params.mux.sel_width = 320 + (320 + 360) * (col_dec_routing_tracks - 1);
         col_params.pc.en_b_width = 320 + (320 + 360) * (pc_b_routing_tracks - 1);
 
@@ -514,6 +496,7 @@ impl Script for SramPhysicalDesignScript {
             rbl,
             replica_pc,
             replica_nmos,
+            // TODO: Fix m1_area replica calculation (currently conservative).
             replica_routing: ReplicaMetalRoutingParams {
                 m0_area: ((col_params.wrdriver.pwidth_driver + col_params.wrdriver.nwidth_driver)
                     as usize)
@@ -788,7 +771,7 @@ impl Component for SramPex {
 impl Component for SramAggregator {
     type Params = Vec<SramParams>;
 
-    fn new(params: &Self::Params, ctx: &SubstrateCtx) -> substrate::error::Result<Self>
+    fn new(params: &Self::Params, _ctx: &SubstrateCtx) -> substrate::error::Result<Self>
     where
         Self: Sized,
     {
@@ -1094,49 +1077,57 @@ pub(crate) mod tests {
                     .expect("failed to write abstract");
                     println!("{}: done writing abstract", stringify!($name));
 
-                    // let timing_spice_path = out_spice(&work_dir, "timing_schematic");
-                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
-                    //     &$params,
-                    //     &timing_spice_path,
-                    //     NetlistPurpose::Timing,
-                    // )
-                    // .expect("failed to write timing schematic");
+                    let timing_spice_path = out_spice(&work_dir, "timing_schematic");
+                    ctx.write_schematic_to_file_for_purpose::<Sram>(
+                        &$params,
+                        &timing_spice_path,
+                        NetlistPurpose::Timing,
+                    )
+                    .expect("failed to write timing schematic");
 
-                    // let sram = ctx.instantiate_layout::<Sram>(&$params).expect("failed to generate layout");
-                    // let brect = sram.brect();
-                    // let width = Decimal::new(brect.width(), 3);
-                    // let height = Decimal::new(brect.height(), 3);
-                    // for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", 40, dec!(1.95))] {
-                    //     let suffix = match corner {
-                    //         "tt" => "tt_025C_1v80",
-                    //         "ss" => "ss_100C_1v60",
-                    //         "ff" => "ff_n40C_1v95",
-                    //         _ => unreachable!(),
-                    //     };
-                    //     let name = format!("{}_{}", $params.name(), suffix);
-                    //     let params = liberate_mx::LibParams::builder()
-                    //         .work_dir(work_dir.join(format!("lib/{suffix}")))
-                    //         .output_file(crate::paths::out_lib(&work_dir, &name))
-                    //         .corner(corner)
-                    //         .width(width)
-                    //         .height(height)
-                    //         .user_verilog(verilog_path.clone())
-                    //         .cell_name(&*$params.name())
-                    //         .num_words($params.num_words())
-                    //         .data_width($params.data_width())
-                    //         .addr_width($params.addr_width())
-                    //         .wmask_width($params.wmask_width())
-                    //         .mux_ratio($params.mux_ratio())
-                    //         .has_wmask(true)
-                    //         // .source_paths(vec![pex_netlist_path.clone()])
-                    //         .source_paths(vec![timing_spice_path.clone()])
-                    //         .vdd(vdd)
-                    //         .temp(temp)
-                    //         .build()
-                    //         .unwrap();
-                    //     crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
-                    //     println!("{}: done generating LIB for corner `{}`", stringify!($name), corner);
-                    // }
+                    let mut handles = Vec::new();
+                    let sram = ctx.instantiate_layout::<Sram>(&$params).expect("failed to generate layout");
+                    let brect = sram.brect();
+                    let width = Decimal::new(brect.width(), 3);
+                    let height = Decimal::new(brect.height(), 3);
+                    for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", -40, dec!(1.95))] {
+                        let timing_spice_path = timing_spice_path.clone();
+                        let verilog_path = verilog_path.clone();
+                        let work_dir = work_dir.clone();
+                        handles.push(std::thread::spawn(move || {
+                            let suffix = match corner {
+                                "tt" => "tt_025C_1v80",
+                                "ss" => "ss_100C_1v60",
+                                "ff" => "ff_n40C_1v95",
+                                _ => unreachable!(),
+                            };
+                            let name = format!("{}_{}", $params.name(), suffix);
+                            let params = liberate_mx::LibParams::builder()
+                                .work_dir(work_dir.join(format!("lib/{suffix}")))
+                                .output_file(crate::paths::out_lib(&work_dir, &name))
+                                .corner(corner)
+                                .width(width)
+                                .height(height)
+                                .user_verilog(verilog_path)
+                                .cell_name(&*$params.name())
+                                .num_words($params.num_words())
+                                .data_width($params.data_width())
+                                .addr_width($params.addr_width())
+                                .wmask_width($params.wmask_width())
+                                .mux_ratio($params.mux_ratio())
+                                .has_wmask(true)
+                                // .source_paths(vec![pex_netlist_path.clone()])
+                                .source_paths(vec![timing_spice_path])
+                                .vdd(vdd)
+                                .temp(temp)
+                                .build()
+                                .unwrap();
+                            crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+                            println!("{}: done generating LIB for corner `{}`", stringify!($name), corner);
+                        }));
+                    }
+                    let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
+                    handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
                 }
 
                 println!("{}: all tasks complete", stringify!($name));

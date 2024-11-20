@@ -9,7 +9,7 @@ SRAM22 is still a work in progress.
 
 In order to use SRAM22, your system will need to have the following components:
 
-- Rust (SRAM22 is tested with version 1.70.0)
+- Rust (SRAM22 is tested with version 1.81.0)
 - Make
 - A local clone of our [slightly modified version of the SKY 130 PDK](https://github.com/ucb-substrate/skywater-pdk). 
 You will also need to set the environment variable `SKY130_OPEN_PDK_ROOT` to the absolute path of the local PDK's root directory.
@@ -33,7 +33,7 @@ You can then install SRAM22 using the following commands:
 
 ```bash
 git clone https://github.com/rahulk29/sram22.git
-cd sram22 && mv Cargo.bwrc.toml Cargo.toml && make install-all && cd -
+cd sram22 && mv Cargo.bwrc.toml Cargo.toml && make install && cd -
 ```
 
 #### External
@@ -89,7 +89,7 @@ To generate an SRAM using this configuration, put the above text into a file cal
 
 ```
 cd sram22_64x32m4w8
-sram22 -o .
+sram22
 ```
 
 Add additional flags depending on what views you want to generate and what verification you want to run.
