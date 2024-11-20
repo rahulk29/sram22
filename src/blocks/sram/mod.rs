@@ -245,7 +245,7 @@ impl Script for SramPhysicalDesignScript {
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
         // +2 for dummy bitcells, then div_ceil by 6 and multiply by 2 for at least 0.9/3 = 0.3 V
         // differential and even number of rows.
-        let rbl_ratio = 3;
+        let rbl_ratio = 6;
         let rbl_rows = (params.rows() + 2).div_ceil(2 * rbl_ratio) * 2;
         let rbl_wl_index = rbl_rows / 2;
         let rbl = ReplicaCellArrayParams {
@@ -1044,12 +1044,13 @@ pub(crate) mod tests {
                     // let corners = ctx.corner_db();
                     // let mut handles = Vec::new();
                     // for vdd in [1.8] {
+                    //     let tt = corners.corner_named("tt").unwrap();
                     //     let sf = corners.corner_named("sf").unwrap();
                     //     let fs = corners.corner_named("fs").unwrap();
                     //     let ss = corners.corner_named("ss").unwrap();
                     //     let ff = corners.corner_named("ff").unwrap();
                     //     // for corner in corners.corners() {
-                    //     for corner in [sf, fs, ss, ff] {
+                    //     for corner in [tt, sf, fs, ss, ff] {
                     //         let corner = corner.clone();
                     //         let params = $params.clone();
                     //         let pex_netlist = Some((pex_netlist_path.clone(), pex_level));

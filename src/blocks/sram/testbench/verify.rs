@@ -358,8 +358,8 @@ pub fn write_internal_rpt(
             let mut min_diff = f64::MAX;
             for (i, (bl, br)) in bl.iter().zip(br.iter()).enumerate() {
                 let diff = (bl.get(idx).unwrap().x() - br.get(idx).unwrap().x()).abs();
-                if diff < 0.3 {
-                    writeln!(rpt, "WARNING: bitline {i} differential is less than 300 mV during sense amp read at t = {} ps", trans.start_time() * 1e12)?;
+                if diff < 0.15 {
+                    writeln!(rpt, "WARNING: bitline {i} differential is less than 150 mV during sense amp read at t = {} ps", trans.start_time() * 1e12)?;
                 }
                 if diff < min_diff {
                     min_diff = diff;

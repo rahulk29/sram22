@@ -126,18 +126,29 @@ pub fn write_abstract(
                             .port(PortId::new(pin, i))?
                             .shapes(layer)
                             .filter_map(|shape| shape.as_rect())
-                            .map(|rect| {
-                                LefGeometry::Shape(LefShape::Rect(
+                            .map(|rect| match pin {
+                                "vdd" | "vss" => LefGeometry::Shape(LefShape::Rect(
                                     None,
                                     LefPoint::new(
-                                        LefDecimal::new(rect.p0.x, 3),
-                                        LefDecimal::new(rect.p0.y, 3),
+                                        LefDecimal::new(rect.left(), 3),
+                                        LefDecimal::new(rect.bottom(), 3),
                                     ),
                                     LefPoint::new(
-                                        LefDecimal::new(rect.p1.x, 3),
-                                        LefDecimal::new(rect.p1.y, 3),
+                                        LefDecimal::new(rect.right(), 3),
+                                        LefDecimal::new(rect.top(), 3),
                                     ),
-                                ))
+                                )),
+                                _ => LefGeometry::Shape(LefShape::Rect(
+                                    None,
+                                    LefPoint::new(
+                                        LefDecimal::new(rect.left(), 3),
+                                        LefDecimal::new(rect.bottom(), 3),
+                                    ),
+                                    LefPoint::new(
+                                        LefDecimal::new(rect.right(), 3),
+                                        LefDecimal::new(rect.bottom() + rect.width(), 3),
+                                    ),
+                                )),
                             })
                             .collect(),
                         vias: Vec::new(),
@@ -148,7 +159,8 @@ pub fn write_abstract(
                 }],
                 direction: Some(direction.clone()),
                 use_: match pin {
-                    "vdd" | "vss" => Some(LefPinUse::Power),
+                    "vdd" => Some(LefPinUse::Power),
+                    "vss" => Some(LefPinUse::Ground),
                     _ => None,
                 },
                 antenna_model: None,
@@ -162,7 +174,10 @@ pub fn write_abstract(
                         LefPinAntennaAttr {
                             key: "ANTENNAPARTIALMETALAREA".to_string(),
                             // Conservative estimate of extra m1
-                            val: LefDecimal::new(149_500, 6),
+                            val: LefDecimal::new(
+                                149_500 + sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area(),
+                                6,
+                            ),
                             // due to via.
                             layer: Some("met1".to_string()),
                         },
@@ -178,7 +193,10 @@ pub fn write_abstract(
                         LefPinAntennaAttr {
                             key: "ANTENNAPARTIALMETALAREA".to_string(),
                             // Conservative estimate of extra m1
-                            val: LefDecimal::new(149_500, 6),
+                            val: LefDecimal::new(
+                                149_500 + sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area(),
+                                6,
+                            ),
                             // due to via.
                             layer: Some("met1".to_string()),
                         },
@@ -199,7 +217,10 @@ pub fn write_abstract(
                         LefPinAntennaAttr {
                             key: "ANTENNAPARTIALMETALAREA".to_string(),
                             // Conservative estimate of extra m1 due to via.
-                            val: LefDecimal::new(149_500, 6),
+                            val: LefDecimal::new(
+                                149_500 + sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area(),
+                                6,
+                            ),
                             layer: Some("met1".to_string()),
                         },
                         LefPinAntennaAttr {
@@ -227,7 +248,10 @@ pub fn write_abstract(
                         LefPinAntennaAttr {
                             key: "ANTENNAPARTIALMETALAREA".to_string(),
                             // Conservative estimate of extra m1 due to via.
-                            val: LefDecimal::new(149_500, 6),
+                            val: LefDecimal::new(
+                                149_500 + sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area(),
+                                6,
+                            ),
                             layer: Some("met1".to_string()),
                         },
                         LefPinAntennaAttr {

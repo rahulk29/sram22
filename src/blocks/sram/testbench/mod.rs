@@ -868,6 +868,11 @@ pub fn tb_params(
 
     let addr1 = BitSignal::zeros(addr_width);
     let addr2 = BitSignal::ones(addr_width);
+    let mask1 = BitSignal::from_vec(
+        std::iter::once(true)
+            .chain(std::iter::repeat(false).take(wmask_width - 1))
+            .collect(),
+    );
 
     let mut short_ops = vec![
         Op::Reset,
@@ -886,6 +891,14 @@ pub fn tb_params(
             addr: addr1.clone(),
         },
         Op::Read { addr: addr2 },
+        Op::Read {
+            addr: addr1.clone(),
+        },
+        Op::WriteMasked {
+            addr: addr1.clone(),
+            data: BitSignal::from_vec(bits1010(data_width)),
+            mask: mask1.clone(),
+        },
         Op::Read { addr: addr1 },
     ];
 
