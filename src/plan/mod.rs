@@ -4,18 +4,8 @@ use crate::paths::{out_gds, out_spice, out_verilog};
 use crate::verilog::save_1rw_verilog;
 use crate::{setup_ctx, Result};
 use anyhow::bail;
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
-use subgeom::bbox::BoundBox;
-
-#[cfg(feature = "commercial")]
-use std::collections::HashMap;
-#[cfg(feature = "commercial")]
-use substrate::schematic::netlist::NetlistPurpose;
-#[cfg(feature = "commercial")]
-use substrate::verification::pex::PexInput;
+use std::path::Path;
 
 /// A concrete plan for an SRAM.
 ///
@@ -30,7 +20,6 @@ pub enum TaskKey {
     GenerateNetlist,
     GenerateLayout,
     GenerateVerilog,
-    #[cfg(feature = "commercial")]
     GenerateLef,
     #[cfg(feature = "commercial")]
     RunDrc,
@@ -126,18 +115,23 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
     save_1rw_verilog(&verilog_path, &plan.sram_params).expect("failed to write behavioral model");
     try_finish_task!(ctx, TaskKey::GenerateVerilog);
 
+    crate::abs::write_abstract(
+        &sctx,
+        &plan.sram_params,
+        crate::paths::out_lef(work_dir, name),
+    )
+    .expect("failed to write abstract");
+    try_finish_task!(ctx, TaskKey::GenerateLef);
+
     #[cfg(feature = "commercial")]
     {
-        try_execute_task!(
-            params.tasks,
-            TaskKey::GenerateLef,
-            crate::abs::write_abstract(
-                &sctx,
-                &plan.sram_params,
-                crate::paths::out_lef(work_dir, name),
-            )?,
-            ctx
-        );
+        use std::collections::HashMap;
+
+        use rust_decimal::Decimal;
+        use rust_decimal_macros::dec;
+        use subgeom::bbox::BoundBox;
+        use substrate::schematic::netlist::NetlistPurpose;
+        use substrate::verification::pex::PexInput;
 
         try_execute_task!(
             params.tasks,
@@ -246,7 +240,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                     ("ff", -40, dec!(1.95)),
                 ] {
                     let verilog_path = verilog_path.clone();
-                    let work_dir = PathBuf::from(work_dir);
+                    let work_dir = std::path::PathBuf::from(work_dir);
                     let source_path = source_path.clone();
                     let sram_params = sram_params.clone();
                     handles.push(std::thread::spawn(move || {

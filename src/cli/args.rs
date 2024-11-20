@@ -21,11 +21,6 @@ pub struct Args {
     #[arg(short, long)]
     pub output_dir: Option<PathBuf>,
 
-    /// Generate LEF (used in place and route).
-    #[cfg(feature = "commercial")]
-    #[arg(long)]
-    pub lef: bool,
-
     /// Generate LIB (setup, hold, and delay timing information).
     #[cfg(feature = "commercial")]
     #[arg(long)]
@@ -46,8 +41,8 @@ pub struct Args {
     #[arg(long)]
     pub pex: bool,
 
-    /// Run all available steps.
     #[cfg(feature = "commercial")]
+    /// Run all available steps.
     #[arg(short, long)]
     pub all: bool,
 }

@@ -25,7 +25,6 @@ use substrate::schematic::netlist::impls::spice::SpiceNetlister;
 use substrate::verification::simulation::{Simulator, SimulatorOpts};
 use tera::Tera;
 
-#[cfg(feature = "commercial")]
 pub mod abs;
 pub mod blocks;
 pub mod cli;

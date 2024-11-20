@@ -46,8 +46,6 @@ pub fn run() -> Result<()> {
 
     let enabled_tasks = vec![
         #[cfg(feature = "commercial")]
-        (args.lef, TaskKey::GenerateLef),
-        #[cfg(feature = "commercial")]
         (args.drc, TaskKey::RunDrc),
         #[cfg(feature = "commercial")]
         (args.lvs, TaskKey::RunLvs),

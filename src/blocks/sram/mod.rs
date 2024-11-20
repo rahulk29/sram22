@@ -822,7 +822,7 @@ pub(crate) mod tests {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::verilog::save_1rw_verilog;
-    use layout::{ColumnMosParams, ReplicaColumnMos, ReplicaColumnMosParams};
+    use layout::{ReplicaColumnMos, ReplicaColumnMosParams};
     use rust_decimal::Decimal;
     use rust_decimal_macros::dec;
     use substrate::schematic::netlist::NetlistPurpose;

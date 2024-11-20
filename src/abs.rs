@@ -1,19 +1,19 @@
 use crate::blocks::columns;
 use crate::blocks::sram::{Sram, SramParams};
 use crate::Result;
-use abstract_lef::AbstractParams;
 use lef21::{
     LefDecimal, LefForeign, LefGeometry, LefLayerGeometries, LefLibrary, LefMacro, LefMacroClass,
     LefPin, LefPinAntennaAttr, LefPinDirection, LefPinUse, LefPoint, LefPort, LefShape,
     LefSymmetry,
 };
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use subgeom::bbox::BoundBox;
 use subgeom::{Corner, Point};
 use substrate::data::SubstrateCtx;
 use substrate::layout::cell::{Port, PortId};
 use substrate::layout::layers::selector::Selector;
 
+#[cfg(feature = "commercial")]
 pub fn run_abstract(
     work_dir: impl AsRef<Path>,
     name: &str,
@@ -21,9 +21,9 @@ pub fn run_abstract(
     gds_path: impl AsRef<Path>,
     verilog_path: impl AsRef<Path>,
 ) -> Result<()> {
-    let abs_work_dir = PathBuf::from(work_dir.as_ref()).join("lef");
+    let abs_work_dir = std::path::PathBuf::from(work_dir.as_ref()).join("lef");
 
-    abstract_lef::run_abstract(AbstractParams {
+    abstract_lef::run_abstract(abstract_lef::AbstractParams {
         work_dir: &abs_work_dir,
         cell_name: name,
         gds_path: gds_path.as_ref(),

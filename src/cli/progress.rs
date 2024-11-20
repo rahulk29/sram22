@@ -61,12 +61,11 @@ impl StepContext {
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
             },
-            #[cfg(feature = "commercial")]
             Step {
                 desc: "Generate LEF".to_string(),
                 key: TaskKey::GenerateLef,
                 progress_bar: ProgressBar::new_spinner(),
-                disabled: !tasks.contains(&TaskKey::GenerateLef) && !tasks.contains(&TaskKey::All),
+                disabled: false,
             },
             #[cfg(feature = "commercial")]
             Step {
