@@ -36,6 +36,7 @@ sky130_open_pdk = { git = "https://github.com/substrate-labs/substrate", branch 
 ngspice = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
 rust_decimal = "1"
 rust_decimal_macros = "1"
+plotters = "0.3.7"
 
 [dev-dependencies]
 tempfile = "3"

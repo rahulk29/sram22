@@ -25,6 +25,7 @@ use calibre::pex::PexLevel;
 #[cfg(feature = "commercial")]
 use std::path::PathBuf;
 
+pub mod plot;
 pub mod verify;
 
 #[derive(Debug, Clone, Builder, Serialize, Deserialize)]
