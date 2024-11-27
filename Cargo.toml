@@ -22,9 +22,6 @@ itertools = "0.10"
 psfparser = { git = "https://github.com/rahulk29/psfparser.git", branch = "master" }
 arcstr = "1"
 anyhow = "1"
-calibre = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git", branch = "master", optional = true }
-abstract_lef = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/abstract_lef.git", branch = "master", optional = true }
-liberate_mx = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/liberate-mx.git", branch = "master", optional = true }
 tera = "1"
 lazy_static = "1"
 colored = "2"
@@ -37,9 +34,6 @@ subgeom = { git = "https://github.com/substrate-labs/substrate", branch = "main"
 codegen = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
 sky130_open_pdk = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
 ngspice = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
-sky130_commercial_pdk = { git = "https://github.com/substrate-labs/substrate", branch = "main", optional = true }
-spectre = { git = "https://github.com/substrate-labs/substrate", branch = "main", optional = true }
-sub_calibre = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rohankumar/substrate_mentor_plugins.git", branch = "main", optional = true }
 rust_decimal = "1"
 rust_decimal_macros = "1"
 
@@ -48,6 +42,6 @@ tempfile = "3"
 paste = "1"
 
 [features]
-commercial = ["dep:calibre", "dep:abstract_lef", "dep:liberate_mx", "dep:spectre", "dep:sky130_commercial_pdk", "dep:sub_calibre"]
-default = ["commercial"]
+commercial = []
+default = []
 
