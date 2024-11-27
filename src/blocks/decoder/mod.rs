@@ -1,24 +1,23 @@
+use crate::blocks::decoder::sizing::{path_map_tree, Tree, ValueTree};
 use serde::{Deserialize, Serialize};
-use substrate::component::{Component, NoParams};
-use substrate::index::IndexOwned;
-use substrate::schematic::circuit::Direction;
+use std::cmp::max;
+use std::collections::HashSet;
+use subgeom::{snap_to_grid, Dir};
+use substrate::component::Component;
+use substrate::layout::layers::selector::Selector;
+use substrate::layout::layers::LayerKey;
+use substrate::logic::delay::{GateModel, LogicPath, OptimizerOpts};
+use substrate::script::Script;
 
-use self::layout::{
-    decoder_stage_layout, LastBitDecoderPhysicalDesignScript, PredecoderPhysicalDesignScript,
-    RoutingStyle,
-};
-
-use super::gate::{AndParams, Gate, GateParams, GateType, PrimitiveGateParams};
+use super::gate::{AndParams, GateParams, GateType, PrimitiveGateParams, PrimitiveGateType};
 
 pub mod layout;
 pub mod schematic;
 pub mod sim;
 
-pub struct Decoder {
-    params: DecoderParams,
-}
+pub mod sizing;
 
-pub struct Predecoder {
+pub struct Decoder {
     params: DecoderParams,
 }
 
@@ -26,15 +25,24 @@ pub struct DecoderStage {
     params: DecoderStageParams,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecoderParams {
+    pub pd: DecoderPhysicalDesignParams,
+    pub max_width: Option<i64>,
     pub tree: DecoderTree,
+    pub use_multi_finger_invs: bool,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DecoderStageParams {
+    pub pd: DecoderPhysicalDesignParams,
+    pub routing_style: RoutingStyle,
+    pub max_width: Option<i64>,
     pub gate: GateParams,
+    pub invs: Vec<PrimitiveGateParams>,
     pub num: usize,
+    pub use_multi_finger_invs: bool,
+    pub dont_connect_outputs: bool,
     pub child_sizes: Vec<usize>,
 }
 
@@ -49,6 +57,7 @@ pub struct TreeNode {
     // Number of one-hot outputs.
     pub num: usize,
     pub children: Vec<TreeNode>,
+    pub child_nums: Vec<usize>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -57,313 +66,267 @@ struct PlanTreeNode {
     num: usize,
     children: Vec<PlanTreeNode>,
     skew_rising: bool,
-    cols: bool,
-}
-
-pub struct WlDriver {
-    params: DecoderStageParams,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct AddrGateParams {
-    pub gate: GateParams,
-    pub num: usize,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct AddrGate {
-    params: AddrGateParams,
-}
-
-impl Component for WlDriver {
-    type Params = DecoderStageParams;
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
-    }
-
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("wordline_driver")
-    }
-
-    fn schematic(
-        &self,
-        ctx: &mut substrate::schematic::context::SchematicCtx,
-    ) -> substrate::error::Result<()> {
-        let n = self.params.num;
-        let vdd = ctx.port("vdd", Direction::InOut);
-        let input = ctx.bus_port("in", n, Direction::Input);
-        let en = ctx.port("wl_en", Direction::Input);
-        let y = ctx.bus_port("decode", n, Direction::Output);
-        let yb = ctx.bus_port("decode_b", n, Direction::Output);
-        let vss = ctx.port("vss", Direction::InOut);
-        for i in 0..n {
-            ctx.instantiate::<Gate>(&self.params.gate)?
-                .with_connections([
-                    ("vdd", vdd),
-                    ("a", input.index(i)),
-                    ("b", en),
-                    ("y", y.index(i)),
-                    ("yb", yb.index(i)),
-                    ("vss", vss),
-                ])
-                .named(format!("gate_{i}"))
-                .add_to(ctx);
-        }
-        Ok(())
-    }
-
-    fn layout(
-        &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
-    ) -> substrate::error::Result<()> {
-        let dsn = ctx
-            .inner()
-            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)?;
-        decoder_stage_layout(ctx, &self.params, &dsn, RoutingStyle::Driver)
-    }
-}
-
-impl Component for AddrGate {
-    type Params = AddrGateParams;
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        let gate = match params.gate {
-            params @ GateParams::And2(_) => params,
-            GateParams::And3(params) => GateParams::And2(params),
-            _ => panic!("Unsupported wmux driver gate"),
-        };
-        Ok(Self {
-            params: AddrGateParams {
-                gate,
-                num: params.num,
-            },
-        })
-    }
-
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("addr_gate")
-    }
-
-    fn schematic(
-        &self,
-        ctx: &mut substrate::schematic::context::SchematicCtx,
-    ) -> substrate::error::Result<()> {
-        let n = self.params.num;
-        let vdd = ctx.port("vdd", Direction::InOut);
-        let addr = ctx.bus_port("addr", n, Direction::Input);
-        let addr_b = ctx.bus_port("addr_b", n, Direction::Input);
-        let en = ctx.port("en", Direction::Input);
-        let y = ctx.bus_port("addr_gated", n, Direction::Output);
-        let yb = ctx.bus_port("addr_b_gated", n, Direction::Output);
-        let vss = ctx.port("vss", Direction::InOut);
-
-        let [int1, int2] = ctx.buses(["int1", "int2"], n);
-
-        for i in 0..n {
-            ctx.instantiate::<Gate>(&self.params.gate)?
-                .with_connections([
-                    ("vdd", vdd),
-                    ("a", addr.index(i)),
-                    ("b", en),
-                    ("y", y.index(i)),
-                    ("yb", int1.index(i)),
-                    ("vss", vss),
-                ])
-                .named(format!("addr_gate_{i}"))
-                .add_to(ctx);
-            ctx.instantiate::<Gate>(&self.params.gate)?
-                .with_connections([
-                    ("vdd", vdd),
-                    ("a", addr_b.index(i)),
-                    ("b", en),
-                    ("y", yb.index(i)),
-                    ("yb", int2.index(i)),
-                    ("vss", vss),
-                ])
-                .named(format!("addr_b_gate_{i}"))
-                .add_to(ctx);
-        }
-        Ok(())
-    }
-
-    fn layout(
-        &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
-    ) -> substrate::error::Result<()> {
-        let dsn = ctx
-            .inner()
-            .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
-        let params = DecoderStageParams {
-            gate: self.params.gate,
-            num: self.params.num,
-            child_sizes: vec![],
-        };
-        decoder_stage_layout(ctx, &params, &dsn, RoutingStyle::Driver)
-    }
-}
-pub struct WmuxDriver {
-    params: DecoderStageParams,
-}
-
-impl Component for WmuxDriver {
-    type Params = DecoderStageParams;
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        let gate = match params.gate {
-            params @ GateParams::And2(_) => params,
-            GateParams::And3(params) => GateParams::And2(params),
-            _ => panic!("Unsupported wmux driver gate"),
-        };
-        Ok(Self {
-            params: DecoderStageParams {
-                gate,
-                num: params.num,
-                child_sizes: params.child_sizes.clone(),
-            },
-        })
-    }
-
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("wmux_driver")
-    }
-
-    fn schematic(
-        &self,
-        ctx: &mut substrate::schematic::context::SchematicCtx,
-    ) -> substrate::error::Result<()> {
-        let n = self.params.num;
-        let vdd = ctx.port("vdd", Direction::InOut);
-        let input = ctx.bus_port("in", n, Direction::Input);
-        let en = ctx.port("en", Direction::Input);
-        let y = ctx.bus_port("decode", n, Direction::Output);
-        let yb = ctx.bus_port("decode_b", n, Direction::Output);
-        let vss = ctx.port("vss", Direction::InOut);
-        for i in 0..n {
-            ctx.instantiate::<Gate>(&self.params.gate)?
-                .with_connections([
-                    ("vdd", vdd),
-                    ("a", input.index(i)),
-                    ("b", en),
-                    ("y", y.index(i)),
-                    ("yb", yb.index(i)),
-                    ("vss", vss),
-                ])
-                .named(format!("gate_{i}"))
-                .add_to(ctx);
-        }
-        Ok(())
-    }
-
-    fn layout(
-        &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
-    ) -> substrate::error::Result<()> {
-        let dsn = ctx
-            .inner()
-            .run_script::<PredecoderPhysicalDesignScript>(&NoParams)?;
-        decoder_stage_layout(ctx, &self.params, &dsn, RoutingStyle::Driver)
-    }
 }
 
 impl DecoderTree {
-    pub fn for_columns(bits: usize, top_scale: i64) -> Self {
-        let plan = plan_decoder(bits, true, false, true);
-        let mut root = size_decoder(&plan);
-        root.gate = root.gate.scale(top_scale);
+    pub fn new(bits: usize, cload: f64) -> Self {
+        let plan = plan_decoder(bits, true, false);
+        let stages = (cload / INV_MODEL.cin * plan.le_b()).log(3.).ceil() as usize;
+        let depth = plan.min_depth();
+        let plan = if stages > depth {
+            let invs = max(1, (stages + 1 - depth) / 2) * 2;
+            assert_eq!(invs % 2, 0);
+            plan.with_invs(invs)
+        } else {
+            plan
+        };
+        let root = size_decoder(&plan, cload);
         DecoderTree { root }
     }
+}
 
-    pub fn with_scale_and_skew(bits: usize, top_scale: i64, skew_rising: bool) -> Self {
-        let plan = plan_decoder(bits, true, skew_rising, false);
-        let mut root = size_decoder(&plan);
-        root.gate = root.gate.scale(top_scale);
-        DecoderTree { root }
-    }
+fn size_decoder(tree: &PlanTreeNode, cwl: f64) -> TreeNode {
+    path_map_tree(tree, &size_path, &cwl)
+}
 
-    #[inline]
-    pub fn with_scale(bits: usize, top_scale: i64) -> Self {
-        Self::with_scale_and_skew(bits, top_scale, false)
-    }
+/// The on-resistance and capacitances of a 1x inverter ([`INV_PARAMS`]).
+pub(crate) const INV_MODEL: GateModel = GateModel {
+    res: 1422.118502462849,
+    cin: 0.000000000000004482092764998187,
+    cout: 0.0,
+    // cout: 0.0000000004387405174617657,
+};
 
-    #[inline]
-    pub fn with_skew(bits: usize, skew_rising: bool) -> Self {
-        Self::with_scale_and_skew(bits, 1, skew_rising)
-    }
+/// The on-resistance and capacitances of a 1x NAND2 gate ([`NAND2_PARAMS`]).
+pub(crate) const NAND2_MODEL: GateModel = GateModel {
+    res: 1478.364147093855,
+    cin: 0.000000000000005389581112035269,
+    cout: 0.0,
+    // cout: 0.0000000002743620195248461,
+};
 
-    #[inline]
-    pub fn new(bits: usize) -> Self {
-        Self::with_scale_and_skew(bits, 1, false)
+/// The on-resistance and capacitances of a 1x NAND3 gate ([`NAND3_PARAMS`]).
+pub(crate) const NAND3_MODEL: GateModel = GateModel {
+    res: 1478.037783669641,
+    cin: 0.000000000000006217130454627972,
+    cout: 0.0,
+    // cout: 0.000000000216366152882086,
+};
+
+/// The on-resistance and capacitances of a 1x NOR2 gate ([`NOR2_PARAMS`]).
+pub(crate) const NOR2_MODEL: GateModel = GateModel {
+    res: 1.0,
+    cin: 1.0,
+    cout: 1.0,
+};
+
+/// The sizing of a 1x inverter.
+pub(crate) const INV_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+    nwidth: 1_000,
+    pwidth: 2_500,
+    length: 150,
+};
+
+/// The sizing of a 1x NAND2 gate.
+pub(crate) const NAND2_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+    nwidth: 2_000,
+    pwidth: 2_500,
+    length: 150,
+};
+
+/// The sizing of a 1x NAND3 gate.
+pub(crate) const NAND3_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+    nwidth: 3_000,
+    pwidth: 2_500,
+    length: 150,
+};
+
+/// The sizing of a 1x NOR2 gate.
+pub(crate) const NOR2_PARAMS: PrimitiveGateParams = PrimitiveGateParams {
+    nwidth: 1_000,
+    pwidth: 3_200,
+    length: 150,
+};
+
+pub(crate) fn gate_params(gate: GateType) -> PrimitiveGateParams {
+    match gate {
+        GateType::Inv => INV_PARAMS,
+        GateType::Nand2 => NAND2_PARAMS,
+        GateType::Nand3 => NAND3_PARAMS,
+        GateType::Nor2 => NOR2_PARAMS,
+        gate => panic!("unsupported gate type: {gate:?}"),
     }
 }
 
-fn size_decoder(tree: &PlanTreeNode) -> TreeNode {
-    // TODO improve decoder sizing
-    size_helper_tmp(tree, tree.skew_rising, tree.cols)
-}
-
-fn size_helper_tmp(x: &PlanTreeNode, skew_rising: bool, cols: bool) -> TreeNode {
-    let gate_params = if cols {
-        AndParams {
-            nand: PrimitiveGateParams {
-                nwidth: 10_000,
-                pwidth: 8_000,
-                length: 150,
-            },
-            inv: PrimitiveGateParams {
-                nwidth: 8_000,
-                pwidth: 10_000,
-                length: 150,
-            },
-        }
-    } else if skew_rising {
-        AndParams {
-            nand: PrimitiveGateParams {
-                nwidth: 4_000,
-                pwidth: 1_000,
-                length: 150,
-            },
-            inv: PrimitiveGateParams {
-                nwidth: 600,
-                pwidth: 6_800,
-                length: 150,
-            },
-        }
-    } else {
-        AndParams {
-            nand: PrimitiveGateParams {
-                nwidth: 2_400,
-                pwidth: 800,
-                length: 150,
-            },
-            inv: PrimitiveGateParams {
-                nwidth: 3_100,
-                pwidth: 4_300,
-                length: 150,
-            },
-        }
-    };
-    // TODO size decoder
-    TreeNode {
-        gate: GateParams::new_and(x.gate, gate_params),
-        num: x.num,
-        children: x
-            .children
-            .iter()
-            .map(|n| size_helper_tmp(n, skew_rising, cols))
-            .collect::<Vec<_>>(),
+pub(crate) fn primitive_gate_params(gate: PrimitiveGateType) -> PrimitiveGateParams {
+    match gate {
+        PrimitiveGateType::Inv
+        | PrimitiveGateType::FoldedInv
+        | PrimitiveGateType::MultiFingerInv => INV_PARAMS,
+        PrimitiveGateType::Nand2 => NAND2_PARAMS,
+        PrimitiveGateType::Nand3 => NAND3_PARAMS,
+        PrimitiveGateType::Nor2 => NOR2_PARAMS,
     }
 }
 
-fn plan_decoder(bits: usize, top: bool, skew_rising: bool, cols: bool) -> PlanTreeNode {
+pub(crate) fn gate_model(gate: GateType) -> GateModel {
+    match gate {
+        GateType::Inv | GateType::FoldedInv | GateType::MultiFingerInv => INV_MODEL,
+        GateType::Nand2 => NAND2_MODEL,
+        GateType::Nand3 => NAND3_MODEL,
+        GateType::Nor2 => NOR2_MODEL,
+        gate => panic!("unsupported gate type: {gate:?}"),
+    }
+}
+
+pub(crate) fn primitive_gate_model(gate: PrimitiveGateType) -> GateModel {
+    match gate {
+        PrimitiveGateType::Inv
+        | PrimitiveGateType::FoldedInv
+        | PrimitiveGateType::MultiFingerInv => INV_MODEL,
+        PrimitiveGateType::Nand2 => NAND2_MODEL,
+        PrimitiveGateType::Nand3 => NAND3_MODEL,
+        PrimitiveGateType::Nor2 => NOR2_MODEL,
+    }
+}
+
+pub(crate) fn scale(gate: PrimitiveGateParams, scale: f64) -> PrimitiveGateParams {
+    let nwidth = snap_to_grid((gate.nwidth as f64 * scale).round() as i64, 50);
+    let pwidth = snap_to_grid((gate.pwidth as f64 * scale).round() as i64, 50);
+    PrimitiveGateParams {
+        nwidth,
+        pwidth,
+        length: gate.length,
+    }
+}
+
+fn size_path(path: &[&PlanTreeNode], end: &f64) -> TreeNode {
+    let mut lp = LogicPath::new();
+    let mut vars = Vec::new();
+    for (i, node) in path.iter().copied().rev().enumerate() {
+        for (j, gate) in node.gate.primitive_gates().iter().copied().enumerate() {
+            if i == 0 && j == 0 {
+                lp.append_sized_gate(gate_model(gate));
+            } else {
+                let var = lp.create_variable_with_initial(2.);
+                let model = gate_model(gate);
+                if i != 0 && j == 0 {
+                    let branching = node.num / node.children[0].num - 1;
+                    if branching > 0 {
+                        let mult = branching as f64 * model.cin;
+                        assert!(mult >= 0.0, "mult must be larger than zero, got {mult}");
+                        lp.append_variable_capacitor(mult, var);
+                    }
+                }
+                lp.append_unsized_gate(model, var);
+                vars.push(var);
+            }
+        }
+    }
+    lp.append_capacitor(*end);
+
+    lp.size_with_opts(OptimizerOpts {
+        lr: 1e10,
+        lr_decay: 0.999995,
+        max_iter: 10_000_000,
+    });
+
+    let mut cnode: Option<&mut TreeNode> = None;
+    let mut tree = None;
+
+    let mut values = vars
+        .iter()
+        .rev()
+        .map(|v| {
+            let v = lp.value(*v);
+            if v < 0.8 {
+                0.8
+            } else {
+                v
+            }
+        })
+        .collect::<Vec<_>>();
+    values.push(1.);
+    let mut values = values.into_iter();
+
+    for &node in path {
+        let gate = match node.gate {
+            GateType::And2 => GateParams::And2(AndParams {
+                inv: scale(INV_PARAMS, values.next().unwrap()),
+                nand: scale(NAND2_PARAMS, values.next().unwrap()),
+            }),
+            GateType::And3 => GateParams::And3(AndParams {
+                inv: scale(INV_PARAMS, values.next().unwrap()),
+                nand: scale(NAND3_PARAMS, values.next().unwrap()),
+            }),
+            GateType::Inv => GateParams::Inv(scale(INV_PARAMS, values.next().unwrap())),
+            GateType::FoldedInv => GateParams::FoldedInv(scale(INV_PARAMS, values.next().unwrap())),
+            GateType::MultiFingerInv => {
+                GateParams::MultiFingerInv(scale(INV_PARAMS, values.next().unwrap()))
+            }
+            GateType::Nand2 => GateParams::Nand2(scale(NAND2_PARAMS, values.next().unwrap())),
+            GateType::Nand3 => GateParams::Nand3(scale(NAND3_PARAMS, values.next().unwrap())),
+            GateType::Nor2 => GateParams::Nor2(scale(NOR2_PARAMS, values.next().unwrap())),
+        };
+
+        let n = TreeNode {
+            gate,
+            num: node.num,
+            children: vec![],
+            child_nums: node.children.iter().map(|n| n.num).collect(),
+        };
+
+        if let Some(parent) = cnode {
+            parent.children.push(n);
+            cnode = Some(&mut parent.children[0])
+        } else {
+            tree = Some(n);
+            cnode = Some(tree.as_mut().unwrap());
+        }
+    }
+
+    tree.unwrap()
+}
+
+impl Tree for PlanTreeNode {
+    fn children(&self) -> &[Self] {
+        &self.children
+    }
+
+    fn children_mut(&mut self) -> &mut [Self] {
+        &mut self.children
+    }
+
+    fn add_right_child(&mut self, child: Self) {
+        self.children.push(child);
+    }
+}
+
+impl Tree for TreeNode {
+    fn children(&self) -> &[Self] {
+        &self.children
+    }
+
+    fn children_mut(&mut self) -> &mut [Self] {
+        &mut self.children
+    }
+
+    fn add_right_child(&mut self, child: Self) {
+        self.children.push(child);
+    }
+}
+
+impl ValueTree<f64> for TreeNode {
+    fn value_for_child(&self, idx: usize) -> f64 {
+        let first_gate_type = self.gate.gate_type().primitive_gates()[0];
+        let first_gate = self.gate.first_gate_sizing();
+        let model = gate_model(first_gate_type);
+        (self.num / self.child_nums[idx]) as f64 * model.cin * first_gate.nwidth as f64
+            / (gate_params(first_gate_type).nwidth as f64)
+    }
+}
+
+fn plan_decoder(bits: usize, top: bool, skew_rising: bool) -> PlanTreeNode {
     assert!(bits > 1);
     if bits == 2 {
         PlanTreeNode {
@@ -371,7 +334,6 @@ fn plan_decoder(bits: usize, top: bool, skew_rising: bool, cols: bool) -> PlanTr
             num: 4,
             children: vec![],
             skew_rising,
-            cols,
         }
     } else if bits == 3 {
         PlanTreeNode {
@@ -379,7 +341,6 @@ fn plan_decoder(bits: usize, top: bool, skew_rising: bool, cols: bool) -> PlanTr
             num: 8,
             children: vec![],
             skew_rising,
-            cols,
         }
     } else {
         let split = partition_bits(bits, top);
@@ -391,14 +352,14 @@ fn plan_decoder(bits: usize, top: bool, skew_rising: bool, cols: bool) -> PlanTr
 
         let children = split
             .into_iter()
-            .map(|x| plan_decoder(x, false, skew_rising, cols))
+            .map(|x| plan_decoder(x, false, skew_rising))
             .collect::<Vec<_>>();
+
         PlanTreeNode {
             gate,
             num: 2usize.pow(bits as u32),
             children,
             skew_rising,
-            cols,
         }
     }
 }
@@ -407,8 +368,8 @@ fn partition_bits(bits: usize, top: bool) -> Vec<usize> {
     assert!(bits > 3);
 
     if top {
-        let left = bits / 2;
-        return vec![left, bits - left];
+        let right = bits / 2;
+        return vec![bits - right, right];
     }
 
     if bits % 2 == 0 {
@@ -421,29 +382,110 @@ fn partition_bits(bits: usize, top: bool) -> Vec<usize> {
             _ => panic!("unexpected remainder of `bits` divided by 3"),
         }
     } else {
-        let left = bits / 2;
-        vec![left, bits - left]
+        let right = bits / 2;
+        vec![bits - right, right]
     }
 }
 
-pub(crate) fn get_idxs(mut num: usize, bases: &[usize]) -> Vec<usize> {
-    let products = bases
-        .iter()
-        .rev()
-        .scan(1, |state, &elem| {
-            let val = *state;
-            *state *= elem;
-            Some(val)
-        })
-        .collect::<Vec<_>>();
-    let mut idxs = Vec::with_capacity(bases.len());
+pub struct DelaySummary {}
 
-    for i in 0..bases.len() {
-        let j = products.len() - i - 1;
-        idxs.push(num / products[j]);
-        num %= products[j];
+impl TreeNode {
+    pub fn time_constant(&self, cl: f64) -> f64 {
+        let mut delay = 0.0;
+        let gates = self.gate.primitive_gates();
+        for (i, (gt, params)) in self.gate.primitive_gates().iter().enumerate() {
+            let model = primitive_gate_model(*gt);
+            let scale = params.nwidth as f64 / (primitive_gate_params(*gt).nwidth as f64);
+            let cin_next = if i == gates.len() - 1 {
+                cl
+            } else {
+                let (ngt, nparams) = gates[i + 1];
+                let model = primitive_gate_model(ngt);
+                let nscale = nparams.nwidth as f64 / (primitive_gate_params(ngt).nwidth as f64);
+                nscale * model.cin
+            };
+            delay += model.res / scale * (model.cout * scale + cin_next);
+        }
+        delay += self
+            .children
+            .iter()
+            .enumerate()
+            .map(|(i, child)| child.time_constant(self.value_for_child(i)))
+            .reduce(f64::max)
+            .unwrap_or(0.0);
+
+        delay
     }
-    idxs
+
+    pub fn max_depth(&self) -> usize {
+        self.gate.primitive_gates().len()
+            + self
+                .children
+                .iter()
+                .map(|c| c.max_depth())
+                .max()
+                .unwrap_or_default()
+    }
+}
+
+impl PlanTreeNode {
+    pub fn with_invs(self, invs: usize) -> Self {
+        if invs == 0 {
+            self
+        } else {
+            PlanTreeNode {
+                gate: GateType::Inv,
+                num: self.num,
+                skew_rising: self.skew_rising,
+                children: vec![self.with_invs(invs - 1)],
+            }
+        }
+    }
+
+    pub fn min_depth(&self) -> usize {
+        self.gate.primitive_gates().len()
+            + self
+                .children
+                .iter()
+                .map(|c| c.min_depth())
+                .min()
+                .unwrap_or_default()
+    }
+
+    /// An analytical estimate of the worst-case LE * B
+    /// across all paths through the decoder.
+    pub fn le_b(&self) -> f64 {
+        self.gate.logical_effort()
+            * self
+                .children
+                .iter()
+                .map(|c| c.le_b() * (self.num / c.num) as f64)
+                .reduce(f64::max)
+                .unwrap_or(1.)
+    }
+}
+
+impl DecoderStageParams {
+    pub fn time_constant(&self, cl: f64) -> f64 {
+        let mut delay = 0.0;
+        let mut gates = self.gate.primitive_gates();
+        gates.extend(self.invs.iter().map(|inv| (PrimitiveGateType::Inv, *inv)));
+        for (i, (gt, params)) in gates.iter().enumerate() {
+            let model = primitive_gate_model(*gt);
+            let scale = params.nwidth as f64 / (primitive_gate_params(*gt).nwidth as f64);
+            let cin_next = if i == gates.len() - 1 {
+                cl
+            } else {
+                let (ngt, nparams) = gates[i + 1];
+                let model = primitive_gate_model(ngt);
+                let nscale = nparams.nwidth as f64 / (primitive_gate_params(ngt).nwidth as f64);
+                nscale * model.cin
+            };
+            delay += model.res / scale * (model.cout * scale + cin_next);
+        }
+
+        delay
+    }
 }
 
 impl Component for Decoder {
@@ -466,21 +508,6 @@ impl Component for Decoder {
         ctx: &mut substrate::schematic::context::SchematicCtx,
     ) -> substrate::error::Result<()> {
         self.schematic(ctx)
-    }
-}
-
-impl Component for Predecoder {
-    type Params = DecoderParams;
-    fn new(
-        params: &Self::Params,
-        _ctx: &substrate::data::SubstrateCtx,
-    ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
-    }
-    fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("predecoder")
     }
 
     fn layout(
@@ -521,19 +548,225 @@ impl Component for DecoderStage {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub enum RoutingStyle {
+    Decoder,
+    Driver,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub enum DecoderStyle {
+    /// For bitcell array row decoder.
+    RowMatched,
+    /// Accomodates larger gates without expanding, but less efficient for smaller gates.
+    Relaxed,
+    /// Sized for smaller gates, expands for larger gates.
+    Minimum,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct DecoderPhysicalDesignParams {
+    pub dir: Dir,
+    pub style: DecoderStyle,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct DecoderPhysicalDesign {
+    /// Width of a decoder cell.
+    pub(crate) width: i64,
+    /// Width of a decoder tap cell.
+    pub(crate) tap_width: i64,
+    /// Number of decoders on either side of each tap.
+    pub(crate) tap_period: usize,
+    /// The metal layer used for buses and power rails.
+    pub(crate) stripe_metal: LayerKey,
+    /// The metal layer used for connecting stripes to individual decoders.
+    pub(crate) wire_metal: LayerKey,
+    /// List of intermediate layers in via between (`li`)[PhysicalDesign::li] and
+    /// (`stripe_metal`)[PhysicalDesign::stripe_metal)
+    pub(crate) via_metals: Vec<LayerKey>,
+    /// The metal used to connect to MOS sources, drains, gates, and taps.
+    pub(crate) li: LayerKey,
+    /// Width of wires in bus.
+    pub(crate) line: i64,
+    /// Spacing between wires in bus.
+    pub(crate) space: i64,
+    /// Layers that should be extended to the edge of decoder gates and tap cells.
+    pub(crate) abut_layers: HashSet<LayerKey>,
+}
+
+pub struct DecoderPhysicalDesignScript;
+
+impl Script for DecoderPhysicalDesignScript {
+    type Params = DecoderPhysicalDesignParams;
+    type Output = DecoderPhysicalDesign;
+
+    fn run(
+        params: &Self::Params,
+        ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self::Output> {
+        let layers = ctx.layers();
+        let li = layers.get(Selector::Metal(0))?;
+        let m1 = layers.get(Selector::Metal(1))?;
+        let m2 = layers.get(Selector::Metal(2))?;
+        let (stripe_metal, wire_metal, via_metals) = match params.dir {
+            Dir::Horiz => (m1, m2, vec![]),
+            Dir::Vert => (m2, m1, vec![m1]),
+        };
+        let nwell = layers.get(Selector::Name("nwell"))?;
+        let psdm = layers.get(Selector::Name("psdm"))?;
+        let nsdm = layers.get(Selector::Name("nsdm"))?;
+        let (width, tap_width) = match params.style {
+            DecoderStyle::RowMatched => (1_580, 1_580),
+            DecoderStyle::Relaxed => (1_900, 1_000),
+            DecoderStyle::Minimum => (1_580, 1_000),
+        };
+        Ok(Self::Output {
+            width,
+            tap_width,
+            tap_period: 4,
+            stripe_metal,
+            wire_metal,
+            via_metals,
+            li,
+            line: 320,
+            space: 160,
+            abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
+        })
+    }
+}
+
+pub struct DecoderStagePhysicalDesign {
+    gate_params: Vec<GateParams>,
+    max_folding_factor: usize,
+    folding_factors: Vec<usize>,
+    dsn: DecoderPhysicalDesign,
+}
+
+pub struct DecoderStagePhysicalDesignScript;
+
+impl Script for DecoderStagePhysicalDesignScript {
+    type Params = DecoderStageParams;
+    type Output = DecoderStagePhysicalDesign;
+
+    fn run(
+        params: &Self::Params,
+        ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self::Output> {
+        let mut dsn = (*ctx.run_script::<DecoderPhysicalDesignScript>(&params.pd)?).clone();
+        if dsn.width < 1_900 && matches!(params.gate, GateParams::And3(_) | GateParams::Nand3(_)) {
+            assert_eq!(
+                dsn.tap_period % 2,
+                0,
+                "tap period must be even for expansion"
+            );
+            dsn.width *= 2;
+            dsn.tap_period /= 2;
+        }
+        let (gate_params, max_folding_factor, folding_factors) =
+            if let Some(max_width) = params.max_width {
+                let (gate_params, primitive_gate_params) = match params.gate {
+                    GateParams::And2(params) => (
+                        GateParams::Nand2(params.nand),
+                        vec![params.nand, params.inv],
+                    ),
+                    GateParams::And3(params) => (
+                        GateParams::Nand3(params.nand),
+                        vec![params.nand, params.inv],
+                    ),
+                    GateParams::Inv(params) => (GateParams::Inv(params), vec![params]),
+                    GateParams::FoldedInv(params) => (GateParams::FoldedInv(params), vec![params]),
+                    GateParams::MultiFingerInv(params) => {
+                        (GateParams::MultiFingerInv(params), vec![params])
+                    }
+                    GateParams::Nand2(params) => (GateParams::Nand2(params), vec![params]),
+                    GateParams::Nand3(params) => (GateParams::Nand3(params), vec![params]),
+                    GateParams::Nor2(params) => (GateParams::Nor2(params), vec![params]),
+                };
+                let folding_factor_limit = std::cmp::max(
+                    (max_width as usize
+                        - dsn.tap_width as usize
+                            * ((max_width as usize).div_ceil(
+                                dsn.tap_period * dsn.width as usize + dsn.tap_width as usize,
+                            ) + 1))
+                        / params.num
+                        / dsn.width as usize,
+                    1,
+                );
+                let mut max_folding_factor = 0;
+                let mut folding_factors = vec![];
+                for params in primitive_gate_params.iter().chain(params.invs.iter()) {
+                    let ff = std::cmp::min(
+                        std::cmp::max(
+                            std::cmp::min(params.pwidth, params.nwidth) as usize / 1_800,
+                            1,
+                        ),
+                        folding_factor_limit,
+                    );
+                    max_folding_factor = std::cmp::max(ff, max_folding_factor);
+                    folding_factors.push(ff);
+                }
+                let gate_params: Vec<GateParams> = std::iter::once(gate_params)
+                    .chain(
+                        primitive_gate_params
+                            .into_iter()
+                            .skip(1)
+                            .chain(params.invs.clone())
+                            .map(|gate| {
+                                if params.use_multi_finger_invs {
+                                    GateParams::MultiFingerInv(gate)
+                                } else {
+                                    GateParams::FoldedInv(gate)
+                                }
+                            }),
+                    )
+                    .collect();
+
+                (gate_params, max_folding_factor, folding_factors)
+            } else {
+                (
+                    std::iter::once(params.gate)
+                        .chain(params.invs.clone().into_iter().map(|gate| {
+                            if params.use_multi_finger_invs {
+                                GateParams::MultiFingerInv(gate)
+                            } else {
+                                GateParams::FoldedInv(gate)
+                            }
+                        }))
+                        .collect(),
+                    1,
+                    vec![1; 1 + params.invs.len()],
+                )
+            };
+        Ok(DecoderStagePhysicalDesign {
+            gate_params,
+            max_folding_factor,
+            folding_factors,
+            dsn,
+        })
+    }
+}
+
+pub(crate) fn base_indices(mut i: usize, sizes: &[usize]) -> Vec<usize> {
+    let mut res = Vec::new();
+    for sz in sizes {
+        res.push(i % sz);
+        i /= sz;
+    }
+    res
+}
+
 #[cfg(test)]
 mod tests {
 
-    use substrate::component::NoParams;
+    use subgeom::Dir;
 
     use crate::blocks::gate::AndParams;
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
-    use super::layout::{
-        DecoderGate, DecoderGateParams, LastBitDecoderPhysicalDesignScript, LastBitDecoderStage,
-    };
+    use super::layout::{DecoderGate, DecoderGateParams};
     use super::*;
 
     #[test]
@@ -541,8 +774,16 @@ mod tests {
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_decoder_4bit");
 
-        let tree = DecoderTree::new(4);
-        let params = DecoderParams { tree };
+        let tree = DecoderTree::new(4, 150e-15);
+        let params = DecoderParams {
+            pd: DecoderPhysicalDesignParams {
+                style: DecoderStyle::RowMatched,
+                dir: Dir::Horiz,
+            },
+            max_width: None,
+            tree,
+            use_multi_finger_invs: true,
+        };
 
         ctx.write_schematic_to_file::<Decoder>(&params, out_spice(work_dir, "netlist"))
             .expect("failed to write schematic");
@@ -554,6 +795,12 @@ mod tests {
         let work_dir = test_work_dir("test_decoder_stage_4");
 
         let params = DecoderStageParams {
+            pd: DecoderPhysicalDesignParams {
+                style: DecoderStyle::RowMatched,
+                dir: Dir::Horiz,
+            },
+            routing_style: RoutingStyle::Decoder,
+            max_width: None,
             gate: GateParams::And2(AndParams {
                 nand: PrimitiveGateParams {
                     nwidth: 3_000,
@@ -566,12 +813,42 @@ mod tests {
                     length: 150,
                 },
             }),
+            invs: vec![PrimitiveGateParams {
+                nwidth: 2_000,
+                pwidth: 2_000,
+                length: 150,
+            }],
             num: 4,
+            use_multi_finger_invs: true,
+            dont_connect_outputs: false,
             child_sizes: vec![2, 2],
         };
 
-        ctx.write_layout::<DecoderStage>(&params, out_gds(work_dir, "layout"))
+        ctx.write_schematic_to_file::<DecoderStage>(&params, out_spice(&work_dir, "netlist"))
+            .expect("failed to write netlist");
+        ctx.write_layout::<DecoderStage>(&params, out_gds(&work_dir, "layout"))
             .expect("failed to write layout");
+
+        #[cfg(feature = "commercial")]
+        {
+            let drc_work_dir = work_dir.join("drc");
+            let output = ctx
+                .write_drc::<DecoderStage>(&params, drc_work_dir)
+                .expect("failed to run DRC");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::drc::DrcSummary::Pass
+            ));
+
+            let lvs_work_dir = work_dir.join("lvs");
+            let output = ctx
+                .write_lvs::<DecoderStage>(&params, lvs_work_dir)
+                .expect("failed to run LVS");
+            assert!(matches!(
+                output.summary,
+                substrate::verification::lvs::LvsSummary::Pass
+            ));
+        }
     }
 
     #[test]
@@ -580,7 +857,10 @@ mod tests {
         let work_dir = test_work_dir("test_decoder_gate");
 
         let dsn = ctx
-            .run_script::<LastBitDecoderPhysicalDesignScript>(&NoParams)
+            .run_script::<DecoderPhysicalDesignScript>(&DecoderPhysicalDesignParams {
+                style: DecoderStyle::RowMatched,
+                dir: Dir::Horiz,
+            })
             .expect("failed to run design script");
 
         let params = DecoderGateParams {
@@ -596,80 +876,11 @@ mod tests {
                     length: 150,
                 },
             }),
+            filler: false,
             dsn: (*dsn).clone(),
         };
 
         ctx.write_layout::<DecoderGate>(&params, out_gds(work_dir, "layout"))
             .expect("failed to write layout");
-    }
-
-    #[test]
-    fn test_predecoder_4() {
-        let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_predecoder_4");
-
-        let tree = DecoderTree::new(4);
-        let params = DecoderParams { tree };
-
-        ctx.write_layout::<Predecoder>(&params, out_gds(work_dir, "layout"))
-            .expect("failed to write layout");
-    }
-
-    #[test]
-    fn test_predecoder_6() {
-        let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_predecoder_6");
-
-        let tree = DecoderTree::new(6);
-        let params = DecoderParams { tree };
-
-        ctx.write_layout::<Predecoder>(&params, out_gds(&work_dir, "layout"))
-            .expect("failed to write layout");
-        #[cfg(feature = "commercial")]
-        {
-            let output = ctx
-                .write_drc::<Predecoder>(&params, work_dir.join("drc"))
-                .expect("failed to run drc");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::drc::DrcSummary::Pass
-            ));
-        }
-    }
-
-    #[test]
-    fn test_last_bit_decoder_stage() {
-        let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_last_bit_decoder_4");
-
-        let params = DecoderStageParams {
-            gate: GateParams::And2(AndParams {
-                nand: PrimitiveGateParams {
-                    nwidth: 3_000,
-                    pwidth: 1_200,
-                    length: 150,
-                },
-                inv: PrimitiveGateParams {
-                    nwidth: 2_000,
-                    pwidth: 2_000,
-                    length: 150,
-                },
-            }),
-            num: 16,
-            child_sizes: vec![4, 4],
-        };
-
-        ctx.write_layout::<LastBitDecoderStage>(&params, out_gds(&work_dir, "layout"))
-            .expect("failed to write layout");
-        #[cfg(feature = "commercial")]
-        {
-            let output = ctx
-                .write_drc::<LastBitDecoderStage>(&params, work_dir.join("drc"))
-                .expect("failed to run drc");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::drc::DrcSummary::Pass
-            ));
-        }
     }
 }

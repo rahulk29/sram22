@@ -1,34 +1,57 @@
 use arcstr::ArcStr;
-
 use serde::{Deserialize, Serialize};
 use substrate::component::{Component, NoParams};
-use substrate::data::SubstrateCtx;
-use substrate::index::IndexOwned;
-use substrate::layout::cell::CellPort;
-use substrate::layout::placement::align::AlignMode;
-use substrate::layout::placement::array::ArrayTiler;
-use substrate::schematic::circuit::Direction;
-
-use super::macros::Dff;
 
 pub mod layout;
 pub mod schematic;
+pub mod testbench;
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Serialize, Deserialize)]
-pub enum ControlLogicKind {
-    Standard,
-    Test,
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct ControlLogicReplicaV2 {
+    params: ControlLogicParams,
 }
 
-pub struct ControlLogicReplicaV2(ControlLogicKind);
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct ControlLogicParams {
+    pub decoder_delay_invs: usize,
+    pub wlen_pulse_invs: usize,
+    pub pc_set_delay_invs: usize,
+    pub wrdrven_set_delay_invs: usize,
+    pub wrdrven_rst_delay_invs: usize,
+}
 
 impl Component for ControlLogicReplicaV2 {
-    type Params = ControlLogicKind;
+    type Params = ControlLogicParams;
     fn new(
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self(*params))
+        assert_eq!(
+            params.decoder_delay_invs % 2,
+            0,
+            "decoder replica delay chain must have an even number of inverters"
+        );
+        assert_eq!(
+            params.wlen_pulse_invs % 2,
+            1,
+            "wordline pulse delay chain must have an odd number of inverters"
+        );
+        assert_eq!(
+            params.pc_set_delay_invs % 2,
+            0,
+            "pc set delay chain must have an even number of inverters"
+        );
+        assert_eq!(
+            params.wrdrven_set_delay_invs % 2,
+            0,
+            "write drive enable set delay chain must have an even number of inverters"
+        );
+        assert_eq!(
+            params.wrdrven_rst_delay_invs % 2,
+            0,
+            "write drive enable rst delay chain must have an even number of inverters"
+        );
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("control_logic_replica_v2")
@@ -84,10 +107,43 @@ impl Component for InvChain {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self { n: *params })
+        let n = *params;
+        assert!(n >= 1, "inverter chain must have at least one inverter");
+        Ok(Self { n })
     }
     fn name(&self) -> arcstr::ArcStr {
         ArcStr::from(format!("inv_chain_{}", self.n))
+    }
+    fn schematic(
+        &self,
+        ctx: &mut substrate::schematic::context::SchematicCtx,
+    ) -> substrate::error::Result<()> {
+        self.schematic(ctx)
+    }
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        self.layout(ctx)
+    }
+}
+
+pub struct SvtInvChain {
+    n: usize,
+}
+
+impl Component for SvtInvChain {
+    type Params = usize;
+    fn new(
+        params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        let n = *params;
+        assert!(n >= 1, "inverter chain must have at least one inverter");
+        Ok(Self { n })
+    }
+    fn name(&self) -> arcstr::ArcStr {
+        ArcStr::from(format!("svt_inv_chain_{}", self.n))
     }
     fn schematic(
         &self,
@@ -113,7 +169,7 @@ impl Component for EdgeDetector {
         _params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self { invs: 17 })
+        Ok(Self { invs: 9 })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("edge_detector")
@@ -132,73 +188,6 @@ impl Component for EdgeDetector {
     }
 }
 
-pub struct DffArray {
-    n: usize,
-}
-
-impl Component for DffArray {
-    type Params = usize;
-    fn new(params: &Self::Params, _ctx: &SubstrateCtx) -> substrate::error::Result<Self> {
-        Ok(Self { n: *params })
-    }
-    fn name(&self) -> ArcStr {
-        arcstr::format!("dff_array_{}", self.n)
-    }
-    fn schematic(
-        &self,
-        ctx: &mut substrate::schematic::context::SchematicCtx,
-    ) -> substrate::error::Result<()> {
-        let n = self.n;
-        let [vdd, vss] = ctx.ports(["vdd", "vss"], Direction::InOut);
-        let clk = ctx.port("clk", Direction::Input);
-        let d = ctx.bus_port("d", n, Direction::Input);
-        let q = ctx.bus_port("q", n, Direction::Output);
-        let qn = ctx.bus_port("qn", n, Direction::Output);
-
-        for i in 0..self.n {
-            ctx.instantiate::<Dff>(&NoParams)?
-                .with_connections([
-                    ("VDD", vdd),
-                    ("GND", vss),
-                    ("CLK", clk),
-                    ("D", d.index(i)),
-                    ("Q", q.index(i)),
-                    ("Q_N", qn.index(i)),
-                ])
-                .named(format!("dff_{i}"))
-                .add_to(ctx);
-        }
-
-        Ok(())
-    }
-    fn layout(
-        &self,
-        ctx: &mut substrate::layout::context::LayoutCtx,
-    ) -> substrate::error::Result<()> {
-        let dff = ctx.instantiate::<Dff>(&NoParams)?;
-        let mut tiler = ArrayTiler::builder()
-            .mode(AlignMode::ToTheRight)
-            .push_num(dff, self.n)
-            .build();
-
-        tiler.expose_ports(
-            |port: CellPort, i| {
-                if ["vdd", "vss"].contains(&port.name().as_ref()) {
-                    Some(port)
-                } else {
-                    let port = port.with_index(i);
-                    Some(port)
-                }
-            },
-            substrate::layout::cell::PortConflictStrategy::Merge,
-        )?;
-        ctx.add_ports(tiler.ports().cloned()).unwrap();
-
-        ctx.draw(tiler)?;
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 pub mod test {
     use substrate::component::NoParams;
@@ -207,7 +196,15 @@ pub mod test {
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
-    use super::{ControlLogicKind, ControlLogicReplicaV2, EdgeDetector, SrLatch};
+    use super::{ControlLogicParams, ControlLogicReplicaV2, EdgeDetector, SrLatch};
+
+    const CONTROL_LOGIC_PARAMS: ControlLogicParams = ControlLogicParams {
+        decoder_delay_invs: 12,
+        wlen_pulse_invs: 11,
+        pc_set_delay_invs: 14,
+        wrdrven_set_delay_invs: 4,
+        wrdrven_rst_delay_invs: 0,
+    };
 
     #[test]
     fn test_control_logic_replica_v2() {
@@ -215,13 +212,13 @@ pub mod test {
         let work_dir = test_work_dir("test_control_logic_replica_v2");
 
         ctx.write_schematic_to_file::<ControlLogicReplicaV2>(
-            &ControlLogicKind::Standard,
+            &CONTROL_LOGIC_PARAMS,
             out_spice(&work_dir, "netlist"),
         )
         .expect("failed to write schematic");
 
         ctx.write_layout::<ControlLogicReplicaV2>(
-            &ControlLogicKind::Standard,
+            &CONTROL_LOGIC_PARAMS,
             out_gds(&work_dir, "layout"),
         )
         .expect("failed to write layout");
@@ -230,7 +227,7 @@ pub mod test {
         {
             let drc_work_dir = work_dir.join("drc");
             let output = ctx
-                .write_drc::<ControlLogicReplicaV2>(&ControlLogicKind::Standard, drc_work_dir)
+                .write_drc::<ControlLogicReplicaV2>(&CONTROL_LOGIC_PARAMS, drc_work_dir)
                 .expect("failed to run DRC");
             assert!(matches!(
                 output.summary,
@@ -238,7 +235,7 @@ pub mod test {
             ));
             let lvs_work_dir = work_dir.join("lvs");
             let output = ctx
-                .write_lvs::<ControlLogicReplicaV2>(&ControlLogicKind::Standard, lvs_work_dir)
+                .write_lvs::<ControlLogicReplicaV2>(&CONTROL_LOGIC_PARAMS, lvs_work_dir)
                 .expect("failed to run LVS");
             assert!(matches!(
                 output.summary,
@@ -247,42 +244,22 @@ pub mod test {
         }
     }
 
+    #[cfg(feature = "commercial")]
     #[test]
-    fn test_control_logic_replica_v2_test() {
+    fn test_control_logic_replica_v2_tb() {
+        use crate::blocks::control::testbench::ControlLogicTestbench;
+
+        use super::testbench::tb_params;
+
         let ctx = setup_ctx();
-        let work_dir = test_work_dir("test_control_logic_replica_v2_test");
+        let work_dir = test_work_dir("test_control_logic_replica_v2_tb");
 
-        ctx.write_schematic_to_file::<ControlLogicReplicaV2>(
-            &ControlLogicKind::Test,
-            out_spice(&work_dir, "netlist"),
+        ctx.write_simulation_with_corner::<ControlLogicTestbench>(
+            &tb_params(1.8),
+            &work_dir,
+            ctx.corner_db().corner_named("tt").unwrap().clone(),
         )
-        .expect("failed to write schematic");
-
-        ctx.write_layout::<ControlLogicReplicaV2>(
-            &ControlLogicKind::Test,
-            out_gds(&work_dir, "layout"),
-        )
-        .expect("failed to write layout");
-
-        #[cfg(feature = "commercial")]
-        {
-            let drc_work_dir = work_dir.join("drc");
-            let output = ctx
-                .write_drc::<ControlLogicReplicaV2>(&ControlLogicKind::Test, drc_work_dir)
-                .expect("failed to run DRC");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::drc::DrcSummary::Pass
-            ));
-            let lvs_work_dir = work_dir.join("lvs");
-            let output = ctx
-                .write_lvs::<ControlLogicReplicaV2>(&ControlLogicKind::Test, lvs_work_dir)
-                .expect("failed to run LVS");
-            assert!(matches!(
-                output.summary,
-                substrate::verification::lvs::LvsSummary::Pass
-            ));
-        }
+        .expect("failed to run simulation");
     }
 
     #[test]

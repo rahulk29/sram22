@@ -27,7 +27,8 @@ use substrate::script::Script;
 use self::transmission::TransmissionGate;
 use self::tristate::{TristateBuf, TristateBufParams, TristateInv};
 
-use super::decoder::layout::{DecoderGateParams, DecoderTap, PhysicalDesign};
+use super::decoder::layout::{DecoderGateParams, DecoderTap};
+use super::decoder::DecoderPhysicalDesign;
 use super::gate::{Inv, PrimitiveGateParams};
 
 pub mod tb;
@@ -116,12 +117,7 @@ impl Component for NaiveDelayLine {
             {
                 ctx.instantiate::<Inv>(*params)?
                     .named(format!("buf_inv_{i}_{j}"))
-                    .with_connections([
-                        ("din", input),
-                        ("din_b", output),
-                        ("vdd", &vdd),
-                        ("vss", &vss),
-                    ])
+                    .with_connections([("a", input), ("y", output), ("vdd", &vdd), ("vss", &vss)])
                     .add_to(ctx);
             }
 
@@ -189,8 +185,8 @@ impl Component for TristateInvDelayLine {
         ctx.instantiate::<Inv>(&self.params.inv)?
             .named("inv_0")
             .with_connections([
-                ("din", clk_in),
-                ("din_b", clk_int_top.index(0)),
+                ("a", clk_in),
+                ("y", clk_int_top.index(0)),
                 ("vdd", vdd),
                 ("vss", vss),
             ])
@@ -212,8 +208,8 @@ impl Component for TristateInvDelayLine {
             ctx.instantiate::<Inv>(&self.params.inv)?
                 .named(format!("inv_{i}"))
                 .with_connections([
-                    ("din", clk_int_top.index(i - 1)),
-                    ("din_b", clk_int_top.index(i)),
+                    ("a", clk_int_top.index(i - 1)),
+                    ("y", clk_int_top.index(i)),
                     ("vdd", vdd),
                     ("vss", vss),
                 ])
@@ -274,6 +270,7 @@ impl Component for TristateInvDelayLine {
         let tap = ctx
             .instantiate::<DecoderTap>(&DecoderGateParams {
                 gate: super::gate::GateParams::Inv(self.params.inv),
+                filler: false,
                 dsn: (*dsn).clone(),
             })?
             .with_orientation(Named::R90Cw);
@@ -692,7 +689,7 @@ pub struct DelayLineTapDesignScript;
 
 impl Script for DelayLineTapDesignScript {
     type Params = NoParams;
-    type Output = PhysicalDesign;
+    type Output = DecoderPhysicalDesign;
 
     fn run(
         _params: &Self::Params,
@@ -715,7 +712,6 @@ impl Script for DelayLineTapDesignScript {
             li,
             line: 320,
             space: 160,
-            rail_width: 320,
             abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
         })
     }
@@ -723,14 +719,9 @@ impl Script for DelayLineTapDesignScript {
 
 #[cfg(test)]
 mod tests {
-    use substrate::schematic::netlist::NetlistPurpose;
-    use substrate::verification::pex::PexInput;
 
     use crate::blocks::gate::PrimitiveGateParams;
-    use crate::blocks::sram::verilog::save_delay_line_verilog;
-    #[cfg(feature = "commercial")]
-    use crate::liberate::save_delay_line_lib;
-    use crate::paths::{out_gds, out_spice, out_verilog};
+    use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -859,6 +850,12 @@ mod tests {
 
         #[cfg(feature = "commercial")]
         {
+            use crate::liberate::save_delay_line_lib;
+            use crate::paths::out_verilog;
+            use crate::verilog::save_delay_line_verilog;
+            use substrate::schematic::netlist::NetlistPurpose;
+            use substrate::verification::pex::PexInput;
+
             let cell = ctx
                 .instantiate_layout::<TristateInvDelayLine>(&TRISTATE_INV_DELAY_LINE_PARAMS)
                 .unwrap();
@@ -913,6 +910,7 @@ mod tests {
                 source_cell_name: name.clone(),
                 pex_netlist_path: pex_out_path,
                 opts: Default::default(),
+                ground_net: "vss".to_string(),
             })
             .expect("failed to run PEX");
 

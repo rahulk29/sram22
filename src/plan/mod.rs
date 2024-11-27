@@ -1,17 +1,11 @@
-use crate::blocks::sram::verilog::save_1rw_verilog;
-use crate::blocks::sram::{Sram, SramParams};
+use crate::blocks::sram::{Sram, SramConfig, SramParams};
 use crate::cli::progress::StepContext;
-use crate::config::sram::SramConfig;
 use crate::paths::{out_gds, out_spice, out_verilog};
-use crate::plan::extract::ExtractionResult;
-use crate::{clog2, setup_ctx, Result};
+use crate::verilog::save_1rw_verilog;
+use crate::{setup_ctx, Result};
 use anyhow::bail;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::Path;
-use substrate::schematic::netlist::NetlistPurpose;
-use substrate::verification::pex::PexInput;
-
-pub mod extract;
 
 /// A concrete plan for an SRAM.
 ///
@@ -26,7 +20,6 @@ pub enum TaskKey {
     GenerateNetlist,
     GenerateLayout,
     GenerateVerilog,
-    #[cfg(feature = "commercial")]
     GenerateLef,
     #[cfg(feature = "commercial")]
     RunDrc,
@@ -36,8 +29,6 @@ pub enum TaskKey {
     RunPex,
     #[cfg(feature = "commercial")]
     GenerateLib,
-    #[cfg(feature = "commercial")]
-    RunSpectre,
     #[cfg(feature = "commercial")]
     All,
 }
@@ -51,59 +42,31 @@ pub struct ExecutePlanParams<'a> {
     pub pex_level: Option<calibre::pex::PexLevel>,
 }
 
-pub fn generate_plan(
-    _extraction_result: ExtractionResult,
-    config: &SramConfig,
-) -> Result<SramPlan> {
+pub fn generate_plan(config: &SramConfig) -> Result<SramPlan> {
     let &SramConfig {
         num_words,
         data_width,
         mux_ratio,
         write_size,
-        control,
         ..
     } = config;
 
-    if mux_ratio != 4 && mux_ratio != 8 {
-        bail!("Mux ratio must be 4 or 8");
-    }
     if data_width % write_size != 0 {
         bail!("Data width must be a multiple of write size");
     }
 
-    let rows = (num_words / mux_ratio) as usize;
-    let cols = (data_width * mux_ratio) as usize;
-    let row_bits = clog2(rows);
-    let col_bits = clog2(cols);
-    let col_select_bits = clog2(mux_ratio as usize);
-    let wmask_width = (data_width / write_size) as usize;
-    let mux_ratio = mux_ratio as usize;
-    let num_words = num_words as usize;
-    let data_width = data_width as usize;
-    let addr_width = clog2(num_words);
+    let params = SramParams::new(write_size, mux_ratio, num_words, data_width);
 
-    if 2usize.pow(row_bits.try_into().unwrap()) != rows || rows < 16 {
+    if 2usize.pow(params.row_bits().try_into().unwrap()) != params.rows() || params.rows() < 16 {
         bail!("The number of rows (num words / mux ratio) must be a power of 2 greater than or equal to 16");
     }
 
-    if cols < 16 {
+    if params.cols() < 16 {
         bail!("The number of columns (data width * mux ratio) must be at least 16");
     }
 
     Ok(SramPlan {
-        sram_params: SramParams {
-            wmask_width,
-            row_bits,
-            col_bits,
-            col_select_bits,
-            rows,
-            cols,
-            mux_ratio,
-            num_words,
-            data_width,
-            addr_width,
-            control,
-        },
+        sram_params: params,
     })
 }
 
@@ -149,24 +112,26 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
     try_finish_task!(ctx, TaskKey::GenerateLayout);
 
     let verilog_path = out_verilog(work_dir, name);
-    save_1rw_verilog(&verilog_path, name.as_str(), &plan.sram_params)
-        .expect("failed to write behavioral model");
+    save_1rw_verilog(&verilog_path, &plan.sram_params).expect("failed to write behavioral model");
     try_finish_task!(ctx, TaskKey::GenerateVerilog);
+
+    crate::abs::write_abstract(
+        &sctx,
+        &plan.sram_params,
+        crate::paths::out_lef(work_dir, name),
+    )
+    .expect("failed to write abstract");
+    try_finish_task!(ctx, TaskKey::GenerateLef);
 
     #[cfg(feature = "commercial")]
     {
-        try_execute_task!(
-            params.tasks,
-            TaskKey::GenerateLef,
-            crate::abs::run_abstract(
-                work_dir,
-                name,
-                crate::paths::out_lef(work_dir, name),
-                &gds_path,
-                &verilog_path
-            )?,
-            ctx
-        );
+        use std::collections::HashMap;
+
+        use rust_decimal::Decimal;
+        use rust_decimal_macros::dec;
+        use subgeom::bbox::BoundBox;
+        use substrate::schematic::netlist::NetlistPurpose;
+        use substrate::verification::pex::PexInput;
 
         try_execute_task!(
             params.tasks,
@@ -233,70 +198,87 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                     source_cell_name: name.clone(),
                     pex_netlist_path: pex_out_path.clone(),
                     opts,
+                    ground_net: "vss".to_string(),
                 })?;
             },
             ctx
         );
 
-        /*
-        try_execute_task!(
-            params.tasks,
-            TaskKey::RunSpectre,
-            crate::verification::spectre::run_sram_spectre(&plan.sram_params, work_dir, name)?,
-            ctx
-        );
-        */
-
+        let sram_params = plan.sram_params.clone();
         try_execute_task!(
             params.tasks,
             TaskKey::GenerateLib,
             {
                 use substrate::schematic::netlist::NetlistPurpose;
 
-                let (source_path, lib_file) = if params.pex_level.is_some() {
+                let source_path = if params.pex_level.is_some() {
                     if !pex_out_path.exists() {
                         bail!("PEX netlist not found at path `{:?}`", pex_out_path);
                     }
-                    (
-                        pex_out_path,
-                        work_dir.join(format!(
-                            "{}_tt_025C_1v80.{}.lib",
-                            params.plan.sram_params.name(),
-                            params.pex_level.unwrap()
-                        )),
-                    )
+                    pex_out_path
                 } else {
                     let timing_spice_path = out_spice(work_dir, "timing_schematic");
                     sctx.write_schematic_to_file_for_purpose::<Sram>(
-                        &plan.sram_params,
+                        &sram_params,
                         &timing_spice_path,
                         NetlistPurpose::Timing,
                     )
                     .expect("failed to write timing schematic");
-                    (
-                        timing_spice_path,
-                        work_dir.join(format!(
-                            "{}_tt_025C_1v80.schematic.lib",
-                            params.plan.sram_params.name()
-                        )),
-                    )
+                    timing_spice_path
                 };
 
-                let params = liberate_mx::LibParams::builder()
-                    .work_dir(work_dir.join("lib"))
-                    .output_file(lib_file)
-                    .corner("tt")
-                    .cell_name(name.as_str())
-                    .num_words(plan.sram_params.num_words)
-                    .data_width(plan.sram_params.data_width)
-                    .addr_width(plan.sram_params.addr_width)
-                    .wmask_width(plan.sram_params.wmask_width)
-                    .mux_ratio(plan.sram_params.mux_ratio)
-                    .has_wmask(true)
-                    .source_paths(vec![source_path])
-                    .build()
-                    .unwrap();
-                crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+                let mut handles = Vec::new();
+                let sram = sctx
+                    .instantiate_layout::<Sram>(&sram_params)
+                    .expect("failed to generate layout");
+                let brect = sram.brect();
+                let width = Decimal::new(brect.width(), 3);
+                let height = Decimal::new(brect.height(), 3);
+                for (corner, temp, vdd) in [
+                    ("tt", 25, dec!(1.8)),
+                    ("ss", 100, dec!(1.6)),
+                    ("ff", -40, dec!(1.95)),
+                ] {
+                    let verilog_path = verilog_path.clone();
+                    let work_dir = std::path::PathBuf::from(work_dir);
+                    let source_path = source_path.clone();
+                    let sram_params = sram_params.clone();
+                    handles.push(std::thread::spawn(move || {
+                        let suffix = match corner {
+                            "tt" => "tt_025C_1v80",
+                            "ss" => "ss_100C_1v60",
+                            "ff" => "ff_n40C_1v95",
+                            _ => unreachable!(),
+                        };
+                        let name = format!("{}_{}", sram_params.name(), suffix);
+                        let lib_params = liberate_mx::LibParams::builder()
+                            .work_dir(work_dir.join(format!("lib/{suffix}")))
+                            .output_file(crate::paths::out_lib(&work_dir, &name))
+                            .corner(corner)
+                            .width(width)
+                            .height(height)
+                            .user_verilog(verilog_path)
+                            .cell_name(&*sram_params.name())
+                            .num_words(sram_params.num_words())
+                            .data_width(sram_params.data_width())
+                            .addr_width(sram_params.addr_width())
+                            .wmask_width(sram_params.wmask_width())
+                            .mux_ratio(sram_params.mux_ratio())
+                            .has_wmask(true)
+                            .source_paths(vec![source_path])
+                            .vdd(vdd)
+                            .temp(temp)
+                            .build()
+                            .unwrap();
+                        crate::liberate::generate_sram_lib(&lib_params)
+                            .expect("failed to write lib");
+                    }));
+                }
+                let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
+                handles
+                    .into_iter()
+                    .collect::<Result<Vec<_>, _>>()
+                    .expect("failed to join threads");
             },
             ctx
         );

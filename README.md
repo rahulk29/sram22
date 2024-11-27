@@ -9,13 +9,13 @@ SRAM22 is still a work in progress.
 
 In order to use SRAM22, your system will need to have the following components:
 
-- Rust (SRAM22 is tested with version 1.70.0)
+- Rust (SRAM22 is tested with version 1.81.0)
 - Make
 - A local clone of our [slightly modified version of the SKY 130 PDK](https://github.com/ucb-substrate/skywater-pdk). 
 You will also need to set the environment variable `SKY130_OPEN_PDK_ROOT` to the absolute path of the local PDK's root directory.
-Substrate uses standard cells from the `sky130_fd_sc_hd` library, so you will also need to run the following from the PDK root directory:
+Substrate uses standard cells from the `sky130_fd_sc_hs` library, so you will also need to run the following from the PDK root directory:
     ```
-    git submodule update --init libraries/sky130_fd_sc_hd/latest
+    git submodule update --init libraries/sky130_fd_sc_hs/latest
     ```
 
 ### Installation
@@ -33,7 +33,7 @@ You can then install SRAM22 using the following commands:
 
 ```bash
 git clone https://github.com/rahulk29/sram22.git
-cd sram22 && mv Cargo.bwrc.toml Cargo.toml && make install-all && cd -
+cd sram22 && mv Cargo.bwrc.toml Cargo.toml && make install && cd -
 ```
 
 #### External
@@ -65,7 +65,6 @@ Options:
       --drc                      Run DRC using Calibre
       --lvs                      Run LVS using Calibre
       --pex                      Run PEX using Calibre
-      --sim                      Run Spectre to verify SRAM functionality
   -a, --all                      Run all available steps
   -h, --help                     Print help information
   -V, --version                  Print version information
@@ -80,7 +79,6 @@ num_words = 64
 data_width = 32
 mux_ratio = 4
 write_size = 8
-control = "ReplicaV2"
 # The `pex_level` flag is only available with a full installation.
 pex_level = "rcc"
 ```
@@ -90,7 +88,7 @@ To generate an SRAM using this configuration, put the above text into a file cal
 
 ```
 cd sram22_64x32m4w8
-sram22 -o .
+sram22
 ```
 
 Add additional flags depending on what views you want to generate and what verification you want to run.
@@ -108,7 +106,6 @@ A valid configuration must have:
 * A power-of-two number of rows
 * At least 16 rows
 * At least 16 columns
-* `control`: Must be `"ReplicaV2"`.
 * `pex_level`: Must be `"r"`, `"c"`, `"rc"`, or `"rcc"`. If you do not have commercial plugins enabled, this option will be ignored.
 
 ### Contribution

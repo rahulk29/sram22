@@ -31,7 +31,8 @@ use substrate::pdk::stdcell::StdCell;
 use substrate::schematic::circuit::Direction;
 
 use super::coarse_tdc::TappedRegister;
-use super::decoder::layout::{DecoderGateParams, DecoderTap, PhysicalDesign};
+use super::decoder::layout::{DecoderGateParams, DecoderTap};
+use super::decoder::DecoderPhysicalDesign;
 use super::gate::{GateParams, Inv, PrimitiveGateParams};
 
 pub mod tb;
@@ -91,20 +92,15 @@ impl Component for Tdc {
         for i in 0..self.params.stages {
             let sin = if i == 0 { a } else { stage1.index(i - 1) };
             inv.clone()
-                .with_connections([
-                    ("vdd", vdd),
-                    ("vss", vss),
-                    ("din", sin),
-                    ("din_b", int1.index(i)),
-                ])
+                .with_connections([("vdd", vdd), ("vss", vss), ("a", sin), ("y", int1.index(i))])
                 .named(arcstr::format!("s1buf_{i}_0"))
                 .add_to(ctx);
             inv.clone()
                 .with_connections([
                     ("vdd", vdd),
                     ("vss", vss),
-                    ("din", int1.index(i)),
-                    ("din_b", stage1.index(i)),
+                    ("a", int1.index(i)),
+                    ("y", stage1.index(i)),
                 ])
                 .named(arcstr::format!("s1buf_{i}_1"))
                 .add_to(ctx);
@@ -117,8 +113,8 @@ impl Component for Tdc {
                 .with_connections([
                     ("vdd", vdd),
                     ("vss", vss),
-                    ("din", sin0),
-                    ("din_b", stage2.index(i)),
+                    ("a", sin0),
+                    ("y", stage2.index(i)),
                 ])
                 .named(arcstr::format!("s2_{i}_0"))
                 .add_to(ctx);
@@ -126,8 +122,8 @@ impl Component for Tdc {
                 .with_connections([
                     ("vdd", vdd),
                     ("vss", vss),
-                    ("din", sin1),
-                    ("din_b", stage2.index(i)),
+                    ("a", sin1),
+                    ("y", stage2.index(i)),
                 ])
                 .named(arcstr::format!("s2_{i}_1"))
                 .add_to(ctx);
@@ -135,8 +131,8 @@ impl Component for Tdc {
                 .with_connections([
                     ("vdd", vdd),
                     ("vss", vss),
-                    ("din", stage2.index(i)),
-                    ("din_b", stage3.index(i)),
+                    ("a", stage2.index(i)),
+                    ("y", stage3.index(i)),
                 ])
                 .named(arcstr::format!("s3_{i}"))
                 .add_to(ctx);
@@ -150,14 +146,14 @@ impl Component for Tdc {
                     ("vdd", vdd),
                     ("vss", vss),
                     (
-                        "din",
+                        "a",
                         if i == 0 {
                             stage1.index(0)
                         } else {
                             stage1.index(stage1.width() - 1)
                         },
                     ),
-                    ("din_b", tmp.index(i)),
+                    ("y", tmp.index(i)),
                 ])
                 .named(arcstr::format!("s2_dummy_{i}"))
                 .add_to(ctx);
@@ -169,14 +165,14 @@ impl Component for Tdc {
                     ("vdd", vdd),
                     ("vss", vss),
                     (
-                        "din",
+                        "a",
                         if i == 0 {
                             stage3.index(0)
                         } else {
                             stage3.index(stage3.width() - 1)
                         },
                     ),
-                    ("din_b", tmp.index(i + 2)),
+                    ("y", tmp.index(i + 2)),
                 ])
                 .named(arcstr::format!("s4_dummy_{i}"))
                 .add_to(ctx);
@@ -196,8 +192,8 @@ impl Component for Tdc {
                 .with_connections([
                     ("vdd", vdd),
                     ("vss", vss),
-                    ("din", sin0),
-                    ("din_b", stage4.index(i)),
+                    ("a", sin0),
+                    ("y", stage4.index(i)),
                 ])
                 .named(arcstr::format!("s4_{i}_0"))
                 .add_to(ctx);
@@ -205,8 +201,8 @@ impl Component for Tdc {
                 .with_connections([
                     ("vdd", vdd),
                     ("vss", vss),
-                    ("din", sin1),
-                    ("din_b", stage4.index(i)),
+                    ("a", sin1),
+                    ("y", stage4.index(i)),
                 ])
                 .named(arcstr::format!("s4_{i}_1"))
                 .add_to(ctx);
@@ -214,8 +210,8 @@ impl Component for Tdc {
                 .with_connections([
                     ("vdd", vdd),
                     ("vss", vss),
-                    ("din", stage4.index(i)),
-                    ("din_b", stage5.index(i)),
+                    ("a", stage4.index(i)),
+                    ("y", stage5.index(i)),
                 ])
                 .named(arcstr::format!("s5_{i}"))
                 .add_to(ctx);
@@ -476,7 +472,7 @@ impl Component for TdcCell {
                 )
                 .build(),
         )?;
-        let dsn = PhysicalDesign {
+        let dsn = DecoderPhysicalDesign {
             width: 2_000,
             tap_width: 790,
             tap_period: 2,
@@ -486,11 +482,11 @@ impl Component for TdcCell {
             li: m0,
             line: 320,
             space: 160,
-            rail_width: 320,
             abut_layers: HashSet::from_iter([nwell, psdm, nsdm]),
         };
         let decoder_gate = DecoderGateParams {
             gate: GateParams::Inv(self.params.inv),
+            filler: false,
             dsn,
         };
 
@@ -1056,13 +1052,7 @@ impl Component for TappedRegisterN {
 #[cfg(test)]
 mod tests {
 
-    use substrate::schematic::netlist::NetlistPurpose;
-    use substrate::verification::pex::PexInput;
-
-    use crate::blocks::sram::verilog::save_tdc_verilog;
-    #[cfg(feature = "commercial")]
-    use crate::liberate::save_tdc_lib;
-    use crate::paths::{out_gds, out_spice, out_verilog};
+    use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
 
@@ -1138,6 +1128,12 @@ mod tests {
             .expect("failed to write layout");
         #[cfg(feature = "commercial")]
         {
+            use crate::liberate::save_tdc_lib;
+            use crate::paths::out_verilog;
+            use crate::verilog::save_tdc_verilog;
+            use substrate::schematic::netlist::NetlistPurpose;
+            use substrate::verification::pex::PexInput;
+
             let tdc = ctx.instantiate_layout::<Tdc>(&TDC_PARAMS).unwrap();
             let name = tdc.cell().name();
 
@@ -1206,6 +1202,7 @@ mod tests {
                 source_cell_name: name.clone(),
                 pex_netlist_path: pex_out_path,
                 opts: Default::default(),
+                ground_net: "vss".to_string(),
             })
             .expect("failed to run PEX");
 

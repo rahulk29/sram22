@@ -1,5 +1,9 @@
+#![allow(unexpected_cfgs)]
+
 use std::path::PathBuf;
 
+#[cfg(feature = "commercial")]
+use crate::verification::calibre::SKY130_LAYERPROPS_PATH;
 pub use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 #[cfg(not(feature = "commercial"))]
@@ -23,18 +27,16 @@ use substrate::schematic::netlist::impls::spice::SpiceNetlister;
 use substrate::verification::simulation::{Simulator, SimulatorOpts};
 use tera::Tera;
 
-#[cfg(feature = "commercial")]
 pub mod abs;
 pub mod blocks;
 pub mod cli;
-pub mod config;
 #[cfg(feature = "commercial")]
 pub mod liberate;
+pub mod measure;
 pub mod paths;
+pub mod pex;
 pub mod plan;
 pub mod tech;
-#[cfg(test)]
-pub mod tests;
 pub mod verification;
 pub mod verilog;
 
@@ -54,11 +56,6 @@ lazy_static! {
 
 pub fn bus_bit(name: &str, index: usize) -> String {
     format!("{name}[{index}]")
-}
-
-#[inline]
-pub(crate) fn clog2(x: usize) -> usize {
-    (x as f64).log2().ceil() as usize
 }
 
 pub fn setup_ctx() -> SubstrateCtx {
@@ -87,12 +84,19 @@ pub fn setup_ctx() -> SubstrateCtx {
                 .runset_file(PathBuf::from(
                     crate::verification::calibre::SKY130_DRC_RUNSET_PATH,
                 ))
+                .layerprops(PathBuf::from(SKY130_LAYERPROPS_PATH))
                 .build()
                 .unwrap(),
         )
-        .lvs_tool(CalibreLvs::new(PathBuf::from(
-            crate::verification::calibre::SKY130_LVS_RULES_PATH,
-        )))
+        .lvs_tool(
+            CalibreLvs::builder()
+                .rules_file(PathBuf::from(
+                    crate::verification::calibre::SKY130_LVS_RULES_PATH,
+                ))
+                .layerprops(PathBuf::from(SKY130_LAYERPROPS_PATH))
+                .build()
+                .unwrap(),
+        )
         .pex_tool(CalibrePex::new(PathBuf::from(
             crate::verification::calibre::SKY130_PEX_RULES_PATH,
         )));
@@ -113,4 +117,15 @@ pub fn setup_ctx() -> SubstrateCtx {
         .build();
 
     SubstrateCtx::from_config(cfg).unwrap()
+}
+
+#[cfg(test)]
+pub mod tests {
+    use std::path::PathBuf;
+
+    use super::BUILD_PATH;
+
+    pub(crate) fn test_work_dir(name: &str) -> PathBuf {
+        PathBuf::from(BUILD_PATH).join(name)
+    }
 }

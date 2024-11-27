@@ -4,10 +4,9 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
+use crate::blocks::sram::parse_sram_config;
 use crate::cli::args::Args;
 use crate::cli::progress::StepContext;
-use crate::config::sram::parse_sram_config;
-use crate::plan::extract::ExtractionResult;
 use crate::plan::{execute_plan, generate_plan, ExecutePlanParams, TaskKey};
 use crate::Result;
 
@@ -25,6 +24,7 @@ pub const BANNER: &str = r"
    \|_________|                                                       
                                                                       
                                                                       
+SRAM22 v0.2
 ";
 
 pub fn run() -> Result<()> {
@@ -41,23 +41,21 @@ pub fn run() -> Result<()> {
     println!("SRAM parameters:");
     println!("\tNumber of words: {}", config.num_words);
     println!("\tData width: {}", config.data_width);
-    println!("\tMux ratio: {}", config.mux_ratio);
+    println!("\tMux ratio: {}", config.mux_ratio as usize);
     println!("\tWrite size: {}", config.write_size);
-    println!("\tControl mode: {:?}\n", config.control);
 
     let enabled_tasks = vec![
-        #[cfg(feature = "commercial")]
-        (args.lef, TaskKey::GenerateLef),
         #[cfg(feature = "commercial")]
         (args.drc, TaskKey::RunDrc),
         #[cfg(feature = "commercial")]
         (args.lvs, TaskKey::RunLvs),
         #[cfg(feature = "commercial")]
-        (args.pex, TaskKey::RunPex),
+        (
+            args.pex || (args.lib && config.pex_level.is_some()),
+            TaskKey::RunPex,
+        ),
         #[cfg(feature = "commercial")]
         (args.lib, TaskKey::GenerateLib),
-        #[cfg(feature = "commercial")]
-        (args.sim, TaskKey::RunSpectre),
         #[cfg(feature = "commercial")]
         (args.all, TaskKey::All),
     ]
@@ -68,7 +66,7 @@ pub fn run() -> Result<()> {
 
     let mut ctx = StepContext::new(&tasks);
 
-    let plan = ctx.check(generate_plan(ExtractionResult {}, &config))?;
+    let plan = ctx.check(generate_plan(&config))?;
     ctx.finish(TaskKey::GeneratePlan);
 
     let work_dir = if let Some(output_dir) = args.output_dir {

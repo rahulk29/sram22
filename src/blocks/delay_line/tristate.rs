@@ -221,7 +221,7 @@ impl Component for TristateBuf {
 
         ctx.instantiate::<Inv>(&self.params.inv1)?
             .named("inv1")
-            .with_connections([("din", din), ("din_b", x), ("vdd", vdd), ("vss", vss)])
+            .with_connections([("a", din), ("y", x), ("vdd", vdd), ("vss", vss)])
             .add_to(ctx);
 
         ctx.instantiate::<TristateInv>(&self.params.inv2)?

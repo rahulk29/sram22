@@ -1,10 +1,11 @@
-use serde::Serialize;
-use subgeom::bbox::{Bbox, BoundBox};
+use serde::{Deserialize, Serialize};
+use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
-use subgeom::{Dir, Point, Rect, Side, Sign, Span};
-use substrate::component::{Component, NoParams};
+use subgeom::transform::Translate;
+use subgeom::{Dir, Point, Rect, Shape, Side, Sign, Span};
+use substrate::component::Component;
 use substrate::index::IndexOwned;
-use substrate::layout::cell::{CellPort, Port, PortConflictStrategy, PortId};
+use substrate::layout::cell::{CellPort, MustConnect, Port, PortConflictStrategy, PortId};
 use substrate::layout::elements::mos::LayoutMos;
 use substrate::layout::elements::via::{Via, ViaExpansion, ViaParams};
 use substrate::layout::layers::selector::Selector;
@@ -44,18 +45,22 @@ pub struct ReplicaPrecharge {
     params: ReplicaPrechargeParams,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReplicaPrechargeParams {
     pub cols: usize,
     pub inner: PrechargeParams,
 }
+
+const LI_VIA_SHRINK: i64 = 20;
 
 impl Precharge {
     pub(crate) fn layout(
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&NoParams)?;
+        let dsn = ctx
+            .inner()
+            .run_script::<PhysicalDesignScript>(&self.params)?;
         let db = ctx.mos_db();
         let mos = db
             .query(Query::builder().kind(MosKind::Pmos).build().unwrap())
@@ -63,7 +68,7 @@ impl Precharge {
         let params = LayoutMosParams {
             skip_sd_metal: vec![vec![]; 3],
             deep_nwell: true,
-            contact_strategy: GateContactStrategy::SingleSide,
+            contact_strategy: GateContactStrategy::BothSides,
             devices: vec![
                 MosParams {
                     w: self.params.equalizer_width,
@@ -90,27 +95,39 @@ impl Precharge {
         };
 
         let stripe_span = Span::new(-dsn.width, 2 * dsn.width);
-        let gate_stripe = Rect::from_spans(stripe_span, dsn.gate_stripe);
-        ctx.draw_rect(dsn.h_metal, gate_stripe);
-        ctx.add_port(CellPort::with_shape("en_b", dsn.h_metal, gate_stripe))
-            .unwrap();
+        let gate_shapes =
+            [dsn.gate_stripe_bot, dsn.gate_stripe_top].map(|s| Rect::from_spans(stripe_span, s));
+        gate_shapes
+            .iter()
+            .for_each(|r| ctx.draw_rect(dsn.h_metal, *r));
+        ctx.add_port(
+            CellPort::with_shapes("en_b", dsn.h_metal, gate_shapes.map(Shape::Rect))
+                .must_connect(MustConnect::Yes),
+        )?;
 
         let mut mos = ctx.instantiate::<LayoutMos>(&params)?;
         mos.set_orientation(Named::R90);
 
         mos.place_center(Point::new(dsn.width / 2, 0));
-        mos.align_above(gate_stripe, 0);
+        mos.align_above(gate_shapes[0], 0);
         ctx.draw_ref(&mos)?;
 
-        let bbox = ctx.bbox().into_rect();
-
-        let cut = dsn.cut;
+        let cut = dsn.cut_bot;
         let gate = mos.port("gate_0")?.largest_rect(dsn.m0)?;
 
         let mut orects = Vec::with_capacity(dsn.out_tracks.len());
         for i in 0..dsn.out_tracks.len() {
             let top = if i == 1 { gate.top() } else { cut };
-            let rect = Rect::from_spans(dsn.out_tracks.index(i), Span::new(0, top));
+            let rect = Rect::from_spans(
+                dsn.out_tracks.index(i),
+                Span::new(
+                    std::cmp::min(
+                        0,
+                        dsn.gate_stripe_bot.start() - dsn.gate_stripe_bot.length() / 4,
+                    ),
+                    top,
+                ),
+            );
             if i != 1 {
                 ctx.draw_rect(dsn.v_metal, rect);
             }
@@ -124,10 +141,15 @@ impl Precharge {
                     .unwrap();
             }
         }
+        let gate_x = mos.port("gate_0_x")?.largest_rect(dsn.m0)?;
+        let gate_x = Rect::from_spans(
+            dsn.out_tracks.index(1),
+            Span::new(gate_x.bottom(), ctx.brect().top()),
+        );
 
         let jog = SimpleJog::builder()
             .dir(Dir::Vert)
-            .src_pos(cut)
+            .src_pos(dsn.cut_bot)
             .src([dsn.out_tracks.index(0), dsn.out_tracks.index(2)])
             .dst([dsn.in_tracks.index(1), dsn.in_tracks.index(2)])
             .line(dsn.v_line)
@@ -138,33 +160,39 @@ impl Precharge {
 
         let mut rects = vec![];
         for i in 0..dsn.in_tracks.len() {
-            let rect = Rect::from_spans(
+            let mut rect = Rect::from_spans(
                 dsn.in_tracks.index(i),
-                Span::new(jog.dst_pos(), bbox.height()),
+                Span::new(jog.dst_pos(), dsn.cut_top),
             );
             rects.push(rect);
+            if i == 0 || i == 3 {
+                rect = rect.expand_dir(Dir::Horiz, 60);
+            }
             ctx.draw_rect(dsn.v_metal, rect);
-            if i == 1 {
-                ctx.add_port(CellPort::with_shape("br_in", dsn.v_metal, rect))
-                    .unwrap();
-            }
-            if i == 2 {
-                ctx.add_port(CellPort::with_shape("bl_in", dsn.v_metal, rect))
-                    .unwrap();
-            }
         }
 
         ctx.draw(jog)?;
 
         let mut via0 = ViaParams::builder()
             .layers(dsn.m0, dsn.v_metal)
-            .geometry(mos.port("sd_1_0")?.largest_rect(dsn.m0)?, rects[2])
+            .geometry(
+                mos.port("sd_1_0")?
+                    .largest_rect(dsn.m0)?
+                    .expand_dir(Dir::Vert, -LI_VIA_SHRINK),
+                rects[2],
+            )
+            .expand(ViaExpansion::LongerDirection)
             .build();
 
-        let via = ctx.instantiate::<Via>(&via0)?;
+        let mut via = ctx.instantiate::<Via>(&via0)?;
+        // HACK to get the sd_1_0 and sd_2_1 vias to be symmetric w.r.t the transistor drain.
+        via.translate(Point::new(5, 0));
         ctx.draw(via)?;
 
-        let target = mos.port("sd_2_1")?.largest_rect(dsn.m0)?;
+        let target = mos
+            .port("sd_2_1")?
+            .largest_rect(dsn.m0)?
+            .expand_dir(Dir::Vert, -LI_VIA_SHRINK);
         via0.set_geometry(target, rects[1]);
         let via = ctx.instantiate::<Via>(&via0)?;
         ctx.draw(via)?;
@@ -172,11 +200,14 @@ impl Precharge {
         let mut m1_vias = Vec::with_capacity(2);
         for (port, rect, x) in [("sd_2_0", rects[3], dsn.width), ("sd_1_1", rects[0], 0)] {
             let port = mos.port(port)?.largest_rect(dsn.m0)?;
-            via0.set_geometry(Bbox::from_point(Point::new(x, port.center().y)), rect);
+            via0.set_geometry(
+                Rect::from_spans(Span::from_point(x), port.vspan().shrink_all(LI_VIA_SHRINK)),
+                rect,
+            );
             let via = ctx.instantiate::<Via>(&via0)?;
             ctx.draw_rect(
                 dsn.m0,
-                Rect::from_spans(port.hspan().union(via.brect().hspan()), via.brect().vspan()),
+                Rect::from_spans(port.hspan().union(via.brect().hspan()), port.vspan()),
             );
             ctx.draw(via)?;
 
@@ -186,14 +217,27 @@ impl Precharge {
         for (port, rect) in [("sd_0_0", orects[0]), ("sd_0_1", orects[2])] {
             let port = mos.port(port)?.largest_rect(dsn.m0)?;
             via0.set_geometry(
-                Bbox::from_point(Point::new(rect.center().x, port.center().y)),
-                rect,
+                Rect::from_spans(
+                    Span::from_point(rect.center().x),
+                    port.vspan().shrink_all(LI_VIA_SHRINK),
+                ),
+                rect.expand_dir(Dir::Vert, -4 * LI_VIA_SHRINK),
             );
             let via = ctx.instantiate::<Via>(&via0)?;
             ctx.draw(via)?;
         }
 
-        via0.set_geometry(gate_stripe, orects[1]);
+        via0.set_geometry(
+            gate_shapes[0],
+            orects[1].expand_dir(Dir::Vert, -4 * LI_VIA_SHRINK),
+        );
+        let via = ctx.instantiate::<Via>(&via0)?;
+        ctx.draw(via)?;
+
+        via0.set_geometry(
+            gate_shapes[1],
+            gate_x.expand_dir(Dir::Vert, -4 * LI_VIA_SHRINK),
+        );
         let via = ctx.instantiate::<Via>(&via0)?;
         ctx.draw(via)?;
 
@@ -221,11 +265,60 @@ impl Precharge {
         let via = ctx.instantiate::<Via>(&via1)?;
         ctx.draw(via)?;
 
-        via1.set_geometry(orects[1], gate_stripe);
+        via1.set_geometry(orects[1], gate_shapes[0]);
         let via = ctx.instantiate::<Via>(&via1)?;
         ctx.draw(via)?;
 
+        via1.set_geometry(gate_x, gate_shapes[1]);
+        let via = ctx.instantiate::<Via>(&via1)?;
+        let gate_ct_top = via.brect().top();
+        ctx.draw(via)?;
+
         ctx.draw_rect(dsn.m0, Rect::from_spans(gate.hspan(), orects[1].vspan()));
+        ctx.draw_rect(dsn.m0, Rect::from_spans(gate.hspan(), gate_x.vspan()));
+
+        let jog = SimpleJog::builder()
+            .dir(Dir::Vert)
+            .src_pos(dsn.cut_top)
+            .src([dsn.in_tracks.index(1), dsn.in_tracks.index(2)])
+            .dst([dsn.out_tracks.index(0), dsn.out_tracks.index(2)])
+            .line(dsn.v_line)
+            .space(dsn.v_space)
+            .layer(dsn.v_metal)
+            .build()
+            .unwrap();
+        for i in [0, 2] {
+            ctx.draw_rect(
+                dsn.v_metal,
+                Rect::from_spans(
+                    dsn.out_tracks.index(i),
+                    Span::new(jog.dst_pos(), gate_ct_top),
+                ),
+            );
+        }
+        ctx.draw(jog)?;
+
+        let jog = SimpleJog::builder()
+            .dir(Dir::Vert)
+            .src_pos(gate_ct_top)
+            .src([dsn.out_tracks.index(0), dsn.out_tracks.index(2)])
+            .dst([dsn.in_tracks.index(1), dsn.in_tracks.index(2)])
+            .line(dsn.v_line)
+            .space(dsn.v_space)
+            .layer(dsn.v_metal)
+            .build()
+            .unwrap();
+        let rect = Rect::from_spans(
+            dsn.in_tracks.index(1),
+            Span::with_stop_and_length(jog.dst_pos(), dsn.v_line),
+        );
+        ctx.add_port(CellPort::with_shape("br_in", dsn.v_metal, rect))?;
+        let rect = Rect::from_spans(
+            dsn.in_tracks.index(2),
+            Span::with_stop_and_length(jog.dst_pos(), dsn.v_line),
+        );
+        ctx.add_port(CellPort::with_shape("bl_in", dsn.v_metal, rect))?;
+        ctx.draw(jog)?;
 
         ctx.flatten();
 
@@ -260,9 +353,7 @@ impl Component for PrechargeCent {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("precharge_cent")
@@ -280,7 +371,9 @@ impl Component for PrechargeCent {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let pc = ctx.instantiate::<Precharge>(&self.params)?;
-        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&NoParams)?;
+        let dsn = ctx
+            .inner()
+            .run_script::<PhysicalDesignScript>(&self.params)?;
         let meta = pc.cell().get_metadata::<Metadata>();
         let layers = ctx.layers();
 
@@ -290,7 +383,7 @@ impl Component for PrechargeCent {
         let m0 = layers.get(Selector::Metal(0))?;
 
         let brect = Rect::new(
-            Point::new(0, 0),
+            Point::new(0, pc.brect().bottom()),
             Point::new(dsn.tap_width, pc.brect().top()),
         );
 
@@ -306,8 +399,9 @@ impl Component for PrechargeCent {
         let tap = ctx.instantiate::<Via>(&viap)?;
         ctx.draw_ref(&tap)?;
 
-        let y = dsn.cut + 2 * dsn.v_line + dsn.v_space;
-        let half_tr = Rect::from_spans(Span::new(0, dsn.v_line / 2), Span::new(y, brect.top()));
+        let y = dsn.cut_bot + 2 * dsn.v_line + dsn.v_space;
+        let half_tr =
+            Rect::from_spans(Span::new(0, dsn.v_line / 2 + 60), Span::new(y, dsn.cut_top));
         ctx.draw_rect(dsn.v_metal, half_tr);
 
         let mut via = ctx.instantiate::<Via>(&meta.m1_via_top)?;
@@ -316,7 +410,7 @@ impl Component for PrechargeCent {
         ctx.draw_rect(
             dsn.m0,
             Rect::from_spans(
-                Span::new(0, tap.layer_bbox(dsn.m0).p0.x),
+                Span::new(0, tap.layer_bbox(dsn.m0).p1.x),
                 via.brect().vspan(),
             ),
         );
@@ -327,22 +421,26 @@ impl Component for PrechargeCent {
         ctx.draw_rect(
             dsn.m0,
             Rect::from_spans(
-                Span::new(tap.layer_bbox(dsn.m0).p1.x, dsn.tap_width),
+                Span::new(tap.layer_bbox(dsn.m0).p0.x, dsn.tap_width),
                 via.brect().vspan(),
             ),
         );
 
         let half_tr = Rect::from_spans(
-            Span::with_stop_and_length(dsn.tap_width, dsn.v_line / 2),
-            Span::new(y, brect.top()),
+            Span::with_stop_and_length(dsn.tap_width, dsn.v_line / 2 + 60),
+            Span::new(y, dsn.cut_top),
         );
         ctx.draw_rect(dsn.v_metal, half_tr);
 
         let stripe_span = Span::new(-dsn.tap_width, 2 * dsn.tap_width);
-        let gate_stripe = Rect::from_spans(stripe_span, dsn.gate_stripe);
-        ctx.draw_rect(dsn.h_metal, gate_stripe);
-        ctx.add_port(CellPort::with_shape("en_b", dsn.h_metal, gate_stripe))
-            .unwrap();
+        let shapes =
+            [dsn.gate_stripe_bot, dsn.gate_stripe_top].map(|s| Rect::from_spans(stripe_span, s));
+        shapes.iter().for_each(|r| ctx.draw_rect(dsn.h_metal, *r));
+        ctx.add_port(CellPort::with_shapes(
+            "en_b",
+            dsn.h_metal,
+            shapes.map(Shape::Rect),
+        ))?;
 
         let power_stripe = Rect::from_spans(stripe_span, dsn.power_stripe);
         ctx.draw_rect(dsn.h_metal, power_stripe);
@@ -402,7 +500,9 @@ impl Component for PrechargeEnd {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let pc = ctx.instantiate::<Precharge>(&self.params.inner)?;
-        let dsn = ctx.inner().run_script::<PhysicalDesignScript>(&NoParams)?;
+        let dsn = ctx
+            .inner()
+            .run_script::<PhysicalDesignScript>(&self.params.inner)?;
         let meta = pc.cell().get_metadata::<Metadata>();
         let layers = ctx.layers();
 
@@ -412,7 +512,7 @@ impl Component for PrechargeEnd {
         let m0 = layers.get(Selector::Metal(0))?;
 
         let brect = Rect::new(
-            Point::new(0, 0),
+            Point::new(0, pc.brect().bottom()),
             Point::new(dsn.tap_width, pc.brect().top()),
         );
 
@@ -428,7 +528,7 @@ impl Component for PrechargeEnd {
         let tap = ctx.instantiate::<Via>(&viap)?;
         ctx.draw_ref(&tap)?;
 
-        let y = dsn.cut + 2 * dsn.v_line + dsn.v_space;
+        let y = dsn.cut_bot + 2 * dsn.v_line + dsn.v_space;
 
         let mut via = ctx.instantiate::<Via>(if self.params.via_top {
             &meta.m1_via_top
@@ -440,22 +540,26 @@ impl Component for PrechargeEnd {
         ctx.draw_rect(
             dsn.m0,
             Rect::from_spans(
-                Span::new(tap.layer_bbox(dsn.m0).p1.x, dsn.tap_width),
+                Span::new(tap.layer_bbox(dsn.m0).p0.x, dsn.tap_width),
                 via.brect().vspan(),
             ),
         );
 
         let half_tr = Rect::from_spans(
-            Span::with_stop_and_length(dsn.tap_width, dsn.v_line / 2),
-            Span::new(y, brect.top()),
+            Span::with_stop_and_length(dsn.tap_width, dsn.v_line / 2 + 60),
+            Span::new(y, dsn.cut_top),
         );
         ctx.draw_rect(dsn.v_metal, half_tr);
 
         let stripe_span = Span::new(-dsn.tap_width, 2 * dsn.tap_width);
-        let gate_stripe = Rect::from_spans(stripe_span, dsn.gate_stripe);
-        ctx.draw_rect(dsn.h_metal, gate_stripe);
-        ctx.add_port(CellPort::with_shape("en_b", dsn.h_metal, gate_stripe))
-            .unwrap();
+        let shapes =
+            [dsn.gate_stripe_bot, dsn.gate_stripe_top].map(|s| Rect::from_spans(stripe_span, s));
+        shapes.iter().for_each(|r| ctx.draw_rect(dsn.h_metal, *r));
+        ctx.add_port(CellPort::with_shapes(
+            "en_b",
+            dsn.h_metal,
+            shapes.map(Shape::Rect),
+        ))?;
 
         let power_stripe = Rect::from_spans(stripe_span, dsn.power_stripe);
         ctx.draw_rect(dsn.h_metal, power_stripe);
@@ -498,7 +602,7 @@ impl Component for ReplicaPrecharge {
         })
     }
     fn name(&self) -> arcstr::ArcStr {
-        arcstr::literal!("precharge_end")
+        arcstr::literal!("replica_precharge")
     }
 
     fn schematic(
@@ -532,12 +636,12 @@ impl Component for ReplicaPrecharge {
         let pc = ctx.instantiate::<Precharge>(&self.params.inner)?;
         let mut pc_end_top = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
             via_top: true,
-            inner: self.params.inner.clone(),
+            inner: self.params.inner,
         })?;
         pc_end_top.set_orientation(Named::ReflectHoriz);
         let pc_end_bot = ctx.instantiate::<PrechargeEnd>(&PrechargeEndParams {
             via_top: false,
-            inner: self.params.inner.clone(),
+            inner: self.params.inner,
         })?;
 
         let mut tiler = ArrayTiler::builder();
@@ -615,9 +719,11 @@ pub struct PhysicalDesignScript;
 pub struct PhysicalDesign {
     /// Location of the horizontal power strap
     pub(crate) power_stripe: Span,
-    pub(crate) gate_stripe: Span,
+    pub(crate) gate_stripe_bot: Span,
+    pub(crate) gate_stripe_top: Span,
     pub(crate) h_metal: LayerKey,
-    pub(crate) cut: i64,
+    pub(crate) cut_bot: i64,
+    pub(crate) cut_top: i64,
     pub(crate) width: i64,
     pub(crate) in_tracks: FixedTracks,
     pub(crate) out_tracks: FixedTracks,
@@ -625,16 +731,15 @@ pub struct PhysicalDesign {
     pub(crate) v_line: i64,
     pub(crate) v_space: i64,
     pub(crate) m0: LayerKey,
-    pub(crate) grid: i64,
     pub(crate) tap_width: i64,
 }
 
 impl Script for PhysicalDesignScript {
-    type Params = NoParams;
+    type Params = PrechargeParams;
     type Output = PhysicalDesign;
 
     fn run(
-        _params: &Self::Params,
+        params: &Self::Params,
         ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self::Output> {
         let layers = ctx.layers();
@@ -661,21 +766,33 @@ impl Script for PhysicalDesignScript {
             grid: 5,
         });
 
-        let power_stripe = Span::new(4_000, 4_800);
-        let gate_stripe = Span::new(0, 360);
+        let power_stripe_height = params.pull_up_width.clamp(800, 3_600);
+        let power_stripe = Span::with_start_and_length(
+            params.equalizer_width + params.pull_up_width + 900 + 270 - 60 + 270 / 2
+                - power_stripe_height / 2,
+            power_stripe_height,
+        );
+        let gate_stripe_bot = Span::with_stop_and_length(360, params.en_b_width);
+        let gate_stripe_top = Span::with_start_and_length(
+            params.equalizer_width + 2 * params.pull_up_width + 2_340 - 360,
+            params.en_b_width,
+        );
+        let cut_bot = 715 + params.equalizer_width;
+        let cut_top = params.equalizer_width + 2 * params.pull_up_width + 1_480;
 
         Ok(PhysicalDesign {
             power_stripe,
-            gate_stripe,
+            gate_stripe_bot,
+            gate_stripe_top,
             h_metal: m2,
-            cut: 1_920,
+            cut_bot,
+            cut_top,
             width: 1_200,
             v_metal: m1,
             v_line: 140,
             v_space: 140,
             in_tracks,
             out_tracks,
-            grid: 5,
             tap_width: 1_300,
             m0,
         })

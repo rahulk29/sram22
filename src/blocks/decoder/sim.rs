@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
+use super::{Decoder, DecoderParams, DecoderPhysicalDesignParams, DecoderStyle, DecoderTree};
+use crate::blocks::sram::WORDLINE_CAP_PER_CELL;
 use serde::{Deserialize, Serialize};
+use subgeom::Dir;
 use substrate::component::Component;
 use substrate::index::IndexOwned;
 use substrate::schematic::circuit::Direction;
@@ -10,8 +13,6 @@ use substrate::units::{SiPrefix, SiValue};
 use substrate::verification::simulation::testbench::Testbench;
 use substrate::verification::simulation::waveform::Waveform;
 use substrate::verification::simulation::{OutputFormat, TranAnalysis};
-
-use super::{Decoder, DecoderParams, DecoderTree};
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct DecoderCriticalPathTbParams {
@@ -55,8 +56,16 @@ impl Component for DecoderCriticalPathTb {
             .with_connections([("p", vdd), ("n", vss)])
             .add_to(ctx);
 
-        let tree = DecoderTree::with_scale(params.bits, params.scale);
-        let decoder_params = DecoderParams { tree };
+        let tree = DecoderTree::new(params.bits, 64. * WORDLINE_CAP_PER_CELL);
+        let decoder_params = DecoderParams {
+            pd: DecoderPhysicalDesignParams {
+                style: DecoderStyle::RowMatched,
+                dir: Dir::Horiz,
+            },
+            max_width: None,
+            tree,
+            use_multi_finger_invs: true,
+        };
         ctx.instantiate::<Decoder>(&decoder_params)?
             .with_connections([
                 ("vdd", vdd),
