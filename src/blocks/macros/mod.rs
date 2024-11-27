@@ -372,21 +372,21 @@ pub struct SpWlstrapaP;
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use substrate::component::NoParams;
-    use substrate::schematic::netlist::NetlistPurpose;
-
-    use crate::paths::{out_gds, out_spice};
-    use crate::setup_ctx;
-    use crate::tests::test_work_dir;
-
-    use super::*;
 
     #[test]
     #[cfg(feature = "commercial")]
     #[ignore = "slow"]
     fn test_sense_amp_clk_cap() {
+        use std::collections::HashMap;
+
+        use substrate::component::NoParams;
+        use substrate::schematic::netlist::NetlistPurpose;
+
+        use crate::paths::{out_gds, out_spice};
+        use crate::setup_ctx;
+        use crate::tests::test_work_dir;
+
+        use super::*;
         use crate::measure::impedance::{
             AcImpedanceTbNode, AcImpedanceTbParams, AcImpedanceTestbench,
         };

@@ -656,10 +656,7 @@ impl Component for Nor2 {
 #[cfg(test)]
 mod tests {
 
-    use std::collections::HashMap;
-
-    use substrate::schematic::netlist::NetlistPurpose;
-
+    #[cfg(feature = "commercial")]
     use crate::measure::impedance::{
         AcImpedanceTbNode, AcImpedanceTbParams, AcImpedanceTestbench, TransitionTbNode,
         TransitionTbParams, TransitionTestbench,
@@ -667,6 +664,10 @@ mod tests {
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
+    #[cfg(feature = "commercial")]
+    use std::collections::HashMap;
+    #[cfg(feature = "commercial")]
+    use substrate::schematic::netlist::NetlistPurpose;
 
     use super::*;
 

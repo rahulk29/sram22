@@ -719,16 +719,11 @@ impl Script for DelayLineTapDesignScript {
 
 #[cfg(test)]
 mod tests {
-    use substrate::schematic::netlist::NetlistPurpose;
-    use substrate::verification::pex::PexInput;
 
     use crate::blocks::gate::PrimitiveGateParams;
-    #[cfg(feature = "commercial")]
-    use crate::liberate::save_delay_line_lib;
-    use crate::paths::{out_gds, out_spice, out_verilog};
+    use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
-    use crate::verilog::save_delay_line_verilog;
 
     use super::tb::{DelayLineTb, DelayLineTbParams};
     use super::tristate::TristateBufParams;
@@ -855,6 +850,12 @@ mod tests {
 
         #[cfg(feature = "commercial")]
         {
+            use crate::liberate::save_delay_line_lib;
+            use crate::paths::out_verilog;
+            use crate::verilog::save_delay_line_verilog;
+            use substrate::schematic::netlist::NetlistPurpose;
+            use substrate::verification::pex::PexInput;
+
             let cell = ctx
                 .instantiate_layout::<TristateInvDelayLine>(&TRISTATE_INV_DELAY_LINE_PARAMS)
                 .unwrap();

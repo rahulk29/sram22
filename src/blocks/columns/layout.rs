@@ -363,7 +363,7 @@ impl WmaskPeripherals {
             .inner()
             .run_script::<ColumnsPhysicalDesignScript>(&self.params)?;
 
-        let mut nand_stage = ctx.instantiate::<DecoderStage>(&nand)?;
+        let mut nand_stage = ctx.instantiate::<DecoderStage>(nand)?;
         let wmask_dff = ctx.instantiate::<DffCol>(&NoParams)?;
 
         let mut grid = Grid::new(0, 0);

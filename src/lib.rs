@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)]
+
 use std::path::PathBuf;
 
 #[cfg(feature = "commercial")]

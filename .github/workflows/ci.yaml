@@ -29,6 +29,7 @@ jobs:
         run: |
           git submodule update --init ./libraries/sky130_fd_pr/latest
           git submodule update --init ./libraries/sky130_fd_sc_hd/latest
+          git submodule update --init ./libraries/sky130_fd_sc_hs/latest
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@nightly
         id: toolchain-nightly
