@@ -21,12 +21,10 @@ impl Decoder {
         let mut invs = vec![];
 
         let num_children = node.children.len();
-        while num_children == 1 {
-            if let GateParams::Inv(params) | GateParams::FoldedInv(params) = node.gate {
+        if num_children == 1 {
+            while let GateParams::Inv(params) | GateParams::FoldedInv(params) = node.gate {
                 invs.push(params);
                 node = &node.children[0];
-            } else {
-                break;
             }
         }
         invs.reverse();

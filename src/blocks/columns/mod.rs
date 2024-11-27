@@ -171,7 +171,7 @@ impl Script for ColumnsPhysicalDesignScript {
         .elaborate()
         .size(cl_max)
         .as_chain();
-        wmask_buffer_gates.push(wmask_buffer_gates.last().unwrap().clone());
+        wmask_buffer_gates.push(*wmask_buffer_gates.last().unwrap());
 
         Ok(ColumnsPhysicalDesign {
             cl_max,

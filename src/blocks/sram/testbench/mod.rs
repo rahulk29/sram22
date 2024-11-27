@@ -132,12 +132,10 @@ impl TbParams {
         let mut last_stage_decoder_depth = 0;
         let mut node = &self.dsn.row_decoder.tree.root;
         let num_children = node.children.len();
-        while num_children == 1 {
-            if node.gate.gate_type().is_inv() {
+        if num_children == 1 {
+            while node.gate.gate_type().is_inv() {
                 last_stage_decoder_depth += 1;
                 node = &node.children[0];
-            } else {
-                break;
             }
         }
 
@@ -1056,7 +1054,7 @@ impl Testbench for SramTestbench {
                 (0..self.params.sram.rows())
                     .flat_map(|i| [TbSignals::WlStart(i), TbSignals::WlEnd(i)]),
             )
-            .chain((0..self.params.sram.addr_width()).map(|i| TbSignals::Addr(i)))
+            .chain((0..self.params.sram.addr_width()).map(TbSignals::Addr))
             .chain((0..self.params.sram.wmask_width()).flat_map(|i| {
                 [
                     TbSignals::WeI(i),

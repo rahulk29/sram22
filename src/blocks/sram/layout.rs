@@ -107,6 +107,7 @@ fn draw_routing_via(
 /// `dir` is the direction of the first provided track.
 /// `tracks` are the tracks along which the route should be drawn.
 /// Expands `start` and `end` to contain the adjacent track, adding a via if necessary.
+#[allow(clippy::too_many_arguments)]
 fn draw_route(
     start_layer: LayerKey,
     start: Rect,
@@ -224,9 +225,7 @@ impl Component for ColumnMos {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("column_mos")
@@ -505,9 +504,7 @@ impl Component for ColumnMosCent {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("column_mos_end")
@@ -645,9 +642,7 @@ impl Component for ReplicaColumnMos {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("replica_column_mos")
@@ -665,7 +660,7 @@ impl Component for ReplicaColumnMos {
             .run_script::<ReplicaColumnMosPhysicalDesignScript>(&self.params)?;
 
         for (i, unit) in dsn.units.iter().enumerate() {
-            let mut unit = ctx.instantiate::<ColumnMos>(&unit)?;
+            let mut unit = ctx.instantiate::<ColumnMos>(unit)?;
             unit.connect_all([("vdd", &vdd), ("vss", &vss), ("bl", &bl)]);
             unit.set_name(format!("unit{i}"));
             ctx.add_instance(unit);
@@ -716,9 +711,7 @@ impl Component for ReplicaMetalRouting {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("replica_metal_routing")
@@ -791,11 +784,7 @@ impl SramInner {
 
         let bitcells = ctx.instantiate::<SpCellArray>(&dsn.bitcells)?;
         let mut cols = ctx.instantiate::<ColPeripherals>(&dsn.col_params)?;
-        ctx.set_metadata(
-            cols.cell()
-                .get_metadata::<columns::layout::Metadata>()
-                .clone(),
-        );
+        ctx.set_metadata(*cols.cell().get_metadata::<columns::layout::Metadata>());
         let mut decoder = ctx
             .instantiate::<Decoder>(&dsn.row_decoder)?
             .with_orientation(Named::R90Cw);

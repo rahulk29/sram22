@@ -527,9 +527,7 @@ impl Component for SramInner {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("sram22_inner")
@@ -554,9 +552,7 @@ impl Component for Sram {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         self.params.name()
@@ -578,11 +574,7 @@ impl Component for Sram {
     ) -> substrate::error::Result<()> {
         let mut group = Group::new();
         let sram = ctx.instantiate::<SramInner>(&self.params)?;
-        ctx.set_metadata(
-            sram.cell()
-                .get_metadata::<columns::layout::Metadata>()
-                .clone(),
-        );
+        ctx.set_metadata(*sram.cell().get_metadata::<columns::layout::Metadata>());
         let brect = sram.brect();
 
         let m0 = ctx.layers().get(Selector::Metal(0))?;
