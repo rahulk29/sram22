@@ -61,12 +61,11 @@ impl StepContext {
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
             },
-            #[cfg(feature = "commercial")]
             Step {
                 desc: "Generate LEF".to_string(),
                 key: TaskKey::GenerateLef,
                 progress_bar: ProgressBar::new_spinner(),
-                disabled: !tasks.contains(&TaskKey::GenerateLef) && !tasks.contains(&TaskKey::All),
+                disabled: false,
             },
             #[cfg(feature = "commercial")]
             Step {
@@ -95,13 +94,6 @@ impl StepContext {
                 key: TaskKey::GenerateLib,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::GenerateLib) && !tasks.contains(&TaskKey::All),
-            },
-            #[cfg(feature = "commercial")]
-            Step {
-                desc: "Run Spectre".to_string(),
-                key: TaskKey::RunSpectre,
-                progress_bar: ProgressBar::new_spinner(),
-                disabled: !tasks.contains(&TaskKey::RunSpectre) && !tasks.contains(&TaskKey::All),
             },
         ];
         let mp = MultiProgress::new();

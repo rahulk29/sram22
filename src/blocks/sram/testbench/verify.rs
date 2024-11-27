@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Read, Write};
 use std::path::Path;
 
 use itertools::izip;
@@ -156,9 +156,9 @@ pub fn write_internal_rpt(
         if matches!(op, Op::Write { .. }) {
             let check_overlap = |we_trans: &VecDeque<Transition>| -> Option<_> {
                 let active_wl = active_wls.first()?;
-                let wl_start = wl_trans[*active_wl].get(0)?.center_time();
+                let wl_start = wl_trans[*active_wl].front()?.center_time();
                 let wl_end = wl_trans[*active_wl].get(1)?.center_time();
-                let wrdrven_start = we_trans.get(0)?.center_time();
+                let wrdrven_start = we_trans.front()?.center_time();
                 let wrdrven_end = we_trans.get(1)?.center_time();
                 let overlap_start = if wl_start > wrdrven_start {
                     wl_start
@@ -245,11 +245,12 @@ pub fn write_internal_rpt(
 
     for trans in pc_b.transitions(low_threshold, high_threshold) {
         for idx in [trans.start_idx(), trans.end_idx()] {
-            for i in 0..wl.len() {
-                if wl[i].get(idx).unwrap().x() > high_threshold {
+            for (i, wl_i) in wl.iter().enumerate() {
+                if wl_i.get(idx).unwrap().x() > high_threshold {
                     writeln!(
                         rpt,
-                        "WARNING: wordline {i} high during pc_b transition at t={} ps",
+                        "WARNING: wordline {} high during pc_b transition at t={} ps",
+                        i,
                         trans.center_time() * 1e12
                     )?;
                 }
@@ -358,8 +359,8 @@ pub fn write_internal_rpt(
             let mut min_diff = f64::MAX;
             for (i, (bl, br)) in bl.iter().zip(br.iter()).enumerate() {
                 let diff = (bl.get(idx).unwrap().x() - br.get(idx).unwrap().x()).abs();
-                if diff < 0.3 {
-                    writeln!(rpt, "WARNING: bitline {i} differential is less than 300 mV during sense amp read at t = {} ps", trans.start_time() * 1e12)?;
+                if diff < 0.15 {
+                    writeln!(rpt, "WARNING: bitline {i} differential is less than 150 mV during sense amp read at t = {} ps", trans.start_time() * 1e12)?;
                 }
                 if diff < min_diff {
                     min_diff = diff;

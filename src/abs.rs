@@ -1,19 +1,19 @@
+use crate::blocks::columns;
 use crate::blocks::sram::{Sram, SramParams};
-use crate::blocks::{columns, sram};
 use crate::Result;
-use abstract_lef::AbstractParams;
 use lef21::{
     LefDecimal, LefForeign, LefGeometry, LefLayerGeometries, LefLibrary, LefMacro, LefMacroClass,
     LefPin, LefPinAntennaAttr, LefPinDirection, LefPinUse, LefPoint, LefPort, LefShape,
     LefSymmetry,
 };
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use subgeom::bbox::BoundBox;
 use subgeom::{Corner, Point};
 use substrate::data::SubstrateCtx;
 use substrate::layout::cell::{Port, PortId};
 use substrate::layout::layers::selector::Selector;
 
+#[cfg(feature = "commercial")]
 pub fn run_abstract(
     work_dir: impl AsRef<Path>,
     name: &str,
@@ -21,9 +21,9 @@ pub fn run_abstract(
     gds_path: impl AsRef<Path>,
     verilog_path: impl AsRef<Path>,
 ) -> Result<()> {
-    let abs_work_dir = PathBuf::from(work_dir.as_ref()).join("lef");
+    let abs_work_dir = std::path::PathBuf::from(work_dir.as_ref()).join("lef");
 
-    abstract_lef::run_abstract(AbstractParams {
+    abstract_lef::run_abstract(abstract_lef::AbstractParams {
         work_dir: &abs_work_dir,
         cell_name: name,
         gds_path: gds_path.as_ref(),
@@ -126,18 +126,29 @@ pub fn write_abstract(
                             .port(PortId::new(pin, i))?
                             .shapes(layer)
                             .filter_map(|shape| shape.as_rect())
-                            .map(|rect| {
-                                LefGeometry::Shape(LefShape::Rect(
+                            .map(|rect| match pin {
+                                "vdd" | "vss" => LefGeometry::Shape(LefShape::Rect(
                                     None,
                                     LefPoint::new(
-                                        LefDecimal::new(rect.p0.x, 3),
-                                        LefDecimal::new(rect.p0.y, 3),
+                                        LefDecimal::new(rect.left(), 3),
+                                        LefDecimal::new(rect.bottom(), 3),
                                     ),
                                     LefPoint::new(
-                                        LefDecimal::new(rect.p1.x, 3),
-                                        LefDecimal::new(rect.p1.y, 3),
+                                        LefDecimal::new(rect.right(), 3),
+                                        LefDecimal::new(rect.top(), 3),
                                     ),
-                                ))
+                                )),
+                                _ => LefGeometry::Shape(LefShape::Rect(
+                                    None,
+                                    LefPoint::new(
+                                        LefDecimal::new(rect.left(), 3),
+                                        LefDecimal::new(rect.bottom(), 3),
+                                    ),
+                                    LefPoint::new(
+                                        LefDecimal::new(rect.right(), 3),
+                                        LefDecimal::new(rect.bottom() + rect.width(), 3),
+                                    ),
+                                )),
                             })
                             .collect(),
                         vias: Vec::new(),
@@ -148,7 +159,8 @@ pub fn write_abstract(
                 }],
                 direction: Some(direction.clone()),
                 use_: match pin {
-                    "vdd" | "vss" => Some(LefPinUse::Power),
+                    "vdd" => Some(LefPinUse::Power),
+                    "vss" => Some(LefPinUse::Ground),
                     _ => None,
                 },
                 antenna_model: None,
@@ -156,65 +168,57 @@ pub fn write_abstract(
                     "addr" | "ce" | "we" => vec![
                         LefPinAntennaAttr {
                             key: "ANTENNAGATEAREA".to_string(),
-                            val: LefDecimal::new(63, 3),
+                            val: LefDecimal::new(126_000, 6),
                             layer: Some("met1".to_string()),
                         },
                         LefPinAntennaAttr {
                             key: "ANTENNAPARTIALMETALAREA".to_string(),
                             // Conservative estimate of extra m1
                             val: LefDecimal::new(
-                                sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area() + 149_500,
+                                149_500 + sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area(),
                                 6,
                             ),
                             // due to via.
                             layer: Some("met1".to_string()),
                         },
                     ],
-                    "wmask" => {
-                        let mut attrs = vec![
-                            LefPinAntennaAttr {
-                                key: "ANTENNAGATEAREA".to_string(),
-                                val: LefDecimal::new(63, 3),
-                                layer: Some("met1".to_string()),
-                            },
-                            LefPinAntennaAttr {
-                                key: "ANTENNAPARTIALMETALAREA".to_string(),
-                                // Conservative estimate of extra m1
-                                val: LefDecimal::new(
-                                    sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area()
-                                        + 149_500,
-                                    6,
-                                ),
-                                // due to via.
-                                layer: Some("met1".to_string()),
-                            },
-                        ];
-                        if sram
-                            .cell()
-                            .get_metadata::<sram::layout::Metadata>()
-                            .has_wmask_antenna_jog
-                        {
-                            attrs.push(LefPinAntennaAttr {
-                                key: "ANTENNAPARTIALMETALAREA".to_string(),
-                                // Conservative estimate of extra m2 from vias.
-                                val: LefDecimal::new(2000 * 140 + 2 * 83_200, 6),
-                                // due to via.
-                                layer: Some("met2".to_string()),
-                            });
-                        }
-                        attrs
-                    }
+                    "wmask" => vec![
+                        LefPinAntennaAttr {
+                            key: "ANTENNAGATEAREA".to_string(),
+                            // Conservative estimate of extra m1
+                            val: LefDecimal::new(126_000, 6),
+                            // due to via.
+                            layer: Some("met2".to_string()),
+                        },
+                        LefPinAntennaAttr {
+                            key: "ANTENNAPARTIALMETALAREA".to_string(),
+                            // Conservative estimate of extra m1
+                            val: LefDecimal::new(
+                                149_500 + sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area(),
+                                6,
+                            ),
+                            // due to via.
+                            layer: Some("met1".to_string()),
+                        },
+                        LefPinAntennaAttr {
+                            key: "ANTENNAPARTIALMETALAREA".to_string(),
+                            // Conservative estimate of extra m2 from vias.
+                            val: LefDecimal::new(800 * 140 + 2 * 83_200, 6),
+                            // due to via.
+                            layer: Some("met2".to_string()),
+                        },
+                    ],
                     "din" => vec![
                         LefPinAntennaAttr {
                             key: "ANTENNAGATEAREA".to_string(),
-                            val: LefDecimal::new(63, 3),
-                            layer: Some("met1".to_string()),
+                            val: LefDecimal::new(126_000, 6),
+                            layer: Some("met2".to_string()),
                         },
                         LefPinAntennaAttr {
                             key: "ANTENNAPARTIALMETALAREA".to_string(),
                             // Conservative estimate of extra m1 due to via.
                             val: LefDecimal::new(
-                                sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area() + 149_500,
+                                149_500 + sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area(),
                                 6,
                             ),
                             layer: Some("met1".to_string()),
@@ -239,13 +243,13 @@ pub fn write_abstract(
                                     .dout_diff_area,
                                 6,
                             ),
-                            layer: Some("met1".to_string()),
+                            layer: Some("met2".to_string()),
                         },
                         LefPinAntennaAttr {
                             key: "ANTENNAPARTIALMETALAREA".to_string(),
                             // Conservative estimate of extra m1 due to via.
                             val: LefDecimal::new(
-                                sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area() + 149_500,
+                                149_500 + sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area(),
                                 6,
                             ),
                             layer: Some("met1".to_string()),
@@ -255,7 +259,9 @@ pub fn write_abstract(
                             val: LefDecimal::new(
                                 sram.cell()
                                     .get_metadata::<columns::layout::Metadata>()
-                                    .dout_din_m2_area,
+                                    .dout_din_m2_area
+                                    + 800 * 140
+                                    + 2 * 83_200,
                                 6,
                             ),
                             layer: Some("met2".to_string()),
@@ -274,16 +280,16 @@ pub fn write_abstract(
                                     + 558_000,
                                 6,
                             ),
-                            layer: Some("met1".to_string()),
+                            layer: Some("met2".to_string()),
                         },
-                        LefPinAntennaAttr {
-                            key: "ANTENNAPARTIALMETALAREA".to_string(),
-                            val: LefDecimal::new(
-                                sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area(),
-                                6,
-                            ), // TODO: Correctly calculate this area.
-                            layer: Some("met1".to_string()),
-                        },
+                        // LefPinAntennaAttr {
+                        //     key: "ANTENNAPARTIALMETALAREA".to_string(),
+                        //     val: LefDecimal::new(
+                        //         sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area(),
+                        //         6,
+                        //     ), // TODO: Correctly calculate this area.
+                        //     layer: Some("met1".to_string()),
+                        // },
                     ],
                     "rstb" => vec![
                         LefPinAntennaAttr {
@@ -298,16 +304,16 @@ pub fn write_abstract(
                                     + 4_464_000,
                                 6,
                             ),
-                            layer: Some("met1".to_string()),
+                            layer: Some("met2".to_string()),
                         },
-                        LefPinAntennaAttr {
-                            key: "ANTENNAPARTIALMETALAREA".to_string(),
-                            val: LefDecimal::new(
-                                sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area(),
-                                6,
-                            ), // TODO: Correctly calculate this area.
-                            layer: Some("met1".to_string()),
-                        },
+                        // LefPinAntennaAttr {
+                        //     key: "ANTENNAPARTIALMETALAREA".to_string(),
+                        //     val: LefDecimal::new(
+                        //         sram.port(PortId::new(pin, i))?.largest_rect(m1)?.area(),
+                        //         6,
+                        //     ), // TODO: Correctly calculate this area.
+                        //     layer: Some("met1".to_string()),
+                        // },
                     ],
                     _ => vec![],
                 },

@@ -80,7 +80,7 @@ impl ColPeripherals {
             .run_script::<ColumnsPhysicalDesignScript>(&self.params)?;
 
         for i in 0..wmask_bits {
-            ctx.instantiate::<DecoderStage>(&nand)?
+            ctx.instantiate::<DecoderStage>(nand)?
                 .with_connections([
                     ("predecode_0_0", we),
                     ("predecode_1_0", wmask_in.index(i)),

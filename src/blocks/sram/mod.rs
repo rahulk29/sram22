@@ -185,9 +185,6 @@ impl SramParams {
         let pc_scale = f64::max(bl_cap / COL_CAPACITANCES.pc_b / 8.0, 0.4);
         let mux_scale = f64::max(bl_cap / COL_CAPACITANCES.sel / 8.0, 0.5);
         let wrdrvscale = f64::max(bl_cap / COL_CAPACITANCES.we / 6.0, 0.4);
-        println!(
-            "pc_scale = {pc_scale:.2}, mux_scale = {mux_scale:.2}, wrdrvscale = {wrdrvscale:.2}"
-        );
         ColParams {
             pc: COL_PARAMS.pc.scale(pc_scale),
             wrdriver: COL_PARAMS.wrdriver.scale(wrdrvscale),
@@ -238,14 +235,12 @@ impl Script for SramPhysicalDesignScript {
         ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self::Output> {
         let wl_cap = (params.cols() + 4) as f64 * WORDLINE_CAP_PER_CELL * 1.5; // safety factor.
-        println!("wl_cap = {:.2}fF", wl_cap * 1e15);
         let clamped_wl_cap = f64::min(wl_cap, WORDLINE_CAP_MAX);
-        println!("clamped wl_cap = {:.2}fF", clamped_wl_cap * 1e15);
         let mut col_params = params.col_params();
         let cols = ctx.instantiate_layout::<ColPeripherals>(&col_params)?;
         // +2 for dummy bitcells, then div_ceil by 6 and multiply by 2 for at least 0.9/3 = 0.3 V
         // differential and even number of rows.
-        let rbl_ratio = 3;
+        let rbl_ratio = 6;
         let rbl_rows = (params.rows() + 2).div_ceil(2 * rbl_ratio) * 2;
         let rbl_wl_index = rbl_rows / 2;
         let rbl = ReplicaCellArrayParams {
@@ -300,7 +295,6 @@ impl Script for SramPhysicalDesignScript {
             max_width: Some(addr_gate_inst.brect().height() - 2_000),
             ..fanout_buffer_stage(vert_buffer, wlen_cap)
         };
-        println!("wlen_buffer: {:?}", wlen_buffer);
 
         // Figure out the best width allocation to equalize lengths of the various buffers.
         let mut pc_b_buffer = DecoderStageParams {
@@ -345,12 +339,6 @@ impl Script for SramPhysicalDesignScript {
             .max(1.)
             .round() as usize
             * 2;
-        println!(
-            "pcb tau: {:.2}ps, wrdrven tau: {:.2}ps, sae tau: {:.2}ps",
-            pcb_tau * 1e12,
-            wrdrven_tau * 1e12,
-            sae_tau * 1e12
-        );
         let row_decoder_tree = DecoderTree::new(params.row_bits(), clamped_wl_cap);
         let decoder_delay_invs = (f64::max(
             4.0,
@@ -382,7 +370,6 @@ impl Script for SramPhysicalDesignScript {
             wrdrven_rst_delay_invs: 0, // TODO: Implement delay to equalize sense amp and
                                        // write driver rest delay
         };
-        println!("{:?}", control);
         let row_decoder = DecoderParams {
             pd: DecoderPhysicalDesignParams {
                 style: DecoderStyle::RowMatched,
@@ -411,11 +398,12 @@ impl Script for SramPhysicalDesignScript {
         let num_dffs = params.addr_width() + 2;
         let dffs_inst = ctx.instantiate_layout::<DffArray>(&num_dffs)?;
 
+        // Subtract DFF offset and routing tracks.
         let mut available_height = [
             cols.brect().height()
-            - dffs_inst.brect().height()
-            - 5_500 // DFF offset
-            - 1_400 * params.addr_width() as i64,
+                - dffs_inst.brect().height()
+                - 5_500
+                - 1_400 * params.addr_width() as i64,
             rbl_inst.brect().height(),
             control_inst.brect().width(),
         ]
@@ -458,11 +446,6 @@ impl Script for SramPhysicalDesignScript {
             ((saen_cap / (COL_CAPACITANCES.saen * 32.)).ceil() as i64).clamp(2, 8);
         let col_dec_routing_tracks =
             ((col_sel_cap / (COL_CAPACITANCES.sel * 64.)).ceil() as i64).clamp(2, 4);
-
-        println!("pc_b num tracks: {}", pc_b_routing_tracks);
-        println!("wrdrven num tracks: {}", write_driver_en_routing_tracks);
-        println!("saen num tracks: {}", sense_en_routing_tracks);
-        println!("col_dec num tracks: {}", col_dec_routing_tracks);
 
         col_params.mux.sel_width = 320 + (320 + 360) * (col_dec_routing_tracks - 1);
         col_params.pc.en_b_width = 320 + (320 + 360) * (pc_b_routing_tracks - 1);
@@ -514,6 +497,7 @@ impl Script for SramPhysicalDesignScript {
             rbl,
             replica_pc,
             replica_nmos,
+            // TODO: Fix m1_area replica calculation (currently conservative).
             replica_routing: ReplicaMetalRoutingParams {
                 m0_area: ((col_params.wrdriver.pwidth_driver + col_params.wrdriver.nwidth_driver)
                     as usize)
@@ -543,9 +527,7 @@ impl Component for SramInner {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         arcstr::literal!("sram22_inner")
@@ -570,9 +552,7 @@ impl Component for Sram {
         params: &Self::Params,
         _ctx: &substrate::data::SubstrateCtx,
     ) -> substrate::error::Result<Self> {
-        Ok(Self {
-            params: params.clone(),
-        })
+        Ok(Self { params: *params })
     }
     fn name(&self) -> arcstr::ArcStr {
         self.params.name()
@@ -594,12 +574,7 @@ impl Component for Sram {
     ) -> substrate::error::Result<()> {
         let mut group = Group::new();
         let sram = ctx.instantiate::<SramInner>(&self.params)?;
-        ctx.set_metadata(
-            sram.cell()
-                .get_metadata::<columns::layout::Metadata>()
-                .clone(),
-        );
-        ctx.set_metadata(sram.cell().get_metadata::<self::layout::Metadata>().clone());
+        ctx.set_metadata(*sram.cell().get_metadata::<columns::layout::Metadata>());
         let brect = sram.brect();
 
         let m0 = ctx.layers().get(Selector::Metal(0))?;
@@ -789,7 +764,7 @@ impl Component for SramPex {
 impl Component for SramAggregator {
     type Params = Vec<SramParams>;
 
-    fn new(params: &Self::Params, ctx: &SubstrateCtx) -> substrate::error::Result<Self>
+    fn new(params: &Self::Params, _ctx: &SubstrateCtx) -> substrate::error::Result<Self>
     where
         Self: Sized,
     {
@@ -834,16 +809,11 @@ impl Component for SramAggregator {
 #[cfg(test)]
 pub(crate) mod tests {
 
-    use self::testbench::TestSequence;
-    use crate::blocks::sram::testbench::verify::verify_simulation;
     use crate::paths::*;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use crate::verilog::save_1rw_verilog;
-    use layout::{ColumnMosParams, ReplicaColumnMos, ReplicaColumnMosParams};
-    use rust_decimal::Decimal;
-    use rust_decimal_macros::dec;
-    use substrate::schematic::netlist::NetlistPurpose;
+    use layout::{ReplicaColumnMos, ReplicaColumnMosParams};
 
     use super::*;
 
@@ -967,6 +937,11 @@ pub(crate) mod tests {
 
                 #[cfg(feature = "commercial")]
                 {
+                    use self::testbench::TestSequence;
+                    use crate::blocks::sram::testbench::verify::verify_simulation;
+                    use rust_decimal::Decimal;
+                    use rust_decimal_macros::dec;
+                    use substrate::schematic::netlist::NetlistPurpose;
                     use calibre::drc::{run_drc, DrcParams};
                     use calibre::lvs::{run_lvs, LvsParams};
                     use crate::verification::calibre::{SKY130_DRC_RUNSET_PATH, SKY130_LAYERPROPS_PATH, SKY130_LVS_RULES_PATH};
@@ -1015,76 +990,75 @@ pub(crate) mod tests {
                     ));
                     println!("{}: done running LVS", stringify!($name));
 
-                    // let pex_path = out_spice(&work_dir, "pex_schematic");
-                    // let pex_dir = work_dir.join("pex");
-                    // let _ = std::fs::remove_dir_all(&pex_dir);
-                    // let pex_level = calibre::pex::PexLevel::Rc;
-                    // let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
-                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
-                    //     &$params,
-                    //     &pex_path,
-                    //     NetlistPurpose::Pex,
-                    // ).expect("failed to write pex source netlist");
-                    // let mut opts = std::collections::HashMap::with_capacity(1);
-                    // opts.insert("level".into(), pex_level.as_str().into());
+                    let pex_path = out_spice(&work_dir, "pex_schematic");
+                    let pex_dir = work_dir.join("pex");
+                    let _ = std::fs::remove_dir_all(&pex_dir);
+                    let pex_level = calibre::pex::PexLevel::Rc;
+                    let pex_netlist_path = crate::paths::out_pex(&work_dir, "pex_netlist", pex_level);
+                    ctx.write_schematic_to_file_for_purpose::<Sram>(
+                        &$params,
+                        &pex_path,
+                        NetlistPurpose::Pex,
+                    ).expect("failed to write pex source netlist");
+                    let mut opts = std::collections::HashMap::with_capacity(1);
+                    opts.insert("level".into(), pex_level.as_str().into());
 
-                    // ctx.run_pex(substrate::verification::pex::PexInput {
-                    //     work_dir: pex_dir,
-                    //     layout_path: gds_path.clone(),
-                    //     layout_cell_name: $params.name().clone(),
-                    //     layout_format: substrate::layout::LayoutFormat::Gds,
-                    //     source_paths: vec![pex_path],
-                    //     source_cell_name: $params.name().clone(),
-                    //     pex_netlist_path: pex_netlist_path.clone(),
-                    //     ground_net: "vss".to_string(),
-                    //     opts,
-                    // }).expect("failed to run pex");
-                    // println!("{}: done running PEX", stringify!($name));
+                    ctx.run_pex(substrate::verification::pex::PexInput {
+                        work_dir: pex_dir,
+                        layout_path: gds_path.clone(),
+                        layout_cell_name: $params.name().clone(),
+                        layout_format: substrate::layout::LayoutFormat::Gds,
+                        source_paths: vec![pex_path],
+                        source_cell_name: $params.name().clone(),
+                        pex_netlist_path: pex_netlist_path.clone(),
+                        ground_net: "vss".to_string(),
+                        opts,
+                    }).expect("failed to run pex");
+                    println!("{}: done running PEX", stringify!($name));
 
-                    // let seq = TestSequence::Short;
-                    // let corners = ctx.corner_db();
-                    // let mut handles = Vec::new();
-                    // for vdd in [1.8] {
-                    //     let sf = corners.corner_named("sf").unwrap();
-                    //     let fs = corners.corner_named("fs").unwrap();
-                    //     let ss = corners.corner_named("ss").unwrap();
-                    //     let ff = corners.corner_named("ff").unwrap();
-                    //     // for corner in corners.corners() {
-                    //     for corner in [sf, fs, ss, ff] {
-                    //         let corner = corner.clone();
-                    //         let params = $params.clone();
-                    //         let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
-                    //         // let pex_netlist = None;
-                    //         let work_dir = work_dir.clone();
-                    //         handles.push(std::thread::spawn(move || {
-                    //             let ctx = setup_ctx();
-                    //             let dsn = ctx.run_script::<SramPhysicalDesignScript>(&params).expect("failed to run sram design script");
-                    //             let tb = crate::blocks::sram::testbench::tb_params(params, dsn, vdd, seq, pex_netlist);
-                    //             let work_dir = work_dir.join(format!(
-                    //                 "{}_{:.2}_{}",
-                    //                 corner.name(),
-                    //                 vdd,
-                    //                 seq.as_str(),
-                    //             ));
-                    //             let data = ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
-                    //                 &tb,
-                    //                 &work_dir,
-                    //                 corner.clone(),
-                    //             )
-                    //             .expect("failed to run simulation");
-                    //             verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
-                    //             println!(
-                    //                 "{}: done simulating in corner {} with Vdd = {}, seq = {}",
-                    //                 stringify!($name),
-                    //                 corner.name(),
-                    //                 vdd,
-                    //                 seq,
-                    //             );
-                    //         }));
-                    //     }
-                    // }
-                    // let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
-                    // handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
+                    let seq = TestSequence::Short;
+                    let corners = ctx.corner_db();
+                    let mut handles = Vec::new();
+                    for vdd in [1.8] {
+                        let tt = corners.corner_named("tt").unwrap();
+                        let sf = corners.corner_named("sf").unwrap();
+                        let fs = corners.corner_named("fs").unwrap();
+                        let ss = corners.corner_named("ss").unwrap();
+                        let ff = corners.corner_named("ff").unwrap();
+                        for corner in [tt, sf, fs, ss, ff] {
+                            let corner = corner.clone();
+                            let params = $params.clone();
+                            let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
+                            let work_dir = work_dir.clone();
+                            handles.push(std::thread::spawn(move || {
+                                let ctx = setup_ctx();
+                                let dsn = ctx.run_script::<SramPhysicalDesignScript>(&params).expect("failed to run sram design script");
+                                let tb = crate::blocks::sram::testbench::tb_params(params, dsn, vdd, seq, pex_netlist);
+                                let work_dir = work_dir.join(format!(
+                                    "{}_{:.2}_{}",
+                                    corner.name(),
+                                    vdd,
+                                    seq.as_str(),
+                                ));
+                                let data = ctx.write_simulation_with_corner::<crate::blocks::sram::testbench::SramTestbench>(
+                                    &tb,
+                                    &work_dir,
+                                    corner.clone(),
+                                )
+                                .expect("failed to run simulation");
+                                verify_simulation(&work_dir, &data, &tb).map_err(|e| panic!("failed to verify simulation in corner {} with vdd={vdd:.2}, seq={seq}: {e:#?}", corner.name())).unwrap();
+                                println!(
+                                    "{}: done simulating in corner {} with Vdd = {}, seq = {}",
+                                    stringify!($name),
+                                    corner.name(),
+                                    vdd,
+                                    seq,
+                                );
+                            }));
+                        }
+                    }
+                    let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
+                    handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
 
                     crate::abs::write_abstract(
                         &ctx,
@@ -1094,49 +1068,47 @@ pub(crate) mod tests {
                     .expect("failed to write abstract");
                     println!("{}: done writing abstract", stringify!($name));
 
-                    // let timing_spice_path = out_spice(&work_dir, "timing_schematic");
-                    // ctx.write_schematic_to_file_for_purpose::<Sram>(
-                    //     &$params,
-                    //     &timing_spice_path,
-                    //     NetlistPurpose::Timing,
-                    // )
-                    // .expect("failed to write timing schematic");
-
-                    // let sram = ctx.instantiate_layout::<Sram>(&$params).expect("failed to generate layout");
-                    // let brect = sram.brect();
-                    // let width = Decimal::new(brect.width(), 3);
-                    // let height = Decimal::new(brect.height(), 3);
-                    // for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", 40, dec!(1.95))] {
-                    //     let suffix = match corner {
-                    //         "tt" => "tt_025C_1v80",
-                    //         "ss" => "ss_100C_1v60",
-                    //         "ff" => "ff_n40C_1v95",
-                    //         _ => unreachable!(),
-                    //     };
-                    //     let name = format!("{}_{}", $params.name(), suffix);
-                    //     let params = liberate_mx::LibParams::builder()
-                    //         .work_dir(work_dir.join(format!("lib/{suffix}")))
-                    //         .output_file(crate::paths::out_lib(&work_dir, &name))
-                    //         .corner(corner)
-                    //         .width(width)
-                    //         .height(height)
-                    //         .user_verilog(verilog_path.clone())
-                    //         .cell_name(&*$params.name())
-                    //         .num_words($params.num_words())
-                    //         .data_width($params.data_width())
-                    //         .addr_width($params.addr_width())
-                    //         .wmask_width($params.wmask_width())
-                    //         .mux_ratio($params.mux_ratio())
-                    //         .has_wmask(true)
-                    //         // .source_paths(vec![pex_netlist_path.clone()])
-                    //         .source_paths(vec![timing_spice_path.clone()])
-                    //         .vdd(vdd)
-                    //         .temp(temp)
-                    //         .build()
-                    //         .unwrap();
-                    //     crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
-                    //     println!("{}: done generating LIB for corner `{}`", stringify!($name), corner);
-                    // }
+                    let mut handles = Vec::new();
+                    let sram = ctx.instantiate_layout::<Sram>(&$params).expect("failed to generate layout");
+                    let brect = sram.brect();
+                    let width = Decimal::new(brect.width(), 3);
+                    let height = Decimal::new(brect.height(), 3);
+                    for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", -40, dec!(1.95))] {
+                        let verilog_path = verilog_path.clone();
+                        let work_dir = work_dir.clone();
+                        handles.push(std::thread::spawn(move || {
+                            let suffix = match corner {
+                                "tt" => "tt_025C_1v80",
+                                "ss" => "ss_100C_1v60",
+                                "ff" => "ff_n40C_1v95",
+                                _ => unreachable!(),
+                            };
+                            let name = format!("{}_{}", $params.name(), suffix);
+                            let params = liberate_mx::LibParams::builder()
+                                .work_dir(work_dir.join(format!("lib/{suffix}")))
+                                .output_file(crate::paths::out_lib(&work_dir, &name))
+                                .corner(corner)
+                                .width(width)
+                                .height(height)
+                                .user_verilog(verilog_path)
+                                .cell_name(&*$params.name())
+                                .num_words($params.num_words())
+                                .data_width($params.data_width())
+                                .addr_width($params.addr_width())
+                                .wmask_width($params.wmask_width())
+                                .mux_ratio($params.mux_ratio())
+                                .has_wmask(true)
+                                .source_paths(vec![pex_netlist_path.clone()])
+                                .vdd(vdd)
+                                .temp(temp)
+                                .build()
+                                .unwrap();
+                            crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+                            println!("{}: done generating LIB for corner `{}`", stringify!($name), corner);
+                        }));
+                    }
+                    let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
+                    handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
                 }
 
                 println!("{}: all tasks complete", stringify!($name));

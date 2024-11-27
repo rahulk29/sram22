@@ -1,5 +1,8 @@
+#![allow(unexpected_cfgs)]
+
 use std::path::PathBuf;
 
+#[cfg(feature = "commercial")]
 use crate::verification::calibre::SKY130_LAYERPROPS_PATH;
 pub use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
@@ -24,7 +27,6 @@ use substrate::schematic::netlist::impls::spice::SpiceNetlister;
 use substrate::verification::simulation::{Simulator, SimulatorOpts};
 use tera::Tera;
 
-#[cfg(feature = "commercial")]
 pub mod abs;
 pub mod blocks;
 pub mod cli;

@@ -171,7 +171,7 @@ impl Script for ColumnsPhysicalDesignScript {
         .elaborate()
         .size(cl_max)
         .as_chain();
-        wmask_buffer_gates.push(wmask_buffer_gates.last().unwrap().clone());
+        wmask_buffer_gates.push(*wmask_buffer_gates.last().unwrap());
 
         Ok(ColumnsPhysicalDesign {
             cl_max,
@@ -339,16 +339,17 @@ impl Script for ColumnDesignScript {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "commercial")]
     use crate::measure::impedance::AcImpedanceTbNode;
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
     use arcstr::ArcStr;
+    #[cfg(feature = "commercial")]
     use std::collections::HashMap;
     use subgeom::bbox::{Bbox, BoundBox};
     use substrate::layout::cell::{CellPort, Port, PortId};
     use substrate::layout::layers::selector::Selector;
-    use substrate::schematic::netlist::NetlistPurpose;
 
     use super::layout::{ColCentParams, ColumnCent, TappedColumn};
     use super::*;
@@ -522,6 +523,7 @@ mod tests {
         .expect("failed to write layout");
     }
 
+    #[cfg(feature = "commercial")]
     fn col_peripherals_default_conns() -> HashMap<&'static str, Vec<AcImpedanceTbNode>> {
         let dut = ColPeripherals { params: COL_PARAMS };
         let io = dut.io();
@@ -547,6 +549,7 @@ mod tests {
         }))
     }
 
+    #[cfg(feature = "commercial")]
     fn column_default_conns() -> HashMap<&'static str, Vec<AcImpedanceTbNode>> {
         let col = Column { params: COL_PARAMS };
         let io = col.io();
@@ -579,6 +582,7 @@ mod tests {
         use crate::measure::impedance::{
             AcImpedanceTbNode, AcImpedanceTbParams, AcImpedanceTestbench,
         };
+        use substrate::schematic::netlist::NetlistPurpose;
 
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_columns_cap");

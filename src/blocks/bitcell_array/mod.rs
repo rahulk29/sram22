@@ -306,10 +306,7 @@ impl Component for SpCellArrayWithGuardRing {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use substrate::component::NoParams;
-    use substrate::schematic::netlist::NetlistPurpose;
 
     use crate::paths::{out_gds, out_spice};
     use crate::setup_ctx;
@@ -410,6 +407,8 @@ mod tests {
         use crate::measure::impedance::{
             AcImpedanceTbNode, AcImpedanceTbParams, AcImpedanceTestbench,
         };
+        use std::collections::HashMap;
+        use substrate::schematic::netlist::NetlistPurpose;
 
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_bitline_wordline_cap");

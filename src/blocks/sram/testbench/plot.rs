@@ -1,17 +1,14 @@
 use crate::blocks::sram::testbench::{TbParams, TbSignals};
 use plotters::backend::BitMapBackend;
 use plotters::chart::ChartBuilder;
-use plotters::coord::types::RangedCoordf32;
 use plotters::drawing::IntoDrawingArea;
 use plotters::element::PathElement;
 use plotters::prelude::IntoFont;
 use plotters::series::LineSeries;
 use plotters::style::{Color, RGBColor, ShapeStyle};
 use psfparser::analysis::transient::TransientData;
-use psfparser::binary::ast::PsfAst;
 use std::ops::Range;
 use std::path::PathBuf;
-use substrate::verification::simulation::waveform::SharedWaveform;
 
 #[derive(Debug, Clone)]
 pub struct PlotParams {
@@ -69,15 +66,15 @@ fn plot_inner(
         chart
             .draw_series(LineSeries::new(
                 t.iter().zip(y).map(|(x, y)| (*x as f32, *y as f32)),
-                style.clone(),
+                style,
             ))
             .unwrap()
             .label(name)
-            .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], style.clone()));
+            .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], style));
     };
 
     for (name, sig) in signals {
-        plot(name, sig.clone());
+        plot(name, *sig);
     }
     chart
         .configure_series_labels()
@@ -126,6 +123,7 @@ pub fn plot_write(params: PlotParams) -> substrate::error::Result<()> {
 }
 
 #[cfg(test)]
+#[cfg(feature = "commercial")]
 mod tests {
     use crate::blocks::sram::testbench::plot::*;
     use crate::blocks::sram::testbench::TestSequence;
@@ -133,7 +131,10 @@ mod tests {
     use crate::blocks::sram::SramPhysicalDesignScript;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
+    use plotters::coord::types::RangedCoordf32;
+    use psfparser::binary::ast::PsfAst;
     use std::path::PathBuf;
+    use substrate::verification::simulation::waveform::SharedWaveform;
 
     #[test]
     fn plot_sram() {

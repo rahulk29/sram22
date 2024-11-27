@@ -264,10 +264,10 @@ impl ColPeripherals {
                 ctx.add_port(CellPort::with_shape(port_id, m1, out_rect))?;
             }
         }
+        let half_latch_inv_out = self.params.latch.inv_out.scale(0.5);
         ctx.set_metadata(Metadata {
             dout_din_m2_area: m2_area,
-            dout_diff_area: (self.params.latch.inv_out.nwidth + self.params.latch.inv_out.pwidth)
-                * 280,
+            dout_diff_area: (half_latch_inv_out.nwidth + half_latch_inv_out.pwidth) * 280,
         });
 
         // Route wmask to bottom on m1.
@@ -363,7 +363,7 @@ impl WmaskPeripherals {
             .inner()
             .run_script::<ColumnsPhysicalDesignScript>(&self.params)?;
 
-        let mut nand_stage = ctx.instantiate::<DecoderStage>(&nand)?;
+        let mut nand_stage = ctx.instantiate::<DecoderStage>(nand)?;
         let wmask_dff = ctx.instantiate::<DffCol>(&NoParams)?;
 
         let mut grid = Grid::new(0, 0);
