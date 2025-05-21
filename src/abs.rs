@@ -323,7 +323,7 @@ pub fn write_abstract(
                 supply_sensitivity: None,
                 ground_sensitivity: None,
                 must_join: None,
-                properties: None,
+                properties: vec![],
             });
         }
     }
