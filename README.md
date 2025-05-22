@@ -94,9 +94,6 @@ sram22
 Add additional flags depending on what views you want to generate and what verification you want to run.
 If you do not have access to BWRC servers, most flags will not be available.
 
-If you have access to proprietary tools (eg. Calibre, Spectre, etc.) and would like access
-to the SRAM22 plugins for those tools, please contact us.
-
 The number of rows in the SRAM bitcell array is `num_words / mux_ratio`.
 The number of columns in the array is `data_width * mux_ratio`.
 
