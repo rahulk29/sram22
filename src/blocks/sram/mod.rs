@@ -1076,7 +1076,7 @@ pub(crate) mod tests {
                     for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", -40, dec!(1.95))] {
                         let verilog_path = verilog_path.clone();
                         let work_dir = work_dir.clone();
-                    let pex_netlist_path = pex_netlist_path.clone();
+                        let pex_netlist_path = pex_netlist_path.clone();
                         handles.push(std::thread::spawn(move || {
                             let suffix = match corner {
                                 "tt" => "tt_025C_1v80",
