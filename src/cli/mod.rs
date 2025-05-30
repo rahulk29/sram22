@@ -84,6 +84,8 @@ pub fn run() -> Result<()> {
         ctx: Some(&mut ctx),
         #[cfg(feature = "commercial")]
         pex_level: config.pex_level,
+        #[cfg(feature = "commercial")]
+        pex_corners: config.pex_corners,
     });
 
     ctx.check(res)?;

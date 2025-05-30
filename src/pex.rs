@@ -1,6 +1,38 @@
-use serde::Serialize;
+use std::fmt::Display;
+
+use serde::{Deserialize, Serialize};
 use substrate::component::{error, Component};
 use substrate::error::ErrorSource;
+
+#[derive(
+    Copy, Clone, Eq, PartialEq, Default, Debug, Ord, PartialOrd, Hash, Serialize, Deserialize,
+)]
+pub enum PexCorner {
+    #[default]
+    Typical,
+    HRHC,
+    HRLC,
+    LRHC,
+    LRLC,
+}
+
+impl PexCorner {
+    pub fn as_str(&self) -> &'static str {
+        match *self {
+            Self::Typical => "Typical",
+            Self::HRHC => "HRHC",
+            Self::HRLC => "HRLC",
+            Self::LRHC => "LRHC",
+            Self::LRLC => "LRLC",
+        }
+    }
+}
+
+impl Display for PexCorner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
 
 pub struct Pex<T: Component> {
     params: T::Params,

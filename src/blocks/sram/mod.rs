@@ -4,6 +4,7 @@ use crate::blocks::columns::ColumnsPhysicalDesignScript;
 use crate::blocks::control::{ControlLogicParams, ControlLogicReplicaV2};
 use crate::blocks::precharge::layout::ReplicaPrecharge;
 use crate::blocks::precharge::PrechargeParams;
+use crate::pex::PexCorner;
 use arcstr::ArcStr;
 use layout::{ReplicaColumnMos, ReplicaColumnMosParams, ReplicaMetalRoutingParams};
 use serde::{Deserialize, Serialize};
@@ -59,6 +60,9 @@ pub struct SramConfig {
     pub write_size: usize,
     #[cfg(feature = "commercial")]
     pub pex_level: Option<calibre::pex::PexLevel>,
+    #[cfg(feature = "commercial")]
+    #[serde(default)]
+    pub pex_corners: Vec<PexCorner>,
 }
 
 pub fn parse_sram_config(path: impl AsRef<Path>) -> anyhow::Result<SramConfig> {

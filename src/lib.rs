@@ -81,9 +81,6 @@ pub fn setup_ctx() -> SubstrateCtx {
                 .rules_file(PathBuf::from(
                     crate::verification::calibre::SKY130_DRC_RULES_PATH,
                 ))
-                .runset_file(PathBuf::from(
-                    crate::verification::calibre::SKY130_DRC_RUNSET_PATH,
-                ))
                 .layerprops(PathBuf::from(SKY130_LAYERPROPS_PATH))
                 .build()
                 .unwrap(),
@@ -107,9 +104,6 @@ pub fn setup_ctx() -> SubstrateCtx {
         })
         .unwrap(),
     );
-
-    #[cfg(feature = "commercial")]
-    builder.simulation_bashrc("/tools/B/rahulkumar/sky130/priv/drc/.bashrc");
 
     let cfg = builder
         .netlister(SpiceNetlister::new())

@@ -1,11 +1,14 @@
 use crate::blocks::sram::{Sram, SramConfig, SramParams};
 use crate::cli::progress::StepContext;
 use crate::paths::{out_gds, out_spice, out_verilog};
+use crate::pex::PexCorner;
+use crate::verification::calibre::SKY130_PEX_RULES_PATH;
 use crate::verilog::save_1rw_verilog;
 use crate::{setup_ctx, Result};
 use anyhow::bail;
+use calibre::pex::PexParams;
 use std::collections::HashSet;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// A concrete plan for an SRAM.
 ///
@@ -40,6 +43,8 @@ pub struct ExecutePlanParams<'a> {
     pub ctx: Option<&'a mut StepContext>,
     #[cfg(feature = "commercial")]
     pub pex_level: Option<calibre::pex::PexLevel>,
+    #[cfg(feature = "commercial")]
+    pub pex_corners: Vec<PexCorner>,
 }
 
 pub fn generate_plan(config: &SramConfig) -> Result<SramPlan> {
@@ -175,31 +180,39 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
         }
         let pex_dir = work_dir.join("pex");
         let pex_source_path = out_spice(&pex_dir, "schematic");
-        let pex_out_path = out_spice(&pex_dir, "schematic.pex");
 
         try_execute_task!(
             params.tasks,
             TaskKey::RunPex,
             {
-                sctx.write_schematic_to_file_for_purpose::<Sram>(
-                    &plan.sram_params,
-                    &pex_source_path,
-                    NetlistPurpose::Pex,
-                )?;
-                let mut opts = HashMap::with_capacity(1);
-                opts.insert("level".into(), params.pex_level.unwrap().as_str().into());
+                let mut corners: HashSet<_> = params.pex_corners.iter().copied().collect();
+                corners.insert(PexCorner::Typical);
+                corners.insert(PexCorner::HRHC);
+                corners.insert(PexCorner::LRLC);
+                for corner in corners {
+                    let pex_out_path = out_spice(
+                        &pex_dir,
+                        &format!("schematic_{}.pex", corner.as_str().to_lowercase()),
+                    );
+                    sctx.write_schematic_to_file_for_purpose::<Sram>(
+                        &plan.sram_params,
+                        &pex_source_path,
+                        NetlistPurpose::Pex,
+                    )?;
 
-                sctx.run_pex(PexInput {
-                    work_dir: pex_dir,
-                    layout_path: gds_path,
-                    layout_cell_name: name.clone(),
-                    layout_format: substrate::layout::LayoutFormat::Gds,
-                    source_paths: vec![pex_source_path],
-                    source_cell_name: name.clone(),
-                    pex_netlist_path: pex_out_path.clone(),
-                    opts,
-                    ground_net: "vss".to_string(),
-                })?;
+                    calibre::pex::run_pex(&PexParams {
+                        work_dir: &pex_dir,
+                        layout_path: &gds_path,
+                        layout_cell_name: &name,
+                        source_paths: &[pex_source_path.clone()],
+                        source_cell_name: &name,
+                        pex_netlist_path: &pex_out_path,
+                        ground_net: "vss",
+                        defines: &[("PEX_PROCESS", corner.as_str())],
+                        rules_path: &PathBuf::from(SKY130_PEX_RULES_PATH),
+                        level: params.pex_level.unwrap(),
+                    })?;
+                }
             },
             ctx
         );
@@ -211,22 +224,6 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
             {
                 use substrate::schematic::netlist::NetlistPurpose;
 
-                let source_path = if params.pex_level.is_some() {
-                    if !pex_out_path.exists() {
-                        bail!("PEX netlist not found at path `{:?}`", pex_out_path);
-                    }
-                    pex_out_path
-                } else {
-                    let timing_spice_path = out_spice(work_dir, "timing_schematic");
-                    sctx.write_schematic_to_file_for_purpose::<Sram>(
-                        &sram_params,
-                        &timing_spice_path,
-                        NetlistPurpose::Timing,
-                    )
-                    .expect("failed to write timing schematic");
-                    timing_spice_path
-                };
-
                 let mut handles = Vec::new();
                 let sram = sctx
                     .instantiate_layout::<Sram>(&sram_params)
@@ -234,14 +231,33 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                 let brect = sram.brect();
                 let width = Decimal::new(brect.width(), 3);
                 let height = Decimal::new(brect.height(), 3);
-                for (corner, temp, vdd) in [
-                    ("tt", 25, dec!(1.8)),
-                    ("ss", 100, dec!(1.6)),
-                    ("ff", -40, dec!(1.95)),
+                for (corner, temp, vdd, pex_corner) in [
+                    ("tt", 25, dec!(1.8), PexCorner::Typical),
+                    ("ss", 100, dec!(1.6), PexCorner::HRHC),
+                    ("ff", -40, dec!(1.95), PexCorner::LRLC),
                 ] {
                     let verilog_path = verilog_path.clone();
                     let work_dir = std::path::PathBuf::from(work_dir);
-                    let source_path = source_path.clone();
+                    let source_path = if params.pex_level.is_some() {
+                        let pex_out_path = out_spice(
+                            &pex_dir,
+                            &format!("schematic_{}.pex", pex_corner.as_str().to_lowercase()),
+                        );
+                        if !pex_out_path.exists() {
+                            bail!("PEX netlist not found at path `{:?}`", pex_out_path);
+                        }
+                        pex_out_path
+                    } else {
+                        let timing_spice_path = out_spice(&work_dir, "timing_schematic");
+                        sctx.write_schematic_to_file_for_purpose::<Sram>(
+                            &sram_params,
+                            &timing_spice_path,
+                            NetlistPurpose::Timing,
+                        )
+                        .expect("failed to write timing schematic");
+                        timing_spice_path
+                    };
+
                     let sram_params = sram_params.clone();
                     handles.push(std::thread::spawn(move || {
                         let suffix = match corner {
