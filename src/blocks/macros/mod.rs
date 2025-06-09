@@ -284,7 +284,7 @@ pub struct SpWlstrapP;
 #[hard_macro(
     name = "sram_sp_horiz_wlstrap_p2",
     pdk = "sky130-open",
-    path_fn = "layout_path",
+    path_fn = "path",
     gds_cell_name = "sky130_fd_bd_sram__sram_sp_horiz_wlstrap_p"
 )]
 pub struct SpHorizWlstrapP;

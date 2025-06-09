@@ -1,0 +1,3 @@
+.subckt sram_sp_horiz_wlstrap_p2 VSS VNB
+X0 VSS VSS VSS VNB sky130_fd_pr__nfet_01v8 w=0.42 l=0.15
+.ends
