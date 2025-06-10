@@ -11,7 +11,7 @@ use substrate::layout::layers::selector::Selector;
 use substrate::layout::layers::LayerKey;
 use substrate::layout::placement::grid::GridTiler;
 use substrate::layout::placement::nine_patch::{NpTiler, Region};
-use substrate::layout::placement::tile::OptionTile;
+use substrate::layout::placement::tile::{LayerBbox, OptionTile};
 use substrate::{into_grid, into_vec};
 
 use crate::blocks::macros::{
@@ -189,6 +189,10 @@ impl Component for SpCellArrayCornerLr {
         let cell = ctx
             .instantiate::<SpCellOpt1a>(&NoParams)?
             .with_orientation(Named::R180);
+
+        let layers = ctx.layers();
+        let outline = layers.get(Selector::Name("outline"))?;
+        let horiz_wlstrap_p = LayerBbox::new(horiz_wlstrap_p, outline);
 
         let mut grid_tiler = GridTiler::new(into_grid![
                     [horiz_wlstrap_p, hstrap, rowend_hstrap]
@@ -478,6 +482,10 @@ impl Component for SpCellArrayCenter {
         let hstrap_2 = ctx.instantiate::<SpHstrap>(&NoParams)?;
         let horiz_wlstrap_p = ctx.instantiate::<SpHorizWlstrapP>(&NoParams)?;
 
+        let layers = ctx.layers();
+        let outline = layers.get(Selector::Name("outline"))?;
+        let horiz_wlstrap_p = LayerBbox::new(horiz_wlstrap_p, outline);
+
         cell_2.set_orientation(Named::ReflectHoriz);
         cell_opt1a_1.set_orientation(Named::ReflectVert);
         cell_opt1a_2.set_orientation(Named::R180);
@@ -553,6 +561,10 @@ impl Component for SpCellArrayBottom {
         cell_opt1a_2.set_orientation(Named::R180);
         wlstrapa_p.set_orientation(Named::ReflectVert);
         colenda_p_cent.set_orientation(Named::ReflectVert);
+
+        let layers = ctx.layers();
+        let outline = layers.get(Selector::Name("outline"))?;
+        let horiz_wlstrap_p = LayerBbox::new(horiz_wlstrap_p, outline);
 
         let cell_1_col = into_vec![hstrap_1, cell_opt1a_1, colenda_1];
         let cell_2_col = into_vec![hstrap_2, cell_opt1a_2, colenda_2];
@@ -632,6 +644,10 @@ impl Component for SpCellArrayRight {
         cell.set_orientation(Named::ReflectHoriz);
         cell_opt1a.set_orientation(Named::R180);
 
+        let layers = ctx.layers();
+        let outline = layers.get(Selector::Name("outline"))?;
+        let horiz_wlstrap_p = LayerBbox::new(horiz_wlstrap_p, outline);
+
         let cell_row: Vec<OptionTile> = into_vec![wlstrap_p, cell, rowend];
         let cell_opt1a_row = into_vec![wlstrapa_p, cell_opt1a, rowenda];
         let hstrap = into_vec![horiz_wlstrap_p, hstrap, rowend_hstrap];
@@ -679,6 +695,8 @@ impl SpCellArray {
         let hstrap_ratio = 4;
         let nx = self.params.cols / self.params.mux_ratio;
         let ny = self.params.rows / hstrap_ratio;
+        let layers = ctx.layers();
+        let outline = layers.get(Selector::Name("outline"))?;
 
         let tap_ratio = TapRatio {
             mux_ratio: self.params.mux_ratio,
@@ -690,22 +708,26 @@ impl SpCellArray {
 
         let top = ctx.instantiate::<SpCellArrayTop>(&tap_ratio)?;
         let center = ctx.instantiate::<SpCellArrayCenter>(&tap_ratio)?;
+        let center = LayerBbox::new(center, outline);
         let bot = ctx.instantiate::<SpCellArrayBottom>(&tap_ratio)?;
+        let bot = LayerBbox::new(bot, outline);
 
         let corner_ur = ctx.instantiate::<SpCellArrayCornerUr>(&NoParams)?;
         let right = ctx.instantiate::<SpCellArrayRight>(&tap_ratio)?;
+        let right = LayerBbox::new(right, outline);
         let corner_lr = ctx.instantiate::<SpCellArrayCornerLr>(&NoParams)?;
+        let corner_lr = LayerBbox::new(corner_lr, outline);
 
         let tiler = NpTiler::builder()
             .set(Region::CornerUl, &corner_ul)
             .set(Region::Left, &left)
             .set(Region::CornerLl, &corner_ll)
             .set(Region::Top, &top)
-            .set(Region::Center, &center)
-            .set(Region::Bottom, &bot)
+            .set(Region::Center, center)
+            .set(Region::Bottom, bot)
             .set(Region::CornerUr, &corner_ur)
-            .set(Region::Right, &right)
-            .set(Region::CornerLr, &corner_lr)
+            .set(Region::Right, right)
+            .set(Region::CornerLr, corner_lr)
             .nx(nx)
             .ny(ny)
             .build();

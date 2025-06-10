@@ -4,7 +4,7 @@ use substrate::schematic::circuit::Direction;
 use substrate::schematic::context::SchematicCtx;
 
 use super::SpCellArray;
-use crate::blocks::macros::{SpCell, SpColend, SpHstrap};
+use crate::blocks::macros::{SpCell, SpColend, SpHorizWlstrapP, SpHstrap};
 
 impl SpCellArray {
     pub(crate) fn schematic(
@@ -66,6 +66,14 @@ impl SpCellArray {
             Ok(())
         };
 
+        let make_horiz_wlstrap = |ctx: &mut SchematicCtx, name| -> substrate::error::Result<()> {
+            let mut cell = ctx.instantiate::<SpHorizWlstrapP>(&NoParams)?;
+            cell.connect_all([("VSS", vss), ("VNB", vss)]);
+            cell.set_name(name);
+            ctx.add_instance(cell);
+            Ok(())
+        };
+
         for i in 0..self.params.rows {
             for j in 0..self.params.cols {
                 // .subckt sky130_fd_bd_sram__sram_sp_cell_opt1a BL BR VDD VSS WL VNB VPB
@@ -114,6 +122,12 @@ impl SpCellArray {
             make_colend(ctx, bl, br, arcstr::format!("colend_bot_{j}"))?;
             for i in 0..self.params.rows / 4 + 1 {
                 make_hstrap(ctx, bl, br, arcstr::format!("hstrap_{i}_{j}"))?;
+            }
+        }
+
+        for j in 0..(self.params.cols / self.params.mux_ratio) + 1 {
+            for i in 0..self.params.rows / 4 + 1 {
+                make_horiz_wlstrap(ctx, arcstr::format!("horiz_wlstrap_{i}_{j}"))?;
             }
         }
 
