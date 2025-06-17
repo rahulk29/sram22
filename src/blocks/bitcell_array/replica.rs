@@ -527,6 +527,19 @@ impl Component for ReplicaCellArray {
                     .named(format!("rowtapend_{j}_{i}"))
                     .add_to(ctx);
             }
+            for i in 0..self.params.cols {
+                ctx.instantiate::<SpHstrap>(&NoParams)?
+                    .with_connections([
+                        ("BL", bl),
+                        ("BR", br),
+                        ("VDD", vdd),
+                        ("VPB", vdd),
+                        ("VSS", vss),
+                        ("VNB", vss),
+                    ])
+                    .named(format!("hstrap_{j}_{i}"))
+                    .add_to(ctx);
+            }
         }
 
         Ok(())
