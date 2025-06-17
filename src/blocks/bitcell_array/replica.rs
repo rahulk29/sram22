@@ -304,7 +304,6 @@ impl Component for LeftRight {
     ) -> substrate::error::Result<()> {
         let rowend = ctx.instantiate::<SpRowendReplica>(&NoParams)?;
         let rowenda = ctx.instantiate::<SpRowendaReplica>(&NoParams)?;
-        let rowend_flip = rowend.with_orientation(Named::ReflectVert);
         let rowenda_flip = rowenda.with_orientation(Named::ReflectVert);
         let rowend_hstrap = ctx.instantiate::<WlstrapRowendHstrap>(&NoParams)?;
         let rowend_hstrap_bbox = rowend_hstrap.bbox().into_rect();

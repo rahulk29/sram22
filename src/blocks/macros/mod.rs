@@ -355,6 +355,14 @@ pub struct SpRowenda;
 pub struct SpRowendaReplica;
 
 #[hard_macro(
+    name = "sram_sp_rowtapend_replica",
+    pdk = "sky130-open",
+    path_fn = "path",
+    gds_cell_name = "sky130_fd_bd_sram__sram_sp_rowtapend_replica"
+)]
+pub struct SpRowtapendReplica;
+
+#[hard_macro(
     name = "sram_sp_wlstrapa",
     pdk = "sky130-open",
     path_fn = "layout_path",
