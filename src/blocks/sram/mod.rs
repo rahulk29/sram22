@@ -241,7 +241,7 @@ impl Script for SramPhysicalDesignScript {
         // +2 for dummy bitcells, then div_ceil by 6 and multiply by 2 for at least 0.9/3 = 0.3 V
         // differential and even number of rows.
         let rbl_ratio = 6;
-        let rbl_rows = (params.rows() + 2).div_ceil(2 * rbl_ratio) * 2;
+        let rbl_rows = (params.rows() + 2).div_ceil(4 * rbl_ratio) * 4;
         let rbl_wl_index = rbl_rows / 2;
         let rbl = ReplicaCellArrayParams {
             rows: rbl_rows,

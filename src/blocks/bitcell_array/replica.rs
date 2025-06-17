@@ -1,6 +1,6 @@
 use crate::blocks::macros::{
     SpCellOpt1aReplica, SpCellReplica, SpColend, SpColenda, SpCorner, SpCornera, SpHorizWlstrapP,
-    SpHstrap, SpRowendHstrap, SpRowendReplica, SpRowendaReplica,
+    SpHstrap, SpRowendHstrap, SpRowendReplica, SpRowendaReplica, SpRowtapendReplica,
 };
 use arcstr::ArcStr;
 use itertools::Itertools;
@@ -28,9 +28,9 @@ pub struct ReplicaCellArrayParams {
     pub cols: usize,
 }
 
-pub struct WlstrapRowendHstrap;
+pub struct RowTapEndRowendHstrap;
 
-impl Component for WlstrapRowendHstrap {
+impl Component for RowTapEndRowendHstrap {
     type Params = NoParams;
 
     fn new(
@@ -48,7 +48,9 @@ impl Component for WlstrapRowendHstrap {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let wlstrap = ctx.instantiate::<SpHorizWlstrapP>(&NoParams)?;
+        let wlstrap = ctx
+            .instantiate::<SpRowtapendReplica>(&NoParams)?
+            .with_orientation(Named::ReflectHoriz);
         let rowend = ctx
             .instantiate::<SpRowendHstrap>(&NoParams)?
             .with_orientation(Named::ReflectVert);
@@ -303,9 +305,10 @@ impl Component for LeftRight {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let rowend = ctx.instantiate::<SpRowendReplica>(&NoParams)?;
-        let rowenda = ctx.instantiate::<SpRowendaReplica>(&NoParams)?;
-        let rowenda_flip = rowenda.with_orientation(Named::ReflectVert);
-        let rowend_hstrap = ctx.instantiate::<WlstrapRowendHstrap>(&NoParams)?;
+        let rowenda = ctx
+            .instantiate::<SpRowendaReplica>(&NoParams)?
+            .with_orientation(Named::ReflectVert);
+        let rowend_hstrap = ctx.instantiate::<RowTapEndRowendHstrap>(&NoParams)?;
         let rowend_hstrap_bbox = rowend_hstrap.bbox().into_rect();
         let rowend_hstrap = RectBbox::new(
             rowend_hstrap,
@@ -315,7 +318,7 @@ impl Component for LeftRight {
             )),
         );
 
-        let grid = into_grid![[rowend_hstrap][rowenda_flip][rowenda][rowend_flip][rowend]];
+        let grid = into_grid![[rowend_hstrap][rowenda.clone()][rowend.clone()][rowenda][rowend]];
         let mut grid_tiler = GridTiler::new(grid);
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
@@ -412,13 +415,14 @@ impl Component for CornerBot {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let rowend = ctx.instantiate::<SpRowendaReplica>(&NoParams)?;
-        let rowend_flip = rowend.with_orientation(Named::ReflectVert);
+        let rowend = ctx
+            .instantiate::<SpRowendaReplica>(&NoParams)?
+            .with_orientation(Named::ReflectVert);
         let corner = ctx
             .instantiate::<SpCornera>(&NoParams)?
             .with_orientation(Named::ReflectVert);
 
-        let rowend_hstrap = ctx.instantiate::<WlstrapRowendHstrap>(&NoParams)?;
+        let rowend_hstrap = ctx.instantiate::<RowTapEndRowendHstrap>(&NoParams)?;
         let rowend_hstrap_bbox = rowend_hstrap.bbox().into_rect();
         let rowend_hstrap = RectBbox::new(
             rowend_hstrap,
@@ -428,7 +432,7 @@ impl Component for CornerBot {
             )),
         );
 
-        let grid = into_grid![[rowend_hstrap][rowend_flip][corner]];
+        let grid = into_grid![[rowend_hstrap][rowend][corner]];
         let mut grid_tiler = GridTiler::new(grid);
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
@@ -479,7 +483,9 @@ impl Component for ReplicaCellArray {
         let br = ctx.port("rbr", Direction::InOut);
         let wl = ctx.port("rwl", Direction::Input);
 
-        for i in 0..self.params.rows {
+        let rows = (self.params.rows - 2).div_ceil(4) * 4 + 2;
+
+        for i in 0..rows {
             for j in 0..self.params.cols {
                 let wl = if i == 0 { wl } else { vss };
                 ctx.instantiate::<SpCellReplica>(&NoParams)?
@@ -509,6 +515,16 @@ impl Component for ReplicaCellArray {
                         ("VNB", vss),
                     ])
                     .named(format!("colend_{i}_{j}"))
+                    .add_to(ctx);
+            }
+        }
+
+        let rowtaps = (rows - 2).div_ceil(4) + 1;
+        for j in 0..rowtaps {
+            for i in 0..2 {
+                ctx.instantiate::<SpRowtapendReplica>(&NoParams)?
+                    .with_connections([("VSS", vss), ("VNB", vss)])
+                    .named(format!("rowtapend_{j}_{i}"))
                     .add_to(ctx);
             }
         }
@@ -559,7 +575,7 @@ impl Component for ReplicaCellArray {
         );
 
         let nx = self.params.cols / 2;
-        let ny = self.params.rows / 4 - 1;
+        let ny = (self.params.rows - 2).div_ceil(4);
 
         let tiler = NpTiler::builder()
             .set(Region::CornerUl, LayerBbox::new(corner_ul, outline))
