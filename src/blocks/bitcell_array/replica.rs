@@ -1,6 +1,6 @@
 use crate::blocks::macros::{
-    SpCellOpt1aReplica, SpCellReplica, SpColend, SpColenda, SpCorner, SpCornera, SpHorizWlstrapP,
-    SpHstrap, SpRowendHstrap, SpRowendReplica, SpRowendaReplica, SpRowtapendReplica,
+    SpCellOpt1aReplica, SpCellReplica, SpColend, SpColenda, SpCorner, SpCornera, SpHstrap,
+    SpRowendHstrap, SpRowendReplica, SpRowendaReplica, SpRowtapendReplica,
 };
 use arcstr::ArcStr;
 use itertools::Itertools;
