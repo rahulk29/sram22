@@ -241,7 +241,7 @@ impl Script for SramPhysicalDesignScript {
         // +2 for dummy bitcells, then div_ceil by 6 and multiply by 2 for at least 0.9/3 = 0.3 V
         // differential and even number of rows.
         let rbl_ratio = 6;
-        let rbl_rows = (params.rows() + 2).div_ceil(2 * rbl_ratio) * 2;
+        let rbl_rows = (params.rows() + 2).div_ceil(4 * rbl_ratio) * 4;
         let rbl_wl_index = rbl_rows / 2;
         let rbl = ReplicaCellArrayParams {
             rows: rbl_rows,
@@ -946,28 +946,6 @@ pub(crate) mod tests {
                     use calibre::lvs::{run_lvs, LvsParams};
                     use crate::verification::calibre::{SKY130_DRC_RUNSET_PATH, SKY130_LAYERPROPS_PATH, SKY130_LVS_RULES_PATH};
 
-                    let drc_work_dir = work_dir.join("drc");
-                    for deck in [
-                        "drc", "latchup", "soft", "luRes",
-                        // "stress", "fill"
-                    ] {
-                        let deck_work_dir = drc_work_dir.join(deck);
-                        let output = run_drc(&DrcParams {
-                            cell_name: &$params.name(),
-                            work_dir: &deck_work_dir,
-                            layout_path: &gds_path,
-                            rules_path: Path::new(&format!("/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/DRC/Calibre/s8_{deck}Rules")),
-                            runset_path: (deck == "drc").then(|| Path::new(SKY130_DRC_RUNSET_PATH)),
-                            layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
-                        }).expect("failed to run DRC");
-                        println!("{:?}", output.rule_checks);
-                        assert!(
-                            output.rule_checks.is_empty(),
-                            "DRC must have no rule violations"
-                        );
-                        println!("{}: done running DRC deck `{}`", stringify!($name), deck);
-                    }
-
                     let lvs_path = out_spice(&work_dir, "lvs_schematic");
                     ctx.write_schematic_to_file_for_purpose::<Sram>(
                         &$params,
@@ -989,6 +967,29 @@ pub(crate) mod tests {
                         calibre::lvs::LvsStatus::Correct
                     ));
                     println!("{}: done running LVS", stringify!($name));
+
+
+                    let drc_work_dir = work_dir.join("drc");
+                    for deck in [
+                        "drc", "latchup", "soft", "luRes",
+                        // "stress", "fill"
+                    ] {
+                        let deck_work_dir = drc_work_dir.join(deck);
+                        let output = run_drc(&DrcParams {
+                            cell_name: &$params.name(),
+                            work_dir: &deck_work_dir,
+                            layout_path: &gds_path,
+                            rules_path: Path::new(&format!("/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/DRC/Calibre/s8_{deck}Rules")),
+                            runset_path: (deck == "drc").then(|| Path::new(SKY130_DRC_RUNSET_PATH)),
+                            layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
+                        }).expect("failed to run DRC");
+                        println!("{:?}", output.rule_checks);
+                        assert!(
+                            output.rule_checks.is_empty(),
+                            "DRC must have no rule violations"
+                        );
+                        println!("{}: done running DRC deck `{}`", stringify!($name), deck);
+                    }
 
                     let pex_path = out_spice(&work_dir, "pex_schematic");
                     let pex_dir = work_dir.join("pex");
@@ -1076,6 +1077,7 @@ pub(crate) mod tests {
                     for (corner, temp, vdd) in [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", -40, dec!(1.95))] {
                         let verilog_path = verilog_path.clone();
                         let work_dir = work_dir.clone();
+                        let pex_netlist_path = pex_netlist_path.clone();
                         handles.push(std::thread::spawn(move || {
                             let suffix = match corner {
                                 "tt" => "tt_025C_1v80",
