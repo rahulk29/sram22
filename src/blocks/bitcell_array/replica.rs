@@ -1,6 +1,6 @@
 use crate::blocks::macros::{
-    SpCellOpt1aReplica, SpCellReplica, SpColend, SpCorner, SpHorizWlstrapP, SpHstrap,
-    SpRowendHstrap, SpRowendReplica,
+    SpCellOpt1aReplica, SpCellReplica, SpColend, SpColenda, SpCorner, SpCornera, SpHorizWlstrapP,
+    SpHstrap, SpRowendHstrap, SpRowendReplica, SpRowendaReplica,
 };
 use arcstr::ArcStr;
 use itertools::Itertools;
@@ -107,7 +107,7 @@ impl Component for Center {
             .with_orientation(Named::ReflectVert);
 
         let replica_flip = replica.with_orientation(Named::ReflectHoriz);
-        let replica_a_flip = replica.with_orientation(Named::R180);
+        let replica_a_flip = replica_a.with_orientation(Named::R180);
 
         let hstrap = ctx.instantiate::<SpHstrap>(&NoParams)?;
         let hstrap_flip = hstrap.with_orientation(Named::ReflectHoriz);
@@ -128,7 +128,7 @@ impl Component for Center {
         .collect_tuple()
         .unwrap();
 
-        let grid = into_grid![[c.clone(), d.clone()][a.clone(), b.clone()][c, d][a, b][f, e]];
+        let grid = into_grid![[f, e][c.clone(), d.clone()][a.clone(), b.clone()][c, d][a, b]];
         let grid = GridTiler::new(grid);
         ctx.draw(grid)?;
 
@@ -167,26 +167,16 @@ impl Component for Top {
         let replica_flip = replica.with_orientation(Named::ReflectHoriz);
         let replica_a_flip = replica.with_orientation(Named::R180);
 
-        let hstrap = ctx.instantiate::<SpHstrap>(&NoParams)?;
-        let hstrap_flip = hstrap.with_orientation(Named::ReflectHoriz);
-
         let layers = ctx.layers();
         let outline = layers.get(Selector::Name("outline"))?;
 
-        let (a, b, _c, _d, e, f) = [
-            replica,
-            replica_flip,
-            replica_a,
-            replica_a_flip,
-            hstrap,
-            hstrap_flip,
-        ]
-        .into_iter()
-        .map(|cell| LayerBbox::new(cell, outline))
-        .collect_tuple()
-        .unwrap();
+        let (a, b, _c, _d) = [replica, replica_flip, replica_a, replica_a_flip]
+            .into_iter()
+            .map(|cell| LayerBbox::new(cell, outline))
+            .collect_tuple()
+            .unwrap();
 
-        let grid = into_grid![[colend, colend_flip][a, b][f, e]];
+        let grid = into_grid![[colend, colend_flip][a, b]];
         let mut grid_tiler = GridTiler::new(grid);
         let vmetal = ctx.layers().get(Selector::Metal(1))?;
         grid_tiler.expose_ports(
@@ -239,23 +229,33 @@ impl Component for Bot {
             .with_orientation(Named::ReflectVert);
 
         let replica_flip = replica.with_orientation(Named::ReflectHoriz);
-        let replica_a_flip = replica.with_orientation(Named::R180);
+        let replica_a_flip = replica_a.with_orientation(Named::R180);
+
+        let hstrap = ctx.instantiate::<SpHstrap>(&NoParams)?;
+        let hstrap_flip = hstrap.with_orientation(Named::ReflectHoriz);
 
         let layers = ctx.layers();
         let outline = layers.get(Selector::Name("outline"))?;
 
-        let (_a, _b, c, d) = [replica, replica_flip, replica_a, replica_a_flip]
-            .into_iter()
-            .map(|cell| LayerBbox::new(cell, outline))
-            .collect_tuple()
-            .unwrap();
+        let (_a, _b, c, d, e, f) = [
+            replica,
+            replica_flip,
+            replica_a,
+            replica_a_flip,
+            hstrap,
+            hstrap_flip,
+        ]
+        .into_iter()
+        .map(|cell| LayerBbox::new(cell, outline))
+        .collect_tuple()
+        .unwrap();
 
         let colend = ctx
-            .instantiate::<SpColend>(&NoParams)?
+            .instantiate::<SpColenda>(&NoParams)?
             .with_orientation(Named::ReflectVert);
         let colend_flip = colend.with_orientation(Named::R180);
 
-        let grid = into_grid![[c, d][colend, colend_flip]];
+        let grid = into_grid![[f, e][c, d][colend, colend_flip]];
         let mut grid_tiler = GridTiler::new(grid);
         let vmetal = ctx.layers().get(Selector::Metal(1))?;
         grid_tiler.expose_ports(
@@ -295,7 +295,7 @@ impl Component for LeftRight {
     }
 
     fn name(&self) -> ArcStr {
-        arcstr::literal!("replica_cell_array_rowend")
+        arcstr::literal!("replica_cell_array_leftright")
     }
 
     fn layout(
@@ -303,7 +303,9 @@ impl Component for LeftRight {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let rowend = ctx.instantiate::<SpRowendReplica>(&NoParams)?;
+        let rowenda = ctx.instantiate::<SpRowendaReplica>(&NoParams)?;
         let rowend_flip = rowend.with_orientation(Named::ReflectVert);
+        let rowenda_flip = rowenda.with_orientation(Named::ReflectVert);
         let rowend_hstrap = ctx.instantiate::<WlstrapRowendHstrap>(&NoParams)?;
         let rowend_hstrap_bbox = rowend_hstrap.bbox().into_rect();
         let rowend_hstrap = RectBbox::new(
@@ -313,16 +315,14 @@ impl Component for LeftRight {
                 1_300,
             )),
         );
-        println!("{:?}", rowend_hstrap.bbox().into_rect().width());
 
-        let grid =
-            into_grid![[rowend_flip.clone()][rowend.clone()][rowend_flip][rowend][rowend_hstrap]];
+        let grid = into_grid![[rowend_hstrap][rowenda_flip][rowenda][rowend_flip][rowend]];
         let mut grid_tiler = GridTiler::new(grid);
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
             |port: CellPort, (i, _j)| {
                 let mut new_port = CellPort::new(if port.name() == "wl" {
-                    PortId::new("wl", i)
+                    PortId::new("wl", i - 1)
                 } else {
                     port.id().clone()
                 });
@@ -366,17 +366,7 @@ impl Component for CornerTop {
         let rowend = ctx.instantiate::<SpRowendReplica>(&NoParams)?;
         let corner = ctx.instantiate::<SpCorner>(&NoParams)?;
 
-        let rowend_hstrap = ctx.instantiate::<WlstrapRowendHstrap>(&NoParams)?;
-        let rowend_hstrap_bbox = rowend_hstrap.bbox().into_rect();
-        let rowend_hstrap = RectBbox::new(
-            rowend_hstrap,
-            rowend_hstrap_bbox.with_hspan(Span::with_stop_and_length(
-                rowend_hstrap_bbox.right(),
-                1_300,
-            )),
-        );
-
-        let grid = into_grid![[corner][rowend][rowend_hstrap]];
+        let grid = into_grid![[corner][rowend]];
         let mut grid_tiler = GridTiler::new(grid);
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
@@ -423,19 +413,29 @@ impl Component for CornerBot {
         &self,
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
-        let rowend = ctx.instantiate::<SpRowendReplica>(&NoParams)?;
+        let rowend = ctx.instantiate::<SpRowendaReplica>(&NoParams)?;
         let rowend_flip = rowend.with_orientation(Named::ReflectVert);
         let corner = ctx
-            .instantiate::<SpCorner>(&NoParams)?
+            .instantiate::<SpCornera>(&NoParams)?
             .with_orientation(Named::ReflectVert);
 
-        let grid = into_grid![[rowend_flip][corner]];
+        let rowend_hstrap = ctx.instantiate::<WlstrapRowendHstrap>(&NoParams)?;
+        let rowend_hstrap_bbox = rowend_hstrap.bbox().into_rect();
+        let rowend_hstrap = RectBbox::new(
+            rowend_hstrap,
+            rowend_hstrap_bbox.with_hspan(Span::with_stop_and_length(
+                rowend_hstrap_bbox.right(),
+                1_300,
+            )),
+        );
+
+        let grid = into_grid![[rowend_hstrap][rowend_flip][corner]];
         let mut grid_tiler = GridTiler::new(grid);
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
             |port: CellPort, (i, _j)| {
                 let mut new_port = CellPort::new(if port.name() == "wl" {
-                    PortId::new("wl", i)
+                    PortId::new("wl", i - 1)
                 } else {
                     port.id().clone()
                 });
@@ -539,16 +539,6 @@ impl Component for ReplicaCellArray {
         let bot = ctx.instantiate::<Bot>(&NoParams)?;
 
         let corner_ur = corner_ul.clone().with_orientation(Named::ReflectHoriz);
-        let corner_ul_bbox = corner_ul.bbox().into_rect();
-        let corner_ul = RectBbox::new(
-            corner_ul,
-            corner_ul_bbox.with_hspan(Span::with_stop_and_length(corner_ul_bbox.right(), 1_300)),
-        );
-        let corner_ur_bbox = corner_ur.bbox().into_rect();
-        let corner_ur = RectBbox::new(
-            corner_ur,
-            corner_ur_bbox.with_hspan(Span::with_start_and_length(corner_ur_bbox.left(), 1_300)),
-        );
         let right = ctx
             .instantiate::<LeftRight>(&NoParams)?
             .with_orientation(Named::ReflectHoriz);
@@ -558,20 +548,30 @@ impl Component for ReplicaCellArray {
             right_bbox.with_hspan(Span::with_start_and_length(right_bbox.left(), 1_300)),
         );
         let corner_lr = corner_ll.clone().with_orientation(Named::ReflectHoriz);
+        let corner_ll_bbox = corner_ll.bbox().into_rect();
+        let corner_ll = RectBbox::new(
+            corner_ll,
+            corner_ll_bbox.with_hspan(Span::with_stop_and_length(corner_ll_bbox.right(), 1_300)),
+        );
+        let corner_lr_bbox = corner_lr.bbox().into_rect();
+        let corner_lr = RectBbox::new(
+            corner_lr,
+            corner_lr_bbox.with_hspan(Span::with_start_and_length(corner_lr_bbox.left(), 1_300)),
+        );
 
         let nx = self.params.cols / 2;
         let ny = self.params.rows / 4 - 1;
 
         let tiler = NpTiler::builder()
-            .set(Region::CornerUl, corner_ul)
+            .set(Region::CornerUl, LayerBbox::new(corner_ul, outline))
             .set(Region::Left, left)
-            .set(Region::CornerLl, LayerBbox::new(corner_ll, outline))
+            .set(Region::CornerLl, corner_ll)
             .set(Region::Top, LayerBbox::new(top, outline))
             .set(Region::Center, LayerBbox::new(center, outline))
             .set(Region::Bottom, LayerBbox::new(bot, outline))
-            .set(Region::CornerUr, corner_ur)
+            .set(Region::CornerUr, LayerBbox::new(corner_ur, outline))
             .set(Region::Right, right)
-            .set(Region::CornerLr, LayerBbox::new(corner_lr, outline))
+            .set(Region::CornerLr, corner_lr)
             .nx(nx)
             .ny(ny)
             .build();
