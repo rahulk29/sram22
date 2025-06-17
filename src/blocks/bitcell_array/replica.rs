@@ -1,5 +1,6 @@
 use crate::blocks::macros::{
-    SpCellOpt1aReplica, SpCellReplica, SpColend, SpCorner, SpRowendReplica,
+    SpCellOpt1aReplica, SpCellReplica, SpColend, SpColenda, SpCorner, SpCornera, SpRowendReplica,
+    SpRowendaReplica,
 };
 use arcstr::ArcStr;
 use itertools::Itertools;
@@ -57,7 +58,7 @@ impl Component for Center {
             .with_orientation(Named::ReflectVert);
 
         let replica_flip = replica.with_orientation(Named::ReflectHoriz);
-        let replica_a_flip = replica.with_orientation(Named::R180);
+        let replica_a_flip = replica_a.with_orientation(Named::R180);
 
         let layers = ctx.layers();
         let outline = layers.get(Selector::Name("outline"))?;
@@ -76,9 +77,9 @@ impl Component for Center {
     }
 }
 
-pub struct TopBot;
+pub struct Top;
 
-impl Component for TopBot {
+impl Component for Top {
     type Params = NoParams;
 
     fn new(
@@ -97,6 +98,56 @@ impl Component for TopBot {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let colend = ctx.instantiate::<SpColend>(&NoParams)?;
+        let colend_flip = colend.with_orientation(Named::ReflectHoriz);
+
+        let grid = into_grid![[colend, colend_flip]];
+        let mut grid_tiler = GridTiler::new(grid);
+        let vmetal = ctx.layers().get(Selector::Metal(1))?;
+        grid_tiler.expose_ports(
+            |port: CellPort, (i, j)| {
+                let mut new_port = CellPort::new(match port.name().as_str() {
+                    "wl" => PortId::new("wl", i),
+                    "bl" | "br" => PortId::new(port.name(), j),
+                    _ => port.id().clone(),
+                });
+                let shapes: Vec<&Shape> = port.shapes(vmetal).collect();
+
+                if !shapes.is_empty() {
+                    new_port.add_all(vmetal, shapes.into_iter().cloned());
+                    return Some(new_port);
+                }
+                None
+            },
+            PortConflictStrategy::Merge,
+        )?;
+        ctx.add_ports(grid_tiler.ports().cloned()).unwrap();
+        ctx.draw(grid_tiler)?;
+
+        Ok(())
+    }
+}
+
+pub struct Bot;
+
+impl Component for Bot {
+    type Params = NoParams;
+
+    fn new(
+        _params: &Self::Params,
+        _ctx: &substrate::data::SubstrateCtx,
+    ) -> substrate::error::Result<Self> {
+        Ok(Self)
+    }
+
+    fn name(&self) -> ArcStr {
+        arcstr::literal!("replica_cell_array_colenda")
+    }
+
+    fn layout(
+        &self,
+        ctx: &mut substrate::layout::context::LayoutCtx,
+    ) -> substrate::error::Result<()> {
+        let colend = ctx.instantiate::<SpColenda>(&NoParams)?;
         let colend_flip = colend.with_orientation(Named::ReflectHoriz);
 
         let grid = into_grid![[colend, colend_flip]];
@@ -147,9 +198,11 @@ impl Component for LeftRight {
         ctx: &mut substrate::layout::context::LayoutCtx,
     ) -> substrate::error::Result<()> {
         let rowend = ctx.instantiate::<SpRowendReplica>(&NoParams)?;
+        let rowenda = ctx.instantiate::<SpRowendaReplica>(&NoParams)?;
         let rowend_flip = rowend.with_orientation(Named::ReflectVert);
+        let rowenda_flip = rowenda.with_orientation(Named::ReflectVert);
 
-        let grid = into_grid![[rowend][rowend_flip]];
+        let grid = into_grid![[rowend][rowenda_flip]];
         let mut grid_tiler = GridTiler::new(grid);
         let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
@@ -251,19 +304,24 @@ impl Component for ReplicaCellArray {
 
         let corner_ul = ctx.instantiate::<SpCorner>(&NoParams)?;
         let left = ctx.instantiate::<LeftRight>(&NoParams)?;
-        let corner_ll = corner_ul.clone().with_orientation(Named::ReflectVert);
+        let corner_ll = ctx
+            .instantiate::<SpCornera>(&NoParams)?
+            .with_orientation(Named::ReflectVert);
 
-        let top = ctx.instantiate::<TopBot>(&NoParams)?;
+        let top = ctx.instantiate::<Top>(&NoParams)?;
         let center = ctx.instantiate::<Center>(&tap_ratio)?;
         let bot = ctx
-            .instantiate::<TopBot>(&NoParams)?
+            .instantiate::<Bot>(&NoParams)?
             .with_orientation(Named::ReflectVert);
 
         let corner_ur = corner_ul.clone().with_orientation(Named::ReflectHoriz);
         let right = ctx
             .instantiate::<LeftRight>(&NoParams)?
             .with_orientation(Named::ReflectHoriz);
-        let corner_lr = corner_ul.clone().with_orientation(Named::R180);
+        let corner_lr = ctx
+            .instantiate::<SpCornera>(&NoParams)?
+            .clone()
+            .with_orientation(Named::R180);
 
         let nx = self.params.cols / 2;
         let ny = self.params.rows / 2;
