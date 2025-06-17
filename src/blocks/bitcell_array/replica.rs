@@ -434,21 +434,14 @@ impl Component for CornerBot {
 
         let grid = into_grid![[rowend_hstrap][rowend][corner]];
         let mut grid_tiler = GridTiler::new(grid);
-        let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
             |port: CellPort, (i, _j)| {
-                let mut new_port = CellPort::new(if port.name() == "wl" {
+                let new_id = if port.name() == "wl" {
                     PortId::new("wl", i - 1)
                 } else {
                     port.id().clone()
-                });
-                let shapes: Vec<&Shape> = port.shapes(hmetal).collect();
-
-                if !shapes.is_empty() {
-                    new_port.add_all(hmetal, shapes.into_iter().cloned());
-                    return Some(new_port);
-                }
-                None
+                };
+                Some(port.with_id(new_id))
             },
             PortConflictStrategy::Merge,
         )?;
