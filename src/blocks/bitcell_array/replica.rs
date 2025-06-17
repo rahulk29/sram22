@@ -370,7 +370,6 @@ impl Component for CornerTop {
 
         let grid = into_grid![[corner][rowend]];
         let mut grid_tiler = GridTiler::new(grid);
-        let hmetal = ctx.layers().get(Selector::Metal(2))?;
         grid_tiler.expose_ports(
             |port: CellPort, (i, _j)| {
                 let new_id = if port.name() == "wl" {
