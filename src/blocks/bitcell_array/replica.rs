@@ -199,7 +199,6 @@ impl Component for LeftRight {
     ) -> substrate::error::Result<()> {
         let rowend = ctx.instantiate::<SpRowendReplica>(&NoParams)?;
         let rowenda = ctx.instantiate::<SpRowendaReplica>(&NoParams)?;
-        let rowend_flip = rowend.with_orientation(Named::ReflectVert);
         let rowenda_flip = rowenda.with_orientation(Named::ReflectVert);
 
         let grid = into_grid![[rowend][rowenda_flip]];
