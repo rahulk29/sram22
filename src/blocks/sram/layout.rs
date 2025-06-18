@@ -891,7 +891,7 @@ impl SramInner {
 
         // Align replica bitcell array to left of control logic, with replica precharge
         // aligned to top of control logic.
-        rbl.align_to_the_left_of(control.bbox(), 7_000);
+        rbl.align_to_the_left_of(control.bbox(), 4_480);
         replica_pc.align_beneath(decoder.bbox(), 6_000);
         replica_pc.align_centers_horizontally_gridded(rbl.bbox(), ctx.pdk().layout_grid());
         replica_nmos.align_beneath(
@@ -1016,7 +1016,7 @@ impl SramInner {
         }
 
         // Block entirety of bounding box for bitcells, replica bitcells, and column peripherals.
-        for inst in [&bitcells, &rbl, &cols] {
+        for inst in [&bitcells, &cols] {
             router.block(
                 m1,
                 inst.brect()
@@ -1030,6 +1030,19 @@ impl SramInner {
                     .expand_dir(Dir::Vert, 140),
             );
         }
+        router.block(
+            m1,
+            rbl.brect()
+                .with_hspan(rbl.brect().hspan().shrink_all(2_520))
+                .expand_dir(Dir::Vert, 6_000)
+                .expand_dir(Dir::Horiz, 140),
+        );
+        router.block(
+            m2,
+            rbl.brect()
+                .expand_dir(Dir::Horiz, 3_480)
+                .expand_dir(Dir::Vert, 140),
+        );
 
         // Route precharges to bitcell array.
         for i in 0..self.params.cols() {
@@ -1765,11 +1778,12 @@ impl SramInner {
 
         // Helper function for connecting bitcell ports to power straps.
         let mut connect_bitcells_to_straps = |inst: &Instance,
-                                              port_ids: Vec<(PortId, SingleSupplyNet)>|
+                                              port_ids: Vec<(PortId, SingleSupplyNet)>,
+                                              brect_expand: i64|
          -> Result<()> {
             let target_brect = inst
                 .brect()
-                .expand_dir(Dir::Horiz, 5_720)
+                .expand_dir(Dir::Horiz, brect_expand)
                 .expand_dir(Dir::Vert, 3_500);
             for (dir, layer, extension) in [(Dir::Vert, m1, 3_300), (Dir::Horiz, m2, 5_520)] {
                 let mut to_merge = HashMap::new();
@@ -1838,7 +1852,7 @@ impl SramInner {
             }
         }
 
-        connect_bitcells_to_straps(&bitcells, port_ids)?;
+        connect_bitcells_to_straps(&bitcells, port_ids, 5_720)?;
 
         // Connect replica bitcell array to power straps.
         let mut port_ids: Vec<(PortId, SingleSupplyNet)> = ["vpwr", "vgnd", "vpb", "vnb"]
@@ -1859,7 +1873,7 @@ impl SramInner {
                 port_ids.push((PortId::new("wl", i), SingleSupplyNet::Vss));
             }
         }
-        connect_bitcells_to_straps(&rbl, port_ids)?;
+        connect_bitcells_to_straps(&rbl, port_ids, 3_200)?;
 
         // Connect column circuitry to power straps.
         for layer in [m1, m2] {

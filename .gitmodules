@@ -1,6 +1,0 @@
-[submodule "deps/Layout21"]
-	path = deps/Layout21
-	url = https://github.com/rahulk29/Layout21.git
-[submodule "deps/Vlsir"]
-	path = deps/Vlsir
-	url = https://github.com/rahulk29/Vlsir.git

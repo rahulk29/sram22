@@ -350,6 +350,7 @@ mod tests {
     use subgeom::bbox::{Bbox, BoundBox};
     use substrate::layout::cell::{CellPort, Port, PortId};
     use substrate::layout::layers::selector::Selector;
+    #[cfg(feature = "commercial")]
     use substrate::schematic::netlist::NetlistPurpose;
 
     use super::layout::{ColCentParams, ColumnCent, TappedColumn};

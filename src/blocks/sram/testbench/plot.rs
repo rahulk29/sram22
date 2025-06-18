@@ -131,10 +131,7 @@ mod tests {
     use crate::blocks::sram::SramPhysicalDesignScript;
     use crate::setup_ctx;
     use crate::tests::test_work_dir;
-    use plotters::coord::types::RangedCoordf32;
-    use psfparser::binary::ast::PsfAst;
     use std::path::PathBuf;
-    use substrate::verification::simulation::waveform::SharedWaveform;
 
     #[test]
     fn plot_sram() {
