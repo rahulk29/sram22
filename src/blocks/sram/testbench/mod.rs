@@ -1012,6 +1012,7 @@ impl Testbench for SramTestbench {
                 .build()
                 .unwrap(),
         );
+        ctx.set_flags("-64 +preset=lx +mt=8 +gpu=2");
 
         let signals = (0..self.params.sram.data_width)
             .flat_map(|i| {

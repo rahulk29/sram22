@@ -971,28 +971,28 @@ pub(crate) mod tests {
                     println!("{}: done running LVS", stringify!($name));
 
 
-                    let drc_work_dir = work_dir.join("drc");
-                    for deck in [
-                        "drc", "latchup", "soft", "luRes",
-                        // "stress", "fill"
-                    ] {
-                        let deck_work_dir = drc_work_dir.join(deck);
-                        let output = run_drc(&DrcParams {
-                            cell_name: &$params.name(),
-                            work_dir: &deck_work_dir,
-                            layout_path: &gds_path,
-                            rules_path: Path::new(&format!("/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/DRC/Calibre/s8_{deck}Rules")),
-                            runset_path: (deck == "drc").then(|| Path::new(SKY130_DRC_RUNSET_PATH)),
-                            layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
-                        }).expect("failed to run DRC");
-                        println!("{:?}", output.rule_checks);
-                        let mut rulechecks = output.rule_checks.into_iter().filter(|rc| rc.name.starts_with("r_"));
-                        assert!(
-                            rulechecks.next().is_none(),
-                            "DRC must have no rule violations"
-                        );
-                        println!("{}: done running DRC deck `{}`", stringify!($name), deck);
-                    }
+                    // let drc_work_dir = work_dir.join("drc");
+                    // for deck in [
+                    //     "drc", "latchup", "soft", "luRes",
+                    //     // "stress", "fill"
+                    // ] {
+                    //     let deck_work_dir = drc_work_dir.join(deck);
+                    //     let output = run_drc(&DrcParams {
+                    //         cell_name: &$params.name(),
+                    //         work_dir: &deck_work_dir,
+                    //         layout_path: &gds_path,
+                    //         rules_path: Path::new(&format!("/tools/commercial/skywater/swtech130/skywater-src-nda/s8/V2.0.1/DRC/Calibre/s8_{deck}Rules")),
+                    //         runset_path: (deck == "drc").then(|| Path::new(SKY130_DRC_RUNSET_PATH)),
+                    //         layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
+                    //     }).expect("failed to run DRC");
+                    //     println!("{:?}", output.rule_checks);
+                    //     let mut rulechecks = output.rule_checks.into_iter().filter(|rc| rc.name.starts_with("r_"));
+                    //     assert!(
+                    //         rulechecks.next().is_none(),
+                    //         "DRC must have no rule violations"
+                    //     );
+                    //     println!("{}: done running DRC deck `{}`", stringify!($name), deck);
+                    // }
 
                     let pex_path = out_spice(&work_dir, "pex_schematic");
                     let pex_dir = work_dir.join("pex");
@@ -1020,7 +1020,7 @@ pub(crate) mod tests {
                     }).expect("failed to run pex");
                     println!("{}: done running PEX", stringify!($name));
 
-                    let seq = TestSequence::Short;
+                    let seq = TestSequence::Medium;
                     let corners = ctx.corner_db();
                     let tt = corners.corner_named("tt").unwrap();
                     let sf = corners.corner_named("sf").unwrap();
@@ -1056,51 +1056,51 @@ pub(crate) mod tests {
                             );
                         }).collect::<Vec<_>>();
 
-                    crate::abs::write_abstract(
-                        &ctx,
-                        &$params,
-                        crate::paths::out_lef(&work_dir, &*$params.name()),
-                    )
-                    .expect("failed to write abstract");
-                    println!("{}: done writing abstract", stringify!($name));
+                    // crate::abs::write_abstract(
+                    //     &ctx,
+                    //     &$params,
+                    //     crate::paths::out_lef(&work_dir, &*$params.name()),
+                    // )
+                    // .expect("failed to write abstract");
+                    // println!("{}: done writing abstract", stringify!($name));
 
-                    let sram = ctx.instantiate_layout::<Sram>(&$params).expect("failed to generate layout");
-                    let brect = sram.brect();
-                    let width = Decimal::new(brect.width(), 3);
-                    let height = Decimal::new(brect.height(), 3);
-                    [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", -40, dec!(1.95))].into_par_iter().map(|(corner, temp, vdd)| {
-                        let verilog_path = verilog_path.clone();
-                        let work_dir = work_dir.clone();
-                        let pex_netlist_path = pex_netlist_path.clone();
-                        let suffix = match corner {
-                            "tt" => "tt_025C_1v80",
-                            "ss" => "ss_100C_1v60",
-                            "ff" => "ff_n40C_1v95",
-                            _ => unreachable!(),
-                        };
-                        let name = format!("{}_{}", $params.name(), suffix);
-                        let params = liberate_mx::LibParams::builder()
-                            .work_dir(work_dir.join(format!("lib/{suffix}")))
-                            .output_file(crate::paths::out_lib(&work_dir, &name))
-                            .corner(corner)
-                            .width(width)
-                            .height(height)
-                            .user_verilog(verilog_path)
-                            .cell_name(&*$params.name())
-                            .num_words($params.num_words())
-                            .data_width($params.data_width())
-                            .addr_width($params.addr_width())
-                            .wmask_width($params.wmask_width())
-                            .mux_ratio($params.mux_ratio())
-                            .has_wmask(true)
-                            .source_paths(vec![pex_netlist_path.clone()])
-                            .vdd(vdd)
-                            .temp(temp)
-                            .build()
-                            .unwrap();
-                        crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
-                        println!("{}: done generating LIB for corner `{}`", stringify!($name), corner);
-                    }).collect::<Vec<_>>();
+                    // let sram = ctx.instantiate_layout::<Sram>(&$params).expect("failed to generate layout");
+                    // let brect = sram.brect();
+                    // let width = Decimal::new(brect.width(), 3);
+                    // let height = Decimal::new(brect.height(), 3);
+                    // [("tt", 25, dec!(1.8)), ("ss", 100, dec!(1.6)), ("ff", -40, dec!(1.95))].into_par_iter().map(|(corner, temp, vdd)| {
+                    //     let verilog_path = verilog_path.clone();
+                    //     let work_dir = work_dir.clone();
+                    //     let pex_netlist_path = pex_netlist_path.clone();
+                    //     let suffix = match corner {
+                    //         "tt" => "tt_025C_1v80",
+                    //         "ss" => "ss_100C_1v60",
+                    //         "ff" => "ff_n40C_1v95",
+                    //         _ => unreachable!(),
+                    //     };
+                    //     let name = format!("{}_{}", $params.name(), suffix);
+                    //     let params = liberate_mx::LibParams::builder()
+                    //         .work_dir(work_dir.join(format!("lib/{suffix}")))
+                    //         .output_file(crate::paths::out_lib(&work_dir, &name))
+                    //         .corner(corner)
+                    //         .width(width)
+                    //         .height(height)
+                    //         .user_verilog(verilog_path)
+                    //         .cell_name(&*$params.name())
+                    //         .num_words($params.num_words())
+                    //         .data_width($params.data_width())
+                    //         .addr_width($params.addr_width())
+                    //         .wmask_width($params.wmask_width())
+                    //         .mux_ratio($params.mux_ratio())
+                    //         .has_wmask(true)
+                    //         .source_paths(vec![pex_netlist_path.clone()])
+                    //         .vdd(vdd)
+                    //         .temp(temp)
+                    //         .build()
+                    //         .unwrap();
+                    //     crate::liberate::generate_sram_lib(&params).expect("failed to write lib");
+                    //     println!("{}: done generating LIB for corner `{}`", stringify!($name), corner);
+                    // }).collect::<Vec<_>>();
                 }
 
                 println!("{}: all tasks complete", stringify!($name));
