@@ -1020,14 +1020,12 @@ pub(crate) mod tests {
 
                     let seq = TestSequence::Short;
                     let corners = ctx.corner_db();
-                    let mut handles = Vec::new();
-                    for vdd in [1.8] {
-                        let tt = corners.corner_named("tt").unwrap();
-                        let sf = corners.corner_named("sf").unwrap();
-                        let fs = corners.corner_named("fs").unwrap();
-                        let ss = corners.corner_named("ss").unwrap();
-                        let ff = corners.corner_named("ff").unwrap();
-                        for corner in [tt, sf, fs, ss, ff] {
+                    let tt = corners.corner_named("tt").unwrap();
+                    let sf = corners.corner_named("sf").unwrap();
+                    let fs = corners.corner_named("fs").unwrap();
+                    let ss = corners.corner_named("ss").unwrap();
+                    let ff = corners.corner_named("ff").unwrap();
+                    iproduct!([1.8], [tt, sf, fs, ss, ff]).into_par_iter().map(|(vdd, corner)| {
                             let corner = corner.clone();
                             let params = $params.clone();
                             let pex_netlist = Some((pex_netlist_path.clone(), pex_level));
@@ -1057,10 +1055,7 @@ pub(crate) mod tests {
                                     seq,
                                 );
                             }));
-                        }
-                    }
-                    let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
-                    handles.into_iter().collect::<Result<Vec<_>, _>>().expect("failed to join threads");
+                        }).collect::<Vec<_>>();
 
                     crate::abs::write_abstract(
                         &ctx,
