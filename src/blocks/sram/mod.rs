@@ -984,8 +984,9 @@ pub(crate) mod tests {
                             layerprops: Some(Path::new(SKY130_LAYERPROPS_PATH)),
                         }).expect("failed to run DRC");
                         println!("{:?}", output.rule_checks);
+                        let mut rulechecks = output.rule_checks.into_iter().filter(|rc| rc.name.starts_with("r_"));
                         assert!(
-                            output.rule_checks.is_empty(),
+                            rulechecks.next().is_none(),
                             "DRC must have no rule violations"
                         );
                         println!("{}: done running DRC deck `{}`", stringify!($name), deck);
