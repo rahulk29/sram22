@@ -350,6 +350,8 @@ mod tests {
     use subgeom::bbox::{Bbox, BoundBox};
     use substrate::layout::cell::{CellPort, Port, PortId};
     use substrate::layout::layers::selector::Selector;
+    #[cfg(feature = "commercial")]
+    use substrate::schematic::netlist::NetlistPurpose;
 
     use super::layout::{ColCentParams, ColumnCent, TappedColumn};
     use super::*;
@@ -582,7 +584,6 @@ mod tests {
         use crate::measure::impedance::{
             AcImpedanceTbNode, AcImpedanceTbParams, AcImpedanceTestbench,
         };
-        use substrate::schematic::netlist::NetlistPurpose;
 
         let ctx = setup_ctx();
         let work_dir = test_work_dir("test_columns_cap");

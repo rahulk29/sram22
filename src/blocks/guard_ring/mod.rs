@@ -155,6 +155,10 @@ impl Component for GuardRing {
                 ctx.draw_rect(self.params.v_metal, rv);
                 ctx.merge_port(CellPort::with_shape(port_name, self.params.v_metal, rv));
                 ctx.draw_rect(implant, rv);
+                let r = rv.shrink(345);
+                ctx.draw_rect(li, r);
+                let r = rv.shrink(425);
+                ctx.draw_rect(tap, r);
             }
 
             for rv in ring.inner_vrects() {
@@ -193,6 +197,10 @@ impl Component for GuardRing {
                     let via = ctx.instantiate::<Via>(&viap)?;
                     ctx.draw(via)?;
                 }
+                let r = rh.shrink(345);
+                ctx.draw_rect(li, r);
+                let r = rh.shrink(425);
+                ctx.draw_rect(tap, r);
             }
         }
 
