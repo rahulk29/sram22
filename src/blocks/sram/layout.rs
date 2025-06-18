@@ -891,7 +891,7 @@ impl SramInner {
 
         // Align replica bitcell array to left of control logic, with replica precharge
         // aligned to top of control logic.
-        rbl.align_to_the_left_of(control.bbox(), 7_000);
+        rbl.align_to_the_left_of(control.bbox(), 4_480);
         replica_pc.align_beneath(decoder.bbox(), 6_000);
         replica_pc.align_centers_horizontally_gridded(rbl.bbox(), ctx.pdk().layout_grid());
         replica_nmos.align_beneath(

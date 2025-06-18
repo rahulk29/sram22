@@ -599,7 +599,7 @@ impl Component for ReplicaCellArray {
                     return Some(port);
                 }
                 let mut new_port = CellPort::new(if port.name() == "wl" {
-                    PortId::new(port.name(), 2 * (i - 1) + port.id().index())
+                    PortId::new(port.name(), 4 * (i - 1) + port.id().index())
                 } else {
                     port.id().clone()
                 });
