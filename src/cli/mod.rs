@@ -70,6 +70,11 @@ pub fn run() -> Result<()> {
 
     let config_path = canonicalize(&args.config)?;
 
+    #[cfg(feature = "commercial")]
+    if args.lib && args.liberate {
+        println!("Note: --liberate overrides --lib; skipping the open-source LIB model.\n");
+    }
+
     println!("{BANNER}");
 
     println!("Reading configuration file...\n");
@@ -97,6 +102,10 @@ pub fn run() -> Result<()> {
             args.pex || (configs.len() == 1 && args.liberate && configs[0].pex_level.is_some()),
             TaskKey::RunPex,
         ),
+        // --liberate overrides --lib: only one LIB-generation method should run.
+        #[cfg(feature = "commercial")]
+        (args.lib && !args.liberate, TaskKey::GenerateLib),
+        #[cfg(not(feature = "commercial"))]
         (args.lib, TaskKey::GenerateLib),
         #[cfg(feature = "commercial")]
         (args.liberate, TaskKey::GenerateLibMx),
@@ -163,6 +172,12 @@ pub fn run() -> Result<()> {
 
         let mp = MultiProgress::new();
 
+        // SRAMs run concurrently: plan/netlist/layout/verilog/LEF generation
+        // and the open-source interpolated LIB model have no shared resource
+        // constraints. Liberate MX characterization is throttled separately
+        // (see `liberate::LIBERATE_MX_SLOT` in plan/mod.rs) so it doesn't
+        // blow through the shared license pool, without limiting everything
+        // else to running one SRAM at a time.
         let handles: Vec<_> = plans
             .into_iter()
             .zip(configs.into_iter())

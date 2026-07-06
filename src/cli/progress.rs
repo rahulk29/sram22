@@ -27,8 +27,19 @@ pub struct StepContext {
 pub struct Step {
     desc: String,
     key: TaskKey,
+    /// An alternate task key that also completes this step. Used for the
+    /// "Generate LIB" row, which represents both the open-source (`--lib`)
+    /// and Liberate MX (`--liberate`) code paths on a single progress bar.
+    extra_key: Option<TaskKey>,
     progress_bar: ProgressBar,
     disabled: bool,
+    done: bool,
+}
+
+impl Step {
+    fn matches(&self, key: TaskKey) -> bool {
+        self.key == key || self.extra_key == Some(key)
+    }
 }
 
 impl StepContext {
@@ -43,62 +54,85 @@ impl StepContext {
             Step {
                 desc: "Generate plan".to_string(),
                 key: TaskKey::GeneratePlan,
+                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
+                done: false,
             },
             Step {
                 desc: "Generate netlist".to_string(),
                 key: TaskKey::GenerateNetlist,
+                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
+                done: false,
             },
             Step {
                 desc: "Generate layout".to_string(),
                 key: TaskKey::GenerateLayout,
+                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
+                done: false,
             },
             Step {
                 desc: "Generate Verilog".to_string(),
                 key: TaskKey::GenerateVerilog,
+                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
+                done: false,
             },
             Step {
                 desc: "Generate LEF".to_string(),
                 key: TaskKey::GenerateLef,
+                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
+                done: false,
             },
             #[cfg(feature = "commercial")]
             Step {
                 desc: "Run DRC".to_string(),
                 key: TaskKey::RunDrc,
+                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::RunDrc) && !tasks.contains(&TaskKey::All),
+                done: false,
             },
             #[cfg(feature = "commercial")]
             Step {
                 desc: "Run LVS".to_string(),
                 key: TaskKey::RunLvs,
+                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::RunLvs) && !tasks.contains(&TaskKey::All),
+                done: false,
             },
             #[cfg(all(feature = "commercial"))]
             Step {
                 desc: "Run PEX".to_string(),
                 key: TaskKey::RunPex,
+                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::RunPex) && !tasks.contains(&TaskKey::All),
+                done: false,
             },
             Step {
                 desc: "Generate LIB".to_string(),
                 key: TaskKey::GenerateLib,
+                #[cfg(feature = "commercial")]
+                extra_key: Some(TaskKey::GenerateLibMx),
+                #[cfg(not(feature = "commercial"))]
+                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 #[cfg(not(feature = "commercial"))]
                 disabled: !tasks.contains(&TaskKey::GenerateLib),
                 #[cfg(feature = "commercial")]
-                disabled: !tasks.contains(&TaskKey::GenerateLib) && !tasks.contains(&TaskKey::All),
+                disabled: !tasks.contains(&TaskKey::GenerateLib)
+                    && !tasks.contains(&TaskKey::GenerateLibMx)
+                    && !tasks.contains(&TaskKey::All),
+                done: false,
             },
         ];
 
@@ -172,10 +206,17 @@ impl StepContext {
 
     pub fn finish(&mut self, key: TaskKey) {
         if let Some(current_step) = self.current_step() {
-            if current_step.key != key {
+            if !current_step.matches(key) {
                 panic!("A step was completed out of order");
             }
 
+            // A step with an `extra_key` (e.g. "Generate LIB", which represents
+            // both `--lib` and `--liberate`) may legitimately be finished twice
+            // if both underlying tasks are enabled. Only advance once.
+            if current_step.done {
+                return;
+            }
+            current_step.done = true;
             current_step.set_status(StepStatus::Done, None);
 
             self.advance();
@@ -185,7 +226,7 @@ impl StepContext {
             } else {
                 self.done();
             }
-        } else {
+        } else if !self.steps.last().is_some_and(|s| s.done && s.matches(key)) {
             panic!("A step was completed after all steps were marked completed");
         }
     }

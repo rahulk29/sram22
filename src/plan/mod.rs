@@ -6,7 +6,14 @@ use crate::{setup_ctx, Result};
 use anyhow::bail;
 use std::collections::HashSet;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+
+/// Serializes Liberate MX characterization across concurrently-building SRAM
+/// configurations, so at most one configuration's corner simulations (and
+/// thus its Liberate MX license usage) are in flight at a time. See the
+/// `GenerateLibMx` task below.
+#[cfg(feature = "commercial")]
+static LIBERATE_MX_SLOT: Mutex<()> = Mutex::new(());
 
 /// Embedded timing characterization data indexed by (num_words, mux_ratio, write_size).
 /// Each entry corresponds to `timingdata/{num_words}m{mux_ratio}w{write_size}.json`.
@@ -247,13 +254,24 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                     timing_spice_path
                 };
 
-                let mut handles = Vec::new();
                 let sram = sctx
                     .instantiate_layout::<Sram>(&sram_params)
                     .expect("failed to generate layout");
                 let brect = sram.brect();
                 let width = Decimal::new(brect.width(), 3);
                 let height = Decimal::new(brect.height(), 3);
+
+                // Only one SRAM configuration's Liberate MX characterization
+                // runs at a time, even though SRAMs otherwise build (plan,
+                // netlist, layout, Verilog, LEF, interpolated LIB) fully
+                // concurrently. Each configuration checks out 3 licenses (one
+                // per corner) from a small shared pool; letting many
+                // configurations launch simultaneously exhausts it.
+                let _liberate_slot = LIBERATE_MX_SLOT
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+
+                let mut handles = Vec::new();
                 for (corner, temp, vdd) in [
                     ("tt", 25, dec!(1.8)),
                     ("ss", 100, dec!(1.6)),
