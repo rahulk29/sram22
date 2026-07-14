@@ -24,7 +24,7 @@ arcstr = "1"
 anyhow = "1"
 calibre = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/calibre.git", branch = "master", optional = true }
 abstract_lef = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/abstract_lef.git", branch = "master", optional = true }
-liberate_mx = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/liberate-mx.git", branch = "new_liberate_license", optional = true }
+liberate_mx = { git = "ssh://git@bwrcrepo.eecs.berkeley.edu/rahulkumar/liberate-mx.git", branch = "master", optional = true }
 tera = "1"
 lazy_static = "1"
 colored = "2"

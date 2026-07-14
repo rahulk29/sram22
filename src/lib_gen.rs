@@ -351,8 +351,6 @@ impl LookupModel {
 
         let mut dw_keys: Vec<u32> = cmap.keys().map(|k| k.parse().unwrap()).collect();
         dw_keys.sort_unstable();
-        // Fit on dw ≤ 128 only: tighter calibration in that range, lower conservative overestimate.
-        dw_keys.retain(|&dw| dw <= 128);
         let dws: Vec<f64> = dw_keys.iter().map(|&k| k as f64).collect();
 
         let v2d = |dw: u32, key: &str, i: usize, j: usize| -> f64 {
