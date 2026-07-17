@@ -36,11 +36,6 @@ pub struct Args {
     #[arg(long)]
     pub lvs: bool,
 
-    /// Run PEX using Calibre.
-    #[cfg(feature = "commercial")]
-    #[arg(long)]
-    pub pex: bool,
-
     #[cfg(feature = "commercial")]
     /// Run all available steps.
     #[arg(short, long)]

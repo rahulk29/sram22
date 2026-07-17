@@ -115,7 +115,7 @@ impl StepContext {
                 key: TaskKey::RunPex,
                 extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
-                disabled: !tasks.contains(&TaskKey::RunPex) && !tasks.contains(&TaskKey::All),
+                disabled: !tasks.contains(&TaskKey::RunPex),
                 done: false,
             },
             Step {

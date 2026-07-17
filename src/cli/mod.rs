@@ -92,11 +92,8 @@ pub fn run() -> Result<()> {
         (args.drc, TaskKey::RunDrc),
         #[cfg(feature = "commercial")]
         (args.lvs, TaskKey::RunLvs),
-        #[cfg(feature = "commercial")]
-        (
-            args.pex || (args.lib && configs.iter().any(|c| c.pex_level.is_some())),
-            TaskKey::RunPex,
-        ),
+        // RunPex is per-config: added in filter_map based on each config's
+        // pex_level so the PEX step shows Disabled for configs that skip PEX.
         (args.lib, TaskKey::GenerateLib),
         #[cfg(feature = "commercial")]
         (args.all, TaskKey::All),
@@ -104,7 +101,7 @@ pub fn run() -> Result<()> {
     .into_iter()
     .filter_map(|(a, b)| if a { Some(b) } else { None });
 
-    let tasks = Arc::new(HashSet::from_iter(enabled_tasks));
+    let base_tasks = Arc::new(HashSet::from_iter(enabled_tasks));
 
     let plans: Vec<SramPlan> = configs
         .iter()
@@ -127,25 +124,29 @@ pub fn run() -> Result<()> {
 
     let mp = MultiProgress::new();
 
-    // SRAMs run concurrently: plan/netlist/layout/verilog/LEF generation
-    // and the open-source interpolated LIB model have no shared resource
-    // constraints. PEX extraction and Liberate MX characterization are
-    // throttled separately (see `plan::HEAVY_BACKEND_SLOT`) so they don't
-    // exhaust the license pool or crash the server on memory/CPU, without
-    // limiting everything else to running one SRAM at a time.
     let handles: Vec<_> = plans
         .into_iter()
         .zip(configs.into_iter())
         .filter_map(|(plan, config)| {
             let work_dir_check = build_dir.join(plan.sram_params.name().as_str());
-            if is_already_built(&work_dir_check, &plan.sram_params.name(), wants_lib(&tasks)) {
+            if is_already_built(&work_dir_check, &plan.sram_params.name(), wants_lib(&base_tasks)) {
                 return None;
             }
+
+            // Per-config task set: RunPex is included whenever pex_level is set,
+            // regardless of other flags — pex_level in the config is sufficient.
+            let tasks = {
+                let mut t = (*base_tasks).clone();
+                #[cfg(feature = "commercial")]
+                if config.pex_level.is_some() {
+                    t.insert(TaskKey::RunPex);
+                }
+                Arc::new(t)
+            };
 
             let mut ctx = StepContext::new_with_mp(&tasks, mp.clone(), &plan.sram_params.name());
             ctx.finish(TaskKey::GeneratePlan);
 
-            let tasks = Arc::clone(&tasks);
             let build_dir = build_dir.clone();
             Some(std::thread::spawn(move || -> (Result<PathBuf>, StepContext) {
                 let result = (|| -> Result<PathBuf> {
@@ -183,7 +184,14 @@ pub fn run() -> Result<()> {
                 ctx.commit();
                 errors.push(e);
             }
-            Err(_) => errors.push(anyhow::anyhow!("An SRAM generation thread panicked")),
+            Err(e) => {
+                let msg = e
+                    .downcast_ref::<String>()
+                    .map(|s| s.as_str())
+                    .or_else(|| e.downcast_ref::<&'static str>().copied())
+                    .unwrap_or("(no message)");
+                errors.push(anyhow::anyhow!("SRAM generation thread panicked: {}", msg));
+            }
         }
     }
     for work_dir in work_dirs {

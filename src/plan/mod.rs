@@ -202,16 +202,6 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
         let pex_source_path = out_spice(&pex_dir, "schematic");
         let pex_out_path = out_spice(&pex_dir, "schematic.pex");
 
-        // Bail only when --pex was explicitly requested but this config has no pex_level.
-        // When RunPex is in tasks because GenerateLib (Liberate MX) implied it, configs
-        // without pex_level are allowed — Liberate MX falls back to SPICE for them.
-        if params.pex_level.is_none()
-            && params.tasks.contains(&TaskKey::RunPex)
-            && !params.tasks.contains(&TaskKey::GenerateLib)
-        {
-            bail!("Must specify a pex_level in the SRAM config when using --pex");
-        }
-
         // Held across RunPex and GenerateLib (Liberate MX) so a given SRAM's entire
         // heavy-backend pipeline completes atomically before the next SRAM's begins.
         let _heavy_backend_slot = if params.tasks.contains(&TaskKey::RunPex)
@@ -223,8 +213,6 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
             None
         };
 
-        // Only run PEX for configs that have pex_level set. In a multi-config batch,
-        // configs without pex_level skip PEX; Liberate MX falls back to SPICE for them.
         if params.pex_level.is_some()
             && (params.tasks.contains(&TaskKey::RunPex) || params.tasks.contains(&TaskKey::All))
         {
@@ -246,6 +234,9 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                 opts,
                 ground_net: "vss".to_string(),
             })?;
+            if !pex_out_path.exists() {
+                bail!("PEX failed: no output netlist produced at {:?}", pex_out_path);
+            }
             try_finish_task!(ctx, TaskKey::RunPex);
         }
 
@@ -254,9 +245,6 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
             use substrate::schematic::netlist::NetlistPurpose;
 
             let source_path = if params.pex_level.is_some() {
-                if !pex_out_path.exists() {
-                    bail!("PEX netlist not found at path `{:?}`", pex_out_path);
-                }
                 pex_out_path
             } else {
                 let timing_spice_path = out_spice(work_dir, "timing_schematic");
