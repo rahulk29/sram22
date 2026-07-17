@@ -36,7 +36,7 @@ fn wants_lib(tasks: &HashSet<TaskKey>) -> bool {
         return true;
     }
     #[cfg(feature = "commercial")]
-    if tasks.contains(&TaskKey::GenerateLibMx) || tasks.contains(&TaskKey::All) {
+    if tasks.contains(&TaskKey::All) {
         return true;
     }
     false
@@ -70,11 +70,6 @@ pub fn run() -> Result<()> {
 
     let config_path = canonicalize(&args.config)?;
 
-    #[cfg(feature = "commercial")]
-    if args.lib && args.liberate {
-        println!("Note: --liberate overrides --lib; skipping the open-source LIB model.\n");
-    }
-
     println!("{BANNER}");
 
     println!("Reading configuration file...\n");
@@ -97,153 +92,120 @@ pub fn run() -> Result<()> {
         (args.drc, TaskKey::RunDrc),
         #[cfg(feature = "commercial")]
         (args.lvs, TaskKey::RunLvs),
-        #[cfg(feature = "commercial")]
-        (
-            args.pex || (configs.len() == 1 && args.liberate && configs[0].pex_level.is_some()),
-            TaskKey::RunPex,
-        ),
-        // --liberate overrides --lib: only one LIB-generation method should run.
-        #[cfg(feature = "commercial")]
-        (args.lib && !args.liberate, TaskKey::GenerateLib),
-        #[cfg(not(feature = "commercial"))]
+        // RunPex is per-config: added in filter_map based on each config's
+        // pex_level so the PEX step shows Disabled for configs that skip PEX.
         (args.lib, TaskKey::GenerateLib),
-        #[cfg(feature = "commercial")]
-        (args.liberate, TaskKey::GenerateLibMx),
         #[cfg(feature = "commercial")]
         (args.all, TaskKey::All),
     ]
     .into_iter()
     .filter_map(|(a, b)| if a { Some(b) } else { None });
 
-    let tasks = Arc::new(HashSet::from_iter(enabled_tasks));
+    let base_tasks = Arc::new(HashSet::from_iter(enabled_tasks));
 
-    if configs.len() == 1 {
-        let config = &configs[0];
+    let plans: Vec<SramPlan> = configs
+        .iter()
+        .map(|c| generate_plan(c))
+        .collect::<Result<Vec<_>>>()?;
 
-        println!("Configuration file: {:?}", &config_path);
-        println!("SRAM parameters:");
-        println!("\tNumber of words: {}", config.num_words);
-        println!("\tData width: {}", config.data_width);
-        println!("\tMux ratio: {}", config.mux_ratio as usize);
-        println!("\tWrite size: {}", config.write_size);
+    println!("Configuration file: {:?}", &config_path);
+    for (i, (config, plan)) in configs.iter().zip(plans.iter()).enumerate() {
+        println!(
+            "  [{}] {} (num_words={}, data_width={}, mux_ratio={}, write_size={})",
+            i + 1,
+            plan.sram_params.name(),
+            config.num_words,
+            config.data_width,
+            config.mux_ratio as usize,
+            config.write_size,
+        );
+    }
+    println!();
 
-        let plan = generate_plan(config)?;
+    let mp = MultiProgress::new();
 
-        let work_dir = build_dir.join(plan.sram_params.name().as_str());
-        std::fs::create_dir_all(&work_dir)?;
-        let work_dir = canonicalize(work_dir)?;
+    let handles: Vec<_> = plans
+        .into_iter()
+        .zip(configs.into_iter())
+        .filter_map(|(plan, config)| {
+            let work_dir_check = build_dir.join(plan.sram_params.name().as_str());
+            if is_already_built(&work_dir_check, &plan.sram_params.name(), wants_lib(&base_tasks)) {
+                return None;
+            }
 
-        if !is_already_built(&work_dir, &plan.sram_params.name(), wants_lib(&tasks)) {
-            let mut ctx = StepContext::new(&tasks);
+            // Per-config task set: RunPex is included whenever pex_level is set,
+            // regardless of other flags — pex_level in the config is sufficient.
+            let tasks = {
+                let mut t = (*base_tasks).clone();
+                #[cfg(feature = "commercial")]
+                if config.pex_level.is_some() {
+                    t.insert(TaskKey::RunPex);
+                }
+                Arc::new(t)
+            };
+
+            let mut ctx = StepContext::new_with_mp(&tasks, mp.clone(), &plan.sram_params.name());
             ctx.finish(TaskKey::GeneratePlan);
 
-            let res = execute_plan(ExecutePlanParams {
-                work_dir: &work_dir,
-                plan: &plan,
-                tasks: Arc::clone(&tasks),
-                ctx: Some(&mut ctx),
-                #[cfg(feature = "commercial")]
-                pex_level: config.pex_level,
-            });
-            ctx.check(res)?;
-            ctx.commit();
-            println!("Artifacts saved to: {:?}\n", &work_dir);
-        }
-    } else {
-        println!("Batch mode: {} SRAMs\n", configs.len());
+            let build_dir = build_dir.clone();
+            Some(std::thread::spawn(move || -> (Result<PathBuf>, StepContext) {
+                let result = (|| -> Result<PathBuf> {
+                    let work_dir = build_dir.join(plan.sram_params.name().as_str());
+                    std::fs::create_dir_all(&work_dir)?;
+                    let work_dir = canonicalize(work_dir)?;
+                    let res = execute_plan(ExecutePlanParams {
+                        work_dir: &work_dir,
+                        plan: &plan,
+                        tasks,
+                        ctx: Some(&mut ctx),
+                        #[cfg(feature = "commercial")]
+                        pex_level: config.pex_level,
+                    });
+                    ctx.check(res)?;
+                    Ok(work_dir)
+                })();
+                (result, ctx)
+            }))
+        })
+        .collect();
 
-        let plans: Vec<SramPlan> = configs
-            .iter()
-            .map(|c| generate_plan(c))
-            .collect::<Result<Vec<_>>>()?;
-
-        for (i, (config, plan)) in configs.iter().zip(plans.iter()).enumerate() {
-            println!(
-                "  [{}] {} (num_words={}, data_width={}, mux_ratio={}, write_size={})",
-                i + 1,
-                plan.sram_params.name(),
-                config.num_words,
-                config.data_width,
-                config.mux_ratio as usize,
-                config.write_size,
-            );
-        }
-        println!();
-
-        let mp = MultiProgress::new();
-
-        // SRAMs run concurrently: plan/netlist/layout/verilog/LEF generation
-        // and the open-source interpolated LIB model have no shared resource
-        // constraints. Liberate MX characterization is throttled separately
-        // (see `liberate::LIBERATE_MX_SLOT` in plan/mod.rs) so it doesn't
-        // blow through the shared license pool, without limiting everything
-        // else to running one SRAM at a time.
-        let handles: Vec<_> = plans
-            .into_iter()
-            .zip(configs.into_iter())
-            .filter_map(|(plan, config)| {
-                let work_dir_check = build_dir.join(plan.sram_params.name().as_str());
-                if is_already_built(&work_dir_check, &plan.sram_params.name(), wants_lib(&tasks)) {
-                    return None;
-                }
-
-                let mut ctx = StepContext::new_with_mp(&tasks, mp.clone(), &plan.sram_params.name());
-                ctx.finish(TaskKey::GeneratePlan);
-
-                let tasks = Arc::clone(&tasks);
-                let build_dir = build_dir.clone();
-                Some(std::thread::spawn(move || -> (Result<PathBuf>, StepContext) {
-                    let result = (|| -> Result<PathBuf> {
-                        let work_dir = build_dir.join(plan.sram_params.name().as_str());
-                        std::fs::create_dir_all(&work_dir)?;
-                        let work_dir = canonicalize(work_dir)?;
-                        let res = execute_plan(ExecutePlanParams {
-                            work_dir: &work_dir,
-                            plan: &plan,
-                            tasks,
-                            ctx: Some(&mut ctx),
-                            #[cfg(feature = "commercial")]
-                            pex_level: config.pex_level,
-                        });
-                        ctx.check(res)?;
-                        Ok(work_dir)
-                    })();
-                    (result, ctx)
-                }))
-            })
-            .collect();
-
-        // Join ALL threads first, then commit ALL progress bars together to avoid
-        // ghost snapshots that appear when one bar finishes while others are live.
-        let joined: Vec<_> = handles.into_iter().map(|h| h.join()).collect();
-        let mut errors: Vec<anyhow::Error> = Vec::new();
-        let mut work_dirs: Vec<PathBuf> = Vec::new();
-        for join_result in joined {
-            match join_result {
-                Ok((Ok(work_dir), mut ctx)) => {
-                    ctx.commit();
-                    work_dirs.push(work_dir);
-                }
-                Ok((Err(e), mut ctx)) => {
-                    ctx.commit();
-                    errors.push(e);
-                }
-                Err(_) => errors.push(anyhow::anyhow!("An SRAM generation thread panicked")),
+    // Join ALL threads first, then commit ALL progress bars together to avoid
+    // ghost snapshots that appear when one bar finishes while others are live.
+    let joined: Vec<_> = handles.into_iter().map(|h| h.join()).collect();
+    let mut errors: Vec<anyhow::Error> = Vec::new();
+    let mut work_dirs: Vec<PathBuf> = Vec::new();
+    for join_result in joined {
+        match join_result {
+            Ok((Ok(work_dir), mut ctx)) => {
+                ctx.commit();
+                work_dirs.push(work_dir);
+            }
+            Ok((Err(e), mut ctx)) => {
+                ctx.commit();
+                errors.push(e);
+            }
+            Err(e) => {
+                let msg = e
+                    .downcast_ref::<String>()
+                    .map(|s| s.as_str())
+                    .or_else(|| e.downcast_ref::<&'static str>().copied())
+                    .unwrap_or("(no message)");
+                errors.push(anyhow::anyhow!("SRAM generation thread panicked: {}", msg));
             }
         }
-        for work_dir in work_dirs {
-            println!("Artifacts saved to: {:?}", work_dir);
-        }
+    }
+    for work_dir in work_dirs {
+        println!("Artifacts saved to: {:?}", work_dir);
+    }
 
-        if !errors.is_empty() {
-            let msg = errors
-                .iter()
-                .enumerate()
-                .map(|(i, e)| format!("  [{}] {:#}", i + 1, e))
-                .collect::<Vec<_>>()
-                .join("\n");
-            anyhow::bail!("{} SRAM(s) failed:\n{}", errors.len(), msg);
-        }
+    if !errors.is_empty() {
+        let msg = errors
+            .iter()
+            .enumerate()
+            .map(|(i, e)| format!("  [{}] {:#}", i + 1, e))
+            .collect::<Vec<_>>()
+            .join("\n");
+        anyhow::bail!("{} SRAM(s) failed:\n{}", errors.len(), msg);
     }
 
     Ok(())

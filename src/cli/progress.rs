@@ -115,23 +115,20 @@ impl StepContext {
                 key: TaskKey::RunPex,
                 extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
-                disabled: !tasks.contains(&TaskKey::RunPex) && !tasks.contains(&TaskKey::All),
+                disabled: !tasks.contains(&TaskKey::RunPex),
                 done: false,
             },
             Step {
                 desc: "Generate LIB".to_string(),
                 key: TaskKey::GenerateLib,
-                #[cfg(feature = "commercial")]
-                extra_key: Some(TaskKey::GenerateLibMx),
-                #[cfg(not(feature = "commercial"))]
                 extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
-                #[cfg(not(feature = "commercial"))]
-                disabled: !tasks.contains(&TaskKey::GenerateLib),
-                #[cfg(feature = "commercial")]
-                disabled: !tasks.contains(&TaskKey::GenerateLib)
-                    && !tasks.contains(&TaskKey::GenerateLibMx)
-                    && !tasks.contains(&TaskKey::All),
+                disabled: !tasks.contains(&TaskKey::GenerateLib) && {
+                    #[cfg(feature = "commercial")]
+                    { !tasks.contains(&TaskKey::All) }
+                    #[cfg(not(feature = "commercial"))]
+                    { true }
+                },
                 done: false,
             },
         ];
@@ -210,9 +207,6 @@ impl StepContext {
                 panic!("A step was completed out of order");
             }
 
-            // A step with an `extra_key` (e.g. "Generate LIB", which represents
-            // both `--lib` and `--liberate`) may legitimately be finished twice
-            // if both underlying tasks are enabled. Only advance once.
             if current_step.done {
                 return;
             }

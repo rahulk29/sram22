@@ -91,7 +91,7 @@ to create and where to register it.
 parametric model for the requested PVT corner. This is the only expensive step —
 it runs once when a lib file is about to be generated.
 
-### Step 1 — Parse and filter data widths
+### Step 1 — Parse data widths
 
 ```rust
 let root: serde_json::Value = serde_json::from_slice(json_bytes)?;
@@ -99,13 +99,12 @@ let cmap = root[corner].as_object()...;
 
 let mut dw_keys: Vec<u32> = cmap.keys().map(|k| k.parse().unwrap()).collect();
 dw_keys.sort_unstable();
-dw_keys.retain(|&dw| dw <= 128);
 let dws: Vec<f64> = dw_keys.iter().map(|&k| k as f64).collect();
 ```
 
 The JSON is parsed into a `serde_json::Value`. Only the chosen corner's data is used.
-Data widths above 128 are discarded even if present — the model is calibrated for
-the 8–128 range, keeping the conservative overestimate tight.
+`data_width` values outside the supported range (8–128) are rejected before this point
+by `generate_plan`, so `from_json` can assume all keys are valid.
 
 ### Step 2 — Helper closures
 
@@ -476,68 +475,6 @@ it stores the raw characterized snapshots:
 ```rust
 min_period: Vec<(u32, [f64; 7])>,
 ```
-
-Each element is `(data_width, [7 timing values])`. During construction these snapshots
-go through two additional processing steps before being stored.
-
-### SS corner correction
-
-```rust
-if corner == "ss" {
-    // Compute avg SS/TT ratio from valid dw range (≤ 768)
-    let avg_ratio = ...;
-    // Replace dw > 768 entries (where Liberate MX failed to converge) with TT × ratio
-    for (dw, arr) in raw.iter_mut() {
-        if *dw > 768 {
-            for j in 0..7 { arr[j] = v1d_tt(*dw, j) * avg_ratio; }
-        }
-    }
-}
-```
-
-Liberate MX fails SPICE convergence for the SS corner at `dw ≥ 1024` (the simulation
-does not settle). Those entries are replaced by scaling the TT corner values by the
-average SS/TT ratio observed across the valid dw range (≤ 768). The ratio is stable
-to within ±0.5% across the valid range, so this is a reliable estimate.
-
-### Monotone upper hull
-
-```rust
-let mut running_max = [0.0f64; 7];
-for (_, arr) in raw.iter_mut() {
-    for j in 0..7 {
-        running_max[j] = f64::max(running_max[j], arr[j]);
-        arr[j] = running_max[j];
-    }
-}
-```
-
-A running maximum is applied left-to-right across the sorted `dw` values for each of
-the 7 index positions. This enforces monotonicity: `min_period` must be non-decreasing
-with `data_width` by definition. Any measured dip (caused by SPICE noise or a
-non-ideal characterization point) is replaced by the previous maximum, ensuring the
-stored values are always a conservative upper bound.
-
-### Query-time interpolation
-
-```rust
-fn minimum_period(&self, p: &SramParams) -> [f64; 7] {
-    let dw = p.data_width() as f64;
-    let i = snaps.partition_point(|(d, _)| (*d as f64) <= dw);
-    // clamp to endpoints if out of range
-    let (x0, y0) = snaps[i - 1];
-    let (x1, y1) = snaps[i];
-    let t = (dw.ln() - (x0 as f64).ln()) / ((x1 as f64).ln() - (x0 as f64).ln());
-    std::array::from_fn(|j| y0[j] + t * (y1[j] - y0[j]))
-}
-```
-
-The same log-linear interpolation used internally during `FitEntry::fit` is applied
-here directly. The 7 elements of the `min_period` array are interpolated in parallel
-— each element corresponds to one of the 7 clock slew index points in the Liberty
-table.
-
----
 
 ## TimingModel Trait Implementation
 

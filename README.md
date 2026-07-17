@@ -66,7 +66,6 @@ Options:
       --lib                      Generate LIB (setup, hold, and delay timing information)
       --drc                      Run DRC using Calibre
       --lvs                      Run LVS using Calibre
-      --pex                      Run PEX using Calibre
   -a, --all                      Run all available steps
   -h, --help                     Print help information
   -V, --version                  Print version information
@@ -111,10 +110,18 @@ A valid configuration must have:
 * A power-of-two number of rows
 * At least 16 rows
 * At least 16 columns
+* `pex_level` (optional): Must be `"r"`, `"c"`, `"rc"`, or `"rcc"`. Only available with a full installation. When set, PEX runs automatically — no additional flag required. Each `[[sram]]` block sets its own `pex_level` independently; SRAMs without it skip PEX, and `--lib` falls back to the plain SPICE netlist for those entries.
 
 ### LIB generation
 
-SRAM22 supports The `--lib` flag generates Liberty (.lib) timing files for the tt/ss/ff PVT corners using Liberate or open-source interpolation. Open-Source generated libs are prone to a 2% error overestimate only for sram configurations with a data width between 8-128. 
+The `--lib` flag generates Liberty (.lib) timing files for the tt/ss/ff PVT corners.
+In a full BWRC installation the LIB is produced by Liberate MX running SPICE simulation.
+If a config has `pex_level` set, PEX runs first and Liberate MX uses the extracted netlist;
+otherwise Liberate MX falls back to the plain SPICE netlist.
+Without a full installation the LIB is produced by an open-source interpolation model;
+interpolated LIBs carry a conservative overestimate of up to 2% for SRAM configurations
+with `data_width` between 8 and 128.  `data_width` outside that range is not supported by
+the open-source model and will produce an error.
 
 ### Contribution
 
