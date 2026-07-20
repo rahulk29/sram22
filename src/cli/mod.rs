@@ -32,21 +32,13 @@ SRAM22 v0.2
 ";
 
 fn is_already_built(work_dir: &std::path::Path, name: &str) -> bool {
-    let layout_done = out_spice(work_dir, name).exists()
+    // Completeness is judged on the layout artifacts only, not the LIB. A LIB is
+    // interpolated by default when possible, but not every SRAM config has timing
+    // data to interpolate from, so a missing .lib does not mean the build is stale.
+    out_spice(work_dir, name).exists()
         && out_gds(work_dir, name).exists()
         && out_verilog(work_dir, name).exists()
-        && out_lef(work_dir, name).exists();
-
-    if !layout_done {
-        return false;
-    }
-
-    // LIB is always generated, so a build is only complete once all corner
-    // .lib files exist as well.
-    let lib_suffixes = ["tt_025C_1v80", "ss_100C_1v60", "ff_n40C_1v95"];
-    lib_suffixes
-        .iter()
-        .all(|suffix| work_dir.join(format!("{}_{}.lib", name, suffix)).exists())
+        && out_lef(work_dir, name).exists()
 }
 
 /// Layer per-config tasks onto the shared base set. A config runs PEX exactly
