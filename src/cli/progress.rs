@@ -101,8 +101,6 @@ impl StepContext {
                 disabled: !tasks.contains(&TaskKey::RunPex),
                 done: false,
             },
-            // LIB is always generated (interpolation by default, Liberate MX
-            // with --liberate/--all), so this step is never disabled.
             Step {
                 desc: "Generate LIB".to_string(),
                 key: TaskKey::GenerateLib,
@@ -206,9 +204,6 @@ impl StepContext {
 
     pub fn done(&mut self) {}
 
-    /// Finalize all bars as static terminal output. Call only after all
-    /// concurrent contexts are fully done, so no bar is committed while
-    /// another still shows an in-progress spinner.
     pub fn commit(&mut self) {
         for step in &self.steps {
             step.progress_bar.finish();
@@ -247,9 +242,6 @@ impl Step {
             self.progress_bar
                 .enable_steady_tick(Duration::from_millis(200));
         } else if status != StepStatus::Pending {
-            // Stop the spinner and redraw in-place with the new style, but do
-            // NOT call finish() — that would commit this bar as a static line
-            // immediately, causing ghost snapshots of other live bars.
             self.progress_bar.disable_steady_tick();
             self.progress_bar.tick();
         }

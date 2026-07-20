@@ -32,17 +32,12 @@ SRAM22 v0.2
 ";
 
 fn is_already_built(work_dir: &std::path::Path, name: &str) -> bool {
-    // Completeness is judged on the layout artifacts only, not the LIB. A LIB is
-    // interpolated by default when possible, but not every SRAM config has timing
-    // data to interpolate from, so a missing .lib does not mean the build is stale.
     out_spice(work_dir, name).exists()
         && out_gds(work_dir, name).exists()
         && out_verilog(work_dir, name).exists()
         && out_lef(work_dir, name).exists()
 }
 
-/// Layer per-config tasks onto the shared base set. A config runs PEX exactly
-/// when it specifies a `pex_level`.
 #[cfg(feature = "commercial")]
 fn config_tasks(base: &HashSet<TaskKey>, config: &SramConfig) -> Arc<HashSet<TaskKey>> {
     let mut tasks = base.clone();
@@ -79,8 +74,6 @@ pub fn run() -> Result<()> {
     std::fs::create_dir_all(&build_dir)?;
     let build_dir = canonicalize(build_dir)?;
 
-    // Every run generates a LIB; DRC, LVS, and the `all` umbrella are opt-in.
-    // PEX is decided per config in `config_tasks` from each config's pex_level.
     let base_tasks: HashSet<TaskKey> = [
         (true, TaskKey::GenerateLib),
         #[cfg(feature = "commercial")]
@@ -153,8 +146,6 @@ pub fn run() -> Result<()> {
         })
         .collect();
 
-    // Join ALL threads first, then commit ALL progress bars together to avoid
-    // ghost snapshots that appear when one bar finishes while others are live.
     let joined: Vec<_> = handles.into_iter().map(|h| h.join()).collect();
     let mut errors: Vec<anyhow::Error> = Vec::new();
     let mut work_dirs: Vec<PathBuf> = Vec::new();
