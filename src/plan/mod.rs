@@ -6,15 +6,17 @@ use crate::{setup_ctx, Result};
 use anyhow::bail;
 use std::collections::HashSet;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+#[cfg(feature = "commercial")]
+use std::sync::Mutex;
 
 /// Serializes PEX extraction and Liberate MX characterization across
 /// concurrently-building SRAM configurations, so at most one configuration's
 /// heavy backend work is in flight at a time. PEX (Calibre) is memory/CPU-
 /// heavy per run — running it for many configurations at once can crash the
 /// server. Liberate MX is additionally license-gated (3 licenses per
-/// configuration, one per corner). See the `RunPex`/`GenerateLib` tasks
-/// below.
+/// configuration, one per corner). Configurations that only run the
+/// open-source interpolation model skip this slot and stay concurrent.
 #[cfg(feature = "commercial")]
 static HEAVY_BACKEND_SLOT: Mutex<()> = Mutex::new(());
 
@@ -68,6 +70,10 @@ pub struct ExecutePlanParams<'a> {
     pub ctx: Option<&'a mut StepContext>,
     #[cfg(feature = "commercial")]
     pub pex_level: Option<calibre::pex::PexLevel>,
+    /// When true, generate the LIB with Liberate MX; otherwise use the
+    /// open-source interpolation model. Set by `--liberate`/`--all`.
+    #[cfg(feature = "commercial")]
+    pub use_liberate: bool,
 }
 
 pub fn generate_plan(config: &SramConfig) -> Result<SramPlan> {
@@ -202,20 +208,16 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
         let pex_source_path = out_spice(&pex_dir, "schematic");
         let pex_out_path = out_spice(&pex_dir, "schematic.pex");
 
-        // Held across RunPex and GenerateLib (Liberate MX) so a given SRAM's entire
-        // heavy-backend pipeline completes atomically before the next SRAM's begins.
-        let _heavy_backend_slot = if params.tasks.contains(&TaskKey::RunPex)
-            || params.tasks.contains(&TaskKey::GenerateLib)
-            || params.tasks.contains(&TaskKey::All)
-        {
+        // Held while PEX and/or Liberate MX run, so a given SRAM's heavy-backend
+        // work completes atomically before the next SRAM's begins. Lightweight
+        // runs (interpolation only, no PEX) skip the slot and stay concurrent.
+        let _heavy_backend_slot = if params.pex_level.is_some() || params.use_liberate {
             Some(HEAVY_BACKEND_SLOT.lock().unwrap_or_else(std::sync::PoisonError::into_inner))
         } else {
             None
         };
 
-        if params.pex_level.is_some()
-            && (params.tasks.contains(&TaskKey::RunPex) || params.tasks.contains(&TaskKey::All))
-        {
+        if params.pex_level.is_some() {
             sctx.write_schematic_to_file_for_purpose::<Sram>(
                 &plan.sram_params,
                 &pex_source_path,
@@ -240,113 +242,128 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
             try_finish_task!(ctx, TaskKey::RunPex);
         }
 
-        let sram_params = plan.sram_params.clone();
-        if params.tasks.contains(&TaskKey::GenerateLib) || params.tasks.contains(&TaskKey::All) {
-            use substrate::schematic::netlist::NetlistPurpose;
+        if params.tasks.contains(&TaskKey::GenerateLib) {
+            // Default to the open-source interpolation model; only invoke
+            // Liberate MX when --liberate/--all was passed.
+            if params.use_liberate {
+                use substrate::schematic::netlist::NetlistPurpose;
 
-            let source_path = if params.pex_level.is_some() {
-                pex_out_path
+                let sram_params = plan.sram_params.clone();
+                let source_path = if params.pex_level.is_some() {
+                    pex_out_path
+                } else {
+                    let timing_spice_path = out_spice(work_dir, "timing_schematic");
+                    sctx.write_schematic_to_file_for_purpose::<Sram>(
+                        &sram_params,
+                        &timing_spice_path,
+                        NetlistPurpose::Timing,
+                    )
+                    .expect("failed to write timing schematic");
+                    timing_spice_path
+                };
+
+                let sram = sctx
+                    .instantiate_layout::<Sram>(&sram_params)
+                    .expect("failed to generate layout");
+                let brect = sram.brect();
+                let width = Decimal::new(brect.width(), 3);
+                let height = Decimal::new(brect.height(), 3);
+
+                let mut handles = Vec::new();
+                for (corner, temp, vdd) in [
+                    ("tt", 25, dec!(1.8)),
+                    ("ss", 100, dec!(1.6)),
+                    ("ff", -40, dec!(1.95)),
+                ] {
+                    let verilog_path = verilog_path.clone();
+                    let work_dir = std::path::PathBuf::from(work_dir);
+                    let source_path = source_path.clone();
+                    let sram_params = sram_params.clone();
+                    handles.push(std::thread::spawn(move || {
+                        let suffix = match corner {
+                            "tt" => "tt_025C_1v80",
+                            "ss" => "ss_100C_1v60",
+                            "ff" => "ff_n40C_1v95",
+                            _ => unreachable!(),
+                        };
+                        let name = format!("{}_{}", sram_params.name(), suffix);
+                        let lib_params = liberate_mx::LibParams::builder()
+                            .work_dir(work_dir.join(format!("lib/{suffix}")))
+                            .output_file(crate::paths::out_lib(&work_dir, &name))
+                            .corner(corner)
+                            .width(width)
+                            .height(height)
+                            .user_verilog(verilog_path)
+                            .cell_name(&*sram_params.name())
+                            .num_words(sram_params.num_words())
+                            .data_width(sram_params.data_width())
+                            .addr_width(sram_params.addr_width())
+                            .wmask_width(sram_params.wmask_width())
+                            .mux_ratio(sram_params.mux_ratio())
+                            .has_wmask(true)
+                            .source_paths(vec![source_path])
+                            .vdd(vdd)
+                            .temp(temp)
+                            .build()
+                            .unwrap();
+                        crate::liberate::generate_sram_lib(&lib_params)
+                            .expect("failed to write lib");
+                    }));
+                }
+                let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
+                handles
+                    .into_iter()
+                    .collect::<Result<Vec<_>, _>>()
+                    .expect("failed to join threads");
             } else {
-                let timing_spice_path = out_spice(work_dir, "timing_schematic");
-                sctx.write_schematic_to_file_for_purpose::<Sram>(
-                    &sram_params,
-                    &timing_spice_path,
-                    NetlistPurpose::Timing,
-                )
-                .expect("failed to write timing schematic");
-                timing_spice_path
-            };
-
-            let sram = sctx
-                .instantiate_layout::<Sram>(&sram_params)
-                .expect("failed to generate layout");
-            let brect = sram.brect();
-            let width = Decimal::new(brect.width(), 3);
-            let height = Decimal::new(brect.height(), 3);
-
-            let mut handles = Vec::new();
-            for (corner, temp, vdd) in [
-                ("tt", 25, dec!(1.8)),
-                ("ss", 100, dec!(1.6)),
-                ("ff", -40, dec!(1.95)),
-            ] {
-                let verilog_path = verilog_path.clone();
-                let work_dir = std::path::PathBuf::from(work_dir);
-                let source_path = source_path.clone();
-                let sram_params = sram_params.clone();
-                handles.push(std::thread::spawn(move || {
-                    let suffix = match corner {
-                        "tt" => "tt_025C_1v80",
-                        "ss" => "ss_100C_1v60",
-                        "ff" => "ff_n40C_1v95",
-                        _ => unreachable!(),
-                    };
-                    let name = format!("{}_{}", sram_params.name(), suffix);
-                    let lib_params = liberate_mx::LibParams::builder()
-                        .work_dir(work_dir.join(format!("lib/{suffix}")))
-                        .output_file(crate::paths::out_lib(&work_dir, &name))
-                        .corner(corner)
-                        .width(width)
-                        .height(height)
-                        .user_verilog(verilog_path)
-                        .cell_name(&*sram_params.name())
-                        .num_words(sram_params.num_words())
-                        .data_width(sram_params.data_width())
-                        .addr_width(sram_params.addr_width())
-                        .wmask_width(sram_params.wmask_width())
-                        .mux_ratio(sram_params.mux_ratio())
-                        .has_wmask(true)
-                        .source_paths(vec![source_path])
-                        .vdd(vdd)
-                        .temp(temp)
-                        .build()
-                        .unwrap();
-                    crate::liberate::generate_sram_lib(&lib_params)
-                        .expect("failed to write lib");
-                }));
+                generate_interpolated_lib(work_dir, &plan.sram_params)?;
             }
-            let handles: Vec<_> = handles.into_iter().map(|handle| handle.join()).collect();
-            handles
-                .into_iter()
-                .collect::<Result<Vec<_>, _>>()
-                .expect("failed to join threads");
             try_finish_task!(ctx, TaskKey::GenerateLib);
         }
     }
 
     #[cfg(not(feature = "commercial"))]
     if params.tasks.contains(&TaskKey::GenerateLib) {
-        use crate::lib_gen::{LibGenParams, LookupModel, PvtCorner};
-        if plan.sram_params.data_width() > 128 {
-            anyhow::bail!(
-                "open-source lib generation requires data_width ≤ 128 (got {})",
-                plan.sram_params.data_width()
-            );
-        }
-        let nw = plan.sram_params.num_words();
-        let mx = plan.sram_params.mux_ratio();
-        let ws = plan.sram_params.wmask_granularity();
-        let json_bytes: &[u8] = TIMING_DATA.iter()
-            .find(|(n, m, w, _)| *n == nw && *m == mx && *w == ws)
-            .map(|(_, _, _, b)| *b)
-            .ok_or_else(|| anyhow::anyhow!(
-                "no timing data for {}m{}w{} — add timingdata/{}m{}w{}.json to the repo",
-                nw, mx, ws, nw, mx, ws
-            ))?;
-        for pvt in [PvtCorner::tt(), PvtCorner::ss(), PvtCorner::ff()] {
-            let model = LookupModel::from_json(json_bytes, &pvt.name)?;
-            let suffix = pvt.file_suffix();
-            let lib_name = format!("{}_{}", name, suffix);
-            let lib_path = crate::paths::out_lib(work_dir, &lib_name);
-            crate::lib_gen::generate_sram_lib(&LibGenParams {
-                sram: &plan.sram_params,
-                pvt,
-                model: &model,
-                output: lib_path,
-            })?;
-        }
+        generate_interpolated_lib(work_dir, &plan.sram_params)?;
         try_finish_task!(ctx, TaskKey::GenerateLib);
     }
 
+    Ok(())
+}
+
+/// Generate LIB timing files for all PVT corners using the open-source
+/// interpolation model. This is the default LIB path in every build; a
+/// commercial build only skips it when `--liberate` selects Liberate MX.
+fn generate_interpolated_lib(work_dir: &Path, sram_params: &SramParams) -> Result<()> {
+    use crate::lib_gen::{LibGenParams, LookupModel, PvtCorner};
+    if sram_params.data_width() > 128 {
+        anyhow::bail!(
+            "open-source lib generation requires data_width ≤ 128 (got {})",
+            sram_params.data_width()
+        );
+    }
+    let nw = sram_params.num_words();
+    let mx = sram_params.mux_ratio();
+    let ws = sram_params.wmask_granularity();
+    let json_bytes: &[u8] = TIMING_DATA.iter()
+        .find(|(n, m, w, _)| *n == nw && *m == mx && *w == ws)
+        .map(|(_, _, _, b)| *b)
+        .ok_or_else(|| anyhow::anyhow!(
+            "no timing data for {}m{}w{} — add timingdata/{}m{}w{}.json to the repo",
+            nw, mx, ws, nw, mx, ws
+        ))?;
+    let name = sram_params.name();
+    for pvt in [PvtCorner::tt(), PvtCorner::ss(), PvtCorner::ff()] {
+        let model = LookupModel::from_json(json_bytes, &pvt.name)?;
+        let suffix = pvt.file_suffix();
+        let lib_name = format!("{}_{}", name, suffix);
+        let lib_path = crate::paths::out_lib(work_dir, &lib_name);
+        crate::lib_gen::generate_sram_lib(&LibGenParams {
+            sram: sram_params,
+            pvt,
+            model: &model,
+            output: lib_path,
+        })?;
+    }
     Ok(())
 }

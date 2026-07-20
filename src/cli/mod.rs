@@ -7,7 +7,7 @@ use clap::Parser;
 
 use indicatif::MultiProgress;
 
-use crate::blocks::sram::parse_sram_batch_config;
+use crate::blocks::sram::{parse_sram_batch_config, SramConfig};
 use crate::cli::args::Args;
 use crate::cli::progress::StepContext;
 use crate::paths::{out_gds, out_lef, out_spice, out_verilog};
@@ -31,38 +31,30 @@ pub const BANNER: &str = r"
 SRAM22 v0.2
 ";
 
-fn wants_lib(tasks: &HashSet<TaskKey>) -> bool {
-    if tasks.contains(&TaskKey::GenerateLib) {
-        return true;
-    }
-    #[cfg(feature = "commercial")]
-    if tasks.contains(&TaskKey::All) {
-        return true;
-    }
-    false
-}
-
-fn is_already_built(work_dir: &std::path::Path, name: &str, check_lib: bool) -> bool {
-    let layout_done = out_spice(work_dir, name).exists()
+fn is_already_built(work_dir: &std::path::Path, name: &str) -> bool {
+    // Completeness is judged on the layout artifacts only, not the LIB. A LIB is
+    // interpolated by default when possible, but not every SRAM config has timing
+    // data to interpolate from, so a missing .lib does not mean the build is stale.
+    out_spice(work_dir, name).exists()
         && out_gds(work_dir, name).exists()
         && out_verilog(work_dir, name).exists()
-        && out_lef(work_dir, name).exists();
+        && out_lef(work_dir, name).exists()
+}
 
-    if !layout_done {
-        return false;
+/// Layer per-config tasks onto the shared base set. A config runs PEX exactly
+/// when it specifies a `pex_level`.
+#[cfg(feature = "commercial")]
+fn config_tasks(base: &HashSet<TaskKey>, config: &SramConfig) -> Arc<HashSet<TaskKey>> {
+    let mut tasks = base.clone();
+    if config.pex_level.is_some() {
+        tasks.insert(TaskKey::RunPex);
     }
+    Arc::new(tasks)
+}
 
-    if check_lib {
-        let lib_suffixes = ["tt_025C_1v80", "ss_100C_1v60", "ff_n40C_1v95"];
-        let libs_done = lib_suffixes.iter().all(|suffix| {
-            work_dir.join(format!("{}_{}.lib", name, suffix)).exists()
-        });
-        if !libs_done {
-            return false;
-        }
-    }
-
-    true
+#[cfg(not(feature = "commercial"))]
+fn config_tasks(base: &HashSet<TaskKey>, _config: &SramConfig) -> Arc<HashSet<TaskKey>> {
+    Arc::new(base.clone())
 }
 
 pub fn run() -> Result<()> {
@@ -87,21 +79,20 @@ pub fn run() -> Result<()> {
     std::fs::create_dir_all(&build_dir)?;
     let build_dir = canonicalize(build_dir)?;
 
-    let enabled_tasks = vec![
+    // Every run generates a LIB; DRC, LVS, and the `all` umbrella are opt-in.
+    // PEX is decided per config in `config_tasks` from each config's pex_level.
+    let base_tasks: HashSet<TaskKey> = [
+        (true, TaskKey::GenerateLib),
         #[cfg(feature = "commercial")]
         (args.drc, TaskKey::RunDrc),
         #[cfg(feature = "commercial")]
         (args.lvs, TaskKey::RunLvs),
-        // RunPex is per-config: added in filter_map based on each config's
-        // pex_level so the PEX step shows Disabled for configs that skip PEX.
-        (args.lib, TaskKey::GenerateLib),
         #[cfg(feature = "commercial")]
         (args.all, TaskKey::All),
     ]
     .into_iter()
-    .filter_map(|(a, b)| if a { Some(b) } else { None });
-
-    let base_tasks = Arc::new(HashSet::from_iter(enabled_tasks));
+    .filter_map(|(enabled, task)| enabled.then_some(task))
+    .collect();
 
     let plans: Vec<SramPlan> = configs
         .iter()
@@ -129,20 +120,11 @@ pub fn run() -> Result<()> {
         .zip(configs.into_iter())
         .filter_map(|(plan, config)| {
             let work_dir_check = build_dir.join(plan.sram_params.name().as_str());
-            if is_already_built(&work_dir_check, &plan.sram_params.name(), wants_lib(&base_tasks)) {
+            if is_already_built(&work_dir_check, &plan.sram_params.name()) {
                 return None;
             }
 
-            // Per-config task set: RunPex is included whenever pex_level is set,
-            // regardless of other flags — pex_level in the config is sufficient.
-            let tasks = {
-                let mut t = (*base_tasks).clone();
-                #[cfg(feature = "commercial")]
-                if config.pex_level.is_some() {
-                    t.insert(TaskKey::RunPex);
-                }
-                Arc::new(t)
-            };
+            let tasks = config_tasks(&base_tasks, &config);
 
             let mut ctx = StepContext::new_with_mp(&tasks, mp.clone(), &plan.sram_params.name());
             ctx.finish(TaskKey::GeneratePlan);
@@ -160,6 +142,8 @@ pub fn run() -> Result<()> {
                         ctx: Some(&mut ctx),
                         #[cfg(feature = "commercial")]
                         pex_level: config.pex_level,
+                        #[cfg(feature = "commercial")]
+                        use_liberate: args.liberate || args.all,
                     });
                     ctx.check(res)?;
                     Ok(work_dir)

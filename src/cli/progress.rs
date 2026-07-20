@@ -27,10 +27,6 @@ pub struct StepContext {
 pub struct Step {
     desc: String,
     key: TaskKey,
-    /// An alternate task key that also completes this step. Used for the
-    /// "Generate LIB" row, which represents both the open-source (`--lib`)
-    /// and Liberate MX (`--liberate`) code paths on a single progress bar.
-    extra_key: Option<TaskKey>,
     progress_bar: ProgressBar,
     disabled: bool,
     done: bool,
@@ -38,23 +34,17 @@ pub struct Step {
 
 impl Step {
     fn matches(&self, key: TaskKey) -> bool {
-        self.key == key || self.extra_key == Some(key)
+        self.key == key
     }
 }
 
 impl StepContext {
-    pub fn new(tasks: &HashSet<TaskKey>) -> Self {
-        println!("Tasks:");
-        Self::new_with_mp(tasks, MultiProgress::new(), "")
-    }
-
     #[allow(unused_variables)]
     pub fn new_with_mp(tasks: &HashSet<TaskKey>, mp: MultiProgress, prefix: &str) -> Self {
         let mut steps = vec![
             Step {
                 desc: "Generate plan".to_string(),
                 key: TaskKey::GeneratePlan,
-                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
                 done: false,
@@ -62,7 +52,6 @@ impl StepContext {
             Step {
                 desc: "Generate netlist".to_string(),
                 key: TaskKey::GenerateNetlist,
-                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
                 done: false,
@@ -70,7 +59,6 @@ impl StepContext {
             Step {
                 desc: "Generate layout".to_string(),
                 key: TaskKey::GenerateLayout,
-                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
                 done: false,
@@ -78,7 +66,6 @@ impl StepContext {
             Step {
                 desc: "Generate Verilog".to_string(),
                 key: TaskKey::GenerateVerilog,
-                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
                 done: false,
@@ -86,7 +73,6 @@ impl StepContext {
             Step {
                 desc: "Generate LEF".to_string(),
                 key: TaskKey::GenerateLef,
-                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
                 done: false,
@@ -95,7 +81,6 @@ impl StepContext {
             Step {
                 desc: "Run DRC".to_string(),
                 key: TaskKey::RunDrc,
-                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::RunDrc) && !tasks.contains(&TaskKey::All),
                 done: false,
@@ -104,31 +89,25 @@ impl StepContext {
             Step {
                 desc: "Run LVS".to_string(),
                 key: TaskKey::RunLvs,
-                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::RunLvs) && !tasks.contains(&TaskKey::All),
                 done: false,
             },
-            #[cfg(all(feature = "commercial"))]
+            #[cfg(feature = "commercial")]
             Step {
                 desc: "Run PEX".to_string(),
                 key: TaskKey::RunPex,
-                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::RunPex),
                 done: false,
             },
+            // LIB is always generated (interpolation by default, Liberate MX
+            // with --liberate/--all), so this step is never disabled.
             Step {
                 desc: "Generate LIB".to_string(),
                 key: TaskKey::GenerateLib,
-                extra_key: None,
                 progress_bar: ProgressBar::new_spinner(),
-                disabled: !tasks.contains(&TaskKey::GenerateLib) && {
-                    #[cfg(feature = "commercial")]
-                    { !tasks.contains(&TaskKey::All) }
-                    #[cfg(not(feature = "commercial"))]
-                    { true }
-                },
+                disabled: false,
                 done: false,
             },
         ];

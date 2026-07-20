@@ -63,13 +63,15 @@ Options:
   -c, --config <CONFIG>          Path to TOML configuration file [default: sram22.toml]
   -o, --output-dir <OUTPUT_DIR>  Directory to which output files should be saved
       --lef                      Generate LEF (used in place and route)
-      --lib                      Generate LIB (setup, hold, and delay timing information)
+      --liberate                 Generate LIB with Liberate MX instead of the interpolation model
       --drc                      Run DRC using Calibre
       --lvs                      Run LVS using Calibre
   -a, --all                      Run all available steps
   -h, --help                     Print help information
   -V, --version                  Print version information
 ```
+
+`--liberate`, `--drc`, `--lvs`, and `--all` are only available with a full (commercial) installation.
 
 ### Configuration
 
@@ -110,18 +112,20 @@ A valid configuration must have:
 * A power-of-two number of rows
 * At least 16 rows
 * At least 16 columns
-* `pex_level` (optional): Must be `"r"`, `"c"`, `"rc"`, or `"rcc"`. Only available with a full installation. When set, PEX runs automatically — no additional flag required. Each `[[sram]]` block sets its own `pex_level` independently; SRAMs without it skip PEX, and `--lib` falls back to the plain SPICE netlist for those entries.
+* `pex_level` (optional): Must be `"r"`, `"c"`, `"rc"`, or `"rcc"`. Only available with a full installation. When set, PEX runs automatically — no additional flag required. Each `[[sram]]` block sets its own `pex_level` independently; SRAMs without it skip PEX. The extracted netlist is only consumed by Liberate MX (see below).
 
 ### LIB generation
 
-The `--lib` flag generates Liberty (.lib) timing files for the tt/ss/ff PVT corners.
-In a full BWRC installation the LIB is produced by Liberate MX running SPICE simulation.
-If a config has `pex_level` set, PEX runs first and Liberate MX uses the extracted netlist;
-otherwise Liberate MX falls back to the plain SPICE netlist.
-Without a full installation the LIB is produced by an open-source interpolation model;
+SRAM22 always generates Liberty (.lib) timing files for the tt/ss/ff PVT corners — no flag
+is required. By default the LIB is produced by an open-source interpolation model;
 interpolated LIBs carry a conservative overestimate of up to 2% for SRAM configurations
 with `data_width` between 8 and 128.  `data_width` outside that range is not supported by
 the open-source model and will produce an error.
+
+With a full BWRC installation, passing `--liberate` (or `--all`) instead characterizes the
+LIB with Liberate MX running SPICE simulation; interpolation is skipped in that case. If a
+config also has `pex_level` set, Liberate MX uses the extracted netlist; otherwise it falls
+back to the plain SPICE netlist.
 
 ### Contribution
 
