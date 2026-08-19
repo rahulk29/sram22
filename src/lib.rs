@@ -30,7 +30,7 @@ use tera::Tera;
 pub mod abs;
 pub mod blocks;
 pub mod cli;
-pub mod lib_gen;
+pub mod liberty;
 #[cfg(feature = "commercial")]
 pub mod liberate;
 pub mod measure;

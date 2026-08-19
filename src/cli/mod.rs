@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::fs::canonicalize;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use clap::Parser;
 
@@ -106,67 +106,86 @@ pub fn run() -> Result<()> {
     }
     println!();
 
-    let mp = MultiProgress::new();
-
-    let handles: Vec<_> = plans
+    let work_items: Vec<(SramPlan, SramConfig)> = plans
         .into_iter()
-        .zip(configs.into_iter())
-        .filter_map(|(plan, config)| {
-            let work_dir_check = build_dir.join(plan.sram_params.name().as_str());
-            if is_already_built(&work_dir_check, &plan.sram_params.name()) {
-                return None;
-            }
-
-            let tasks = config_tasks(&base_tasks, &config);
-
-            let mut ctx = StepContext::new_with_mp(&tasks, mp.clone(), &plan.sram_params.name());
-            ctx.finish(TaskKey::GeneratePlan);
-
-            let build_dir = build_dir.clone();
-            Some(std::thread::spawn(move || -> (Result<PathBuf>, StepContext) {
-                let result = (|| -> Result<PathBuf> {
-                    let work_dir = build_dir.join(plan.sram_params.name().as_str());
-                    std::fs::create_dir_all(&work_dir)?;
-                    let work_dir = canonicalize(work_dir)?;
-                    let res = execute_plan(ExecutePlanParams {
-                        work_dir: &work_dir,
-                        plan: &plan,
-                        tasks,
-                        ctx: Some(&mut ctx),
-                        #[cfg(feature = "commercial")]
-                        pex_level: config.pex_level,
-                        #[cfg(feature = "commercial")]
-                        use_liberate: args.liberate || args.all,
-                    });
-                    ctx.check(res)?;
-                    Ok(work_dir)
-                })();
-                (result, ctx)
-            }))
+        .zip(configs)
+        .filter(|(plan, _)| {
+            let work_dir = build_dir.join(plan.sram_params.name().as_str());
+            !is_already_built(&work_dir, &plan.sram_params.name())
         })
         .collect();
 
-    let joined: Vec<_> = handles.into_iter().map(|h| h.join()).collect();
+    #[cfg(feature = "commercial")]
+    let max_parallel = args.parallel.max(1);
+    #[cfg(not(feature = "commercial"))]
+    let max_parallel = usize::MAX;
+    let num_workers = work_items.len().min(max_parallel);
+
+    #[cfg(feature = "commercial")]
+    let use_liberate = args.liberate;
+
+    let mp = MultiProgress::new();
+    let queue = Arc::new(Mutex::new(work_items.into_iter()));
+    let results: Arc<Mutex<Vec<Result<PathBuf>>>> = Arc::new(Mutex::new(Vec::new()));
+
+    let workers: Vec<_> = (0..num_workers)
+        .map(|_| {
+            let queue = Arc::clone(&queue);
+            let results = Arc::clone(&results);
+            let base_tasks = base_tasks.clone();
+            let build_dir = build_dir.clone();
+            let mp = mp.clone();
+            std::thread::spawn(move || loop {
+                let item = queue.lock().unwrap().next();
+                let Some((plan, config)) = item else { break };
+                let name = plan.sram_params.name();
+                let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let tasks = config_tasks(&base_tasks, &config);
+                    let mut ctx = StepContext::new_with_mp(&tasks, mp.clone(), &name);
+                    ctx.finish(TaskKey::GeneratePlan);
+                    let result = (|| -> Result<PathBuf> {
+                        let work_dir = build_dir.join(name.as_str());
+                        std::fs::create_dir_all(&work_dir)?;
+                        let work_dir = canonicalize(work_dir)?;
+                        let res = execute_plan(ExecutePlanParams {
+                            work_dir: &work_dir,
+                            plan: &plan,
+                            tasks,
+                            ctx: Some(&mut ctx),
+                            #[cfg(feature = "commercial")]
+                            pex_level: config.pex_level,
+                            #[cfg(feature = "commercial")]
+                            use_liberate,
+                        });
+                        ctx.check(res)?;
+                        Ok(work_dir)
+                    })();
+                    ctx.commit();
+                    result
+                }));
+                let result = outcome.unwrap_or_else(|panic| {
+                    let msg = panic
+                        .downcast_ref::<String>()
+                        .map(|s| s.as_str())
+                        .or_else(|| panic.downcast_ref::<&'static str>().copied())
+                        .unwrap_or("(no message)");
+                    Err(anyhow::anyhow!("SRAM generation panicked for {}: {}", name, msg))
+                });
+                results.lock().unwrap().push(result);
+            })
+        })
+        .collect();
+
+    for worker in workers {
+        let _ = worker.join();
+    }
+
     let mut errors: Vec<anyhow::Error> = Vec::new();
     let mut work_dirs: Vec<PathBuf> = Vec::new();
-    for join_result in joined {
-        match join_result {
-            Ok((Ok(work_dir), mut ctx)) => {
-                ctx.commit();
-                work_dirs.push(work_dir);
-            }
-            Ok((Err(e), mut ctx)) => {
-                ctx.commit();
-                errors.push(e);
-            }
-            Err(e) => {
-                let msg = e
-                    .downcast_ref::<String>()
-                    .map(|s| s.as_str())
-                    .or_else(|| e.downcast_ref::<&'static str>().copied())
-                    .unwrap_or("(no message)");
-                errors.push(anyhow::anyhow!("SRAM generation thread panicked: {}", msg));
-            }
+    for result in Arc::try_unwrap(results).unwrap().into_inner().unwrap() {
+        match result {
+            Ok(work_dir) => work_dirs.push(work_dir),
+            Err(e) => errors.push(e),
         }
     }
     for work_dir in work_dirs {

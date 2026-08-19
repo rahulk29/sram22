@@ -7,11 +7,6 @@ use anyhow::bail;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
-#[cfg(feature = "commercial")]
-use std::sync::Mutex;
-
-#[cfg(feature = "commercial")]
-static HEAVY_BACKEND_SLOT: Mutex<()> = Mutex::new(());
 
 static TIMING_DATA: &[(usize, usize, usize, &[u8])] = &[
     (64,   4, 8, include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/timingdata/64m4w8.json"))),
@@ -196,12 +191,6 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
         let pex_source_path = out_spice(&pex_dir, "schematic");
         let pex_out_path = out_spice(&pex_dir, "schematic.pex");
 
-        let _heavy_backend_slot = if params.pex_level.is_some() || params.use_liberate {
-            Some(HEAVY_BACKEND_SLOT.lock().unwrap_or_else(std::sync::PoisonError::into_inner))
-        } else {
-            None
-        };
-
         if params.pex_level.is_some() {
             sctx.write_schematic_to_file_for_purpose::<Sram>(
                 &plan.sram_params,
@@ -315,7 +304,7 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
 }
 
 fn generate_interpolated_lib(work_dir: &Path, sram_params: &SramParams) -> Result<()> {
-    use crate::lib_gen::{LibGenParams, LookupModel, PvtCorner};
+    use crate::liberty::{LibGenParams, LookupModel, PvtCorner};
     if sram_params.data_width() > 128 {
         anyhow::bail!(
             "open-source lib generation requires data_width ≤ 128 (got {})",
@@ -338,7 +327,7 @@ fn generate_interpolated_lib(work_dir: &Path, sram_params: &SramParams) -> Resul
         let suffix = pvt.file_suffix();
         let lib_name = format!("{}_{}", name, suffix);
         let lib_path = crate::paths::out_lib(work_dir, &lib_name);
-        crate::lib_gen::generate_sram_lib(&LibGenParams {
+        crate::liberty::generate_sram_lib(&LibGenParams {
             sram: sram_params,
             pvt,
             model: &model,
