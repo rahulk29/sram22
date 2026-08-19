@@ -29,7 +29,6 @@ pub struct Step {
     key: TaskKey,
     progress_bar: ProgressBar,
     disabled: bool,
-    done: bool,
 }
 
 impl Step {
@@ -47,35 +46,30 @@ impl StepContext {
                 key: TaskKey::GeneratePlan,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
-                done: false,
             },
             Step {
                 desc: "Generate netlist".to_string(),
                 key: TaskKey::GenerateNetlist,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
-                done: false,
             },
             Step {
                 desc: "Generate layout".to_string(),
                 key: TaskKey::GenerateLayout,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
-                done: false,
             },
             Step {
                 desc: "Generate Verilog".to_string(),
                 key: TaskKey::GenerateVerilog,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
-                done: false,
             },
             Step {
                 desc: "Generate LEF".to_string(),
                 key: TaskKey::GenerateLef,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
-                done: false,
             },
             #[cfg(feature = "commercial")]
             Step {
@@ -83,7 +77,6 @@ impl StepContext {
                 key: TaskKey::RunDrc,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::RunDrc) && !tasks.contains(&TaskKey::All),
-                done: false,
             },
             #[cfg(feature = "commercial")]
             Step {
@@ -91,7 +84,6 @@ impl StepContext {
                 key: TaskKey::RunLvs,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::RunLvs) && !tasks.contains(&TaskKey::All),
-                done: false,
             },
             #[cfg(feature = "commercial")]
             Step {
@@ -99,16 +91,12 @@ impl StepContext {
                 key: TaskKey::RunPex,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::RunPex),
-                done: false,
             },
-            // LIB is always generated (interpolation by default, Liberate MX
-            // with --liberate/--all), so this step is never disabled.
             Step {
                 desc: "Generate LIB".to_string(),
                 key: TaskKey::GenerateLib,
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: false,
-                done: false,
             },
         ];
 
@@ -185,30 +173,18 @@ impl StepContext {
             if !current_step.matches(key) {
                 panic!("A step was completed out of order");
             }
-
-            if current_step.done {
-                return;
-            }
-            current_step.done = true;
             current_step.set_status(StepStatus::Done, None);
 
             self.advance();
 
             if let Some(current_step) = self.current_step() {
                 current_step.set_status(StepStatus::InProgress, None);
-            } else {
-                self.done();
             }
-        } else if !self.steps.last().is_some_and(|s| s.done && s.matches(key)) {
+        } else if !self.steps.last().is_some_and(|s| s.matches(key)) {
             panic!("A step was completed after all steps were marked completed");
         }
     }
 
-    pub fn done(&mut self) {}
-
-    /// Finalize all bars as static terminal output. Call only after all
-    /// concurrent contexts are fully done, so no bar is committed while
-    /// another still shows an in-progress spinner.
     pub fn commit(&mut self) {
         for step in &self.steps {
             step.progress_bar.finish();
@@ -247,9 +223,6 @@ impl Step {
             self.progress_bar
                 .enable_steady_tick(Duration::from_millis(200));
         } else if status != StepStatus::Pending {
-            // Stop the spinner and redraw in-place with the new style, but do
-            // NOT call finish() — that would commit this bar as a static line
-            // immediately, causing ghost snapshots of other live bars.
             self.progress_bar.disable_steady_tick();
             self.progress_bar.tick();
         }
