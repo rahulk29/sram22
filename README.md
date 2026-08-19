@@ -67,17 +67,16 @@ Options:
       --drc                      Run DRC using Calibre
       --lvs                      Run LVS using Calibre
   -a, --all                      Run all available steps
-  -p, --parallel <PARALLEL>      Max number of SRAMs to generate concurrently [default: 1]
+  -p, --parallel <PARALLEL>      Max number of SRAMs to generate concurrently [default: no limit]
   -h, --help                     Print help information
   -V, --version                  Print version information
 ```
 
-`--liberate`, `--drc`, `--lvs`, `--all`, and `--parallel` are only available with a full (commercial) installation.
+`--liberate`, `--drc`, `--lvs`, and `--all` are only available with a full (commercial) installation.
 
-By default (`--parallel 1`) SRAMs are generated one at a time, since each runs PEX and
-Liberate MX steps that invoke licensed tools and are memory-intensive. Raise `--parallel`
-(or `-p`) to generate more SRAMs concurrently when you have the licenses and compute to
-spare. The open-source build has no such steps and always generates all SRAMs in parallel.
+By default all SRAMs are generated concurrently. Pass `--parallel` (or `-p`) to cap how many
+run at once — useful in a commercial install, where each SRAM also runs PEX and Liberate MX
+steps that invoke licensed tools and are memory-intensive.
 
 ### Configuration
 

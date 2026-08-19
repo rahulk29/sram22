@@ -9,17 +9,105 @@ use std::path::Path;
 use std::sync::Arc;
 
 static TIMING_DATA: &[(usize, usize, usize, &[u8])] = &[
-    (64,   4, 8, include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/timingdata/64m4w8.json"))),
-    (128,  4, 8, include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/timingdata/128m4w8.json"))),
-    (128,  8, 8, include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/timingdata/128m8w8.json"))),
-    (256,  4, 8, include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/timingdata/256m4w8.json"))),
-    (256,  8, 8, include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/timingdata/256m8w8.json"))),
-    (512,  4, 8, include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/timingdata/512m4w8.json"))),
-    (512,  8, 8, include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/timingdata/512m8w8.json"))),
-    (1024, 4, 8, include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/timingdata/1024m4w8.json"))),
-    (1024, 8, 8, include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/timingdata/1024m8w8.json"))),
-    (2048, 4, 8, include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/timingdata/2048m4w8.json"))),
-    (2048, 8, 8, include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/timingdata/2048m8w8.json"))),
+    (
+        64,
+        4,
+        8,
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/timingdata/64m4w8.json"
+        )),
+    ),
+    (
+        128,
+        4,
+        8,
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/timingdata/128m4w8.json"
+        )),
+    ),
+    (
+        128,
+        8,
+        8,
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/timingdata/128m8w8.json"
+        )),
+    ),
+    (
+        256,
+        4,
+        8,
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/timingdata/256m4w8.json"
+        )),
+    ),
+    (
+        256,
+        8,
+        8,
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/timingdata/256m8w8.json"
+        )),
+    ),
+    (
+        512,
+        4,
+        8,
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/timingdata/512m4w8.json"
+        )),
+    ),
+    (
+        512,
+        8,
+        8,
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/timingdata/512m8w8.json"
+        )),
+    ),
+    (
+        1024,
+        4,
+        8,
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/timingdata/1024m4w8.json"
+        )),
+    ),
+    (
+        1024,
+        8,
+        8,
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/timingdata/1024m8w8.json"
+        )),
+    ),
+    (
+        2048,
+        4,
+        8,
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/timingdata/2048m4w8.json"
+        )),
+    ),
+    (
+        2048,
+        8,
+        8,
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/timingdata/2048m8w8.json"
+        )),
+    ),
 ];
 
 /// A concrete plan for an SRAM.
@@ -211,7 +299,10 @@ pub fn execute_plan(params: ExecutePlanParams) -> Result<()> {
                 ground_net: "vss".to_string(),
             })?;
             if !pex_out_path.exists() {
-                bail!("PEX failed: no output netlist produced at {:?}", pex_out_path);
+                bail!(
+                    "PEX failed: no output netlist produced at {:?}",
+                    pex_out_path
+                );
             }
             try_finish_task!(ctx, TaskKey::RunPex);
         }
@@ -314,13 +405,21 @@ fn generate_interpolated_lib(work_dir: &Path, sram_params: &SramParams) -> Resul
     let nw = sram_params.num_words();
     let mx = sram_params.mux_ratio();
     let ws = sram_params.wmask_granularity();
-    let json_bytes: &[u8] = TIMING_DATA.iter()
+    let json_bytes: &[u8] = TIMING_DATA
+        .iter()
         .find(|(n, m, w, _)| *n == nw && *m == mx && *w == ws)
         .map(|(_, _, _, b)| *b)
-        .ok_or_else(|| anyhow::anyhow!(
-            "no timing data for {}m{}w{} — add timingdata/{}m{}w{}.json to the repo",
-            nw, mx, ws, nw, mx, ws
-        ))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "no timing data for {}m{}w{} — add timingdata/{}m{}w{}.json to the repo",
+                nw,
+                mx,
+                ws,
+                nw,
+                mx,
+                ws
+            )
+        })?;
     let name = sram_params.name();
     for pvt in [PvtCorner::tt(), PvtCorner::ss(), PvtCorner::ff()] {
         let model = LookupModel::from_json(json_bytes, &pvt.name)?;

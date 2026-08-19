@@ -26,13 +26,28 @@ pub struct PvtCorner {
 impl PvtCorner {
     /// Standard corners used in sram22: tt/ss/ff with their PVT values.
     pub fn tt() -> Self {
-        Self { name: "tt".into(), process: 1.0, voltage: 1.8, temperature: 25.0 }
+        Self {
+            name: "tt".into(),
+            process: 1.0,
+            voltage: 1.8,
+            temperature: 25.0,
+        }
     }
     pub fn ss() -> Self {
-        Self { name: "ss".into(), process: 1.0, voltage: 1.6, temperature: 100.0 }
+        Self {
+            name: "ss".into(),
+            process: 1.0,
+            voltage: 1.6,
+            temperature: 100.0,
+        }
     }
     pub fn ff() -> Self {
-        Self { name: "ff".into(), process: 1.0, voltage: 1.95, temperature: -40.0 }
+        Self {
+            name: "ff".into(),
+            process: 1.0,
+            voltage: 1.95,
+            temperature: -40.0,
+        }
     }
 
     /// e.g. "PVT_1P95V_-40C"
@@ -128,39 +143,86 @@ pub trait TimingModel: Send + Sync {
 pub struct PlaceholderModel;
 
 impl TimingModel for PlaceholderModel {
-    fn area(&self, _: &SramParams) -> f64 { 0.0 }
-    fn hold_rise(&self, _: &SramParams, _: PinRole) -> [[f64; 7]; 7] { [[0.0; 7]; 7] }
-    fn hold_fall(&self, _: &SramParams, _: PinRole) -> [[f64; 7]; 7] { [[0.0; 7]; 7] }
-    fn setup_rise(&self, _: &SramParams, _: PinRole) -> [[f64; 7]; 7] { [[0.0; 7]; 7] }
-    fn setup_fall(&self, _: &SramParams, _: PinRole) -> [[f64; 7]; 7] { [[0.0; 7]; 7] }
-    fn cell_rise(&self, _: &SramParams) -> [[f64; 7]; 7] { [[0.0; 7]; 7] }
-    fn cell_fall(&self, _: &SramParams) -> [[f64; 7]; 7] { [[0.0; 7]; 7] }
-    fn rise_transition(&self, _: &SramParams) -> [[f64; 7]; 7] { [[0.0; 7]; 7] }
-    fn fall_transition(&self, _: &SramParams) -> [[f64; 7]; 7] { [[0.0; 7]; 7] }
-    fn minimum_period(&self, _: &SramParams) -> [f64; 7] { [0.0; 7] }
-    fn min_pulse_width(&self, _: &SramParams) -> ([f64; 7], [f64; 7]) { ([0.0; 7], [0.0; 7]) }
+    fn area(&self, _: &SramParams) -> f64 {
+        0.0
+    }
+    fn hold_rise(&self, _: &SramParams, _: PinRole) -> [[f64; 7]; 7] {
+        [[0.0; 7]; 7]
+    }
+    fn hold_fall(&self, _: &SramParams, _: PinRole) -> [[f64; 7]; 7] {
+        [[0.0; 7]; 7]
+    }
+    fn setup_rise(&self, _: &SramParams, _: PinRole) -> [[f64; 7]; 7] {
+        [[0.0; 7]; 7]
+    }
+    fn setup_fall(&self, _: &SramParams, _: PinRole) -> [[f64; 7]; 7] {
+        [[0.0; 7]; 7]
+    }
+    fn cell_rise(&self, _: &SramParams) -> [[f64; 7]; 7] {
+        [[0.0; 7]; 7]
+    }
+    fn cell_fall(&self, _: &SramParams) -> [[f64; 7]; 7] {
+        [[0.0; 7]; 7]
+    }
+    fn rise_transition(&self, _: &SramParams) -> [[f64; 7]; 7] {
+        [[0.0; 7]; 7]
+    }
+    fn fall_transition(&self, _: &SramParams) -> [[f64; 7]; 7] {
+        [[0.0; 7]; 7]
+    }
+    fn minimum_period(&self, _: &SramParams) -> [f64; 7] {
+        [0.0; 7]
+    }
+    fn min_pulse_width(&self, _: &SramParams) -> ([f64; 7], [f64; 7]) {
+        ([0.0; 7], [0.0; 7])
+    }
     fn input_cap(&self, _: &SramParams, _: PinRole) -> CapValues {
-        CapValues { cap: 0.0, rise: 0.0, fall: 0.0, rise_lo: 0.0, fall_lo: 0.0 }
+        CapValues {
+            cap: 0.0,
+            rise: 0.0,
+            fall: 0.0,
+            rise_lo: 0.0,
+            fall_lo: 0.0,
+        }
     }
-    fn output_max_cap(&self, _: &SramParams) -> f64 { 0.52 }
-    fn receiver_cap_1_rise(&self, _: &SramParams, _: PinRole) -> [f64; 7] { [0.0; 7] }
-    fn receiver_cap_2_rise(&self, _: &SramParams, _: PinRole) -> [f64; 7] { [0.0; 7] }
-    fn receiver_cap_1_fall(&self, _: &SramParams, _: PinRole) -> [f64; 7] { [0.0; 7] }
-    fn receiver_cap_2_fall(&self, _: &SramParams, _: PinRole) -> [f64; 7] { [0.0; 7] }
+    fn output_max_cap(&self, _: &SramParams) -> f64 {
+        0.52
+    }
+    fn receiver_cap_1_rise(&self, _: &SramParams, _: PinRole) -> [f64; 7] {
+        [0.0; 7]
+    }
+    fn receiver_cap_2_rise(&self, _: &SramParams, _: PinRole) -> [f64; 7] {
+        [0.0; 7]
+    }
+    fn receiver_cap_1_fall(&self, _: &SramParams, _: PinRole) -> [f64; 7] {
+        [0.0; 7]
+    }
+    fn receiver_cap_2_fall(&self, _: &SramParams, _: PinRole) -> [f64; 7] {
+        [0.0; 7]
+    }
     fn ccs_rise(&self, _: &SramParams) -> Vec<CcsVector> {
-        SLEW_IDX.iter().flat_map(|&slew| {
-            LOAD_IDX.iter().map(move |&load| CcsVector {
-                reference_time: 0.0,
-                slew,
-                load,
-                time_pts: vec![0.0, 1.0],
-                currents: vec![0.0, 0.0],
+        SLEW_IDX
+            .iter()
+            .flat_map(|&slew| {
+                LOAD_IDX.iter().map(move |&load| CcsVector {
+                    reference_time: 0.0,
+                    slew,
+                    load,
+                    time_pts: vec![0.0, 1.0],
+                    currents: vec![0.0, 0.0],
+                })
             })
-        }).collect()
+            .collect()
     }
-    fn ccs_fall(&self, p: &SramParams) -> Vec<CcsVector> { self.ccs_rise(p) }
-    fn clk_power_rise(&self, _: &SramParams, _: &str) -> [f64; 7] { [0.0; 7] }
-    fn clk_power_fall(&self, _: &SramParams, _: &str) -> [f64; 7] { [0.0; 7] }
+    fn ccs_fall(&self, p: &SramParams) -> Vec<CcsVector> {
+        self.ccs_rise(p)
+    }
+    fn clk_power_rise(&self, _: &SramParams, _: &str) -> [f64; 7] {
+        [0.0; 7]
+    }
+    fn clk_power_fall(&self, _: &SramParams, _: &str) -> [f64; 7] {
+        [0.0; 7]
+    }
 }
 
 // ── LOOKUP MODEL ─────────────────────────────────────────────────────────────
@@ -168,22 +230,37 @@ impl TimingModel for PlaceholderModel {
 // Equation forms (all linear-in-parameters so ordinary least squares suffices).
 // Each basis returns [f64; 4]; trailing zeros are unused slots.
 
-fn basis_lin4_sqrt_log(dw: f64) -> [f64; 4] { [1.0, dw, dw.sqrt(), dw.ln()] }
-fn basis_lin3_cbrt(dw: f64)     -> [f64; 4] { [1.0, dw, dw.cbrt(), 0.0] }
-fn basis_lin3_sqrt(dw: f64)     -> [f64; 4] { [1.0, dw, dw.sqrt(), 0.0] }
-fn basis_log2(dw: f64)          -> [f64; 4] { [1.0, dw.ln(), 0.0, 0.0] }
-fn basis_lin2(dw: f64)          -> [f64; 4] { [1.0, dw, 0.0, 0.0] }
-fn basis_log3(dw: f64)          -> [f64; 4] { [1.0, dw.ln(), dw.ln().powi(2), 0.0] }
-fn basis_lin4_log_log2(dw: f64) -> [f64; 4] { let l = dw.ln(); [1.0, dw, l, l.powi(2)] }
+fn basis_lin4_sqrt_log(dw: f64) -> [f64; 4] {
+    [1.0, dw, dw.sqrt(), dw.ln()]
+}
+fn basis_lin3_cbrt(dw: f64) -> [f64; 4] {
+    [1.0, dw, dw.cbrt(), 0.0]
+}
+fn basis_lin3_sqrt(dw: f64) -> [f64; 4] {
+    [1.0, dw, dw.sqrt(), 0.0]
+}
+fn basis_log2(dw: f64) -> [f64; 4] {
+    [1.0, dw.ln(), 0.0, 0.0]
+}
+fn basis_lin2(dw: f64) -> [f64; 4] {
+    [1.0, dw, 0.0, 0.0]
+}
+fn basis_log3(dw: f64) -> [f64; 4] {
+    [1.0, dw.ln(), dw.ln().powi(2), 0.0]
+}
+fn basis_lin4_log_log2(dw: f64) -> [f64; 4] {
+    let l = dw.ln();
+    [1.0, dw, l, l.powi(2)]
+}
 
 /// One fitted entry: `eval(dw) = sum(params[k] * basis(dw)[k])`.
 /// At characterized training points the original measured value is returned exactly;
 /// the fitted polynomial is only used for interpolated (non-training) dw values.
 #[derive(Clone)]
 struct FitEntry {
-    basis:    fn(f64) -> [f64; 4],
-    params:   [f64; 4],
-    training: Vec<(f64, f64)>,  // (dw, val) pairs stored for exact-match lookup
+    basis: fn(f64) -> [f64; 4],
+    params: [f64; 4],
+    training: Vec<(f64, f64)>, // (dw, val) pairs stored for exact-match lookup
 }
 
 impl FitEntry {
@@ -213,10 +290,14 @@ impl FitEntry {
         let mut p = ols4(basis, dws, vals);
 
         // Pass 1: training points
-        let lift1 = dws.iter().zip(vals).map(|(&x, &y)| {
-            let b = basis(x);
-            y - (b[0]*p[0] + b[1]*p[1] + b[2]*p[2] + b[3]*p[3])
-        }).fold(0.0_f64, f64::max);
+        let lift1 = dws
+            .iter()
+            .zip(vals)
+            .map(|(&x, &y)| {
+                let b = basis(x);
+                y - (b[0] * p[0] + b[1] * p[1] + b[2] * p[2] + b[3] * p[3])
+            })
+            .fold(0.0_f64, f64::max);
         p[0] += lift1;
 
         // Pass 2: every integer dw between training extremes
@@ -235,20 +316,28 @@ impl FitEntry {
                     piecewise_log_linear(dw, dws, vals)
                 };
                 let b = basis(dw);
-                reference - (b[0]*p[0] + b[1]*p[1] + b[2]*p[2] + b[3]*p[3])
+                reference - (b[0] * p[0] + b[1] * p[1] + b[2] * p[2] + b[3] * p[3])
             })
             .fold(0.0_f64, f64::max);
         p[0] += lift2;
 
         let training = dws.iter().zip(vals).map(|(&x, &y)| (x, y)).collect();
-        Self { basis, params: p, training }
+        Self {
+            basis,
+            params: p,
+            training,
+        }
     }
 }
 
 fn piecewise_log_linear(dw: f64, dws: &[f64], vals: &[f64]) -> f64 {
     let i = dws.partition_point(|&x| x <= dw);
-    if i == 0 { return vals[0]; }
-    if i >= dws.len() { return vals[dws.len() - 1]; }
+    if i == 0 {
+        return vals[0];
+    }
+    if i >= dws.len() {
+        return vals[dws.len() - 1];
+    }
     let (x0, y0) = (dws[i - 1], vals[i - 1]);
     let (x1, y1) = (dws[i], vals[i]);
     let t = (dw.ln() - x0.ln()) / (x1.ln() - x0.ln());
@@ -262,7 +351,9 @@ fn ols4(basis: fn(f64) -> [f64; 4], dws: &[f64], vals: &[f64]) -> [f64; 4] {
         let x = basis(dw);
         for i in 0..4 {
             xty[i] += x[i] * y;
-            for j in 0..4 { xtx[i][j] += x[i] * x[j]; }
+            for j in 0..4 {
+                xtx[i][j] += x[i] * x[j];
+            }
         }
     }
     gauss4(xtx, xty)
@@ -276,17 +367,25 @@ fn gauss4(mut a: [[f64; 4]; 4], mut b: [f64; 4]) -> [f64; 4] {
         a.swap(col, pivot);
         b.swap(col, pivot);
         let d = a[col][col];
-        if d.abs() < 1e-14 { continue; }
+        if d.abs() < 1e-14 {
+            continue;
+        }
         for row in (col + 1)..4 {
             let f = a[row][col] / d;
-            for k in col..4 { a[row][k] -= f * a[col][k]; }
+            for k in col..4 {
+                a[row][k] -= f * a[col][k];
+            }
             b[row] -= f * b[col];
         }
     }
     let mut x = [0.0f64; 4];
     for i in (0..4).rev() {
         let s: f64 = ((i + 1)..4).map(|j| a[i][j] * x[j]).sum();
-        x[i] = if a[i][i].abs() < 1e-14 { 0.0 } else { (b[i] - s) / a[i][i] };
+        x[i] = if a[i][i].abs() < 1e-14 {
+            0.0
+        } else {
+            (b[i] - s) / a[i][i]
+        };
     }
     x
 }
@@ -305,39 +404,39 @@ fn eval_7x7(tbl: &[[FitEntry; 7]; 7], dw: f64) -> [[f64; 7]; 7] {
 /// For the SS corner, Liberate MX fails to converge at dw=1024+ so those entries
 /// are estimated using the SS/TT ratio (~1.828) computed from the valid dw range.
 pub struct LookupModel {
-    cell_rise:        [[FitEntry; 7]; 7],
-    cell_fall:        [[FitEntry; 7]; 7],
-    rise_transition:  [[FitEntry; 7]; 7],
-    fall_transition:  [[FitEntry; 7]; 7],
-    addr_hold_rise:   [[FitEntry; 7]; 7],
-    addr_hold_fall:   [[FitEntry; 7]; 7],
-    addr_setup_rise:  [[FitEntry; 7]; 7],
-    addr_setup_fall:  [[FitEntry; 7]; 7],
-    din_hold_rise:    [[FitEntry; 7]; 7],
-    din_hold_fall:    [[f64; 7]; 7],
-    din_setup_rise:   [[FitEntry; 7]; 7],
-    din_setup_fall:   [[FitEntry; 7]; 7],
-    ce_hold_rise:     [[FitEntry; 7]; 7],
-    ce_hold_fall:     [[FitEntry; 7]; 7],
-    ce_setup_rise:    [[FitEntry; 7]; 7],
-    ce_setup_fall:    [[FitEntry; 7]; 7],
-    we_hold_rise:     [[FitEntry; 7]; 7],
-    we_hold_fall:     [[FitEntry; 7]; 7],
-    we_setup_rise:    [[FitEntry; 7]; 7],
-    we_setup_fall:    [[FitEntry; 7]; 7],
-    rstb_hold_rise:   [[FitEntry; 7]; 7],
-    rstb_hold_fall:   [[FitEntry; 7]; 7],
-    rstb_setup_rise:  [[FitEntry; 7]; 7],
-    rstb_setup_fall:  [[FitEntry; 7]; 7],
-    mpw_rise:        [FitEntry; 7],
-    mpw_fall:        [FitEntry; 7],
-    min_period:      Vec<(u32, [f64; 7])>,
-    clk_cap:   f64,
-    addr_cap:  f64,
-    din_cap:   f64,
-    ce_cap:    f64,
-    we_cap:    f64,
-    rstb_cap:  f64,
+    cell_rise: [[FitEntry; 7]; 7],
+    cell_fall: [[FitEntry; 7]; 7],
+    rise_transition: [[FitEntry; 7]; 7],
+    fall_transition: [[FitEntry; 7]; 7],
+    addr_hold_rise: [[FitEntry; 7]; 7],
+    addr_hold_fall: [[FitEntry; 7]; 7],
+    addr_setup_rise: [[FitEntry; 7]; 7],
+    addr_setup_fall: [[FitEntry; 7]; 7],
+    din_hold_rise: [[FitEntry; 7]; 7],
+    din_hold_fall: [[f64; 7]; 7],
+    din_setup_rise: [[FitEntry; 7]; 7],
+    din_setup_fall: [[FitEntry; 7]; 7],
+    ce_hold_rise: [[FitEntry; 7]; 7],
+    ce_hold_fall: [[FitEntry; 7]; 7],
+    ce_setup_rise: [[FitEntry; 7]; 7],
+    ce_setup_fall: [[FitEntry; 7]; 7],
+    we_hold_rise: [[FitEntry; 7]; 7],
+    we_hold_fall: [[FitEntry; 7]; 7],
+    we_setup_rise: [[FitEntry; 7]; 7],
+    we_setup_fall: [[FitEntry; 7]; 7],
+    rstb_hold_rise: [[FitEntry; 7]; 7],
+    rstb_hold_fall: [[FitEntry; 7]; 7],
+    rstb_setup_rise: [[FitEntry; 7]; 7],
+    rstb_setup_fall: [[FitEntry; 7]; 7],
+    mpw_rise: [FitEntry; 7],
+    mpw_fall: [FitEntry; 7],
+    min_period: Vec<(u32, [f64; 7])>,
+    clk_cap: f64,
+    addr_cap: f64,
+    din_cap: f64,
+    ce_cap: f64,
+    we_cap: f64,
+    rstb_cap: f64,
     wmask_cap: f64,
 }
 
@@ -359,20 +458,26 @@ impl LookupModel {
         let v1d = |dw: u32, key: &str, j: usize| -> f64 {
             cmap[&dw.to_string()][key][j].as_f64().unwrap_or(0.0)
         };
-        let v0d = |dw: u32, key: &str| -> f64 {
-            cmap[&dw.to_string()][key].as_f64().unwrap_or(0.0)
-        };
+        let v0d =
+            |dw: u32, key: &str| -> f64 { cmap[&dw.to_string()][key].as_f64().unwrap_or(0.0) };
 
         let fit7 = |key: &str, basis: fn(f64) -> [f64; 4]| -> [[FitEntry; 7]; 7] {
-            std::array::from_fn(|i| std::array::from_fn(|j| {
-                let vals: Vec<f64> = dw_keys.iter().map(|&dw| v2d(dw, key, i, j)).collect();
-                FitEntry::fit(basis, &dws, &vals)
-            }))
+            std::array::from_fn(|i| {
+                std::array::from_fn(|j| {
+                    let vals: Vec<f64> = dw_keys.iter().map(|&dw| v2d(dw, key, i, j)).collect();
+                    FitEntry::fit(basis, &dws, &vals)
+                })
+            })
         };
         let max7 = |key: &str| -> [[f64; 7]; 7] {
-            std::array::from_fn(|i| std::array::from_fn(|j| {
-                dw_keys.iter().map(|&dw| v2d(dw, key, i, j)).fold(f64::NEG_INFINITY, f64::max)
-            }))
+            std::array::from_fn(|i| {
+                std::array::from_fn(|j| {
+                    dw_keys
+                        .iter()
+                        .map(|&dw| v2d(dw, key, i, j))
+                        .fold(f64::NEG_INFINITY, f64::max)
+                })
+            })
         };
         let fit1 = |key: &str, basis: fn(f64) -> [f64; 4]| -> [FitEntry; 7] {
             std::array::from_fn(|j| {
@@ -381,7 +486,10 @@ impl LookupModel {
             })
         };
         let max0 = |key: &str| -> f64 {
-            dw_keys.iter().map(|&dw| v0d(dw, key)).fold(f64::NEG_INFINITY, f64::max)
+            dw_keys
+                .iter()
+                .map(|&dw| v0d(dw, key))
+                .fold(f64::NEG_INFINITY, f64::max)
         };
 
         // Build min_period table with SS cross-corner correction and monotone upper hull.
@@ -434,55 +542,57 @@ impl LookupModel {
         };
 
         Ok(Self {
-            cell_rise:        fit7("cell_rise",        basis_lin4_sqrt_log),
-            cell_fall:        fit7("cell_fall",        basis_lin4_sqrt_log),
-            rise_transition:  fit7("rise_transition",  basis_lin3_cbrt),
-            fall_transition:  fit7("fall_transition",  basis_lin3_sqrt),
-            addr_hold_rise:   fit7("addr_hold_rise",   basis_lin3_sqrt),
-            addr_hold_fall:   fit7("addr_hold_fall",   basis_log2),
-            addr_setup_rise:  fit7("addr_setup_rise",  basis_lin3_sqrt),
-            addr_setup_fall:  fit7("addr_setup_fall",  basis_lin3_sqrt),
-            din_hold_rise:    fit7("din_hold_rise",    basis_lin2),
-            din_hold_fall:    max7("din_hold_fall"),
-            din_setup_rise:   fit7("din_setup_rise",   basis_lin2),
-            din_setup_fall:   fit7("din_setup_fall",   basis_lin2),
-            ce_hold_rise:     fit7("ce_hold_rise",     basis_log3),
-            ce_hold_fall:     fit7("ce_hold_fall",     basis_lin3_sqrt),
-            ce_setup_rise:    fit7("ce_setup_rise",    basis_log3),
-            ce_setup_fall:    fit7("ce_setup_fall",    basis_lin3_sqrt),
-            we_hold_rise:     fit7("we_hold_rise",     basis_log3),
-            we_hold_fall:     fit7("we_hold_fall",     basis_lin3_sqrt),
-            we_setup_rise:    fit7("we_setup_rise",    basis_log3),
-            we_setup_fall:    fit7("we_setup_fall",    basis_lin3_sqrt),
-            rstb_hold_rise:   fit7("rstb_hold_rise",   basis_log3),
-            rstb_hold_fall:   fit7("rstb_hold_fall",   basis_lin4_log_log2),
-            rstb_setup_rise:  fit7("rstb_setup_rise",  basis_log3),
-            rstb_setup_fall:  fit7("rstb_setup_fall",  basis_lin4_log_log2),
-            mpw_rise:        fit1("mpw_rise",        basis_lin3_cbrt),
-            mpw_fall:        fit1("mpw_fall",        basis_log3),
-            min_period:      min_period_snaps,
-            clk_cap:   max0("clk_cap"),
-            addr_cap:  max0("addr_cap"),
-            din_cap:   max0("din_cap"),
-            ce_cap:    max0("ce_cap"),
-            we_cap:    max0("we_cap"),
-            rstb_cap:  max0("rstb_cap"),
+            cell_rise: fit7("cell_rise", basis_lin4_sqrt_log),
+            cell_fall: fit7("cell_fall", basis_lin4_sqrt_log),
+            rise_transition: fit7("rise_transition", basis_lin3_cbrt),
+            fall_transition: fit7("fall_transition", basis_lin3_sqrt),
+            addr_hold_rise: fit7("addr_hold_rise", basis_lin3_sqrt),
+            addr_hold_fall: fit7("addr_hold_fall", basis_log2),
+            addr_setup_rise: fit7("addr_setup_rise", basis_lin3_sqrt),
+            addr_setup_fall: fit7("addr_setup_fall", basis_lin3_sqrt),
+            din_hold_rise: fit7("din_hold_rise", basis_lin2),
+            din_hold_fall: max7("din_hold_fall"),
+            din_setup_rise: fit7("din_setup_rise", basis_lin2),
+            din_setup_fall: fit7("din_setup_fall", basis_lin2),
+            ce_hold_rise: fit7("ce_hold_rise", basis_log3),
+            ce_hold_fall: fit7("ce_hold_fall", basis_lin3_sqrt),
+            ce_setup_rise: fit7("ce_setup_rise", basis_log3),
+            ce_setup_fall: fit7("ce_setup_fall", basis_lin3_sqrt),
+            we_hold_rise: fit7("we_hold_rise", basis_log3),
+            we_hold_fall: fit7("we_hold_fall", basis_lin3_sqrt),
+            we_setup_rise: fit7("we_setup_rise", basis_log3),
+            we_setup_fall: fit7("we_setup_fall", basis_lin3_sqrt),
+            rstb_hold_rise: fit7("rstb_hold_rise", basis_log3),
+            rstb_hold_fall: fit7("rstb_hold_fall", basis_lin4_log_log2),
+            rstb_setup_rise: fit7("rstb_setup_rise", basis_log3),
+            rstb_setup_fall: fit7("rstb_setup_fall", basis_lin4_log_log2),
+            mpw_rise: fit1("mpw_rise", basis_lin3_cbrt),
+            mpw_fall: fit1("mpw_fall", basis_log3),
+            min_period: min_period_snaps,
+            clk_cap: max0("clk_cap"),
+            addr_cap: max0("addr_cap"),
+            din_cap: max0("din_cap"),
+            ce_cap: max0("ce_cap"),
+            we_cap: max0("we_cap"),
+            rstb_cap: max0("rstb_cap"),
             wmask_cap: max0("wmask_cap"),
         })
     }
 }
 
 impl TimingModel for LookupModel {
-    fn area(&self, _: &SramParams) -> f64 { 0.0 }
+    fn area(&self, _: &SramParams) -> f64 {
+        0.0
+    }
 
     fn hold_rise(&self, p: &SramParams, pin: PinRole) -> [[f64; 7]; 7] {
         let dw = p.data_width() as f64;
         let tbl = match pin {
-            PinRole::Addr | PinRole::Clk  => &self.addr_hold_rise,
-            PinRole::Din  | PinRole::Wmask => &self.din_hold_rise,
-            PinRole::Ce    => &self.ce_hold_rise,
-            PinRole::We    => &self.we_hold_rise,
-            PinRole::Rstb  => &self.rstb_hold_rise,
+            PinRole::Addr | PinRole::Clk => &self.addr_hold_rise,
+            PinRole::Din | PinRole::Wmask => &self.din_hold_rise,
+            PinRole::Ce => &self.ce_hold_rise,
+            PinRole::We => &self.we_hold_rise,
+            PinRole::Rstb => &self.rstb_hold_rise,
         };
         eval_7x7(tbl, dw)
     }
@@ -490,32 +600,32 @@ impl TimingModel for LookupModel {
     fn hold_fall(&self, p: &SramParams, pin: PinRole) -> [[f64; 7]; 7] {
         let dw = p.data_width() as f64;
         match pin {
-            PinRole::Din  | PinRole::Wmask => self.din_hold_fall,
-            PinRole::Addr | PinRole::Clk   => eval_7x7(&self.addr_hold_fall, dw),
-            PinRole::Ce    => eval_7x7(&self.ce_hold_fall, dw),
-            PinRole::We    => eval_7x7(&self.we_hold_fall, dw),
-            PinRole::Rstb  => eval_7x7(&self.rstb_hold_fall, dw),
+            PinRole::Din | PinRole::Wmask => self.din_hold_fall,
+            PinRole::Addr | PinRole::Clk => eval_7x7(&self.addr_hold_fall, dw),
+            PinRole::Ce => eval_7x7(&self.ce_hold_fall, dw),
+            PinRole::We => eval_7x7(&self.we_hold_fall, dw),
+            PinRole::Rstb => eval_7x7(&self.rstb_hold_fall, dw),
         }
     }
 
     fn setup_rise(&self, p: &SramParams, pin: PinRole) -> [[f64; 7]; 7] {
         let dw = p.data_width() as f64;
         match pin {
-            PinRole::Addr | PinRole::Clk  => eval_7x7(&self.addr_setup_rise, dw),
-            PinRole::Din  | PinRole::Wmask => eval_7x7(&self.din_setup_rise, dw),
-            PinRole::Ce    => eval_7x7(&self.ce_setup_rise, dw),
-            PinRole::We    => eval_7x7(&self.we_setup_rise, dw),
-            PinRole::Rstb  => eval_7x7(&self.rstb_setup_rise, dw),
+            PinRole::Addr | PinRole::Clk => eval_7x7(&self.addr_setup_rise, dw),
+            PinRole::Din | PinRole::Wmask => eval_7x7(&self.din_setup_rise, dw),
+            PinRole::Ce => eval_7x7(&self.ce_setup_rise, dw),
+            PinRole::We => eval_7x7(&self.we_setup_rise, dw),
+            PinRole::Rstb => eval_7x7(&self.rstb_setup_rise, dw),
         }
     }
     fn setup_fall(&self, p: &SramParams, pin: PinRole) -> [[f64; 7]; 7] {
         let dw = p.data_width() as f64;
         match pin {
-            PinRole::Addr | PinRole::Clk  => eval_7x7(&self.addr_setup_fall, dw),
-            PinRole::Din  | PinRole::Wmask => eval_7x7(&self.din_setup_fall, dw),
-            PinRole::Ce    => eval_7x7(&self.ce_setup_fall, dw),
-            PinRole::We    => eval_7x7(&self.we_setup_fall, dw),
-            PinRole::Rstb  => eval_7x7(&self.rstb_setup_fall, dw),
+            PinRole::Addr | PinRole::Clk => eval_7x7(&self.addr_setup_fall, dw),
+            PinRole::Din | PinRole::Wmask => eval_7x7(&self.din_setup_fall, dw),
+            PinRole::Ce => eval_7x7(&self.ce_setup_fall, dw),
+            PinRole::We => eval_7x7(&self.we_setup_fall, dw),
+            PinRole::Rstb => eval_7x7(&self.rstb_setup_fall, dw),
         }
     }
 
@@ -561,27 +671,51 @@ impl TimingModel for LookupModel {
 
     fn input_cap(&self, _: &SramParams, pin: PinRole) -> CapValues {
         let cap = match pin {
-            PinRole::Clk   => self.clk_cap,
-            PinRole::Addr  => self.addr_cap,
-            PinRole::Din   => self.din_cap,
-            PinRole::Ce    => self.ce_cap,
-            PinRole::We    => self.we_cap,
-            PinRole::Rstb  => self.rstb_cap,
+            PinRole::Clk => self.clk_cap,
+            PinRole::Addr => self.addr_cap,
+            PinRole::Din => self.din_cap,
+            PinRole::Ce => self.ce_cap,
+            PinRole::We => self.we_cap,
+            PinRole::Rstb => self.rstb_cap,
             PinRole::Wmask => self.wmask_cap,
         };
-        CapValues { cap, rise: cap, fall: cap, rise_lo: 0.0, fall_lo: 0.0 }
+        CapValues {
+            cap,
+            rise: cap,
+            fall: cap,
+            rise_lo: 0.0,
+            fall_lo: 0.0,
+        }
     }
 
-    fn output_max_cap(&self, _: &SramParams) -> f64 { 0.52 }
-    fn receiver_cap_1_rise(&self, _: &SramParams, _: PinRole) -> [f64; 7] { [0.0; 7] }
-    fn receiver_cap_2_rise(&self, _: &SramParams, _: PinRole) -> [f64; 7] { [0.0; 7] }
-    fn receiver_cap_1_fall(&self, _: &SramParams, _: PinRole) -> [f64; 7] { [0.0; 7] }
-    fn receiver_cap_2_fall(&self, _: &SramParams, _: PinRole) -> [f64; 7] { [0.0; 7] }
+    fn output_max_cap(&self, _: &SramParams) -> f64 {
+        0.52
+    }
+    fn receiver_cap_1_rise(&self, _: &SramParams, _: PinRole) -> [f64; 7] {
+        [0.0; 7]
+    }
+    fn receiver_cap_2_rise(&self, _: &SramParams, _: PinRole) -> [f64; 7] {
+        [0.0; 7]
+    }
+    fn receiver_cap_1_fall(&self, _: &SramParams, _: PinRole) -> [f64; 7] {
+        [0.0; 7]
+    }
+    fn receiver_cap_2_fall(&self, _: &SramParams, _: PinRole) -> [f64; 7] {
+        [0.0; 7]
+    }
 
-    fn ccs_rise(&self, _: &SramParams) -> Vec<CcsVector> { vec![] }
-    fn ccs_fall(&self, _: &SramParams) -> Vec<CcsVector> { vec![] }
-    fn clk_power_rise(&self, _: &SramParams, _: &str) -> [f64; 7] { [0.0; 7] }
-    fn clk_power_fall(&self, _: &SramParams, _: &str) -> [f64; 7] { [0.0; 7] }
+    fn ccs_rise(&self, _: &SramParams) -> Vec<CcsVector> {
+        vec![]
+    }
+    fn ccs_fall(&self, _: &SramParams) -> Vec<CcsVector> {
+        vec![]
+    }
+    fn clk_power_rise(&self, _: &SramParams, _: &str) -> [f64; 7] {
+        [0.0; 7]
+    }
+    fn clk_power_fall(&self, _: &SramParams, _: &str) -> [f64; 7] {
+        [0.0; 7]
+    }
 }
 
 // ── PUBLIC ENTRY POINT ────────────────────────────────────────────────────────
@@ -613,7 +747,10 @@ struct W {
 
 impl W {
     fn new() -> Self {
-        Self { buf: String::new(), indent: 0 }
+        Self {
+            buf: String::new(),
+            indent: 0,
+        }
     }
 
     fn ln(&mut self, s: &str) {
@@ -644,7 +781,14 @@ impl W {
         self.ln(&format!("{} : {};", k, fmtf(v)));
     }
 
-    fn lut_2d(&mut self, name: &str, tmpl: &str, idx1: &[f64; 7], idx2: &[f64; 7], rows: &[[f64; 7]; 7]) {
+    fn lut_2d(
+        &mut self,
+        name: &str,
+        tmpl: &str,
+        idx1: &[f64; 7],
+        idx2: &[f64; 7],
+        rows: &[[f64; 7]; 7],
+    ) {
         self.block(&format!("{} ({})", name, tmpl), |w| {
             w.ln(&format!("index_1 (\"{}\");", fmt_idx(idx1)));
             w.ln(&format!("index_2 (\"{}\");", fmt_idx(idx2)));
@@ -653,7 +797,7 @@ impl W {
             for (i, row) in rows.iter().enumerate() {
                 let vals: Vec<String> = row.iter().map(|v| fmtf(*v)).collect();
                 let trail = if i < 6 { " \\" } else { "" };
-                w.ln(&format!("\"{}\"{}",  vals.join(", "), trail));
+                w.ln(&format!("\"{}\"{}", vals.join(", "), trail));
             }
             w.indent -= 1;
             w.ln(");");
@@ -678,14 +822,40 @@ impl W {
         let r1f = m.receiver_cap_1_fall(p, pin);
         let r2f = m.receiver_cap_2_fall(p, pin);
         self.block("receiver_capacitance ()", |w| {
-            w.lut_1d("receiver_capacitance1_rise", "receiver_cap_power_template_7x7", &SLEW_IDX, &r1r);
-            w.lut_1d("receiver_capacitance2_rise", "receiver_cap_power_template_7x7", &SLEW_IDX, &r2r);
-            w.lut_1d("receiver_capacitance1_fall", "receiver_cap_power_template_7x7", &SLEW_IDX, &r1f);
-            w.lut_1d("receiver_capacitance2_fall", "receiver_cap_power_template_7x7", &SLEW_IDX, &r2f);
+            w.lut_1d(
+                "receiver_capacitance1_rise",
+                "receiver_cap_power_template_7x7",
+                &SLEW_IDX,
+                &r1r,
+            );
+            w.lut_1d(
+                "receiver_capacitance2_rise",
+                "receiver_cap_power_template_7x7",
+                &SLEW_IDX,
+                &r2r,
+            );
+            w.lut_1d(
+                "receiver_capacitance1_fall",
+                "receiver_cap_power_template_7x7",
+                &SLEW_IDX,
+                &r1f,
+            );
+            w.lut_1d(
+                "receiver_capacitance2_fall",
+                "receiver_cap_power_template_7x7",
+                &SLEW_IDX,
+                &r2f,
+            );
         });
     }
 
-    fn constraint_timing(&mut self, p: &SramParams, m: &dyn TimingModel, pin: PinRole, ttype: &str) {
+    fn constraint_timing(
+        &mut self,
+        p: &SramParams,
+        m: &dyn TimingModel,
+        pin: PinRole,
+        ttype: &str,
+    ) {
         let (rise, fall) = if ttype == "hold_rising" {
             (m.hold_rise(p, pin), m.hold_fall(p, pin))
         } else {
@@ -695,8 +865,20 @@ impl W {
             w.attr_q("related_pin", "clk");
             w.attr("sdf_edges", "both_edges");
             w.attr("timing_type", ttype);
-            w.lut_2d("rise_constraint", "constraint_template_7x7", &SLEW_IDX, &SLEW_IDX, &rise);
-            w.lut_2d("fall_constraint", "constraint_template_7x7", &SLEW_IDX, &SLEW_IDX, &fall);
+            w.lut_2d(
+                "rise_constraint",
+                "constraint_template_7x7",
+                &SLEW_IDX,
+                &SLEW_IDX,
+                &rise,
+            );
+            w.lut_2d(
+                "fall_constraint",
+                "constraint_template_7x7",
+                &SLEW_IDX,
+                &SLEW_IDX,
+                &fall,
+            );
         });
     }
 
@@ -706,9 +888,17 @@ impl W {
         self.attr_f("max_transition", 0.351);
         self.attr_f("capacitance", cap.cap);
         self.attr_f("rise_capacitance", cap.rise);
-        self.ln(&format!("rise_capacitance_range ({}, {});", fmtf(cap.rise_lo), fmtf(cap.rise)));
+        self.ln(&format!(
+            "rise_capacitance_range ({}, {});",
+            fmtf(cap.rise_lo),
+            fmtf(cap.rise)
+        ));
         self.attr_f("fall_capacitance", cap.fall);
-        self.ln(&format!("fall_capacitance_range ({}, {});", fmtf(cap.fall_lo), fmtf(cap.fall)));
+        self.ln(&format!(
+            "fall_capacitance_range ({}, {});",
+            fmtf(cap.fall_lo),
+            fmtf(cap.fall)
+        ));
     }
 
     fn ccs_arcs(&mut self, rise_or_fall: &str, vecs: &[CcsVector]) {
@@ -735,7 +925,9 @@ impl W {
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
 fn fmtf(v: f64) -> String {
-    if v == 0.0 { return "0".to_string(); }
+    if v == 0.0 {
+        return "0".to_string();
+    }
     if v.fract() == 0.0 && v.abs() < 1e10 {
         return format!("{}", v as i64);
     }
@@ -753,7 +945,11 @@ fn fmt_voltage_oc(v: f64) -> String {
     let s = format!("{:.2}", v);
     let (int, dec) = s.split_once('.').unwrap();
     let dec = dec.trim_end_matches('0');
-    if dec.is_empty() { format!("{}P", int) } else { format!("{}P{}", int, dec) }
+    if dec.is_empty() {
+        format!("{}P", int)
+    } else {
+        format!("{}P{}", int, dec)
+    }
 }
 
 fn write_bus_type(w: &mut W, cell: &str, signal: &str, hi: usize, lo: usize) {
@@ -768,21 +964,43 @@ fn write_bus_type(w: &mut W, cell: &str, signal: &str, hi: usize, lo: usize) {
     });
 }
 
-fn write_lu_template(w: &mut W, name: &str, var1: &str, var2: Option<&str>, idx1: &[f64; 7], idx2: Option<&[f64; 7]>) {
+fn write_lu_template(
+    w: &mut W,
+    name: &str,
+    var1: &str,
+    var2: Option<&str>,
+    idx1: &[f64; 7],
+    idx2: Option<&[f64; 7]>,
+) {
     w.block(&format!("lu_table_template ({})", name), |w| {
         w.attr("variable_1", var1);
-        if let Some(v2) = var2 { w.attr("variable_2", v2); }
+        if let Some(v2) = var2 {
+            w.attr("variable_2", v2);
+        }
         w.ln(&format!("index_1 (\"{}\");", fmt_idx(idx1)));
-        if let Some(i2) = idx2 { w.ln(&format!("index_2 (\"{}\");", fmt_idx(i2))); }
+        if let Some(i2) = idx2 {
+            w.ln(&format!("index_2 (\"{}\");", fmt_idx(i2)));
+        }
     });
 }
 
-fn write_power_template(w: &mut W, name: &str, var1: &str, var2: Option<&str>, idx1: &[f64; 7], idx2: Option<&[f64; 7]>) {
+fn write_power_template(
+    w: &mut W,
+    name: &str,
+    var1: &str,
+    var2: Option<&str>,
+    idx1: &[f64; 7],
+    idx2: Option<&[f64; 7]>,
+) {
     w.block(&format!("power_lut_template ({})", name), |w| {
         w.attr("variable_1", var1);
-        if let Some(v2) = var2 { w.attr("variable_2", v2); }
+        if let Some(v2) = var2 {
+            w.attr("variable_2", v2);
+        }
         w.ln(&format!("index_1 (\"{}\");", fmt_idx(idx1)));
-        if let Some(i2) = idx2 { w.ln(&format!("index_2 (\"{}\");", fmt_idx(i2))); }
+        if let Some(i2) = idx2 {
+            w.ln(&format!("index_2 (\"{}\");", fmt_idx(i2)));
+        }
     });
 }
 
@@ -867,27 +1085,62 @@ fn write_liberty(p: &SramParams, pvt: &PvtCorner, m: &dyn TimingModel) -> String
             w.attr("variable_2", "total_output_net_capacitance");
             w.attr("variable_3", "time");
         });
-        write_lu_template(w, "constraint_template_7x7",
-            "constrained_pin_transition", Some("related_pin_transition"),
-            &SLEW_IDX, Some(&SLEW_IDX));
-        write_lu_template(w, "delay_template_7x7",
-            "input_net_transition", Some("total_output_net_capacitance"),
-            &SLEW_IDX, Some(&LOAD_IDX));
-        write_lu_template(w, "mpw_constraint_template_7x7",
-            "constrained_pin_transition", None,
-            &SLEW_IDX, None);
-        write_power_template(w, "passive_output_power_template_7x1",
-            "total_output_net_capacitance", None,
-            &PWR_IDX, None);
-        write_power_template(w, "passive_power_template_7x1",
-            "input_transition_time", None,
-            &SLEW_IDX, None);
-        write_power_template(w, "power_template_7x7",
-            "input_transition_time", Some("total_output_net_capacitance"),
-            &SLEW_IDX, Some(&PWR_IDX));
-        write_lu_template(w, "receiver_cap_power_template_7x7",
-            "input_net_transition", None,
-            &SLEW_IDX, None);
+        write_lu_template(
+            w,
+            "constraint_template_7x7",
+            "constrained_pin_transition",
+            Some("related_pin_transition"),
+            &SLEW_IDX,
+            Some(&SLEW_IDX),
+        );
+        write_lu_template(
+            w,
+            "delay_template_7x7",
+            "input_net_transition",
+            Some("total_output_net_capacitance"),
+            &SLEW_IDX,
+            Some(&LOAD_IDX),
+        );
+        write_lu_template(
+            w,
+            "mpw_constraint_template_7x7",
+            "constrained_pin_transition",
+            None,
+            &SLEW_IDX,
+            None,
+        );
+        write_power_template(
+            w,
+            "passive_output_power_template_7x1",
+            "total_output_net_capacitance",
+            None,
+            &PWR_IDX,
+            None,
+        );
+        write_power_template(
+            w,
+            "passive_power_template_7x1",
+            "input_transition_time",
+            None,
+            &SLEW_IDX,
+            None,
+        );
+        write_power_template(
+            w,
+            "power_template_7x7",
+            "input_transition_time",
+            Some("total_output_net_capacitance"),
+            &SLEW_IDX,
+            Some(&PWR_IDX),
+        );
+        write_lu_template(
+            w,
+            "receiver_cap_power_template_7x7",
+            "input_net_transition",
+            None,
+            &SLEW_IDX,
+            None,
+        );
 
         w.ln("define (char_when, receiver_capacitance, string);");
         w.ln("define (is_propagating, receiver_capacitance, string);");
@@ -941,12 +1194,12 @@ fn write_liberty(p: &SramParams, pvt: &PvtCorner, m: &dyn TimingModel) -> String
             let (mpw_rise, mpw_fall) = m.min_pulse_width(p);
             let min_period = m.minimum_period(p);
             let when_conds: &[(&str, &str)] = &[
-                ("we&ce",   "vdd"),
-                ("we&ce",   "vss"),
-                ("we&!ce",  "vdd"),
-                ("we&!ce",  "vss"),
-                ("!we&ce",  "vdd"),
-                ("!we&ce",  "vss"),
+                ("we&ce", "vdd"),
+                ("we&ce", "vss"),
+                ("we&!ce", "vdd"),
+                ("we&!ce", "vss"),
+                ("!we&ce", "vdd"),
+                ("!we&ce", "vss"),
                 ("!we&!ce", "vdd"),
                 ("!we&!ce", "vss"),
             ];
@@ -958,20 +1211,48 @@ fn write_liberty(p: &SramParams, pvt: &PvtCorner, m: &dyn TimingModel) -> String
                 w.attr_f("max_transition", 0.351);
                 w.attr_f("capacitance", clk_cap.cap);
                 w.attr_f("rise_capacitance", clk_cap.rise);
-                w.ln(&format!("rise_capacitance_range ({}, {});", fmtf(clk_cap.rise_lo), fmtf(clk_cap.rise)));
+                w.ln(&format!(
+                    "rise_capacitance_range ({}, {});",
+                    fmtf(clk_cap.rise_lo),
+                    fmtf(clk_cap.rise)
+                ));
                 w.attr_f("fall_capacitance", clk_cap.fall);
-                w.ln(&format!("fall_capacitance_range ({}, {});", fmtf(clk_cap.fall_lo), fmtf(clk_cap.fall)));
+                w.ln(&format!(
+                    "fall_capacitance_range ({}, {});",
+                    fmtf(clk_cap.fall_lo),
+                    fmtf(clk_cap.fall)
+                ));
                 w.block("timing ()", |w| {
                     w.attr_q("related_pin", "clk");
                     w.attr("timing_type", "min_pulse_width");
-                    w.lut_1d("rise_constraint", "mpw_constraint_template_7x7", &SLEW_IDX, &mpw_rise);
-                    w.lut_1d("fall_constraint", "mpw_constraint_template_7x7", &SLEW_IDX, &mpw_fall);
+                    w.lut_1d(
+                        "rise_constraint",
+                        "mpw_constraint_template_7x7",
+                        &SLEW_IDX,
+                        &mpw_rise,
+                    );
+                    w.lut_1d(
+                        "fall_constraint",
+                        "mpw_constraint_template_7x7",
+                        &SLEW_IDX,
+                        &mpw_fall,
+                    );
                 });
                 w.block("timing ()", |w| {
                     w.attr_q("related_pin", "clk");
                     w.attr("timing_type", "minimum_period");
-                    w.lut_1d("rise_constraint", "mpw_constraint_template_7x7", &SLEW_IDX, &min_period);
-                    w.lut_1d("fall_constraint", "mpw_constraint_template_7x7", &SLEW_IDX, &min_period);
+                    w.lut_1d(
+                        "rise_constraint",
+                        "mpw_constraint_template_7x7",
+                        &SLEW_IDX,
+                        &min_period,
+                    );
+                    w.lut_1d(
+                        "fall_constraint",
+                        "mpw_constraint_template_7x7",
+                        &SLEW_IDX,
+                        &min_period,
+                    );
                 });
                 for &(when, pg) in when_conds {
                     let rise_pwr = m.clk_power_rise(p, when);
@@ -979,8 +1260,18 @@ fn write_liberty(p: &SramParams, pvt: &PvtCorner, m: &dyn TimingModel) -> String
                     w.block("internal_power ()", |w| {
                         w.attr_q("when", when);
                         w.attr_q("related_pg_pin", pg);
-                        w.lut_1d("rise_power", "passive_power_template_7x1", &SLEW_IDX, &rise_pwr);
-                        w.lut_1d("fall_power", "passive_power_template_7x1", &SLEW_IDX, &fall_pwr);
+                        w.lut_1d(
+                            "rise_power",
+                            "passive_power_template_7x1",
+                            &SLEW_IDX,
+                            &rise_pwr,
+                        );
+                        w.lut_1d(
+                            "fall_power",
+                            "passive_power_template_7x1",
+                            &SLEW_IDX,
+                            &fall_pwr,
+                        );
                     });
                 }
             });
@@ -1027,12 +1318,40 @@ fn write_liberty(p: &SramParams, pvt: &PvtCorner, m: &dyn TimingModel) -> String
                     w.attr("timing_sense", "non_unate");
                     w.attr("timing_type", "rising_edge");
                     w.attr_q("when", "ce");
-                    w.lut_2d("cell_rise", "delay_template_7x7", &SLEW_IDX, &LOAD_IDX, &cell_r);
-                    w.lut_2d("rise_transition", "delay_template_7x7", &SLEW_IDX, &LOAD_IDX, &rise_tr);
-                    w.lut_2d("cell_fall", "delay_template_7x7", &SLEW_IDX, &LOAD_IDX, &cell_f);
-                    w.lut_2d("fall_transition", "delay_template_7x7", &SLEW_IDX, &LOAD_IDX, &fall_tr);
-                    if !ccs_r.is_empty() { w.ccs_arcs("rise", &ccs_r); }
-                    if !ccs_f.is_empty() { w.ccs_arcs("fall", &ccs_f); }
+                    w.lut_2d(
+                        "cell_rise",
+                        "delay_template_7x7",
+                        &SLEW_IDX,
+                        &LOAD_IDX,
+                        &cell_r,
+                    );
+                    w.lut_2d(
+                        "rise_transition",
+                        "delay_template_7x7",
+                        &SLEW_IDX,
+                        &LOAD_IDX,
+                        &rise_tr,
+                    );
+                    w.lut_2d(
+                        "cell_fall",
+                        "delay_template_7x7",
+                        &SLEW_IDX,
+                        &LOAD_IDX,
+                        &cell_f,
+                    );
+                    w.lut_2d(
+                        "fall_transition",
+                        "delay_template_7x7",
+                        &SLEW_IDX,
+                        &LOAD_IDX,
+                        &fall_tr,
+                    );
+                    if !ccs_r.is_empty() {
+                        w.ccs_arcs("rise", &ccs_r);
+                    }
+                    if !ccs_f.is_empty() {
+                        w.ccs_arcs("fall", &ccs_f);
+                    }
                 });
             });
 

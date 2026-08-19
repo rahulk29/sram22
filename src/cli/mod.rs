@@ -115,11 +115,10 @@ pub fn run() -> Result<()> {
         })
         .collect();
 
-    #[cfg(feature = "commercial")]
-    let max_parallel = args.parallel.max(1);
-    #[cfg(not(feature = "commercial"))]
-    let max_parallel = usize::MAX;
-    let num_workers = work_items.len().min(max_parallel);
+    let num_workers = match args.parallel {
+        Some(limit) => work_items.len().min(limit.max(1)),
+        None => work_items.len(),
+    };
 
     #[cfg(feature = "commercial")]
     let use_liberate = args.liberate;
@@ -169,7 +168,11 @@ pub fn run() -> Result<()> {
                         .map(|s| s.as_str())
                         .or_else(|| panic.downcast_ref::<&'static str>().copied())
                         .unwrap_or("(no message)");
-                    Err(anyhow::anyhow!("SRAM generation panicked for {}: {}", name, msg))
+                    Err(anyhow::anyhow!(
+                        "SRAM generation panicked for {}: {}",
+                        name,
+                        msg
+                    ))
                 });
                 results.lock().unwrap().push(result);
             })
