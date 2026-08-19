@@ -67,6 +67,23 @@ pub fn parse_sram_config(path: impl AsRef<Path>) -> anyhow::Result<SramConfig> {
     Ok(data)
 }
 
+#[derive(Debug, Deserialize)]
+pub struct SramBatchConfig {
+    pub sram: Vec<SramConfig>,
+}
+
+pub fn parse_sram_batch_config(path: impl AsRef<Path>) -> anyhow::Result<Vec<SramConfig>> {
+    let contents = std::fs::read_to_string(&path)?;
+    if let Ok(batch) = toml::from_str::<SramBatchConfig>(&contents) {
+        if !batch.sram.is_empty() {
+            return Ok(batch.sram);
+        }
+    }
+    let single = toml::from_str::<SramConfig>(&contents)
+        .map_err(|e| anyhow::anyhow!("Failed to parse config: {}", e))?;
+    Ok(vec![single])
+}
+
 pub struct SramInner {
     params: SramParams,
 }

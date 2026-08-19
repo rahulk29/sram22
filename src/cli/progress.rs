@@ -31,11 +31,15 @@ pub struct Step {
     disabled: bool,
 }
 
+impl Step {
+    fn matches(&self, key: TaskKey) -> bool {
+        self.key == key
+    }
+}
+
 impl StepContext {
     #[allow(unused_variables)]
-    pub fn new(tasks: &HashSet<TaskKey>) -> Self {
-        println!("Tasks:");
-
+    pub fn new_with_mp(tasks: &HashSet<TaskKey>, mp: MultiProgress, prefix: &str) -> Self {
         let mut steps = vec![
             Step {
                 desc: "Generate plan".to_string(),
@@ -81,35 +85,40 @@ impl StepContext {
                 progress_bar: ProgressBar::new_spinner(),
                 disabled: !tasks.contains(&TaskKey::RunLvs) && !tasks.contains(&TaskKey::All),
             },
-            #[cfg(all(feature = "commercial"))]
+            #[cfg(feature = "commercial")]
             Step {
                 desc: "Run PEX".to_string(),
                 key: TaskKey::RunPex,
                 progress_bar: ProgressBar::new_spinner(),
-                disabled: !tasks.contains(&TaskKey::RunPex) && !tasks.contains(&TaskKey::All),
+                disabled: !tasks.contains(&TaskKey::RunPex),
             },
-            #[cfg(feature = "commercial")]
             Step {
                 desc: "Generate LIB".to_string(),
                 key: TaskKey::GenerateLib,
                 progress_bar: ProgressBar::new_spinner(),
-                disabled: !tasks.contains(&TaskKey::GenerateLib) && !tasks.contains(&TaskKey::All),
+                disabled: false,
             },
         ];
-        let mp = MultiProgress::new();
+
         let num_steps = steps.iter().filter(|step| !step.disabled).count();
         let mut counter = 0;
         let width = format!("{num_steps}").len();
-        for (i, step) in steps.iter_mut().enumerate() {
-            mp.insert(i + 1, step.progress_bar.clone());
+        let prefix_str = if prefix.is_empty() {
+            String::new()
+        } else {
+            format!("[{}] ", prefix)
+        };
+
+        for step in steps.iter_mut() {
+            mp.add(step.progress_bar.clone());
             if step.disabled {
-                let msg = Some(format!("[-/-] {}", step.desc));
+                let msg = Some(format!("{}[-/-] {}", prefix_str, step.desc));
                 step.set_status(StepStatus::Disabled, msg);
             } else {
                 counter += 1;
                 let msg = Some(format!(
-                    "[{:width$}/{:width$}] {}",
-                    counter, num_steps, step.desc
+                    "{}[{:width$}/{:width$}] {}",
+                    prefix_str, counter, num_steps, step.desc
                 ));
                 step.set_status(StepStatus::Pending, msg);
             }
@@ -151,9 +160,7 @@ impl StepContext {
                     self.advance();
                 }
             }
-            println!("\n");
         }
-
         res
     }
 
@@ -163,26 +170,25 @@ impl StepContext {
 
     pub fn finish(&mut self, key: TaskKey) {
         if let Some(current_step) = self.current_step() {
-            if current_step.key != key {
+            if !current_step.matches(key) {
                 panic!("A step was completed out of order");
             }
-
             current_step.set_status(StepStatus::Done, None);
 
             self.advance();
 
             if let Some(current_step) = self.current_step() {
                 current_step.set_status(StepStatus::InProgress, None);
-            } else {
-                self.done();
             }
-        } else {
+        } else if !self.steps.last().is_some_and(|s| s.matches(key)) {
             panic!("A step was completed after all steps were marked completed");
         }
     }
 
-    pub fn done(&mut self) {
-        println!("\n\nCompleted all tasks");
+    pub fn commit(&mut self) {
+        for step in &self.steps {
+            step.progress_bar.finish();
+        }
     }
 }
 
@@ -217,7 +223,8 @@ impl Step {
             self.progress_bar
                 .enable_steady_tick(Duration::from_millis(200));
         } else if status != StepStatus::Pending {
-            self.progress_bar.finish();
+            self.progress_bar.disable_steady_tick();
+            self.progress_bar.tick();
         }
     }
 }

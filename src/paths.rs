@@ -20,7 +20,6 @@ pub fn out_lef(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
     PathBuf::from(work_dir.as_ref()).join(format!("{name}.lef"))
 }
 
-#[cfg(feature = "commercial")]
 pub fn out_lib(work_dir: impl AsRef<Path>, name: &str) -> PathBuf {
     PathBuf::from(work_dir.as_ref()).join(format!("{name}.lib"))
 }

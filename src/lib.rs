@@ -32,6 +32,7 @@ pub mod blocks;
 pub mod cli;
 #[cfg(feature = "commercial")]
 pub mod liberate;
+pub mod liberty;
 pub mod measure;
 pub mod paths;
 pub mod pex;

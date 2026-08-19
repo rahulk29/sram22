@@ -30,11 +30,11 @@ lef21 = { git = "https://github.com/dan-fritchman/Layout21.git", branch = "main"
 plotters = "0.3.7"
 
 # Substrate dependencies
-substrate = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
-subgeom = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
-codegen = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
-sky130_open_pdk = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
-ngspice = { git = "https://github.com/substrate-labs/substrate", branch = "main" }
+substrate = { git = "https://github.com/ucb-substrate/substrate", branch = "main" }
+subgeom = { git = "https://github.com/ucb-substrate/substrate", branch = "main" }
+codegen = { git = "https://github.com/ucb-substrate/substrate", branch = "main" }
+sky130_open_pdk = { git = "https://github.com/ucb-substrate/substrate", branch = "main" }
+ngspice = { git = "https://github.com/ucb-substrate/substrate", branch = "main" }
 rust_decimal = "1"
 rust_decimal_macros = "1"
 
@@ -44,4 +44,3 @@ paste = "1"
 
 [features]
 default = []
-

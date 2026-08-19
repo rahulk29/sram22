@@ -27,6 +27,8 @@ If you have BWRC access, you can install all features of SRAM22. Make sure that 
 ```
 [net]
 git-fetch-with-cli = true
+[registries]
+substrate = { index = "https://github.com/substrate-labs/crates-index" }
 ```
 
 You can then install SRAM22 using the following commands:
@@ -61,38 +63,50 @@ Options:
   -c, --config <CONFIG>          Path to TOML configuration file [default: sram22.toml]
   -o, --output-dir <OUTPUT_DIR>  Directory to which output files should be saved
       --lef                      Generate LEF (used in place and route)
-      --lib                      Generate LIB (setup, hold, and delay timing information)
+      --liberate                 Generate LIB with Liberate MX instead of the interpolation model
       --drc                      Run DRC using Calibre
       --lvs                      Run LVS using Calibre
-      --pex                      Run PEX using Calibre
   -a, --all                      Run all available steps
+  -p, --parallel <PARALLEL>      Max number of SRAMs to generate concurrently [default: no limit]
   -h, --help                     Print help information
   -V, --version                  Print version information
 ```
 
+`--liberate`, `--drc`, `--lvs`, and `--all` are only available with a full (commercial) installation.
+
+By default all SRAMs are generated concurrently. Pass `--parallel` (or `-p`) to cap how many
+run at once — useful in a commercial install, where each SRAM also runs PEX and Liberate MX
+steps that invoke licensed tools and are memory-intensive.
+
 ### Configuration
 
-SRAM22 generates memory blocks based on a TOML configuration file. An example configuration, showing all the available options, is shown below:
+SRAM22 generates memory blocks based on a TOML configuration file. Configurations are specified
+as an array of `[[sram]]` configurations, allowing up to multiple SRAMs to be generated.
 
 ```toml
+[[sram]]
 num_words = 64
 data_width = 32
+mux_ratio = 4
+write_size = 8
+
+[[sram]]
+num_words = 256
+data_width = 64
 mux_ratio = 4
 write_size = 8
 # The `pex_level` flag is only available with a full installation.
 pex_level = "rcc"
 ```
 
-To generate an SRAM using this configuration, put the above text into a file called
-`sram22_64x32m4w8/sram22.toml`, then run:
+Save this as `sram22.toml` and run:
 
 ```
-cd sram22_64x32m4w8
 sram22
 ```
 
-Add additional flags depending on what views you want to generate and what verification you want to run.
-If you do not have access to BWRC servers, most flags will not be available.
+Each `[[sram]]` block is generated independently. Output files are placed in subdirectories
+named after the SRAM (e.g. `build/sram22_64x32m4w8/`)
 
 The number of rows in the SRAM bitcell array is `num_words / mux_ratio`.
 The number of columns in the array is `data_width * mux_ratio`.
@@ -103,7 +117,21 @@ A valid configuration must have:
 * A power-of-two number of rows
 * At least 16 rows
 * At least 16 columns
-* `pex_level`: Must be `"r"`, `"c"`, `"rc"`, or `"rcc"`. If you do not have commercial plugins enabled, this option will be ignored.
+* `pex_level` (optional): Must be `"r"`, `"c"`, `"rc"`, or `"rcc"`. Only available with a full installation. When set, PEX runs automatically — no additional flag required. Each `[[sram]]` block sets its own `pex_level` independently; SRAMs without it skip PEX. The extracted netlist is only consumed by Liberate MX (see below).
+
+### LIB generation
+
+SRAM22 always generates Liberty (.lib) timing files for the tt/ss/ff PVT corners — no flag
+is required. By default the LIB is produced by an open-source interpolation model;
+interpolated LIBs carry a conservative overestimate of up to 2% for SRAM configurations
+with `data_width` between 8 and 128.  `data_width` outside that range is not supported by
+the open-source model and will produce an error.
+
+With a full BWRC installation, passing `--liberate` instead characterizes the LIB with
+Liberate MX running SPICE simulation; interpolation is skipped in that case. `--all` does
+not select Liberate MX — it still generates the LIB by interpolation. If a config also has
+`pex_level` set, Liberate MX uses the extracted netlist; otherwise it falls back to the
+plain SPICE netlist.
 
 ### Contribution
 
