@@ -48,9 +48,11 @@
     "node": ">=20.0"
   },
   "overrides": {
+    "postcss-selector-parser": "^7.1.6",
     "serialize-javascript": "^7.0.5",
     "sockjs": {
       "uuid": "^11.1.1"
-    }
+    },
+    "tinypool": "^2.1.2"
   }
 }

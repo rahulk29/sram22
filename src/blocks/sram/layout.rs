@@ -1952,7 +1952,9 @@ impl SramInner {
                 .expand_dir(Dir::Horiz, brect_expand)
                 .expand_dir(Dir::Vert, 3_500);
             for (dir, layer, extension) in [(Dir::Vert, m1, 3_300), (Dir::Horiz, m2, 5_520)] {
-                let mut to_merge = HashMap::new();
+                // In first-seen order rather than a HashMap's, so the strap targets (and the
+                // vias drawn to them) come out in the same order every run.
+                let mut to_merge: Vec<((Sign, SingleSupplyNet), Vec<Span>)> = Vec::new();
                 for (port_id, net) in port_ids.iter() {
                     for port in inst.port(port_id.clone())?.shapes(layer) {
                         let bitcell_center = inst.bbox().center().coord(dir);
@@ -1967,10 +1969,11 @@ impl SramInner {
                                 dir,
                             );
                             ctx.draw_rect(layer, rect);
-                            to_merge
-                                .entry((sign, *net))
-                                .or_insert(Vec::new())
-                                .push(rect.span(!dir));
+                            let key = (sign, *net);
+                            match to_merge.iter_mut().find(|(k, _)| *k == key) {
+                                Some((_, spans)) => spans.push(rect.span(!dir)),
+                                None => to_merge.push((key, vec![rect.span(!dir)])),
+                            }
                         }
                     }
                 }

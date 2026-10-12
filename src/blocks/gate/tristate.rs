@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 use subgeom::bbox::BoundBox;
 use subgeom::orientation::Named;
@@ -154,7 +154,8 @@ impl Component for TristateInv {
         ctx.draw_rect(m0, dout_short);
         ctx.add_port(CellPort::with_shape("dout", m0, dout_short))?;
 
-        let mut gate_poly_spans = HashMap::new();
+        // Insertion-ordered, so the poly is drawn in the same order every run.
+        let mut gate_poly_spans = IndexMap::new();
         for shape in pu.shapes_on(poly).chain(pd.shapes_on(poly)) {
             if let Shape::Rect(rect) = shape {
                 gate_poly_spans

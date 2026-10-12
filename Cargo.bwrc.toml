@@ -20,6 +20,7 @@ indicatif = "0.18"
 console = "0.16"
 clap = { version = "4", features = ["derive"] }
 itertools = "0.15"
+indexmap = { version = "2", features = ["serde"] }
 psfparser = { git = "https://github.com/rahulk29/psfparser.git", branch = "master" }
 arcstr = "1"
 anyhow = "1"
